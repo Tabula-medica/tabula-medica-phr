@@ -284,6 +284,10 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
+      {/* Canonical short legal URL. Aliases the counsel-led /legal/terms page
+          (same LegalPage content). /privacy is already taken by the privacy
+          *settings* page; the policy lives at /legal/privacy. */}
+      <Route path="/terms">{() => <LegalPage slug="terms" />}</Route>
       <Route path="/legal/privacy">{() => <LegalPage slug="privacy" />}</Route>
       <Route path="/legal/terms">{() => <LegalPage slug="terms" />}</Route>
       <Route path="/legal/cookie">{() => <LegalPage slug="cookie" />}</Route>
@@ -749,6 +753,7 @@ function AppContent() {
   // without authenticating. Apple Guideline 5.1.1 requires legal links
   // to resolve from a public-facing surface.
   const publicLegalRoutes = [
+    "/terms",
     "/legal/privacy",
     "/legal/terms",
     "/legal/cookie",
