@@ -6,8 +6,12 @@ REGION="us-central1"
 REPO_NAME="tabula-medica-docker"
 IMAGE_NAME="tabula-medica-api"
 TAG="latest"
-SERVICE_NAME="tabula-medica-service"
-SERVICE_ACCOUNT="tabula-medica-app-runner@united-planet-485003-n7.iam.gserviceaccount.com"
+# Must match the live Cloud Run service (was the non-existent "tabula-medica-service")
+SERVICE_NAME="tabula-medica-backend"
+# Matches the live service's runtime identity. TODO(hardening): migrate to a
+# dedicated least-privilege SA (e.g. tabula-medica-app-runner@) and grant it
+# roles/secretmanager.secretAccessor on the secrets below before switching.
+SERVICE_ACCOUNT="1060107259776-compute@developer.gserviceaccount.com"
 
 IMAGE_URL="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${TAG}"
 
@@ -38,6 +42,7 @@ gcloud run deploy ${SERVICE_NAME} \
   --service-account ${SERVICE_ACCOUNT} \
   --allow-unauthenticated \
   --port 8080 \
+  --set-secrets "DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest" \
   --quiet
 
 echo "✅ All done! Your service is live."

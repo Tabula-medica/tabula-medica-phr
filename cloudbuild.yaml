@@ -97,13 +97,16 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'tabula-medica-api'
+      - 'tabula-medica-backend'
       - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:$COMMIT_SHA'
       - '--region=us-central1'
       - '--platform=managed'
       - '--no-traffic'
       - '--tag=staging-$SHORT_SHA'
       - '--set-env-vars=NODE_ENV=staging'
+      # Parity with the live service: DB + FHIR config must be wired or the app boots DB-less
+      - '--set-secrets=DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest'
+      - '--service-account=1060107259776-compute@developer.gserviceaccount.com'
       - '--memory=1Gi'
       - '--cpu=2'
       - '--min-instances=0'
@@ -117,9 +120,9 @@ steps:
     args:
       - '-c'
       - |
-        REVISION_URL=$(gcloud run revisions list --service=tabula-medica-api --region=us-central1 --sort-by=~creationTimestamp --limit=1 --format='value(status.url)' 2>/dev/null)
+        REVISION_URL=$(gcloud run revisions list --service=tabula-medica-backend --region=us-central1 --sort-by=~creationTimestamp --limit=1 --format='value(status.url)' 2>/dev/null)
         if [ -z "$$REVISION_URL" ]; then
-          REVISION_URL=$(gcloud run services describe tabula-medica-api --region=us-central1 --format='value(status.url)')
+          REVISION_URL=$(gcloud run services describe tabula-medica-backend --region=us-central1 --format='value(status.url)')
         fi
         echo "Health check: $$REVISION_URL/health"
         for i in 1 2 3 4 5; do
@@ -142,7 +145,7 @@ steps:
       - 'run'
       - 'services'
       - 'update-traffic'
-      - 'tabula-medica-api'
+      - 'tabula-medica-backend'
       - '--region=us-central1'
       - '--to-revisions=LATEST=100'
     waitFor: ['health-check-staging']
