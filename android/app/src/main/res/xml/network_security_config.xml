@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tabula Medica — Android Network Security Configuration
+  Enforces TLS for all connections. No cleartext HTTP permitted.
+  HIPAA Security Rule §164.312(e)(1): transmission security requirement.
+-->
+<network-security-config>
+
+  <!-- Block all cleartext traffic globally -->
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <!-- Trust system CAs only (no user-installed CAs for PHI) -->
+      <certificates src="system"/>
+    </trust-anchors>
+  </base-config>
+
+  <!-- Production API: certificate pinning -->
+  <domain-config cleartextTrafficPermitted="false">
+    <domain includeSubdomains="true">tabulamedica.health</domain>
+    <domain includeSubdomains="true">api.tabulamedica.health</domain>
+    <domain includeSubdomains="true">app.tabulamedica.health</domain>
+    <trust-anchors>
+      <certificates src="system"/>
+    </trust-anchors>
+    <!--
+      TODO: Add certificate pins once you have your production TLS cert.
+      Generate pins with:
+        openssl s_client -connect api.tabulamedica.health:443 | \
+        openssl x509 -pubkey -noout | \
+        openssl pkey -pubin -outform der | \
+        openssl dgst -sha256 -binary | base64
+
+      Then uncomment and populate:
+      <pin-set expiration="2027-01-01">
+        <pin digest="SHA-256">YOUR_PRIMARY_PIN_BASE64==</pin>
+        <pin digest="SHA-256">YOUR_BACKUP_PIN_BASE64==</pin>
+      </pin-set>
+    -->
+  </domain-config>
+
+  <!-- Google Cloud Healthcare API -->
+  <domain-config cleartextTrafficPermitted="false">
+    <domain includeSubdomains="true">healthcare.googleapis.com</domain>
+    <domain includeSubdomains="true">storage.googleapis.com</domain>
+    <trust-anchors>
+      <certificates src="system"/>
+    </trust-anchors>
+  </domain-config>
+
+  <!-- Development only: allow localhost for Metro bundler -->
+  <!-- This block is stripped out by Expo in production builds -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">localhost</domain>
+    <domain includeSubdomains="false">10.0.2.2</domain>
+    <domain includeSubdomains="false">10.0.3.2</domain>
+  </domain-config>
+
+</network-security-config>

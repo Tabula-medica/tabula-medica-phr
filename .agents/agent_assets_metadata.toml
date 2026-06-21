@@ -1,0 +1,44 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "gGWeR2yLFDYY2wdvEmwde"
+uri = "file://logo-512x512.png"
+type = "image"
+title = "Tabula Medica Logo - 512x512 PNG (Google Play Store)"
+
+[[outputs]]
+id = "zXG5A4hRJaUpwHBbu9v8N"
+uri = "file://exports/tabula-medica-unified-source.zip"
+type = "unspecified"
+title = "tabula-medica-unified-source.zip — 15 MB, 2,053 files"
+
+[[outputs]]
+id = "22eJUSeTii_xwqoe-HhqV"
+uri = "file://exports/tabula-medica-mobile-comparison.zip"
+type = "unspecified"
+title = "tabula-medica-mobile-comparison.zip — 494 KB, 66 files"
+
+[[outputs]]
+id = "CH42JpDrkrcetbLAHXIQB"
+uri = "file://exports/tabula-medica-source-20260426.tar.gz"
+type = "unspecified"
+title = "Tabula Medica — full source (2026-04-26)"
+
+[[outputs]]
+id = "Dd_EOS81zhWxVKZPINE31"
+uri = "file://exports/tabula-medica-source.tar.gz"
+type = "unspecified"
+title = "Tabula Medica source (tar.gz, 24MB)"
+
+[[outputs]]
+id = "b3YX_dIMZPLx4f-Ui0B2j"
+uri = "file://exports/tabula-medica-full-20260524.tar.gz"
+type = "unspecified"
+title = "Tabula Medica — Full Project (May 24, 2026)"
+
+[[outputs]]
+id = "l5KfegBks6o850IwSb6_V"
+uri = "file://exports/tabula-medica-full-20260524-1301.tar.gz"
+type = "unspecified"
+title = "Tabula Medica — Full Source Backup (May 24, 2026)"

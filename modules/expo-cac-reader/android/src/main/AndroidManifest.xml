@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="expo.modules.cacreader">
+
+    <!-- NFC for contactless CAC card reading -->
+    <uses-permission android:name="android.permission.NFC" />
+
+    <!-- USB Host for wired CAC readers (ACR122U, SCR3500A) -->
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+
+    <!-- NFC feature declaration — preferred but not required -->
+    <!-- Set required="true" if CAC auth is mandatory for your deployment -->
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="false" />
+
+    <uses-feature
+        android:name="android.hardware.nfc.hce"
+        android:required="false" />
+
+</manifest>

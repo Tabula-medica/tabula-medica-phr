@@ -1,0 +1,127 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="'Inter', 'Helvetica Neue', Arial, sans-serif" />
+      <mj-text font-size="14px" color="#0f1923" line-height="22px" />
+      <mj-button font-size="16px" font-weight="700" border-radius="10px" inner-padding="14px 28px" />
+    </mj-attributes>
+    <mj-style>
+      .footer-link { color: #8fa3b8 !important; text-decoration: none; }
+      .price-highlight { color: #0d9e8a; font-weight: 800; font-size: 28px; }
+      .strikethrough { text-decoration: line-through; color: #e11d48; }
+    </mj-style>
+  </mj-head>
+
+  <mj-body background-color="#f8f7f4">
+
+    <mj-section padding="30px 20px 10px">
+      <mj-column>
+        <mj-image src="https://uninsurance.org/logo.png" alt="Tabula Medica Uninsurance" width="180px" align="center" />
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#ffffff" border-radius="16px" padding="30px 24px">
+      <mj-column>
+        <mj-text font-size="22px" font-weight="800" align="center" padding-bottom="8px">
+          Appointment Confirmed ✅
+        </mj-text>
+        <mj-text font-size="13px" color="#8fa3b8" align="center" padding-bottom="24px">
+          Your Good Faith Estimate is locked — no surprise bills.
+        </mj-text>
+
+        <mj-divider border-color="#e2dfd8" border-width="1px" padding="0 0 20px" />
+
+        <mj-text font-weight="700" font-size="13px" color="#8fa3b8" text-transform="uppercase" letter-spacing="1px" padding-bottom="8px">
+          Appointment Details
+        </mj-text>
+
+        <mj-table>
+          <tr>
+            <td style="padding: 8px 0; color: #8fa3b8; font-size: 13px;">Provider</td>
+            <td style="padding: 8px 0; font-weight: 600; text-align: right;">{{providerName}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8fa3b8; font-size: 13px;">Address</td>
+            <td style="padding: 8px 0; font-weight: 600; text-align: right;">{{providerAddress}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8fa3b8; font-size: 13px;">Service</td>
+            <td style="padding: 8px 0; font-weight: 600; text-align: right;">{{serviceName}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8fa3b8; font-size: 13px;">CPT Code</td>
+            <td style="padding: 8px 0; font-weight: 600; text-align: right; font-family: monospace;">{{cptCode}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8fa3b8; font-size: 13px;">Date</td>
+            <td style="padding: 8px 0; font-weight: 600; text-align: right;">{{appointmentDate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #8fa3b8; font-size: 13px;">Time</td>
+            <td style="padding: 8px 0; font-weight: 600; text-align: right;">{{appointmentTime}}</td>
+          </tr>
+        </mj-table>
+
+        <mj-divider border-color="#e2dfd8" border-width="1px" padding="16px 0" />
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="{{#isLaneA}}rgba(13,158,138,0.08){{/isLaneA}}{{#isLaneB}}rgba(245,158,11,0.08){{/isLaneB}}" border-radius="14px" padding="20px 24px">
+      <mj-column>
+        <mj-text font-size="12px" color="#8fa3b8" text-transform="uppercase" letter-spacing="1px" padding-bottom="4px">
+          Your Price
+        </mj-text>
+        <mj-text css-class="price-highlight" padding-bottom="4px">
+          {{#isLaneA}}${{medicareRate}}{{/isLaneA}}{{#isLaneB}}$0.00{{/isLaneB}}
+        </mj-text>
+        <mj-text font-size="12px" color="#4a5568">
+          {{#isLaneA}}Typical market price: <span class="strikethrough">${{marketRate}}</span> — you save {{savingsPercent}}%{{/isLaneA}}
+          {{#isLaneB}}VA pays via Optum CCN (Payer ID: VACCN) — $0 to you{{/isLaneB}}
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#ffffff" border-radius="16px" padding="24px">
+      <mj-column>
+        <mj-text font-weight="700" font-size="13px" padding-bottom="8px">
+          Good Faith Estimate
+        </mj-text>
+        <mj-text font-size="12px" color="#4a5568" padding-bottom="4px">
+          GFE ID: {{gfeId}}
+        </mj-text>
+        <mj-text font-size="12px" color="#4a5568" padding-bottom="16px">
+          If your final bill exceeds ${{disputeThreshold}}, you can dispute it under the No Surprises Act. Start the dispute within 120 days at cms.gov/nosurprises or call 1-800-985-3059.
+        </mj-text>
+
+        <mj-text font-weight="700" font-size="13px" padding-bottom="8px">
+          What to Bring
+        </mj-text>
+        <mj-text font-size="12px" color="#4a5568">
+          • Photo ID (any government-issued ID accepted — no SSN required)<br/>
+          {{#isLaneA}}• Payment method (card, HSA, FSA, or AaNeel NFC card)<br/>{{/isLaneA}}
+          {{#isLaneB}}• VA referral number: {{vaReferralNumber}}<br/>{{/isLaneB}}
+          • This confirmation email or your Tabula Medica app
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="16px 20px">
+      <mj-column>
+        <mj-button background-color="#0d9e8a" href="{{appDeepLink}}">
+          View in App
+        </mj-button>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="10px 20px 30px">
+      <mj-column>
+        <mj-text font-size="10px" color="#8fa3b8" align="center" line-height="16px">
+          Tabula Medica, Inc. DBA Uninsurance<br/>
+          This is a transactional email related to your appointment booking.<br/>
+          <a href="https://uninsurance.org/privacy" class="footer-link">Privacy Policy</a> · <a href="https://uninsurance.org/terms" class="footer-link">Terms</a> · <a href="mailto:support@tabulamedica.health" class="footer-link">Support</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+  </mj-body>
+</mjml>

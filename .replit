@@ -1,0 +1,110 @@
+modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
+run = "npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+packages = ["google-cloud-sdk", "python311Packages.grpcio"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3001
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 9876
+externalPort = 4200
+
+[[ports]]
+localPort = 9877
+externalPort = 3003
+
+[[ports]]
+localPort = 9878
+externalPort = 5000
+
+[[ports]]
+localPort = 9998
+externalPort = 3002
+
+[[ports]]
+localPort = 9999
+externalPort = 3000
+
+[[ports]]
+localPort = 23636
+externalPort = 6000
+
+[[ports]]
+localPort = 23637
+externalPort = 5173
+
+[[ports]]
+localPort = 23638
+externalPort = 8000
+
+[env]
+PORT = "5000"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["npm", "run", "start"]
+build = ["npm", "run", "build"]
+publicDir = "dist/public"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[agent]
+integrations = ["javascript_openai_ai_integrations:2.0.0", "javascript_log_in_with_replit:2.0.0", "javascript_object_storage:2.0.0", "github:1.0.0", "revenuecat:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VERTEX_PROJECT_ID = "united-planet-485003-n7"
+VERTEX_LOCATION = "us-central1"
+AI_DEFAULT_PROVIDER = "vertex"
+VERTEX_MODEL_ID = "gemini-1.5-pro"
+GCP_PROJECT_ID = "united-planet-485003-n7"
+GCP_LOCATION = "us-central1"
+GCP_HEALTHCARE_DATASET_ID = "tabula-medica-data"
+GCP_FHIR_STORE_ID = "patient-records"
+FHIR_PROVIDER = "cloud_healthcare_api"
+VITE_GCIP_PROJECT_ID = "united-planet-485003-n7-9f345"
+VITE_GCIP_AUTH_DOMAIN = "united-planet-485003-n7-9f345.firebaseapp.com"
+
+[userenv.development]
+
+[userenv.production]
+NODE_ENV = "production"
+REPLIT_DEPLOYMENT = "1"
+FHIR_CONNECTION_MODE = "live"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000

@@ -1,0 +1,20 @@
+export { aiProviderDashboardService } from "./ai-provider-dashboard-service";
+export type {
+  PatientHealthTrendSummary,
+  RecentLogHighlight,
+  KeyInsight,
+  PatientVitalsTrend,
+  MedicationAdherenceSummary,
+  LabTrendSummary,
+  HighRiskPatientAlert,
+  PatientProgressReport,
+  ConditionProgress,
+  TreatmentEffectivenessMetric,
+  GoalProgress,
+  VisitSummary,
+  MedicationReviewSection,
+  LabTrendAnalysis,
+  RiskAssessmentSection,
+  ProviderOverviewStats,
+  ClinicalNotesSummary,
+} from "./ai-provider-dashboard-service";

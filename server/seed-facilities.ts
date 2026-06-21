@@ -1,0 +1,302 @@
+import { db } from "./db";
+import { facilities } from "@shared/models/facility";
+import { sql } from "drizzle-orm";
+
+const sampleFacilities = [
+  {
+    name: "Johns Hopkins Hospital",
+    aliases: ["Hopkins", "JHH", "Johns Hopkins"],
+    facilityType: "hospital",
+    addressLine1: "1800 Orleans Street",
+    city: "Baltimore",
+    state: "Maryland",
+    postalCode: "21287",
+    country: "USA",
+    phone: "(410) 955-5000",
+    website: "https://www.hopkinsmedicine.org",
+    npi: "1234567890",
+    healthSystem: "Johns Hopkins Health System",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://epicproxy.et1017.epichosted.com/FHIRProxy/api/FHIR/R4",
+    patientPortalUrl: "https://mychart.hopkinsmedicine.org",
+  },
+  {
+    name: "Mayo Clinic",
+    aliases: ["Mayo", "Rochester Mayo"],
+    facilityType: "hospital",
+    addressLine1: "200 First Street SW",
+    city: "Rochester",
+    state: "Minnesota",
+    postalCode: "55905",
+    country: "USA",
+    phone: "(507) 284-2511",
+    website: "https://www.mayoclinic.org",
+    npi: "1234567891",
+    healthSystem: "Mayo Clinic Health System",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://epicproxy.mayo.edu/FHIRProxy/api/FHIR/R4",
+    patientPortalUrl: "https://mychart.mayoclinic.org",
+  },
+  {
+    name: "Cleveland Clinic",
+    aliases: ["CC", "Cleveland Clinic Foundation"],
+    facilityType: "hospital",
+    addressLine1: "9500 Euclid Avenue",
+    city: "Cleveland",
+    state: "Ohio",
+    postalCode: "44195",
+    country: "USA",
+    phone: "(216) 444-2200",
+    website: "https://my.clevelandclinic.org",
+    npi: "1234567892",
+    healthSystem: "Cleveland Clinic Health System",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://epicproxy.clevelandclinic.org/FHIRProxy/api/FHIR/R4",
+    patientPortalUrl: "https://mychart.clevelandclinic.org",
+  },
+  {
+    name: "Inova Fairfax Hospital",
+    aliases: ["Inova Fairfax", "IFMC"],
+    facilityType: "hospital",
+    addressLine1: "3300 Gallows Road",
+    city: "Falls Church",
+    state: "Virginia",
+    postalCode: "22042",
+    country: "USA",
+    phone: "(703) 776-4001",
+    website: "https://www.inova.org",
+    npi: "1234567893",
+    healthSystem: "Inova Health System",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://epicproxy.inova.org/FHIRProxy/api/FHIR/R4",
+    patientPortalUrl: "https://mychart.inova.org",
+  },
+  {
+    name: "Quest Diagnostics",
+    aliases: ["Quest", "Quest Labs"],
+    facilityType: "lab",
+    addressLine1: "500 Plaza Drive",
+    city: "Secaucus",
+    state: "New Jersey",
+    postalCode: "07094",
+    country: "USA",
+    phone: "(800) 222-0446",
+    website: "https://www.questdiagnostics.com",
+    npi: "1234567894",
+    healthSystem: "Quest Diagnostics",
+    supportsFhir: true,
+    fhirBaseUrl: "https://api.questdiagnostics.com/fhir/r4",
+    patientPortalUrl: "https://myquest.questdiagnostics.com",
+  },
+  {
+    name: "LabCorp",
+    aliases: ["Laboratory Corporation of America", "LCA"],
+    facilityType: "lab",
+    addressLine1: "531 South Spring Street",
+    city: "Burlington",
+    state: "North Carolina",
+    postalCode: "27215",
+    country: "USA",
+    phone: "(800) 845-6167",
+    website: "https://www.labcorp.com",
+    npi: "1234567895",
+    healthSystem: "Labcorp Holdings",
+    supportsFhir: true,
+    fhirBaseUrl: "https://api.labcorp.com/fhir/r4",
+    patientPortalUrl: "https://patient.labcorp.com",
+  },
+  {
+    name: "RadNet Imaging Center",
+    aliases: ["RadNet", "RadNet Los Angeles"],
+    facilityType: "imaging",
+    addressLine1: "1510 Cotner Avenue",
+    city: "Los Angeles",
+    state: "California",
+    postalCode: "90025",
+    country: "USA",
+    phone: "(310) 478-7808",
+    website: "https://www.radnet.com",
+    npi: "1234567896",
+    healthSystem: "RadNet Inc",
+    supportsFhir: false,
+    patientPortalUrl: "https://portal.radnet.com",
+  },
+  {
+    name: "CVS Pharmacy",
+    aliases: ["CVS", "CVS Health"],
+    facilityType: "pharmacy",
+    addressLine1: "One CVS Drive",
+    city: "Woonsocket",
+    state: "Rhode Island",
+    postalCode: "02895",
+    country: "USA",
+    phone: "(800) 746-7287",
+    website: "https://www.cvs.com",
+    npi: "1234567897",
+    healthSystem: "CVS Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://api.cvs.com/fhir/r4",
+    patientPortalUrl: "https://www.cvs.com/account",
+  },
+  {
+    name: "Walgreens Pharmacy",
+    aliases: ["Walgreens", "WAG"],
+    facilityType: "pharmacy",
+    addressLine1: "200 Wilmot Road",
+    city: "Deerfield",
+    state: "Illinois",
+    postalCode: "60015",
+    country: "USA",
+    phone: "(800) 925-4733",
+    website: "https://www.walgreens.com",
+    npi: "1234567898",
+    healthSystem: "Walgreens Boots Alliance",
+    supportsFhir: true,
+    patientPortalUrl: "https://www.walgreens.com/pharmacy",
+  },
+  {
+    name: "Kaiser Permanente",
+    aliases: ["Kaiser", "KP"],
+    facilityType: "hospital",
+    addressLine1: "1 Kaiser Plaza",
+    city: "Oakland",
+    state: "California",
+    postalCode: "94612",
+    country: "USA",
+    phone: "(800) 464-4000",
+    website: "https://healthy.kaiserpermanente.org",
+    npi: "1234567899",
+    healthSystem: "Kaiser Permanente",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://epicproxy.kp.org/FHIRProxy/api/FHIR/R4",
+    patientPortalUrl: "https://healthy.kaiserpermanente.org",
+  },
+  {
+    name: "Stanford Health Care",
+    aliases: ["Stanford Hospital", "Stanford Medical Center"],
+    facilityType: "hospital",
+    addressLine1: "300 Pasteur Drive",
+    city: "Stanford",
+    state: "California",
+    postalCode: "94305",
+    country: "USA",
+    phone: "(650) 723-4000",
+    website: "https://stanfordhealthcare.org",
+    npi: "1234567800",
+    healthSystem: "Stanford Medicine",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://stanfordhealthcare.org/fhir/r4",
+    patientPortalUrl: "https://mychart.stanfordhealthcare.org",
+  },
+  {
+    name: "Mount Sinai Hospital",
+    aliases: ["Sinai", "Mt Sinai", "Mount Sinai NYC"],
+    facilityType: "hospital",
+    addressLine1: "1 Gustave L. Levy Place",
+    city: "New York",
+    state: "New York",
+    postalCode: "10029",
+    country: "USA",
+    phone: "(212) 241-6500",
+    website: "https://www.mountsinai.org",
+    npi: "1234567801",
+    healthSystem: "Mount Sinai Health System",
+    ehrVendor: "Fasten Health",
+    supportsFhir: true,
+    fhirBaseUrl: "https://epicproxy.mountsinai.org/FHIRProxy/api/FHIR/R4",
+    patientPortalUrl: "https://mychart.mountsinai.org",
+  },
+  {
+    name: "HCA Houston Healthcare",
+    aliases: ["HCA Houston", "HCA Texas"],
+    facilityType: "hospital",
+    addressLine1: "2000 Crawford Street",
+    city: "Houston",
+    state: "Texas",
+    postalCode: "77002",
+    country: "USA",
+    phone: "(713) 222-2273",
+    website: "https://www.hcahealthcare.com",
+    npi: "1234567802",
+    healthSystem: "HCA Healthcare",
+    ehrVendor: "FHIR-compliant",
+    supportsFhir: true,
+    patientPortalUrl: "https://patient.hcahealthcare.com",
+  },
+  {
+    name: "One Medical",
+    aliases: ["One Medical Group", "1Life Healthcare"],
+    facilityType: "clinic",
+    addressLine1: "1 Embarcadero Center",
+    city: "San Francisco",
+    state: "California",
+    postalCode: "94111",
+    country: "USA",
+    phone: "(888) 663-6331",
+    website: "https://www.onemedical.com",
+    npi: "1234567803",
+    healthSystem: "Amazon One Medical",
+    supportsFhir: true,
+    patientPortalUrl: "https://app.onemedical.com",
+  },
+  {
+    name: "Concentra Urgent Care",
+    aliases: ["Concentra", "Concentra Medical"],
+    facilityType: "clinic",
+    addressLine1: "5080 Spectrum Drive",
+    city: "Addison",
+    state: "Texas",
+    postalCode: "75001",
+    country: "USA",
+    phone: "(866) 944-6046",
+    website: "https://www.concentra.com",
+    npi: "1234567804",
+    healthSystem: "Concentra",
+    supportsFhir: false,
+    patientPortalUrl: "https://patient.concentra.com",
+  },
+];
+
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export async function seedFacilities(): Promise<void> {
+  const maxRetries = 3;
+  const retryDelayMs = 5000;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const existingCount = await db.select({ count: sql<number>`count(*)` }).from(facilities);
+
+      if (Number(existingCount[0]?.count || 0) > 0) {
+        console.log("[SeedFacilities] Facilities already seeded, skipping...");
+        return;
+      }
+
+      await db.insert(facilities).values(sampleFacilities);
+      console.log(`[SeedFacilities] Seeded ${sampleFacilities.length} facilities`);
+      return;
+    } catch (error: any) {
+      const isRetryable = error.message?.includes("Connection terminated") ||
+        error.message?.includes("connection timeout") ||
+        error.message?.includes("ECONNRESET") ||
+        error.message?.includes("ECONNREFUSED") ||
+        error.message?.includes("too many clients");
+
+      if (isRetryable && attempt < maxRetries) {
+        console.warn(`[SeedFacilities] Attempt ${attempt}/${maxRetries} failed (${error.message}), retrying in ${retryDelayMs / 1000}s...`);
+        await delay(retryDelayMs);
+      } else {
+        console.error(`[SeedFacilities] Error seeding facilities after ${attempt} attempt(s):`, error.message || error);
+        return;
+      }
+    }
+  }
+}

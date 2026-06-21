@@ -1,0 +1,34 @@
+Contact: mailto:security@tabulamedica.health
+Expires: 2027-05-06T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://app.tabulamedica.health/.well-known/security.txt
+Policy: https://app.tabulamedica.health/trust-center
+Acknowledgments: https://app.tabulamedica.health/trust-center#acknowledgments
+
+# Coordinated Vulnerability Disclosure
+#
+# Tabula Medica is a healthcare platform handling protected health
+# information (PHI). We welcome security research conducted under
+# the safe-harbor terms below.
+#
+# In scope:
+#   - app.tabulamedica.health
+#   - tabulamedica.health
+#   - api.tabulamedica.health (when published)
+#   - Tabula Medica iOS and Android applications
+#
+# Out of scope:
+#   - Third-party services (Google Cloud Identity Platform, Stripe, Google Cloud, etc.)
+#   - Denial-of-service testing
+#   - Physical or social engineering attacks
+#   - Automated scanning that generates excessive traffic
+#
+# Safe harbor: We will not pursue legal action against researchers who
+# act in good faith, avoid privacy violations and service disruption,
+# give us reasonable time to remediate before public disclosure
+# (90 days unless mutually extended), and do not access, modify, or
+# retain PHI beyond the minimum needed to demonstrate the issue.
+#
+# Please report vulnerabilities to security@tabulamedica.health using
+# PGP if possible. We acknowledge receipt within 3 business days and
+# provide a triage decision within 10 business days.

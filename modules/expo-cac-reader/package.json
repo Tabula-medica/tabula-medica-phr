@@ -1,0 +1,34 @@
+{
+  "name": "expo-cac-reader",
+  "version": "1.0.0",
+  "description": "CAC/PIV smart card authentication for Expo — iOS CryptoTokenKit + Android NFC IsoDep",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "lint": "expo-module lint",
+    "typecheck": "expo-module typecheck"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "CAC",
+    "PIV",
+    "smart-card",
+    "DoD",
+    "FIPS"
+  ],
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "^2.0.0"
+  },
+  "expo": {
+    "fyi": {
+      "bundleIdentifier": "expo.modules.cacreader"
+    }
+  }
+}

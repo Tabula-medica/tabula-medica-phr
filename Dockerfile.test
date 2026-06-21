@@ -1,0 +1,7 @@
+FROM node:20
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-optional
+COPY . .
+RUN npm run build 2>&1 || (echo "=== BUILD FAILED ===" && exit 1)
+RUN echo "=== BUILD SUCCEEDED ===" && ls -la dist/

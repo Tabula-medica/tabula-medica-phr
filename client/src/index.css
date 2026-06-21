@@ -1,0 +1,1629 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LIGHT MODE - Tabula Medica Theme (Premium Healthcare) */
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+
+  --opaque-button-border-intensity: -8;
+
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+
+  /* Warm off-white background */
+  --background: 220 14% 97%;
+  --foreground: 224 71% 8%;
+
+  --border: 220 13% 90%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 224 71% 8%;
+  --card-border: 220 13% 91%;
+
+  /* Subtle teal-tinted sidebar */
+  --sidebar: 210 25% 95%;
+  --sidebar-foreground: 224 71% 15%;
+  --sidebar-border: 220 13% 89%;
+
+  /* Deep sapphire primary for sidebar */
+  --sidebar-primary: 221 83% 53%;
+  --sidebar-primary-foreground: 0 0% 100%;
+
+  --sidebar-accent: 210 25% 92%;
+  --sidebar-accent-foreground: 221 83% 45%;
+
+  --sidebar-ring: 221 83% 53%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 71% 8%;
+  --popover-border: 220 13% 91%;
+
+  /* Deep sapphire blue — authoritative, premium #3366E8 */
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 14% 94%;
+  --secondary-foreground: 224 71% 20%;
+
+  --muted: 220 14% 95%;
+  --muted-foreground: 220 9% 40%;
+
+  /* Emerald green accent — health, vitality, trust */
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --input: 220 13% 87%;
+  --ring: 221 83% 53%;
+  /* Rich chart palette with strong differentiation */
+  --chart-1: 221 83% 53%;
+  --chart-2: 160 84% 39%;
+  --chart-3: 262 60% 55%;
+  --chart-4: 24 95% 53%;
+  --chart-5: 340 75% 55%;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 0.5rem;
+  
+  /* Elevation levels: 0 / 1 / 2 (no heavy shadows) */
+  --shadow-0: none;
+  --shadow-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.04);
+  --shadow-2: 0px 2px 4px -1px rgba(0, 0, 0, 0.06), 0px 1px 2px -1px rgba(0, 0, 0, 0.03);
+  
+  /* Legacy shadow mappings for compatibility */
+  --shadow-2xs: var(--shadow-1);
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-2);
+  --shadow: var(--shadow-2);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-2);
+  --shadow-xl: var(--shadow-2);
+  --shadow-2xl: var(--shadow-2);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  /* Automatically computed borders */
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+/* DARK MODE - Tabula Medica Theme (Premium Dark) */
+.dark {
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .05);
+
+  --opaque-button-border-intensity: 9;
+
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
+
+  /* Rich navy background */
+  --background: 224 71% 8%;
+  --foreground: 220 14% 95%;
+
+  --border: 221 40% 18%;
+
+  --card: 224 50% 12%;
+  --card-foreground: 220 14% 95%;
+  --card-border: 221 40% 20%;
+
+  --sidebar: 224 71% 6%;
+  --sidebar-foreground: 220 14% 85%;
+  --sidebar-border: 221 40% 16%;
+
+  --sidebar-primary: 221 83% 62%;
+  --sidebar-primary-foreground: 0 0% 100%;
+
+  --sidebar-accent: 221 50% 18%;
+  --sidebar-accent-foreground: 221 83% 72%;
+
+  --sidebar-ring: 221 83% 62%;
+
+  --popover: 224 50% 12%;
+  --popover-foreground: 220 14% 95%;
+  --popover-border: 221 40% 20%;
+
+  /* Lifted sapphire for dark mode readability */
+  --primary: 221 83% 62%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 221 40% 18%;
+  --secondary-foreground: 220 14% 85%;
+
+  --muted: 221 40% 15%;
+  --muted-foreground: 220 15% 65%;
+
+  /* Lifted emerald for dark mode */
+  --accent: 160 84% 45%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --input: 221 40% 22%;
+  --ring: 221 83% 62%;
+  --chart-1: 221 83% 62%;
+  --chart-2: 160 84% 45%;
+  --chart-3: 262 60% 62%;
+  --chart-4: 24 95% 58%;
+  --chart-5: 340 75% 60%;
+
+  /* Elevation levels: 0 / 1 / 2 (no heavy shadows - dark mode) */
+  --shadow-0: none;
+  --shadow-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.15);
+  --shadow-2: 0px 2px 4px -1px rgba(0, 0, 0, 0.2), 0px 1px 2px -1px rgba(0, 0, 0, 0.1);
+  
+  /* Legacy shadow mappings for compatibility */
+  --shadow-2xs: var(--shadow-1);
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-2);
+  --shadow: var(--shadow-2);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-2);
+  --shadow-xl: var(--shadow-2);
+  --shadow-2xl: var(--shadow-2);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-weight: 400; /* Regular for body text */
+  }
+  
+  /* Typography: Inter - Headings (SemiBold), Body (Regular), Caption (Regular) */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600; /* SemiBold for headings */
+  }
+  
+  .text-caption {
+    font-weight: 400; /* Regular for captions */
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+}
+
+/**
+ * Using the elevate system.
+ * Automatic contrast adjustment.
+ */
+@layer utilities {
+
+  /* Hide ugly search cancel button in Chrome until we can style it properly */
+  input[type="search"]::-webkit-search-cancel-button {
+    @apply hidden;
+  }
+
+  /* Placeholder styling for contentEditable div */
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+
+  .no-default-hover-elevate {}
+  .no-default-active-elevate {}
+
+  .toggle-elevate::before,
+  .toggle-elevate-2::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: -1;
+  }
+
+  .toggle-elevate.toggle-elevated::before {
+    background-color: var(--elevate-2);
+  }
+
+  .border.toggle-elevate::before {
+    inset: -1px;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative;
+    z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-1);
+  }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-2);
+  }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+    inset: -1px;
+  }
+}
+
+/* PWA optimizations */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Smooth page transitions */
+@layer utilities {
+  .animate-in {
+    animation: animate-in 0.2s ease-out;
+  }
+  
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+  
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .slide-in-from-left {
+    animation: slide-in-left 0.25s ease-out;
+  }
+  
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  .scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+  
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+/* Card transition timing - don't apply custom hover states, use elevation utilities instead */
+@layer components {
+  .card-transition {
+    @apply transition-shadow duration-200;
+  }
+  
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/40;
+  }
+  
+  .gradient-text-brand {
+    @apply bg-gradient-to-r from-[#1a3a8a] to-[#0891b2] bg-clip-text text-transparent;
+  }
+  
+  .dark .gradient-text-brand {
+    @apply from-blue-400 to-teal-400;
+  }
+}
+
+/* WCAG 2.4.7 — Unified focus-visible baseline */
+*:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Better link transitions */
+a {
+  @apply transition-colors;
+}
+
+/* Skeleton pulse animation enhancement */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Guided tour highlight */
+.tour-highlight {
+  position: relative;
+  z-index: 9997 !important;
+  box-shadow: 0 0 0 4px hsl(var(--accent)), 0 0 0 8px hsl(var(--accent) / 0.3);
+  border-radius: var(--radius);
+  animation: tour-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tour-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px hsl(var(--accent)), 0 0 0 8px hsl(var(--accent) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px hsl(var(--accent)), 0 0 0 12px hsl(var(--accent) / 0.2);
+  }
+}
+
+/* ===== ACCESSIBILITY SETTINGS ===== */
+
+/* Large Text Mode - Font size scaling */
+.font-normal {
+  font-size: 100%;
+}
+
+.font-large {
+  font-size: 112.5%;
+}
+
+.font-extra-large {
+  font-size: 125%;
+}
+
+.large-text {
+  font-size: 118.75%;
+}
+
+.large-text h1, .large-text h2, .large-text h3, .large-text h4 {
+  line-height: 1.3;
+}
+
+.large-text p, .large-text li, .large-text label, .large-text span {
+  line-height: 1.6;
+}
+
+.large-text button, .large-text a, .large-text input, .large-text select, .large-text textarea {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.large-text .text-xs {
+  font-size: 0.875rem;
+}
+
+.large-text .text-sm {
+  font-size: 1rem;
+}
+
+/* High Contrast Mode */
+.high-contrast {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --primary: 220 90% 35%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 25%;
+  --accent: 220 90% 35%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 40%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 0%;
+  --input: 0 0% 0%;
+  --ring: 220 90% 35%;
+}
+
+.high-contrast.dark {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 100%;
+  --primary: 210 100% 60%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 80%;
+  --accent: 210 100% 60%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 60%;
+  --destructive-foreground: 0 0% 0%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+  --ring: 210 100% 60%;
+}
+
+.high-contrast button, .high-contrast a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.high-contrast button:hover, .high-contrast a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Reduced Motion */
+.reduced-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Simplified View Mode - Hide less essential elements */
+.simplified-view .hidden-simplified {
+  display: none !important;
+}
+
+.simplified-view .simplified-spacing {
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+
+/* Extra whitespace in simplified mode - target Tailwind's margin-based spacing */
+.simplified-view [class*="rounded-lg"] {
+  padding: 1.25rem;
+}
+
+.simplified-view .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.simplified-view .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.25rem;
+}
+
+.simplified-view .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.5rem;
+}
+
+.simplified-view .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 2rem;
+}
+
+/* Add padding to Card-like elements in simplified view */
+.simplified-view [data-testid*="card-"] {
+  padding: 1.5rem;
+}
+
+.simplified-view [data-testid*="card-"] > div:first-child {
+  padding-bottom: 1rem;
+}
+
+/* (High-contrast focus rules consolidated into the unified block below icon-button rules) */
+
+/* Larger touch targets for elderly users */
+.large-text button:not([data-size="icon"]),
+.large-text [role="button"],
+.large-text a[href] {
+  padding-block: 0.75rem;
+}
+
+/* Senior-friendly colors for status indicators */
+.high-contrast .text-green-500, .high-contrast .text-green-600 {
+  color: hsl(120 100% 25%);
+}
+
+.high-contrast .text-red-500, .high-contrast .text-red-600 {
+  color: hsl(0 100% 40%);
+}
+
+.high-contrast .text-amber-500, .high-contrast .text-amber-600 {
+  color: hsl(30 100% 35%);
+}
+
+.high-contrast.dark .text-green-500, .high-contrast.dark .text-green-600 {
+  color: hsl(120 100% 65%);
+}
+
+.high-contrast.dark .text-red-500, .high-contrast.dark .text-red-600 {
+  color: hsl(0 100% 65%);
+}
+
+.high-contrast.dark .text-amber-500, .high-contrast.dark .text-amber-600 {
+  color: hsl(45 100% 60%);
+}
+
+/* Geriatric Mode - Optimized for elderly users */
+.geriatric-mode {
+  font-size: 137.5%;
+  letter-spacing: 0.025em;
+  line-height: 1.6;
+}
+
+.geriatric-mode h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.geriatric-mode h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.geriatric-mode h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.geriatric-mode p,
+.geriatric-mode span,
+.geriatric-mode label,
+.geriatric-mode li {
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+
+.geriatric-mode button,
+.geriatric-mode [role="button"],
+.geriatric-mode a[href] {
+  min-height: 56px;
+  min-width: 56px;
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.geriatric-mode input,
+.geriatric-mode select,
+.geriatric-mode textarea {
+  min-height: 56px;
+  font-size: 1.125rem;
+  padding: 0.75rem 1rem;
+}
+
+.geriatric-mode [data-radix-collection-item] {
+  min-height: 56px;
+  font-size: 1.125rem;
+}
+
+.geriatric-mode .text-xs {
+  font-size: 1rem;
+}
+
+.geriatric-mode .text-sm {
+  font-size: 1.125rem;
+}
+
+.geriatric-mode .text-base {
+  font-size: 1.25rem;
+}
+
+.geriatric-mode .text-lg {
+  font-size: 1.375rem;
+}
+
+.geriatric-mode .text-xl {
+  font-size: 1.5rem;
+}
+
+.geriatric-mode .text-2xl {
+  font-size: 1.75rem;
+}
+
+.geriatric-mode .gap-2 {
+  gap: 0.75rem;
+}
+
+.geriatric-mode .gap-3 {
+  gap: 1rem;
+}
+
+.geriatric-mode .gap-4 {
+  gap: 1.25rem;
+}
+
+.geriatric-mode .p-4 {
+  padding: 1.25rem;
+}
+
+.geriatric-mode .p-5 {
+  padding: 1.5rem;
+}
+
+.geriatric-mode .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.5rem;
+}
+
+.geriatric-mode .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 2rem;
+}
+
+/* Simple Language Mode - cleaner text presentation */
+.simple-language {
+  word-spacing: 0.05em;
+}
+
+.simple-language .text-muted-foreground {
+  opacity: 0.85;
+}
+
+/* One Task Mode - focus on single actions */
+.one-task-mode [data-secondary-action] {
+  opacity: 0.6;
+}
+
+.one-task-mode [data-primary-action] {
+  transform: scale(1.02);
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
+/* Screen Reader Optimized */
+.screen-reader-optimized [aria-hidden="true"]:not(.sr-only) {
+  display: none !important;
+}
+
+.screen-reader-optimized .decorative {
+  display: none !important;
+}
+
+/* (Keyboard-navigation focus rules consolidated into unified block above) */
+
+/* Text First Mode - emphasize text over visuals */
+.text-first img:not([data-essential]) {
+  filter: grayscale(20%);
+  opacity: 0.9;
+}
+
+.text-first video:not([data-essential]) {
+  display: none;
+}
+
+.text-first [data-decorative] {
+  opacity: 0.7;
+}
+
+/* High Contrast Enhancements */
+.high-contrast {
+  --border-width: 2px;
+}
+
+.high-contrast button,
+.high-contrast a,
+.high-contrast [role="button"] {
+  border-width: 2px;
+}
+
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  border-width: 2px;
+}
+
+/* Large tap targets - minimum 44px per WCAG */
+button,
+a[href],
+[role="button"],
+select,
+[role="listbox"],
+[role="combobox"],
+[role="switch"] {
+  min-height: 44px;
+}
+
+/* Interactive elements should have minimum 44px touch area */
+input:not([type="hidden"]),
+textarea {
+  min-height: 44px;
+}
+
+/* Checkboxes and radios need 24px minimum with 44px touch area via padding */
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+/* Wrapper for small inputs to ensure 44px touch target */
+.touch-target-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Ensure icon buttons meet 44px requirement */
+button[data-size="icon"],
+[role="button"][data-size="icon"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Enhanced focus for high contrast / keyboard-navigation modes */
+.high-contrast *:focus-visible,
+.keyboard-navigation *:focus-visible {
+  --tw-ring-offset-width: 3px;
+  outline: 3px solid hsl(var(--ring)) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 5px hsl(var(--ring) / 0.25);
+}
+
+/* Skip link styling */
+.sr-only:focus {
+  position: absolute;
+  width: auto;
+  height: auto;
+  padding: 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Accessible status indicators - never use color alone */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.status-indicator::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.status-indicator[data-status="success"]::before {
+  background-color: hsl(var(--chart-2));
+}
+
+.status-indicator[data-status="warning"]::before {
+  background-color: hsl(var(--chart-4));
+}
+
+.status-indicator[data-status="error"]::before {
+  background-color: hsl(var(--chart-5));
+}
+
+/* Ensure status text is always visible alongside icons */
+.screen-reader-optimized .status-icon-only {
+  display: none;
+}
+
+.screen-reader-optimized .status-text {
+  display: inline;
+}
+
+/* Dyslexia-Friendly Font */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+.dyslexia-font {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', 'Trebuchet MS', sans-serif !important;
+  word-spacing: 0.12em;
+  letter-spacing: 0.06em;
+}
+
+.dyslexia-font * {
+  font-family: inherit !important;
+}
+
+.dyslexia-font p, .dyslexia-font li, .dyslexia-font span, .dyslexia-font label {
+  line-height: 1.8;
+}
+
+/* Color Blind Modes */
+.cb-protanopia {
+  filter: url('#protanopia-filter');
+}
+
+.cb-protanopia .text-red-500, .cb-protanopia .text-red-600 {
+  color: hsl(220 70% 55%) !important;
+}
+.cb-protanopia .text-green-500, .cb-protanopia .text-green-600 {
+  color: hsl(45 90% 50%) !important;
+}
+.cb-protanopia .bg-red-500, .cb-protanopia .bg-red-100 {
+  background-color: hsl(220 70% 90%) !important;
+}
+.cb-protanopia .bg-green-500, .cb-protanopia .bg-green-100 {
+  background-color: hsl(45 90% 90%) !important;
+}
+.cb-protanopia .border-red-500 {
+  border-color: hsl(220 70% 55%) !important;
+}
+.cb-protanopia .border-green-500 {
+  border-color: hsl(45 90% 50%) !important;
+}
+
+.cb-deuteranopia .text-red-500, .cb-deuteranopia .text-red-600 {
+  color: hsl(30 90% 50%) !important;
+}
+.cb-deuteranopia .text-green-500, .cb-deuteranopia .text-green-600 {
+  color: hsl(210 80% 55%) !important;
+}
+.cb-deuteranopia .bg-red-500, .cb-deuteranopia .bg-red-100 {
+  background-color: hsl(30 90% 90%) !important;
+}
+.cb-deuteranopia .bg-green-500, .cb-deuteranopia .bg-green-100 {
+  background-color: hsl(210 80% 90%) !important;
+}
+.cb-deuteranopia .border-red-500 {
+  border-color: hsl(30 90% 50%) !important;
+}
+.cb-deuteranopia .border-green-500 {
+  border-color: hsl(210 80% 55%) !important;
+}
+
+.cb-tritanopia .text-blue-500, .cb-tritanopia .text-blue-600 {
+  color: hsl(0 70% 55%) !important;
+}
+.cb-tritanopia .text-yellow-500, .cb-tritanopia .text-amber-500 {
+  color: hsl(180 60% 45%) !important;
+}
+.cb-tritanopia .bg-blue-500, .cb-tritanopia .bg-blue-100 {
+  background-color: hsl(0 70% 90%) !important;
+}
+.cb-tritanopia .bg-yellow-100, .cb-tritanopia .bg-amber-100 {
+  background-color: hsl(180 60% 90%) !important;
+}
+
+/* Large Cursor */
+.cursor-large *, .cursor-large {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M4 4L4 28L12 20L20 20Z' fill='black' stroke='white' stroke-width='2'/%3E%3C/svg%3E") 4 4, auto;
+}
+
+.cursor-extra-large *, .cursor-extra-large {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cpath d='M6 6L6 42L18 30L30 30Z' fill='black' stroke='white' stroke-width='3'/%3E%3C/svg%3E") 6 6, auto;
+}
+
+/* Line Spacing */
+.line-spacing-relaxed p, .line-spacing-relaxed li, .line-spacing-relaxed span,
+.line-spacing-relaxed label, .line-spacing-relaxed td, .line-spacing-relaxed th {
+  line-height: 1.8 !important;
+}
+
+.line-spacing-loose p, .line-spacing-loose li, .line-spacing-loose span,
+.line-spacing-loose label, .line-spacing-loose td, .line-spacing-loose th {
+  line-height: 2.2 !important;
+}
+
+.line-spacing-relaxed .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.75rem;
+}
+
+.line-spacing-loose .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+/* Reading Guide - horizontal line follows reading position */
+.reading-guide {
+  position: relative;
+}
+
+.reading-guide-overlay {
+  pointer-events: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: hsl(var(--primary));
+  opacity: 0.6;
+  z-index: 9999;
+  transition: top 0.05s ease-out;
+  box-shadow: 0 0 8px 2px hsl(var(--primary) / 0.3);
+}
+
+/* Sticky Keys - visual indicator for modifier keys */
+.sticky-keys button:active,
+.sticky-keys [role="button"]:active {
+  transform: scale(0.97);
+  transition: transform 0.1s;
+}
+
+.sticky-keys *:focus {
+  outline-duration: 500ms;
+}
+
+/* Reduced Transparency */
+.reduced-transparency [class*="bg-"][class*="/5"],
+.reduced-transparency [class*="bg-"][class*="/10"],
+.reduced-transparency [class*="bg-"][class*="/20"] {
+  opacity: 1;
+}
+
+.reduced-transparency [class*="opacity-"] {
+  opacity: 1 !important;
+}
+
+.reduced-transparency .backdrop-blur-sm,
+.reduced-transparency .backdrop-blur,
+.reduced-transparency .backdrop-blur-md,
+.reduced-transparency .backdrop-blur-lg {
+  backdrop-filter: none !important;
+}
+
+/* ============================================
+   SIMPLIFIED MODE - Geriatric-Friendly UI
+   ============================================ */
+
+/* Add simplified-mode class to :root for global styling */
+.simplified-mode {
+  /* Bump typography one step larger */
+  --simplified-body-size: 1.125rem; /* 18px */
+  --simplified-body-line: 1.625rem; /* 26px */
+  --simplified-small-size: 1rem; /* 16px */
+  --simplified-small-line: 1.375rem; /* 22px */
+  --simplified-heading-xl: 2.5rem; /* 40px */
+  --simplified-heading-lg: 2rem; /* 32px */
+  --simplified-heading-md: 1.5rem; /* 24px */
+  
+  /* Primary buttons 60px height */
+  --simplified-button-height: 60px;
+  
+  /* Increased spacing */
+  --simplified-space-6: 1.5rem;
+  --simplified-space-7: 1.75rem;
+}
+
+/* Simplified mode typography adjustments */
+.simplified-mode body,
+.simplified-mode p,
+.simplified-mode span:not(.sr-only),
+.simplified-mode label,
+.simplified-mode li {
+  font-size: var(--simplified-body-size) !important;
+  line-height: var(--simplified-body-line) !important;
+}
+
+.simplified-mode small,
+.simplified-mode .text-sm,
+.simplified-mode .text-xs {
+  font-size: var(--simplified-small-size) !important;
+  line-height: var(--simplified-small-line) !important;
+}
+
+.simplified-mode h1 {
+  font-size: var(--simplified-heading-xl) !important;
+  line-height: 1.2 !important;
+}
+
+.simplified-mode h2 {
+  font-size: var(--simplified-heading-lg) !important;
+  line-height: 1.25 !important;
+}
+
+.simplified-mode h3,
+.simplified-mode h4 {
+  font-size: var(--simplified-heading-md) !important;
+  line-height: 1.3 !important;
+}
+
+/* Simplified mode container with increased spacing */
+.simplified-mode .simplified-container {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+/* All primary buttons at 60px height in simplified mode */
+.simplified-mode button[data-primary="true"],
+.simplified-mode .simplified-container button:not([data-size="icon"]):not(.h-8):not(.h-9):not(.h-10) {
+  min-height: var(--simplified-button-height) !important;
+}
+
+/* Larger touch targets - ensure 44px minimum */
+.simplified-mode button,
+.simplified-mode a,
+.simplified-mode input,
+.simplified-mode select,
+.simplified-mode [role="button"],
+.simplified-mode [role="tab"],
+.simplified-mode [role="menuitem"] {
+  min-height: 44px !important;
+  min-width: 44px !important;
+}
+
+/* Larger spacing in simplified mode cards */
+.simplified-mode .simplified-container .card {
+  padding: var(--simplified-space-6);
+}
+
+/* Simplified bottom nav styling */
+.simplified-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+}
+
+.simplified-bottom-nav a {
+  min-height: 72px !important;
+}
+
+/* Disable multi-select chips by default in simplified mode */
+.simplified-mode .multi-select-chips {
+  display: none;
+}
+
+.simplified-mode .single-select-fallback {
+  display: block;
+}
+
+/* Simplified mode focus indicators - extra visible */
+.simplified-mode :focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+/* Reduced cognitive load - simpler shadows */
+.simplified-mode .card,
+.simplified-mode [class*="shadow"] {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Hide complex UI elements in simplified mode */
+.simplified-mode .hide-in-simplified {
+  display: none !important;
+}
+
+/* Ensure buttons maintain proper spacing */
+.simplified-mode .simplified-container .space-y-4 > * + * {
+  margin-top: var(--simplified-space-6);
+}
+
+.simplified-mode .simplified-container .space-y-6 > * + * {
+  margin-top: var(--simplified-space-7);
+}
+
+/* ============================================
+   MODERN ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.3s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.4s ease-out forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Staggered children animation */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
+/* Modern gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+}
+
+.gradient-hero {
+  background: linear-gradient(135deg, 
+    hsl(var(--primary) / 0.08) 0%, 
+    hsl(var(--accent) / 0.05) 50%,
+    transparent 100%
+  );
+}
+
+.gradient-animated {
+  background: linear-gradient(
+    270deg,
+    hsl(var(--primary) / 0.1),
+    hsl(var(--accent) / 0.1),
+    hsl(var(--primary) / 0.05)
+  );
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: hsl(var(--background) / 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass {
+  background: hsl(var(--background) / 0.5);
+}
+
+/* Smooth transitions for interactive elements */
+.smooth-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smooth-hover:hover {
+  transform: translateY(-2px);
+}
+
+/* Modern card hover effect */
+.card-hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+}
+
+.dark .card-hover-lift:hover {
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.3);
+}
+
+/* Shimmer loading effect */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Glow effect for important elements */
+.glow-primary {
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px hsl(var(--accent) / 0.3);
+}
+
+/* Modern border gradient */
+.border-gradient {
+  position: relative;
+  background: hsl(var(--card));
+  border-radius: var(--radius);
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.3), hsl(var(--accent) / 0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Status dot animations */
+.status-dot-pulse {
+  position: relative;
+}
+
+.status-dot-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.5;
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* =============================================== */
+/* WCAG 2.1 ACCESSIBILITY IMPROVEMENTS            */
+/* =============================================== */
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  :root {
+    --foreground: 0 0% 0%;
+    --background: 0 0% 100%;
+    --border: 0 0% 20%;
+    --muted-foreground: 0 0% 30%;
+    --primary: 210 100% 25%;
+    --destructive: 0 100% 40%;
+  }
+  
+  .dark {
+    --foreground: 0 0% 100%;
+    --background: 0 0% 0%;
+    --border: 0 0% 80%;
+    --muted-foreground: 0 0% 70%;
+    --primary: 210 100% 70%;
+    --destructive: 0 100% 60%;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* WCAG 2.4.7 — Enhanced interactive element focus (supplements the unified baseline in @components) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  box-shadow: 0 0 0 4px hsl(var(--ring) / 0.2);
+}
+
+/* Skip Link - WCAG 2.4.1 Bypass Blocks */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 1rem 2rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Scalable Text - Ensure text scales with user preferences */
+html {
+  font-size: 100%; /* Respects browser font size settings */
+}
+
+/* Large Text Mode */
+.large-text {
+  font-size: 1.125rem;
+}
+
+.large-text h1 { font-size: 2.5rem; }
+.large-text h2 { font-size: 2rem; }
+.large-text h3 { font-size: 1.5rem; }
+.large-text p, .large-text span, .large-text label { font-size: 1.125rem; }
+
+/* Extra Large Text Mode */
+.extra-large-text {
+  font-size: 1.25rem;
+}
+
+.extra-large-text h1 { font-size: 3rem; }
+.extra-large-text h2 { font-size: 2.5rem; }
+.extra-large-text h3 { font-size: 1.75rem; }
+.extra-large-text p, .extra-large-text span, .extra-large-text label { font-size: 1.25rem; }
+
+/* Screen Reader Only Content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Ensure minimum touch target size - WCAG 2.5.5 Target Size */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Large touch targets for accessibility mode */
+.a11y-large-targets button,
+.a11y-large-targets a,
+.a11y-large-targets [role="button"],
+.a11y-large-targets input[type="checkbox"],
+.a11y-large-targets input[type="radio"] {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Safe area for mobile devices with notches */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.safe-area-inset-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Ensure links are distinguishable - WCAG 1.4.1 Use of Color */
+a:not([class]) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:not([class]):hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Error state styling - WCAG 1.4.1 */
+.error-field {
+  border-color: hsl(var(--destructive)) !important;
+  box-shadow: 0 0 0 1px hsl(var(--destructive) / 0.2);
+}
+
+.error-field:focus-visible {
+  outline-color: hsl(var(--destructive));
+  box-shadow: 0 0 0 4px hsl(var(--destructive) / 0.2);
+}
+
+/* Ensure sufficient color contrast for disabled states */
+:disabled,
+[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Improved reading experience */
+.readable-width {
+  max-width: 70ch;
+}
+
+/* Line height for readability - WCAG 1.4.12 Text Spacing */
+.a11y-spacing p,
+.a11y-spacing li {
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  word-spacing: 0.05em;
+}
+
+/* High visibility borders mode */
+.high-visibility-borders * {
+  border-color: hsl(var(--foreground)) !important;
+}
+
+/* Print styles for accessibility */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+  }
+  
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+}
+
+/* Section 508 - Windows High Contrast / Forced Colors */
+@media (forced-colors: active) {
+  *:focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px;
+  }
+
+  button, a, [role="button"] {
+    border: 1px solid ButtonText;
+  }
+
+  .voice-indicator-pulse {
+    border: 2px solid Highlight;
+  }
+}
+
+/* Section 508 - Voice control minimum touch targets */
+[data-testid="button-voice-command"],
+[data-testid="button-voice-help"] {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Section 508 - Ensure sr-only content is properly hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Section 508 - Auto-read indicator for screen reader users */
+.auto-read-active::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100vh;
+  background: hsl(var(--primary));
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Section 508 - Keyboard shortcut hints in tooltips */
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 3px;
+  box-shadow: 0 1px 0 hsl(var(--border));
+}
+
+/* Section 508 - Reduced motion must fully disable animations */
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

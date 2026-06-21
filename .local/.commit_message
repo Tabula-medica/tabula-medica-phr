@@ -1,0 +1,8 @@
+Migration loop close-out: Vertex as HIPAA-compliant default + new tarball pushed to GitHub
+
+- replit.md: replace AUTH0_API_AUDIENCE env-var note with AI_DEFAULT_PROVIDER=vertex (HIPAA: OpenAI standard tier has no BAA, Vertex AI runs under existing GCP BAA)
+- Verified /api/ai-provider/status now reports defaultProvider:"vertex" after user flipped Configurations value and deleted Auth0 secrets
+- Pushed replit-agent branch to GitHub (477d1ec5..2318dd7b) via Replit-managed GitHub OAuth connector token
+- Generated fresh source tarball exports/tabula-medica-full-20260524-1301.tar.gz (81 MB) and presented to user
+- GCS upload blocked: GOOGLE_APPLICATION_CREDENTIALS_JSON and GCP_KEY both return invalid_grant (service account key rotated/disabled); user notified, will rotate in GCP console
+- Cloud Run redeploy still requires user to merge replit-agent -> main on GitHub (main agent cannot perform that destructive op)

@@ -1,0 +1,25 @@
+{
+  "name": "Tabula Medica",
+  "short_name": "Tabula Medica",
+  "description": "Aggregate your health data from multiple EHR platforms into one clean timeline with deduplication and plain-English explanations",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0891b2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "medical", "productivity"]
+}

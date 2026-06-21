@@ -1,0 +1,158 @@
+steps:
+  - id: 'install-deps'
+    name: 'node:20-slim'
+    entrypoint: 'npm'
+    args: ['ci']
+    env:
+      - 'NODE_ENV=production'
+
+  - id: 'type-check'
+    name: 'node:20-slim'
+    entrypoint: 'npx'
+    args: ['tsc', '--noEmit']
+    waitFor: ['install-deps']
+
+  - id: 'medical-safety-checks'
+    name: 'node:20-slim'
+    entrypoint: 'node'
+    args:
+      - '-e'
+      - |
+        const fs = require('fs');
+        const path = require('path');
+
+        console.log('=== Medical Safety Pre-Deployment Checks ===');
+
+        const NO_CDS_REQUIRED_DIRS = ['server/services'];
+        const CDS_PATTERN = /NO.?CDS|no clinical decision support/i;
+
+        let aiFiles = 0;
+        let compliantFiles = 0;
+        let issues = [];
+
+        function checkDir(dir) {
+          if (!fs.existsSync(dir)) return;
+          const files = fs.readdirSync(dir);
+          for (const file of files) {
+            const fullPath = path.join(dir, file);
+            const stat = fs.statSync(fullPath);
+            if (stat.isDirectory()) { checkDir(fullPath); continue; }
+            if (!file.endsWith('.ts') && !file.endsWith('.js')) continue;
+            const content = fs.readFileSync(fullPath, 'utf8');
+            if (content.includes('openai') || content.includes('OpenAI') || content.includes('gpt-')) {
+              aiFiles++;
+              if (CDS_PATTERN.test(content)) {
+                compliantFiles++;
+              } else {
+                issues.push('MISSING NO-CDS: ' + fullPath);
+              }
+            }
+          }
+        }
+
+        NO_CDS_REQUIRED_DIRS.forEach(checkDir);
+
+        console.log('AI files scanned: ' + aiFiles);
+        console.log('NO-CDS compliant: ' + compliantFiles + '/' + aiFiles);
+
+        if (issues.length > 0) {
+          console.error('FAILED: The following files are missing NO-CDS policy:');
+          issues.forEach(function(i) { console.error('  - ' + i); });
+          process.exit(1);
+        }
+
+        console.log('PASSED: All AI prompts include NO-CDS policy');
+        console.log('=== Medical Safety Checks Complete ===');
+    waitFor: ['install-deps']
+
+  - id: 'build'
+    name: 'node:20-slim'
+    entrypoint: 'npm'
+    args: ['run', 'build']
+    waitFor: ['type-check', 'medical-safety-checks']
+
+  - id: 'build-docker'
+    name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:$COMMIT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:latest'
+      - '--progress=plain'
+      - '.'
+    waitFor: ['build']
+
+  - id: 'push-image'
+    name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api'
+    waitFor: ['build-docker']
+
+  - id: 'deploy-staging-no-traffic'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'tabula-medica-api'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--no-traffic'
+      - '--tag=staging-$SHORT_SHA'
+      - '--set-env-vars=NODE_ENV=staging'
+      - '--memory=1Gi'
+      - '--cpu=2'
+      - '--min-instances=0'
+      - '--max-instances=10'
+      - '--allow-unauthenticated'
+    waitFor: ['push-image']
+
+  - id: 'health-check-staging'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        REVISION_URL=$(gcloud run revisions list --service=tabula-medica-api --region=us-central1 --sort-by=~creationTimestamp --limit=1 --format='value(status.url)' 2>/dev/null)
+        if [ -z "$$REVISION_URL" ]; then
+          REVISION_URL=$(gcloud run services describe tabula-medica-api --region=us-central1 --format='value(status.url)')
+        fi
+        echo "Health check: $$REVISION_URL/health"
+        for i in 1 2 3 4 5; do
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$$REVISION_URL/health" 2>/dev/null || echo "000")
+          if [ "$$STATUS" = "200" ]; then
+            echo "PASSED on attempt $$i"
+            exit 0
+          fi
+          echo "Attempt $$i: $$STATUS — retrying in 15s..."
+          sleep 15
+        done
+        echo "FAILED: health check did not pass"
+        exit 1
+    waitFor: ['deploy-staging-no-traffic']
+
+  - id: 'promote-traffic'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update-traffic'
+      - 'tabula-medica-api'
+      - '--region=us-central1'
+      - '--to-revisions=LATEST=100'
+    waitFor: ['health-check-staging']
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:$COMMIT_SHA'
+
+timeout: '900s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'

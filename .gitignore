@@ -1,0 +1,20 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+google-service-account.json
+# --- PHI / secrets hardening (added during migration) ---
+DATABASE_URL
+cookies.txt
+database_backup.json
+*backup*.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*-key.json
+service-account*.json
+google-service-account*.json

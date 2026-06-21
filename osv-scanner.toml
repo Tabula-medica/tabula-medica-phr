@@ -1,0 +1,8 @@
+# All previously-ignored vulnerabilities have been resolved by upgrading the
+# affected transitive dependencies via npm overrides in:
+#   - package.json (root)
+#   - tabula-medica-mobile/package.json
+#   - artifacts/mockup-sandbox/package.json
+#
+# Re-add ignore entries here if a future osv-scanner version flags an
+# unfixable transitive vulnerability. Use the v2 PackageOverrides syntax.
