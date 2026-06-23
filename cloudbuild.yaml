@@ -78,11 +78,10 @@ steps:
         console.log('=== Medical Safety Checks Complete ===');
     waitFor: ['install-deps']
 
-  - id: 'build'
-    name: 'node:20-slim'
-    entrypoint: 'npm'
-    args: ['run', 'build']
-    waitFor: ['type-check', 'medical-safety-checks']
+  # NOTE: the out-of-Docker 'build' step was removed — it duplicated the build
+  # the Dockerfile already runs (builder stage), nearly doubling wall-clock and
+  # tipping the build over the 900s timeout. The Dockerfile build is the source
+  # of truth for the image; type-check + medical-safety gates still run first.
 
   - id: 'build-docker'
     name: 'gcr.io/cloud-builders/docker'
@@ -94,7 +93,7 @@ steps:
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:latest'
       - '--progress=plain'
       - '.'
-    waitFor: ['build']
+    waitFor: ['type-check', 'medical-safety-checks']
 
   - id: 'push-image'
     name: 'gcr.io/cloud-builders/docker'
@@ -167,7 +166,7 @@ images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:latest'
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/tabula-medica-api:$COMMIT_SHA'
 
-timeout: '900s'
+timeout: '1800s'
 
 options:
   logging: CLOUD_LOGGING_ONLY
