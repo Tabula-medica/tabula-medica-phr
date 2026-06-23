@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  # Lint is informational only (continue-on-error: true) until F1 PHI guardrail
+  # program completes. At that point, transition to strict enforcement on actively-
+  # guarded rules (no-restricted-syntax, tabula/no-string-form-logger). Track F1
+  # completion in .local/deliverables/f1-status.md. Transition is filed as
+  # Action Item Y in .local/deliverables/f1-action-items.md.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run lint (informational only — Strategy D, see Action Item Y)
+        run: |
+          npm run lint || echo "::warning::Lint reported issues — Strategy D (status quo) until F1 PHI guardrail backlog reaches 0. See .local/deliverables/f1-action-items.md Action Item Y for the planned Strategy C transition."
+
+  test:
+    name: Test (vitest)
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build

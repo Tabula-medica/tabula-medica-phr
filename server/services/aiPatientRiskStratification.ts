@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (patient risk
+// stratification, risk scoring, predictions, and care-gap alerting). DISABLED by default
+// via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination + counsel
+// review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 let openaiClient: OpenAI | null = null;
 
@@ -210,6 +216,7 @@ class AIPatientRiskStratificationService {
   private readonly CACHE_TTL = 15 * 60 * 1000;
 
   async getRiskStratificationDashboard(providerId: string): Promise<RiskStratificationDashboard> {
+    assertCdsEnabled("aiPatientRiskStratification.getRiskStratificationDashboard");
     const cacheKey = `dashboard-${providerId}`;
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -232,6 +239,7 @@ class AIPatientRiskStratificationService {
   }
 
   async getPatientRiskProfile(patientId: string, requestingUserId: string): Promise<PatientRiskProfile> {
+    assertCdsEnabled("aiPatientRiskStratification.getPatientRiskProfile");
     const cacheKey = `patient-${patientId}`;
     const cached = this.patientCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -254,6 +262,7 @@ class AIPatientRiskStratificationService {
   }
 
   async assessPatientRisk(request: RiskAssessmentRequest, requestingUserId: string): Promise<PatientRiskProfile> {
+    assertCdsEnabled("aiPatientRiskStratification.assessPatientRisk");
     await logPhiAccess({
       userId: requestingUserId,
       action: "read",
@@ -269,6 +278,7 @@ class AIPatientRiskStratificationService {
   }
 
   async getHighRiskPatients(providerId: string, limit: number = 20): Promise<PatientRiskProfile[]> {
+    assertCdsEnabled("aiPatientRiskStratification.getHighRiskPatients");
     await logPhiAccess({
       userId: providerId,
       action: "read",
@@ -289,6 +299,7 @@ class AIPatientRiskStratificationService {
     factors: { factor: string; patientCount: number; avgContribution: number; trend: string }[];
     insights: string[];
   }> {
+    assertCdsEnabled("aiPatientRiskStratification.getRiskFactorAnalysis");
     await logPhiAccess({
       userId: providerId,
       action: "read",

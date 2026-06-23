@@ -1,6 +1,12 @@
+// CDS-GATED — this service performs Clinical Decision Support (patient-message
+// clinical triage / urgency escalation / provider-inbox prioritization).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 
 export class ConversationOwnershipError extends Error {
   constructor() {
@@ -122,6 +128,7 @@ export async function processPatientFAQ(
   conversationId: string | null,
   userMessage: string
 ): Promise<{ conversation: ChatbotConversation; response: ChatbotMessage }> {
+  assertCdsEnabled("aiCommunication.processPatientFAQ");
   let conversation: ChatbotConversation;
   
   if (conversationId && chatbotConversations.has(conversationId)) {
@@ -252,8 +259,9 @@ export async function summarizePatientMessage(
   threadSubject: string,
   threadHistory: Array<{ role: string; content: string; timestamp: string }>
 ): Promise<MessageSummary> {
+  assertCdsEnabled("aiCommunication.summarizePatientMessage");
   const context = await getPatientContext(patientId);
-  
+
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -547,6 +555,7 @@ export async function prioritizeProviderInbox(
   providerId: string,
   messages: Array<{ id: string; threadId: string; patientId: string; content: string; subject: string; timestamp: string }>
 ): Promise<Array<{ messageId: string; priority: "normal" | "high" | "urgent"; summary: string; estimatedResponseTime: string }>> {
+  assertCdsEnabled("aiCommunication.prioritizeProviderInbox");
   if (messages.length === 0) return [];
 
   try {

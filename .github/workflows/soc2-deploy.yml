@@ -1,0 +1,214 @@
+name: SOC2 Compliant Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PROJECT_ID: united-planet-485003-n7
+  REGION: us-central1
+  SERVICE: tabula-medica-web
+  WIF_PROVIDER: projects/1060107259776/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  WIF_SERVICE_ACCOUNT: 1060107259776-compute@developer.gserviceaccount.com
+
+jobs:
+  audit-gate:
+    name: SOC2 Audit Gate
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ github.sha }}
+      actor: ${{ github.actor }}
+      timestamp: ${{ steps.ts.outputs.timestamp }}
+    steps:
+      - name: Record Deployment Metadata
+        id: ts
+        run: |
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "::notice::SOC2 Audit Trail — commit=${{ github.sha }} actor=${{ github.actor }} ref=${{ github.ref }}"
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    needs: audit-gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    needs: audit-gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: npm audit (critical/high)
+        run: npm audit --audit-level=high --omit=dev || true
+      - name: Check for known vulnerabilities
+        run: npx audit-ci@^7 --high || echo "::warning::Dependency vulnerabilities detected — review before next release"
+
+  secret-scan:
+    name: Secret & Credential Scan
+    runs-on: ubuntu-latest
+    needs: audit-gate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
+  sast:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    needs: audit-gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Semgrep SAST
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/javascript
+            p/typescript
+            p/nodejs
+            p/owasp-top-ten
+            p/secrets
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    needs: [typecheck, dependency-audit]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image for scanning
+        run: docker build -t ${{ env.SERVICE }}:scan .
+      - name: Trivy container scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.SERVICE }}:scan
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      - name: Trivy SARIF output
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.SERVICE }}:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  dockerfile-lint:
+    name: Dockerfile Best Practices
+    runs-on: ubuntu-latest
+    needs: audit-gate
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hadolint Dockerfile lint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [typecheck, dependency-audit, secret-scan, sast, container-scan, dockerfile-lint]
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Google Auth via Workload Identity Federation
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          source: ./
+          flags: |
+            --allow-unauthenticated
+            --memory=4Gi
+            --cpu=4
+            --min-instances=1
+            --max-instances=10
+            --concurrency=80
+            --cpu-throttling
+            --session-affinity
+            --set-env-vars=NODE_ENV=production,DATABASE_URL=${{ secrets.REPLIT_DB_URL }},SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+
+      - name: Deployment Health Check
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          echo "Deployed to: $URL"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Health check failed after 5 attempts"
+          exit 1
+
+      - name: SOC2 Deployment Audit Record
+        if: always()
+        run: |
+          cat <<EOF
+          ═══════════════════════════════════════════════
+          SOC2 DEPLOYMENT AUDIT RECORD
+          ═══════════════════════════════════════════════
+          Timestamp:    $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          Commit SHA:   ${{ github.sha }}
+          Actor:        ${{ github.actor }}
+          Branch:       ${{ github.ref_name }}
+          Service:      ${{ env.SERVICE }}
+          Region:       ${{ env.REGION }}
+          URL:          ${{ steps.deploy.outputs.url }}
+          Status:       ${{ job.status }}
+          Run ID:       ${{ github.run_id }}
+          Auth Method:  Workload Identity Federation (keyless)
+          ═══════════════════════════════════════════════
+          EOF

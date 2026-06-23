@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated care
+// plans, interventions, optimizations, and progress analysis). DISABLED by default
+// via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination + counsel
+// review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 import type {
   CarePlan,
   CarePlanGoal,
@@ -154,6 +160,7 @@ export async function generateCarePlan(
   primaryCondition: string,
   additionalNotes?: string
 ): Promise<GeneratedCarePlan> {
+  assertCdsEnabled("aiCarePlanAutomation.generateCarePlan");
   const client = getOpenAI();
   if (!client) {
     console.log("[AICarePlanAutomation] OpenAI not configured, using fallback");
@@ -295,6 +302,7 @@ export async function suggestTasks(
   carePlan: CarePlan,
   patientContext: PatientContext
 ): Promise<TaskRecommendation[]> {
+  assertCdsEnabled("aiCarePlanAutomation.suggestTasks");
   const client = getOpenAI();
   if (!client) {
     console.log("[AICarePlanAutomation] OpenAI not configured, using fallback tasks");
@@ -378,6 +386,7 @@ export async function suggestInterventions(
   patientContext: PatientContext,
   goalId?: string
 ): Promise<InterventionSuggestion[]> {
+  assertCdsEnabled("aiCarePlanAutomation.suggestInterventions");
   const client = getOpenAI();
   if (!client) {
     console.log("[AICarePlanAutomation] OpenAI not configured, using fallback interventions");
@@ -444,6 +453,7 @@ export async function optimizeCarePlan(
   carePlan: CarePlan,
   patientContext: PatientContext
 ): Promise<CarePlanOptimization> {
+  assertCdsEnabled("aiCarePlanAutomation.optimizeCarePlan");
   const client = getOpenAI();
   if (!client) {
     console.log("[AICarePlanAutomation] OpenAI not configured, using fallback optimization");
@@ -532,6 +542,7 @@ export async function generateProgressSummary(
   nextSteps: string[];
   overallProgress: number;
 }> {
+  assertCdsEnabled("aiCarePlanAutomation.generateProgressSummary");
   const client = getOpenAI();
   const progress = calculateOverallProgress(carePlan);
   
@@ -610,8 +621,9 @@ export async function generatePersonalizedCarePlan(
   treatmentGoals?: string[],
   additionalNotes?: string
 ): Promise<PersonalizedCarePlan> {
+  assertCdsEnabled("aiCarePlanAutomation.generatePersonalizedCarePlan");
   const client = getOpenAI();
-  
+
   const basePlan = await generateCarePlan(patientContext, primaryCondition, additionalNotes);
   
   if (!client) {

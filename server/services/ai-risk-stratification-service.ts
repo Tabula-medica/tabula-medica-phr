@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (patient risk
+// stratification / risk scoring across clinical categories). DISABLED by default via
+// the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination + counsel review.
+// NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 
 let openaiClient: OpenAI | null = null;
 
@@ -71,6 +77,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export class AIRiskStratificationService {
   async stratifyPatientRisk(patientId: string, data: RiskFactorData): Promise<RiskStratificationResult> {
+    assertCdsEnabled("ai-risk-stratification-service.stratifyPatientRisk");
     const cacheKey = `risk-${patientId}`;
     const cached = RISK_CACHE.get(cacheKey);
     

@@ -24,7 +24,11 @@ steps:
         console.log('=== Medical Safety Pre-Deployment Checks ===');
 
         const NO_CDS_REQUIRED_DIRS = ['server/services'];
-        const CDS_PATTERN = /NO.?CDS|no clinical decision support/i;
+        // A flagged AI file passes if it EITHER asserts it performs no CDS,
+        // OR is explicitly CDS-GATED (a genuine CDS feature disabled by the
+        // ENABLE_CDS kill-switch pending FDA/counsel review — see _cds-gate.ts
+        // and NO-CDS-TRIAGE.md). CDS-GATED is NOT a NO-CDS claim.
+        const CDS_PATTERN = /NO.?CDS|no clinical decision support|CDS-GATED/i;
 
         let aiFiles = 0;
         let compliantFiles = 0;

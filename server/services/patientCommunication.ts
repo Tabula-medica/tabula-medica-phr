@@ -1,3 +1,8 @@
+// CDS-GATED — this service performs Clinical Decision Support (RPM data clinical
+// recommendations + record-based clinical Q&A interpretation of patient data).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import type {
@@ -12,6 +17,7 @@ import type {
   InsertPatientQueryResponse,
 } from "@shared/schema";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -314,6 +320,7 @@ export async function generateRpmReviewMessage(
     trend?: string;
   }
 ): Promise<{ content: string; recommendations: string[]; confidence: number }> {
+  assertCdsEnabled("patientCommunication.generateRpmReviewMessage");
   const context = await getPatientContext(patientId);
   const patientName = context.patient?.firstName || "Patient";
 
@@ -378,6 +385,7 @@ export async function generateQueryResponse(
   patientId: string,
   query: string
 ): Promise<PatientQueryResponse> {
+  assertCdsEnabled("patientCommunication.generateQueryResponse");
   const context = await getPatientContext(patientId);
   const patientName = context.patient?.firstName || "Patient";
 

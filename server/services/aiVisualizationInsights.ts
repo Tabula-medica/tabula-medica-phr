@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI clinical
+// interpretation of health-data charts/dashboards: warnings, out-of-range flags,
+// and recommendations). DISABLED by default via the ENABLE_CDS kill-switch
+// pending FDA Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -54,6 +60,7 @@ export async function generateChartInsights(
   userId: string,
   request: ChartInsightRequest
 ): Promise<VisualizationInsightsResponse> {
+  assertCdsEnabled("aiVisualizationInsights.generateChartInsights");
   console.log(`[AI Viz Insights] Generating insights for ${request.chartType}: ${request.metricName}`);
 
   logPhiAccess({
@@ -278,6 +285,7 @@ export async function generateDashboardInsights(
   recommendations: string[];
   highlights: { type: "positive" | "attention" | "info"; text: string }[];
 }> {
+  assertCdsEnabled("aiVisualizationInsights.generateDashboardInsights");
   console.log(`[AI Viz Insights] Generating dashboard-wide insights for patient: ${patientId}`);
 
   logPhiAccess({

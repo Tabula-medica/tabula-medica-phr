@@ -1,7 +1,13 @@
+// CDS-GATED — this service performs Clinical Decision Support (check-in response
+// risk triage green/yellow/red + outreach risk stratification of patients).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 import type {
   OutreachCampaign,
   InsertOutreachCampaign,
@@ -401,6 +407,7 @@ export async function analyzeCheckInResponse(
   checkInId: string,
   responses: CheckInResponse["responses"]
 ): Promise<{ status: "green" | "yellow" | "red"; analysis: string; recommendations: string[]; providerReviewRequired: boolean }> {
+  assertCdsEnabled("aiPatientOutreachService.analyzeCheckInResponse");
   const checkIn = checkIns.get(checkInId);
   if (!checkIn) {
     return { status: "green", analysis: "Check-in completed.", recommendations: [], providerReviewRequired: false };
@@ -482,6 +489,7 @@ export async function identifyOutreachCandidates(
   criteria: string,
   conditions?: string[]
 ): Promise<{ patientId: string; patientName: string; reason: string; priority: "high" | "medium" | "low" }[]> {
+  assertCdsEnabled("aiPatientOutreachService.identifyOutreachCandidates");
   logPhiAccess({
     action: "read",
     resourceType: "patient_list",

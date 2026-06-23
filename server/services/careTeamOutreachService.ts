@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated
+// patient-risk outreach talking points / clinical interpretation of risk factors).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 import type {
   HighRiskPatient,
   PatientRiskFactor,
@@ -480,6 +486,7 @@ class CareTeamOutreachService {
   }
 
   async generateTalkingPoints(patientId: string): Promise<OutreachTalkingPoints> {
+    assertCdsEnabled("careTeamOutreachService.generateTalkingPoints");
     const cached = talkingPointsCache.get(patientId);
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     if (cached && new Date(cached.generatedAt).getTime() > oneHourAgo) {

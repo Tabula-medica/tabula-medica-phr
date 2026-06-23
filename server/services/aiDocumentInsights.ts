@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI clinical-document
+// analysis: abnormal-result detection, clinical significance, trends, action items).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "not-set",
@@ -72,6 +78,7 @@ export async function analyzeDocument(
   userRole: string,
   request: DocumentAnalysisRequest
 ): Promise<DocumentInsights> {
+  assertCdsEnabled("aiDocumentInsights.analyzeDocument");
   console.log(`[AI Document Insights] Analyzing ${request.documentType}: ${request.title}`);
 
   await logPhiAccess({

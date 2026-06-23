@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI clinical patient
+// summaries with risk factors, recommended actions, and priority levels for
+// providers). DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 import type { Patient, MedicalRecord, VitalSign, Problem } from "@shared/schema";
 import { analyzePatientHealth, generateHealthSnapshot } from "./remoteMonitoring";
 
@@ -428,6 +434,7 @@ function cacheSummary(patientId: string, summary: AIPatientSummary, patient: Pat
 
 // Generate AI clinical summary with enhanced prompts and caching
 export async function generateAIPatientSummary(patientId: string, forceRefresh = false): Promise<AIPatientSummary> {
+  assertCdsEnabled("providerPortal.generateAIPatientSummary");
   const patient = mockPatients.find(p => p.patientId === patientId);
   if (!patient) {
     throw new Error("Patient not found");
@@ -580,6 +587,7 @@ export async function generateBatchPatientSummaries(
   patientIds: string[],
   options?: { prioritizeHighRisk?: boolean; maxConcurrent?: number }
 ): Promise<BatchSummaryResult[]> {
+  assertCdsEnabled("providerPortal.generateBatchPatientSummaries");
   const { prioritizeHighRisk = true, maxConcurrent = 3 } = options || {};
   
   // Sort patients by risk if prioritizing
@@ -628,6 +636,7 @@ export async function generateBatchPatientSummaries(
 
 // Auto-generate summaries for all high-risk patients
 export async function autoGenerateHighRiskSummaries(): Promise<BatchSummaryResult[]> {
+  assertCdsEnabled("providerPortal.autoGenerateHighRiskSummaries");
   const highRiskPatients = mockPatients
     .filter(p => p.riskLevel === "critical" || p.riskLevel === "high")
     .map(p => p.patientId);

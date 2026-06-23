@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated care
+// plan drafts with medication/lifestyle/appointment recommendations). DISABLED by
+// default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination +
+// counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 import { logPhiAccess } from "../security/hipaa-audit";
 import type {
   AICarePlanDraft,
@@ -197,6 +203,7 @@ export async function generateCarePlanDraft(
   treatmentGoals: string[],
   userId: string
 ): Promise<AICarePlanDraft> {
+  assertCdsEnabled("aiCarePlanDraftService.generateCarePlanDraft");
   logPhiAccess({
     userId,
     patientId: patientData.patientId,

@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI analysis of
+// patient vitals/labs/PROMs producing risk scores, alerts, and intervention
+// recommendations). DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 import { logPhiAccess } from "../security/hipaa-audit";
 import type {
   HealthMonitoringAlert,
@@ -344,6 +350,7 @@ export async function analyzePatientData(
   userId: string,
   userRole: string
 ): Promise<AnalysisResult> {
+  assertCdsEnabled("aiProactiveMonitoring.analyzePatientData");
   await logPhiAccess({
     userId,
     userRole,
@@ -452,6 +459,7 @@ export async function batchAnalyzePatients(
     totalInterventions: number;
   };
 }> {
+  assertCdsEnabled("aiProactiveMonitoring.batchAnalyzePatients");
   const results = new Map<string, AnalysisResult>();
   let criticalCount = 0;
   let highRiskCount = 0;

@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI analysis of FHIR
+// health data producing clinical insights/recommendations on what needs attention).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 
 let openaiClient: OpenAI | null = null;
 
@@ -332,6 +338,7 @@ export const fhirVisualizationService = {
   },
   
   async getChartRecommendations(patientId: string): Promise<ChartRecommendation[]> {
+    assertCdsEnabled("fhir-visualization-service.getChartRecommendations");
     console.log(`[HIPAA-AUDIT][FHIRVisualization] Generating AI chart recommendations for patient: ${patientId}`);
     const data = this.getVisualizationData(patientId);
     return await getAIChartRecommendations(data);

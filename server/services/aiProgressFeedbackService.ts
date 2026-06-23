@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI progress analysis
+// producing clinician flags, suggested clinical adjustments, and risk trajectory).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 const PROHIBITED_TERMS = [
@@ -605,6 +611,7 @@ export async function generateProgressFeedback(
   userId: string,
   forceRefresh: boolean = false
 ): Promise<ProgressFeedback> {
+  assertCdsEnabled("aiProgressFeedbackService.generateProgressFeedback");
   await logPhiAccess({
     userId,
     action: "read",

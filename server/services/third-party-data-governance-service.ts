@@ -1,3 +1,6 @@
+// NO-CDS: this service performs no clinical decision support — administrative /
+// data-processing / factual-information only (no diagnosis, risk scoring, or
+// treatment recommendation). Triaged 2026-06-22; see NO-CDS-TRIAGE.md.
 import { v4 as uuidv4 } from "uuid";
 
 export interface ThirdPartyIntegration {

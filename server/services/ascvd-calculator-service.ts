@@ -1,5 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (ASCVD 10-year risk
+// scoring + statin/guideline recommendations). DISABLED by default via the ENABLE_CDS
+// kill-switch pending FDA Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { assertCdsEnabled } from "./_cds-gate";
 
 function getOpenAIClient(): OpenAI | null {
   if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
@@ -481,6 +486,7 @@ const PREVENTIVE_GUIDELINES_2024: PreventiveGuideline[] = [
 
 export const ascvdCalculatorService = {
   calculateASCVD(profileId: string, inputs: ASCVDInputs, aiGenerated = false, aiDataSources?: string[]): ASCVDResult {
+    assertCdsEnabled("ascvd-calculator-service.calculateASCVD");
     if (inputs.age < 20 || inputs.age > 99) throw new Error("Age must be between 20 and 99");
     if (inputs.totalCholesterol < 100 || inputs.totalCholesterol > 400) throw new Error("Total cholesterol must be between 100 and 400 mg/dL");
     if (inputs.hdlCholesterol < 20 || inputs.hdlCholesterol > 150) throw new Error("HDL cholesterol must be between 20 and 150 mg/dL");
@@ -531,6 +537,7 @@ export const ascvdCalculatorService = {
   },
 
   async autoCalculateFromPatientData(profileId: string): Promise<ASCVDResult | { error: string; fallbackInputs?: Partial<ASCVDInputs> }> {
+    assertCdsEnabled("ascvd-calculator-service.autoCalculateFromPatientData");
     const openai = getOpenAIClient();
     if (!openai) {
       return { error: "AI service unavailable. Please enter your values manually." };

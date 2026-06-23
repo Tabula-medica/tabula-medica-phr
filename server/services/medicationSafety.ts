@@ -1,5 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (drug-interaction /
+// contraindication analysis). DISABLED by default via the ENABLE_CDS kill-switch
+// pending FDA Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 import type { Patient, Medication, MedicalRecord } from "@shared/schema";
 
 // Helper to get patient display name
@@ -190,6 +195,7 @@ export async function analyzeMedicationSafety(
   patientId: string,
   forceRefresh: boolean = false
 ): Promise<MedicationSafetyAnalysis> {
+  assertCdsEnabled("medicationSafety.analyzeMedicationSafety");
   // Check cache first
   if (!forceRefresh) {
     const cached = analysisCache.get(patientId);

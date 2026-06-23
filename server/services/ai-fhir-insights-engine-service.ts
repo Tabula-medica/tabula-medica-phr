@@ -1,6 +1,12 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI patient insights,
+// risk alerts, care-gap detection, data summaries, and trend prediction over FHIR data).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 
-const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY 
+const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY
   ? new OpenAI({
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -183,6 +189,7 @@ initializeSampleData();
 
 export class AIFHIRInsightsEngineService {
   async generatePatientInsights(patientId: string, fhirData: any): Promise<PatientInsight[]> {
+    assertCdsEnabled("ai-fhir-insights-engine-service.generatePatientInsights");
     console.log("[HIPAA-AUDIT] Generating AI insights for patient:", patientId);
 
     const insights: PatientInsight[] = [];
@@ -240,6 +247,7 @@ IMPORTANT: All insights are for informational purposes only and should not repla
   }
 
   async generateDataSummary(scope: 'patient' | 'population' | 'condition', data: any): Promise<DataSummary> {
+    assertCdsEnabled("ai-fhir-insights-engine-service.generateDataSummary");
     console.log("[HIPAA-AUDIT] Generating data summary for scope:", scope);
 
     let summary: DataSummary;
@@ -287,6 +295,7 @@ IMPORTANT: All insights are for informational purposes only and should not repla
   }
 
   async analyzeTrends(patientId: string, metric: string, observations: any[]): Promise<TrendAnalysis> {
+    assertCdsEnabled("ai-fhir-insights-engine-service.analyzeTrends");
     console.log("[HIPAA-AUDIT] Analyzing trends for patient:", patientId, "metric:", metric);
 
     const dataPoints = observations.map(obs => ({
