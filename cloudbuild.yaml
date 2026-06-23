@@ -2,9 +2,11 @@ steps:
   - id: 'install-deps'
     name: 'node:20-slim'
     entrypoint: 'npm'
-    args: ['ci']
-    env:
-      - 'NODE_ENV=production'
+    # Install ALL deps incl. devDependencies — the build tooling (esbuild, tsx,
+    # vite) lives in devDependencies and is needed by type-check + build steps.
+    # (NODE_ENV=production here omitted devDeps -> 'Cannot find package esbuild'.)
+    # Production pruning happens later inside the Dockerfile's final stage.
+    args: ['ci', '--include=dev']
 
   - id: 'type-check'
     name: 'node:20-slim'
