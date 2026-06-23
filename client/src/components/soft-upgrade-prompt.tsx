@@ -352,6 +352,14 @@ export interface SoftUpgradePromptProps {
   requiredTier?: RequiredTier;
   /** Current user tier — shown contextually so the user understands the upgrade path. */
   currentTier?: "free" | RequiredTier;
+  /** Current usage count against a tier limit (e.g., FHIR connections used). */
+  currentUsage?: number;
+  /** The tier limit the usage is measured against. */
+  limit?: number;
+  /** Server-supplied upgrade price hint (e.g., "$9.99/mo"). */
+  upgradePrice?: string;
+  /** Server-supplied trial length in days. */
+  trialDays?: number;
 }
 
 export function SoftUpgradePrompt({
@@ -362,6 +370,10 @@ export function SoftUpgradePrompt({
   overrideDescription,
   requiredTier,
   currentTier,
+  currentUsage,
+  limit,
+  upgradePrice,
+  trialDays,
 }: SoftUpgradePromptProps) {
   const config = PROMPT_CONFIG[trigger];
   if (!config) {
@@ -377,6 +389,14 @@ export function SoftUpgradePrompt({
   const description = overrideDescription ?? config.description;
   const ctaLabel = config.ctaLabel ?? tierMeta.ctaLabel;
   const ctaHref = config.ctaHref ?? tierMeta.ctaHref;
+
+  // Prefer server-supplied price/trial hints when provided; otherwise fall back to static tier metadata.
+  const priceHint = [
+    upgradePrice,
+    typeof trialDays === "number" && trialDays > 0 ? `${trialDays}-day free trial` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ") || tierMeta.priceHint;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -419,11 +439,20 @@ export function SoftUpgradePrompt({
               </li>
             ))}
           </ul>
+          {typeof currentUsage === "number" && typeof limit === "number" && (
+            <p
+              className="text-xs text-muted-foreground mt-3"
+              data-testid={`text-usage-${trigger}`}
+            >
+              You've used <span className="font-medium">{currentUsage}</span> of{" "}
+              <span className="font-medium">{limit}</span> on your current plan.
+            </p>
+          )}
           <p
             className="text-xs text-muted-foreground mt-3 italic"
             data-testid={`text-price-hint-${trigger}`}
           >
-            {tierMeta.priceHint}
+            {priceHint}
           </p>
         </div>
 
@@ -466,3 +495,78 @@ export function useSoftUpgradePrompt(initialTrigger?: UpgradeTrigger) {
 }
 
 export const UPGRADE_PROMPT_KEYS = Object.keys(PROMPT_CONFIG) as UpgradeTrigger[];
+
+// TODO(build-repair): minimal stub for missing Replit-snapshot component — verify UX
+/**
+ * Modal upgrade dialog. Thin wrapper over {@link SoftUpgradePrompt} (which already
+ * renders inside a shadcn Dialog) so callers can use a dialog-flavored name and
+ * pass usage context (currentUsage/limit) plus server-supplied price/trial hints.
+ */
+export interface UpgradeDialogProps extends SoftUpgradePromptProps {}
+
+export function UpgradeDialog(props: UpgradeDialogProps) {
+  return <SoftUpgradePrompt {...props} />;
+}
+
+// TODO(build-repair): minimal stub for missing Replit-snapshot component — verify UX
+export interface InlineFhirLimitBannerProps {
+  /** Connections used against the free-tier FHIR limit. */
+  used: number;
+  /** The free-tier FHIR connection limit. */
+  limit: number;
+  /** Server-supplied upgrade price hint (e.g., "$9.99/mo"). */
+  upgradePrice?: string;
+  /** Server-supplied trial length in days. */
+  trialDays?: number;
+}
+
+/**
+ * Inline (non-modal) banner shown on the connections page when a free-tier user
+ * is at/near their FHIR connection limit. Renders real upgrade UI with a CTA to
+ * the billing page — does not return null.
+ */
+export function InlineFhirLimitBanner({
+  used,
+  limit,
+  upgradePrice,
+  trialDays,
+}: InlineFhirLimitBannerProps) {
+  const tierMeta = TIER_DISPLAY.pro;
+  const priceHint = [
+    upgradePrice,
+    typeof trialDays === "number" && trialDays > 0 ? `${trialDays}-day free trial` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ") || tierMeta.priceHint;
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+      data-testid="banner-fhir-limit"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <Database className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {used >= limit
+              ? "You've reached your free connection limit"
+              : "You're approaching your free connection limit"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">{used}</span> of{" "}
+            <span className="font-medium">{limit}</span> connection
+            {limit !== 1 ? "s" : ""} used. Upgrade to Pro for unlimited FHIR provider integrations.
+            {priceHint ? <span className="italic"> {priceHint}.</span> : null}
+          </p>
+        </div>
+      </div>
+      <Link href={tierMeta.ctaHref} className="flex-shrink-0">
+        <Button size="sm" data-testid="button-fhir-limit-upgrade">
+          {tierMeta.ctaLabel}
+        </Button>
+      </Link>
+    </div>
+  );
+}
