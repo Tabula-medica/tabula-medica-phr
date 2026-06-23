@@ -10,6 +10,10 @@ steps:
     name: 'node:20-slim'
     entrypoint: 'npx'
     args: ['tsc', '--noEmit']
+    env:
+      # Large TS project — default ~2GB old-space OOMs tsc (SIGABRT/exit 134).
+      # Machine is E2_HIGHCPU_8 (8GB); give tsc 6GB heap.
+      - 'NODE_OPTIONS=--max-old-space-size=6144'
     waitFor: ['install-deps']
 
   - id: 'medical-safety-checks'
