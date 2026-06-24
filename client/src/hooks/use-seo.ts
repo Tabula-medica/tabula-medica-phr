@@ -186,13 +186,9 @@ export function buildWebApplicationSchema() {
     ],
     screenshot: `${SITE_URL}/logo.png`,
     softwareVersion: "2.0",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      ratingCount: "1200",
-      bestRating: "5",
-      worstRating: "1",
-    },
+    // NOTE: aggregateRating intentionally omitted. Self-serving/fake review
+    // structured data violates Google's policies and risks a manual penalty.
+    // Re-add ONLY with genuine, on-site user reviews backing it.
   };
 }
 
