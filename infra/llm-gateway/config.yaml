@@ -31,14 +31,14 @@ model_list:
   - model_name: gpt-5.2
     litellm_params: *claude_opus
 
-  # ---------- lighter "mini" chat -> Claude Sonnet on Vertex (cost) ----------
+  # ---------- lighter "mini" chat -> Opus 4.8 too (confirmed-available) ----------
+  # All chat runs on claude-opus-4-8 (verified in Vertex Model Garden:
+  # publishers/anthropic/models/claude-opus-4-8). To cut cost on mini calls later,
+  # enable claude-sonnet-4-6 in Model Garden and repoint these two.
   - model_name: gpt-4o-mini
-    litellm_params: &claude_sonnet
-      model: vertex_ai/claude-sonnet-4-6    # VERIFY exact Vertex id; adjust if you prefer Opus everywhere
-      vertex_project: os.environ/VERTEX_PROJECT_ID
-      vertex_location: os.environ/VERTEX_LOCATION
+    litellm_params: *claude_opus
   - model_name: gpt-5-mini
-    litellm_params: *claude_sonnet
+    litellm_params: *claude_opus
 
   # ---------- image generation -> Vertex Imagen ----------
   - model_name: gpt-image-1

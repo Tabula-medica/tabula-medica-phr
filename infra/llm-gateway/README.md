@@ -32,9 +32,10 @@ model ids in `config.yaml` (`claude-opus-4-8`, `claude-sonnet-4-6`, `imagen-3.0-
 the `model:` strings to whatever Model Garden lists for your region.
 
 ## Security / trust model
-- **Internal ingress** — only same-project/VPC traffic reaches it (the PHR is in the same
-  project). Plus a **master key** (`LITELLM_MASTER_KEY` secret) the PHR presents as its
-  "OpenAI API key". Grant the PHR runtime SA `roles/run.invoker` on this service.
+- **Internal ingress + master-key auth** — only same-project/VPC traffic reaches the URL
+  (not public), AND it requires `LITELLM_MASTER_KEY` (Secret Manager), which the PHR presents
+  as its "OpenAI API key". For the PHR (Cloud Run) to count as "internal" it needs **Direct VPC
+  egress** (`--network/--subnet --vpc-egress=all-traffic`) or a Serverless VPC connector.
 - The gateway calls Vertex via its **own service account** (`llm-gateway-sa`, `roles/aiplatform.user`)
   using Workload Identity — **no downloadable key** (consistent with the org's
   disable-SA-key-creation policy).

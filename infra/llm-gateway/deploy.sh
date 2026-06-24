@@ -9,6 +9,7 @@
 #
 # After it finishes it prints the two env values to set on the PHR Cloud Run service.
 set -euo pipefail
+cd "$(dirname "$0")"   # build context = this dir (config.yaml + Dockerfile)
 
 PROJECT="${PROJECT:-united-planet-485003-n7}"
 REGION="${REGION:-us-central1}"
@@ -51,8 +52,10 @@ echo "== deploy to Cloud Run (scale-to-zero, internal ingress, Vertex SA) =="
 gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" \
   --image="$IMAGE" \
   --service-account="$SA_EMAIL" \
-  --no-allow-unauthenticated \
+  --allow-unauthenticated \
   --ingress=internal \
+  --port=4000 \
+  --memory=2Gi --cpu=2 \
   --min-instances=0 --max-instances=4 \
   --set-env-vars="VERTEX_PROJECT_ID=${PROJECT},VERTEX_LOCATION=${REGION}" \
   --set-secrets="LITELLM_MASTER_KEY=LITELLM_MASTER_KEY:latest"
