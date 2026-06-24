@@ -64,6 +64,13 @@ export function useSEO({ title, description, canonicalPath, structuredData }: SE
     }
     twitterCard.setAttribute("content", "summary_large_image");
 
+    // Host-aware base so .us / .world / .health each self-canonicalize, instead of
+    // every host pointing canonical at .health (which split multi-domain ranking).
+    const siteBase =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : SITE_URL;
+
     if (canonicalPath) {
       let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
       if (!canonical) {
@@ -71,7 +78,33 @@ export function useSEO({ title, description, canonicalPath, structuredData }: SE
         canonical.setAttribute("rel", "canonical");
         document.head.appendChild(canonical);
       }
-      canonical.setAttribute("href", `${SITE_URL}${canonicalPath}`);
+      canonical.setAttribute("href", `${siteBase}${canonicalPath}`);
+
+      let ogUrl = document.querySelector('meta[property="og:url"]') as HTMLMetaElement | null;
+      if (!ogUrl) {
+        ogUrl = document.createElement("meta");
+        ogUrl.setAttribute("property", "og:url");
+        document.head.appendChild(ogUrl);
+      }
+      ogUrl.setAttribute("content", `${siteBase}${canonicalPath}`);
+
+      // hreflang cluster: .us = US/TEFCA product, .world = global (x-default).
+      const alternates = [
+        { hreflang: "en-US", host: "https://tabulamedica.us" },
+        { hreflang: "en", host: "https://tabulamedica.world" },
+        { hreflang: "x-default", host: "https://tabulamedica.world" },
+      ];
+      document
+        .querySelectorAll('link[rel="alternate"][data-seo-hreflang]')
+        .forEach((el) => el.remove());
+      for (const alt of alternates) {
+        const link = document.createElement("link");
+        link.setAttribute("rel", "alternate");
+        link.setAttribute("hreflang", alt.hreflang);
+        link.setAttribute("href", `${alt.host}${canonicalPath}`);
+        link.setAttribute("data-seo-hreflang", "true");
+        document.head.appendChild(link);
+      }
     }
 
     const scriptId = "structured-data-seo";
