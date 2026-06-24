@@ -280,7 +280,7 @@ const LANDING_FAQS = [
   },
   {
     question: "Is my health data safe?",
-    answer: "Absolutely. Tabula Medica is HIPAA compliant with SOC 2 Type II certification. All data is encrypted with AES-256 at rest and TLS 1.3 in transit. We use zero-knowledge encryption — meaning even we cannot read your records.",
+    answer: "Absolutely. Tabula Medica runs on HIPAA-aligned infrastructure with a SOC 2 Type II audit in progress. All data is encrypted with AES-256 at rest and TLS 1.3 in transit, with strict access controls and full audit logging. We never sell, share, or monetize your data.",
   },
   {
     question: "What if I don't have health insurance?",
