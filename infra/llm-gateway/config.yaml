@@ -1,0 +1,55 @@
+# LiteLLM gateway — OpenAI-compatible front, VERTEX-ONLY backends.
+#
+# The whole point of this service: the PHR keeps speaking the OpenAI API shape,
+# but every request is translated to Claude/Gemini/Imagen on **Vertex AI**, which
+# is covered by the signed Google Cloud BAA. There is intentionally NO openai/*
+# backend here — so PHI can never reach OpenAI even if a stray model name slips in
+# (the wildcard route below sends anything unknown to Claude on Vertex).
+#
+# Model map: the codebase requests gpt-4o / gpt-4o-mini / gpt-5 / gpt-5.1 / gpt-5.2 /
+# gpt-5-mini (chat) and gpt-image-1 (image). Audio transcription (whisper /
+# gpt-4o-mini-transcribe, 7 sites) is handled on a SEPARATE Google Speech-to-Text
+# path — see README "Transcription"; it is deliberately not routed here yet.
+
+litellm_settings:
+  drop_params: true        # silently drop OpenAI params Claude doesn't accept
+  telemetry: false
+  set_verbose: false
+  # never define a fallback to an openai/* model — keep PHI off OpenAI by construction
+
+model_list:
+  # ---------- complex clinical chat -> Claude Opus on Vertex ----------
+  - model_name: gpt-4o
+    litellm_params: &claude_opus
+      model: vertex_ai/claude-opus-4-8      # VERIFY exact Vertex Model Garden id/version for your region
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: os.environ/VERTEX_LOCATION
+  - model_name: gpt-5
+    litellm_params: *claude_opus
+  - model_name: gpt-5.1
+    litellm_params: *claude_opus
+  - model_name: gpt-5.2
+    litellm_params: *claude_opus
+
+  # ---------- lighter "mini" chat -> Claude Sonnet on Vertex (cost) ----------
+  - model_name: gpt-4o-mini
+    litellm_params: &claude_sonnet
+      model: vertex_ai/claude-sonnet-4-6    # VERIFY exact Vertex id; adjust if you prefer Opus everywhere
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: os.environ/VERTEX_LOCATION
+  - model_name: gpt-5-mini
+    litellm_params: *claude_sonnet
+
+  # ---------- image generation -> Vertex Imagen ----------
+  - model_name: gpt-image-1
+    litellm_params:
+      model: vertex_ai/imagen-3.0-generate-001   # VERIFY available Imagen id in your region
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: os.environ/VERTEX_LOCATION
+
+  # ---------- fail-safe: ANY other model name -> Claude Opus (never OpenAI) ----------
+  - model_name: "*"
+    litellm_params: *claude_opus
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY   # the "OpenAI API key" the PHR now presents
