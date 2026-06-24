@@ -115,7 +115,12 @@ steps:
       - '--platform=managed'
       - '--no-traffic'
       - '--tag=staging-$SHORT_SHA'
-      - '--set-env-vars=NODE_ENV=staging'
+      # OPENAI_API_KEY placeholder: the OpenAI SDK now throws at construction
+      # (module load) when no key is set, which crashed boot. CDS is gated off and
+      # OpenAI features are non-functional pending the Vertex migration, so a
+      # placeholder is behavior-preserving. Override with a real Secret Manager
+      # key here if/when OpenAI features are intentionally enabled.
+      - '--set-env-vars=NODE_ENV=production,OPENAI_API_KEY=cds-gated-placeholder'
       # Parity with the live service: DB + FHIR config must be wired or the app boots DB-less
       - '--set-secrets=DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest'
       - '--service-account=1060107259776-compute@developer.gserviceaccount.com'
