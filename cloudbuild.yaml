@@ -115,14 +115,12 @@ steps:
       - '--platform=managed'
       - '--no-traffic'
       - '--tag=staging-$SHORT_SHA'
-      # OPENAI_API_KEY placeholder: the OpenAI SDK now throws at construction
-      # (module load) when no key is set, which crashed boot. CDS is gated off and
-      # OpenAI features are non-functional pending the Vertex migration, so a
-      # placeholder is behavior-preserving. Override with a real Secret Manager
-      # key here if/when OpenAI features are intentionally enabled.
-      - '--set-env-vars=NODE_ENV=production,OPENAI_API_KEY=cds-gated-placeholder'
-      # Parity with the live service: DB + FHIR config must be wired or the app boots DB-less
-      - '--set-secrets=DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest'
+      # AI calls route through the internal LiteLLM gateway, keyed by LITELLM_MASTER_KEY.
+      # The OpenAI SDK throws at construction without a key, so these MUST be set or
+      # the container crashes at boot. (The pipeline previously dropped this config.)
+      - '--set-env-vars=NODE_ENV=production,OPENAI_BASE_URL=https://llm-gateway-1060107259776.us-central1.run.app/v1,AI_INTEGRATIONS_OPENAI_BASE_URL=https://llm-gateway-1060107259776.us-central1.run.app/v1'
+      # All secret-typed env: DB + FHIR + the LiteLLM master key (as OPENAI_API_KEY).
+      - '--set-secrets=DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest,OPENAI_API_KEY=LITELLM_MASTER_KEY:latest,AI_INTEGRATIONS_OPENAI_API_KEY=LITELLM_MASTER_KEY:latest'
       # DATABASE_URL connects via the Cloud SQL Unix socket (host=/cloudsql/...);
       # the instance MUST be attached or the socket is absent (connect ENOENT) and
       # the app runs DB-broken. (The legacy live revision lacked this — DB was down.)
