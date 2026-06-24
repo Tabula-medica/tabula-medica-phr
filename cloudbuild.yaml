@@ -123,6 +123,10 @@ steps:
       - '--set-env-vars=NODE_ENV=production,OPENAI_API_KEY=cds-gated-placeholder'
       # Parity with the live service: DB + FHIR config must be wired or the app boots DB-less
       - '--set-secrets=DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest'
+      # DATABASE_URL connects via the Cloud SQL Unix socket (host=/cloudsql/...);
+      # the instance MUST be attached or the socket is absent (connect ENOENT) and
+      # the app runs DB-broken. (The legacy live revision lacked this — DB was down.)
+      - '--add-cloudsql-instances=united-planet-485003-n7:us-central1:tabula-medica-db'
       - '--service-account=1060107259776-compute@developer.gserviceaccount.com'
       - '--memory=1Gi'
       - '--cpu=2'
