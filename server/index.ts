@@ -63,7 +63,9 @@ if (process.env.ENABLE_ECW_CHECK === 'false' || process.env.USE_TEFCA === 'true'
   console.log("TEFCA Mode Active: Skipping eCW Firewall Check.");
 }
 
-app.get("/", (req, res) => res.status(200).send("HEALTHY"));
+// NOTE: root "/" is intentionally NOT a HEALTHY responder here — browsers must
+// reach the SPA (served by serveStatic). Health probes are handled instantly by
+// handleRawHealthCheck below, which only responds to non-browser requests at "/".
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -112,6 +114,13 @@ function handleRawHealthCheck(req: import("http").IncomingMessage, res: import("
   const isDedicatedHealthPath = DEDICATED_HEALTH_PATHS.has(urlPath);
 
   if (urlPath === "/") {
+    // Browsers (Accept: text/html) must reach the SPA — DON'T short-circuit them.
+    // Health probes / LBs (curl, Cloud Run probe: Accept */* or none) get the
+    // instant text response so startup/liveness stays fast.
+    const accept = String(req.headers["accept"] || "");
+    if (accept.includes("text/html")) {
+      return false; // fall through to Express -> serveStatic -> index.html
+    }
     res.writeHead(200, { "Content-Type": "text/plain", "Content-Length": "7", "Cache-Control": "no-cache, no-store" });
     req.method !== "HEAD" ? res.end("HEALTHY") : res.end();
     return true;
