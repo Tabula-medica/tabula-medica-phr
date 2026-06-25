@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,21 @@ interface PatientProfile {
   lastUpdated: string;
   completionPercentage: number;
 }
+
+// Emergency Contact & Care Team — optional, patient-chosen contact info.
+// Persisted (encrypted at rest) via /api/patient-contacts/:profileId, keyed by
+// the real `profiles` row UUID (NOT the legacy patient-profile id).
+interface PatientContacts {
+  nextOfKin: { name: string; relationship: string; phone: string; email: string };
+  pcp: { name: string; phone: string };
+  patient: { phone: string; email: string };
+}
+
+const EMPTY_CONTACTS: PatientContacts = {
+  nextOfKin: { name: "", relationship: "", phone: "", email: "" },
+  pcp: { name: "", phone: "" },
+  patient: { phone: "", email: "" },
+};
 
 import { getInitials } from "@/components/shared";
 import { formatDate, formatDateTime } from "@/components/shared/format-helpers";
@@ -241,6 +256,52 @@ export default function ComprehensivePatientProfile() {
       toast({ title: "Insurance removed" });
     }
   });
+
+  // ---- Emergency Contact & Care Team --------------------------------------
+  // These optional fields persist to /api/patient-contacts/:profileId, which is
+  // keyed by the REAL `profiles` row UUID from the active profile (NOT patientId,
+  // which belongs to the separate /api/patient-profile demo store).
+  const { data: activeProfile } = useQuery<{ id: string }>({
+    queryKey: ["/api/profiles/active"],
+  });
+  const contactsProfileId = activeProfile?.id;
+  const [contacts, setContacts] = useState<PatientContacts>(EMPTY_CONTACTS);
+
+  const contactsQuery = useQuery<{ contacts: PatientContacts }>({
+    queryKey: ["/api/patient-contacts", contactsProfileId],
+    enabled: !!contactsProfileId,
+  });
+
+  useEffect(() => {
+    if (contactsQuery.data?.contacts) {
+      setContacts({ ...EMPTY_CONTACTS, ...contactsQuery.data.contacts });
+    }
+  }, [contactsQuery.data]);
+
+  const saveContactsMutation = useMutation({
+    mutationFn: async (payload: PatientContacts) => {
+      const res = await apiRequest("PUT", `/api/patient-contacts/${contactsProfileId}`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-contacts", contactsProfileId] });
+      toast({ title: "Contacts saved", description: "Your emergency contact & care team details were updated." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not save contacts", description: err?.message ?? "Please try again.", variant: "destructive" });
+    }
+  });
+
+  const updateContact = <S extends keyof PatientContacts, F extends keyof PatientContacts[S]>(
+    section: S,
+    field: F,
+    value: string,
+  ) => {
+    setContacts((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], [field]: value },
+    }));
+  };
 
   if (isLoading) {
     return (
@@ -657,6 +718,93 @@ export default function ComprehensivePatientProfile() {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="w-5 h-5 text-primary" />
+                Preferred Contact Info
+              </CardTitle>
+              <CardDescription>
+                Optional — you choose what to share. This helps your care team reach someone in an emergency and lets providers contact you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contacts-patient-phone">Phone</Label>
+                  <Input
+                    id="contacts-patient-phone"
+                    type="tel"
+                    value={contacts.patient.phone}
+                    onChange={(e) => updateContact("patient", "phone", e.target.value)}
+                    placeholder="e.g., (555) 222-3333"
+                    maxLength={200}
+                    data-testid="input-contacts-patient-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contacts-patient-email">Email</Label>
+                  <Input
+                    id="contacts-patient-email"
+                    type="email"
+                    value={contacts.patient.email}
+                    onChange={(e) => updateContact("patient", "email", e.target.value)}
+                    placeholder="e.g., you@example.com"
+                    maxLength={200}
+                    data-testid="input-contacts-patient-email"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="w-5 h-5 text-primary" />
+                Primary Care Provider
+              </CardTitle>
+              <CardDescription>Your primary care doctor.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pcp-name">Doctor Name</Label>
+                  <Input
+                    id="pcp-name"
+                    value={contacts.pcp.name}
+                    onChange={(e) => updateContact("pcp", "name", e.target.value)}
+                    placeholder="e.g., Dr. Smith"
+                    maxLength={200}
+                    data-testid="input-pcp-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pcp-phone">Phone</Label>
+                  <Input
+                    id="pcp-phone"
+                    type="tel"
+                    value={contacts.pcp.phone}
+                    onChange={(e) => updateContact("pcp", "phone", e.target.value)}
+                    placeholder="e.g., (555) 765-4321"
+                    maxLength={200}
+                    data-testid="input-pcp-phone"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => saveContactsMutation.mutate(contacts)}
+                  disabled={saveContactsMutation.isPending || contactsQuery.isLoading || !contactsProfileId}
+                  data-testid="button-save-contacts-contact"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {saveContactsMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="emergency" className="space-y-4">
@@ -714,6 +862,78 @@ export default function ComprehensivePatientProfile() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-primary" />
+                Next of Kin
+              </CardTitle>
+              <CardDescription>
+                Optional — you choose what to share. This helps your care team reach someone in an emergency and lets providers contact you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nok-name">Name</Label>
+                  <Input
+                    id="nok-name"
+                    value={contacts.nextOfKin.name}
+                    onChange={(e) => updateContact("nextOfKin", "name", e.target.value)}
+                    placeholder="e.g., Jane Doe"
+                    maxLength={200}
+                    data-testid="input-nok-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nok-relationship">Relationship</Label>
+                  <Input
+                    id="nok-relationship"
+                    value={contacts.nextOfKin.relationship}
+                    onChange={(e) => updateContact("nextOfKin", "relationship", e.target.value)}
+                    placeholder="e.g., Spouse, Parent"
+                    maxLength={200}
+                    data-testid="input-nok-relationship"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nok-phone">Phone</Label>
+                  <Input
+                    id="nok-phone"
+                    type="tel"
+                    value={contacts.nextOfKin.phone}
+                    onChange={(e) => updateContact("nextOfKin", "phone", e.target.value)}
+                    placeholder="e.g., (555) 123-4567"
+                    maxLength={200}
+                    data-testid="input-nok-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nok-email">Email</Label>
+                  <Input
+                    id="nok-email"
+                    type="email"
+                    value={contacts.nextOfKin.email}
+                    onChange={(e) => updateContact("nextOfKin", "email", e.target.value)}
+                    placeholder="e.g., jane@example.com"
+                    maxLength={200}
+                    data-testid="input-nok-email"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => saveContactsMutation.mutate(contacts)}
+                  disabled={saveContactsMutation.isPending || contactsQuery.isLoading || !contactsProfileId}
+                  data-testid="button-save-contacts-emergency"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {saveContactsMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

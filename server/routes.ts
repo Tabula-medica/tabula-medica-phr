@@ -38038,6 +38038,10 @@ startxref
   app.use("/api/care-team-hub", careTeamHubRoutes.default);
   console.log("[Routes] Care Team Hub routes registered at /api/care-team-hub/*");
 
+  const patientContactsRoutes = await import("./routes/patient-contacts-routes");
+  app.use("/api/patient-contacts", patientContactsRoutes.default);
+  console.log("[Routes] Patient Contacts (Emergency Contact & Care Team) routes registered at /api/patient-contacts/*");
+
   // ================== Zero-Knowledge Encryption Routes ==================
   const zkEncryptionRoutes = await import("./routes/zk-encryption-routes");
   app.use("/api/zk-encryption", zkEncryptionRoutes.default);
