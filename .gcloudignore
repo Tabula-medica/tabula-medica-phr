@@ -12,6 +12,7 @@ replit.nix
 .idea
 .env
 .env.*
+!client/.env.production
 tmp
 coverage
 *.log
