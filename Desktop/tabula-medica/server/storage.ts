@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
@@ -1170,7 +1170,9 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User> = new Map();
+  // protected (not private) so DatabaseStorage can hydrate/mirror this Map for
+  // the analytics & caregiver methods that still read it after users moved to DB.
+  protected users: Map<string, User> = new Map();
   private ehrConnections: Map<string, EhrConnection> = new Map();
   private oauthPendingStates: Map<string, OAuthPendingState> = new Map();
   private caregivers: Map<string, Caregiver> = new Map();
@@ -12316,12 +12318,165 @@ export class MemStorage implements IStorage {
  *
  * ── Migrated so far ──────────────────────────────────────────────────────────
  *   • SecurityAuditLog  → security_audit_logs  (HIPAA §164.312(b) audit trail)
+ *   • User              → app_users            (root identity; Map mirrored +
+ *                                               hydrated for analytics readers)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   users, medicalRecords, consents, sessions, … (prioritised by PHI exposure)
+ *   medicalRecords, consents, sessions, caregivers, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
     super();
+  }
+
+  // ══ User entity (C1) ════════════════════════════════════════════════════════
+  // DB (app_users) is the source of truth; rows are also mirrored into the
+  // inherited `users` Map so the analytics/caregiver methods that still read it
+  // stay consistent (see the hydrate-then-super overrides at the bottom).
+  private usersHydrated = false;
+
+  private mapUserRow(row: typeof appUsersTable.$inferSelect): User {
+    return {
+      id: row.id,
+      email: row.email,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      profileImageUrl: row.profileImageUrl,
+      role: row.role,
+      isActive: row.isActive,
+      lastLoginAt: row.lastLoginAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      passwordHash: row.passwordHash,
+      authProvider: row.authProvider,
+      mfaRequired: row.mfaRequired,
+      passwordUpdatedAt: row.passwordUpdatedAt,
+      emailVerified: row.emailVerified,
+      status: row.status,
+      dateOfBirth: row.dateOfBirth,
+      preferredLanguage: row.preferredLanguage,
+    };
+  }
+
+  /** Load all users from Postgres into the in-memory Map exactly once, so the
+   *  inherited analytics/caregiver readers (which iterate `this.users`) are
+   *  correct without reimplementing aggregation over not-yet-migrated Maps. */
+  private async ensureUsersHydrated(): Promise<void> {
+    if (this.usersHydrated) return;
+    const rows = await this.dbc.select().from(appUsersTable);
+    for (const row of rows) {
+      const u = this.mapUserRow(row);
+      this.users.set(u.id, u);
+    }
+    this.usersHydrated = true;
+  }
+
+  override async getUser(id: string): Promise<User | undefined> {
+    const [row] = await this.dbc.select().from(appUsersTable).where(eq(appUsersTable.id, id));
+    if (!row) return undefined;
+    const u = this.mapUserRow(row);
+    this.users.set(u.id, u);
+    return u;
+  }
+
+  override async getUserByEmail(email: string): Promise<User | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appUsersTable)
+      .where(eq(appUsersTable.email, email));
+    return row ? this.mapUserRow(row) : undefined;
+  }
+
+  override async getUsersByRole(role: UserRole): Promise<User[]> {
+    const rows = await this.dbc.select().from(appUsersTable).where(eq(appUsersTable.role, role));
+    return rows.map((r) => this.mapUserRow(r));
+  }
+
+  override async createUser(insertUser: InsertUser): Promise<User> {
+    const now = new Date();
+    const [row] = await this.dbc
+      .insert(appUsersTable)
+      .values({
+        id: insertUser.id, // undefined → defaultRandom()
+        email: insertUser.email ?? null,
+        firstName: insertUser.firstName ?? null,
+        lastName: insertUser.lastName ?? null,
+        profileImageUrl: insertUser.profileImageUrl ?? null,
+        role: insertUser.role ?? "patient",
+        isActive: true,
+        lastLoginAt: null,
+        passwordHash: insertUser.passwordHash ?? null,
+        authProvider: insertUser.authProvider ?? null,
+        mfaRequired: insertUser.mfaRequired ?? null,
+        passwordUpdatedAt: insertUser.passwordHash ? now : null,
+        emailVerified: insertUser.emailVerified ?? false,
+        status: insertUser.status ?? "active",
+        dateOfBirth: insertUser.dateOfBirth ?? null,
+        preferredLanguage: insertUser.preferredLanguage ?? null,
+      })
+      .returning();
+    const u = this.mapUserRow(row);
+    this.users.set(u.id, u); // mirror for Map-readers
+    return u;
+  }
+
+  private async updateUserRow(
+    userId: string,
+    set: Partial<typeof appUsersTable.$inferInsert>,
+  ): Promise<User | undefined> {
+    const [row] = await this.dbc
+      .update(appUsersTable)
+      .set({ ...set, updatedAt: new Date() })
+      .where(eq(appUsersTable.id, userId))
+      .returning();
+    if (!row) return undefined;
+    const u = this.mapUserRow(row);
+    this.users.set(u.id, u);
+    return u;
+  }
+
+  override async updateUserRole(userId: string, role: User["role"]): Promise<User | undefined> {
+    return this.updateUserRow(userId, { role });
+  }
+
+  override async updateUserLastLogin(userId: string): Promise<User | undefined> {
+    return this.updateUserRow(userId, { lastLoginAt: new Date().toISOString() });
+  }
+
+  override async updateUserPreferredLanguage(
+    userId: string,
+    languageCode: string,
+  ): Promise<User | undefined> {
+    return this.updateUserRow(userId, { preferredLanguage: languageCode });
+  }
+
+  override async updateUserProfile(
+    userId: string,
+    updates: Partial<Pick<User, "firstName" | "lastName" | "dateOfBirth" | "preferredLanguage">>,
+  ): Promise<User | undefined> {
+    const set: Partial<typeof appUsersTable.$inferInsert> = {};
+    if (updates.firstName !== undefined) set.firstName = updates.firstName;
+    if (updates.lastName !== undefined) set.lastName = updates.lastName;
+    if (updates.dateOfBirth !== undefined) set.dateOfBirth = updates.dateOfBirth;
+    if (updates.preferredLanguage !== undefined) set.preferredLanguage = updates.preferredLanguage;
+    if (Object.keys(set).length === 0) return this.getUser(userId);
+    return this.updateUserRow(userId, set);
+  }
+
+  // Inherited readers that iterate the users Map — hydrate from Postgres first,
+  // then delegate to MemStorage's implementation (which also reads other Maps).
+  override async getCaregivingFor(caregiverUserId: string) {
+    await this.ensureUsersHydrated();
+    return super.getCaregivingFor(caregiverUserId);
+  }
+
+  override async getChurnPredictions(riskLevel?: string) {
+    await this.ensureUsersHydrated();
+    return super.getChurnPredictions(riskLevel);
+  }
+
+  override async getAdminAnalyticsSummary() {
+    await this.ensureUsersHydrated();
+    return super.getAdminAnalyticsSummary();
   }
 
   private mapSecurityAuditLogRow(

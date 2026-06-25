@@ -4591,6 +4591,42 @@ export interface InsertUser {
   preferredLanguage?: string | null;
 }
 
+// Durable backing table for the User entity (C1). MemStorage kept users only in
+// an in-memory Map — there was no users table in the schema, so identity records
+// evaporated on every restart. Named `app_users` to avoid any collision with a
+// legacy `users` table that may exist in a live database (this is purely
+// additive). DatabaseStorage is the source of truth; it also mirrors rows into
+// the in-memory Map so the analytics/caregiver methods that still read the Map
+// stay consistent. `onboarding` (a nested object) is intentionally not persisted
+// here — MemStorage never set it in createUser either.
+export const appUsersTable = pgTable(
+  "app_users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email"),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    profileImageUrl: text("profile_image_url"),
+    role: text("role").$type<UserRole>().notNull().default("patient"),
+    isActive: boolean("is_active").notNull().default(true),
+    lastLoginAt: text("last_login_at"), // ISO string, per the User interface
+    passwordHash: text("password_hash"),
+    authProvider: text("auth_provider"),
+    mfaRequired: text("mfa_required"),
+    passwordUpdatedAt: timestamp("password_updated_at", { withTimezone: true }),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    status: text("status").notNull().default("active"),
+    dateOfBirth: text("date_of_birth"),
+    preferredLanguage: text("preferred_language"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    emailIdx: index("app_users_email_idx").on(t.email),
+    roleIdx: index("app_users_role_idx").on(t.role),
+  }),
+);
+
 // ============================================
 // PROFILE MANAGEMENT SYSTEM (Family Health Records)
 // ============================================
