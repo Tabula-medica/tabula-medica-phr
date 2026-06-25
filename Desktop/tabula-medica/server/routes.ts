@@ -1293,7 +1293,9 @@ export async function registerRoutes(
   console.log("[Routes] AI FHIR Transformation routes registered at /api/fhir-transformation/*");
 
   // Register Patient 360 routes
-  app.use("/api/patient-360", patient360Routes);
+  // SECURITY (C5): runtime-confirmed open — every route serves patient PHI
+  // (360 view, summary, stats) with no auth. Gate the whole mount.
+  app.use("/api/patient-360", isAuthenticated as any, patient360Routes);
   app.use("/api/patient-360-comprehensive", patient360ComprehensiveRoutes);
   console.log("[Routes] Patient 360 Comprehensive routes registered at /api/patient-360-comprehensive/*");
   app.use("/api/ai-provider-workflow", aiProviderWorkflowRoutes);
@@ -1306,12 +1308,17 @@ export async function registerRoutes(
   app.use("/api/new-patient-onboarding", newPatientOnboardingRoutes);
   console.log("[Routes] New Patient Onboarding routes registered at /api/new-patient-onboarding/*");
   app.use("/api/secure-onboarding", secureOnboardingRoutes);
-  app.use("/api/secure-health-records", secureHealthRecordsRoutes);
+  // SECURITY (C5): runtime-confirmed open — consultations, prescriptions,
+  // lab results, visits, and per-patient audit logs were all reachable
+  // unauthenticated despite the "secure" name. Gate the whole mount.
+  app.use("/api/secure-health-records", isAuthenticated as any, secureHealthRecordsRoutes);
   console.log("[Routes] Secure Patient Onboarding routes registered at /api/secure-onboarding/*");
   console.log("[Routes] AI Provider Workflow routes registered at /api/ai-provider-workflow/*");
   app.use("/api/provider-tasks", providerTaskRoutes);
   console.log("[Routes] Provider Task routes registered at /api/provider-tasks/*");
-  app.use("/api/dental-records", dentalRecordsRoutes);
+  // SECURITY (C5): runtime-confirmed open — dental records, tooth charts,
+  // and insurance summaries were reachable unauthenticated. Gate the mount.
+  app.use("/api/dental-records", isAuthenticated as any, dentalRecordsRoutes);
   console.log("[Routes] Dental Records routes registered at /api/dental-records/*");
   app.use("/api/dental-integrations", dentalIntegrationRoutes);
   console.log("[Routes] Dental Software Integration routes registered at /api/dental-integrations/*");
