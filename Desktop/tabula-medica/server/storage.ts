@@ -148,10 +148,10 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
-import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
 
 // Thrown when a provider tries to create/rename a risk filter preset to a name
 // that already exists within their own preset list (case-insensitive).
@@ -1186,7 +1186,10 @@ export class MemStorage implements IStorage {
   private aiPreferences: Map<string, import("@shared/schema").AIPreferences> = new Map();
   private unifiedPatients: Map<string, UnifiedPatient> = new Map();
   private patients: Map<string, Patient> = new Map();
-  private medicalRecords: Map<string, MedicalRecord> = new Map();
+  // protected so DatabaseStorage can clear/hydrate this Map for the aggregation
+  // readers (getAggregatedPatientData, getPatientPreventiveSummary) after records
+  // moved to Postgres.
+  protected medicalRecords: Map<string, MedicalRecord> = new Map();
   private medications: Map<string, Medication> = new Map();
   private vitals: Map<string, VitalSign> = new Map();
   private labResults: Map<string, LabResult> = new Map();
@@ -12320,8 +12323,10 @@ export class MemStorage implements IStorage {
  *   • SecurityAuditLog  → security_audit_logs  (HIPAA §164.312(b) audit trail)
  *   • User              → app_users            (root identity; Map mirrored +
  *                                               hydrated for analytics readers)
+ *   • MedicalRecord     → app_medical_records  (core PHI; soft-delete preserved;
+ *                                               IDOR ownership checks intact)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   medicalRecords, consents, sessions, caregivers, … (by PHI exposure)
+ *   consents, sessions, caregivers, medications, vitals, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12477,6 +12482,200 @@ export class DatabaseStorage extends MemStorage {
   override async getAdminAnalyticsSummary() {
     await this.ensureUsersHydrated();
     return super.getAdminAnalyticsSummary();
+  }
+
+  // ══ MedicalRecord entity (C1) — core PHI ════════════════════════════════════
+  private medicalRecordsHydrated = false;
+
+  private mapMedicalRecordRow(row: typeof appMedicalRecordsTable.$inferSelect): MedicalRecord {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      type: row.type,
+      title: row.title,
+      description: row.description,
+      date: row.date,
+      provider: row.provider,
+      facility: row.facility,
+      status: row.status as MedicalRecord["status"],
+    };
+  }
+
+  private sortByDateDesc(records: MedicalRecord[]): MedicalRecord[] {
+    return records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  /** Clear + reload the medicalRecords Map from Postgres exactly once. Clearing
+   *  first drops constructor-seeded demo fixtures so the Map faithfully mirrors
+   *  the DB for the inherited aggregation readers below. */
+  private async ensureMedicalRecordsHydrated(): Promise<void> {
+    if (this.medicalRecordsHydrated) return;
+    this.medicalRecords.clear();
+    const rows = await this.dbc.select().from(appMedicalRecordsTable);
+    for (const row of rows) {
+      const r = this.mapMedicalRecordRow(row);
+      this.medicalRecords.set(r.id, r);
+    }
+    this.medicalRecordsHydrated = true;
+  }
+
+  override async getMedicalRecord(id: string): Promise<MedicalRecord | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appMedicalRecordsTable)
+      .where(eq(appMedicalRecordsTable.id, id));
+    return row ? this.mapMedicalRecordRow(row) : undefined;
+  }
+
+  override async getMedicalRecordsByPatient(patientId: string): Promise<MedicalRecord[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appMedicalRecordsTable)
+      .where(
+        and(eq(appMedicalRecordsTable.patientId, patientId), ne(appMedicalRecordsTable.status, "deleted")),
+      );
+    return this.sortByDateDesc(rows.map((r) => this.mapMedicalRecordRow(r)));
+  }
+
+  override async getMedicalRecordsByConnectionId(connectionId: string): Promise<MedicalRecord[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appMedicalRecordsTable)
+      .where(
+        and(
+          eq(appMedicalRecordsTable.ehrConnectionId, connectionId),
+          ne(appMedicalRecordsTable.status, "deleted"),
+        ),
+      );
+    return this.sortByDateDesc(rows.map((r) => this.mapMedicalRecordRow(r)));
+  }
+
+  override async getMedicalRecordsByUnifiedPatient(unifiedPatientId: string): Promise<MedicalRecord[]> {
+    const patients = await this.getPatientsByUnifiedId(unifiedPatientId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length === 0) return [];
+    const rows = await this.dbc
+      .select()
+      .from(appMedicalRecordsTable)
+      .where(
+        and(
+          inArray(appMedicalRecordsTable.patientId, patientIds),
+          ne(appMedicalRecordsTable.status, "deleted"),
+        ),
+      );
+    return this.sortByDateDesc(rows.map((r) => this.mapMedicalRecordRow(r)));
+  }
+
+  override async createMedicalRecord(record: InsertMedicalRecord): Promise<MedicalRecord> {
+    const [row] = await this.dbc
+      .insert(appMedicalRecordsTable)
+      .values({
+        patientId: record.patientId,
+        ehrConnectionId: record.ehrConnectionId,
+        type: record.type,
+        title: record.title,
+        description: record.description,
+        date: record.date,
+        provider: record.provider,
+        facility: record.facility,
+        status: record.status || "active",
+      })
+      .returning();
+    const r = this.mapMedicalRecordRow(row);
+    this.medicalRecords.set(r.id, r); // mirror for the aggregation readers
+    return r;
+  }
+
+  override async softDeleteMedicalRecord(id: string, deletedBy: string): Promise<boolean> {
+    const [row] = await this.dbc
+      .update(appMedicalRecordsTable)
+      .set({ status: "deleted" })
+      .where(eq(appMedicalRecordsTable.id, id))
+      .returning({ id: appMedicalRecordsTable.id });
+    if (!row) return false;
+    this.medicalRecords.delete(id);
+    console.log(
+      `[Storage] Soft deleted medical record ${id} by user ${deletedBy} at ${new Date().toISOString()}`,
+    );
+    return true;
+  }
+
+  override async getMedicalRecordForUser(userId: string, id: string): Promise<MedicalRecord | undefined> {
+    const record = await this.getMedicalRecord(id);
+    if (!record || (record.status as string) === "deleted") return undefined;
+    const userPatientIds = await this.getUserPatientIds(userId); // ownership (IDOR) check
+    if (!userPatientIds.includes(record.patientId)) return undefined;
+    return record;
+  }
+
+  override async updateMedicalRecordForUser(
+    userId: string,
+    id: string,
+    updates: Partial<MedicalRecord>,
+  ): Promise<MedicalRecord | undefined> {
+    const record = await this.getMedicalRecordForUser(userId, id);
+    if (!record) return undefined;
+    // never allow changing id or patientId
+    const { id: _id, patientId: _patientId, ...safeUpdates } = updates;
+    const set: Partial<typeof appMedicalRecordsTable.$inferInsert> = {};
+    if (safeUpdates.ehrConnectionId !== undefined) set.ehrConnectionId = safeUpdates.ehrConnectionId;
+    if (safeUpdates.type !== undefined) set.type = safeUpdates.type;
+    if (safeUpdates.title !== undefined) set.title = safeUpdates.title;
+    if (safeUpdates.description !== undefined) set.description = safeUpdates.description;
+    if (safeUpdates.date !== undefined) set.date = safeUpdates.date;
+    if (safeUpdates.provider !== undefined) set.provider = safeUpdates.provider;
+    if (safeUpdates.facility !== undefined) set.facility = safeUpdates.facility;
+    if (safeUpdates.status !== undefined) set.status = safeUpdates.status;
+    if (Object.keys(set).length === 0) return record;
+    const [row] = await this.dbc
+      .update(appMedicalRecordsTable)
+      .set(set)
+      .where(eq(appMedicalRecordsTable.id, id))
+      .returning();
+    if (!row) return undefined;
+    const r = this.mapMedicalRecordRow(row);
+    this.medicalRecords.set(r.id, r);
+    console.log(`[Storage] Updated medical record ${id} by user ${userId} at ${new Date().toISOString()}`);
+    return r;
+  }
+
+  override async deleteMedicalRecordForUser(userId: string, id: string): Promise<boolean> {
+    const record = await this.getMedicalRecordForUser(userId, id);
+    if (!record) return false;
+    await this.dbc
+      .update(appMedicalRecordsTable)
+      .set({ status: "deleted" })
+      .where(eq(appMedicalRecordsTable.id, id));
+    this.medicalRecords.delete(id);
+    console.log(
+      `[Storage] User-scoped soft delete of medical record ${id} by user ${userId} at ${new Date().toISOString()}`,
+    );
+    return true;
+  }
+
+  override async deletePatientsByConnection(connectionId: string): Promise<void> {
+    // Hard-delete this connection's medical records from Postgres; the inherited
+    // implementation removes the patients + other Map-backed entities (and the
+    // mirrored records in the Map).
+    const patients = await this.getPatientsByConnection(connectionId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length > 0) {
+      await this.dbc.delete(appMedicalRecordsTable).where(inArray(appMedicalRecordsTable.patientId, patientIds));
+    }
+    await super.deletePatientsByConnection(connectionId);
+  }
+
+  // Inherited aggregation readers that iterate the medicalRecords Map — hydrate
+  // from Postgres first, then delegate to MemStorage's implementation.
+  override async getAggregatedPatientData(unifiedPatientId: string) {
+    await this.ensureMedicalRecordsHydrated();
+    return super.getAggregatedPatientData(unifiedPatientId);
+  }
+
+  override async getPatientPreventiveSummary(patientId: string) {
+    await this.ensureMedicalRecordsHydrated();
+    return super.getPatientPreventiveSummary(patientId);
   }
 
   private mapSecurityAuditLogRow(

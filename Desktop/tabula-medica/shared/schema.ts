@@ -1883,6 +1883,31 @@ export const insertMedicalRecordSchema = z.object({
 
 export type InsertMedicalRecord = z.infer<typeof insertMedicalRecordSchema>;
 
+// Durable backing table for the MedicalRecord entity (C1) — core PHI. MemStorage
+// kept these in an in-memory Map (lost on restart). `status` is plain text (not a
+// constrained enum) because the soft-delete path stores "deleted" in addition to
+// the active/resolved/pending interface values. Named `app_medical_records` to
+// avoid collision with any legacy table; additive only.
+export const appMedicalRecordsTable = pgTable(
+  "app_medical_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    type: text("type").$type<MedicalRecord["type"]>().notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    date: text("date").notNull(), // ISO date string, per the MedicalRecord interface
+    provider: text("provider").notNull(),
+    facility: text("facility").notNull(),
+    status: text("status").notNull().default("active"),
+  },
+  (t) => ({
+    patientIdx: index("app_medical_records_patient_idx").on(t.patientId),
+    connectionIdx: index("app_medical_records_connection_idx").on(t.ehrConnectionId),
+  }),
+);
+
 // Medication
 export interface Medication {
   id: string;
