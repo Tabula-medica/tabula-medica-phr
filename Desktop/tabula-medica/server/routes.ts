@@ -1,4 +1,4 @@
-import type { Express, Request } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
 import { generateSecret, verifySync, generateURI } from "otplib";
@@ -1121,15 +1121,62 @@ export async function registerRoutes(
     }
   });
   
+  // ============================================================================
+  // SECURITY (C5): GLOBAL DENY-BY-DEFAULT AUTH GATE
+  // ----------------------------------------------------------------------------
+  // Runtime audit (2026-06-25) found 255 PHI routers mounted under /api with
+  // auth applied per-route and opt-in — and ~247 of them never opted in, so a
+  // logged-out caller could read patient FHIR data, lab results, audit logs,
+  // etc. (4 such routers confirmed returning 200 + data, now also gated inline
+  // below). Surgically gating ~250 mounts is infeasible and guarantees misses,
+  // so this single choke point denies by default and allows an explicit, small
+  // public surface.
+  //
+  // Placement: this runs AFTER setupAuth()/registerAuthRoutes() (so session +
+  // passport are initialised and req.user is populated) and BEFORE every router
+  // mount below. Routes registered earlier (/api/login, /api/logout,
+  // /api/auth/gcip/session, /api/auth/user, /api/voice/*, /api/translate/*,
+  // /api/health-content/*) are matched before this gate and are unaffected.
+  //
+  // ⚠️ STAGING VERIFICATION REQUIRED before deploy: this dev box has no real
+  // GCIP, so authenticated + onboarding flows can't be exercised here. The
+  // allowlist below was verified to (a) keep public resource-finders + OAuth/
+  // SMART discovery + webhooks reachable and (b) flip PHI routers to 401 — but
+  // every public-facing flow (login round-trip, onboarding pre-consent, share
+  // links, each external webhook) MUST be exercised on a real instance and any
+  // unexpected 401 added to PUBLIC_API before this ships. See
+  // _tabula-medica-AUDIT/01-REMEDIATION-PLAN.md §1b/§1c.
+  const PUBLIC_API: RegExp[] = [
+    /^\/api\/health/,                                   // liveness (also registered pre-gate)
+    /^\/api\/fhir-oauth\//,                             // OAuth2/SMART: self-auth via client creds; router's own gate (C2) handles authz
+    /^\/api\/webhooks\//, /^\/api\/fasten-connect\/webhook/, // external webhooks: signature-verified, not session-auth
+    /^\/api\/auth\/cac\/(challenge|verify)\b/,          // DoD CAC pre-auth handshake (enroll/status keep their own requireAuth)
+    // Public, PHI-free resource finders / directories / pricing (intentionally anonymous):
+    /^\/api\/symptom-checker\//, /^\/api\/npi-lookup\//, /^\/api\/fqhc-finder\//,
+    /^\/api\/uninsured-resources\//, /^\/api\/support-resources\//, /^\/api\/goodrx\//,
+    /^\/api\/findhelp\//, /^\/api\/sesame-care\//, /^\/api\/cms-marketplace\//,
+    /^\/api\/drug-savings\//, /^\/api\/insurance-learning\//,
+  ];
+  // NOTE: mount path-less (not app.use("/api", ...)) because Express strips the
+  // mount prefix from req.path inside path-mounted middleware — which would make
+  // every /^\/api\/.../ allowlist entry fail to match and deny *everything*.
+  // Path-less keeps req.path as the full original path so the regexes work.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path !== "/api" && !req.path.startsWith("/api/")) return next(); // non-/api (assets, SEO, /auth/callback) untouched
+    if (PUBLIC_API.some((re) => re.test(req.path))) return next();
+    return (isAuthenticated as any)(req, res, next);
+  });
+  console.log("[Routes] SECURITY: global deny-by-default auth gate active on /api (C5)");
+
   // Initialize GCP healthcare integrations (FHIR, BigQuery, Vertex AI)
   try {
     await initializeIntegrations();
     // SECURITY (C5): every route in this router serves PHI / clinical data
     // (patient FHIR resources, population analytics, risk prediction, audit
     // logs) yet none declared auth — the whole mount was reachable
-    // unauthenticated. Gate the entire router with isAuthenticated. The
-    // load-balancer health path is /api/health (server/index.ts), not this
-    // router's /api/integrations/health, so nothing public depends on it.
+    // unauthenticated. Gate the entire router with isAuthenticated (defence in
+    // depth alongside the global gate above). The load-balancer health path is
+    // /api/health (server/index.ts), not this router's /api/integrations/health.
     app.use("/api/integrations", isAuthenticated as any, gcpIntegrationRoutes);
     console.log("[Routes] GCP healthcare integrations registered at /api/integrations (auth required)");
   } catch (error) {
