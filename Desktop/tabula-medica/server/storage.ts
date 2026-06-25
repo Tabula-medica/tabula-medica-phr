@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -12325,8 +12325,10 @@ export class MemStorage implements IStorage {
  *                                               hydrated for analytics readers)
  *   • MedicalRecord     → app_medical_records  (core PHI; soft-delete preserved;
  *                                               IDOR ownership checks intact)
+ *   • UserConsentRecord → app_user_consent_records (gates PHI access §164.524;
+ *                                               getUserConsentStatus/check now durable)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   consents, sessions, caregivers, medications, vitals, … (by PHI exposure)
+ *   sessions, caregivers, medications, vitals, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12676,6 +12678,125 @@ export class DatabaseStorage extends MemStorage {
   override async getPatientPreventiveSummary(patientId: string) {
     await this.ensureMedicalRecordsHydrated();
     return super.getPatientPreventiveSummary(patientId);
+  }
+
+  // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════
+  // The Map has no readers outside these CRUD methods (the gating methods —
+  // getUserConsentStatus / checkRequiredConsents / withdrawUserConsent — go
+  // through the getters below), so this is a pure DB replacement: no Map mirror
+  // or hydration needed.
+  private mapUserConsentRecordRow(
+    row: typeof appUserConsentRecordsTable.$inferSelect,
+  ): UserConsentRecord {
+    return {
+      id: row.id,
+      userId: row.userId,
+      documentId: row.documentId,
+      documentType: row.documentType,
+      documentVersion: row.documentVersion,
+      status: row.status,
+      acceptedAt: row.acceptedAt ?? undefined,
+      declinedAt: row.declinedAt ?? undefined,
+      withdrawnAt: row.withdrawnAt ?? undefined,
+      expiresAt: row.expiresAt ?? undefined,
+      ipAddress: row.ipAddress ?? undefined,
+      userAgent: row.userAgent ?? undefined,
+      method: row.method,
+      metadata: row.metadata ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getUserConsentRecords(userId: string): Promise<UserConsentRecord[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appUserConsentRecordsTable)
+      .where(eq(appUserConsentRecordsTable.userId, userId));
+    return rows
+      .map((r) => this.mapUserConsentRecordRow(r))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  override async getUserConsentRecord(id: string): Promise<UserConsentRecord | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appUserConsentRecordsTable)
+      .where(eq(appUserConsentRecordsTable.id, id));
+    return row ? this.mapUserConsentRecordRow(row) : undefined;
+  }
+
+  override async getUserConsentForDocument(
+    userId: string,
+    documentType: ConsentDocumentType,
+  ): Promise<UserConsentRecord | undefined> {
+    const activeDoc = await this.getActiveConsentDocument(documentType); // inherited (consentDocuments Map)
+    if (!activeDoc) return undefined;
+    const [row] = await this.dbc
+      .select()
+      .from(appUserConsentRecordsTable)
+      .where(
+        and(
+          eq(appUserConsentRecordsTable.userId, userId),
+          eq(appUserConsentRecordsTable.documentId, activeDoc.id),
+          eq(appUserConsentRecordsTable.status, "accepted"),
+        ),
+      );
+    return row ? this.mapUserConsentRecordRow(row) : undefined;
+  }
+
+  override async createUserConsentRecord(
+    record: InsertUserConsentRecord,
+  ): Promise<UserConsentRecord> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appUserConsentRecordsTable)
+      .values({
+        userId: record.userId,
+        documentId: record.documentId,
+        documentType: record.documentType,
+        documentVersion: record.documentVersion,
+        status: record.status,
+        acceptedAt: record.acceptedAt ?? null,
+        declinedAt: record.declinedAt ?? null,
+        withdrawnAt: record.withdrawnAt ?? null,
+        expiresAt: record.expiresAt ?? null,
+        ipAddress: record.ipAddress ?? null,
+        userAgent: record.userAgent ?? null,
+        method: record.method ?? "click",
+        metadata: record.metadata ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapUserConsentRecordRow(row);
+  }
+
+  override async updateUserConsentRecord(
+    id: string,
+    updates: Partial<UserConsentRecord>,
+  ): Promise<UserConsentRecord | undefined> {
+    const set: Partial<typeof appUserConsentRecordsTable.$inferInsert> = {};
+    if (updates.userId !== undefined) set.userId = updates.userId;
+    if (updates.documentId !== undefined) set.documentId = updates.documentId;
+    if (updates.documentType !== undefined) set.documentType = updates.documentType;
+    if (updates.documentVersion !== undefined) set.documentVersion = updates.documentVersion;
+    if (updates.status !== undefined) set.status = updates.status;
+    if (updates.acceptedAt !== undefined) set.acceptedAt = updates.acceptedAt;
+    if (updates.declinedAt !== undefined) set.declinedAt = updates.declinedAt;
+    if (updates.withdrawnAt !== undefined) set.withdrawnAt = updates.withdrawnAt;
+    if (updates.expiresAt !== undefined) set.expiresAt = updates.expiresAt;
+    if (updates.ipAddress !== undefined) set.ipAddress = updates.ipAddress;
+    if (updates.userAgent !== undefined) set.userAgent = updates.userAgent;
+    if (updates.method !== undefined) set.method = updates.method;
+    if (updates.metadata !== undefined) set.metadata = updates.metadata;
+    set.updatedAt = new Date().toISOString(); // never change id
+    const [row] = await this.dbc
+      .update(appUserConsentRecordsTable)
+      .set(set)
+      .where(eq(appUserConsentRecordsTable.id, id))
+      .returning();
+    return row ? this.mapUserConsentRecordRow(row) : undefined;
   }
 
   private mapSecurityAuditLogRow(

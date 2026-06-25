@@ -6011,6 +6011,37 @@ export const insertUserConsentRecordSchema = z.object({
 
 export type InsertUserConsentRecord = z.infer<typeof insertUserConsentRecordSchema>;
 
+// Durable backing table for UserConsentRecord (C1). Consent records gate PHI
+// access (§164.524) and the legal record of who consented to what — they cannot
+// live in an in-memory Map that resets on restart. createdAt/updatedAt are ISO
+// strings (text) to match the interface. Named `app_user_consent_records`;
+// additive only.
+export const appUserConsentRecordsTable = pgTable(
+  "app_user_consent_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    documentId: text("document_id").notNull(),
+    documentType: text("document_type").$type<ConsentDocumentType>().notNull(),
+    documentVersion: text("document_version").notNull(),
+    status: text("status").$type<UserConsentRecord["status"]>().notNull(),
+    acceptedAt: text("accepted_at"),
+    declinedAt: text("declined_at"),
+    withdrawnAt: text("withdrawn_at"),
+    expiresAt: text("expires_at"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    method: text("method").$type<UserConsentRecord["method"]>().notNull().default("click"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    userIdx: index("app_user_consent_records_user_idx").on(t.userId),
+    docIdx: index("app_user_consent_records_doc_idx").on(t.documentId),
+  }),
+);
+
 // Consent Analytics Event Types
 export const consentAnalyticsEvents = [
   "consent_viewed",
