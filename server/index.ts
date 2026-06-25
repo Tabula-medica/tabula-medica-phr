@@ -178,8 +178,14 @@ app.use(gcpAuditMiddleware);
 // override via AI_BLOCKED_COUNTRIES env var).
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
+import { hostEditionMiddleware, worldGeofenceMiddleware } from "./middleware/host-edition";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
+// Host-based .us/.world edition split (sets req.edition + req.tefcaAllowed) and the
+// .world EU/EEA geofence (GDPR deferred). Runs after geoCountryMiddleware so the
+// geofence can read req.country. TEFCA routing only — live connections stay gated.
+app.use(hostEditionMiddleware());
+app.use(worldGeofenceMiddleware());
 
 // H12 — vhost split (admin.tabulamedica.health vs tabulamedica.health).
 // Disabled by default; enable with ADMIN_HOST_SPLIT=enabled + ADMIN_HOST=...

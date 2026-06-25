@@ -38198,7 +38198,13 @@ startxref
   app.get("/api/region-features", async (req: any, res) => {
     const userId = req.user?.claims?.sub || req.headers["x-user-id"];
     let region = "international";
-    if (userId) {
+    // Host edition takes precedence: tabulamedica.us = US (TEFCA/US networks on),
+    // tabulamedica.world = global (off). Else fall back to the user's saved preference.
+    if (req.edition === "us") {
+      region = "us";
+    } else if (req.edition === "world") {
+      region = "international";
+    } else if (userId) {
       const [account] = await phiDb.select({ region: accounts.region }).from(accounts).where(eq(accounts.id, userId)).limit(1);
       if (account?.region) region = account.region;
     }
