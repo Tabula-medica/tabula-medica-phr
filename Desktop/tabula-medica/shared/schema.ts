@@ -5218,6 +5218,30 @@ export const insertUserSessionSchema = z.object({
 
 export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 
+// Durable backing table for UserSession (C1). Active device/session records
+// drive "sign out other sessions" and session auditing — keeping them in an
+// in-memory Map meant every restart silently logged everyone out of session
+// tracking and lost the audit of active devices. Distinct from the
+// express-session store and security_sessions; named `app_user_sessions`,
+// additive only. All timestamps are ISO text per the interface.
+export const appUserSessionsTable = pgTable(
+  "app_user_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    deviceInfo: text("device_info").notNull().default("Unknown Device"),
+    ipAddress: text("ip_address").notNull().default("Unknown"),
+    userAgent: text("user_agent").notNull().default("Unknown"),
+    lastActiveAt: text("last_active_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    isCurrentSession: boolean("is_current_session").notNull().default(false),
+  },
+  (t) => ({
+    userIdx: index("app_user_sessions_user_idx").on(t.userId),
+  }),
+);
+
 // Security Audit Log
 export const securityEventTypes = [
   "login",

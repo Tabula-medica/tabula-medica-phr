@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -12327,8 +12327,10 @@ export class MemStorage implements IStorage {
  *                                               IDOR ownership checks intact)
  *   • UserConsentRecord → app_user_consent_records (gates PHI access §164.524;
  *                                               getUserConsentStatus/check now durable)
+ *   • UserSession       → app_user_sessions     (active device/session tracking;
+ *                                               ownership-scoped delete + sign-out-others)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   sessions, caregivers, medications, vitals, … (by PHI exposure)
+ *   caregivers, medications, vitals, allergies, conditions, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12797,6 +12799,99 @@ export class DatabaseStorage extends MemStorage {
       .where(eq(appUserConsentRecordsTable.id, id))
       .returning();
     return row ? this.mapUserConsentRecordRow(row) : undefined;
+  }
+
+  // ══ UserSession entity (C1) — active device/session tracking ════════════════
+  // Pure DB replacement: the Map has no readers outside these 7 methods.
+  private mapUserSessionRow(row: typeof appUserSessionsTable.$inferSelect): UserSession {
+    return {
+      id: row.id,
+      userId: row.userId,
+      deviceInfo: row.deviceInfo,
+      ipAddress: row.ipAddress,
+      userAgent: row.userAgent,
+      lastActiveAt: row.lastActiveAt,
+      createdAt: row.createdAt,
+      expiresAt: row.expiresAt,
+      isCurrentSession: row.isCurrentSession,
+    };
+  }
+
+  override async getUserSessions(userId: string): Promise<UserSession[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appUserSessionsTable)
+      .where(eq(appUserSessionsTable.userId, userId));
+    return rows
+      .map((r) => this.mapUserSessionRow(r))
+      .sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
+  }
+
+  override async getUserSession(id: string): Promise<UserSession | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appUserSessionsTable)
+      .where(eq(appUserSessionsTable.id, id));
+    return row ? this.mapUserSessionRow(row) : undefined;
+  }
+
+  override async createUserSession(session: InsertUserSession): Promise<UserSession> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appUserSessionsTable)
+      .values({
+        userId: session.userId,
+        deviceInfo: session.deviceInfo || "Unknown Device",
+        ipAddress: session.ipAddress || "Unknown",
+        userAgent: session.userAgent || "Unknown",
+        lastActiveAt: now,
+        createdAt: now,
+        expiresAt: session.expiresAt,
+        isCurrentSession: false,
+      })
+      .returning();
+    return this.mapUserSessionRow(row);
+  }
+
+  override async updateUserSession(
+    id: string,
+    updates: Partial<UserSession>,
+  ): Promise<UserSession | undefined> {
+    const set: Partial<typeof appUserSessionsTable.$inferInsert> = {};
+    if (updates.userId !== undefined) set.userId = updates.userId;
+    if (updates.deviceInfo !== undefined) set.deviceInfo = updates.deviceInfo;
+    if (updates.ipAddress !== undefined) set.ipAddress = updates.ipAddress;
+    if (updates.userAgent !== undefined) set.userAgent = updates.userAgent;
+    if (updates.lastActiveAt !== undefined) set.lastActiveAt = updates.lastActiveAt;
+    if (updates.createdAt !== undefined) set.createdAt = updates.createdAt;
+    if (updates.expiresAt !== undefined) set.expiresAt = updates.expiresAt;
+    if (updates.isCurrentSession !== undefined) set.isCurrentSession = updates.isCurrentSession;
+    if (Object.keys(set).length === 0) return this.getUserSession(id);
+    const [row] = await this.dbc
+      .update(appUserSessionsTable)
+      .set(set)
+      .where(eq(appUserSessionsTable.id, id))
+      .returning();
+    return row ? this.mapUserSessionRow(row) : undefined;
+  }
+
+  override async deleteUserSession(id: string, userId: string): Promise<void> {
+    // ownership-scoped: only deletes when the session belongs to userId
+    await this.dbc
+      .delete(appUserSessionsTable)
+      .where(and(eq(appUserSessionsTable.id, id), eq(appUserSessionsTable.userId, userId)));
+  }
+
+  override async deleteAllUserSessions(userId: string, exceptSessionId?: string): Promise<void> {
+    const where = exceptSessionId
+      ? and(eq(appUserSessionsTable.userId, userId), ne(appUserSessionsTable.id, exceptSessionId))
+      : eq(appUserSessionsTable.userId, userId);
+    await this.dbc.delete(appUserSessionsTable).where(where);
+  }
+
+  override async getAllSessions(): Promise<UserSession[]> {
+    const rows = await this.dbc.select().from(appUserSessionsTable);
+    return rows.map((r) => this.mapUserSessionRow(r));
   }
 
   private mapSecurityAuditLogRow(
