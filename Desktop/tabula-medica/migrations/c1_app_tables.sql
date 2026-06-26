@@ -186,4 +186,34 @@ CREATE TABLE IF NOT EXISTS app_allergies (
 CREATE INDEX IF NOT EXISTS app_allergies_patient_idx ON app_allergies (patient_id);
 CREATE INDEX IF NOT EXISTS app_allergies_connection_idx ON app_allergies (ehr_connection_id);
 
+-- 10) Immunizations (clinical PHI)
+CREATE TABLE IF NOT EXISTS app_immunizations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  ehr_connection_id text,
+  vaccine_name text NOT NULL,
+  vaccine_code text,
+  manufacturer text,
+  lot_number text,
+  expiration_date text,
+  dose_number integer,
+  dose_quantity double precision,
+  dose_unit text,
+  site text,
+  route text,
+  administered_date text NOT NULL,
+  administered_by text,
+  facility text,
+  status text NOT NULL DEFAULT 'completed',
+  reaction text,
+  reaction_date text,
+  reaction_severity text,
+  notes text,
+  next_dose_date text,
+  series_complete boolean,
+  created_at text NOT NULL,
+  updated_at text
+);
+CREATE INDEX IF NOT EXISTS app_immunizations_patient_idx ON app_immunizations (patient_id);
+
 COMMIT;

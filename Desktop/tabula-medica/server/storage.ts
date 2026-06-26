@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -12342,8 +12342,9 @@ export class MemStorage implements IStorage {
  *                                               getCaregivingFor = DB join w/ users)
  *   • Allergy           → app_allergies         (safety-critical PHI; Extended
  *                                               emergency-info via hydrate-then-super)
+ *   • Immunization      → app_immunizations     (clinical PHI; vaccine/lot/CVX/reaction)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   conditions, immunizations, labs, allergyEmergencyInfo, … (by PHI exposure)
+ *   labResults, conditions, allergyEmergencyInfo, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -13226,6 +13227,130 @@ export class DatabaseStorage extends MemStorage {
   ) {
     await this.ensureAllergiesHydrated();
     return super.updateAllergyEmergencyInfo(allergyId, emergencyInfo);
+  }
+
+  // ══ Immunization entity (C1) — clinical PHI ═════════════════════════════════
+  // Pure DB replacement: no reader outside these 5 methods.
+  private mapImmunizationRow(row: typeof appImmunizationsTable.$inferSelect): Immunization {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId ?? undefined,
+      vaccineName: row.vaccineName,
+      vaccineCode: row.vaccineCode ?? undefined,
+      manufacturer: row.manufacturer ?? undefined,
+      lotNumber: row.lotNumber ?? undefined,
+      expirationDate: row.expirationDate ?? undefined,
+      doseNumber: row.doseNumber ?? undefined,
+      doseQuantity: row.doseQuantity ?? undefined,
+      doseUnit: row.doseUnit ?? undefined,
+      site: row.site ?? undefined,
+      route: row.route ?? undefined,
+      administeredDate: row.administeredDate,
+      administeredBy: row.administeredBy ?? undefined,
+      facility: row.facility ?? undefined,
+      status: row.status,
+      reaction: row.reaction ?? undefined,
+      reactionDate: row.reactionDate ?? undefined,
+      reactionSeverity: row.reactionSeverity ?? undefined,
+      notes: row.notes ?? undefined,
+      nextDoseDate: row.nextDoseDate ?? undefined,
+      seriesComplete: row.seriesComplete ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt ?? undefined,
+    };
+  }
+
+  override async getImmunizations(patientId: string): Promise<Immunization[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appImmunizationsTable)
+      .where(eq(appImmunizationsTable.patientId, patientId));
+    return rows
+      .map((r) => this.mapImmunizationRow(r))
+      .sort((a, b) => new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime());
+  }
+
+  override async getImmunization(id: string): Promise<Immunization | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appImmunizationsTable)
+      .where(eq(appImmunizationsTable.id, id));
+    return row ? this.mapImmunizationRow(row) : undefined;
+  }
+
+  override async createImmunization(immunization: InsertImmunization): Promise<Immunization> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appImmunizationsTable)
+      .values({
+        patientId: immunization.patientId,
+        ehrConnectionId: immunization.ehrConnectionId ?? null,
+        vaccineName: immunization.vaccineName,
+        vaccineCode: immunization.vaccineCode ?? null,
+        manufacturer: immunization.manufacturer ?? null,
+        lotNumber: immunization.lotNumber ?? null,
+        expirationDate: immunization.expirationDate ?? null,
+        doseNumber: immunization.doseNumber ?? null,
+        doseQuantity: immunization.doseQuantity ?? null,
+        doseUnit: immunization.doseUnit ?? null,
+        site: immunization.site ?? null,
+        route: immunization.route ?? null,
+        administeredDate: immunization.administeredDate,
+        administeredBy: immunization.administeredBy ?? null,
+        facility: immunization.facility ?? null,
+        status: immunization.status || "completed",
+        reaction: immunization.reaction ?? null,
+        reactionDate: immunization.reactionDate ?? null,
+        reactionSeverity: immunization.reactionSeverity ?? null,
+        notes: immunization.notes ?? null,
+        nextDoseDate: immunization.nextDoseDate ?? null,
+        seriesComplete: immunization.seriesComplete ?? null,
+        createdAt: now,
+        updatedAt: null,
+      })
+      .returning();
+    return this.mapImmunizationRow(row);
+  }
+
+  override async updateImmunization(
+    id: string,
+    updates: Partial<Immunization>,
+  ): Promise<Immunization | undefined> {
+    const set: Partial<typeof appImmunizationsTable.$inferInsert> = {};
+    if (updates.patientId !== undefined) set.patientId = updates.patientId;
+    if (updates.ehrConnectionId !== undefined) set.ehrConnectionId = updates.ehrConnectionId;
+    if (updates.vaccineName !== undefined) set.vaccineName = updates.vaccineName;
+    if (updates.vaccineCode !== undefined) set.vaccineCode = updates.vaccineCode;
+    if (updates.manufacturer !== undefined) set.manufacturer = updates.manufacturer;
+    if (updates.lotNumber !== undefined) set.lotNumber = updates.lotNumber;
+    if (updates.expirationDate !== undefined) set.expirationDate = updates.expirationDate;
+    if (updates.doseNumber !== undefined) set.doseNumber = updates.doseNumber;
+    if (updates.doseQuantity !== undefined) set.doseQuantity = updates.doseQuantity;
+    if (updates.doseUnit !== undefined) set.doseUnit = updates.doseUnit;
+    if (updates.site !== undefined) set.site = updates.site;
+    if (updates.route !== undefined) set.route = updates.route;
+    if (updates.administeredDate !== undefined) set.administeredDate = updates.administeredDate;
+    if (updates.administeredBy !== undefined) set.administeredBy = updates.administeredBy;
+    if (updates.facility !== undefined) set.facility = updates.facility;
+    if (updates.status !== undefined) set.status = updates.status;
+    if (updates.reaction !== undefined) set.reaction = updates.reaction;
+    if (updates.reactionDate !== undefined) set.reactionDate = updates.reactionDate;
+    if (updates.reactionSeverity !== undefined) set.reactionSeverity = updates.reactionSeverity;
+    if (updates.notes !== undefined) set.notes = updates.notes;
+    if (updates.nextDoseDate !== undefined) set.nextDoseDate = updates.nextDoseDate;
+    if (updates.seriesComplete !== undefined) set.seriesComplete = updates.seriesComplete;
+    set.updatedAt = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appImmunizationsTable)
+      .set(set)
+      .where(eq(appImmunizationsTable.id, id))
+      .returning();
+    return row ? this.mapImmunizationRow(row) : undefined;
+  }
+
+  override async deleteImmunization(id: string): Promise<void> {
+    await this.dbc.delete(appImmunizationsTable).where(eq(appImmunizationsTable.id, id));
   }
 
   // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════

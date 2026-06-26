@@ -13,6 +13,7 @@ import {
   primaryKey,
   uniqueIndex,
   index,
+  doublePrecision,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
@@ -2772,6 +2773,43 @@ export const insertImmunizationSchema = z.object({
 });
 
 export type InsertImmunization = z.infer<typeof insertImmunizationSchema>;
+
+// Durable backing table for Immunization (C1) — clinical PHI (vaccination
+// record incl. lot/CVX/reaction). Kept in an in-memory Map, lost on restart.
+// Named `app_immunizations`; additive only.
+export const appImmunizationsTable = pgTable(
+  "app_immunizations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id"),
+    vaccineName: text("vaccine_name").notNull(),
+    vaccineCode: text("vaccine_code"),
+    manufacturer: text("manufacturer"),
+    lotNumber: text("lot_number"),
+    expirationDate: text("expiration_date"),
+    doseNumber: integer("dose_number"),
+    doseQuantity: doublePrecision("dose_quantity"),
+    doseUnit: text("dose_unit"),
+    site: text("site").$type<VaccineSite>(),
+    route: text("route"),
+    administeredDate: text("administered_date").notNull(),
+    administeredBy: text("administered_by"),
+    facility: text("facility"),
+    status: text("status").$type<ImmunizationStatus>().notNull().default("completed"),
+    reaction: text("reaction"),
+    reactionDate: text("reaction_date"),
+    reactionSeverity: text("reaction_severity").$type<"mild" | "moderate" | "severe">(),
+    notes: text("notes"),
+    nextDoseDate: text("next_dose_date"),
+    seriesComplete: boolean("series_complete"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at"),
+  },
+  (t) => ({
+    patientIdx: index("app_immunizations_patient_idx").on(t.patientId),
+  }),
+);
 
 // ============================================
 // ADVANCED HEALTH METRICS TRACKING
