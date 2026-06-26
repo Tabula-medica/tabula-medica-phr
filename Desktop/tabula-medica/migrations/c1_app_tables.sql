@@ -168,4 +168,22 @@ CREATE INDEX IF NOT EXISTS app_caregivers_patient_idx ON app_caregivers (patient
 CREATE INDEX IF NOT EXISTS app_caregivers_caregiver_idx ON app_caregivers (caregiver_user_id);
 CREATE INDEX IF NOT EXISTS app_caregivers_token_idx ON app_caregivers (invite_token);
 
+-- 9) Allergies (safety-critical clinical PHI)
+CREATE TABLE IF NOT EXISTS app_allergies (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  ehr_connection_id text NOT NULL,
+  name text NOT NULL,
+  type text NOT NULL,
+  severity text NOT NULL,
+  reaction text NOT NULL,
+  onset_date text,
+  status text NOT NULL DEFAULT 'active',
+  verified_by text,
+  verified_date text,
+  notes text
+);
+CREATE INDEX IF NOT EXISTS app_allergies_patient_idx ON app_allergies (patient_id);
+CREATE INDEX IF NOT EXISTS app_allergies_connection_idx ON app_allergies (ehr_connection_id);
+
 COMMIT;

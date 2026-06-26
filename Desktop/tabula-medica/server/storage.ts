@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -1202,7 +1202,9 @@ export class MemStorage implements IStorage {
   private documentInsights: Map<string, DocumentInsight> = new Map();
   private healthMonitoringAlerts: Map<string, HealthMonitoringAlert> = new Map();
   private interventionRecommendations: Map<string, InterventionRecommendation> = new Map();
-  private allergies: Map<string, Allergy> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for the Extended* and search
+  // readers that iterate this Map.
+  protected allergies: Map<string, Allergy> = new Map();
   private problems: Map<string, Problem> = new Map();
   private appointments: Map<string, Appointment> = new Map();
   private providerPatientAuthorizations: Map<string, Set<string>> = new Map();
@@ -12338,8 +12340,10 @@ export class MemStorage implements IStorage {
  *                                               readers hydrate-then-super)
  *   • Caregiver         → app_caregivers        (delegated PHI-access authz;
  *                                               getCaregivingFor = DB join w/ users)
+ *   • Allergy           → app_allergies         (safety-critical PHI; Extended
+ *                                               emergency-info via hydrate-then-super)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   allergies, conditions, immunizations, labs, … (by PHI exposure)
+ *   conditions, immunizations, labs, allergyEmergencyInfo, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12878,6 +12882,7 @@ export class DatabaseStorage extends MemStorage {
   // Postgres first, then delegate to MemStorage's implementation.
   override async searchPatientData(query: string, patientId?: string, filters?: Parameters<MemStorage["searchPatientData"]>[2]) {
     await this.ensureMedicationsHydrated();
+    await this.ensureAllergiesHydrated();
     return super.searchPatientData(query, patientId, filters);
   }
 
@@ -13124,6 +13129,103 @@ export class DatabaseStorage extends MemStorage {
       .from(appCaregiversTable)
       .where(and(eq(appCaregiversTable.patientUserId, patientUserId), eq(appCaregiversTable.status, "accepted")));
     return rows.map((r) => this.mapCaregiverRow(r));
+  }
+
+  // ══ Allergy entity (C1) — safety-critical clinical PHI ══════════════════════
+  // Core methods go straight to DB; the Extended* emergency-info methods (which
+  // also read the separate, not-yet-migrated allergyEmergencyInfo Map) and
+  // searchPatientData hydrate allergies then delegate to super.
+  private allergiesHydrated = false;
+
+  private mapAllergyRow(row: typeof appAllergiesTable.$inferSelect): Allergy {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      name: row.name,
+      type: row.type,
+      severity: row.severity,
+      reaction: row.reaction,
+      onsetDate: row.onsetDate ?? undefined,
+      status: row.status,
+      verifiedBy: row.verifiedBy ?? undefined,
+      verifiedDate: row.verifiedDate ?? undefined,
+      notes: row.notes ?? undefined,
+    };
+  }
+
+  private async ensureAllergiesHydrated(): Promise<void> {
+    if (this.allergiesHydrated) return;
+    this.allergies.clear();
+    const rows = await this.dbc.select().from(appAllergiesTable);
+    for (const row of rows) this.allergies.set(row.id, this.mapAllergyRow(row));
+    this.allergiesHydrated = true;
+  }
+
+  override async getAllergies(): Promise<Allergy[]> {
+    const rows = await this.dbc.select().from(appAllergiesTable);
+    return rows.map((r) => this.mapAllergyRow(r));
+  }
+
+  override async getAllergiesByPatient(patientId: string): Promise<Allergy[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appAllergiesTable)
+      .where(eq(appAllergiesTable.patientId, patientId));
+    return rows.map((r) => this.mapAllergyRow(r));
+  }
+
+  override async getAllergiesByUnifiedPatient(unifiedPatientId: string): Promise<Allergy[]> {
+    const patients = await this.getPatientsByUnifiedId(unifiedPatientId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length === 0) return [];
+    const rows = await this.dbc
+      .select()
+      .from(appAllergiesTable)
+      .where(inArray(appAllergiesTable.patientId, patientIds));
+    return rows.map((r) => this.mapAllergyRow(r));
+  }
+
+  override async createAllergy(allergy: InsertAllergy): Promise<Allergy> {
+    const [row] = await this.dbc
+      .insert(appAllergiesTable)
+      .values({
+        patientId: allergy.patientId,
+        ehrConnectionId: allergy.ehrConnectionId,
+        name: allergy.name,
+        type: allergy.type,
+        severity: allergy.severity,
+        reaction: allergy.reaction,
+        onsetDate: allergy.onsetDate ?? null,
+        status: allergy.status ?? "active",
+        verifiedBy: allergy.verifiedBy ?? null,
+        verifiedDate: allergy.verifiedDate ?? null,
+        notes: allergy.notes ?? null,
+      })
+      .returning();
+    const a = this.mapAllergyRow(row);
+    this.allergies.set(a.id, a); // mirror for the Extended/search readers
+    return a;
+  }
+
+  // Extended emergency-info readers iterate the allergies Map and join the
+  // separate allergyEmergencyInfo Map — hydrate allergies, then delegate.
+  override async getExtendedAllergy(id: string) {
+    await this.ensureAllergiesHydrated();
+    return super.getExtendedAllergy(id);
+  }
+
+  override async getExtendedAllergiesByPatient(patientId: string) {
+    await this.ensureAllergiesHydrated();
+    return super.getExtendedAllergiesByPatient(patientId);
+  }
+
+  override async updateAllergyEmergencyInfo(
+    allergyId: string,
+    emergencyInfo: Parameters<MemStorage["updateAllergyEmergencyInfo"]>[1],
+  ) {
+    await this.ensureAllergiesHydrated();
+    return super.updateAllergyEmergencyInfo(allergyId, emergencyInfo);
   }
 
   // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════

@@ -3060,6 +3060,33 @@ export const insertAllergySchema = z.object({
 
 export type InsertAllergy = z.infer<typeof insertAllergySchema>;
 
+// Durable backing table for Allergy (C1) — clinical PHI, safety-critical
+// (drug/food/latex allergies). Kept in an in-memory Map (lost on restart).
+// The separate allergyEmergencyInfo Map (Extended* methods) is a distinct
+// not-yet-migrated entity; those methods hydrate allergies from here then
+// delegate to super for the emergency-info join. Named `app_allergies`.
+export const appAllergiesTable = pgTable(
+  "app_allergies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    name: text("name").notNull(),
+    type: text("type").$type<AllergyType>().notNull(),
+    severity: text("severity").$type<AllergySeverity>().notNull(),
+    reaction: text("reaction").notNull(),
+    onsetDate: text("onset_date"),
+    status: text("status").$type<AllergyStatus>().notNull().default("active"),
+    verifiedBy: text("verified_by"),
+    verifiedDate: text("verified_date"),
+    notes: text("notes"),
+  },
+  (t) => ({
+    patientIdx: index("app_allergies_patient_idx").on(t.patientId),
+    connectionIdx: index("app_allergies_connection_idx").on(t.ehrConnectionId),
+  }),
+);
+
 // Extended Allergy with emergency information
 export interface AllergyEmergencyInfo {
   emergencyContactName?: string;
