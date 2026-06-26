@@ -1688,6 +1688,28 @@ export const insertWearableDataRecordSchema = z.object({
 
 export type InsertWearableDataRecord = z.infer<typeof insertWearableDataRecordSchema>;
 
+// Durable backing table for WearableDataRecord (C1) — wearable metrics (steps,
+// HR, etc.). In-memory Map, lost on restart. Named `app_wearable_data_records`;
+// additive only.
+export const appWearableDataRecordsTable = pgTable(
+  "app_wearable_data_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    wearableConnectionId: text("wearable_connection_id").notNull(),
+    dataType: text("data_type").$type<WearableDataType>().notNull(),
+    value: doublePrecision("value").notNull(),
+    unit: text("unit").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    recordedAt: text("recorded_at").notNull(),
+    syncedAt: text("synced_at").notNull(),
+  },
+  (t) => ({
+    userIdx: index("app_wearable_data_records_user_idx").on(t.userId),
+    connIdx: index("app_wearable_data_records_conn_idx").on(t.wearableConnectionId),
+  }),
+);
+
 // External Data Source (unified type for all external sources)
 export type ExternalDataSourceType = "ehr" | "wearable" | "lab" | "pharmacy" | "imaging";
 

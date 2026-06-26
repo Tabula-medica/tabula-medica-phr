@@ -369,4 +369,19 @@ CREATE TABLE IF NOT EXISTS app_wearable_connections (
 );
 CREATE INDEX IF NOT EXISTS app_wearable_connections_user_idx ON app_wearable_connections (user_id);
 
+-- 20) Wearable data records (metrics: steps, HR, etc.)
+CREATE TABLE IF NOT EXISTS app_wearable_data_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  wearable_connection_id text NOT NULL,
+  data_type text NOT NULL,
+  value double precision NOT NULL,
+  unit text NOT NULL,
+  metadata jsonb,
+  recorded_at text NOT NULL,
+  synced_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_wearable_data_records_user_idx ON app_wearable_data_records (user_id);
+CREATE INDEX IF NOT EXISTS app_wearable_data_records_conn_idx ON app_wearable_data_records (wearable_connection_id);
+
 COMMIT;

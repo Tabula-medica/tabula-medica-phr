@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -14099,7 +14099,84 @@ export class DatabaseStorage extends MemStorage {
 
   override async deleteWearableConnection(id: string): Promise<void> {
     await this.dbc.delete(appWearableConnectionsTable).where(eq(appWearableConnectionsTable.id, id));
-    await super.deleteWearableConnection(id); // wearableDataRecords (Map) cleanup
+    await this.dbc
+      .delete(appWearableDataRecordsTable)
+      .where(eq(appWearableDataRecordsTable.wearableConnectionId, id)); // cascade
+    await super.deleteWearableConnection(id); // Map cleanup
+  }
+
+  // ══ WearableDataRecord entity (C1) — wearable metrics ═══════════════════════
+  private mapWearableDataRecordRow(
+    row: typeof appWearableDataRecordsTable.$inferSelect,
+  ): WearableDataRecord {
+    return {
+      id: row.id,
+      userId: row.userId,
+      wearableConnectionId: row.wearableConnectionId,
+      dataType: row.dataType,
+      value: row.value,
+      unit: row.unit,
+      metadata: row.metadata ?? undefined,
+      recordedAt: row.recordedAt,
+      syncedAt: row.syncedAt,
+    };
+  }
+
+  private sortWearableByRecordedDesc(records: WearableDataRecord[]): WearableDataRecord[] {
+    return records.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+  }
+
+  override async getWearableDataRecords(
+    userId: string,
+    dataType?: import("@shared/schema").WearableDataType,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<WearableDataRecord[]> {
+    const where = dataType
+      ? and(eq(appWearableDataRecordsTable.userId, userId), eq(appWearableDataRecordsTable.dataType, dataType))
+      : eq(appWearableDataRecordsTable.userId, userId);
+    const rows = await this.dbc.select().from(appWearableDataRecordsTable).where(where);
+    let records = rows.map((r) => this.mapWearableDataRecordRow(r));
+    if (startDate) records = records.filter((r) => new Date(r.recordedAt) >= new Date(startDate));
+    if (endDate) records = records.filter((r) => new Date(r.recordedAt) <= new Date(endDate));
+    return this.sortWearableByRecordedDesc(records);
+  }
+
+  override async getWearableDataRecordsByConnection(connectionId: string): Promise<WearableDataRecord[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appWearableDataRecordsTable)
+      .where(eq(appWearableDataRecordsTable.wearableConnectionId, connectionId));
+    return this.sortWearableByRecordedDesc(rows.map((r) => this.mapWearableDataRecordRow(r)));
+  }
+
+  override async createWearableDataRecord(record: InsertWearableDataRecord): Promise<WearableDataRecord> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appWearableDataRecordsTable)
+      .values({
+        userId: record.userId,
+        wearableConnectionId: record.wearableConnectionId,
+        dataType: record.dataType,
+        value: record.value,
+        unit: record.unit,
+        metadata: record.metadata ?? null,
+        recordedAt: record.recordedAt,
+        syncedAt: now,
+      })
+      .returning();
+    return this.mapWearableDataRecordRow(row);
+  }
+
+  override async getLatestWearableData(
+    userId: string,
+    dataType: import("@shared/schema").WearableDataType,
+  ): Promise<WearableDataRecord | undefined> {
+    const rows = await this.dbc
+      .select()
+      .from(appWearableDataRecordsTable)
+      .where(and(eq(appWearableDataRecordsTable.userId, userId), eq(appWearableDataRecordsTable.dataType, dataType)));
+    return this.sortWearableByRecordedDesc(rows.map((r) => this.mapWearableDataRecordRow(r)))[0];
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════
