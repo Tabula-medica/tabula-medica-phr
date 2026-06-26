@@ -3397,6 +3397,32 @@ export const insertProblemSchema = z.object({
 
 export type InsertProblem = z.infer<typeof insertProblemSchema>;
 
+// Durable backing table for Problem (C1) — clinical problem/condition list
+// (ICD-coded diagnoses). In-memory Map, lost on restart. Named `app_problems`;
+// additive only.
+export const appProblemsTable = pgTable(
+  "app_problems",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    name: text("name").notNull(),
+    icdCode: text("icd_code"),
+    category: text("category").$type<Problem["category"]>().notNull(),
+    status: text("status").$type<ProblemStatus>().notNull().default("active"),
+    onsetDate: text("onset_date"),
+    resolvedDate: text("resolved_date"),
+    severity: text("severity").$type<NonNullable<Problem["severity"]>>(),
+    diagnosedBy: text("diagnosed_by"),
+    facility: text("facility").notNull(),
+    notes: text("notes"),
+  },
+  (t) => ({
+    patientIdx: index("app_problems_patient_idx").on(t.patientId),
+    connectionIdx: index("app_problems_connection_idx").on(t.ehrConnectionId),
+  }),
+);
+
 // Appointment
 export interface Appointment {
   id: string;

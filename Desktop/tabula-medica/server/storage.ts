@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -1211,7 +1211,9 @@ export class MemStorage implements IStorage {
   // protected so DatabaseStorage can clear/hydrate for the Extended* and search
   // readers that iterate this Map.
   protected allergies: Map<string, Allergy> = new Map();
-  private problems: Map<string, Problem> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for the analytics/search
+  // readers that iterate this Map.
+  protected problems: Map<string, Problem> = new Map();
   // protected so DatabaseStorage can clear/hydrate for the aggregation /
   // upcoming / at-risk readers that iterate this Map.
   protected appointments: Map<string, Appointment> = new Map();
@@ -12364,8 +12366,12 @@ export class MemStorage implements IStorage {
  *                                               aggregation + at-risk readers extended)
  *   • HealthGoal        → app_health_goals      (patient goals; ownership-scoped
  *                                               update/delete)
+ *   • Problem           → app_problems          (clinical problem/condition list;
+ *                                               8 analytics readers hydrate-then-super)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   unifiedPatients, riskStratifications, conditions, … by exposure.
+ *   medication subsystem (reminders/adherence), wearableConnections (encrypted),
+ *   sharing/consents, security (2FA/notifications), … by exposure.
+ *   SKIP unifiedPatients (no create path — seed-only) & riskStratifications (computed).
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
  *   (MemStorage returned undefined) — add a uuid-format guard. (2) app_patients
  *   stores PHI plaintext (Cloud SQL CMEK covers at-rest); column-level PHI
@@ -12915,18 +12921,21 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureMedicationsHydrated();
     await this.ensureAllergiesHydrated();
     await this.ensureLabResultsHydrated();
+    await this.ensureProblemsHydrated();
     return super.searchPatientData(query, patientId, filters);
   }
 
   override async getAnalyticsDashboardData() {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
+    await this.ensureProblemsHydrated();
     return super.getAnalyticsDashboardData();
   }
 
   override async createPatientCohort(cohort: Parameters<MemStorage["createPatientCohort"]>[0]) {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
+    await this.ensureProblemsHydrated();
     return super.createPatientCohort(cohort);
   }
 
@@ -12935,24 +12944,28 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureLabResultsHydrated();
     await this.ensurePatientsHydrated();
     await this.ensureAppointmentsHydrated();
+    await this.ensureProblemsHydrated();
     return super.getAtRiskPatients(riskLevel, limit);
   }
 
   override async getPopulationHealthMetrics(periodType: string = "monthly") {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
+    await this.ensureProblemsHydrated();
     return super.getPopulationHealthMetrics(periodType);
   }
 
   override async getTreatmentEfficacyData(treatmentName?: string, cohortId?: string) {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
+    await this.ensureProblemsHydrated();
     return super.getTreatmentEfficacyData(treatmentName, cohortId);
   }
 
   override async createAnalyticsReport(report: Parameters<MemStorage["createAnalyticsReport"]>[0]) {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
+    await this.ensureProblemsHydrated();
     return super.createAnalyticsReport(report);
   }
 
@@ -13935,6 +13948,89 @@ export class DatabaseStorage extends MemStorage {
     await this.dbc
       .delete(appHealthGoalsTable)
       .where(and(eq(appHealthGoalsTable.id, id), eq(appHealthGoalsTable.patientId, patientId)));
+  }
+
+  // ══ Problem entity (C1) — clinical problem/condition list (ICD-coded) ═══════
+  // Read by 8 analytics/search methods (7 already overridden + getConditionsList)
+  // that iterate the Map → each hydrates problems then delegates to super.
+  private problemsHydrated = false;
+
+  private mapProblemRow(row: typeof appProblemsTable.$inferSelect): Problem {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      name: row.name,
+      icdCode: row.icdCode ?? undefined,
+      category: row.category,
+      status: row.status,
+      onsetDate: row.onsetDate ?? undefined,
+      resolvedDate: row.resolvedDate ?? undefined,
+      severity: row.severity ?? undefined,
+      diagnosedBy: row.diagnosedBy ?? undefined,
+      facility: row.facility,
+      notes: row.notes ?? undefined,
+    };
+  }
+
+  private async ensureProblemsHydrated(): Promise<void> {
+    if (this.problemsHydrated) return;
+    this.problems.clear();
+    const rows = await this.dbc.select().from(appProblemsTable);
+    for (const row of rows) this.problems.set(row.id, this.mapProblemRow(row));
+    this.problemsHydrated = true;
+  }
+
+  override async getProblems(): Promise<Problem[]> {
+    const rows = await this.dbc.select().from(appProblemsTable);
+    return rows.map((r) => this.mapProblemRow(r));
+  }
+
+  override async getProblemsByPatient(patientId: string): Promise<Problem[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appProblemsTable)
+      .where(eq(appProblemsTable.patientId, patientId));
+    return rows.map((r) => this.mapProblemRow(r));
+  }
+
+  override async getProblemsByUnifiedPatient(unifiedPatientId: string): Promise<Problem[]> {
+    const patients = await this.getPatientsByUnifiedId(unifiedPatientId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length === 0) return [];
+    const rows = await this.dbc
+      .select()
+      .from(appProblemsTable)
+      .where(inArray(appProblemsTable.patientId, patientIds));
+    return rows.map((r) => this.mapProblemRow(r));
+  }
+
+  override async createProblem(problem: InsertProblem): Promise<Problem> {
+    const [row] = await this.dbc
+      .insert(appProblemsTable)
+      .values({
+        patientId: problem.patientId,
+        ehrConnectionId: problem.ehrConnectionId,
+        name: problem.name,
+        icdCode: problem.icdCode ?? null,
+        category: problem.category,
+        status: problem.status || "active",
+        onsetDate: problem.onsetDate ?? null,
+        resolvedDate: problem.resolvedDate ?? null,
+        severity: problem.severity ?? null,
+        diagnosedBy: problem.diagnosedBy ?? null,
+        facility: problem.facility,
+        notes: problem.notes ?? null,
+      })
+      .returning();
+    const p = this.mapProblemRow(row);
+    this.problems.set(p.id, p); // mirror for the analytics/search readers
+    return p;
+  }
+
+  override async getConditionsList() {
+    await this.ensureProblemsHydrated();
+    return super.getConditionsList();
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════

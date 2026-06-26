@@ -342,4 +342,23 @@ CREATE TABLE IF NOT EXISTS app_health_goals (
 );
 CREATE INDEX IF NOT EXISTS app_health_goals_patient_idx ON app_health_goals (patient_id);
 
+-- 18) Problems (clinical problem/condition list, ICD-coded)
+CREATE TABLE IF NOT EXISTS app_problems (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  ehr_connection_id text NOT NULL,
+  name text NOT NULL,
+  icd_code text,
+  category text NOT NULL,
+  status text NOT NULL DEFAULT 'active',
+  onset_date text,
+  resolved_date text,
+  severity text,
+  diagnosed_by text,
+  facility text NOT NULL,
+  notes text
+);
+CREATE INDEX IF NOT EXISTS app_problems_patient_idx ON app_problems (patient_id);
+CREATE INDEX IF NOT EXISTS app_problems_connection_idx ON app_problems (ehr_connection_id);
+
 COMMIT;
