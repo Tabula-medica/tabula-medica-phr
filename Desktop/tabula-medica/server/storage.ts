@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -1195,7 +1195,9 @@ export class MemStorage implements IStorage {
   protected medications: Map<string, Medication> = new Map();
   // protected so DatabaseStorage can clear/hydrate for getAggregatedPatientData
   protected vitals: Map<string, VitalSign> = new Map();
-  private labResults: Map<string, LabResult> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for searchPatientData +
+  // getAtRiskPatients which iterate this Map.
+  protected labResults: Map<string, LabResult> = new Map();
   private immunizations: Map<string, Immunization> = new Map();
   private advancedHealthMetrics: Map<string, AdvancedHealthMetric> = new Map();
   private conditionSpecificPROMs: Map<string, ConditionSpecificPROM> = new Map();
@@ -12343,8 +12345,9 @@ export class MemStorage implements IStorage {
  *   • Allergy           → app_allergies         (safety-critical PHI; Extended
  *                                               emergency-info via hydrate-then-super)
  *   • Immunization      → app_immunizations     (clinical PHI; vaccine/lot/CVX/reaction)
+ *   • LabResult         → app_lab_results       (clinical PHI incl. critical values)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   labResults, conditions, allergyEmergencyInfo, … (by PHI exposure)
+ *   conditions, allergyEmergencyInfo, patients, ehrConnections, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12884,6 +12887,7 @@ export class DatabaseStorage extends MemStorage {
   override async searchPatientData(query: string, patientId?: string, filters?: Parameters<MemStorage["searchPatientData"]>[2]) {
     await this.ensureMedicationsHydrated();
     await this.ensureAllergiesHydrated();
+    await this.ensureLabResultsHydrated();
     return super.searchPatientData(query, patientId, filters);
   }
 
@@ -12899,6 +12903,7 @@ export class DatabaseStorage extends MemStorage {
 
   override async getAtRiskPatients(riskLevel?: string, limit: number = 20) {
     await this.ensureMedicationsHydrated();
+    await this.ensureLabResultsHydrated();
     return super.getAtRiskPatients(riskLevel, limit);
   }
 
@@ -13351,6 +13356,84 @@ export class DatabaseStorage extends MemStorage {
 
   override async deleteImmunization(id: string): Promise<void> {
     await this.dbc.delete(appImmunizationsTable).where(eq(appImmunizationsTable.id, id));
+  }
+
+  // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════
+  private labResultsHydrated = false;
+
+  private mapLabResultRow(row: typeof appLabResultsTable.$inferSelect): LabResult {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      testName: row.testName,
+      value: row.value,
+      unit: row.unit,
+      referenceRange: row.referenceRange ?? undefined,
+      status: row.status,
+      date: row.date,
+      orderedBy: row.orderedBy ?? undefined,
+      facility: row.facility ?? undefined,
+      notes: row.notes ?? undefined,
+    };
+  }
+
+  private sortLabsByDateDesc(labs: LabResult[]): LabResult[] {
+    return labs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  private async ensureLabResultsHydrated(): Promise<void> {
+    if (this.labResultsHydrated) return;
+    this.labResults.clear();
+    const rows = await this.dbc.select().from(appLabResultsTable);
+    for (const row of rows) this.labResults.set(row.id, this.mapLabResultRow(row));
+    this.labResultsHydrated = true;
+  }
+
+  override async getLabResults(): Promise<LabResult[]> {
+    const rows = await this.dbc.select().from(appLabResultsTable);
+    return this.sortLabsByDateDesc(rows.map((r) => this.mapLabResultRow(r)));
+  }
+
+  override async getLabResultsByPatient(patientId: string): Promise<LabResult[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appLabResultsTable)
+      .where(eq(appLabResultsTable.patientId, patientId));
+    return this.sortLabsByDateDesc(rows.map((r) => this.mapLabResultRow(r)));
+  }
+
+  override async getLabResultsByUnifiedPatient(unifiedPatientId: string): Promise<LabResult[]> {
+    const patients = await this.getPatientsByUnifiedId(unifiedPatientId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length === 0) return [];
+    const rows = await this.dbc
+      .select()
+      .from(appLabResultsTable)
+      .where(inArray(appLabResultsTable.patientId, patientIds));
+    return this.sortLabsByDateDesc(rows.map((r) => this.mapLabResultRow(r)));
+  }
+
+  override async createLabResult(lab: InsertLabResult): Promise<LabResult> {
+    const [row] = await this.dbc
+      .insert(appLabResultsTable)
+      .values({
+        patientId: lab.patientId,
+        ehrConnectionId: lab.ehrConnectionId,
+        testName: lab.testName,
+        value: lab.value,
+        unit: lab.unit,
+        referenceRange: lab.referenceRange ?? null,
+        status: lab.status ?? "normal",
+        date: lab.date,
+        orderedBy: lab.orderedBy ?? null,
+        facility: lab.facility ?? null,
+        notes: lab.notes ?? null,
+      })
+      .returning();
+    const l = this.mapLabResultRow(row);
+    this.labResults.set(l.id, l); // mirror for the search/at-risk readers
+    return l;
   }
 
   // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════

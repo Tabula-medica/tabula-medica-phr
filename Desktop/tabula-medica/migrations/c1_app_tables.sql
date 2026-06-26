@@ -216,4 +216,21 @@ CREATE TABLE IF NOT EXISTS app_immunizations (
 );
 CREATE INDEX IF NOT EXISTS app_immunizations_patient_idx ON app_immunizations (patient_id);
 
+-- 11) Lab results (clinical PHI incl. critical values)
+CREATE TABLE IF NOT EXISTS app_lab_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  ehr_connection_id text NOT NULL,
+  test_name text NOT NULL,
+  value text NOT NULL,
+  unit text NOT NULL,
+  reference_range text,
+  status text NOT NULL DEFAULT 'normal',
+  date text NOT NULL,
+  ordered_by text,
+  facility text,
+  notes text
+);
+CREATE INDEX IF NOT EXISTS app_lab_results_patient_idx ON app_lab_results (patient_id);
+
 COMMIT;

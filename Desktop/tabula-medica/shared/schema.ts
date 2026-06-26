@@ -2415,6 +2415,30 @@ export const insertLabResultSchema = z.object({
 
 export type InsertLabResult = z.infer<typeof insertLabResultSchema>;
 
+// Durable backing table for LabResult (C1) — clinical PHI (test results incl.
+// critical values). Kept in an in-memory Map, lost on restart. Named
+// `app_lab_results`; additive only.
+export const appLabResultsTable = pgTable(
+  "app_lab_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    testName: text("test_name").notNull(),
+    value: text("value").notNull(),
+    unit: text("unit").notNull(),
+    referenceRange: text("reference_range"),
+    status: text("status").$type<LabResult["status"]>().notNull().default("normal"),
+    date: text("date").notNull(),
+    orderedBy: text("ordered_by"),
+    facility: text("facility"),
+    notes: text("notes"),
+  },
+  (t) => ({
+    patientIdx: index("app_lab_results_patient_idx").on(t.patientId),
+  }),
+);
+
 // ============================================
 // DATA DEDUPLICATION & NORMALIZATION
 // ============================================
