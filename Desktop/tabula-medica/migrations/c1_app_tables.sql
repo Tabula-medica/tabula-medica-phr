@@ -265,4 +265,45 @@ CREATE TABLE IF NOT EXISTS app_care_gaps (
 );
 CREATE INDEX IF NOT EXISTS app_care_gaps_patient_idx ON app_care_gaps (patient_id);
 
+-- 14) EHR connections (OAuth tokens stored ENCRYPTED in the tokens jsonb)
+CREATE TABLE IF NOT EXISTS app_ehr_connections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  platform text NOT NULL,
+  facility_name text NOT NULL,
+  status text NOT NULL DEFAULT 'pending_auth',
+  last_sync text NOT NULL,
+  patient_count integer NOT NULL DEFAULT 0,
+  created_at text NOT NULL,
+  fhir_config jsonb,
+  tokens jsonb,
+  smart_context jsonb,
+  sync_error text,
+  sync_settings jsonb,
+  last_sync_result jsonb
+);
+CREATE INDEX IF NOT EXISTS app_ehr_connections_user_idx ON app_ehr_connections (user_id);
+
+-- 15) Patients (per-EHR patient record; completes the getUserPatientIds IDOR chain)
+CREATE TABLE IF NOT EXISTS app_patients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  unified_patient_id text NOT NULL,
+  ehr_connection_id text NOT NULL,
+  mrn text NOT NULL,
+  first_name text NOT NULL,
+  middle_name text NOT NULL,
+  last_name text NOT NULL,
+  date_of_birth text NOT NULL,
+  gender text NOT NULL,
+  email text NOT NULL,
+  phone text NOT NULL,
+  address text NOT NULL,
+  insurance_provider text NOT NULL,
+  insurance_id text NOT NULL,
+  primary_physician text NOT NULL,
+  avatar_url text
+);
+CREATE INDEX IF NOT EXISTS app_patients_connection_idx ON app_patients (ehr_connection_id);
+CREATE INDEX IF NOT EXISTS app_patients_unified_idx ON app_patients (unified_patient_id);
+
 COMMIT;

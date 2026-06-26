@@ -148,10 +148,10 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
-import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
 
 // Thrown when a provider tries to create/rename a risk filter preset to a name
 // that already exists within their own preset list (case-insensitive).
@@ -1173,7 +1173,9 @@ export class MemStorage implements IStorage {
   // protected (not private) so DatabaseStorage can hydrate/mirror this Map for
   // the analytics & caregiver methods that still read it after users moved to DB.
   protected users: Map<string, User> = new Map();
-  private ehrConnections: Map<string, EhrConnection> = new Map();
+  // protected so DatabaseStorage can hydrate (stored/encrypted form) for
+  // getAggregatedPatientData which iterates this Map.
+  protected ehrConnections: Map<string, EhrConnection> = new Map();
   private oauthPendingStates: Map<string, OAuthPendingState> = new Map();
   private caregivers: Map<string, Caregiver> = new Map();
   private caregiverAccessLogs: Map<string, import("@shared/schema").CaregiverAccessLog> = new Map();
@@ -1185,7 +1187,9 @@ export class MemStorage implements IStorage {
   private securitySettings: Map<string, SecuritySettings> = new Map();
   private aiPreferences: Map<string, import("@shared/schema").AIPreferences> = new Map();
   private unifiedPatients: Map<string, UnifiedPatient> = new Map();
-  private patients: Map<string, Patient> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for the analytics/risk
+  // readers that iterate this Map.
+  protected patients: Map<string, Patient> = new Map();
   // protected so DatabaseStorage can clear/hydrate this Map for the aggregation
   // readers (getAggregatedPatientData, getPatientPreventiveSummary) after records
   // moved to Postgres.
@@ -12350,11 +12354,16 @@ export class MemStorage implements IStorage {
  *                                               Extended allergy now fully DB)
  *   • CareGap           → app_care_gaps         (USPSTF preventive-care gaps;
  *                                               recommendation embedded as jsonb)
+ *   • EhrConnection     → app_ehr_connections   (OAuth tokens ENCRYPTED at rest;
+ *                                               encrypt-on-write/decrypt-on-read)
+ *   • Patient           → app_patients          (completes getUserPatientIds IDOR
+ *                                               ownership chain — fully DB-backed)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   patients, ehrConnections (core; many readers — review carefully), then the
- *   rest (appointments, healthGoals, careGaps, …) by PHI exposure.
- * KNOWN FOLLOW-UP: by-id lookups on uuid columns throw on a non-UUID id
- *   (MemStorage returned undefined). Add a uuid-format guard. See morning TODO.
+ *   appointments, healthGoals, unifiedPatients, allergyEmergency*, … by exposure.
+ * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
+ *   (MemStorage returned undefined) — add a uuid-format guard. (2) app_patients
+ *   stores PHI plaintext (Cloud SQL CMEK covers at-rest); column-level PHI
+ *   encryption is an H3 defense-in-depth follow-up. See morning TODO.
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12691,7 +12700,8 @@ export class DatabaseStorage extends MemStorage {
       await this.dbc.delete(appVitalSignsTable).where(inArray(appVitalSignsTable.patientId, patientIds));
       await this.dbc.delete(appMedicationsTable).where(inArray(appMedicationsTable.patientId, patientIds));
     }
-    await super.deletePatientsByConnection(connectionId);
+    await this.dbc.delete(appPatientsTable).where(eq(appPatientsTable.ehrConnectionId, connectionId));
+    await super.deletePatientsByConnection(connectionId); // appointments (Map) + Map cleanup
   }
 
   // Inherited aggregation readers that iterate the medicalRecords Map — hydrate
@@ -12700,11 +12710,13 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureMedicalRecordsHydrated();
     await this.ensureVitalsHydrated();
     await this.ensureMedicationsHydrated();
+    await this.ensureEhrConnectionsHydrated();
     return super.getAggregatedPatientData(unifiedPatientId);
   }
 
   override async getPatientPreventiveSummary(patientId: string) {
     await this.ensureMedicalRecordsHydrated();
+    await this.ensurePatientsHydrated();
     return super.getPatientPreventiveSummary(patientId);
   }
 
@@ -12900,32 +12912,38 @@ export class DatabaseStorage extends MemStorage {
 
   override async getAnalyticsDashboardData() {
     await this.ensureMedicationsHydrated();
+    await this.ensurePatientsHydrated();
     return super.getAnalyticsDashboardData();
   }
 
   override async createPatientCohort(cohort: Parameters<MemStorage["createPatientCohort"]>[0]) {
     await this.ensureMedicationsHydrated();
+    await this.ensurePatientsHydrated();
     return super.createPatientCohort(cohort);
   }
 
   override async getAtRiskPatients(riskLevel?: string, limit: number = 20) {
     await this.ensureMedicationsHydrated();
     await this.ensureLabResultsHydrated();
+    await this.ensurePatientsHydrated();
     return super.getAtRiskPatients(riskLevel, limit);
   }
 
   override async getPopulationHealthMetrics(periodType: string = "monthly") {
     await this.ensureMedicationsHydrated();
+    await this.ensurePatientsHydrated();
     return super.getPopulationHealthMetrics(periodType);
   }
 
   override async getTreatmentEfficacyData(treatmentName?: string, cohortId?: string) {
     await this.ensureMedicationsHydrated();
+    await this.ensurePatientsHydrated();
     return super.getTreatmentEfficacyData(treatmentName, cohortId);
   }
 
   override async createAnalyticsReport(report: Parameters<MemStorage["createAnalyticsReport"]>[0]) {
     await this.ensureMedicationsHydrated();
+    await this.ensurePatientsHydrated();
     return super.createAnalyticsReport(report);
   }
 
@@ -13504,6 +13522,258 @@ export class DatabaseStorage extends MemStorage {
       .where(eq(appCareGapsTable.id, id))
       .returning();
     return row ? this.mapCareGapRow(row) : undefined;
+  }
+
+  // ══ EhrConnection entity (C1) — EHR/OAuth connections (tokens encrypted) ════
+  // Stored form (what the Map held) = connection with `tokens` ENCRYPTED. We
+  // encrypt on write and decrypt on read, mirroring MemStorage exactly so OAuth
+  // tokens are never persisted in plaintext.
+  private ehrConnectionsHydrated = false;
+
+  private rowToStoredConnection(row: typeof appEhrConnectionsTable.$inferSelect): EhrConnection {
+    return {
+      id: row.id,
+      userId: row.userId,
+      platform: row.platform,
+      facilityName: row.facilityName,
+      status: row.status,
+      lastSync: row.lastSync,
+      patientCount: row.patientCount,
+      createdAt: row.createdAt,
+      fhirConfig: row.fhirConfig ?? undefined,
+      tokens: (row.tokens as unknown as EhrConnection["tokens"]) ?? undefined, // encrypted form
+      smartContext: row.smartContext ?? undefined,
+      syncError: row.syncError ?? undefined,
+      syncSettings: row.syncSettings ?? undefined,
+      lastSyncResult: row.lastSyncResult ?? undefined,
+    };
+  }
+
+  private connectionToValues(stored: EhrConnection): Omit<typeof appEhrConnectionsTable.$inferInsert, "id"> {
+    return {
+      userId: stored.userId,
+      platform: stored.platform,
+      facilityName: stored.facilityName,
+      status: stored.status,
+      lastSync: stored.lastSync,
+      patientCount: stored.patientCount,
+      createdAt: stored.createdAt,
+      fhirConfig: stored.fhirConfig ?? null,
+      tokens: (stored.tokens as Record<string, unknown> | undefined) ?? null,
+      smartContext: stored.smartContext ?? null,
+      syncError: stored.syncError ?? null,
+      syncSettings: stored.syncSettings ?? null,
+      lastSyncResult: stored.lastSyncResult ?? null,
+    };
+  }
+
+  private async ensureEhrConnectionsHydrated(): Promise<void> {
+    if (this.ehrConnectionsHydrated) return;
+    this.ehrConnections.clear();
+    const rows = await this.dbc.select().from(appEhrConnectionsTable);
+    for (const row of rows) this.ehrConnections.set(row.id, this.rowToStoredConnection(row)); // stored form
+    this.ehrConnectionsHydrated = true;
+  }
+
+  override async getEhrConnections(userId?: string): Promise<EhrConnection[]> {
+    const rows = userId
+      ? await this.dbc
+          .select()
+          .from(appEhrConnectionsTable)
+          .where(
+            or(
+              eq(appEhrConnectionsTable.userId, userId),
+              eq(appEhrConnectionsTable.userId, "current-user"),
+            ),
+          )
+      : await this.dbc.select().from(appEhrConnectionsTable);
+    return rows.map((r) => decryptConnectionFromStorage(this.rowToStoredConnection(r), "ehrConnection")!);
+  }
+
+  override async getEhrConnection(id: string): Promise<EhrConnection | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appEhrConnectionsTable)
+      .where(eq(appEhrConnectionsTable.id, id));
+    return row ? decryptConnectionFromStorage(this.rowToStoredConnection(row), "ehrConnection") : undefined;
+  }
+
+  override async createEhrConnection(connection: InsertEhrConnection): Promise<EhrConnection> {
+    const id = randomUUID();
+    const plain = {
+      ...connection,
+      id,
+      status: connection.status || "pending_auth",
+      lastSync: new Date().toISOString(),
+      patientCount: 0,
+      createdAt: new Date().toISOString(),
+    } as EhrConnection;
+    const stored = encryptConnectionForStorage(plain, "ehrConnection");
+    await this.dbc.insert(appEhrConnectionsTable).values({ id, ...this.connectionToValues(stored) });
+    return plain;
+  }
+
+  override async updateEhrConnection(
+    id: string,
+    updates: Partial<EhrConnection>,
+  ): Promise<EhrConnection | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appEhrConnectionsTable)
+      .where(eq(appEhrConnectionsTable.id, id));
+    if (!row) return undefined;
+    // operate on the stored (encrypted) form, exactly like MemStorage
+    const mergedStored = { ...this.rowToStoredConnection(row), ...updates } as EhrConnection;
+    await this.dbc
+      .update(appEhrConnectionsTable)
+      .set(this.connectionToValues(mergedStored))
+      .where(eq(appEhrConnectionsTable.id, id));
+    return mergedStored;
+  }
+
+  override async updateEhrConnectionTokens(
+    id: string,
+    tokens: Parameters<MemStorage["updateEhrConnectionTokens"]>[1],
+    smartContext?: Parameters<MemStorage["updateEhrConnectionTokens"]>[2],
+  ): Promise<EhrConnection | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appEhrConnectionsTable)
+      .where(eq(appEhrConnectionsTable.id, id));
+    if (!row) return undefined;
+    const currentPlain = decryptConnectionFromStorage(this.rowToStoredConnection(row), "ehrConnection")!;
+    const updatedPlain: EhrConnection = {
+      ...currentPlain,
+      tokens,
+      smartContext: smartContext || currentPlain.smartContext,
+      status: "connected",
+      syncError: undefined,
+    };
+    const stored = encryptConnectionForStorage(updatedPlain, "ehrConnection");
+    await this.dbc
+      .update(appEhrConnectionsTable)
+      .set(this.connectionToValues(stored))
+      .where(eq(appEhrConnectionsTable.id, id));
+    return updatedPlain;
+  }
+
+  override async deleteEhrConnection(id: string): Promise<void> {
+    await this.dbc.delete(appEhrConnectionsTable).where(eq(appEhrConnectionsTable.id, id));
+    await this.deletePatientsByConnection(id); // already DB-backed
+  }
+
+  // ══ Patient entity (C1) — per-EHR patient record; completes the IDOR chain ══
+  // getPatientsByConnection + getPatientsByUnifiedId are DB-backed here, so the
+  // already-migrated *ByUnifiedPatient methods and getUserPatientIds (IDOR
+  // ownership) become fully durable.
+  private patientsHydrated = false;
+
+  private mapPatientRow(row: typeof appPatientsTable.$inferSelect): Patient {
+    return {
+      id: row.id,
+      unifiedPatientId: row.unifiedPatientId,
+      ehrConnectionId: row.ehrConnectionId,
+      mrn: row.mrn,
+      firstName: row.firstName,
+      middleName: row.middleName,
+      lastName: row.lastName,
+      dateOfBirth: row.dateOfBirth,
+      gender: row.gender,
+      email: row.email,
+      phone: row.phone,
+      address: row.address,
+      insuranceProvider: row.insuranceProvider,
+      insuranceId: row.insuranceId,
+      primaryPhysician: row.primaryPhysician,
+      avatarUrl: row.avatarUrl ?? undefined,
+    };
+  }
+
+  private async ensurePatientsHydrated(): Promise<void> {
+    if (this.patientsHydrated) return;
+    this.patients.clear();
+    const rows = await this.dbc.select().from(appPatientsTable);
+    for (const row of rows) this.patients.set(row.id, this.mapPatientRow(row));
+    this.patientsHydrated = true;
+  }
+
+  override async getPatients(limit?: number): Promise<Patient[]> {
+    const base = this.dbc.select().from(appPatientsTable);
+    const rows = limit ? await base.limit(limit) : await base;
+    return rows.map((r) => this.mapPatientRow(r));
+  }
+
+  override async getPatientsByConnection(connectionId: string): Promise<Patient[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appPatientsTable)
+      .where(eq(appPatientsTable.ehrConnectionId, connectionId));
+    return rows.map((r) => this.mapPatientRow(r));
+  }
+
+  override async getPatient(id: string): Promise<Patient | undefined> {
+    const [row] = await this.dbc.select().from(appPatientsTable).where(eq(appPatientsTable.id, id));
+    return row ? this.mapPatientRow(row) : undefined;
+  }
+
+  override async getPatientsByUnifiedId(unifiedPatientId: string): Promise<Patient[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appPatientsTable)
+      .where(eq(appPatientsTable.unifiedPatientId, unifiedPatientId));
+    return rows.map((r) => this.mapPatientRow(r));
+  }
+
+  override async createPatient(patient: InsertPatient): Promise<Patient> {
+    const id = randomUUID();
+    const unifiedPatientId = patient.unifiedPatientId || randomUUID();
+    const plain = { ...patient, id, unifiedPatientId } as Patient;
+    const [row] = await this.dbc
+      .insert(appPatientsTable)
+      .values({
+        id,
+        unifiedPatientId,
+        ehrConnectionId: plain.ehrConnectionId,
+        mrn: plain.mrn,
+        firstName: plain.firstName,
+        middleName: plain.middleName,
+        lastName: plain.lastName,
+        dateOfBirth: plain.dateOfBirth,
+        gender: plain.gender,
+        email: plain.email,
+        phone: plain.phone,
+        address: plain.address,
+        insuranceProvider: plain.insuranceProvider,
+        insuranceId: plain.insuranceId,
+        primaryPhysician: plain.primaryPhysician,
+        avatarUrl: plain.avatarUrl ?? null,
+      })
+      .returning();
+    const p = this.mapPatientRow(row);
+    this.patients.set(p.id, p); // mirror for the analytics/risk readers
+    return p;
+  }
+
+  // Inherited analytics/risk readers that iterate the patients Map — hydrate
+  // patients from Postgres first, then delegate to MemStorage.
+  override async getUpcomingAppointments() {
+    await this.ensurePatientsHydrated();
+    return super.getUpcomingAppointments();
+  }
+
+  override async getAllPatientRiskStratifications() {
+    await this.ensurePatientsHydrated();
+    return super.getAllPatientRiskStratifications();
+  }
+
+  override async getPatientRiskStratification(patientId: string) {
+    await this.ensurePatientsHydrated();
+    return super.getPatientRiskStratification(patientId);
+  }
+
+  override async getUrgentInterventions() {
+    await this.ensurePatientsHydrated();
+    return super.getUrgentInterventions();
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════

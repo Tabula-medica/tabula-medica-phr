@@ -1787,6 +1787,34 @@ export const insertEhrConnectionSchema = z.object({
 
 export type InsertEhrConnection = z.infer<typeof insertEhrConnectionSchema>;
 
+// Durable backing table for EhrConnection (C1) — EHR/OAuth connections. The
+// `tokens` jsonb holds OAuth tokens in their ENCRYPTED-at-rest form (the F3
+// fix); DatabaseStorage encrypts on write and decrypts on read exactly like
+// MemStorage did. `user_id` is plaintext (not in PHI_FIELDS) so it stays
+// queryable. Named `app_ehr_connections`; additive only.
+export const appEhrConnectionsTable = pgTable(
+  "app_ehr_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    platform: text("platform").$type<EhrPlatform>().notNull(),
+    facilityName: text("facility_name").notNull(),
+    status: text("status").$type<EhrConnection["status"]>().notNull().default("pending_auth"),
+    lastSync: text("last_sync").notNull(),
+    patientCount: integer("patient_count").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    fhirConfig: jsonb("fhir_config").$type<EhrConnection["fhirConfig"]>(),
+    tokens: jsonb("tokens").$type<Record<string, unknown>>(), // ENCRYPTED OAuth tokens
+    smartContext: jsonb("smart_context").$type<EhrConnection["smartContext"]>(),
+    syncError: text("sync_error"),
+    syncSettings: jsonb("sync_settings").$type<EhrConnection["syncSettings"]>(),
+    lastSyncResult: jsonb("last_sync_result").$type<EhrConnection["lastSyncResult"]>(),
+  },
+  (t) => ({
+    userIdx: index("app_ehr_connections_user_idx").on(t.userId),
+  }),
+);
+
 // Unified Patient (Master Patient Index - MPI)
 // Links the same person across different EHR platforms
 export interface UnifiedPatient {
@@ -1855,6 +1883,38 @@ export const insertPatientSchema = z.object({
 });
 
 export type InsertPatient = z.infer<typeof insertPatientSchema>;
+
+// Durable backing table for Patient (C1) — per-EHR patient record (PHI: name,
+// DOB, contact, insurance, MRN). MemStorage stored these plaintext in a Map;
+// stored plaintext here too (at-rest encryption is provided by Cloud SQL CMEK —
+// column-level PHI encryption is a separate H3 defense-in-depth follow-up).
+// Named `app_patients`; additive only. This + app_ehr_connections complete the
+// getUserPatientIds IDOR ownership chain durably.
+export const appPatientsTable = pgTable(
+  "app_patients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    unifiedPatientId: text("unified_patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    mrn: text("mrn").notNull(),
+    firstName: text("first_name").notNull(),
+    middleName: text("middle_name").notNull(),
+    lastName: text("last_name").notNull(),
+    dateOfBirth: text("date_of_birth").notNull(),
+    gender: text("gender").$type<Patient["gender"]>().notNull(),
+    email: text("email").notNull(),
+    phone: text("phone").notNull(),
+    address: text("address").notNull(),
+    insuranceProvider: text("insurance_provider").notNull(),
+    insuranceId: text("insurance_id").notNull(),
+    primaryPhysician: text("primary_physician").notNull(),
+    avatarUrl: text("avatar_url"),
+  },
+  (t) => ({
+    connectionIdx: index("app_patients_connection_idx").on(t.ehrConnectionId),
+    unifiedIdx: index("app_patients_unified_idx").on(t.unifiedPatientId),
+  }),
+);
 
 // Medical Record
 export interface MedicalRecord {
