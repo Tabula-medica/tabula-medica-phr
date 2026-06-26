@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -1212,7 +1212,9 @@ export class MemStorage implements IStorage {
   // readers that iterate this Map.
   protected allergies: Map<string, Allergy> = new Map();
   private problems: Map<string, Problem> = new Map();
-  private appointments: Map<string, Appointment> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for the aggregation /
+  // upcoming / at-risk readers that iterate this Map.
+  protected appointments: Map<string, Appointment> = new Map();
   private providerPatientAuthorizations: Map<string, Set<string>> = new Map();
   private aiAdminRequestOwners: Map<string, string> = new Map();
   private aiAdminRateLimits: Map<string, { count: number; resetAt: number }> = new Map();
@@ -12358,8 +12360,10 @@ export class MemStorage implements IStorage {
  *                                               encrypt-on-write/decrypt-on-read)
  *   • Patient           → app_patients          (completes getUserPatientIds IDOR
  *                                               ownership chain — fully DB-backed)
+ *   • Appointment       → app_appointments      (clinical scheduling; upcoming +
+ *                                               aggregation + at-risk readers extended)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   appointments, healthGoals, unifiedPatients, allergyEmergency*, … by exposure.
+ *   healthGoals, unifiedPatients, riskStratifications, conditions, … by exposure.
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
  *   (MemStorage returned undefined) — add a uuid-format guard. (2) app_patients
  *   stores PHI plaintext (Cloud SQL CMEK covers at-rest); column-level PHI
@@ -12699,9 +12703,10 @@ export class DatabaseStorage extends MemStorage {
       await this.dbc.delete(appMedicalRecordsTable).where(inArray(appMedicalRecordsTable.patientId, patientIds));
       await this.dbc.delete(appVitalSignsTable).where(inArray(appVitalSignsTable.patientId, patientIds));
       await this.dbc.delete(appMedicationsTable).where(inArray(appMedicationsTable.patientId, patientIds));
+      await this.dbc.delete(appAppointmentsTable).where(inArray(appAppointmentsTable.patientId, patientIds));
     }
     await this.dbc.delete(appPatientsTable).where(eq(appPatientsTable.ehrConnectionId, connectionId));
-    await super.deletePatientsByConnection(connectionId); // appointments (Map) + Map cleanup
+    await super.deletePatientsByConnection(connectionId); // Map cleanup
   }
 
   // Inherited aggregation readers that iterate the medicalRecords Map — hydrate
@@ -12711,6 +12716,7 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureVitalsHydrated();
     await this.ensureMedicationsHydrated();
     await this.ensureEhrConnectionsHydrated();
+    await this.ensureAppointmentsHydrated();
     return super.getAggregatedPatientData(unifiedPatientId);
   }
 
@@ -12926,6 +12932,7 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureMedicationsHydrated();
     await this.ensureLabResultsHydrated();
     await this.ensurePatientsHydrated();
+    await this.ensureAppointmentsHydrated();
     return super.getAtRiskPatients(riskLevel, limit);
   }
 
@@ -13758,6 +13765,7 @@ export class DatabaseStorage extends MemStorage {
   // patients from Postgres first, then delegate to MemStorage.
   override async getUpcomingAppointments() {
     await this.ensurePatientsHydrated();
+    await this.ensureAppointmentsHydrated();
     return super.getUpcomingAppointments();
   }
 
@@ -13774,6 +13782,61 @@ export class DatabaseStorage extends MemStorage {
   override async getUrgentInterventions() {
     await this.ensurePatientsHydrated();
     return super.getUrgentInterventions();
+  }
+
+  // ══ Appointment entity (C1) — clinical scheduling ═══════════════════════════
+  private appointmentsHydrated = false;
+
+  private mapAppointmentRow(row: typeof appAppointmentsTable.$inferSelect): Appointment {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      type: row.type,
+      title: row.title,
+      provider: row.provider,
+      facility: row.facility,
+      scheduledAt: row.scheduledAt,
+      duration: row.duration,
+      status: row.status,
+      notes: row.notes ?? undefined,
+    };
+  }
+
+  private async ensureAppointmentsHydrated(): Promise<void> {
+    if (this.appointmentsHydrated) return;
+    this.appointments.clear();
+    const rows = await this.dbc.select().from(appAppointmentsTable);
+    for (const row of rows) this.appointments.set(row.id, this.mapAppointmentRow(row));
+    this.appointmentsHydrated = true;
+  }
+
+  override async getAppointments(): Promise<Appointment[]> {
+    const rows = await this.dbc.select().from(appAppointmentsTable);
+    return rows
+      .map((r) => this.mapAppointmentRow(r))
+      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  }
+
+  override async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+    const [row] = await this.dbc
+      .insert(appAppointmentsTable)
+      .values({
+        patientId: appointment.patientId,
+        ehrConnectionId: appointment.ehrConnectionId,
+        type: appointment.type,
+        title: appointment.title,
+        provider: appointment.provider,
+        facility: appointment.facility,
+        scheduledAt: appointment.scheduledAt,
+        duration: appointment.duration,
+        status: appointment.status || "scheduled",
+        notes: appointment.notes ?? null,
+      })
+      .returning();
+    const a = this.mapAppointmentRow(row);
+    this.appointments.set(a.id, a); // mirror for the upcoming/aggregation readers
+    return a;
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════

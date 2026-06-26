@@ -306,4 +306,20 @@ CREATE TABLE IF NOT EXISTS app_patients (
 CREATE INDEX IF NOT EXISTS app_patients_connection_idx ON app_patients (ehr_connection_id);
 CREATE INDEX IF NOT EXISTS app_patients_unified_idx ON app_patients (unified_patient_id);
 
+-- 16) Appointments (clinical scheduling)
+CREATE TABLE IF NOT EXISTS app_appointments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  ehr_connection_id text NOT NULL,
+  type text NOT NULL,
+  title text NOT NULL,
+  provider text NOT NULL,
+  facility text NOT NULL,
+  scheduled_at text NOT NULL,
+  duration integer NOT NULL,
+  status text NOT NULL DEFAULT 'scheduled',
+  notes text
+);
+CREATE INDEX IF NOT EXISTS app_appointments_patient_idx ON app_appointments (patient_id);
+
 COMMIT;

@@ -3427,6 +3427,28 @@ export const insertAppointmentSchema = z.object({
 
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
+// Durable backing table for Appointment (C1) — clinical scheduling. In-memory
+// Map, lost on restart. Named `app_appointments`; additive only.
+export const appAppointmentsTable = pgTable(
+  "app_appointments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    type: text("type").$type<Appointment["type"]>().notNull(),
+    title: text("title").notNull(),
+    provider: text("provider").notNull(),
+    facility: text("facility").notNull(),
+    scheduledAt: text("scheduled_at").notNull(),
+    duration: integer("duration").notNull(),
+    status: text("status").$type<Appointment["status"]>().notNull().default("scheduled"),
+    notes: text("notes"),
+  },
+  (t) => ({
+    patientIdx: index("app_appointments_patient_idx").on(t.patientId),
+  }),
+);
+
 // Health Goal - for tracking patient health objectives
 // HealthGoalStatus is defined earlier in this file (consolidated to a single definition).
 export type HealthGoalCategory = "weight" | "exercise" | "nutrition" | "medication" | "mental_health" | "sleep" | "other";
