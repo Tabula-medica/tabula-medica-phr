@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -12346,8 +12346,13 @@ export class MemStorage implements IStorage {
  *                                               emergency-info via hydrate-then-super)
  *   • Immunization      → app_immunizations     (clinical PHI; vaccine/lot/CVX/reaction)
  *   • LabResult         → app_lab_results       (clinical PHI incl. critical values)
+ *   • AllergyEmergencyInfo → app_allergy_emergency_info (emergency action plan;
+ *                                               Extended allergy now fully DB)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   conditions, allergyEmergencyInfo, patients, ehrConnections, … (by PHI exposure)
+ *   patients, ehrConnections (core; many readers — review carefully), then the
+ *   rest (appointments, healthGoals, careGaps, …) by PHI exposure.
+ * KNOWN FOLLOW-UP: by-id lookups on uuid columns throw on a non-UUID id
+ *   (MemStorage returned undefined). Add a uuid-format guard. See morning TODO.
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -13214,24 +13219,71 @@ export class DatabaseStorage extends MemStorage {
     return a;
   }
 
-  // Extended emergency-info readers iterate the allergies Map and join the
-  // separate allergyEmergencyInfo Map — hydrate allergies, then delegate.
-  override async getExtendedAllergy(id: string) {
-    await this.ensureAllergiesHydrated();
-    return super.getExtendedAllergy(id);
+  // Extended emergency-info: fully DB-backed (allergy from app_allergies joined
+  // with app_allergy_emergency_info) — both durable, so no Map/super.
+  private mapEmergencyInfoRow(
+    row: typeof appAllergyEmergencyInfoTable.$inferSelect,
+  ): import("@shared/schema").AllergyEmergencyInfo {
+    return {
+      emergencyContactName: row.emergencyContactName ?? undefined,
+      emergencyContactPhone: row.emergencyContactPhone ?? undefined,
+      epinephrineAvailable: row.epinephrineAvailable,
+      epinephrineLocation: row.epinephrineLocation ?? undefined,
+      crossReactivityNotes: row.crossReactivityNotes ?? undefined,
+      lastReactionDate: row.lastReactionDate ?? undefined,
+      actionPlan: row.actionPlan ?? undefined,
+    };
   }
 
-  override async getExtendedAllergiesByPatient(patientId: string) {
-    await this.ensureAllergiesHydrated();
-    return super.getExtendedAllergiesByPatient(patientId);
+  private async getEmergencyInfo(
+    allergyId: string,
+  ): Promise<import("@shared/schema").AllergyEmergencyInfo | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appAllergyEmergencyInfoTable)
+      .where(eq(appAllergyEmergencyInfoTable.allergyId, allergyId));
+    return row ? this.mapEmergencyInfoRow(row) : undefined;
+  }
+
+  override async getExtendedAllergy(id: string): Promise<ExtendedAllergy | undefined> {
+    const [arow] = await this.dbc.select().from(appAllergiesTable).where(eq(appAllergiesTable.id, id));
+    if (!arow) return undefined;
+    return { ...this.mapAllergyRow(arow), emergencyInfo: await this.getEmergencyInfo(id) };
+  }
+
+  override async getExtendedAllergiesByPatient(patientId: string): Promise<ExtendedAllergy[]> {
+    const arows = await this.dbc
+      .select()
+      .from(appAllergiesTable)
+      .where(eq(appAllergiesTable.patientId, patientId));
+    const out: ExtendedAllergy[] = [];
+    for (const arow of arows) {
+      const a = this.mapAllergyRow(arow);
+      out.push({ ...a, emergencyInfo: await this.getEmergencyInfo(a.id) });
+    }
+    return out;
   }
 
   override async updateAllergyEmergencyInfo(
     allergyId: string,
     emergencyInfo: Parameters<MemStorage["updateAllergyEmergencyInfo"]>[1],
-  ) {
-    await this.ensureAllergiesHydrated();
-    return super.updateAllergyEmergencyInfo(allergyId, emergencyInfo);
+  ): Promise<ExtendedAllergy | undefined> {
+    const [arow] = await this.dbc.select().from(appAllergiesTable).where(eq(appAllergiesTable.id, allergyId));
+    if (!arow) return undefined;
+    const cols = {
+      emergencyContactName: emergencyInfo.emergencyContactName ?? null,
+      emergencyContactPhone: emergencyInfo.emergencyContactPhone ?? null,
+      epinephrineAvailable: emergencyInfo.epinephrineAvailable,
+      epinephrineLocation: emergencyInfo.epinephrineLocation ?? null,
+      crossReactivityNotes: emergencyInfo.crossReactivityNotes ?? null,
+      lastReactionDate: emergencyInfo.lastReactionDate ?? null,
+      actionPlan: emergencyInfo.actionPlan ?? null,
+    };
+    await this.dbc
+      .insert(appAllergyEmergencyInfoTable)
+      .values({ allergyId, ...cols })
+      .onConflictDoUpdate({ target: appAllergyEmergencyInfoTable.allergyId, set: cols });
+    return { ...this.mapAllergyRow(arow), emergencyInfo };
   }
 
   // ══ Immunization entity (C1) — clinical PHI ═════════════════════════════════

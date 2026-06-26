@@ -3164,6 +3164,20 @@ export interface ExtendedAllergy extends Allergy {
   emergencyInfo?: AllergyEmergencyInfo;
 }
 
+// Durable backing table for AllergyEmergencyInfo (C1) — emergency action plan
+// per allergy (keyed by allergy id). One row per allergy. Named
+// `app_allergy_emergency_info`; additive only.
+export const appAllergyEmergencyInfoTable = pgTable("app_allergy_emergency_info", {
+  allergyId: text("allergy_id").primaryKey(),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  epinephrineAvailable: boolean("epinephrine_available").notNull().default(false),
+  epinephrineLocation: text("epinephrine_location"),
+  crossReactivityNotes: text("cross_reactivity_notes"),
+  lastReactionDate: text("last_reaction_date"),
+  actionPlan: text("action_plan"),
+});
+
 export const insertAllergyEmergencyInfoSchema = z.object({
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),

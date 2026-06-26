@@ -233,4 +233,16 @@ CREATE TABLE IF NOT EXISTS app_lab_results (
 );
 CREATE INDEX IF NOT EXISTS app_lab_results_patient_idx ON app_lab_results (patient_id);
 
+-- 12) Allergy emergency info (one row per allergy, keyed by allergy_id)
+CREATE TABLE IF NOT EXISTS app_allergy_emergency_info (
+  allergy_id text PRIMARY KEY,
+  emergency_contact_name text,
+  emergency_contact_phone text,
+  epinephrine_available boolean NOT NULL DEFAULT false,
+  epinephrine_location text,
+  cross_reactivity_notes text,
+  last_reaction_date text,
+  action_plan text
+);
+
 COMMIT;
