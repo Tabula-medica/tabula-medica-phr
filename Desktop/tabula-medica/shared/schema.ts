@@ -1940,6 +1940,30 @@ export const insertMedicationSchema = z.object({
 
 export type InsertMedication = z.infer<typeof insertMedicationSchema>;
 
+// Durable backing table for Medication (C1) — clinical PHI. Kept in an in-memory
+// Map (lost on restart). Named `app_medications`; additive only.
+export const appMedicationsTable = pgTable(
+  "app_medications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    name: text("name").notNull(),
+    dosage: text("dosage").notNull(),
+    frequency: text("frequency").notNull(),
+    prescribedBy: text("prescribed_by").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date"),
+    status: text("status").$type<Medication["status"]>().notNull().default("active"),
+    refillsRemaining: integer("refills_remaining").notNull().default(0),
+    patientReported: text("patient_reported").$type<NonNullable<Medication["patientReported"]>>(),
+  },
+  (t) => ({
+    patientIdx: index("app_medications_patient_idx").on(t.patientId),
+    connectionIdx: index("app_medications_connection_idx").on(t.ehrConnectionId),
+  }),
+);
+
 // ============================================
 // PRESCRIPTION MANAGEMENT
 // ============================================

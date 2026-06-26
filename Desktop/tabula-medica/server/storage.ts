@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -1190,7 +1190,9 @@ export class MemStorage implements IStorage {
   // readers (getAggregatedPatientData, getPatientPreventiveSummary) after records
   // moved to Postgres.
   protected medicalRecords: Map<string, MedicalRecord> = new Map();
-  private medications: Map<string, Medication> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for the aggregation + AI
+  // analytics readers that iterate this Map.
+  protected medications: Map<string, Medication> = new Map();
   // protected so DatabaseStorage can clear/hydrate for getAggregatedPatientData
   protected vitals: Map<string, VitalSign> = new Map();
   private labResults: Map<string, LabResult> = new Map();
@@ -12332,8 +12334,10 @@ export class MemStorage implements IStorage {
  *                                               ownership-scoped delete + sign-out-others)
  *   • VitalSign         → app_vital_signs       (clinical PHI; aggregation reader +
  *                                               deletePatientsByConnection cascade extended)
+ *   • Medication        → app_medications       (clinical PHI; 8 AI/analytics
+ *                                               readers hydrate-then-super)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   caregivers, medications, allergies, conditions, … (by PHI exposure)
+ *   caregivers, allergies, conditions, immunizations, labs, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12670,6 +12674,7 @@ export class DatabaseStorage extends MemStorage {
     if (patientIds.length > 0) {
       await this.dbc.delete(appMedicalRecordsTable).where(inArray(appMedicalRecordsTable.patientId, patientIds));
       await this.dbc.delete(appVitalSignsTable).where(inArray(appVitalSignsTable.patientId, patientIds));
+      await this.dbc.delete(appMedicationsTable).where(inArray(appMedicationsTable.patientId, patientIds));
     }
     await super.deletePatientsByConnection(connectionId);
   }
@@ -12679,6 +12684,7 @@ export class DatabaseStorage extends MemStorage {
   override async getAggregatedPatientData(unifiedPatientId: string) {
     await this.ensureMedicalRecordsHydrated();
     await this.ensureVitalsHydrated();
+    await this.ensureMedicationsHydrated();
     return super.getAggregatedPatientData(unifiedPatientId);
   }
 
@@ -12752,6 +12758,162 @@ export class DatabaseStorage extends MemStorage {
     const v = this.mapVitalSignRow(row);
     this.vitals.set(v.id, v); // mirror for the aggregation reader
     return v;
+  }
+
+  // ══ Medication entity (C1) — clinical PHI ═══════════════════════════════════
+  // Read by 8 AI/analytics methods that iterate the Map (searchPatientData,
+  // getAnalyticsDashboardData, createPatientCohort, getAtRiskPatients,
+  // getPopulationHealthMetrics, getTreatmentEfficacyData, createAnalyticsReport,
+  // getMedicationsList) — each is overridden to hydrate-then-super so it sees DB
+  // data without reimplementing the aggregation over not-yet-migrated Maps.
+  private medicationsHydrated = false;
+
+  private mapMedicationRow(row: typeof appMedicationsTable.$inferSelect): Medication {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      name: row.name,
+      dosage: row.dosage,
+      frequency: row.frequency,
+      prescribedBy: row.prescribedBy,
+      startDate: row.startDate,
+      endDate: row.endDate ?? undefined,
+      status: row.status,
+      refillsRemaining: row.refillsRemaining,
+      patientReported: row.patientReported ?? undefined,
+    };
+  }
+
+  private sortMedsActiveFirst(meds: Medication[]): Medication[] {
+    return meds.sort((a, b) => (a.status === "active" ? -1 : 1));
+  }
+
+  private async ensureMedicationsHydrated(): Promise<void> {
+    if (this.medicationsHydrated) return;
+    this.medications.clear();
+    const rows = await this.dbc.select().from(appMedicationsTable);
+    for (const row of rows) this.medications.set(row.id, this.mapMedicationRow(row));
+    this.medicationsHydrated = true;
+  }
+
+  override async getMedicationsByPatient(patientId: string): Promise<Medication[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appMedicationsTable)
+      .where(eq(appMedicationsTable.patientId, patientId));
+    return this.sortMedsActiveFirst(rows.map((r) => this.mapMedicationRow(r)));
+  }
+
+  override async getMedicationsByUnifiedPatient(unifiedPatientId: string): Promise<Medication[]> {
+    const patients = await this.getPatientsByUnifiedId(unifiedPatientId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length === 0) return [];
+    const rows = await this.dbc
+      .select()
+      .from(appMedicationsTable)
+      .where(inArray(appMedicationsTable.patientId, patientIds));
+    return this.sortMedsActiveFirst(rows.map((r) => this.mapMedicationRow(r)));
+  }
+
+  override async getMedication(id: string): Promise<Medication | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appMedicationsTable)
+      .where(eq(appMedicationsTable.id, id));
+    return row ? this.mapMedicationRow(row) : undefined;
+  }
+
+  override async createMedication(medication: InsertMedication): Promise<Medication> {
+    const [row] = await this.dbc
+      .insert(appMedicationsTable)
+      .values({
+        patientId: medication.patientId,
+        ehrConnectionId: medication.ehrConnectionId,
+        name: medication.name,
+        dosage: medication.dosage,
+        frequency: medication.frequency,
+        prescribedBy: medication.prescribedBy,
+        startDate: medication.startDate,
+        endDate: medication.endDate ?? null,
+        status: medication.status || "active",
+        refillsRemaining: medication.refillsRemaining || 0,
+        patientReported: medication.patientReported ?? null,
+      })
+      .returning();
+    const m = this.mapMedicationRow(row);
+    this.medications.set(m.id, m); // mirror for the analytics readers
+    return m;
+  }
+
+  override async updateMedication(
+    id: string,
+    updates: Partial<Medication>,
+  ): Promise<Medication | undefined> {
+    const set: Partial<typeof appMedicationsTable.$inferInsert> = {};
+    if (updates.patientId !== undefined) set.patientId = updates.patientId;
+    if (updates.ehrConnectionId !== undefined) set.ehrConnectionId = updates.ehrConnectionId;
+    if (updates.name !== undefined) set.name = updates.name;
+    if (updates.dosage !== undefined) set.dosage = updates.dosage;
+    if (updates.frequency !== undefined) set.frequency = updates.frequency;
+    if (updates.prescribedBy !== undefined) set.prescribedBy = updates.prescribedBy;
+    if (updates.startDate !== undefined) set.startDate = updates.startDate;
+    if (updates.endDate !== undefined) set.endDate = updates.endDate;
+    if (updates.status !== undefined) set.status = updates.status;
+    if (updates.refillsRemaining !== undefined) set.refillsRemaining = updates.refillsRemaining;
+    if (updates.patientReported !== undefined) set.patientReported = updates.patientReported;
+    if (Object.keys(set).length === 0) return this.getMedication(id);
+    const [row] = await this.dbc
+      .update(appMedicationsTable)
+      .set(set)
+      .where(eq(appMedicationsTable.id, id))
+      .returning();
+    if (!row) return undefined;
+    const m = this.mapMedicationRow(row);
+    this.medications.set(m.id, m);
+    return m;
+  }
+
+  // AI/analytics readers that iterate the medications Map — hydrate from
+  // Postgres first, then delegate to MemStorage's implementation.
+  override async searchPatientData(query: string, patientId?: string, filters?: Parameters<MemStorage["searchPatientData"]>[2]) {
+    await this.ensureMedicationsHydrated();
+    return super.searchPatientData(query, patientId, filters);
+  }
+
+  override async getAnalyticsDashboardData() {
+    await this.ensureMedicationsHydrated();
+    return super.getAnalyticsDashboardData();
+  }
+
+  override async createPatientCohort(cohort: Parameters<MemStorage["createPatientCohort"]>[0]) {
+    await this.ensureMedicationsHydrated();
+    return super.createPatientCohort(cohort);
+  }
+
+  override async getAtRiskPatients(riskLevel?: string, limit: number = 20) {
+    await this.ensureMedicationsHydrated();
+    return super.getAtRiskPatients(riskLevel, limit);
+  }
+
+  override async getPopulationHealthMetrics(periodType: string = "monthly") {
+    await this.ensureMedicationsHydrated();
+    return super.getPopulationHealthMetrics(periodType);
+  }
+
+  override async getTreatmentEfficacyData(treatmentName?: string, cohortId?: string) {
+    await this.ensureMedicationsHydrated();
+    return super.getTreatmentEfficacyData(treatmentName, cohortId);
+  }
+
+  override async createAnalyticsReport(report: Parameters<MemStorage["createAnalyticsReport"]>[0]) {
+    await this.ensureMedicationsHydrated();
+    return super.createAnalyticsReport(report);
+  }
+
+  override async getMedicationsList() {
+    await this.ensureMedicationsHydrated();
+    return super.getMedicationsList();
   }
 
   // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════
