@@ -6857,6 +6857,28 @@ export const insertMedicationReminderSchema = z.object({
 
 export type InsertMedicationReminder = z.infer<typeof insertMedicationReminderSchema>;
 
+// Durable backing table for MedicationReminder (C1) — adherence reminders.
+// In-memory Map, lost on restart. Named `app_medication_reminders`; additive.
+export const appMedicationRemindersTable = pgTable(
+  "app_medication_reminders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    medicationId: text("medication_id").notNull(),
+    medicationName: text("medication_name").notNull(),
+    dosage: text("dosage").notNull(),
+    frequency: text("frequency").$type<ReminderFrequency>().notNull(),
+    scheduledTimes: jsonb("scheduled_times").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    aiGeneratedMessage: text("ai_generated_message"),
+    isActive: boolean("is_active").notNull().default(true),
+    notifyViaApp: boolean("notify_via_app").notNull().default(true),
+    notifyViaPush: boolean("notify_via_push").notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({ patientIdx: index("app_medication_reminders_patient_idx").on(t.patientId) }),
+);
+
 // Missed Dose Reason Categories
 export const missedDoseReasons = [
   "forgot",

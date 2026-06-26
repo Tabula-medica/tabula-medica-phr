@@ -450,4 +450,22 @@ CREATE TABLE IF NOT EXISTS emergency_access_logs (
 );
 CREATE INDEX IF NOT EXISTS emergency_access_logs_token_idx ON emergency_access_logs (token);
 
+-- Medication reminders (adherence)
+CREATE TABLE IF NOT EXISTS app_medication_reminders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  medication_id text NOT NULL,
+  medication_name text NOT NULL,
+  dosage text NOT NULL,
+  frequency text NOT NULL,
+  scheduled_times jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ai_generated_message text,
+  is_active boolean NOT NULL DEFAULT true,
+  notify_via_app boolean NOT NULL DEFAULT true,
+  notify_via_push boolean NOT NULL DEFAULT false,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_medication_reminders_patient_idx ON app_medication_reminders (patient_id);
+
 COMMIT;

@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -12369,9 +12369,11 @@ export class MemStorage implements IStorage {
  *   • Problem           → app_problems          (clinical problem/condition list;
  *                                               8 analytics readers hydrate-then-super)
  *   • WearableConnection → app_wearable_connections (tokens ENCRYPTED in jsonb blob)
+ *   • WearableDataRecord → app_wearable_data_records (metrics)
+ *   • MedicationReminder → app_medication_reminders (adherence reminders)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   wearableDataRecords, medication subsystem (reminders/adherence),
- *   sharing/consents, security (2FA/notifications), … by exposure.
+ *   medication adherence records, sharing/consents, security (2FA/notifications),
+ *   … by exposure.
  *   SKIP unifiedPatients (no create path — seed-only) & riskStratifications (computed).
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
  *   (MemStorage returned undefined) — add a uuid-format guard. (2) app_patients
@@ -13949,6 +13951,90 @@ export class DatabaseStorage extends MemStorage {
     await this.dbc
       .delete(appHealthGoalsTable)
       .where(and(eq(appHealthGoalsTable.id, id), eq(appHealthGoalsTable.patientId, patientId)));
+  }
+
+  // ══ MedicationReminder entity (C1) — adherence reminders ════════════════════
+  private mapMedicationReminderRow(row: typeof appMedicationRemindersTable.$inferSelect): MedicationReminder {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      medicationId: row.medicationId,
+      medicationName: row.medicationName,
+      dosage: row.dosage,
+      frequency: row.frequency,
+      scheduledTimes: row.scheduledTimes,
+      aiGeneratedMessage: row.aiGeneratedMessage ?? undefined,
+      isActive: row.isActive,
+      notifyViaApp: row.notifyViaApp,
+      notifyViaPush: row.notifyViaPush,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getMedicationReminders(patientId: string): Promise<MedicationReminder[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appMedicationRemindersTable)
+      .where(eq(appMedicationRemindersTable.patientId, patientId));
+    return rows
+      .map((r) => this.mapMedicationReminderRow(r))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  override async getMedicationReminder(id: string): Promise<MedicationReminder | undefined> {
+    const [row] = await this.dbc.select().from(appMedicationRemindersTable).where(eq(appMedicationRemindersTable.id, id));
+    return row ? this.mapMedicationReminderRow(row) : undefined;
+  }
+
+  override async createMedicationReminder(reminder: InsertMedicationReminder): Promise<MedicationReminder> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appMedicationRemindersTable)
+      .values({
+        patientId: reminder.patientId,
+        medicationId: reminder.medicationId,
+        medicationName: reminder.medicationName,
+        dosage: reminder.dosage,
+        frequency: reminder.frequency,
+        scheduledTimes: reminder.scheduledTimes ?? [],
+        aiGeneratedMessage: reminder.aiGeneratedMessage ?? null,
+        isActive: reminder.isActive ?? true,
+        notifyViaApp: reminder.notifyViaApp ?? true,
+        notifyViaPush: reminder.notifyViaPush ?? false,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapMedicationReminderRow(row);
+  }
+
+  override async updateMedicationReminder(
+    id: string,
+    updates: Partial<MedicationReminder>,
+  ): Promise<MedicationReminder | undefined> {
+    const set: Partial<typeof appMedicationRemindersTable.$inferInsert> = {};
+    if (updates.patientId !== undefined) set.patientId = updates.patientId;
+    if (updates.medicationId !== undefined) set.medicationId = updates.medicationId;
+    if (updates.medicationName !== undefined) set.medicationName = updates.medicationName;
+    if (updates.dosage !== undefined) set.dosage = updates.dosage;
+    if (updates.frequency !== undefined) set.frequency = updates.frequency;
+    if (updates.scheduledTimes !== undefined) set.scheduledTimes = updates.scheduledTimes;
+    if (updates.aiGeneratedMessage !== undefined) set.aiGeneratedMessage = updates.aiGeneratedMessage;
+    if (updates.isActive !== undefined) set.isActive = updates.isActive;
+    if (updates.notifyViaApp !== undefined) set.notifyViaApp = updates.notifyViaApp;
+    if (updates.notifyViaPush !== undefined) set.notifyViaPush = updates.notifyViaPush;
+    set.updatedAt = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appMedicationRemindersTable)
+      .set(set)
+      .where(eq(appMedicationRemindersTable.id, id))
+      .returning();
+    return row ? this.mapMedicationReminderRow(row) : undefined;
+  }
+
+  override async deleteMedicationReminder(id: string): Promise<void> {
+    await this.dbc.delete(appMedicationRemindersTable).where(eq(appMedicationRemindersTable.id, id));
   }
 
   // ══ Problem entity (C1) — clinical problem/condition list (ICD-coded) ═══════
