@@ -4550,6 +4550,44 @@ export const insertCaregiverSchema = z.object({
 
 export type InsertCaregiver = z.infer<typeof insertCaregiverSchema>;
 
+// Durable backing table for Caregiver (C1) — delegated PHI-access authorization
+// (who may see a patient's data and with what permissions). Losing this on
+// restart silently revokes/forgets every caregiver grant. permissions and
+// requiresApprovalFor are jsonb arrays of permission categories. Named
+// `app_caregivers`; additive only.
+export const appCaregiversTable = pgTable(
+  "app_caregivers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientUserId: text("patient_user_id").notNull(),
+    caregiverUserId: text("caregiver_user_id"),
+    caregiverEmail: text("caregiver_email").notNull(),
+    caregiverName: text("caregiver_name"),
+    relationship: text("relationship").$type<CaregiverRelationship>().notNull(),
+    status: text("status").$type<CaregiverStatus>().notNull().default("pending"),
+    permissions: jsonb("permissions").$type<CaregiverPermissionCategory[]>().notNull().default(sql`'[]'::jsonb`),
+    accessRestriction: text("access_restriction").$type<AccessRestrictionType>().notNull().default("none"),
+    accessExpiresAt: text("access_expires_at"),
+    requiresApprovalFor: jsonb("requires_approval_for").$type<CaregiverPermissionCategory[]>().notNull().default(sql`'[]'::jsonb`),
+    sensitiveDataAccess: boolean("sensitive_data_access").notNull().default(false),
+    notifyPatientOnAccess: boolean("notify_patient_on_access").notNull().default(true),
+    emergencyAccessEnabled: boolean("emergency_access_enabled").notNull().default(false),
+    lastAccessAt: text("last_access_at"),
+    inviteToken: text("invite_token"),
+    invitedAt: text("invited_at").notNull(),
+    acceptedAt: text("accepted_at"),
+    suspendedAt: text("suspended_at"),
+    suspensionReason: text("suspension_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_caregivers_patient_idx").on(t.patientUserId),
+    caregiverIdx: index("app_caregivers_caregiver_idx").on(t.caregiverUserId),
+    tokenIdx: index("app_caregivers_token_idx").on(t.inviteToken),
+  }),
+);
+
 // Schema for updating caregiver permissions
 export const updateCaregiverPermissionsSchema = z.object({
   permissions: z.array(z.enum(caregiverPermissionCategories)),

@@ -139,4 +139,33 @@ CREATE TABLE IF NOT EXISTS app_medications (
 CREATE INDEX IF NOT EXISTS app_medications_patient_idx ON app_medications (patient_id);
 CREATE INDEX IF NOT EXISTS app_medications_connection_idx ON app_medications (ehr_connection_id);
 
+-- 8) Caregivers (delegated PHI-access authorization)
+CREATE TABLE IF NOT EXISTS app_caregivers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id text NOT NULL,
+  caregiver_user_id text,
+  caregiver_email text NOT NULL,
+  caregiver_name text,
+  relationship text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  permissions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  access_restriction text NOT NULL DEFAULT 'none',
+  access_expires_at text,
+  requires_approval_for jsonb NOT NULL DEFAULT '[]'::jsonb,
+  sensitive_data_access boolean NOT NULL DEFAULT false,
+  notify_patient_on_access boolean NOT NULL DEFAULT true,
+  emergency_access_enabled boolean NOT NULL DEFAULT false,
+  last_access_at text,
+  invite_token text,
+  invited_at text NOT NULL,
+  accepted_at text,
+  suspended_at text,
+  suspension_reason text,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_caregivers_patient_idx ON app_caregivers (patient_user_id);
+CREATE INDEX IF NOT EXISTS app_caregivers_caregiver_idx ON app_caregivers (caregiver_user_id);
+CREATE INDEX IF NOT EXISTS app_caregivers_token_idx ON app_caregivers (invite_token);
+
 COMMIT;

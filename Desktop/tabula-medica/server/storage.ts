@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -12336,8 +12336,10 @@ export class MemStorage implements IStorage {
  *                                               deletePatientsByConnection cascade extended)
  *   • Medication        → app_medications       (clinical PHI; 8 AI/analytics
  *                                               readers hydrate-then-super)
+ *   • Caregiver         → app_caregivers        (delegated PHI-access authz;
+ *                                               getCaregivingFor = DB join w/ users)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   caregivers, allergies, conditions, immunizations, labs, … (by PHI exposure)
+ *   allergies, conditions, immunizations, labs, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12480,10 +12482,8 @@ export class DatabaseStorage extends MemStorage {
 
   // Inherited readers that iterate the users Map — hydrate from Postgres first,
   // then delegate to MemStorage's implementation (which also reads other Maps).
-  override async getCaregivingFor(caregiverUserId: string) {
-    await this.ensureUsersHydrated();
-    return super.getCaregivingFor(caregiverUserId);
-  }
+  // (getCaregivingFor moved to the Caregiver section — direct DB join now that
+  //  both caregivers and users are durable.)
 
   override async getChurnPredictions(riskLevel?: string) {
     await this.ensureUsersHydrated();
@@ -12914,6 +12914,216 @@ export class DatabaseStorage extends MemStorage {
   override async getMedicationsList() {
     await this.ensureMedicationsHydrated();
     return super.getMedicationsList();
+  }
+
+  // ══ Caregiver entity (C1) — delegated PHI-access authorization ══════════════
+  // Pure DB replacement: no reader outside these methods. getCaregivingFor is a
+  // direct DB join (caregivers + users, both durable).
+  private mapCaregiverRow(row: typeof appCaregiversTable.$inferSelect): Caregiver {
+    return {
+      id: row.id,
+      patientUserId: row.patientUserId,
+      caregiverUserId: row.caregiverUserId,
+      caregiverEmail: row.caregiverEmail,
+      caregiverName: row.caregiverName,
+      relationship: row.relationship,
+      status: row.status,
+      permissions: row.permissions,
+      accessRestriction: row.accessRestriction,
+      accessExpiresAt: row.accessExpiresAt,
+      requiresApprovalFor: row.requiresApprovalFor,
+      sensitiveDataAccess: row.sensitiveDataAccess,
+      notifyPatientOnAccess: row.notifyPatientOnAccess,
+      emergencyAccessEnabled: row.emergencyAccessEnabled,
+      lastAccessAt: row.lastAccessAt,
+      inviteToken: row.inviteToken,
+      invitedAt: row.invitedAt,
+      acceptedAt: row.acceptedAt,
+      suspendedAt: row.suspendedAt,
+      suspensionReason: row.suspensionReason,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  private buildCaregiverSet(u: Partial<Caregiver>): Partial<typeof appCaregiversTable.$inferInsert> {
+    const s: Partial<typeof appCaregiversTable.$inferInsert> = {};
+    if (u.patientUserId !== undefined) s.patientUserId = u.patientUserId;
+    if (u.caregiverUserId !== undefined) s.caregiverUserId = u.caregiverUserId;
+    if (u.caregiverEmail !== undefined) s.caregiverEmail = u.caregiverEmail;
+    if (u.caregiverName !== undefined) s.caregiverName = u.caregiverName;
+    if (u.relationship !== undefined) s.relationship = u.relationship;
+    if (u.status !== undefined) s.status = u.status;
+    if (u.permissions !== undefined) s.permissions = u.permissions;
+    if (u.accessRestriction !== undefined) s.accessRestriction = u.accessRestriction;
+    if (u.accessExpiresAt !== undefined) s.accessExpiresAt = u.accessExpiresAt;
+    if (u.requiresApprovalFor !== undefined) s.requiresApprovalFor = u.requiresApprovalFor;
+    if (u.sensitiveDataAccess !== undefined) s.sensitiveDataAccess = u.sensitiveDataAccess;
+    if (u.notifyPatientOnAccess !== undefined) s.notifyPatientOnAccess = u.notifyPatientOnAccess;
+    if (u.emergencyAccessEnabled !== undefined) s.emergencyAccessEnabled = u.emergencyAccessEnabled;
+    if (u.lastAccessAt !== undefined) s.lastAccessAt = u.lastAccessAt;
+    if (u.inviteToken !== undefined) s.inviteToken = u.inviteToken;
+    if (u.invitedAt !== undefined) s.invitedAt = u.invitedAt;
+    if (u.acceptedAt !== undefined) s.acceptedAt = u.acceptedAt;
+    if (u.suspendedAt !== undefined) s.suspendedAt = u.suspendedAt;
+    if (u.suspensionReason !== undefined) s.suspensionReason = u.suspensionReason;
+    return s;
+  }
+
+  override async getCaregivers(patientUserId: string): Promise<Caregiver[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appCaregiversTable)
+      .where(eq(appCaregiversTable.patientUserId, patientUserId));
+    return rows
+      .map((r) => this.mapCaregiverRow(r))
+      .sort((a, b) => new Date(b.invitedAt).getTime() - new Date(a.invitedAt).getTime());
+  }
+
+  override async getCaregivingFor(
+    caregiverUserId: string,
+  ): Promise<(Caregiver & { patient: User | undefined })[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appCaregiversTable)
+      .where(
+        and(
+          eq(appCaregiversTable.caregiverUserId, caregiverUserId),
+          eq(appCaregiversTable.status, "accepted"),
+        ),
+      );
+    const out: (Caregiver & { patient: User | undefined })[] = [];
+    for (const row of rows) {
+      const c = this.mapCaregiverRow(row);
+      out.push({ ...c, patient: await this.getUser(c.patientUserId) });
+    }
+    return out;
+  }
+
+  override async getCaregiver(id: string): Promise<Caregiver | undefined> {
+    const [row] = await this.dbc.select().from(appCaregiversTable).where(eq(appCaregiversTable.id, id));
+    return row ? this.mapCaregiverRow(row) : undefined;
+  }
+
+  override async getCaregiverByToken(token: string): Promise<Caregiver | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appCaregiversTable)
+      .where(eq(appCaregiversTable.inviteToken, token));
+    return row ? this.mapCaregiverRow(row) : undefined;
+  }
+
+  override async createCaregiver(caregiver: InsertCaregiver): Promise<Caregiver> {
+    const inviteToken = randomUUID();
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appCaregiversTable)
+      .values({
+        patientUserId: caregiver.patientUserId,
+        caregiverUserId: null,
+        caregiverEmail: caregiver.caregiverEmail,
+        caregiverName: caregiver.caregiverName || null,
+        relationship: caregiver.relationship,
+        status: "pending",
+        permissions: caregiver.permissions || ["view_medications", "view_appointments", "view_allergies"],
+        accessRestriction: caregiver.accessRestriction || "none",
+        accessExpiresAt: caregiver.accessExpiresAt || null,
+        requiresApprovalFor: caregiver.requiresApprovalFor || [],
+        sensitiveDataAccess: caregiver.sensitiveDataAccess || false,
+        notifyPatientOnAccess: caregiver.notifyPatientOnAccess !== false,
+        emergencyAccessEnabled: caregiver.emergencyAccessEnabled || false,
+        lastAccessAt: null,
+        inviteToken,
+        invitedAt: now,
+        acceptedAt: null,
+        suspendedAt: null,
+        suspensionReason: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapCaregiverRow(row);
+  }
+
+  override async updateCaregiver(
+    id: string,
+    updates: Partial<Caregiver>,
+  ): Promise<Caregiver | undefined> {
+    const set = this.buildCaregiverSet(updates);
+    set.updatedAt = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appCaregiversTable)
+      .set(set)
+      .where(eq(appCaregiversTable.id, id))
+      .returning();
+    return row ? this.mapCaregiverRow(row) : undefined;
+  }
+
+  override async updateCaregiverPermissions(
+    id: string,
+    patientUserId: string,
+    permissions: import("@shared/schema").UpdateCaregiverPermissions,
+  ): Promise<Caregiver | undefined> {
+    const existing = await this.getCaregiver(id); // ownership check
+    if (!existing || existing.patientUserId !== patientUserId) return undefined;
+    const [row] = await this.dbc
+      .update(appCaregiversTable)
+      .set({
+        permissions: permissions.permissions,
+        accessRestriction: permissions.accessRestriction ?? existing.accessRestriction,
+        accessExpiresAt:
+          permissions.accessExpiresAt !== undefined ? permissions.accessExpiresAt : existing.accessExpiresAt,
+        requiresApprovalFor: permissions.requiresApprovalFor ?? existing.requiresApprovalFor,
+        sensitiveDataAccess: permissions.sensitiveDataAccess ?? existing.sensitiveDataAccess,
+        notifyPatientOnAccess: permissions.notifyPatientOnAccess ?? existing.notifyPatientOnAccess,
+        emergencyAccessEnabled: permissions.emergencyAccessEnabled ?? existing.emergencyAccessEnabled,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(appCaregiversTable.id, id))
+      .returning();
+    return row ? this.mapCaregiverRow(row) : undefined;
+  }
+
+  override async suspendCaregiver(
+    id: string,
+    patientUserId: string,
+    reason: string,
+  ): Promise<Caregiver | undefined> {
+    const existing = await this.getCaregiver(id);
+    if (!existing || existing.patientUserId !== patientUserId) return undefined;
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appCaregiversTable)
+      .set({ status: "suspended", suspendedAt: now, suspensionReason: reason, updatedAt: now })
+      .where(eq(appCaregiversTable.id, id))
+      .returning();
+    return row ? this.mapCaregiverRow(row) : undefined;
+  }
+
+  override async reinstateCaregiver(id: string, patientUserId: string): Promise<Caregiver | undefined> {
+    const existing = await this.getCaregiver(id);
+    if (!existing || existing.patientUserId !== patientUserId) return undefined;
+    const [row] = await this.dbc
+      .update(appCaregiversTable)
+      .set({ status: "accepted", suspendedAt: null, suspensionReason: null, updatedAt: new Date().toISOString() })
+      .where(eq(appCaregiversTable.id, id))
+      .returning();
+    return row ? this.mapCaregiverRow(row) : undefined;
+  }
+
+  override async deleteCaregiver(id: string, patientUserId: string): Promise<void> {
+    // ownership-scoped: only deletes when the caregiver belongs to patientUserId
+    await this.dbc
+      .delete(appCaregiversTable)
+      .where(and(eq(appCaregiversTable.id, id), eq(appCaregiversTable.patientUserId, patientUserId)));
+  }
+
+  override async getCareTeam(patientUserId: string): Promise<Caregiver[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appCaregiversTable)
+      .where(and(eq(appCaregiversTable.patientUserId, patientUserId), eq(appCaregiversTable.status, "accepted")));
+    return rows.map((r) => this.mapCaregiverRow(r));
   }
 
   // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════
