@@ -11,24 +11,30 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
+// On Cloud Run (GCS_USE_ADC=true) use Application Default Credentials = the runtime
+// service account, and sign URLs natively. On Replit, use the sidecar (default).
+const USE_GCS_ADC = process.env.GCS_USE_ADC === "true";
+
 // The object storage client is used to interact with the object storage service.
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
+export const objectStorageClient = USE_GCS_ADC
+  ? new Storage()
+  : new Storage({
+      credentials: {
+        audience: "replit",
+        subject_token_type: "access_token",
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: "external_account",
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: {
+            type: "json",
+            subject_token_field_name: "access_token",
+          },
+        },
+        universe_domain: "googleapis.com",
       },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+      projectId: "",
+    });
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -284,6 +290,22 @@ async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
+  // Cloud Run: native V4 signed URL via @google-cloud/storage. Uses the IAM SignBlob
+  // API with the runtime service account (needs roles/iam.serviceAccountTokenCreator
+  // on itself + object access on the bucket). No Replit sidecar required.
+  if (USE_GCS_ADC) {
+    const action = method === "PUT" ? "write" : method === "DELETE" ? "delete" : "read";
+    const [signed] = await objectStorageClient
+      .bucket(bucketName)
+      .file(objectName)
+      .getSignedUrl({
+        version: "v4",
+        action: action as "read" | "write" | "delete",
+        expires: Date.now() + ttlSec * 1000,
+      });
+    return signed;
+  }
+
   const request = {
     bucket_name: bucketName,
     object_name: objectName,
