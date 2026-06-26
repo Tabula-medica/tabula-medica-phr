@@ -1645,6 +1645,24 @@ export const insertWearableConnectionSchema = z.object({
 
 export type InsertWearableConnection = z.infer<typeof insertWearableConnectionSchema>;
 
+// Durable backing table for WearableConnection (C1). The connection is stored as
+// a jsonb `data` blob in its ENCRYPTED-at-rest form (top-level accessToken/
+// refreshToken encrypted via encryptConnectionForStorage); DatabaseStorage
+// decrypts on read. `user_id` is plaintext (not in PHI_FIELDS) → queryable
+// column. Blob form chosen because the runtime shape is loose/partial. Named
+// `app_wearable_connections`; additive only.
+export const appWearableConnectionsTable = pgTable(
+  "app_wearable_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+  },
+  (t) => ({
+    userIdx: index("app_wearable_connections_user_idx").on(t.userId),
+  }),
+);
+
 // Wearable Data Record (synced from devices)
 export interface WearableDataRecord {
   id: string;

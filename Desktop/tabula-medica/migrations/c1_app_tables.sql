@@ -361,4 +361,12 @@ CREATE TABLE IF NOT EXISTS app_problems (
 CREATE INDEX IF NOT EXISTS app_problems_patient_idx ON app_problems (patient_id);
 CREATE INDEX IF NOT EXISTS app_problems_connection_idx ON app_problems (ehr_connection_id);
 
+-- 19) Wearable connections (OAuth tokens encrypted inside the data jsonb blob)
+CREATE TABLE IF NOT EXISTS app_wearable_connections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  data jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_wearable_connections_user_idx ON app_wearable_connections (user_id);
+
 COMMIT;

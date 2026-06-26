@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -12368,8 +12368,9 @@ export class MemStorage implements IStorage {
  *                                               update/delete)
  *   • Problem           → app_problems          (clinical problem/condition list;
  *                                               8 analytics readers hydrate-then-super)
+ *   • WearableConnection → app_wearable_connections (tokens ENCRYPTED in jsonb blob)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   medication subsystem (reminders/adherence), wearableConnections (encrypted),
+ *   wearableDataRecords, medication subsystem (reminders/adherence),
  *   sharing/consents, security (2FA/notifications), … by exposure.
  *   SKIP unifiedPatients (no create path — seed-only) & riskStratifications (computed).
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
@@ -14031,6 +14032,74 @@ export class DatabaseStorage extends MemStorage {
   override async getConditionsList() {
     await this.ensureProblemsHydrated();
     return super.getConditionsList();
+  }
+
+  // ══ WearableConnection entity (C1) — wearable OAuth (tokens encrypted) ══════
+  // Stored as an encrypted jsonb blob (top-level accessToken/refreshToken
+  // encrypted); decrypt on read. Pure DB replacement (no scattered readers).
+  override async getWearableConnections(userId: string): Promise<WearableConnection[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appWearableConnectionsTable)
+      .where(eq(appWearableConnectionsTable.userId, userId));
+    return rows
+      .map((r) => decryptConnectionFromStorage(r.data as unknown as WearableConnection, "wearableConnection")!)
+      .sort((a, b) => new Date(b.lastSync).getTime() - new Date(a.lastSync).getTime());
+  }
+
+  override async getWearableConnection(id: string): Promise<WearableConnection | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appWearableConnectionsTable)
+      .where(eq(appWearableConnectionsTable.id, id));
+    return row ? decryptConnectionFromStorage(row.data as unknown as WearableConnection, "wearableConnection") : undefined;
+  }
+
+  override async createWearableConnection(
+    connection: InsertWearableConnection,
+  ): Promise<WearableConnection> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const newConnection = {
+      id,
+      userId: connection.userId,
+      platform: connection.platform,
+      deviceName: connection.deviceName,
+      status: connection.status || "pending_auth",
+      lastSync: now,
+      enabledDataTypes: connection.enabledDataTypes || [],
+      syncFrequency: connection.syncFrequency || "daily",
+      createdAt: now,
+    } as unknown as WearableConnection;
+    const stored = encryptConnectionForStorage(newConnection, "wearableConnection");
+    await this.dbc
+      .insert(appWearableConnectionsTable)
+      .values({ id, userId: connection.userId, data: stored as unknown as Record<string, unknown> });
+    return newConnection;
+  }
+
+  override async updateWearableConnection(
+    id: string,
+    updates: Partial<WearableConnection>,
+  ): Promise<WearableConnection | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appWearableConnectionsTable)
+      .where(eq(appWearableConnectionsTable.id, id));
+    if (!row) return undefined;
+    const decrypted = decryptConnectionFromStorage(row.data as unknown as WearableConnection, "wearableConnection")!;
+    const updated = { ...decrypted, ...updates };
+    const stored = encryptConnectionForStorage(updated, "wearableConnection");
+    await this.dbc
+      .update(appWearableConnectionsTable)
+      .set({ userId: updated.userId, data: stored as unknown as Record<string, unknown> })
+      .where(eq(appWearableConnectionsTable.id, id));
+    return updated;
+  }
+
+  override async deleteWearableConnection(id: string): Promise<void> {
+    await this.dbc.delete(appWearableConnectionsTable).where(eq(appWearableConnectionsTable.id, id));
+    await super.deleteWearableConnection(id); // wearableDataRecords (Map) cleanup
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════
