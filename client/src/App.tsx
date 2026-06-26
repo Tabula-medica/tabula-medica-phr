@@ -193,6 +193,7 @@ const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboard
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
+const EmergencyViewPage = lazy(() => import("@/pages/emergency-view"));
 
 function Router() {
   return (
@@ -348,6 +349,7 @@ function Router() {
       <Route path="/ascvd-calculator" component={ASCVDCalculator} />
       <Route path="/longevity-tracking" component={LongevityTracking} />
       <Route path="/advance-directives" component={AdvanceDirectives} />
+      <Route path="/emergency/:token" component={EmergencyViewPage} />
       {/* CDS Disabled */} <Route path="/medication-safety" component={CDSDisabled} />
       {/* CDS Disabled */} <Route path="/ai-care-plan" component={CDSDisabled} />
       {/* CDS Disabled */} <Route path="/risk-stratification" component={CDSDisabled} />
@@ -737,6 +739,23 @@ function AppContent() {
           <SharedRecordView />
         </div>
       </div>
+    );
+  }
+
+  // Public break-glass emergency view — must render without authentication so
+  // ER/EMS can open the patient's shared link. The redeem endpoint itself is
+  // token+PIN gated and audited.
+  if (location.startsWith("/emergency/")) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <EmergencyViewPage />
+      </Suspense>
     );
   }
 

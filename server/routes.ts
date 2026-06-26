@@ -38042,6 +38042,14 @@ startxref
   app.use("/api/patient-contacts", patientContactsRoutes.default);
   console.log("[Routes] Patient Contacts (Emergency Contact & Care Team) routes registered at /api/patient-contacts/*");
 
+  // Emergency Info + break-glass single-use share. Authenticated emergency
+  // routes share the /api/patient-contacts base (extends that feature); the
+  // public break-glass redeem endpoint lives at /api/emergency (NO auth).
+  const emergencyRoutes = await import("./routes/emergency-routes");
+  app.use("/api/patient-contacts", emergencyRoutes.default);
+  app.use("/api/emergency", emergencyRoutes.publicRouter);
+  console.log("[Routes] Emergency Info & Break-Glass routes registered at /api/patient-contacts/:id/emergency* and /api/emergency/redeem");
+
   // ================== Zero-Knowledge Encryption Routes ==================
   const zkEncryptionRoutes = await import("./routes/zk-encryption-routes");
   app.use("/api/zk-encryption", zkEncryptionRoutes.default);

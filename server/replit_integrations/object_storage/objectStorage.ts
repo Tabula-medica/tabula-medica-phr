@@ -154,6 +154,19 @@ export class ObjectStorageService {
     });
   }
 
+  // Gets a short-lived signed GET URL for a stored object path (e.g. "/objects/...").
+  // Used by the public break-glass redeem flow so an ER/EMS viewer can fetch an
+  // insurance-card photo or advance-directive doc without long-lived credentials.
+  async getSignedDownloadURL(objectPath: string, ttlSec: number = 600): Promise<string> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    return signObjectURL({
+      bucketName: objectFile.bucket.name,
+      objectName: objectFile.name,
+      method: "GET",
+      ttlSec,
+    });
+  }
+
   // Gets the object entity file from the object path.
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
