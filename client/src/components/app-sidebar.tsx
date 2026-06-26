@@ -55,6 +55,7 @@ import {
   Hash,
   Globe,
   Stethoscope as StethoscopeIcon,
+  TestTubes,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
