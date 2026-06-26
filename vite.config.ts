@@ -32,6 +32,19 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     rollupOptions: {
+      // Native-only Capacitor plugins are dynamically imported behind isNative guards
+      // in capacitor.ts and are NOT installed for the web build. Mark them external so
+      // the web build doesn't fail resolving them (the dynamic imports are dead code on web).
+      external: [
+        "@capacitor/app",
+        "@capacitor/status-bar",
+        "@capacitor/splash-screen",
+        "@capacitor/keyboard",
+        "@capacitor/haptics",
+        "@capacitor/browser",
+        "@capacitor/share",
+        "@capacitor/preferences",
+      ],
       output: {
         manualChunks: {
           vendor: ["react", "react-dom", "wouter"],
