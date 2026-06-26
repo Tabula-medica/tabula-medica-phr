@@ -19,9 +19,20 @@ import {
   type MultiFactorResolver,
 } from "firebase/auth";
 
-const apiKey = import.meta.env.VITE_GCIP_API_KEY as string | undefined;
-const authDomain = import.meta.env.VITE_GCIP_AUTH_DOMAIN as string | undefined;
-const projectId = import.meta.env.VITE_GCIP_PROJECT_ID as string | undefined;
+// PUBLIC GCIP/Firebase web config (ships in the browser bundle; not secrets — the
+// API key is a browser identifier restricted by auth domain + Firebase rules).
+// Hardcoded as fallbacks IN SOURCE so they're always in the bundle: .env loading and
+// vite `define` both proved unreliable for import.meta.env here, leaving the config
+// undefined -> this file throws at load -> blank SPA. Env still wins if provided.
+const apiKey =
+  (import.meta.env.VITE_GCIP_API_KEY as string | undefined) ||
+  "AIzaSyBCCtuVajEza6yHonlkz8XkVQJjIgAMS9o";
+const authDomain =
+  (import.meta.env.VITE_GCIP_AUTH_DOMAIN as string | undefined) ||
+  "united-planet-485003-n7-9f345.firebaseapp.com";
+const projectId =
+  (import.meta.env.VITE_GCIP_PROJECT_ID as string | undefined) ||
+  "united-planet-485003-n7-9f345";
 
 let cachedApp: FirebaseApp | null = null;
 let cachedAuth: Auth | null = null;
