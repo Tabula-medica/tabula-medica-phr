@@ -22,6 +22,7 @@ import { NotificationDropdown, MobileNotificationDropdown } from "@/components/n
 import { EnhancedNotificationCenter } from "@/components/enhanced-notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
+import { initCapacitor } from "@/lib/capacitor";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { SessionTimeoutModal } from "@/components/session-timeout-modal";
 import LandingPage from "@/pages/landing";
