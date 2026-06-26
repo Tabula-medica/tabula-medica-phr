@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -12348,6 +12348,8 @@ export class MemStorage implements IStorage {
  *   • LabResult         → app_lab_results       (clinical PHI incl. critical values)
  *   • AllergyEmergencyInfo → app_allergy_emergency_info (emergency action plan;
  *                                               Extended allergy now fully DB)
+ *   • CareGap           → app_care_gaps         (USPSTF preventive-care gaps;
+ *                                               recommendation embedded as jsonb)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
  *   patients, ehrConnections (core; many readers — review carefully), then the
  *   rest (appointments, healthGoals, careGaps, …) by PHI exposure.
@@ -13408,6 +13410,100 @@ export class DatabaseStorage extends MemStorage {
 
   override async deleteImmunization(id: string): Promise<void> {
     await this.dbc.delete(appImmunizationsTable).where(eq(appImmunizationsTable.id, id));
+  }
+
+  // ══ CareGap entity (C1) — preventive-care gaps (USPSTF) ═════════════════════
+  // Pure DB replacement (recommendation + dataSourcesSummary stored as jsonb).
+  private mapCareGapRow(row: typeof appCareGapsTable.$inferSelect): CareGap {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      recommendationId: row.recommendationId,
+      recommendation: row.recommendation,
+      status: row.status,
+      priority: row.priority,
+      dueDate: row.dueDate ?? undefined,
+      lastCompletedDate: row.lastCompletedDate ?? undefined,
+      lastAssessmentDate: row.lastAssessmentDate ?? undefined,
+      identifiedAt: row.identifiedAt,
+      addressedAt: row.addressedAt ?? undefined,
+      declinedReason: row.declinedReason ?? undefined,
+      notes: row.notes ?? undefined,
+      aiReasoning: row.aiReasoning ?? undefined,
+      dataSourcesSummary: row.dataSourcesSummary ?? undefined,
+    };
+  }
+
+  override async getPatientCareGaps(
+    patientId: string,
+    status?: import("@shared/schema").CareGapStatus,
+  ): Promise<CareGap[]> {
+    const where = status
+      ? and(eq(appCareGapsTable.patientId, patientId), eq(appCareGapsTable.status, status))
+      : eq(appCareGapsTable.patientId, patientId);
+    const rows = await this.dbc.select().from(appCareGapsTable).where(where);
+    const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    return rows
+      .map((r) => this.mapCareGapRow(r))
+      .sort((a, b) => (order[a.priority] ?? 9) - (order[b.priority] ?? 9));
+  }
+
+  override async getCareGap(id: string): Promise<CareGap | undefined> {
+    const [row] = await this.dbc.select().from(appCareGapsTable).where(eq(appCareGapsTable.id, id));
+    return row ? this.mapCareGapRow(row) : undefined;
+  }
+
+  override async createCareGap(careGap: InsertCareGap): Promise<CareGap> {
+    const recommendation = await this.getUspstfRecommendation(careGap.recommendationId); // inherited (reference data)
+    if (!recommendation) throw new Error("Recommendation not found");
+    const [row] = await this.dbc
+      .insert(appCareGapsTable)
+      .values({
+        patientId: careGap.patientId,
+        recommendationId: careGap.recommendationId,
+        recommendation,
+        status: careGap.status || "open",
+        priority: careGap.priority || "medium",
+        dueDate: careGap.dueDate ?? null,
+        lastCompletedDate: careGap.lastCompletedDate ?? null,
+        identifiedAt: new Date().toISOString(),
+        notes: careGap.notes ?? null,
+        aiReasoning: careGap.aiReasoning ?? null,
+      })
+      .returning();
+    return this.mapCareGapRow(row);
+  }
+
+  override async updateCareGap(
+    id: string,
+    updates: Partial<CareGap>,
+  ): Promise<CareGap | undefined> {
+    const existing = await this.getCareGap(id);
+    if (!existing) return undefined;
+    const set: Partial<typeof appCareGapsTable.$inferInsert> = {};
+    if (updates.patientId !== undefined) set.patientId = updates.patientId;
+    if (updates.recommendationId !== undefined) set.recommendationId = updates.recommendationId;
+    if (updates.recommendation !== undefined) set.recommendation = updates.recommendation;
+    if (updates.status !== undefined) set.status = updates.status;
+    if (updates.priority !== undefined) set.priority = updates.priority;
+    if (updates.dueDate !== undefined) set.dueDate = updates.dueDate;
+    if (updates.lastCompletedDate !== undefined) set.lastCompletedDate = updates.lastCompletedDate;
+    if (updates.lastAssessmentDate !== undefined) set.lastAssessmentDate = updates.lastAssessmentDate;
+    if (updates.addressedAt !== undefined) set.addressedAt = updates.addressedAt;
+    if (updates.declinedReason !== undefined) set.declinedReason = updates.declinedReason;
+    if (updates.notes !== undefined) set.notes = updates.notes;
+    if (updates.aiReasoning !== undefined) set.aiReasoning = updates.aiReasoning;
+    if (updates.dataSourcesSummary !== undefined) set.dataSourcesSummary = updates.dataSourcesSummary;
+    // auto-stamp addressedAt when first moved to "addressed"
+    if (updates.status === "addressed" && !existing.addressedAt) {
+      set.addressedAt = new Date().toISOString();
+    }
+    const [row] = await this.dbc
+      .update(appCareGapsTable)
+      .set(set)
+      .where(eq(appCareGapsTable.id, id))
+      .returning();
+    return row ? this.mapCareGapRow(row) : undefined;
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════

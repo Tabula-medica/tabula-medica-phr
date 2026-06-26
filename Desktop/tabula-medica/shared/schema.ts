@@ -9327,6 +9327,33 @@ export const insertCareGapSchema = z.object({
 });
 export type InsertCareGap = z.infer<typeof insertCareGapSchema>;
 
+// Durable backing table for CareGap (C1) — preventive-care gaps (USPSTF). The
+// embedded `recommendation` and `dataSourcesSummary` are jsonb. In-memory Map,
+// lost on restart. Named `app_care_gaps`; additive only.
+export const appCareGapsTable = pgTable(
+  "app_care_gaps",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    recommendationId: text("recommendation_id").notNull(),
+    recommendation: jsonb("recommendation").$type<UspstfRecommendation>().notNull(),
+    status: text("status").$type<CareGapStatus>().notNull().default("open"),
+    priority: text("priority").$type<CareGapPriority>().notNull().default("medium"),
+    dueDate: text("due_date"),
+    lastCompletedDate: text("last_completed_date"),
+    lastAssessmentDate: text("last_assessment_date"),
+    identifiedAt: text("identified_at").notNull(),
+    addressedAt: text("addressed_at"),
+    declinedReason: text("declined_reason"),
+    notes: text("notes"),
+    aiReasoning: text("ai_reasoning"),
+    dataSourcesSummary: jsonb("data_sources_summary").$type<CareGap["dataSourcesSummary"]>(),
+  },
+  (t) => ({
+    patientIdx: index("app_care_gaps_patient_idx").on(t.patientId),
+  }),
+);
+
 export const insertVaccinationSchema = z.object({
   patientId: z.string(),
   vaccineName: z.string().min(1),

@@ -245,4 +245,24 @@ CREATE TABLE IF NOT EXISTS app_allergy_emergency_info (
   action_plan text
 );
 
+-- 13) Care gaps (preventive-care/USPSTF; recommendation + summary as jsonb)
+CREATE TABLE IF NOT EXISTS app_care_gaps (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  recommendation_id text NOT NULL,
+  recommendation jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  priority text NOT NULL DEFAULT 'medium',
+  due_date text,
+  last_completed_date text,
+  last_assessment_date text,
+  identified_at text NOT NULL,
+  addressed_at text,
+  declined_reason text,
+  notes text,
+  ai_reasoning text,
+  data_sources_summary jsonb
+);
+CREATE INDEX IF NOT EXISTS app_care_gaps_patient_idx ON app_care_gaps (patient_id);
+
 COMMIT;
