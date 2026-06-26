@@ -384,4 +384,70 @@ CREATE TABLE IF NOT EXISTS app_wearable_data_records (
 CREATE INDEX IF NOT EXISTS app_wearable_data_records_user_idx ON app_wearable_data_records (user_id);
 CREATE INDEX IF NOT EXISTS app_wearable_data_records_conn_idx ON app_wearable_data_records (wearable_connection_id);
 
+-- ── Emergency break-glass (demographic emergency folder + single-use tokens) ──
+CREATE TABLE IF NOT EXISTS emergency_profiles (
+  user_id text PRIMARY KEY,
+  blood_type text,
+  organ_donor boolean,
+  next_of_kin_name text,
+  next_of_kin_phone text,
+  next_of_kin_relationship text,
+  pharmacy_name text,
+  pharmacy_phone text,
+  pharmacy_address text,
+  pcp_name text,
+  pcp_phone text,
+  advance_directive_status text NOT NULL DEFAULT 'none',
+  advance_directive_doc_url text,
+  insurance_provider text,
+  insurance_member_id text,
+  insurance_card_front_url text,
+  insurance_card_back_url text,
+  latest_health_summary text,
+  allow_pinless_basic boolean NOT NULL DEFAULT true,
+  updated_at text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS emergency_devices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  device_type text NOT NULL,
+  name text NOT NULL,
+  manufacturer text,
+  model_number text,
+  serial_number text,
+  implant_date text,
+  location text,
+  mri_conditional boolean,
+  card_image_url text,
+  status text NOT NULL DEFAULT 'active',
+  notes text
+);
+CREATE INDEX IF NOT EXISTS emergency_devices_user_idx ON emergency_devices (user_id);
+CREATE TABLE IF NOT EXISTS emergency_share_tokens (
+  token text PRIMARY KEY,
+  user_id text NOT NULL,
+  created_at text NOT NULL,
+  expires_at text NOT NULL,
+  max_accesses integer NOT NULL DEFAULT 1,
+  access_count integer NOT NULL DEFAULT 0,
+  revoked boolean NOT NULL DEFAULT false,
+  full_pin_hash text,
+  full_dob_hash text,
+  label text
+);
+CREATE INDEX IF NOT EXISTS emergency_share_tokens_user_idx ON emergency_share_tokens (user_id);
+CREATE TABLE IF NOT EXISTS emergency_access_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token text NOT NULL,
+  user_id text NOT NULL,
+  accessed_at text NOT NULL,
+  tier text NOT NULL,
+  success boolean NOT NULL,
+  ip_address text,
+  user_agent text,
+  accessor_agency text,
+  detail text
+);
+CREATE INDEX IF NOT EXISTS emergency_access_logs_token_idx ON emergency_access_logs (token);
+
 COMMIT;

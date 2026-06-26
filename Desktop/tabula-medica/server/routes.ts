@@ -196,6 +196,7 @@ import providerTaskRoutes from "./provider-task-routes";
 import dentalRecordsRoutes from "./dental-records-routes";
 import dentalIntegrationRoutes from "./routes/dental-integration-routes";
 import { registerDoDRoutes } from "./dod-routes";
+import { registerEmergencyAccessRoutes } from "./emergency-access-routes";
 import growthVitalsRoutes from "./growth-vitals-routes";
 import aiDataStandardizationRoutes from "./ai-data-standardization-routes";
 import aiAdvancedStandardizationRoutes from "./ai-advanced-standardization-routes";
@@ -1151,6 +1152,8 @@ export async function registerRoutes(
     /^\/api\/fhir-oauth\//,                             // OAuth2/SMART: self-auth via client creds; router's own gate (C2) handles authz
     /^\/api\/webhooks\//, /^\/api\/fasten-connect\/webhook/, // external webhooks: signature-verified, not session-auth
     /^\/api\/auth\/cac\/(challenge|verify)\b/,          // DoD CAC pre-auth handshake (enroll/status keep their own requireAuth)
+    /^\/api\/emergency\/access\//,                      // break-glass: EMS/ER has no app identity; token-gated (+PIN/DOB for full) + fully audited
+
     // Public, PHI-free resource finders / directories / pricing (intentionally anonymous):
     /^\/api\/symptom-checker\//, /^\/api\/npi-lookup\//, /^\/api\/fqhc-finder\//,
     /^\/api\/uninsured-resources\//, /^\/api\/support-resources\//, /^\/api\/goodrx\//,
@@ -1370,6 +1373,7 @@ export async function registerRoutes(
   app.use("/api/dental-integrations", dentalIntegrationRoutes);
   console.log("[Routes] Dental Software Integration routes registered at /api/dental-integrations/*");
   registerDoDRoutes(app, isAuthenticated as any);
+  registerEmergencyAccessRoutes(app);
   console.log("[Routes] DoD routes registered (offline sync, CAC/PIV auth)");
   app.use("/api/growth-vitals", growthVitalsRoutes);
   console.log("[Routes] Growth & Vitals Trends routes registered at /api/growth-vitals/*");

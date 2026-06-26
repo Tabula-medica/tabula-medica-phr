@@ -1688,6 +1688,113 @@ export const insertWearableDataRecordSchema = z.object({
 
 export type InsertWearableDataRecord = z.infer<typeof insertWearableDataRecordSchema>;
 
+// ============================================================================
+// EMERGENCY ACCESS ("break-glass") — demographic emergency folder + single-use
+// tiered share token for EMS/ER. HIPAA model: BASIC tier (allergies, conditions,
+// implanted devices, advance directive, emergency contact, blood type, critical
+// meds) is viewable PIN-less for life-safety; FULL tier (health summary,
+// insurance card, pharmacy, PCP, full meds) requires PIN or DOB. Single-use,
+// time-limited, every access audited, patient-revocable, patient pre-consents to
+// PIN-less basic sharing.
+// ============================================================================
+export const emergencyAdvanceDirectiveStatuses = ["none", "on_file", "dnr", "polst", "living_will"] as const;
+export type EmergencyAdvanceDirectiveStatus = (typeof emergencyAdvanceDirectiveStatuses)[number];
+
+// One emergency profile per user (the demographic "emergency folder")
+export const emergencyProfilesTable = pgTable("emergency_profiles", {
+  userId: text("user_id").primaryKey(),
+  bloodType: text("blood_type"),
+  organDonor: boolean("organ_donor"),
+  // next of kin
+  nextOfKinName: text("next_of_kin_name"),
+  nextOfKinPhone: text("next_of_kin_phone"),
+  nextOfKinRelationship: text("next_of_kin_relationship"),
+  // pharmacy
+  pharmacyName: text("pharmacy_name"),
+  pharmacyPhone: text("pharmacy_phone"),
+  pharmacyAddress: text("pharmacy_address"),
+  // primary care physician
+  pcpName: text("pcp_name"),
+  pcpPhone: text("pcp_phone"),
+  // advance directive
+  advanceDirectiveStatus: text("advance_directive_status").$type<EmergencyAdvanceDirectiveStatus>().notNull().default("none"),
+  advanceDirectiveDocUrl: text("advance_directive_doc_url"), // object-storage ref
+  // insurance card images (object-storage refs) + identifiers
+  insuranceProvider: text("insurance_provider"),
+  insuranceMemberId: text("insurance_member_id"),
+  insuranceCardFrontUrl: text("insurance_card_front_url"),
+  insuranceCardBackUrl: text("insurance_card_back_url"),
+  // latest patient-authored/curated health summary (FULL tier)
+  latestHealthSummary: text("latest_health_summary"),
+  // patient consent to PIN-less BASIC break-glass sharing
+  allowPinlessBasic: boolean("allow_pinless_basic").notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+});
+export type EmergencyProfile = typeof emergencyProfilesTable.$inferSelect;
+
+// Implanted device cards on file (pacemaker / defibrillator / stent / etc.)
+export const emergencyDeviceTypes = ["pacemaker", "defibrillator", "stent", "icd", "insulin_pump", "neurostimulator", "joint_replacement", "heart_valve", "other"] as const;
+export type EmergencyDeviceType = (typeof emergencyDeviceTypes)[number];
+export const emergencyDevicesTable = pgTable(
+  "emergency_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    deviceType: text("device_type").$type<EmergencyDeviceType>().notNull(),
+    name: text("name").notNull(),
+    manufacturer: text("manufacturer"),
+    modelNumber: text("model_number"),
+    serialNumber: text("serial_number"),
+    implantDate: text("implant_date"),
+    location: text("location"),
+    mriConditional: boolean("mri_conditional"),
+    cardImageUrl: text("card_image_url"), // photo of the device ID card
+    status: text("status").notNull().default("active"),
+    notes: text("notes"),
+  },
+  (t) => ({ userIdx: index("emergency_devices_user_idx").on(t.userId) }),
+);
+export type EmergencyDevice = typeof emergencyDevicesTable.$inferSelect;
+
+// Single-use, tiered, time-limited break-glass tokens
+export const emergencyShareTokensTable = pgTable(
+  "emergency_share_tokens",
+  {
+    token: text("token").primaryKey(), // opaque, high-entropy
+    userId: text("user_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    maxAccesses: integer("max_accesses").notNull().default(1), // single-use by default
+    accessCount: integer("access_count").notNull().default(0),
+    revoked: boolean("revoked").notNull().default(false),
+    // FULL tier unlock: pin hash and/or patient DOB hash
+    fullPinHash: text("full_pin_hash"),
+    fullDobHash: text("full_dob_hash"),
+    label: text("label"), // e.g. "wallet card", "lock screen"
+  },
+  (t) => ({ userIdx: index("emergency_share_tokens_user_idx").on(t.userId) }),
+);
+export type EmergencyShareToken = typeof emergencyShareTokensTable.$inferSelect;
+
+// Break-glass access audit (every scan/access, basic or full)
+export const emergencyAccessLogsTable = pgTable(
+  "emergency_access_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    token: text("token").notNull(),
+    userId: text("user_id").notNull(),
+    accessedAt: text("accessed_at").notNull(),
+    tier: text("tier").$type<"basic" | "full">().notNull(),
+    success: boolean("success").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    accessorAgency: text("accessor_agency"), // EMS/ER agency if provided
+    detail: text("detail"),
+  },
+  (t) => ({ tokenIdx: index("emergency_access_logs_token_idx").on(t.token) }),
+);
+export type EmergencyAccessLog = typeof emergencyAccessLogsTable.$inferSelect;
+
 // Durable backing table for WearableDataRecord (C1) — wearable metrics (steps,
 // HR, etc.). In-memory Map, lost on restart. Named `app_wearable_data_records`;
 // additive only.
