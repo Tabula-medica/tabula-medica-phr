@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSEO, buildPageSchemas } from "@/hooks/use-seo";

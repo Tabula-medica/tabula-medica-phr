@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
 import { useMutation } from "@tanstack/react-query";
 import { GuidedTour, useCompletedTours } from "@/components/guided-tour";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

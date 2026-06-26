@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useActiveProfile } from "@/contexts/profile-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
