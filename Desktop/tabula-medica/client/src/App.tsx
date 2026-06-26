@@ -150,6 +150,7 @@ const Welcome = lazy(() => import("@/pages/welcome"));
 const Login = lazy(() => import("@/pages/login"));
 const EmergencyAccess = lazy(() => import("@/pages/emergency-access"));
 const EmergencyFolder = lazy(() => import("@/pages/emergency-folder"));
+const Wearables = lazy(() => import("@/pages/wearables"));
 const AuthLogin = lazy(() => import("@/pages/auth-login"));
 const AuthRegister = lazy(() => import("@/pages/auth-register"));
 const Consent = lazy(() => import("@/pages/consent"));
@@ -235,6 +236,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/my-health-record" component={MyHealthRecord} />
       <Route path="/emergency-folder" component={EmergencyFolder} />
+      <Route path="/wearables" component={Wearables} />
       <Route path="/fasten-connect" component={FastenConnect} />
       <Route path="/ehr-callback" component={EHRCallback} />
       <Route path="/pet-health-records" component={PetHealthRecords} />
