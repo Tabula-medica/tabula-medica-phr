@@ -11,6 +11,7 @@ import {
   Network, Sparkles, GitMerge, QrCode, Mail,
   KeyRound, UserCheck, ServerCrash, Stethoscope,
   Play, Accessibility,
+  Camera,
 } from "lucide-react";
 import { Link as WouterLink } from "wouter";
 const logoPath = "/logo.png";
