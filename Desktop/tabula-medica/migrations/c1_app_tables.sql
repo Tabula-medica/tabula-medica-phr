@@ -322,4 +322,24 @@ CREATE TABLE IF NOT EXISTS app_appointments (
 );
 CREATE INDEX IF NOT EXISTS app_appointments_patient_idx ON app_appointments (patient_id);
 
+-- 17) Health goals (patient goals/progress; ownership-scoped update/delete)
+CREATE TABLE IF NOT EXISTS app_health_goals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  title text NOT NULL,
+  description text,
+  category text NOT NULL,
+  target_value text,
+  current_value text,
+  unit text,
+  start_date text NOT NULL,
+  target_date text,
+  status text NOT NULL DEFAULT 'active',
+  progress integer NOT NULL DEFAULT 0,
+  notes text,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_health_goals_patient_idx ON app_health_goals (patient_id);
+
 COMMIT;

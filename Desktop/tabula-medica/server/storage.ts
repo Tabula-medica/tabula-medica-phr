@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -12362,8 +12362,10 @@ export class MemStorage implements IStorage {
  *                                               ownership chain — fully DB-backed)
  *   • Appointment       → app_appointments      (clinical scheduling; upcoming +
  *                                               aggregation + at-risk readers extended)
+ *   • HealthGoal        → app_health_goals      (patient goals; ownership-scoped
+ *                                               update/delete)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   healthGoals, unifiedPatients, riskStratifications, conditions, … by exposure.
+ *   unifiedPatients, riskStratifications, conditions, … by exposure.
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
  *   (MemStorage returned undefined) — add a uuid-format guard. (2) app_patients
  *   stores PHI plaintext (Cloud SQL CMEK covers at-rest); column-level PHI
@@ -13837,6 +13839,102 @@ export class DatabaseStorage extends MemStorage {
     const a = this.mapAppointmentRow(row);
     this.appointments.set(a.id, a); // mirror for the upcoming/aggregation readers
     return a;
+  }
+
+  // ══ HealthGoal entity (C1) — patient goals/progress ═════════════════════════
+  // Pure DB replacement; ownership-scoped update/delete (patientId).
+  private mapHealthGoalRow(row: typeof appHealthGoalsTable.$inferSelect): HealthGoal {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      title: row.title,
+      description: row.description ?? undefined,
+      category: row.category,
+      targetValue: row.targetValue ?? undefined,
+      currentValue: row.currentValue ?? undefined,
+      unit: row.unit ?? undefined,
+      startDate: row.startDate,
+      targetDate: row.targetDate ?? undefined,
+      status: row.status,
+      progress: row.progress,
+      notes: row.notes ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getHealthGoals(patientId: string): Promise<HealthGoal[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appHealthGoalsTable)
+      .where(eq(appHealthGoalsTable.patientId, patientId));
+    return rows
+      .map((r) => this.mapHealthGoalRow(r))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  override async getHealthGoal(id: string): Promise<HealthGoal | undefined> {
+    const [row] = await this.dbc.select().from(appHealthGoalsTable).where(eq(appHealthGoalsTable.id, id));
+    return row ? this.mapHealthGoalRow(row) : undefined;
+  }
+
+  override async createHealthGoal(goal: InsertHealthGoal): Promise<HealthGoal> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appHealthGoalsTable)
+      .values({
+        patientId: goal.patientId,
+        title: goal.title,
+        description: goal.description ?? null,
+        category: goal.category,
+        targetValue: goal.targetValue ?? null,
+        currentValue: goal.currentValue ?? null,
+        unit: goal.unit ?? null,
+        startDate: goal.startDate,
+        targetDate: goal.targetDate ?? null,
+        status: (goal.status || "active") as HealthGoal["status"],
+        progress: goal.progress || 0,
+        notes: goal.notes ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapHealthGoalRow(row);
+  }
+
+  override async updateHealthGoal(
+    id: string,
+    updates: Partial<HealthGoal>,
+    patientId: string,
+  ): Promise<HealthGoal | undefined> {
+    const existing = await this.getHealthGoal(id);
+    if (!existing || existing.patientId !== patientId) return undefined; // ownership
+    const set: Partial<typeof appHealthGoalsTable.$inferInsert> = {};
+    if (updates.title !== undefined) set.title = updates.title;
+    if (updates.description !== undefined) set.description = updates.description;
+    if (updates.category !== undefined) set.category = updates.category;
+    if (updates.targetValue !== undefined) set.targetValue = updates.targetValue;
+    if (updates.currentValue !== undefined) set.currentValue = updates.currentValue;
+    if (updates.unit !== undefined) set.unit = updates.unit;
+    if (updates.startDate !== undefined) set.startDate = updates.startDate;
+    if (updates.targetDate !== undefined) set.targetDate = updates.targetDate;
+    if (updates.status !== undefined) set.status = updates.status;
+    if (updates.progress !== undefined) set.progress = updates.progress;
+    if (updates.notes !== undefined) set.notes = updates.notes;
+    set.updatedAt = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appHealthGoalsTable)
+      .set(set)
+      .where(eq(appHealthGoalsTable.id, id))
+      .returning();
+    return row ? this.mapHealthGoalRow(row) : undefined;
+  }
+
+  override async deleteHealthGoal(id: string, patientId: string): Promise<void> {
+    // ownership-scoped: only deletes when the goal belongs to patientId
+    await this.dbc
+      .delete(appHealthGoalsTable)
+      .where(and(eq(appHealthGoalsTable.id, id), eq(appHealthGoalsTable.patientId, patientId)));
   }
 
   // ══ LabResult entity (C1) — clinical PHI (incl. critical values) ════════════

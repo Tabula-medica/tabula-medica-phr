@@ -3488,6 +3488,32 @@ export const insertHealthGoalSchema = z.object({
 
 export type InsertHealthGoal = z.infer<typeof insertHealthGoalSchema>;
 
+// Durable backing table for HealthGoal (C1) — patient health goals/progress.
+// In-memory Map, lost on restart. Named `app_health_goals`; additive only.
+export const appHealthGoalsTable = pgTable(
+  "app_health_goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    category: text("category").$type<HealthGoalCategory>().notNull(),
+    targetValue: text("target_value"),
+    currentValue: text("current_value"),
+    unit: text("unit"),
+    startDate: text("start_date").notNull(),
+    targetDate: text("target_date"),
+    status: text("status").$type<HealthGoalStatus>().notNull().default("active"),
+    progress: integer("progress").notNull().default(0),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_health_goals_patient_idx").on(t.patientId),
+  }),
+);
+
 // ============================================
 // CARE PLAN MANAGEMENT SYSTEM
 // ============================================
