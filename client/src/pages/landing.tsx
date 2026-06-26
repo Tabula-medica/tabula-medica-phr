@@ -14,6 +14,15 @@ import {
   Camera,
 } from "lucide-react";
 import { Link as WouterLink } from "wouter";
+import {
+  useSEO,
+  buildOrganizationSchema,
+  buildWebApplicationSchema,
+  buildFAQSchema,
+  buildHowToSchema,
+  buildSiteNavigationSchema,
+} from "@/hooks/use-seo";
+import { ZeroKnowledgeBadge } from "@/components/zero-knowledge-badge";
 const logoPath = "/logo.png";
 
 const PRIORITY_HOSPITALS = [
