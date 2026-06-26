@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne } from "drizzle-orm";
@@ -1191,7 +1191,8 @@ export class MemStorage implements IStorage {
   // moved to Postgres.
   protected medicalRecords: Map<string, MedicalRecord> = new Map();
   private medications: Map<string, Medication> = new Map();
-  private vitals: Map<string, VitalSign> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for getAggregatedPatientData
+  protected vitals: Map<string, VitalSign> = new Map();
   private labResults: Map<string, LabResult> = new Map();
   private immunizations: Map<string, Immunization> = new Map();
   private advancedHealthMetrics: Map<string, AdvancedHealthMetric> = new Map();
@@ -12329,8 +12330,10 @@ export class MemStorage implements IStorage {
  *                                               getUserConsentStatus/check now durable)
  *   • UserSession       → app_user_sessions     (active device/session tracking;
  *                                               ownership-scoped delete + sign-out-others)
+ *   • VitalSign         → app_vital_signs       (clinical PHI; aggregation reader +
+ *                                               deletePatientsByConnection cascade extended)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   caregivers, medications, vitals, allergies, conditions, … (by PHI exposure)
+ *   caregivers, medications, allergies, conditions, … (by PHI exposure)
  */
 export class DatabaseStorage extends MemStorage {
   constructor(private readonly dbc: typeof db = db) {
@@ -12666,6 +12669,7 @@ export class DatabaseStorage extends MemStorage {
     const patientIds = patients.map((p) => p.id);
     if (patientIds.length > 0) {
       await this.dbc.delete(appMedicalRecordsTable).where(inArray(appMedicalRecordsTable.patientId, patientIds));
+      await this.dbc.delete(appVitalSignsTable).where(inArray(appVitalSignsTable.patientId, patientIds));
     }
     await super.deletePatientsByConnection(connectionId);
   }
@@ -12674,12 +12678,80 @@ export class DatabaseStorage extends MemStorage {
   // from Postgres first, then delegate to MemStorage's implementation.
   override async getAggregatedPatientData(unifiedPatientId: string) {
     await this.ensureMedicalRecordsHydrated();
+    await this.ensureVitalsHydrated();
     return super.getAggregatedPatientData(unifiedPatientId);
   }
 
   override async getPatientPreventiveSummary(patientId: string) {
     await this.ensureMedicalRecordsHydrated();
     return super.getPatientPreventiveSummary(patientId);
+  }
+
+  // ══ VitalSign entity (C1) — clinical PHI ════════════════════════════════════
+  private vitalsHydrated = false;
+
+  private mapVitalSignRow(row: typeof appVitalSignsTable.$inferSelect): VitalSign {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      ehrConnectionId: row.ehrConnectionId,
+      type: row.type,
+      value: row.value,
+      unit: row.unit,
+      recordedAt: row.recordedAt,
+      recordedBy: row.recordedBy,
+    };
+  }
+
+  /** Clear + reload the vitals Map from Postgres once (drops seeded demo
+   *  fixtures) so getAggregatedPatientData mirrors the DB. */
+  private async ensureVitalsHydrated(): Promise<void> {
+    if (this.vitalsHydrated) return;
+    this.vitals.clear();
+    const rows = await this.dbc.select().from(appVitalSignsTable);
+    for (const row of rows) this.vitals.set(row.id, this.mapVitalSignRow(row));
+    this.vitalsHydrated = true;
+  }
+
+  override async getVitalsByPatient(patientId: string): Promise<VitalSign[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appVitalSignsTable)
+      .where(eq(appVitalSignsTable.patientId, patientId));
+    return rows
+      .map((r) => this.mapVitalSignRow(r))
+      .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+  }
+
+  override async getVitalsByUnifiedPatient(unifiedPatientId: string): Promise<VitalSign[]> {
+    const patients = await this.getPatientsByUnifiedId(unifiedPatientId);
+    const patientIds = patients.map((p) => p.id);
+    if (patientIds.length === 0) return [];
+    const rows = await this.dbc
+      .select()
+      .from(appVitalSignsTable)
+      .where(inArray(appVitalSignsTable.patientId, patientIds));
+    return rows
+      .map((r) => this.mapVitalSignRow(r))
+      .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+  }
+
+  override async createVitalSign(vital: InsertVitalSign): Promise<VitalSign> {
+    const [row] = await this.dbc
+      .insert(appVitalSignsTable)
+      .values({
+        patientId: vital.patientId,
+        ehrConnectionId: vital.ehrConnectionId,
+        type: vital.type,
+        value: vital.value,
+        unit: vital.unit,
+        recordedAt: vital.recordedAt,
+        recordedBy: vital.recordedBy,
+      })
+      .returning();
+    const v = this.mapVitalSignRow(row);
+    this.vitals.set(v.id, v); // mirror for the aggregation reader
+    return v;
   }
 
   // ══ UserConsentRecord entity (C1) — gates PHI access (§164.524) ══════════════

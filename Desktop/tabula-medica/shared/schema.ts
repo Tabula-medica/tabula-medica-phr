@@ -2338,6 +2338,26 @@ export const insertVitalSignSchema = z.object({
 
 export type InsertVitalSign = z.infer<typeof insertVitalSignSchema>;
 
+// Durable backing table for VitalSign (C1) — clinical PHI. Kept in an in-memory
+// Map (lost on restart). Named `app_vital_signs`; additive only.
+export const appVitalSignsTable = pgTable(
+  "app_vital_signs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    ehrConnectionId: text("ehr_connection_id").notNull(),
+    type: text("type").$type<VitalSign["type"]>().notNull(),
+    value: text("value").notNull(),
+    unit: text("unit").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_vital_signs_patient_idx").on(t.patientId),
+    connectionIdx: index("app_vital_signs_connection_idx").on(t.ehrConnectionId),
+  }),
+);
+
 // Lab Result
 export interface LabResult {
   id: string;
