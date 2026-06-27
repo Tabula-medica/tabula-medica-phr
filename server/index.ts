@@ -196,6 +196,16 @@ app.use(aiCountryGate());
 app.use(hostEditionMiddleware());
 app.use(worldGeofenceMiddleware());
 
+// Lightweight geo endpoint for region-language auto-select on the client. Returns the
+// detected country (when available) so the UI can default to that region's language.
+app.get("/api/geo", (req, res) => {
+  res.json({
+    country: (req as any).country ?? null,
+    source: (req as any).countrySource ?? "unknown",
+    edition: (req as any).edition ?? "default",
+  });
+});
+
 // H12 — vhost split (admin.tabulamedica.health vs tabulamedica.health).
 // Disabled by default; enable with ADMIN_HOST_SPLIT=enabled + ADMIN_HOST=...
 app.use(adminVhostMiddleware());
