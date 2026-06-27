@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15054,6 +15054,95 @@ export class DatabaseStorage extends MemStorage {
     await this.dbc
       .delete(appTwoFactorAuthsTable)
       .where(eq(appTwoFactorAuthsTable.userId, userId));
+  }
+
+  // ══ SecurityNotification entity (C1) — per-user security alerts ══════════════
+  // Pure DB replacement: the Map has no readers outside these 5 methods.
+  private mapSecurityNotificationRow(
+    row: typeof appSecurityNotificationsTable.$inferSelect,
+  ): SecurityNotification {
+    return {
+      id: row.id,
+      userId: row.userId,
+      type: row.type as SecurityNotification["type"],
+      title: row.title,
+      message: row.message,
+      severity: row.severity as SecurityNotification["severity"],
+      isRead: row.isRead,
+      metadata: row.metadata ?? null,
+      createdAt: row.createdAt,
+    };
+  }
+
+  override async getSecurityNotifications(
+    userId: string,
+    unreadOnly?: boolean,
+  ): Promise<SecurityNotification[]> {
+    const conds = [eq(appSecurityNotificationsTable.userId, userId)];
+    if (unreadOnly) conds.push(eq(appSecurityNotificationsTable.isRead, false));
+    const rows = await this.dbc
+      .select()
+      .from(appSecurityNotificationsTable)
+      .where(and(...conds))
+      .orderBy(desc(appSecurityNotificationsTable.createdAt));
+    return rows.map((r) => this.mapSecurityNotificationRow(r));
+  }
+
+  override async createSecurityNotification(
+    notification: InsertSecurityNotification,
+  ): Promise<SecurityNotification> {
+    const [row] = await this.dbc
+      .insert(appSecurityNotificationsTable)
+      .values({
+        userId: notification.userId,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        severity: notification.severity || "info",
+        isRead: false,
+        metadata: notification.metadata ?? null,
+        createdAt: new Date().toISOString(),
+      })
+      .returning();
+    return this.mapSecurityNotificationRow(row);
+  }
+
+  override async markNotificationRead(id: string, userId: string): Promise<void> {
+    // ownership-scoped: only marks read when the notification belongs to userId
+    await this.dbc
+      .update(appSecurityNotificationsTable)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(appSecurityNotificationsTable.id, id),
+          eq(appSecurityNotificationsTable.userId, userId),
+        ),
+      );
+  }
+
+  override async markAllNotificationsRead(userId: string): Promise<void> {
+    await this.dbc
+      .update(appSecurityNotificationsTable)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(appSecurityNotificationsTable.userId, userId),
+          eq(appSecurityNotificationsTable.isRead, false),
+        ),
+      );
+  }
+
+  override async getUnreadNotificationCount(userId: string): Promise<number> {
+    const rows = await this.dbc
+      .select({ id: appSecurityNotificationsTable.id })
+      .from(appSecurityNotificationsTable)
+      .where(
+        and(
+          eq(appSecurityNotificationsTable.userId, userId),
+          eq(appSecurityNotificationsTable.isRead, false),
+        ),
+      );
+    return rows.length;
   }
 }
 

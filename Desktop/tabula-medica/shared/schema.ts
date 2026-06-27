@@ -5728,6 +5728,26 @@ export const appTwoFactorAuthsTable = pgTable(
   }),
 );
 
+// Security notifications (C1) — per-user security alerts (new-device login,
+// 2FA changes, etc.). No PHI; not encrypted.
+export const appSecurityNotificationsTable = pgTable(
+  "app_security_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    severity: text("severity").notNull().default("info"),
+    isRead: boolean("is_read").notNull().default(false),
+    metadata: jsonb("metadata").$type<Record<string, string>>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({
+    userIdx: index("app_security_notifications_user_idx").on(t.userId),
+  }),
+);
+
 // Security Audit Log
 export const securityEventTypes = [
   "login",

@@ -121,6 +121,20 @@ CREATE TABLE IF NOT EXISTS app_two_factor_auths (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS app_two_factor_auths_user_idx ON app_two_factor_auths (user_id);
 
+-- Security notifications (per-user security alerts; no PHI).
+CREATE TABLE IF NOT EXISTS app_security_notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  type text NOT NULL,
+  title text NOT NULL,
+  message text NOT NULL,
+  severity text NOT NULL DEFAULT 'info',
+  is_read boolean NOT NULL DEFAULT false,
+  metadata jsonb,
+  created_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_security_notifications_user_idx ON app_security_notifications (user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
