@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const PROFILE_FIELDS: { key: string; label: string; full?: boolean; area?: boolean }[] = [
+const PROFILE_FIELDS: { key: string; label: string; full?: boolean; area?: boolean; image?: boolean }[] = [
   { key: "bloodType", label: "Blood type" },
   { key: "nextOfKinName", label: "Next of kin — name" },
   { key: "nextOfKinPhone", label: "Next of kin — phone" },
@@ -30,9 +30,36 @@ const PROFILE_FIELDS: { key: string; label: string; full?: boolean; area?: boole
   { key: "advanceDirectiveStatus", label: "Advance directive (none/on_file/dnr/polst/living_will)" },
   { key: "insuranceProvider", label: "Insurance provider", full: true },
   { key: "insuranceMemberId", label: "Insurance member ID", full: true },
-  { key: "insuranceCardFrontUrl", label: "Insurance card image URL (front)", full: true },
+  { key: "insuranceCardFrontUrl", label: "Insurance card (front)", full: true, image: true },
+  { key: "insuranceCardBackUrl", label: "Insurance card (back)", full: true, image: true },
   { key: "latestHealthSummary", label: "Latest health summary", full: true, area: true },
 ];
+
+// Upload an image to object storage via a signed URL; returns the stored path.
+async function uploadImage(file: File): Promise<string> {
+  const { uploadURL, objectPath } = await apiRequest("POST", "/api/emergency/upload-url", {}).then((r) => r.json());
+  const put = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+  if (!put.ok) throw new Error("upload failed");
+  return objectPath;
+}
+
+function ImageUploadInput({ value, onUploaded }: { value?: string; onUploaded: (path: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+  return (
+    <div className="space-y-1">
+      <input type="file" accept="image/*" capture="environment" disabled={busy} className="text-xs"
+        onChange={async (e) => {
+          const file = e.target.files?.[0]; if (!file) return;
+          setBusy(true); setErr(false);
+          try { onUploaded(await uploadImage(file)); } catch { setErr(true); } finally { setBusy(false); }
+        }} />
+      {busy && <span className="text-xs text-muted-foreground">Uploading…</span>}
+      {err && <span className="text-xs text-red-600">Upload failed</span>}
+      {value && <a href={value} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline block truncate">view uploaded image</a>}
+    </div>
+  );
+}
 
 export default function EmergencyFolder() {
   const qc = useQueryClient();
@@ -112,7 +139,9 @@ export default function EmergencyFolder() {
                 {PROFILE_FIELDS.map((f) => (
                   <div key={f.key} className={f.area ? "sm:col-span-2" : ""}>
                     <Label htmlFor={f.key} className="text-xs">{f.label}{f.full && <Badge variant="secondary" className="ml-2">full</Badge>}</Label>
-                    {f.area
+                    {f.image
+                      ? <ImageUploadInput value={profile[f.key]} onUploaded={(p) => set(f.key, p)} />
+                      : f.area
                       ? <Textarea id={f.key} value={profile[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} rows={3} />
                       : <Input id={f.key} value={profile[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} />}
                   </div>
@@ -135,9 +164,10 @@ export default function EmergencyFolder() {
           <Card className="mb-4">
             <CardHeader><CardTitle className="text-base">Add implanted device card</CardTitle></CardHeader>
             <CardContent className="grid sm:grid-cols-2 gap-3">
-              {[["deviceType", "Type (pacemaker/defibrillator/stent/icd/insulin_pump/…)"], ["name", "Name *"], ["manufacturer", "Manufacturer"], ["modelNumber", "Model #"], ["serialNumber", "Serial #"], ["location", "Body location"], ["cardImageUrl", "Card image URL"]].map(([k, label]) => (
+              {[["deviceType", "Type (pacemaker/defibrillator/stent/icd/insulin_pump/…)"], ["name", "Name *"], ["manufacturer", "Manufacturer"], ["modelNumber", "Model #"], ["serialNumber", "Serial #"], ["location", "Body location"]].map(([k, label]) => (
                 <div key={k}><Label className="text-xs">{label}</Label><Input value={device[k] ?? ""} onChange={(e) => setDevice((d) => ({ ...d, [k]: e.target.value }))} /></div>
               ))}
+              <div><Label className="text-xs">Device ID card photo</Label><ImageUploadInput value={device.cardImageUrl} onUploaded={(p) => setDevice((d) => ({ ...d, cardImageUrl: p }))} /></div>
               <div className="flex items-center gap-2"><Switch checked={device.mriConditional ?? false} onCheckedChange={(v) => setDevice((d) => ({ ...d, mriConditional: v }))} /><Label className="text-xs">MRI conditional</Label></div>
               <div className="sm:col-span-2"><Button onClick={() => addDevice.mutate()} disabled={addDevice.isPending || !device.name}><Plus className="h-4 w-4 mr-1" />Add device card</Button></div>
             </CardContent>

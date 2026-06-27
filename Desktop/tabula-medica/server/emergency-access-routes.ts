@@ -12,6 +12,7 @@
 import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { emergencyAccessService, type AccessorInfo } from "./services/emergency-access-service";
+import { ObjectStorageService } from "./replit_integrations/object_storage/objectStorage";
 
 function getUserId(req: Request): string | undefined {
   const u = (req as any).user;
@@ -53,6 +54,16 @@ export function registerEmergencyAccessRoutes(app: Express): void {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: "Authentication required" });
     res.json(await emergencyAccessService.upsertProfile(userId, req.body ?? {}));
+  }));
+
+  // ── Patient: signed upload URL for card images (insurance / device cards) ───
+  app.post("/api/emergency/upload-url", auth, safe(async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    const objectStorage = new ObjectStorageService();
+    const uploadURL = await objectStorage.getObjectEntityUploadURL();
+    const objectPath = objectStorage.normalizeObjectEntityPath(uploadURL); // the path to store/render
+    res.json({ uploadURL, objectPath });
   }));
 
   // ── Patient: implanted device cards ────────────────────────────────────────
