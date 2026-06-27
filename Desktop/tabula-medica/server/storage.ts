@@ -2,6 +2,9 @@ import { randomUUID } from "crypto";
 import {
   encryptConnectionForStorage,
   decryptConnectionFromStorage,
+  encryptPhi,
+  decryptPhi,
+  isEncrypted,
 } from "./security/phi-encryption";
 import type { 
   User, InsertUser, OnboardingStatus,
@@ -148,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -14943,6 +14946,114 @@ export class DatabaseStorage extends MemStorage {
       );
     }
     return filters?.limit ? logs.slice(0, filters.limit) : logs;
+  }
+
+  // ══ TwoFactorAuth entity (C1) — MFA secrets (encrypted at rest) ═════════════
+  // Pure DB replacement: the Map has no readers outside these 4 methods. The TOTP
+  // `secret` and every `backupCodes` entry are encrypted on write / decrypted on
+  // read (AES-256-GCM) so MFA seeds are never persisted in plaintext — mirroring
+  // the OAuth-token handling.
+  private encrypt2faForStorage(plain: TwoFactorAuth): TwoFactorAuth {
+    return {
+      ...plain,
+      secret: plain.secret ? encryptPhi(plain.secret) : plain.secret,
+      backupCodes: (plain.backupCodes ?? []).map((c) => (c ? encryptPhi(c) : c)),
+    };
+  }
+
+  private decrypt2faFromStorage(stored: TwoFactorAuth): TwoFactorAuth {
+    return {
+      ...stored,
+      secret: stored.secret && isEncrypted(stored.secret) ? decryptPhi(stored.secret) : stored.secret,
+      backupCodes: (stored.backupCodes ?? []).map((c) =>
+        c && isEncrypted(c) ? decryptPhi(c) : c,
+      ),
+    };
+  }
+
+  private map2faRow(row: typeof appTwoFactorAuthsTable.$inferSelect): TwoFactorAuth {
+    return {
+      id: row.id,
+      userId: row.userId,
+      secret: row.secret,
+      enabled: row.enabled,
+      verifiedAt: row.verifiedAt,
+      backupCodes: row.backupCodes ?? [],
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getTwoFactorAuth(userId: string): Promise<TwoFactorAuth | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appTwoFactorAuthsTable)
+      .where(eq(appTwoFactorAuthsTable.userId, userId));
+    return row ? this.decrypt2faFromStorage(this.map2faRow(row)) : undefined;
+  }
+
+  override async createTwoFactorAuth(tfa: InsertTwoFactorAuth): Promise<TwoFactorAuth> {
+    const now = new Date().toISOString();
+    const backupCodes = Array.from({ length: 10 }, () =>
+      randomUUID().replace(/-/g, "").substring(0, 8).toUpperCase(),
+    );
+    const plain: TwoFactorAuth = {
+      id: randomUUID(),
+      userId: tfa.userId,
+      secret: tfa.secret,
+      enabled: false,
+      verifiedAt: null,
+      backupCodes,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const stored = this.encrypt2faForStorage(plain);
+    await this.dbc.insert(appTwoFactorAuthsTable).values({
+      id: stored.id,
+      userId: stored.userId,
+      secret: stored.secret,
+      enabled: stored.enabled,
+      verifiedAt: stored.verifiedAt,
+      backupCodes: stored.backupCodes,
+      createdAt: stored.createdAt,
+      updatedAt: stored.updatedAt,
+    });
+    return plain; // caller sees plaintext secret/backup codes
+  }
+
+  override async updateTwoFactorAuth(
+    userId: string,
+    updates: Partial<TwoFactorAuth>,
+  ): Promise<TwoFactorAuth | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appTwoFactorAuthsTable)
+      .where(eq(appTwoFactorAuthsTable.userId, userId));
+    if (!row) return undefined;
+    const currentPlain = this.decrypt2faFromStorage(this.map2faRow(row));
+    const mergedPlain: TwoFactorAuth = {
+      ...currentPlain,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    const stored = this.encrypt2faForStorage(mergedPlain);
+    await this.dbc
+      .update(appTwoFactorAuthsTable)
+      .set({
+        secret: stored.secret,
+        enabled: stored.enabled,
+        verifiedAt: stored.verifiedAt,
+        backupCodes: stored.backupCodes,
+        updatedAt: stored.updatedAt,
+      })
+      .where(eq(appTwoFactorAuthsTable.userId, userId));
+    return mergedPlain;
+  }
+
+  override async deleteTwoFactorAuth(userId: string): Promise<void> {
+    await this.dbc
+      .delete(appTwoFactorAuthsTable)
+      .where(eq(appTwoFactorAuthsTable.userId, userId));
   }
 }
 

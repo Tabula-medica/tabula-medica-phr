@@ -5708,6 +5708,26 @@ export const appUserSessionsTable = pgTable(
   }),
 );
 
+// Two-Factor Auth (C1). `secret` (TOTP) and each `backupCodes` entry are stored
+// ENCRYPTED at rest (AES-256-GCM via encryptPhi) — never plaintext. One row per
+// user (unique user_id).
+export const appTwoFactorAuthsTable = pgTable(
+  "app_two_factor_auths",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    secret: text("secret").notNull(), // encrypted
+    enabled: boolean("enabled").notNull().default(false),
+    verifiedAt: text("verified_at"),
+    backupCodes: jsonb("backup_codes").$type<string[]>().notNull().default([]), // encrypted entries
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    userIdx: uniqueIndex("app_two_factor_auths_user_idx").on(t.userId),
+  }),
+);
+
 // Security Audit Log
 export const securityEventTypes = [
   "login",

@@ -107,6 +107,20 @@ CREATE TABLE IF NOT EXISTS app_user_sessions (
 );
 CREATE INDEX IF NOT EXISTS app_user_sessions_user_idx ON app_user_sessions (user_id);
 
+-- Two-factor auth (MFA). secret + backup_codes entries are AES-256-GCM encrypted
+-- at rest by the app; one row per user.
+CREATE TABLE IF NOT EXISTS app_two_factor_auths (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  secret text NOT NULL,
+  enabled boolean NOT NULL DEFAULT false,
+  verified_at text,
+  backup_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS app_two_factor_auths_user_idx ON app_two_factor_auths (user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
