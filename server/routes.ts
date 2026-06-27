@@ -38042,6 +38042,13 @@ startxref
   app.use("/api/patient-contacts", patientContactsRoutes.default);
   console.log("[Routes] Patient Contacts (Emergency Contact & Care Team) routes registered at /api/patient-contacts/*");
 
+  // GDPR core (account-scoped): right-to-erasure (30-day grace), DSAR export,
+  // consent recording. Stored in profiles.metadata (no migration). Mounted at
+  // /api/account/* — distinct from the /api/gdpr/* data-rights-request tracker.
+  const accountGdprRoutes = await import("./routes/account-gdpr-routes");
+  app.use("/api/account", accountGdprRoutes.default);
+  console.log("[Routes] GDPR core (deletion/export/consent) registered at /api/account/*");
+
   // Emergency Info + break-glass single-use share. Authenticated emergency
   // routes share the /api/patient-contacts base (extends that feature); the
   // public break-glass redeem endpoint lives at /api/emergency (NO auth).

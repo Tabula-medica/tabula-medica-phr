@@ -12,6 +12,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -44,6 +53,11 @@ import {
   MapPin,
   MessageSquare,
   Send,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  FileJson,
+  Lock,
 } from "lucide-react";
 
 interface NotificationPreferences {
@@ -147,6 +161,327 @@ function FeedbackForm() {
         Your feedback is sent directly to our team. We read every message and use it to improve Tabula Medica for everyone.
       </p>
     </div>
+  );
+}
+
+// --- GDPR / Data Rights -----------------------------------------------------
+
+interface DeletionStatus {
+  status: "none" | "scheduled" | "cancelled";
+  purgeAfter: string | null;
+  requestedAt?: string;
+}
+
+interface ConsentRecord {
+  type: string;
+  granted: boolean;
+  version?: string;
+  at: string;
+  ip: string | null;
+}
+
+interface ConsentResponse {
+  consents: ConsentRecord[];
+  latestByType: Record<string, ConsentRecord>;
+}
+
+const CONSENT_TYPES: { type: string; label: string; description: string }[] = [
+  {
+    type: "gdpr_processing",
+    label: "Data processing (GDPR Art. 6)",
+    description:
+      "Allow Tabula Medica to process your personal and health data to provide the service.",
+  },
+  {
+    type: "emergency_sharing",
+    label: "Emergency information sharing",
+    description:
+      "Allow break-glass access to your emergency info (allergies, contacts) by first responders.",
+  },
+  {
+    type: "research",
+    label: "Research & product improvement",
+    description:
+      "Allow your de-identified data to be used to improve features. You can withdraw any time.",
+  },
+];
+
+function GdprDataRights() {
+  const { toast } = useToast();
+  const [confirmText, setConfirmText] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const deletionQ = useQuery<DeletionStatus>({
+    queryKey: ["/api/account/deletion/status"],
+  });
+  const consentsQ = useQuery<ConsentResponse>({
+    queryKey: ["/api/account/consent"],
+  });
+
+  const requestDeletionMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/account/deletion/request", {
+        confirm: "DELETE",
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Account deletion scheduled", description: data.message });
+      setDeleteOpen(false);
+      setConfirmText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/account/deletion/status"] });
+    },
+    onError: (err: Error) =>
+      toast({
+        title: "Could not schedule deletion",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const cancelDeletionMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/account/deletion/cancel", {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Deletion cancelled",
+        description: "Your account will not be deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/account/deletion/status"] });
+    },
+    onError: (err: Error) =>
+      toast({ title: "Could not cancel", description: err.message, variant: "destructive" }),
+  });
+
+  const consentMut = useMutation({
+    mutationFn: async (vars: { type: string; granted: boolean }) => {
+      const res = await apiRequest("POST", "/api/account/consent", vars);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Consent updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account/consent"] });
+    },
+    onError: (err: Error) =>
+      toast({ title: "Could not update consent", description: err.message, variant: "destructive" }),
+  });
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/account/export", {
+        credentials: "include",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `tabula-medica-export-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Export downloaded",
+        description: "Your data was exported as a file you control.",
+      });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const scheduled = deletionQ.data?.status === "scheduled";
+  const consents = consentsQ.data?.latestByType ?? {};
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Lock className="h-5 w-5" />
+          Data & Privacy Rights
+        </CardTitle>
+        <CardDescription>
+          Your data is exported as a file you control. Account deletion is scheduled
+          with a 30-day grace period and can be cancelled.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Download my data */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <FileJson className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <Label>Download my data</Label>
+              <p className="text-sm text-muted-foreground">
+                Get a complete JSON copy of your account, profiles, documents,
+                contacts, and audit history.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting}
+            data-testid="button-download-my-data"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            {exporting ? "Preparing..." : "Download"}
+          </Button>
+        </div>
+
+        <Separator />
+
+        {/* Consents */}
+        <div className="space-y-4">
+          <div>
+            <Label>Consents</Label>
+            <p className="text-sm text-muted-foreground">
+              Control how your data is used. Changes are recorded with a timestamp.
+            </p>
+          </div>
+          {consentsQ.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : (
+            CONSENT_TYPES.map((c, i) => (
+              <div key={c.type}>
+                {i > 0 && <Separator className="mb-4" />}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor={`consent-${c.type}`} className="text-sm font-medium">
+                      {c.label}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
+                  </div>
+                  <Switch
+                    id={`consent-${c.type}`}
+                    checked={consents[c.type]?.granted ?? false}
+                    onCheckedChange={(granted) =>
+                      consentMut.mutate({ type: c.type, granted })
+                    }
+                    disabled={consentMut.isPending}
+                    data-testid={`switch-consent-${c.type}`}
+                  />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Delete my account */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Trash2 className="h-5 w-5 text-destructive" />
+            <div>
+              <Label className="text-destructive">Delete my account</Label>
+              <p className="text-sm text-muted-foreground">
+                Permanently delete your account and all data after a 30-day grace
+                period. You can cancel any time before then.
+              </p>
+            </div>
+          </div>
+
+          {scheduled ? (
+            <Alert variant="destructive" data-testid="alert-deletion-scheduled">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Deletion scheduled</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Your account is scheduled for permanent deletion on{" "}
+                  <strong>
+                    {deletionQ.data?.purgeAfter
+                      ? new Date(deletionQ.data.purgeAfter).toLocaleDateString()
+                      : "the end of the grace period"}
+                  </strong>
+                  . You can cancel any time before then.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => cancelDeletionMut.mutate()}
+                  disabled={cancelDeletionMut.isPending}
+                  data-testid="button-cancel-deletion"
+                >
+                  Cancel deletion
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteOpen(true)}
+                data-testid="button-open-delete-account"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete my account
+              </Button>
+              <DialogContent data-testid="dialog-delete-account">
+                <DialogHeader>
+                  <DialogTitle>Delete your account</DialogTitle>
+                  <DialogDescription className="space-y-2">
+                    <span className="block">
+                      This schedules permanent deletion of your account, profiles, and
+                      health records <strong>30 days from now</strong>. You can cancel
+                      any time before then; after 30 days it is irreversible.
+                    </span>
+                    <span className="block">
+                      Type <strong>DELETE</strong> below to confirm.
+                    </span>
+                  </DialogDescription>
+                </DialogHeader>
+                <Input
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  data-testid="input-confirm-delete"
+                />
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteOpen(false);
+                      setConfirmText("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => requestDeletionMut.mutate()}
+                    disabled={confirmText !== "DELETE" || requestDeletionMut.isPending}
+                    data-testid="button-confirm-delete-account"
+                  >
+                    {requestDeletionMut.isPending
+                      ? "Scheduling..."
+                      : "Schedule deletion"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -650,6 +985,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* GDPR — Data & Privacy Rights (export / consent / account deletion) */}
+        <GdprDataRights />
 
         {/* Data Source Connections (US Only) */}
         {isUS && <Card>
