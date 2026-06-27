@@ -66,6 +66,28 @@ workflow-monitoring-service, zero-click-retrieval-service
 
 ---
 
+## ✅ GATE-MISSED CDS SURFACE (server/ root — GATED 2026-06-27)
+The build gate scans **only `server/services/`**. But `server/` ROOT held a parallel
+set of clearly-clinical CDS services using OpenAI that the gate never flagged and that
+were **still active in production** (not behind the ENABLE_CDS kill-switch). 13
+clinically-named ones (within 48 openai-using non-route root files total):
+
+`ai-medication-service.ts`, `care-plan-service.ts`, **`clinical-decision-support-service.ts`**,
+**`differential-diagnosis-service.ts`**, `health-coach-service.ts`, `health-insights-service.ts`,
+`health-insights.ts`, `med-reconciliation-service.ts`, `medication-ai.ts`, `pharmacy-ai.ts`,
+`predictive-health.ts`, `proactive-alerts-service.ts`, `symptom-tracker-service.ts`
+
+**DONE (commit on feat/claude-vertex-migration):** the same `assertCdsEnabled()`
+kill-switch was extended to all 13 — each exported CDS function now calls
+`assertCdsEnabled("<feature-id>")` (throws 503 unless `ENABLE_CDS=true`, default
+OFF). With `ENABLE_CDS` unset in prod (verified on rev 00046-tul / 00048+), the
+**entire CDS/SaMD surface — services-dir (33) AND root (13) — is now disabled by
+default.** Record-access summaries (§164.524), data CRUD, and de-identified
+population analytics were intentionally LEFT ungated. NOT a NO-CDS claim — these
+genuinely perform CDS and are off pending FDA Non-Device CDS determination +
+counsel. STILL TODO: widen the build `medical-safety-checks` gate to also scan
+`server/` root so enforcement matches reality; counsel disposition of all 46.
+
 ## Disposition options for the 33 (your / counsel call — not auto-applied)
 1. **Counsel review** — determine which qualify as *non-device* CDS under the Cures Act 4-prong test
    (transparent basis, provider can independently review, not time-critical, no image/signal analysis).
