@@ -486,4 +486,24 @@ CREATE TABLE IF NOT EXISTS app_medication_adherence_records (
 CREATE INDEX IF NOT EXISTS app_medication_adherence_records_patient_idx ON app_medication_adherence_records (patient_id);
 CREATE INDEX IF NOT EXISTS app_medication_adherence_records_med_idx ON app_medication_adherence_records (medication_id);
 
+-- Data sharing consents (PHI-sharing access grants)
+CREATE TABLE IF NOT EXISTS app_data_sharing_consents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id text NOT NULL,
+  recipient_id text NOT NULL,
+  data_category text NOT NULL,
+  access_level text NOT NULL DEFAULT 'read',
+  purpose text,
+  expires_at text,
+  is_active boolean NOT NULL DEFAULT true,
+  granted_at text NOT NULL,
+  revoked_at text,
+  last_accessed_at text,
+  access_count integer NOT NULL DEFAULT 0,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_data_sharing_consents_patient_idx ON app_data_sharing_consents (patient_user_id);
+CREATE INDEX IF NOT EXISTS app_data_sharing_consents_recipient_idx ON app_data_sharing_consents (recipient_id);
+
 COMMIT;

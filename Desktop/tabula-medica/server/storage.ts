@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -12373,8 +12373,10 @@ export class MemStorage implements IStorage {
  *   • WearableConnection → app_wearable_connections (tokens ENCRYPTED in jsonb blob)
  *   • WearableDataRecord → app_wearable_data_records (metrics)
  *   • MedicationReminder → app_medication_reminders (adherence reminders)
+ *   • MedicationAdherenceRecord → app_medication_adherence_records (dose events)
+ *   • DataSharingConsent → app_data_sharing_consents (PHI-sharing access grants)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   medication adherence records, sharing/consents, security (2FA/notifications),
+ *   sharingRecipients, security (2FA/notifications), caregiver sub-entities,
  *   … by exposure.
  *   SKIP unifiedPatients (no create path — seed-only) & riskStratifications (computed).
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
@@ -14113,6 +14115,125 @@ export class DatabaseStorage extends MemStorage {
   override async getMedicationAdherenceStats(patientId: string, medicationId?: string, periodDays: number = 30) {
     await this.ensureMedicationAdherenceRecordsHydrated();
     return super.getMedicationAdherenceStats(patientId, medicationId, periodDays);
+  }
+
+  // ══ DataSharingConsent entity (C1) — PHI-sharing access grants ══════════════
+  // Pure DB replacement; revoke is ownership-scoped (patientUserId).
+  private mapDataSharingConsentRow(
+    row: typeof appDataSharingConsentsTable.$inferSelect,
+  ): DataSharingConsent {
+    return {
+      id: row.id,
+      patientUserId: row.patientUserId,
+      recipientId: row.recipientId,
+      dataCategory: row.dataCategory,
+      accessLevel: row.accessLevel,
+      purpose: row.purpose ?? undefined,
+      expiresAt: row.expiresAt ?? undefined,
+      isActive: row.isActive,
+      grantedAt: row.grantedAt,
+      revokedAt: row.revokedAt ?? undefined,
+      lastAccessedAt: row.lastAccessedAt ?? undefined,
+      accessCount: row.accessCount,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getDataSharingConsents(patientUserId: string): Promise<DataSharingConsent[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appDataSharingConsentsTable)
+      .where(and(eq(appDataSharingConsentsTable.patientUserId, patientUserId), eq(appDataSharingConsentsTable.isActive, true)));
+    return rows
+      .map((r) => this.mapDataSharingConsentRow(r))
+      .sort((a, b) => new Date(b.grantedAt).getTime() - new Date(a.grantedAt).getTime());
+  }
+
+  override async getDataSharingConsentsByRecipient(recipientId: string): Promise<DataSharingConsent[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appDataSharingConsentsTable)
+      .where(and(eq(appDataSharingConsentsTable.recipientId, recipientId), eq(appDataSharingConsentsTable.isActive, true)));
+    return rows.map((r) => this.mapDataSharingConsentRow(r));
+  }
+
+  override async getDataSharingConsent(id: string): Promise<DataSharingConsent | undefined> {
+    const [row] = await this.dbc.select().from(appDataSharingConsentsTable).where(eq(appDataSharingConsentsTable.id, id));
+    return row ? this.mapDataSharingConsentRow(row) : undefined;
+  }
+
+  override async getConsentForCategory(
+    patientUserId: string,
+    recipientId: string,
+    category: import("@shared/schema").DataCategory,
+  ): Promise<DataSharingConsent | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appDataSharingConsentsTable)
+      .where(
+        and(
+          eq(appDataSharingConsentsTable.patientUserId, patientUserId),
+          eq(appDataSharingConsentsTable.recipientId, recipientId),
+          eq(appDataSharingConsentsTable.dataCategory, category),
+          eq(appDataSharingConsentsTable.isActive, true),
+        ),
+      );
+    return row ? this.mapDataSharingConsentRow(row) : undefined;
+  }
+
+  override async createDataSharingConsent(consent: InsertDataSharingConsent): Promise<DataSharingConsent> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appDataSharingConsentsTable)
+      .values({
+        patientUserId: consent.patientUserId,
+        recipientId: consent.recipientId,
+        dataCategory: consent.dataCategory,
+        accessLevel: consent.accessLevel || "read",
+        purpose: consent.purpose ?? null,
+        expiresAt: consent.expiresAt ?? null,
+        isActive: consent.isActive ?? true,
+        grantedAt: now,
+        accessCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapDataSharingConsentRow(row);
+  }
+
+  override async updateDataSharingConsent(
+    id: string,
+    updates: Partial<DataSharingConsent>,
+  ): Promise<DataSharingConsent | undefined> {
+    const set: Partial<typeof appDataSharingConsentsTable.$inferInsert> = {};
+    if (updates.patientUserId !== undefined) set.patientUserId = updates.patientUserId;
+    if (updates.recipientId !== undefined) set.recipientId = updates.recipientId;
+    if (updates.dataCategory !== undefined) set.dataCategory = updates.dataCategory;
+    if (updates.accessLevel !== undefined) set.accessLevel = updates.accessLevel;
+    if (updates.purpose !== undefined) set.purpose = updates.purpose;
+    if (updates.expiresAt !== undefined) set.expiresAt = updates.expiresAt;
+    if (updates.isActive !== undefined) set.isActive = updates.isActive;
+    if (updates.revokedAt !== undefined) set.revokedAt = updates.revokedAt;
+    if (updates.lastAccessedAt !== undefined) set.lastAccessedAt = updates.lastAccessedAt;
+    if (updates.accessCount !== undefined) set.accessCount = updates.accessCount;
+    set.updatedAt = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appDataSharingConsentsTable)
+      .set(set)
+      .where(eq(appDataSharingConsentsTable.id, id))
+      .returning();
+    return row ? this.mapDataSharingConsentRow(row) : undefined;
+  }
+
+  override async revokeDataSharingConsent(id: string, patientUserId: string): Promise<void> {
+    // ownership-scoped: only the granting patient can revoke
+    const now = new Date().toISOString();
+    await this.dbc
+      .update(appDataSharingConsentsTable)
+      .set({ isActive: false, revokedAt: now, updatedAt: now })
+      .where(and(eq(appDataSharingConsentsTable.id, id), eq(appDataSharingConsentsTable.patientUserId, patientUserId)));
   }
 
   // ══ Problem entity (C1) — clinical problem/condition list (ICD-coded) ═══════

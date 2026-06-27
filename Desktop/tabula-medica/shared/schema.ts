@@ -6334,6 +6334,33 @@ export const insertDataSharingConsentSchema = z.object({
 
 export type InsertDataSharingConsent = z.infer<typeof insertDataSharingConsentSchema>;
 
+// Durable backing table for DataSharingConsent (C1) — governs which recipient
+// may access which PHI category. Losing this on restart silently drops/forgets
+// access grants. Named `app_data_sharing_consents`; additive only.
+export const appDataSharingConsentsTable = pgTable(
+  "app_data_sharing_consents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientUserId: text("patient_user_id").notNull(),
+    recipientId: text("recipient_id").notNull(),
+    dataCategory: text("data_category").$type<DataCategory>().notNull(),
+    accessLevel: text("access_level").$type<AccessLevel>().notNull().default("read"),
+    purpose: text("purpose"),
+    expiresAt: text("expires_at"),
+    isActive: boolean("is_active").notNull().default(true),
+    grantedAt: text("granted_at").notNull(),
+    revokedAt: text("revoked_at"),
+    lastAccessedAt: text("last_accessed_at"),
+    accessCount: integer("access_count").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_data_sharing_consents_patient_idx").on(t.patientUserId),
+    recipientIdx: index("app_data_sharing_consents_recipient_idx").on(t.recipientId),
+  }),
+);
+
 // Default Sharing Policy - patient's default sharing preferences
 export interface DefaultSharingPolicy {
   id: string;
