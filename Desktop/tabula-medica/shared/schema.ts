@@ -6926,6 +6926,30 @@ export const insertMedicationAdherenceRecordSchema = z.object({
 
 export type InsertMedicationAdherenceRecord = z.infer<typeof insertMedicationAdherenceRecordSchema>;
 
+// Durable backing table for MedicationAdherenceRecord (C1) — dose-level adherence
+// events. In-memory Map, lost on restart. Named `app_medication_adherence_records`.
+export const appMedicationAdherenceRecordsTable = pgTable(
+  "app_medication_adherence_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    medicationId: text("medication_id").notNull(),
+    medicationName: text("medication_name").notNull(),
+    reminderId: text("reminder_id"),
+    scheduledTime: text("scheduled_time").notNull(),
+    action: text("action").$type<MedicationAdherenceRecord["action"]>().notNull(),
+    takenAt: text("taken_at"),
+    missedReason: text("missed_reason").$type<NonNullable<MedicationAdherenceRecord["missedReason"]>>(),
+    missedReasonDetails: text("missed_reason_details"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_medication_adherence_records_patient_idx").on(t.patientId),
+    medIdx: index("app_medication_adherence_records_med_idx").on(t.medicationId),
+  }),
+);
+
 // Adherence Coaching Session - AI-powered personalized coaching
 export interface AdherenceCoachingSession {
   id: string;

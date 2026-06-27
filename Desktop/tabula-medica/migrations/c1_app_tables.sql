@@ -468,4 +468,22 @@ CREATE TABLE IF NOT EXISTS app_medication_reminders (
 );
 CREATE INDEX IF NOT EXISTS app_medication_reminders_patient_idx ON app_medication_reminders (patient_id);
 
+-- Medication adherence records (dose-level events)
+CREATE TABLE IF NOT EXISTS app_medication_adherence_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  medication_id text NOT NULL,
+  medication_name text NOT NULL,
+  reminder_id text,
+  scheduled_time text NOT NULL,
+  action text NOT NULL,
+  taken_at text,
+  missed_reason text,
+  missed_reason_details text,
+  notes text,
+  created_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_medication_adherence_records_patient_idx ON app_medication_adherence_records (patient_id);
+CREATE INDEX IF NOT EXISTS app_medication_adherence_records_med_idx ON app_medication_adherence_records (medication_id);
+
 COMMIT;

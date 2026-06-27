@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -1233,7 +1233,9 @@ export class MemStorage implements IStorage {
   private researchPreferences: Map<string, ResearchPreferences> = new Map();
   private deidentifiedData: Map<string, unknown[]> = new Map();
   private medicationReminders: Map<string, MedicationReminder> = new Map();
-  private medicationAdherenceRecords: Map<string, MedicationAdherenceRecord> = new Map();
+  // protected so DatabaseStorage can clear/hydrate for getMedicationAdherenceStats
+  // + the analytics readers that iterate this Map.
+  protected medicationAdherenceRecords: Map<string, MedicationAdherenceRecord> = new Map();
   private adherenceCoachingSessions: Map<string, AdherenceCoachingSession> = new Map();
   private drugInteractions: Map<string, DrugInteraction> = new Map();
   private medicationAIInsights: Map<string, MedicationAIInsight> = new Map();
@@ -12932,6 +12934,7 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
     await this.ensureProblemsHydrated();
+    await this.ensureMedicationAdherenceRecordsHydrated();
     return super.getAnalyticsDashboardData();
   }
 
@@ -12955,6 +12958,7 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
     await this.ensureProblemsHydrated();
+    await this.ensureMedicationAdherenceRecordsHydrated();
     return super.getPopulationHealthMetrics(periodType);
   }
 
@@ -12962,6 +12966,7 @@ export class DatabaseStorage extends MemStorage {
     await this.ensureMedicationsHydrated();
     await this.ensurePatientsHydrated();
     await this.ensureProblemsHydrated();
+    await this.ensureMedicationAdherenceRecordsHydrated();
     return super.getTreatmentEfficacyData(treatmentName, cohortId);
   }
 
@@ -14035,6 +14040,79 @@ export class DatabaseStorage extends MemStorage {
 
   override async deleteMedicationReminder(id: string): Promise<void> {
     await this.dbc.delete(appMedicationRemindersTable).where(eq(appMedicationRemindersTable.id, id));
+  }
+
+  // ══ MedicationAdherenceRecord entity (C1) — dose-level adherence events ══════
+  private medicationAdherenceRecordsHydrated = false;
+
+  private mapMedicationAdherenceRow(
+    row: typeof appMedicationAdherenceRecordsTable.$inferSelect,
+  ): MedicationAdherenceRecord {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      medicationId: row.medicationId,
+      medicationName: row.medicationName,
+      reminderId: row.reminderId ?? undefined,
+      scheduledTime: row.scheduledTime,
+      action: row.action,
+      takenAt: row.takenAt ?? undefined,
+      missedReason: row.missedReason ?? undefined,
+      missedReasonDetails: row.missedReasonDetails ?? undefined,
+      notes: row.notes ?? undefined,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private async ensureMedicationAdherenceRecordsHydrated(): Promise<void> {
+    if (this.medicationAdherenceRecordsHydrated) return;
+    this.medicationAdherenceRecords.clear();
+    const rows = await this.dbc.select().from(appMedicationAdherenceRecordsTable);
+    for (const row of rows) this.medicationAdherenceRecords.set(row.id, this.mapMedicationAdherenceRow(row));
+    this.medicationAdherenceRecordsHydrated = true;
+  }
+
+  override async getMedicationAdherenceRecords(
+    patientId: string,
+    medicationId?: string,
+  ): Promise<MedicationAdherenceRecord[]> {
+    const where = medicationId
+      ? and(eq(appMedicationAdherenceRecordsTable.patientId, patientId), eq(appMedicationAdherenceRecordsTable.medicationId, medicationId))
+      : eq(appMedicationAdherenceRecordsTable.patientId, patientId);
+    const rows = await this.dbc.select().from(appMedicationAdherenceRecordsTable).where(where);
+    return rows
+      .map((r) => this.mapMedicationAdherenceRow(r))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  override async createMedicationAdherenceRecord(
+    record: InsertMedicationAdherenceRecord,
+  ): Promise<MedicationAdherenceRecord> {
+    const [row] = await this.dbc
+      .insert(appMedicationAdherenceRecordsTable)
+      .values({
+        patientId: record.patientId,
+        medicationId: record.medicationId,
+        medicationName: record.medicationName,
+        reminderId: record.reminderId ?? null,
+        scheduledTime: record.scheduledTime,
+        action: record.action,
+        takenAt: record.takenAt ?? null,
+        missedReason: record.missedReason ?? null,
+        missedReasonDetails: record.missedReasonDetails ?? null,
+        notes: record.notes ?? null,
+        createdAt: new Date().toISOString(),
+      })
+      .returning();
+    const r = this.mapMedicationAdherenceRow(row);
+    this.medicationAdherenceRecords.set(r.id, r); // mirror for the stats/analytics readers
+    return r;
+  }
+
+  // computes stats over the records Map — hydrate from DB then delegate
+  override async getMedicationAdherenceStats(patientId: string, medicationId?: string, periodDays: number = 30) {
+    await this.ensureMedicationAdherenceRecordsHydrated();
+    return super.getMedicationAdherenceStats(patientId, medicationId, periodDays);
   }
 
   // ══ Problem entity (C1) — clinical problem/condition list (ICD-coded) ═══════
