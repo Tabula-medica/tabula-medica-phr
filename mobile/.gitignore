@@ -1,0 +1,12 @@
+node_modules/
+.expo/
+dist/
+*.log
+# Never commit signing / store credentials
+play-service-account.json
+*.p8
+*.p12
+*.keystore
+*.mobileprovision
+ios/
+android/

@@ -1,0 +1,86 @@
+{
+  "expo": {
+    "name": "Tabula Medica",
+    "slug": "tabula-medica",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tabulamedica",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "jsEngine": "hermes",
+    "owner": "rajivka2",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a3a52"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tabulamedica.app",
+      "buildNumber": "3",
+      "usesAppleSignIn": true,
+      "config": { "usesNonExemptEncryption": false },
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Tabula Medica uses Face ID to unlock your encrypted health record.",
+        "NSCameraUsageDescription": "Tabula Medica uses the camera to scan insurance cards and upload medical documents.",
+        "NSPhotoLibraryUsageDescription": "Tabula Medica accesses your photo library so you can upload medical documents and insurance cards.",
+        "NSContactsUsageDescription": "Add emergency contacts and share health information with family members.",
+        "NSLocationWhenInUseUsageDescription": "Tabula Medica uses your location to find nearby doctors, FQHCs, and community health resources.",
+        "NSMicrophoneUsageDescription": "Tabula Medica records doctor visits only when you tap record, so you can refer back later. Recordings are encrypted on your device.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.tabulamedica.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#1a3a52"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_CONTACTS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "targetSdkVersion": 34,
+      "minSdkVersion": 24,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "tabulamedica.health", "pathPrefix": "/share" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1a3a52"
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-local-authentication"
+    ],
+    "runtimeVersion": { "policy": "appVersion" },
+    "updates": { "url": "https://u.expo.dev/34fa03f5-06e7-4164-9d44-26a3fd50377e" },
+    "extra": {
+      "appUrl": "https://tabulamedica.world",
+      "fhirRedirectScheme": "tabulamedica",
+      "eas": { "projectId": "34fa03f5-06e7-4164-9d44-26a3fd50377e" }
+    }
+  }
+}
