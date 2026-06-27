@@ -1,4 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated care-plan
+// improvement suggestions analyzing a patient's goals/interventions). The plain CRUD/stats
+// helpers in this file are not CDS and remain ungated.
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -392,6 +399,7 @@ export async function suggestCarePlanImprovements(
   planId: string,
   patientId: string
 ): Promise<string[]> {
+  assertCdsEnabled("care-plan:suggest-improvements");
   const plan = await getCarePlanById(planId, patientId);
   if (!plan) return [];
 

@@ -1,5 +1,14 @@
+// CDS-GATED — this module performs Clinical Decision Support (drug-drug interaction,
+// duplicate-therapy, and allergy-conflict alerting; lab-trend interpretation with critical-value
+// alerts; AI health-risk scoring/stratification; and AI health-coaching recommendations).
+// These CDS surfaces are DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS
+// claim. The plain-language document-summary and de-identified population-analytics helpers are
+// record access/analytics, not CDS, and remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import type { Medication, Allergy, LabResult, MedicalRecord } from "@shared/schema";
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 import {
   ExplainableInsight,
   explainMedicationSafetyAlert,
@@ -235,9 +244,10 @@ export function checkMedicationSafety(
   medications: Medication[],
   allergies: Allergy[] = []
 ): MedicationSafetyAlert[] {
+  assertCdsEnabled("health-insights:medication-safety");
   const alerts: MedicationSafetyAlert[] = [];
   const activeMedications = medications.filter(m => m.status === "active");
-  
+
   const medClassMap: Map<string, { medication: Medication; classes: string[] }> = new Map();
   for (const med of activeMedications) {
     const classes = getMedicationDrugClass(med.name);
@@ -464,8 +474,9 @@ function normalizeLabName(name: string): string {
 export function analyzeLabTrends(
   labResults: LabResult[]
 ): LabTrendInsight[] {
+  assertCdsEnabled("health-insights:lab-trends");
   const insights: LabTrendInsight[] = [];
-  
+
   const groupedLabs: Map<string, LabResult[]> = new Map();
   for (const lab of labResults) {
     const normalizedName = normalizeLabName(lab.testName);
@@ -742,6 +753,7 @@ export function checkMedicationSafetyWithExplainability(
   allergies: Allergy[] = [],
   options?: { patientId?: string; requesterId?: string; requesterRole?: string }
 ): MedicationSafetyAlert[] {
+  assertCdsEnabled("health-insights:medication-safety-explainable");
   const alerts = checkMedicationSafety(medications, allergies);
   const activeMedications = medications.filter(m => m.status === "active");
   
@@ -794,8 +806,9 @@ export function analyzeLabTrendsWithExplainability(
   labResults: LabResult[],
   options?: { patientId?: string; requesterId?: string; requesterRole?: string }
 ): LabTrendInsight[] {
+  assertCdsEnabled("health-insights:lab-trends-explainable");
   const insights = analyzeLabTrends(labResults);
-  
+
   return insights.map(insight => {
     const relatedResults = labResults.filter(r => 
       normalizeLabName(r.testName) === normalizeLabName(insight.labName)
@@ -873,6 +886,7 @@ import type {
 
 // Generate comprehensive health risk assessment
 export async function generateHealthRiskAssessment(patientId: string): Promise<HealthRiskAssessment[]> {
+  assertCdsEnabled("health-insights:risk-assessment");
   const patient = await findPatientForUser(patientId);
   if (!patient) return [];
 
@@ -978,6 +992,7 @@ export async function createHealthCoachingSession(
   goalType: string,
   customGoal?: string
 ): Promise<HealthCoachingSession | null> {
+  assertCdsEnabled("health-insights:coaching-session");
   const patient = await findPatientForUser(patientId);
   if (!patient) return null;
 
@@ -1044,6 +1059,7 @@ Return JSON object:
 
 // Get AI coaching advice for a session
 export async function getCoachingAdvice(sessionId: string, question: string): Promise<string> {
+  assertCdsEnabled("health-insights:coaching-advice");
   const session = await storage.getHealthCoachingSession(sessionId);
   if (!session) return "Session not found.";
 
@@ -1126,6 +1142,7 @@ export async function analyzePopulationTrends(): Promise<PopulationHealthTrend[]
 
 // Generate personalized health insights
 export async function generatePersonalizedInsights(patientId: string): Promise<PersonalizedHealthInsight[]> {
+  assertCdsEnabled("health-insights:personalized-insights");
   const patient = await findPatientForUser(patientId);
   if (!patient) return [];
 

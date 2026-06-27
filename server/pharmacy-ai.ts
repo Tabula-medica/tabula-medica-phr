@@ -1,6 +1,14 @@
+// CDS-GATED — checkDrugInteractions performs Clinical Decision Support (AI drug-drug and
+// drug-allergy interaction screening of a proposed prescription with a provider prescribing
+// recommendation). It is DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS
+// claim. The refill/transfer status-notification and refill-reminder helpers are pharmacy
+// logistics, not CDS, and remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
+import { assertCdsEnabled } from "./services/_cds-gate";
 import type { 
   DrugInteractionCheckResult, 
   DrugInteractionDetail,
@@ -20,6 +28,7 @@ export async function checkDrugInteractions(
   proposedDosage: string,
   prescriptionId?: string
 ): Promise<DrugInteractionCheckResult> {
+  assertCdsEnabled("pharmacy-ai:drug-interactions");
   const medications = await storage.getMedicationsByPatient(patientId);
   const activeMedications = medications.filter((m) => m.status === "active");
   const existingMedNames = activeMedications.map((m) => `${m.name} (${m.dosage})`);

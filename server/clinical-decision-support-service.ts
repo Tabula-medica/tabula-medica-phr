@@ -1,4 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated differential
+// diagnosis suggestions, drug-interaction checks, diagnostic-test recommendations, risk
+// stratification/scoring, and preventive-care/screening alerts).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 import { sanitizeNoCDS, sanitizeNoCDSObject, NO_CDS_DISCLAIMER, NO_CDS_DISCLAIMER_SHORT, NO_CDS_POLICY } from "./security/no-cds-guardrails";
 import { generateDifferentialDiagnosis, type PatientDataForDiagnosis, type DifferentialDiagnosisResult } from "./differential-diagnosis-service";
 import { aiMedicationService, type DrugInteractionAlert } from "./ai-medication-service";
@@ -118,6 +125,7 @@ export interface CDSDiagnosticTestResponse {
 export async function generateDiagnosisSuggestions(
   request: CDSDiagnosisRequest
 ): Promise<CDSDiagnosisResponse> {
+  assertCdsEnabled("clinical-decision-support:diagnosis-suggestions");
   const patientData: PatientDataForDiagnosis = {
     vitals: request.vitals ? [request.vitals] : [],
     labs: request.labs || [],
@@ -161,6 +169,7 @@ export async function generateDiagnosisSuggestions(
 export async function checkDrugInteractions(
   request: CDSDrugInteractionRequest
 ): Promise<CDSDrugInteractionResponse> {
+  assertCdsEnabled("clinical-decision-support:drug-interactions");
   const medications = request.medications.map(m => ({
     id: m.id,
     name: m.name,
@@ -213,6 +222,7 @@ export async function checkDrugInteractions(
 export async function generateDiagnosticTestRecommendations(
   request: CDSDiagnosticTestRequest
 ): Promise<CDSDiagnosticTestResponse> {
+  assertCdsEnabled("clinical-decision-support:diagnostic-tests");
   const symptomsText = request.symptoms
     .map(s => `${s.name} (severity: ${s.severity}/10${s.duration ? `, duration: ${s.duration}` : ""})`)
     .join("; ");
@@ -430,6 +440,7 @@ export interface CDSRiskStratificationResponse {
 export async function generateRiskStratification(
   request: CDSRiskStratificationRequest
 ): Promise<CDSRiskStratificationResponse> {
+  assertCdsEnabled("clinical-decision-support:risk-stratification");
   const demographicsText = request.demographics
     ? `Age: ${request.demographics.age || "unknown"}, Sex: ${request.demographics.sex || "unknown"}`
     : "Not specified";
@@ -663,6 +674,7 @@ export interface CDSPreventiveAlertsResponse {
 export async function generatePreventiveAlerts(
   request: CDSPreventiveAlertsRequest
 ): Promise<CDSPreventiveAlertsResponse> {
+  assertCdsEnabled("clinical-decision-support:preventive-alerts");
   const screeningAlerts = generateScreeningAlerts(request);
   const vaccinationAlerts = generateVaccinationAlerts(request);
 
@@ -931,6 +943,7 @@ export interface CDSOverviewResponse {
 }
 
 export async function generateCDSOverview(request: CDSOverviewRequest): Promise<CDSOverviewResponse> {
+  assertCdsEnabled("clinical-decision-support:overview");
   const riskRequest: CDSRiskStratificationRequest = {
     patientId: request.patientId,
     demographics: request.demographics,

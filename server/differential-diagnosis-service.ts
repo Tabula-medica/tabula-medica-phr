@@ -4,7 +4,13 @@
  * Follows strict safety guidelines - educational only, not diagnostic
  */
 
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated differential
+// diagnosis suggestions derived from patient symptoms, vitals, and labs).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -268,6 +274,7 @@ export async function generateDifferentialDiagnosis(
   patientId: string,
   patientData: PatientDataForDiagnosis
 ): Promise<DifferentialDiagnosisResult> {
+  assertCdsEnabled("differential-diagnosis:generate");
   const dataQualityNotes: string[] = [];
   
   if (patientData.symptoms.length === 0) {

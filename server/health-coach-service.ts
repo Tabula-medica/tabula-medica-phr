@@ -15,6 +15,15 @@
  * - Disclaimer on all responses: "Informational only. Not medical advice."
  */
 
+// CDS-GATED — getPersonalizedGuidance performs Clinical Decision Support: it interprets a
+// patient's logged symptoms/journal/goals to produce personalized health guidance. It is
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination
+// (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim. The general (non-
+// personalized) health-education chatbot and static term/motivation helpers are not CDS and
+// remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
+import { assertCdsEnabled } from "./services/_cds-gate";
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -397,9 +406,10 @@ export async function getPersonalizedGuidance(
   patientId: string,
   context: PatientContext
 ): Promise<PersonalizedGuidance> {
+  assertCdsEnabled("health-coach:personalized-guidance");
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
-  
+
   // Build context summary
   const contextSummary = {
     recentSymptoms: context.symptoms.slice(-5).map(s => ({

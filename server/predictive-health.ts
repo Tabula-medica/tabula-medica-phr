@@ -6,7 +6,15 @@ import type {
   TimelineEvent, 
   HealthGoal 
 } from "@shared/schema";
+// CDS-GATED — this module performs Clinical Decision Support (multi-category health-risk
+// scoring/stratification with clinical recommendations and monitoring schedules, an AI-generated
+// patient health-status assessment with recommendations, and lab-trend interpretation).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination
+// (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim. The static default-
+// summary placeholder is not CDS and remains ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 import { logAuditEntry, ExplainableInsight, EXPLAINABILITY_VERSION } from "./explainability";
 
 const openai = new OpenAI({
@@ -145,6 +153,7 @@ const labRiskIndicators: Record<string, { category: RiskCategory; thresholds: { 
 };
 
 export function analyzeHealthRisks(data: PredictiveHealthData): HealthRiskAssessment[] {
+  assertCdsEnabled("predictive-health:analyze-risks");
   const categoryScores: Record<RiskCategory, { score: number; factors: RiskFactor[] }> = {
     cardiovascular: { score: 0, factors: [] },
     diabetes: { score: 0, factors: [] },
@@ -436,6 +445,7 @@ export async function generatePatientHealthSummary(
   data: PredictiveHealthData,
   patientName?: string
 ): Promise<PatientHealthSummary> {
+  assertCdsEnabled("predictive-health:patient-summary");
   const activeConditions = data.conditions.filter(c => c.status === "active");
   const activeMedications = data.medications.filter(m => m.status === "active");
   const recentLabs = data.labResults
@@ -621,6 +631,7 @@ export async function generateHealthTrendAnalysis(
   trends: { labName: string; direction: string; significance: string; explanation: string }[];
   overallAssessment: string;
 }> {
+  assertCdsEnabled("predictive-health:trend-analysis");
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - timeframeDays);
   
