@@ -40,15 +40,20 @@ const auth = USE_VERTEX
   : null;
 
 // Map OpenAI model ids (incl. the invalid gpt-5.x ones in this repo) to Gemini.
-function mapModel(model?: string): string {
-  if (!model) return "google/gemini-2.0-flash";
-  const m = String(model).toLowerCase();
-  if (m.includes("mini") || m.includes("flash") || m.includes("nano")) {
-    return "google/gemini-2.0-flash";
-  }
-  // gpt-4o, gpt-5, gpt-5.1, gpt-5.2, etc. -> a capable Gemini default.
-  return "google/gemini-2.0-flash";
+// CONFIRMED available in united-planet-485003-n7 / us-central1 (2026-06-27):
+// `google/gemini-2.5-flash` answers; the 2.0-* ids 404 for this project. All chat
+// traffic maps to 2.5-flash — capable, cheap, and (with thinking disabled below)
+// behaves like the gpt-4o-class models this app was written against.
+function mapModel(_model?: string): string {
+  return "google/gemini-2.5-flash";
 }
+
+// Gemini 2.5 is a "thinking" model: by default it spends reasoning tokens BEFORE
+// emitting output, which silently eats a caller's small max_tokens and returns an
+// empty/truncated string. The app's 300+ call sites assume OpenAI semantics (max_tokens
+// == output budget). Setting thinking_budget=0 disables reasoning so behaviour matches.
+// Passed via the Vertex OpenAI-compat `extra_body` passthrough.
+const THINKING_OFF = { google: { thinking_config: { thinking_budget: 0 } } };
 
 class OpenAIShim {
   constructor(opts: Record<string, any> = {}) {
@@ -73,11 +78,14 @@ class OpenAIShim {
       fetch: vertexFetch,
     });
 
-    // Remap the model on every chat.completions.create call.
+    // Remap the model + disable thinking on every chat.completions.create call.
     if (real?.chat?.completions?.create) {
       const orig = real.chat.completions.create.bind(real.chat.completions);
       real.chat.completions.create = (params: any, ...rest: any[]) =>
-        orig({ ...params, model: mapModel(params?.model) }, ...rest);
+        orig(
+          { ...THINKING_OFF, ...params, model: mapModel(params?.model) },
+          ...rest,
+        );
     }
 
     return real;
