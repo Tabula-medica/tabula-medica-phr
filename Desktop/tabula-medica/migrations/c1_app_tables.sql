@@ -135,6 +135,19 @@ CREATE TABLE IF NOT EXISTS app_security_notifications (
 );
 CREATE INDEX IF NOT EXISTS app_security_notifications_user_idx ON app_security_notifications (user_id);
 
+-- Security settings (per-user alert preferences; no PHI). One row per user.
+CREATE TABLE IF NOT EXISTS app_security_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  login_notifications boolean NOT NULL DEFAULT true,
+  new_device_alerts boolean NOT NULL DEFAULT true,
+  session_activity_alerts boolean NOT NULL DEFAULT false,
+  email_notifications boolean NOT NULL DEFAULT true,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS app_security_settings_user_idx ON app_security_settings (user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

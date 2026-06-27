@@ -5748,6 +5748,24 @@ export const appSecurityNotificationsTable = pgTable(
   }),
 );
 
+// Security settings (C1) — per-user alert preferences. No PHI. One row per user.
+export const appSecuritySettingsTable = pgTable(
+  "app_security_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    loginNotifications: boolean("login_notifications").notNull().default(true),
+    newDeviceAlerts: boolean("new_device_alerts").notNull().default(true),
+    sessionActivityAlerts: boolean("session_activity_alerts").notNull().default(false),
+    emailNotifications: boolean("email_notifications").notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    userIdx: uniqueIndex("app_security_settings_user_idx").on(t.userId),
+  }),
+);
+
 // Security Audit Log
 export const securityEventTypes = [
   "login",

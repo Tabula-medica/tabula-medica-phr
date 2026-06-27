@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15143,6 +15143,72 @@ export class DatabaseStorage extends MemStorage {
         ),
       );
     return rows.length;
+  }
+
+  // ══ SecuritySettings entity (C1) — per-user alert preferences ════════════════
+  // Pure DB replacement: the Map has no readers outside these 2 methods. One row
+  // per user (unique user_id); createOrUpdate is an upsert mirroring MemStorage.
+  private mapSecuritySettingsRow(
+    row: typeof appSecuritySettingsTable.$inferSelect,
+  ): SecuritySettings {
+    return {
+      id: row.id,
+      userId: row.userId,
+      loginNotifications: row.loginNotifications,
+      newDeviceAlerts: row.newDeviceAlerts,
+      sessionActivityAlerts: row.sessionActivityAlerts,
+      emailNotifications: row.emailNotifications,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getSecuritySettings(userId: string): Promise<SecuritySettings | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appSecuritySettingsTable)
+      .where(eq(appSecuritySettingsTable.userId, userId));
+    return row ? this.mapSecuritySettingsRow(row) : undefined;
+  }
+
+  override async createOrUpdateSecuritySettings(
+    userId: string,
+    settings: Partial<InsertSecuritySettings>,
+  ): Promise<SecuritySettings> {
+    const now = new Date().toISOString();
+    const [existing] = await this.dbc
+      .select()
+      .from(appSecuritySettingsTable)
+      .where(eq(appSecuritySettingsTable.userId, userId));
+
+    if (existing) {
+      const [row] = await this.dbc
+        .update(appSecuritySettingsTable)
+        .set({
+          loginNotifications: settings.loginNotifications ?? existing.loginNotifications,
+          newDeviceAlerts: settings.newDeviceAlerts ?? existing.newDeviceAlerts,
+          sessionActivityAlerts: settings.sessionActivityAlerts ?? existing.sessionActivityAlerts,
+          emailNotifications: settings.emailNotifications ?? existing.emailNotifications,
+          updatedAt: now,
+        })
+        .where(eq(appSecuritySettingsTable.userId, userId))
+        .returning();
+      return this.mapSecuritySettingsRow(row);
+    }
+
+    const [row] = await this.dbc
+      .insert(appSecuritySettingsTable)
+      .values({
+        userId,
+        loginNotifications: settings.loginNotifications ?? true,
+        newDeviceAlerts: settings.newDeviceAlerts ?? true,
+        sessionActivityAlerts: settings.sessionActivityAlerts ?? false,
+        emailNotifications: settings.emailNotifications ?? true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapSecuritySettingsRow(row);
   }
 }
 
