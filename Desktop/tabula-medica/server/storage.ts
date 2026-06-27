@@ -148,7 +148,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -12375,9 +12375,9 @@ export class MemStorage implements IStorage {
  *   • MedicationReminder → app_medication_reminders (adherence reminders)
  *   • MedicationAdherenceRecord → app_medication_adherence_records (dose events)
  *   • DataSharingConsent → app_data_sharing_consents (PHI-sharing access grants)
+ *   • SharingRecipient  → app_sharing_recipients (share targets; soft-delete)
  * ── Runway (see _tabula-medica-AUDIT/02-C1-MIGRATION-RUNWAY.md) ───────────────
- *   sharingRecipients, security (2FA/notifications), caregiver sub-entities,
- *   … by exposure.
+ *   security (2FA/notifications), caregiver sub-entities, … by exposure.
  *   SKIP unifiedPatients (no create path — seed-only) & riskStratifications (computed).
  * KNOWN FOLLOW-UPS: (1) by-id lookups on uuid columns throw on a non-UUID id
  *   (MemStorage returned undefined) — add a uuid-format guard. (2) app_patients
@@ -14234,6 +14234,91 @@ export class DatabaseStorage extends MemStorage {
       .update(appDataSharingConsentsTable)
       .set({ isActive: false, revokedAt: now, updatedAt: now })
       .where(and(eq(appDataSharingConsentsTable.id, id), eq(appDataSharingConsentsTable.patientUserId, patientUserId)));
+  }
+
+  // ══ SharingRecipient entity (C1) — recipients a patient may share PHI with ══
+  private mapSharingRecipientRow(row: typeof appSharingRecipientsTable.$inferSelect): SharingRecipient {
+    return {
+      id: row.id,
+      patientUserId: row.patientUserId,
+      recipientType: row.recipientType,
+      name: row.name,
+      organization: row.organization ?? undefined,
+      email: row.email ?? undefined,
+      phone: row.phone ?? undefined,
+      npi: row.npi ?? undefined,
+      notes: row.notes ?? undefined,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getSharingRecipients(patientUserId: string): Promise<SharingRecipient[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appSharingRecipientsTable)
+      .where(eq(appSharingRecipientsTable.patientUserId, patientUserId));
+    return rows
+      .map((r) => this.mapSharingRecipientRow(r))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  override async getSharingRecipient(id: string): Promise<SharingRecipient | undefined> {
+    const [row] = await this.dbc.select().from(appSharingRecipientsTable).where(eq(appSharingRecipientsTable.id, id));
+    return row ? this.mapSharingRecipientRow(row) : undefined;
+  }
+
+  override async createSharingRecipient(recipient: InsertSharingRecipient): Promise<SharingRecipient> {
+    const now = new Date().toISOString();
+    const [row] = await this.dbc
+      .insert(appSharingRecipientsTable)
+      .values({
+        patientUserId: recipient.patientUserId,
+        recipientType: recipient.recipientType,
+        name: recipient.name,
+        organization: recipient.organization ?? null,
+        email: recipient.email ?? null,
+        phone: recipient.phone ?? null,
+        npi: recipient.npi ?? null,
+        notes: recipient.notes ?? null,
+        isActive: recipient.isActive ?? true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapSharingRecipientRow(row);
+  }
+
+  override async updateSharingRecipient(
+    id: string,
+    updates: Partial<SharingRecipient>,
+  ): Promise<SharingRecipient | undefined> {
+    const set: Partial<typeof appSharingRecipientsTable.$inferInsert> = {};
+    if (updates.patientUserId !== undefined) set.patientUserId = updates.patientUserId;
+    if (updates.recipientType !== undefined) set.recipientType = updates.recipientType;
+    if (updates.name !== undefined) set.name = updates.name;
+    if (updates.organization !== undefined) set.organization = updates.organization;
+    if (updates.email !== undefined) set.email = updates.email;
+    if (updates.phone !== undefined) set.phone = updates.phone;
+    if (updates.npi !== undefined) set.npi = updates.npi;
+    if (updates.notes !== undefined) set.notes = updates.notes;
+    if (updates.isActive !== undefined) set.isActive = updates.isActive;
+    set.updatedAt = new Date().toISOString();
+    const [row] = await this.dbc
+      .update(appSharingRecipientsTable)
+      .set(set)
+      .where(eq(appSharingRecipientsTable.id, id))
+      .returning();
+    return row ? this.mapSharingRecipientRow(row) : undefined;
+  }
+
+  override async deleteSharingRecipient(id: string, patientUserId: string): Promise<void> {
+    // ownership-scoped SOFT delete (sets isActive=false), matching MemStorage
+    await this.dbc
+      .update(appSharingRecipientsTable)
+      .set({ isActive: false, updatedAt: new Date().toISOString() })
+      .where(and(eq(appSharingRecipientsTable.id, id), eq(appSharingRecipientsTable.patientUserId, patientUserId)));
   }
 
   // ══ Problem entity (C1) — clinical problem/condition list (ICD-coded) ═══════

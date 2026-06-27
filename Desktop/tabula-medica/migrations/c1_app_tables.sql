@@ -506,4 +506,21 @@ CREATE TABLE IF NOT EXISTS app_data_sharing_consents (
 CREATE INDEX IF NOT EXISTS app_data_sharing_consents_patient_idx ON app_data_sharing_consents (patient_user_id);
 CREATE INDEX IF NOT EXISTS app_data_sharing_consents_recipient_idx ON app_data_sharing_consents (recipient_id);
 
+-- Sharing recipients (who a patient may share PHI with)
+CREATE TABLE IF NOT EXISTS app_sharing_recipients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id text NOT NULL,
+  recipient_type text NOT NULL,
+  name text NOT NULL,
+  organization text,
+  email text,
+  phone text,
+  npi text,
+  notes text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_sharing_recipients_patient_idx ON app_sharing_recipients (patient_user_id);
+
 COMMIT;

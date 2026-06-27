@@ -6304,6 +6304,28 @@ export const insertSharingRecipientSchema = z.object({
 
 export type InsertSharingRecipient = z.infer<typeof insertSharingRecipientSchema>;
 
+// Durable backing table for SharingRecipient (C1) — who a patient may share PHI
+// with (providers/family/orgs). Referenced by data_sharing_consents. In-memory
+// Map, lost on restart. Named `app_sharing_recipients`; additive only.
+export const appSharingRecipientsTable = pgTable(
+  "app_sharing_recipients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientUserId: text("patient_user_id").notNull(),
+    recipientType: text("recipient_type").$type<RecipientType>().notNull(),
+    name: text("name").notNull(),
+    organization: text("organization"),
+    email: text("email"),
+    phone: text("phone"),
+    npi: text("npi"),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({ patientIdx: index("app_sharing_recipients_patient_idx").on(t.patientUserId) }),
+);
+
 // Data Sharing Consent - granular consent for specific data categories
 export interface DataSharingConsent {
   id: string;
