@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15430,6 +15430,66 @@ export class DatabaseStorage extends MemStorage {
       })
       .returning();
     return this.mapConsentAuditLogRow(row);
+  }
+
+  // ══ AIPreferences entity (C1) — per-user AI toggles ══════════════════════════
+  // Pure DB replacement: the Map has no readers outside these 2 methods. Keyed by
+  // user_id; createOrUpdate is an upsert mirroring MemStorage.
+  private mapAiPreferencesRow(
+    row: typeof appAiPreferencesTable.$inferSelect,
+  ): import("@shared/schema").AIPreferences {
+    return {
+      userId: row.userId,
+      aiExplanationsEnabled: row.aiExplanationsEnabled,
+      aiSummariesEnabled: row.aiSummariesEnabled,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getAIPreferences(
+    userId: string,
+  ): Promise<import("@shared/schema").AIPreferences | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appAiPreferencesTable)
+      .where(eq(appAiPreferencesTable.userId, userId));
+    return row ? this.mapAiPreferencesRow(row) : undefined;
+  }
+
+  override async createOrUpdateAIPreferences(
+    userId: string,
+    preferences: import("@shared/schema").UpdateAIPreferences,
+  ): Promise<import("@shared/schema").AIPreferences> {
+    const now = new Date().toISOString();
+    const [existing] = await this.dbc
+      .select()
+      .from(appAiPreferencesTable)
+      .where(eq(appAiPreferencesTable.userId, userId));
+
+    if (existing) {
+      const [row] = await this.dbc
+        .update(appAiPreferencesTable)
+        .set({
+          aiExplanationsEnabled:
+            preferences.aiExplanationsEnabled ?? existing.aiExplanationsEnabled,
+          aiSummariesEnabled: preferences.aiSummariesEnabled ?? existing.aiSummariesEnabled,
+          updatedAt: now,
+        })
+        .where(eq(appAiPreferencesTable.userId, userId))
+        .returning();
+      return this.mapAiPreferencesRow(row);
+    }
+
+    const [row] = await this.dbc
+      .insert(appAiPreferencesTable)
+      .values({
+        userId,
+        aiExplanationsEnabled: preferences.aiExplanationsEnabled ?? true,
+        aiSummariesEnabled: preferences.aiSummariesEnabled ?? true,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapAiPreferencesRow(row);
   }
 }
 

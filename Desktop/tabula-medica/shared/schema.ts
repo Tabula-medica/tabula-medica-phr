@@ -14284,6 +14284,15 @@ export const updateAIPreferencesSchema = z.object({
 
 export type UpdateAIPreferences = z.infer<typeof updateAIPreferencesSchema>;
 
+// AI preferences (C1) — per-user toggles for AI explanations/summaries. No PHI.
+// Keyed directly by user_id (the interface has no surrogate id); one row per user.
+export const appAiPreferencesTable = pgTable("app_ai_preferences", {
+  userId: text("user_id").primaryKey(),
+  aiExplanationsEnabled: boolean("ai_explanations_enabled").notNull().default(true),
+  aiSummariesEnabled: boolean("ai_summaries_enabled").notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+});
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

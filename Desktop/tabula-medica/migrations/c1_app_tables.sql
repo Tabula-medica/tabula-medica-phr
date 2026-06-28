@@ -201,6 +201,14 @@ CREATE TABLE IF NOT EXISTS app_consent_audit_logs (
 );
 CREATE INDEX IF NOT EXISTS app_consent_audit_logs_patient_idx ON app_consent_audit_logs (patient_user_id);
 
+-- AI preferences (per-user AI toggles; no PHI). Keyed by user_id.
+CREATE TABLE IF NOT EXISTS app_ai_preferences (
+  user_id text PRIMARY KEY,
+  ai_explanations_enabled boolean NOT NULL DEFAULT true,
+  ai_summaries_enabled boolean NOT NULL DEFAULT true,
+  updated_at text NOT NULL
+);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
