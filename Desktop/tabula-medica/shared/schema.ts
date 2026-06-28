@@ -14425,6 +14425,36 @@ export const appUploadedDocumentsTable = pgTable(
   }),
 );
 
+// RPM device registrations (C1) — remote patient-monitoring devices a patient
+// has paired. Held only in memory, every device pairing is forgotten on restart.
+// Indexed by onboarding session and by patient.
+export const appRpmDevicesTable = pgTable(
+  "app_rpm_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    onboardingSessionId: text("onboarding_session_id").notNull(),
+    patientId: text("patient_id"),
+    deviceType: text("device_type").$type<RpmDeviceType>().notNull(),
+    deviceName: text("device_name").notNull(),
+    manufacturer: text("manufacturer"),
+    model: text("model"),
+    serialNumber: text("serial_number"),
+    connectionStatus: text("connection_status")
+      .$type<DeviceConnectionStatus>()
+      .notNull()
+      .default("pending"),
+    pairingCode: text("pairing_code"),
+    lastSyncAt: text("last_sync_at"),
+    setupInstructions: jsonb("setup_instructions").$type<RpmSetupInstructions>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    sessionIdx: index("app_rpm_devices_session_idx").on(t.onboardingSessionId),
+    patientIdx: index("app_rpm_devices_patient_idx").on(t.patientId),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

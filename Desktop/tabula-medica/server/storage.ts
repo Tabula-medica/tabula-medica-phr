@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable, appRpmDevicesTable } from "@shared/schema";
 import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15922,6 +15922,118 @@ export class DatabaseStorage extends MemStorage {
           eq(appUploadedDocumentsTable.patientId, patientId),
         ),
       );
+  }
+
+  // ══ RpmDeviceRegistration entity (C1) — paired RPM devices ═══════════════════
+  // Pure DB replacement: the Map has no readers outside these methods. Indexed by
+  // onboarding session and by patient. The nested setupInstructions object is
+  // stored as jsonb; optional columns map null <-> undefined.
+  private mapRpmDeviceRow(
+    row: typeof appRpmDevicesTable.$inferSelect,
+  ): RpmDeviceRegistration {
+    return {
+      id: row.id,
+      onboardingSessionId: row.onboardingSessionId,
+      patientId: row.patientId ?? undefined,
+      deviceType: row.deviceType,
+      deviceName: row.deviceName,
+      manufacturer: row.manufacturer ?? undefined,
+      model: row.model ?? undefined,
+      serialNumber: row.serialNumber ?? undefined,
+      connectionStatus: row.connectionStatus,
+      pairingCode: row.pairingCode ?? undefined,
+      lastSyncAt: row.lastSyncAt ?? undefined,
+      setupInstructions: row.setupInstructions ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  private rpmDeviceToValues(
+    device: RpmDeviceRegistration,
+  ): typeof appRpmDevicesTable.$inferInsert {
+    return {
+      id: device.id,
+      onboardingSessionId: device.onboardingSessionId,
+      patientId: device.patientId ?? null,
+      deviceType: device.deviceType,
+      deviceName: device.deviceName,
+      manufacturer: device.manufacturer ?? null,
+      model: device.model ?? null,
+      serialNumber: device.serialNumber ?? null,
+      connectionStatus: device.connectionStatus,
+      pairingCode: device.pairingCode ?? null,
+      lastSyncAt: device.lastSyncAt ?? null,
+      setupInstructions: device.setupInstructions ?? null,
+      createdAt: device.createdAt,
+      updatedAt: device.updatedAt,
+    };
+  }
+
+  override async getRpmDevices(sessionId: string): Promise<RpmDeviceRegistration[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appRpmDevicesTable)
+      .where(eq(appRpmDevicesTable.onboardingSessionId, sessionId));
+    return rows.map((r) => this.mapRpmDeviceRow(r));
+  }
+
+  override async getRpmDevicesByPatient(patientId: string): Promise<RpmDeviceRegistration[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appRpmDevicesTable)
+      .where(eq(appRpmDevicesTable.patientId, patientId));
+    return rows.map((r) => this.mapRpmDeviceRow(r));
+  }
+
+  override async getRpmDevice(id: string): Promise<RpmDeviceRegistration | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appRpmDevicesTable)
+      .where(eq(appRpmDevicesTable.id, id));
+    return row ? this.mapRpmDeviceRow(row) : undefined;
+  }
+
+  override async createRpmDevice(
+    device: InsertRpmDeviceRegistration,
+  ): Promise<RpmDeviceRegistration> {
+    const now = new Date().toISOString();
+    const full: RpmDeviceRegistration = {
+      id: randomUUID(),
+      ...device,
+      connectionStatus: device.connectionStatus || "pending",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const [row] = await this.dbc
+      .insert(appRpmDevicesTable)
+      .values(this.rpmDeviceToValues(full))
+      .returning();
+    return this.mapRpmDeviceRow(row);
+  }
+
+  override async updateRpmDevice(
+    id: string,
+    updates: Partial<RpmDeviceRegistration>,
+  ): Promise<RpmDeviceRegistration | undefined> {
+    const existing = await this.getRpmDevice(id);
+    if (!existing) return undefined;
+    const merged: RpmDeviceRegistration = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      updatedAt: new Date().toISOString(),
+    };
+    const [row] = await this.dbc
+      .update(appRpmDevicesTable)
+      .set(this.rpmDeviceToValues(merged))
+      .where(eq(appRpmDevicesTable.id, id))
+      .returning();
+    return row ? this.mapRpmDeviceRow(row) : undefined;
+  }
+
+  override async deleteRpmDevice(id: string): Promise<void> {
+    await this.dbc.delete(appRpmDevicesTable).where(eq(appRpmDevicesTable.id, id));
   }
 }
 

@@ -296,6 +296,26 @@ CREATE TABLE IF NOT EXISTS app_uploaded_documents (
 );
 CREATE INDEX IF NOT EXISTS app_uploaded_documents_patient_idx ON app_uploaded_documents (patient_id);
 
+-- RPM device registrations (paired remote-monitoring devices).
+CREATE TABLE IF NOT EXISTS app_rpm_devices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  onboarding_session_id text NOT NULL,
+  patient_id text,
+  device_type text NOT NULL,
+  device_name text NOT NULL,
+  manufacturer text,
+  model text,
+  serial_number text,
+  connection_status text NOT NULL DEFAULT 'pending',
+  pairing_code text,
+  last_sync_at text,
+  setup_instructions jsonb,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_rpm_devices_session_idx ON app_rpm_devices (onboarding_session_id);
+CREATE INDEX IF NOT EXISTS app_rpm_devices_patient_idx ON app_rpm_devices (patient_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
