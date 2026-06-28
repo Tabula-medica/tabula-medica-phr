@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI deterioration
+// detection, risk stratification, alerts, and health-status interpretation from
+// vitals/labs). DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 import type { Patient, VitalSign, LabResult, MedicalRecord, Problem } from "@shared/schema";
 
 const openai = new OpenAI({
@@ -265,6 +271,7 @@ function analyzeVitalTrends(vitals: VitalSign[]): VitalTrend[] {
 }
 
 export async function analyzePatientHealth(patientId: string): Promise<MonitoringStatus> {
+  assertCdsEnabled("remoteMonitoring.analyzePatientHealth");
   const context = await getPatientMonitoringContext(patientId);
   const vitalTrends = analyzeVitalTrends(context.vitals);
   
@@ -359,6 +366,7 @@ ${context.labResults.map(l =>
 }
 
 export async function generateHealthSnapshot(patientId: string): Promise<HealthSnapshot> {
+  assertCdsEnabled("remoteMonitoring.generateHealthSnapshot");
   const context = await getPatientMonitoringContext(patientId);
   const vitalTrends = analyzeVitalTrends(context.vitals);
 
@@ -414,6 +422,7 @@ ${context.labResults.slice(0, 5).map(l => `- ${l.testName}: ${l.value} ${l.unit}
 export async function detectDeteriorationPatterns(
   patientId: string
 ): Promise<DeteriorationAlert[]> {
+  assertCdsEnabled("remoteMonitoring.detectDeteriorationPatterns");
   const status = await analyzePatientHealth(patientId);
   return status.activeAlerts.filter(a => a.severity === "critical" || a.severity === "warning");
 }

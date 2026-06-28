@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI clinical triage
+// of patient messages: urgency scoring + priority classification incl. urgent-care
+// detection). DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -101,6 +107,7 @@ class ProviderCommunicationPortalService {
     content: string,
     ownerId: string
   ): Promise<TriagedMessage> {
+    assertCdsEnabled("provider-communication-portal-service.triageMessage");
     logAudit("TRIAGE_MESSAGE", ownerId, "Message", messageId, `Triaging message from ${patientName}`);
 
     const triagePrompt = `You are a healthcare message triage AI assistant. Analyze the following patient message and provide structured triage information.

@@ -1,4 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-driven medication
+// reconciliation: detecting duplicate medications and dose/frequency conflicts across sources).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim. The plain
+// status-update / merge-confirmation logging helpers are not CDS and remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -62,6 +69,7 @@ export async function analyzeMedicationsForMerges(
   medications: MedicationEntry[],
   patientId: string
 ): Promise<MergeSuggestion[]> {
+  assertCdsEnabled("med-reconciliation:analyze-merges");
   logPhiAccess({
     userId: patientId,
     patientId,
@@ -183,6 +191,7 @@ export async function getReconciliationSummary(
   medications: MedicationEntry[],
   patientId: string
 ): Promise<ReconciliationResult> {
+  assertCdsEnabled("med-reconciliation:summary");
   logPhiAccess({
     userId: patientId,
     patientId,

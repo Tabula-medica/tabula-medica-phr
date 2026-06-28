@@ -1,3 +1,8 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated care
+// plan improvement suggestions based on patient vitals/labs/adherence). DISABLED by
+// default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination +
+// counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import type {
   CollaborativeCarePlan,
   CarePlanContributor,
@@ -18,6 +23,7 @@ import type {
   CarePlanIntervention,
 } from "@shared/schema";
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const carePlans = new Map<string, CollaborativeCarePlan>();
 const contributors = new Map<string, CarePlanContributor>();
@@ -573,6 +579,7 @@ export async function generateAISuggestions(
     conditions?: string[];
   }
 ): Promise<CarePlanSuggestion[]> {
+  assertCdsEnabled("collaborativeCarePlan.generateAISuggestions");
   const carePlan = carePlans.get(carePlanId);
   if (!carePlan) return [];
   

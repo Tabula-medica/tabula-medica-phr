@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (predictive clinical
+// insights, readmission/disease-progression risk, anomaly/clinical-pattern alerts, and
+// clinical recommendations over FHIR data). DISABLED by default via the ENABLE_CDS
+// kill-switch pending FDA Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 
 let openai: OpenAI | null = null;
 try {
@@ -147,6 +153,7 @@ const generateDataLakeMetrics = (): DataLakeMetrics => ({
 });
 
 const generatePredictiveInsights = async (): Promise<PredictiveInsight[]> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generatePredictiveInsights");
   const insights: PredictiveInsight[] = [
     {
       id: 'insight-001',
@@ -274,6 +281,7 @@ const generatePredictiveInsights = async (): Promise<PredictiveInsight[]> => {
 };
 
 const generatePopulationTrends = async (): Promise<PopulationTrend[]> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generatePopulationTrends");
   const baseDate = new Date();
   const generateDataPoints = (months: number, baseValue: number, volatility: number) => {
     const points = [];
@@ -430,6 +438,7 @@ const generatePopulationTrends = async (): Promise<PopulationTrend[]> => {
 };
 
 const generateAnomalyAlerts = async (): Promise<AnomalyAlert[]> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generateAnomalyAlerts");
   return [
     {
       id: 'alert-001',
@@ -526,6 +535,7 @@ const generateAnomalyAlerts = async (): Promise<AnomalyAlert[]> => {
 };
 
 const generateQualityMetrics = async (): Promise<QualityMetric[]> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generateQualityMetrics");
   return [
     {
       id: 'qm-001',
@@ -662,6 +672,7 @@ const generateQualityMetrics = async (): Promise<QualityMetric[]> => {
 };
 
 const generateRecommendations = async (): Promise<RecommendationAction[]> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generateRecommendations");
   return [
     {
       id: 'rec-001',
@@ -775,6 +786,7 @@ export const generateAIEnhancedInsight = async (
   insightType: string,
   context: Record<string, unknown>
 ): Promise<{ analysis: string; recommendations: string[] }> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generateAIEnhancedInsight");
   const fallbackResponse = {
     analysis: "AI-enhanced analysis is temporarily unavailable. The system is using statistical analysis for insights based on the FHIR data patterns detected.",
     recommendations: [
@@ -832,6 +844,7 @@ export const generateCustomReport = async (
     includeSections: string[];
   }
 ): Promise<CustomReport> => {
+  assertCdsEnabled("ai-fhir-data-lake-analytics-service.generateCustomReport");
   const { type, title, parameters, includeSections } = reportConfig;
   
   const sections: CustomReport['sections'] = [];

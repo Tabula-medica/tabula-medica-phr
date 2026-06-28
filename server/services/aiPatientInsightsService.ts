@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI patient insights:
+// non-adherence risk scoring, care-plan optimization, proactive interventions).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 const PROHIBITED_VERBS = [
@@ -151,6 +157,7 @@ export async function generatePatientInsights(
   },
   userId: string
 ): Promise<PatientInsights> {
+  assertCdsEnabled("aiPatientInsightsService.generatePatientInsights");
   logPhiAccess({
     userId,
     patientId,
@@ -511,6 +518,7 @@ function generateMockInsights(patientId: string): PatientInsights {
 }
 
 export function getPatientInsightsById(patientId: string): PatientInsights | null {
+  assertCdsEnabled("aiPatientInsightsService.getPatientInsightsById");
   return generateMockInsights(patientId);
 }
 
@@ -522,6 +530,7 @@ export async function getCachedPatientInsights(
   patientData: any,
   userId: string
 ): Promise<PatientInsights> {
+  assertCdsEnabled("aiPatientInsightsService.getCachedPatientInsights");
   const cached = insightsCache.get(patientId);
   if (cached && cached.expiry > Date.now()) {
     logPhiAccess({

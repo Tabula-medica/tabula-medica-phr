@@ -1,0 +1,137 @@
+{
+  "expo": {
+    "name": "Tabula Medica",
+    "slug": "tabula-medica",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tabulamedica",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0ea5e9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tabulamedica.app",
+      "buildNumber": "1",
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Tabula Medica uses Face ID to unlock your encrypted health record.",
+        "NSHealthShareUsageDescription": "Tabula Medica reads your Health data to bring it together with your other records in one place you control. Nothing is shared without your explicit consent.",
+        "NSHealthUpdateUsageDescription": "Tabula Medica writes vitals you log here back to Apple Health so your other apps stay in sync.",
+        "NSCameraUsageDescription": "Tabula Medica uses the camera to scan insurance cards and upload medical documents.",
+        "NSPhotoLibraryUsageDescription": "Tabula Medica accesses your photo library so you can upload medical documents and insurance cards.",
+        "NSContactsUsageDescription": "Add emergency contacts and share health information with family members",
+        "NSLocationWhenInUseUsageDescription": "Tabula Medica uses your location to find nearby doctors, FQHCs, and community health resources.",
+        "ITSAppUsesNonExemptEncryption": true,
+        "NSMicrophoneUsageDescription": "Tabula Medica records doctor visits when you tap the record button so you can refer back to your visit later. Recording starts only when you tap and stops when you tap stop. Recordings are encrypted on your device and uploaded only after you tap Save.",
+        "NFCReaderUsageDescription": "Tabula Medica reads your DoD CAC card via NFC for secure identity verification."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "package": "com.tabulamedica.app",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_CONTACTS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+      ],
+      "targetSdkVersion": 34,
+      "minSdkVersion": 24,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "tabulamedica.health", "pathPrefix": "/share" },
+            { "scheme": "https", "host": "app.tabulamedica.health" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": { "backgroundColor": "#0f2438" }
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-local-authentication",
+      "expo-camera",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#0ea5e9"
+        }
+      ],
+      "../modules/expo-cac-reader"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/34fa03f5-06e7-4164-9d44-26a3fd50377e"
+    },
+    "extra": {
+      "fhirRedirectScheme": "tabulamedica",
+      "apiBaseUrl": "https://tabulamedica.us",
+      "eas": {
+        "projectId": "34fa03f5-06e7-4164-9d44-26a3fd50377e"
+      }
+    },
+    "owner": "rajivka2",
+    "jsEngine": "hermes",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

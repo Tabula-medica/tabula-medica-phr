@@ -63,7 +63,9 @@ if (process.env.ENABLE_ECW_CHECK === 'false' || process.env.USE_TEFCA === 'true'
   console.log("TEFCA Mode Active: Skipping eCW Firewall Check.");
 }
 
-app.get("/", (req, res) => res.status(200).send("HEALTHY"));
+// NOTE: root "/" is intentionally NOT a HEALTHY responder here — browsers must
+// reach the SPA (served by serveStatic). Health probes are handled instantly by
+// handleRawHealthCheck below, which only responds to non-browser requests at "/".
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -112,6 +114,13 @@ function handleRawHealthCheck(req: import("http").IncomingMessage, res: import("
   const isDedicatedHealthPath = DEDICATED_HEALTH_PATHS.has(urlPath);
 
   if (urlPath === "/") {
+    // Browsers (Accept: text/html) must reach the SPA — DON'T short-circuit them.
+    // Health probes / LBs (curl, Cloud Run probe: Accept */* or none) get the
+    // instant text response so startup/liveness stays fast.
+    const accept = String(req.headers["accept"] || "");
+    if (accept.includes("text/html")) {
+      return false; // fall through to Express -> serveStatic -> index.html
+    }
     res.writeHead(200, { "Content-Type": "text/plain", "Content-Length": "7", "Cache-Control": "no-cache, no-store" });
     req.method !== "HEAD" ? res.end("HEALTHY") : res.end();
     return true;
@@ -178,8 +187,24 @@ app.use(gcpAuditMiddleware);
 // override via AI_BLOCKED_COUNTRIES env var).
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
+import { hostEditionMiddleware, worldGeofenceMiddleware } from "./middleware/host-edition";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
+// Host-based .us/.world edition split (sets req.edition + req.tefcaAllowed) and the
+// .world EU/EEA geofence (GDPR deferred). Runs after geoCountryMiddleware so the
+// geofence can read req.country. TEFCA routing only — live connections stay gated.
+app.use(hostEditionMiddleware());
+app.use(worldGeofenceMiddleware());
+
+// Lightweight geo endpoint for region-language auto-select on the client. Returns the
+// detected country (when available) so the UI can default to that region's language.
+app.get("/api/geo", (req, res) => {
+  res.json({
+    country: (req as any).country ?? null,
+    source: (req as any).countrySource ?? "unknown",
+    edition: (req as any).edition ?? "default",
+  });
+});
 
 // H12 — vhost split (admin.tabulamedica.health vs tabulamedica.health).
 // Disabled by default; enable with ADMIN_HOST_SPLIT=enabled + ADMIN_HOST=...

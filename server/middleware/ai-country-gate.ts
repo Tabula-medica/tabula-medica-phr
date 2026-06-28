@@ -14,7 +14,10 @@ import type { Request, Response, NextFunction } from "express";
  * is fully verified in production.
  */
 
-const DEFAULT_BLOCKED = ["US", "CA", "GB", "FR"];
+// US is the primary market (.us app, TEFCA). Geofencing is handled per-domain at the
+// edge (EU blocked on .world; US allowed). AI features are factual / NO-CDS (not regulated
+// CDS), so no country is blocked by default here. Override via AI_BLOCKED_COUNTRIES.
+const DEFAULT_BLOCKED: string[] = [];
 
 function parseBlocked(): Set<string> {
   const raw = process.env.AI_BLOCKED_COUNTRIES;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

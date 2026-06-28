@@ -300,7 +300,7 @@ export default function SubscriptionPaywall() {
                   { q: "Can I cancel anytime?", a: "Yes. You can cancel your subscription at any time through your Apple ID settings. You'll keep access until the end of your billing period." },
                   { q: "Is there a free trial?", a: "Yes! All Pro and Family plans include a 7-day free trial. You won't be charged until the trial ends." },
                   { q: "What happens to my data if I downgrade?", a: "Your health records are always yours. If you downgrade to Free, you'll keep all your data but lose access to AI features and multi-profile support." },
-                  { q: "Is my health data secure?", a: "Absolutely. Tabula Medica uses HIPAA-compliant zero-knowledge encryption with FIPS 140-3 standards. We never sell your data." },
+                  { q: "Is my health data secure?", a: "Absolutely. Tabula Medica uses HIPAA-aligned encryption (AES-256 at rest, TLS 1.3 in transit) with strict access controls. We never sell your data." },
                   { q: "Can I share my subscription with family?", a: "The Family plan supports up to 6 profiles. Each family member gets their own private health record with optional shared views." },
                 ].map((faq, i) => (
                   <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" data-testid={`faq-${i}`}>

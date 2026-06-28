@@ -1,11 +1,19 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-driven medication-adherence
+// risk prediction, drug-drug interaction analysis, medication education, adherence coaching,
+// refill prompting, adherence-pattern/risk analysis, personalized clinical tips, and
+// patient-reported side-effect interpretation/triage).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
-import type { 
-  MedicationReminder, 
-  MedicationAdherenceRecord, 
-  DrugInteraction, 
+import { assertCdsEnabled } from "./services/_cds-gate";
+import type {
+  MedicationReminder,
+  MedicationAdherenceRecord,
+  DrugInteraction,
   MedicationAIInsight,
   AdherenceCoachingSession,
-  Medication 
+  Medication
 } from "@shared/schema";
 
 const openai = new OpenAI({
@@ -203,6 +211,7 @@ export class AIMedicationService {
     adherenceHistory: MedicationAdherenceRecord[],
     patientConditions?: string[]
   ): Promise<AdherencePrediction[]> {
+    assertCdsEnabled("medication-ai:adherence-prediction");
     const predictions: AdherencePrediction[] = [];
 
     for (const medication of medications) {
@@ -290,6 +299,7 @@ Provide JSON with:
     adherenceHistory: MedicationAdherenceRecord[],
     preferences?: { language?: string; reminderStyle?: string }
   ): Promise<PersonalizedReminder[]> {
+    assertCdsEnabled("medication-ai:personalized-reminders");
     const reminders: PersonalizedReminder[] = [];
 
     for (const medication of medications) {
@@ -362,6 +372,7 @@ Provide JSON with:
     patientAllergies?: string[],
     patientConditions?: string[]
   ): Promise<DrugInteractionAlert[]> {
+    assertCdsEnabled("medication-ai:interactions");
     if (medications.length < 2) {
       return [];
     }
@@ -447,6 +458,7 @@ Provide JSON with:
     medication: Medication,
     patientReadingLevel?: "basic" | "intermediate" | "advanced"
   ): Promise<MedicationEducation> {
+    assertCdsEnabled("medication-ai:medication-education");
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-5.1",
@@ -515,6 +527,7 @@ Provide JSON with:
     recentMisses: MedicationAdherenceRecord[],
     sessionType: "barrier_analysis" | "motivation" | "habit_building" | "problem_solving" | "check_in"
   ): Promise<Omit<AdherenceCoachingSession, "id" | "createdAt" | "isCompleted" | "completedAt">> {
+    assertCdsEnabled("medication-ai:adherence-coaching");
     const missedReasons = recentMisses.map(m => m.missedReason).filter(Boolean);
     const commonReason = missedReasons.length > 0 
       ? missedReasons.reduce((a, b) => 
@@ -595,6 +608,7 @@ Provide JSON with:
     medications: Medication[],
     adherenceRecords: MedicationAdherenceRecord[]
   ): Promise<RefillReminder[]> {
+    assertCdsEnabled("medication-ai:refill-reminders");
     const reminders: RefillReminder[] = [];
 
     for (const medication of medications) {
@@ -738,6 +752,7 @@ Provide JSON with:
     medications: Medication[],
     adherenceRecords: MedicationAdherenceRecord[]
   ): Promise<AdherencePatternAnalysis> {
+    assertCdsEnabled("medication-ai:adherence-pattern-analysis");
     // Calculate overall adherence
     const totalDoses = adherenceRecords.length || 1;
     const takenDoses = adherenceRecords.filter(r => r.action === "taken").length;
@@ -864,6 +879,7 @@ Provide JSON with:
     adherenceRecords: MedicationAdherenceRecord[],
     reportedSideEffects?: string[]
   ): Promise<{ sideEffectTips: SideEffectTip[]; adherenceTips: AdherenceTip[] }> {
+    assertCdsEnabled("medication-ai:personalized-tips");
     const sideEffectTips: SideEffectTip[] = [];
     const adherenceTips: AdherenceTip[] = [];
 
@@ -1120,6 +1136,7 @@ Provide JSON with:
     medications: Medication[],
     reportMethod: "voice" | "text"
   ): Promise<SideEffectReport> {
+    assertCdsEnabled("medication-ai:side-effect-report");
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-5.1",

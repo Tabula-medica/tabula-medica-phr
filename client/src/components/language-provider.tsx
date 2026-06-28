@@ -38,7 +38,7 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
 
 /**
  * Translation metadata. When a language's strings are added by machine
- * translation (GPT-4, etc.) instead of a human native speaker, mark
+ * translation (Vertex AI, etc.) instead of a human native speaker, mark
  * `machineTranslated: true` so a future translation pass can prioritize
  * human review. This metadata is consumed by the translation-coverage
  * dashboard and by the ClinicalDisclaimer component (which refuses to
@@ -2748,6 +2748,24 @@ interface LanguageProviderProps {
   children: React.ReactNode;
 }
 
+// Region -> primary language (mapped to the 22 SUPPORTED_LANGUAGES). Used to default
+// the UI to the main language of the visitor's detected country when available.
+const COUNTRY_TO_LANGUAGE: Record<string, string> = {
+  US: "en", GB: "en", AU: "en", CA: "en", IE: "en", NZ: "en",
+  ES: "es", MX: "es", AR: "es", CO: "es", CL: "es", PE: "es", VE: "es",
+  FR: "fr", BE: "fr", LU: "fr",
+  DE: "de", AT: "de", CH: "de",
+  IT: "it",
+  PT: "pt", BR: "pt",
+  CN: "zh", TW: "zh", HK: "zh", SG: "zh",
+  JP: "ja", KR: "ko",
+  IN: "hi", PK: "ur", BD: "bn", NP: "ne", LK: "te",
+  RU: "ru",
+  SA: "ar", AE: "ar", EG: "ar", QA: "ar", KW: "ar", JO: "ar",
+  VN: "vi", PH: "tl",
+  IR: "fa", AF: "ps", IL: "he",
+};
+
 export function LanguageProvider({ children }: LanguageProviderProps) {
   const [language, setLanguageState] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -2764,6 +2782,30 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Region-language: if the patient hasn't explicitly chosen a language, default to
+  // the main language of their detected region/country. SOFT default (not persisted),
+  // so a manual choice always wins, and it no-ops when the geo signal is unavailable
+  // (grey-cloud has no country header until Cloud Armor / CF-proxy is added).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(LANGUAGE_STORAGE_KEY)) return; // explicit choice wins
+    let cancelled = false;
+    fetch("/api/geo", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { country?: string } | null) => {
+        if (cancelled || !d?.country) return;
+        const lang = COUNTRY_TO_LANGUAGE[String(d.country).toUpperCase()];
+        if (lang && SUPPORTED_LANGUAGES.some((l) => l.code === lang)) {
+          // Re-check storage in case the user chose during the fetch.
+          if (!localStorage.getItem(LANGUAGE_STORAGE_KEY)) setLanguageState(lang);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setLanguage = useCallback((code: string) => {
     if (SUPPORTED_LANGUAGES.some(l => l.code === code)) {

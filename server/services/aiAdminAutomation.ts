@@ -1,5 +1,12 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI clinical narrative
+// generation: prior-auth medical-necessity, SOAP visit summaries/diagnoses, referral
+// clinical findings, intake risk-indicator analysis). DISABLED by default via the
+// ENABLE_CDS kill-switch pending FDA Non-Device CDS determination + counsel review.
+// NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 import type { Patient, Appointment, Medication, MedicalRecord } from "@shared/schema";
 
 const openai = new OpenAI({
@@ -436,6 +443,7 @@ export async function generatePriorAuthRequest(
   providerId: string,
   callerCtx: AiAdminCallerContext
 ): Promise<PriorAuthGenerationResult> {
+  assertCdsEnabled("aiAdminAutomation.generatePriorAuthRequest");
   console.log(`[AI Admin] Generating prior auth for patient: ${patientId}, procedure: ${procedureCode}`);
 
   const context = await getPatientContext(patientId, callerCtx);
@@ -624,6 +632,7 @@ export async function generateVisitSummary(
   clinicalNotes: string,
   callerCtx: AiAdminCallerContext
 ): Promise<VisitSummary> {
+  assertCdsEnabled("aiAdminAutomation.generateVisitSummary");
   console.log(`[AI Admin] Generating visit summary for patient: ${patientId}, date: ${visitDate}`);
 
   const context = await getPatientContext(patientId, callerCtx);
@@ -748,6 +757,7 @@ export async function generateReferralLetter(
   urgency: "routine" | "urgent" | "emergent",
   callerCtx: AiAdminCallerContext
 ): Promise<ReferralLetter> {
+  assertCdsEnabled("aiAdminAutomation.generateReferralLetter");
   console.log(`[AI Admin] Generating referral letter for patient: ${patientId} to ${referredToSpecialty}`);
 
   const context = await getPatientContext(patientId, callerCtx);
@@ -1061,6 +1071,7 @@ export async function analyzeIntakeResponses(
   responses: { fieldId: string; value: string | string[] | number | boolean }[],
   callerCtx: AiAdminCallerContext
 ): Promise<IntakeFormResponse> {
+  assertCdsEnabled("aiAdminAutomation.analyzeIntakeResponses");
   console.log(`[AI Admin] Analyzing intake responses for form: ${formId}`);
 
   const context = await getPatientContext(patientId, callerCtx);

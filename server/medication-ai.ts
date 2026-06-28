@@ -1,6 +1,14 @@
+// CDS-GATED — this module performs Clinical Decision Support (AI medication reminders,
+// drug-drug interaction analysis, adherence trend/insight alerting, medication-timing
+// optimization, and AI adherence coaching). DISABLED by default via the ENABLE_CDS kill-switch
+// pending FDA Non-Device CDS determination (21st Century Cures Act §3060) + counsel review.
+// NOT a NO-CDS claim. Plain due-reminder lookup and statistical missed-dose pattern counting
+// are not CDS and remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { storage } from "./storage";
-import type { 
+import { assertCdsEnabled } from "./services/_cds-gate";
+import type {
   Medication,
   MedicationReminder,
   DrugInteraction,
@@ -29,6 +37,7 @@ export async function generateReminderMessage(
   frequency: ReminderFrequency,
   patientName?: string
 ): Promise<string> {
+  assertCdsEnabled("medication-ai-engine:reminder-message");
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -64,6 +73,7 @@ export async function analyzedrugInteractions(
   medications: Medication[],
   patientId: string
 ): Promise<DrugInteraction[]> {
+  assertCdsEnabled("medication-ai-engine:drug-interactions");
   if (medications.length < 2) {
     return [];
   }
@@ -172,6 +182,7 @@ export async function generateAdherenceInsights(
   stats: AdherenceStatistics,
   medications: Medication[]
 ): Promise<MedicationAIInsight[]> {
+  assertCdsEnabled("medication-ai-engine:adherence-insights");
   const insights: MedicationAIInsight[] = [];
 
   // Low adherence alert
@@ -211,6 +222,7 @@ export async function generateTimingOptimization(
   medications: Medication[],
   patientId: string
 ): Promise<MedicationAIInsight | null> {
+  assertCdsEnabled("medication-ai-engine:timing-optimization");
   const activeMeds = medications.filter(m => m.status === "active");
   if (activeMeds.length === 0) return null;
 
@@ -278,6 +290,7 @@ export async function createMedicationReminderWithAI(
   reminder: InsertMedicationReminder,
   patientName?: string
 ): Promise<MedicationReminder> {
+  assertCdsEnabled("medication-ai-engine:create-reminder-with-ai");
   const aiMessage = await generateReminderMessage(
     reminder.medicationName,
     reminder.dosage,
@@ -297,6 +310,7 @@ export async function analyzePatientMedications(patientId: string): Promise<{
   insights: MedicationAIInsight[];
   adherenceStats: AdherenceStatistics;
 }> {
+  assertCdsEnabled("medication-ai-engine:analyze-patient-medications");
   // Get patient medications from storage
   const patients = await storage.getPatients();
   const patient = patients.find(p => p.email?.toLowerCase().includes(patientId.toLowerCase()) || p.id === patientId);
@@ -440,6 +454,7 @@ export async function generateAdherenceCoaching(
   medicationId?: string,
   adherenceStats?: AdherenceStatistics
 ): Promise<AdherenceCoachingSession> {
+  assertCdsEnabled("medication-ai-engine:adherence-coaching");
   const reasonLabel = missedDoseReasonLabels[missedReason];
   
   try {
@@ -553,6 +568,7 @@ export async function generateProactiveCoaching(
   patterns: AdherencePatternAnalysis,
   medications: Medication[]
 ): Promise<AdherenceCoachingSession | null> {
+  assertCdsEnabled("medication-ai-engine:proactive-coaching");
   if (patterns.topMissedReasons.length === 0) {
     return null; // No patterns to address
   }
@@ -621,6 +637,7 @@ export async function generateMotivationalCoaching(
   adherenceRate: number,
   previousRate?: number
 ): Promise<AdherenceCoachingSession | null> {
+  assertCdsEnabled("medication-ai-engine:motivational-coaching");
   // Only generate if there's notable improvement
   if (currentStreak < 3 && adherenceRate < 80) {
     return null;

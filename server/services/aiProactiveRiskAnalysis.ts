@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (proactive health-risk
+// indicator detection, risk scoring, and medication-interaction flagging).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "not-set",
@@ -308,6 +314,7 @@ export async function analyzePatientHealthRisks(
   userId: string,
   sessionId?: string
 ): Promise<ProactiveRiskSummary> {
+  assertCdsEnabled("aiProactiveRiskAnalysis.analyzePatientHealthRisks");
   await logPhiAccess({
     userId,
     action: "read",

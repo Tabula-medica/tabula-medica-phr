@@ -1,6 +1,12 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI drug-interaction,
+// therapeutic-duplication, and allergy-conflict analysis with risk scoring and
+// provider alerts). DISABLED by default via the ENABLE_CDS kill-switch pending FDA
+// Non-Device CDS determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
+import { assertCdsEnabled } from "./_cds-gate";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const openai = new OpenAI({
@@ -107,6 +113,7 @@ export async function analyzeMedicationInteractions(
   patientId: string,
   options?: { includeProposed?: string; forceRefresh?: boolean; userId?: string; ipAddress?: string }
 ): Promise<DrugInteractionAnalysis> {
+  assertCdsEnabled("aiDrugInteractionService.analyzeMedicationInteractions");
   logPhiAccess({
     action: "read",
     resourceType: "drug_interaction_analysis",
@@ -358,6 +365,7 @@ export async function checkCarePlanInteractions(
   proposedMedications?: string[],
   context?: { userId?: string; ipAddress?: string }
 ): Promise<CarePlanInteractionCheck> {
+  assertCdsEnabled("aiDrugInteractionService.checkCarePlanInteractions");
   logPhiAccess({
     action: "read",
     resourceType: "care_plan_interaction_check",
@@ -403,6 +411,7 @@ export async function checkCarePlanInteractions(
 export async function getProviderInteractionAlerts(
   patientId: string
 ): Promise<DrugInteractionAnalysis["providerAlerts"]> {
+  assertCdsEnabled("aiDrugInteractionService.getProviderInteractionAlerts");
   const analysis = await analyzeMedicationInteractions(patientId);
   return analysis.providerAlerts.filter((a) => a.alertType !== "info" || a.actionRequired);
 }
@@ -410,6 +419,7 @@ export async function getProviderInteractionAlerts(
 export async function batchAnalyzePatients(
   patientIds: string[]
 ): Promise<{ patientId: string; riskLevel: string; interactionCount: number; criticalAlerts: number }[]> {
+  assertCdsEnabled("aiDrugInteractionService.batchAnalyzePatients");
   logPhiAccess({
     action: "read",
     resourceType: "batch_drug_interaction",

@@ -12,6 +12,15 @@
  * - Disclaimer: "Informational only. Not medical advice."
  */
 
+// CDS-GATED — getSymptomInsights and getSymptomPeriodSummary perform Clinical Decision Support:
+// AI symptom interpretation that correlates patient-logged symptoms with their conditions,
+// medications, and labs, and generates interpretive symptom-trend summaries. DISABLED by default
+// via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination (21st Century Cures Act
+// §3060) + counsel review. NOT a NO-CDS claim. Plain symptom logging and log retrieval are not
+// CDS and remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
+import { assertCdsEnabled } from "./services/_cds-gate";
+
 export interface SymptomTrigger {
   type: "diet" | "activity" | "environment" | "stress" | "sleep" | "other";
   description: string;
@@ -205,6 +214,7 @@ export async function getSymptomInsights(
     labResults: Array<{ name: string; value: string; quote: string; source: string }>;
   }
 ): Promise<SymptomInsight> {
+  assertCdsEnabled("symptom-tracker:insights");
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
@@ -544,6 +554,7 @@ export async function getSymptomPeriodSummary(
   patientId: string,
   periodDays: number
 ): Promise<SymptomPeriodSummary> {
+  assertCdsEnabled("symptom-tracker:period-summary");
   const allSymptoms = getMockSymptomLogs(patientId);
   const cutoffDate = new Date(Date.now() - periodDays * 86400000);
   

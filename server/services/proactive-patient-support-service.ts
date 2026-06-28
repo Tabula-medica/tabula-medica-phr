@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI patient risk
+// assessment and recommended clinical actions for support/care-gap identification).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 let openaiClient: OpenAI | null = null;
 
@@ -667,6 +673,7 @@ Last Contact: ${new Date(patient.communicationHistory.lastContact).toLocaleDateS
     recommendedActions: string[];
     urgentNeeds: SupportNeed[];
   }> {
+    assertCdsEnabled("proactive-patient-support-service.analyzePatientForSupport");
     const patient = Array.from(patientProfileStore.values()).find(p => p.patientId === patientId);
     if (!patient) {
       throw new Error("Patient not found");

@@ -33,7 +33,8 @@ import {
   ArrowDown,
   Minus,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 interface DashboardData {

@@ -511,7 +511,7 @@ export default function AIPatientIntelligence() {
               <CardHeader className="pb-2">
                 <CardDescription>Model Version</CardDescription>
                 <CardTitle className="text-lg">
-                  {dashboard?.modelVersion || "gpt-5.1"}
+                  {dashboard?.modelVersion || "gemini-2.5-flash"}
                 </CardTitle>
               </CardHeader>
             </Card>

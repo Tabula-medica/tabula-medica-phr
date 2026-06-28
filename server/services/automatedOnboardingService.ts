@@ -1,4 +1,10 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI initial health-risk
+// assessment with risk scoring, health recommendations, and screening recommendations).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -188,6 +194,7 @@ function generateId(): string {
 }
 
 export async function generatePersonalizedWelcome(profile: OnboardingProfile): Promise<PersonalizedWelcome> {
+  assertCdsEnabled("automatedOnboardingService.generatePersonalizedWelcome");
   const firstName = profile.firstName || "there";
   
   try {
@@ -275,6 +282,7 @@ Use only safe language without medical advice. Focus on empowerment and support.
 }
 
 export async function generateInitialHealthAssessment(profile: OnboardingProfile): Promise<InitialHealthAssessment> {
+  assertCdsEnabled("automatedOnboardingService.generateInitialHealthAssessment");
   const assessmentId = generateId();
   
   try {

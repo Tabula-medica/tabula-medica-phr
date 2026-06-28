@@ -537,7 +537,7 @@ export function AIHealthSummary({ patientId }: { patientId?: string }) {
       },
     ],
     generatedAt: new Date().toISOString(),
-    modelVersion: "gpt-4-turbo",
+    modelVersion: "gemini-2.5-flash",
     summaryType: "health",
     patientId,
   };

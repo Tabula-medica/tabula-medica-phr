@@ -11,8 +11,18 @@ import {
   Network, Sparkles, GitMerge, QrCode, Mail,
   KeyRound, UserCheck, ServerCrash, Stethoscope,
   Play, Accessibility,
+  Camera,
 } from "lucide-react";
 import { Link as WouterLink } from "wouter";
+import {
+  useSEO,
+  buildOrganizationSchema,
+  buildWebApplicationSchema,
+  buildFAQSchema,
+  buildHowToSchema,
+  buildSiteNavigationSchema,
+} from "@/hooks/use-seo";
+import { ZeroKnowledgeBadge } from "@/components/zero-knowledge-badge";
 const logoPath = "/logo.png";
 
 const PRIORITY_HOSPITALS = [
@@ -47,7 +57,7 @@ const howItWorks = [
   {
     icon: Sparkles,
     title: "AI-Powered Summarization",
-    description: "Using Med-Gemini 1.5 Pro, we transform hundreds of pages of raw clinical notes into a concise, chronological summary of your care.",
+    description: "Using Google's Gemini AI on Vertex AI (BAA-covered), we transform hundreds of pages of raw clinical notes into a concise, chronological summary of your care.",
   },
   {
     icon: GitMerge,
@@ -98,7 +108,7 @@ const features = [
   {
     icon: Brain,
     title: "AI Health Insights",
-    description: "Plain-language explanations of your medical data, powered by Med-Gemini with clinical audit trails.",
+    description: "Plain-language explanations of your medical data, powered by Vertex AI with clinical audit trails.",
   },
   {
     icon: Languages,
@@ -280,7 +290,7 @@ const LANDING_FAQS = [
   },
   {
     question: "Is my health data safe?",
-    answer: "Absolutely. Tabula Medica is HIPAA compliant with SOC 2 Type II certification. All data is encrypted with AES-256 at rest and TLS 1.3 in transit. We use zero-knowledge encryption — meaning even we cannot read your records.",
+    answer: "Absolutely. Tabula Medica runs on HIPAA-aligned infrastructure with a SOC 2 Type II audit in progress. All data is encrypted with AES-256 at rest and TLS 1.3 in transit, with strict access controls and full audit logging. We never sell, share, or monetize your data.",
   },
   {
     question: "What if I don't have health insurance?",

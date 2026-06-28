@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useActiveProfile } from "@/contexts/profile-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";

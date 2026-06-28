@@ -7,7 +7,15 @@
  * - All AI-generated content is sanitized before display
  */
 
+// CDS-GATED — generateHealthAlerts performs Clinical Decision Support: it analyzes a patient's
+// symptoms, vitals, journal, and medications to surface proactive clinical alerts about
+// concerning trends (symptom-trend interpretation, severity/emotional-distress flagging).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS determination
+// (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim. The alert
+// retrieval/acknowledge/dismiss helpers are not CDS and remain ungated.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 
 // Initialize OpenAI client
 let openai: OpenAI | null = null;
@@ -229,8 +237,9 @@ Example format:
 export async function generateHealthAlerts(
   input: AlertGenerationInput
 ): Promise<HealthAlert[]> {
+  assertCdsEnabled("proactive-alerts:generate");
   const now = new Date();
-  
+
   // Build data summary for AI
   const dataSummary = {
     symptoms: input.symptoms.slice(-20).map(s => ({

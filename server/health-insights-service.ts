@@ -1,4 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI-generated personalized
+// health insights: trend/risk-awareness analysis of a patient's conditions, labs, vitals,
+// and lifestyle, with suggested next steps).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination (21st Century Cures Act §3060) + counsel review. NOT a NO-CDS claim.
+// See services/_cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./services/_cds-gate";
 import { logPhiAccess } from "./security/hipaa-audit";
 
 const openai = new OpenAI({
@@ -343,6 +350,7 @@ export async function generateHealthInsights(
   patientId: string,
   patientName: string
 ): Promise<HealthInsightsResponse> {
+  assertCdsEnabled("health-insights-service:generate");
   logPhiAccess({
     action: "read",
     resourceType: "HealthInsights",

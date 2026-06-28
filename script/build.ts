@@ -1,6 +1,7 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
+import path from "path";
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -60,6 +61,12 @@ async function buildAll() {
     outfile: "dist/index.cjs",
     define: {
       "process.env.NODE_ENV": '"production"',
+    },
+    // Route every `import OpenAI from "openai"` through the Vertex shim (safe
+    // passthrough to real OpenAI unless AI_PROVIDER=vertex). The shim itself imports
+    // the real package by relative path so this alias doesn't loop.
+    alias: {
+      openai: path.resolve("server/lib/vertex-openai.ts"),
     },
     minify: true,
     external: externals,

@@ -22,6 +22,8 @@ import { NotificationDropdown, MobileNotificationDropdown } from "@/components/n
 import { EnhancedNotificationCenter } from "@/components/enhanced-notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
+import { initCapacitor } from "@/lib/capacitor";
+import { RouteErrorBoundary } from "@/components/route-error-boundary";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { SessionTimeoutModal } from "@/components/session-timeout-modal";
 import LandingPage from "@/pages/landing";
@@ -191,6 +193,7 @@ const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboard
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
+const EmergencyViewPage = lazy(() => import("@/pages/emergency-view"));
 
 function Router() {
   return (
@@ -284,6 +287,10 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
+      {/* Canonical short legal URL. Aliases the counsel-led /legal/terms page
+          (same LegalPage content). /privacy is already taken by the privacy
+          *settings* page; the policy lives at /legal/privacy. */}
+      <Route path="/terms">{() => <LegalPage slug="terms" />}</Route>
       <Route path="/legal/privacy">{() => <LegalPage slug="privacy" />}</Route>
       <Route path="/legal/terms">{() => <LegalPage slug="terms" />}</Route>
       <Route path="/legal/cookie">{() => <LegalPage slug="cookie" />}</Route>
@@ -342,6 +349,7 @@ function Router() {
       <Route path="/ascvd-calculator" component={ASCVDCalculator} />
       <Route path="/longevity-tracking" component={LongevityTracking} />
       <Route path="/advance-directives" component={AdvanceDirectives} />
+      <Route path="/emergency/:token" component={EmergencyViewPage} />
       {/* CDS Disabled */} <Route path="/medication-safety" component={CDSDisabled} />
       {/* CDS Disabled */} <Route path="/ai-care-plan" component={CDSDisabled} />
       {/* CDS Disabled */} <Route path="/risk-stratification" component={CDSDisabled} />
@@ -734,6 +742,23 @@ function AppContent() {
     );
   }
 
+  // Public break-glass emergency view — must render without authentication so
+  // ER/EMS can open the patient's shared link. The redeem endpoint itself is
+  // token+PIN gated and audited.
+  if (location.startsWith("/emergency/")) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <EmergencyViewPage />
+      </Suspense>
+    );
+  }
+
   if (isLoading && !splashTimedOut) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background" data-testid="status-app-loading">
@@ -749,6 +774,7 @@ function AppContent() {
   // without authenticating. Apple Guideline 5.1.1 requires legal links
   // to resolve from a public-facing surface.
   const publicLegalRoutes = [
+    "/terms",
     "/legal/privacy",
     "/legal/terms",
     "/legal/cookie",

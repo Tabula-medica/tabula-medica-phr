@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
 import { useSEO, buildPageSchemas } from "@/hooks/use-seo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

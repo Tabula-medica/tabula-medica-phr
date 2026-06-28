@@ -17,7 +17,13 @@
  * - encounter-discharge: Triggered at discharge
  */
 
+// CDS-GATED — this service performs Clinical Decision Support (HL7 CDS Hooks: drug-
+// interaction, polypharmacy, abnormal-lab, and AI context alert cards for providers).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
+import { assertCdsEnabled } from "./_cds-gate";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 // Initialize OpenAI client for AI-enhanced CDS analysis
@@ -324,6 +330,7 @@ class CDSHooksService {
    * Invoke a CDS hook and generate informational cards
    */
   async invokeHook(request: CDSRequest): Promise<CDSResponse> {
+    assertCdsEnabled("cds-hooks-service.invokeHook");
     const startTime = Date.now();
     
     // Log hook invocation

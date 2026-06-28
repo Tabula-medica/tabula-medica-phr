@@ -1,5 +1,11 @@
+// CDS-GATED — this service performs Clinical Decision Support (AI reconciliation of
+// conflicting clinical records — medications/labs/conditions — into a merged record).
+// DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -583,6 +589,7 @@ class AIConflictResolutionService {
   }
 
   async generateAIMergeSuggestion(conflictId: string): Promise<AIMergeSuggestion> {
+    assertCdsEnabled("ai-conflict-resolution-service.generateAIMergeSuggestion");
     const conflict = this.conflicts.get(conflictId);
     if (!conflict) {
       throw new Error(`Conflict not found: ${conflictId}`);
@@ -761,6 +768,7 @@ Provide a JSON response with:
   }
 
   async applyResolutionRule(conflictId: string, ruleId?: string, userId?: string): Promise<{ success: boolean; resolution?: Record<string, any>; appliedRule?: ConflictResolutionRule }> {
+    assertCdsEnabled("ai-conflict-resolution-service.applyResolutionRule");
     const conflict = this.conflicts.get(conflictId);
     if (!conflict) {
       throw new Error(`Conflict not found: ${conflictId}`);

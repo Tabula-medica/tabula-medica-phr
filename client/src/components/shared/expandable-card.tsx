@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useExpandableState } from "@/components/shared/index";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";

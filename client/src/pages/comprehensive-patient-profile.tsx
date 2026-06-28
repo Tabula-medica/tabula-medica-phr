@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,16 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  User, Phone, Mail, MapPin, Shield, Heart, AlertTriangle, 
-  Calendar, Pill, Activity, FileText, Edit2, Plus, Trash2, 
-  Check, X, Clock, Building, CreditCard, Stethoscope, 
-  Bell, Settings, ChevronRight, Syringe
+import {
+  User, Phone, Mail, MapPin, Shield, Heart, AlertTriangle,
+  Calendar, Pill, Activity, FileText, Edit2, Plus, Trash2,
+  Check, X, Clock, Building, CreditCard, Stethoscope,
+  Bell, Settings, ChevronRight, Syringe, KeyRound, Copy,
+  Link2, QrCode, Upload, ShieldCheck, Droplet
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import QRCode from "qrcode";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -113,6 +117,66 @@ interface PatientProfile {
   };
   lastUpdated: string;
   completionPercentage: number;
+}
+
+// Emergency Contact & Care Team — optional, patient-chosen contact info.
+// Persisted (encrypted at rest) via /api/patient-contacts/:profileId, keyed by
+// the real `profiles` row UUID (NOT the legacy patient-profile id).
+interface PatientContacts {
+  nextOfKin: { name: string; relationship: string; phone: string; email: string };
+  pcp: { name: string; phone: string };
+  patient: { phone: string; email: string };
+}
+
+const EMPTY_CONTACTS: PatientContacts = {
+  nextOfKin: { name: "", relationship: "", phone: "", email: "" },
+  pcp: { name: "", phone: "" },
+  patient: { phone: "", email: "" },
+};
+
+interface EmergencyInfo {
+  bloodType: string;
+  allergiesSummary: string;
+  criticalConditions: string;
+  latestSummaryText: string;
+  pharmacy: { name: string; phone: string; address: string };
+  advanceDirective: { hasDirective: boolean; type: string; notes: string; fileKey: string };
+  insuranceCard: {
+    payer: string;
+    memberId: string;
+    groupNumber: string;
+    frontFileKey: string;
+    backFileKey: string;
+  };
+  consentEmergencySharingAt: string | null;
+}
+
+const EMPTY_EMERGENCY: EmergencyInfo = {
+  bloodType: "",
+  allergiesSummary: "",
+  criticalConditions: "",
+  latestSummaryText: "",
+  pharmacy: { name: "", phone: "", address: "" },
+  advanceDirective: { hasDirective: false, type: "", notes: "", fileKey: "" },
+  insuranceCard: { payer: "", memberId: "", groupNumber: "", frontFileKey: "", backFileKey: "" },
+  consentEmergencySharingAt: null,
+};
+
+interface EmergencyTokenInfo {
+  id: string;
+  label: string;
+  expiresAt: string;
+  hasPin: boolean;
+  createdAt: string | null;
+}
+
+interface GeneratedToken {
+  id: string;
+  token: string;
+  shareUrl: string;
+  expiresAt: string;
+  hasPin: boolean;
+  label: string;
 }
 
 import { getInitials } from "@/components/shared";
@@ -241,6 +305,185 @@ export default function ComprehensivePatientProfile() {
       toast({ title: "Insurance removed" });
     }
   });
+
+  // ---- Emergency Contact & Care Team --------------------------------------
+  // These optional fields persist to /api/patient-contacts/:profileId, which is
+  // keyed by the REAL `profiles` row UUID from the active profile (NOT patientId,
+  // which belongs to the separate /api/patient-profile demo store).
+  const { data: activeProfile } = useQuery<{ id: string }>({
+    queryKey: ["/api/profiles/active"],
+  });
+  const contactsProfileId = activeProfile?.id;
+  const [contacts, setContacts] = useState<PatientContacts>(EMPTY_CONTACTS);
+
+  const contactsQuery = useQuery<{ contacts: PatientContacts }>({
+    queryKey: ["/api/patient-contacts", contactsProfileId],
+    enabled: !!contactsProfileId,
+  });
+
+  useEffect(() => {
+    if (contactsQuery.data?.contacts) {
+      setContacts({ ...EMPTY_CONTACTS, ...contactsQuery.data.contacts });
+    }
+  }, [contactsQuery.data]);
+
+  const saveContactsMutation = useMutation({
+    mutationFn: async (payload: PatientContacts) => {
+      const res = await apiRequest("PUT", `/api/patient-contacts/${contactsProfileId}`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-contacts", contactsProfileId] });
+      toast({ title: "Contacts saved", description: "Your emergency contact & care team details were updated." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not save contacts", description: err?.message ?? "Please try again.", variant: "destructive" });
+    }
+  });
+
+  const updateContact = <S extends keyof PatientContacts, F extends keyof PatientContacts[S]>(
+    section: S,
+    field: F,
+    value: string,
+  ) => {
+    setContacts((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], [field]: value },
+    }));
+  };
+
+  // ---- Emergency Info & Break-Glass Sharing -------------------------------
+  const [emergency, setEmergency] = useState<EmergencyInfo>(EMPTY_EMERGENCY);
+  const [tokenLabel, setTokenLabel] = useState("");
+  const [tokenPin, setTokenPin] = useState("");
+  const [tokenExpiry, setTokenExpiry] = useState("72");
+  const [generatedToken, setGeneratedToken] = useState<GeneratedToken | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  const emergencyQuery = useQuery<{ emergency: EmergencyInfo; tokens: EmergencyTokenInfo[] }>({
+    queryKey: ["/api/patient-contacts", contactsProfileId, "emergency"],
+    enabled: !!contactsProfileId,
+  });
+
+  useEffect(() => {
+    if (emergencyQuery.data?.emergency) {
+      setEmergency({ ...EMPTY_EMERGENCY, ...emergencyQuery.data.emergency });
+    }
+  }, [emergencyQuery.data]);
+
+  const emergencyConsent = !!emergency.consentEmergencySharingAt;
+  const activeTokens = emergencyQuery.data?.tokens ?? [];
+
+  const saveEmergencyMutation = useMutation({
+    mutationFn: async (payload: EmergencyInfo) => {
+      const body = {
+        bloodType: payload.bloodType,
+        allergiesSummary: payload.allergiesSummary,
+        criticalConditions: payload.criticalConditions,
+        latestSummaryText: payload.latestSummaryText,
+        pharmacy: payload.pharmacy,
+        advanceDirective: payload.advanceDirective,
+        insuranceCard: payload.insuranceCard,
+        consentEmergencySharing: !!payload.consentEmergencySharingAt,
+      };
+      const res = await apiRequest("PUT", `/api/patient-contacts/${contactsProfileId}/emergency`, body);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-contacts", contactsProfileId, "emergency"] });
+      toast({ title: "Emergency info saved", description: "Your emergency information was updated." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not save", description: err?.message ?? "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const generateTokenMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/patient-contacts/${contactsProfileId}/emergency-token`, {
+        label: tokenLabel || undefined,
+        expiresInHours: Number(tokenExpiry) || 72,
+        pin: tokenPin || undefined,
+      });
+      return res.json() as Promise<GeneratedToken>;
+    },
+    onSuccess: async (data) => {
+      setGeneratedToken(data);
+      const absoluteUrl = `${window.location.origin}${data.shareUrl}`;
+      try {
+        const url = await QRCode.toDataURL(absoluteUrl, { width: 220, margin: 1 });
+        setQrDataUrl(url);
+      } catch {
+        setQrDataUrl("");
+      }
+      setTokenPin("");
+      setTokenLabel("");
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-contacts", contactsProfileId, "emergency"] });
+      toast({ title: "Share created", description: "Copy the link or scan the QR. It is shown only once." });
+    },
+    onError: (err: any) => {
+      const msg = String(err?.message ?? "");
+      toast({
+        title: "Could not create share",
+        description: msg.includes("CONSENT_REQUIRED") || msg.includes("409")
+          ? "Enable the emergency-sharing consent toggle and save first."
+          : msg || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revokeTokenMutation = useMutation({
+    mutationFn: async (tokenId: string) => {
+      const res = await apiRequest("POST", `/api/patient-contacts/${contactsProfileId}/emergency-token/${tokenId}/revoke`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-contacts", contactsProfileId, "emergency"] });
+      toast({ title: "Share revoked", description: "That link can no longer be used." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not revoke", description: err?.message ?? "Please try again.", variant: "destructive" });
+    },
+  });
+
+  // Build upload handlers for an emergency file slot. Returns a presigned PUT
+  // URL from the server and stores the resulting object key into local state.
+  const makeUploadHandlers = (applyKey: (objectPath: string) => void) => {
+    let pendingPath = "";
+    return {
+      onGetUploadParameters: async () => {
+        const res = await apiRequest("POST", `/api/patient-contacts/${contactsProfileId}/emergency/upload-url`, {});
+        const j = await res.json();
+        pendingPath = j.objectPath as string;
+        return { method: "PUT" as const, url: j.uploadURL as string };
+      },
+      onComplete: () => {
+        if (pendingPath) {
+          applyKey(pendingPath);
+          toast({ title: "File uploaded", description: "Click Save to attach it to your emergency info." });
+        }
+      },
+    };
+  };
+
+  const advanceDirectiveUpload = makeUploadHandlers((key) =>
+    setEmergency((prev) => ({ ...prev, advanceDirective: { ...prev.advanceDirective, fileKey: key } })),
+  );
+  const insuranceFrontUpload = makeUploadHandlers((key) =>
+    setEmergency((prev) => ({ ...prev, insuranceCard: { ...prev.insuranceCard, frontFileKey: key } })),
+  );
+  const insuranceBackUpload = makeUploadHandlers((key) =>
+    setEmergency((prev) => ({ ...prev, insuranceCard: { ...prev.insuranceCard, backFileKey: key } })),
+  );
+
+  const copyShareLink = (token: GeneratedToken) => {
+    const absoluteUrl = `${window.location.origin}${token.shareUrl}`;
+    navigator.clipboard?.writeText(absoluteUrl).then(
+      () => toast({ title: "Copied", description: "Share link copied to clipboard." }),
+      () => toast({ title: "Copy failed", description: absoluteUrl, variant: "destructive" }),
+    );
+  };
 
   if (isLoading) {
     return (
@@ -657,6 +900,93 @@ export default function ComprehensivePatientProfile() {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="w-5 h-5 text-primary" />
+                Preferred Contact Info
+              </CardTitle>
+              <CardDescription>
+                Optional — you choose what to share. This helps your care team reach someone in an emergency and lets providers contact you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contacts-patient-phone">Phone</Label>
+                  <Input
+                    id="contacts-patient-phone"
+                    type="tel"
+                    value={contacts.patient.phone}
+                    onChange={(e) => updateContact("patient", "phone", e.target.value)}
+                    placeholder="e.g., (555) 222-3333"
+                    maxLength={200}
+                    data-testid="input-contacts-patient-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contacts-patient-email">Email</Label>
+                  <Input
+                    id="contacts-patient-email"
+                    type="email"
+                    value={contacts.patient.email}
+                    onChange={(e) => updateContact("patient", "email", e.target.value)}
+                    placeholder="e.g., you@example.com"
+                    maxLength={200}
+                    data-testid="input-contacts-patient-email"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="w-5 h-5 text-primary" />
+                Primary Care Provider
+              </CardTitle>
+              <CardDescription>Your primary care doctor.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pcp-name">Doctor Name</Label>
+                  <Input
+                    id="pcp-name"
+                    value={contacts.pcp.name}
+                    onChange={(e) => updateContact("pcp", "name", e.target.value)}
+                    placeholder="e.g., Dr. Smith"
+                    maxLength={200}
+                    data-testid="input-pcp-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pcp-phone">Phone</Label>
+                  <Input
+                    id="pcp-phone"
+                    type="tel"
+                    value={contacts.pcp.phone}
+                    onChange={(e) => updateContact("pcp", "phone", e.target.value)}
+                    placeholder="e.g., (555) 765-4321"
+                    maxLength={200}
+                    data-testid="input-pcp-phone"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => saveContactsMutation.mutate(contacts)}
+                  disabled={saveContactsMutation.isPending || contactsQuery.isLoading || !contactsProfileId}
+                  data-testid="button-save-contacts-contact"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {saveContactsMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="emergency" className="space-y-4">
@@ -714,6 +1044,470 @@ export default function ComprehensivePatientProfile() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-primary" />
+                Next of Kin
+              </CardTitle>
+              <CardDescription>
+                Optional — you choose what to share. This helps your care team reach someone in an emergency and lets providers contact you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nok-name">Name</Label>
+                  <Input
+                    id="nok-name"
+                    value={contacts.nextOfKin.name}
+                    onChange={(e) => updateContact("nextOfKin", "name", e.target.value)}
+                    placeholder="e.g., Jane Doe"
+                    maxLength={200}
+                    data-testid="input-nok-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nok-relationship">Relationship</Label>
+                  <Input
+                    id="nok-relationship"
+                    value={contacts.nextOfKin.relationship}
+                    onChange={(e) => updateContact("nextOfKin", "relationship", e.target.value)}
+                    placeholder="e.g., Spouse, Parent"
+                    maxLength={200}
+                    data-testid="input-nok-relationship"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nok-phone">Phone</Label>
+                  <Input
+                    id="nok-phone"
+                    type="tel"
+                    value={contacts.nextOfKin.phone}
+                    onChange={(e) => updateContact("nextOfKin", "phone", e.target.value)}
+                    placeholder="e.g., (555) 123-4567"
+                    maxLength={200}
+                    data-testid="input-nok-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nok-email">Email</Label>
+                  <Input
+                    id="nok-email"
+                    type="email"
+                    value={contacts.nextOfKin.email}
+                    onChange={(e) => updateContact("nextOfKin", "email", e.target.value)}
+                    placeholder="e.g., jane@example.com"
+                    maxLength={200}
+                    data-testid="input-nok-email"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => saveContactsMutation.mutate(contacts)}
+                  disabled={saveContactsMutation.isPending || contactsQuery.isLoading || !contactsProfileId}
+                  data-testid="button-save-contacts-emergency"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {saveContactsMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Info & Break-Glass Sharing */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                Emergency Info &amp; Break-Glass Sharing
+              </CardTitle>
+              <CardDescription>
+                Store the critical details an ER or EMS team needs, then create a
+                time-limited, revocable link to share a minimal summary. Every
+                access is logged and you can revoke a link anytime.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emg-blood">Blood type</Label>
+                  <Input
+                    id="emg-blood"
+                    value={emergency.bloodType}
+                    onChange={(e) => setEmergency((p) => ({ ...p, bloodType: e.target.value }))}
+                    placeholder="e.g., O+"
+                    maxLength={200}
+                    data-testid="input-emergency-blood-type"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="emg-allergies">Allergies (summary)</Label>
+                <Textarea
+                  id="emg-allergies"
+                  value={emergency.allergiesSummary}
+                  onChange={(e) => setEmergency((p) => ({ ...p, allergiesSummary: e.target.value }))}
+                  placeholder="e.g., Penicillin (anaphylaxis), peanuts"
+                  maxLength={5000}
+                  data-testid="input-emergency-allergies"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="emg-conditions">Critical conditions</Label>
+                <Textarea
+                  id="emg-conditions"
+                  value={emergency.criticalConditions}
+                  onChange={(e) => setEmergency((p) => ({ ...p, criticalConditions: e.target.value }))}
+                  placeholder="e.g., Type 1 diabetes, on anticoagulants"
+                  maxLength={5000}
+                  data-testid="input-emergency-conditions"
+                />
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emg-pharm-name">Pharmacy name</Label>
+                  <Input
+                    id="emg-pharm-name"
+                    value={emergency.pharmacy.name}
+                    onChange={(e) => setEmergency((p) => ({ ...p, pharmacy: { ...p.pharmacy, name: e.target.value } }))}
+                    placeholder="e.g., Main Street Pharmacy"
+                    maxLength={200}
+                    data-testid="input-emergency-pharmacy-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emg-pharm-phone">Pharmacy phone</Label>
+                  <Input
+                    id="emg-pharm-phone"
+                    type="tel"
+                    value={emergency.pharmacy.phone}
+                    onChange={(e) => setEmergency((p) => ({ ...p, pharmacy: { ...p.pharmacy, phone: e.target.value } }))}
+                    placeholder="e.g., (555) 123-4567"
+                    maxLength={200}
+                    data-testid="input-emergency-pharmacy-phone"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Advance directive */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Advance directive
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Has directive</span>
+                    <Switch
+                      checked={emergency.advanceDirective.hasDirective}
+                      onCheckedChange={(v) =>
+                        setEmergency((p) => ({ ...p, advanceDirective: { ...p.advanceDirective, hasDirective: v } }))
+                      }
+                      data-testid="switch-emergency-has-directive"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emg-directive-type">Type</Label>
+                    <Select
+                      value={emergency.advanceDirective.type || undefined}
+                      onValueChange={(v) =>
+                        setEmergency((p) => ({ ...p, advanceDirective: { ...p.advanceDirective, type: v } }))
+                      }
+                    >
+                      <SelectTrigger id="emg-directive-type" data-testid="select-emergency-directive-type">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dnr">Do Not Resuscitate (DNR)</SelectItem>
+                        <SelectItem value="living_will">Living Will</SelectItem>
+                        <SelectItem value="healthcare_proxy">Healthcare Proxy</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Document</Label>
+                    <div className="flex items-center gap-2">
+                      <ObjectUploader
+                        maxNumberOfFiles={1}
+                        onGetUploadParameters={advanceDirectiveUpload.onGetUploadParameters}
+                        onComplete={advanceDirectiveUpload.onComplete}
+                        buttonClassName="w-full"
+                      >
+                        <Upload className="w-4 h-4 mr-2" /> Upload
+                      </ObjectUploader>
+                      {emergency.advanceDirective.fileKey && (
+                        <Badge variant="secondary" className="text-xs"><Check className="w-3 h-3 mr-1" />Attached</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emg-directive-notes">Notes</Label>
+                  <Textarea
+                    id="emg-directive-notes"
+                    value={emergency.advanceDirective.notes}
+                    onChange={(e) =>
+                      setEmergency((p) => ({ ...p, advanceDirective: { ...p.advanceDirective, notes: e.target.value } }))
+                    }
+                    placeholder="Any directive details responders should know"
+                    maxLength={5000}
+                    data-testid="input-emergency-directive-notes"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Insurance card */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" /> Insurance card
+                </Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emg-ins-payer">Payer</Label>
+                    <Input
+                      id="emg-ins-payer"
+                      value={emergency.insuranceCard.payer}
+                      onChange={(e) => setEmergency((p) => ({ ...p, insuranceCard: { ...p.insuranceCard, payer: e.target.value } }))}
+                      placeholder="e.g., Blue Cross"
+                      maxLength={200}
+                      data-testid="input-emergency-insurance-payer"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emg-ins-member">Member ID</Label>
+                    <Input
+                      id="emg-ins-member"
+                      value={emergency.insuranceCard.memberId}
+                      onChange={(e) => setEmergency((p) => ({ ...p, insuranceCard: { ...p.insuranceCard, memberId: e.target.value } }))}
+                      placeholder="e.g., ABC123456"
+                      maxLength={200}
+                      data-testid="input-emergency-insurance-member"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    onGetUploadParameters={insuranceFrontUpload.onGetUploadParameters}
+                    onComplete={insuranceFrontUpload.onComplete}
+                  >
+                    <Upload className="w-4 h-4 mr-2" /> Front of card
+                  </ObjectUploader>
+                  {emergency.insuranceCard.frontFileKey && (
+                    <Badge variant="secondary" className="text-xs"><Check className="w-3 h-3 mr-1" />Front attached</Badge>
+                  )}
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    onGetUploadParameters={insuranceBackUpload.onGetUploadParameters}
+                    onComplete={insuranceBackUpload.onComplete}
+                  >
+                    <Upload className="w-4 h-4 mr-2" /> Back of card
+                  </ObjectUploader>
+                  {emergency.insuranceCard.backFileKey && (
+                    <Badge variant="secondary" className="text-xs"><Check className="w-3 h-3 mr-1" />Back attached</Badge>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Consent toggle */}
+              <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+                <div className="space-y-1">
+                  <Label htmlFor="emg-consent" className="font-medium">
+                    Authorize emergency sharing
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    I authorize emergency responders to view this info via a share I create.
+                    Required before generating a share link.
+                  </p>
+                </div>
+                <Switch
+                  id="emg-consent"
+                  checked={emergencyConsent}
+                  onCheckedChange={(v) =>
+                    setEmergency((p) => ({ ...p, consentEmergencySharingAt: v ? new Date().toISOString() : null }))
+                  }
+                  data-testid="switch-emergency-consent"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => saveEmergencyMutation.mutate(emergency)}
+                  disabled={saveEmergencyMutation.isPending || emergencyQuery.isLoading || !contactsProfileId}
+                  data-testid="button-save-emergency-info"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {saveEmergencyMutation.isPending ? "Saving..." : "Save Emergency Info"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Generate emergency share */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-primary" />
+                Generate emergency share
+              </CardTitle>
+              <CardDescription>
+                Emergency responders can view a minimal summary. Every access is logged. You can revoke anytime.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!emergencyConsent && (
+                <div className="flex items-center gap-2 rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/30 p-3 text-sm text-orange-800 dark:text-orange-200">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Enable the consent toggle above and save before creating a share.
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emg-token-label">Label (optional)</Label>
+                  <Input
+                    id="emg-token-label"
+                    value={tokenLabel}
+                    onChange={(e) => setTokenLabel(e.target.value)}
+                    placeholder="e.g., Wallet card"
+                    maxLength={200}
+                    data-testid="input-emergency-token-label"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emg-token-pin">PIN (optional)</Label>
+                  <Input
+                    id="emg-token-pin"
+                    inputMode="numeric"
+                    value={tokenPin}
+                    onChange={(e) => setTokenPin(e.target.value)}
+                    placeholder="4-8 digits"
+                    maxLength={8}
+                    data-testid="input-emergency-token-pin"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emg-token-expiry">Expires in</Label>
+                  <Select value={tokenExpiry} onValueChange={setTokenExpiry}>
+                    <SelectTrigger id="emg-token-expiry" data-testid="select-emergency-token-expiry">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 hour</SelectItem>
+                      <SelectItem value="24">24 hours</SelectItem>
+                      <SelectItem value="72">72 hours</SelectItem>
+                      <SelectItem value="168">7 days</SelectItem>
+                      <SelectItem value="720">30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => generateTokenMutation.mutate()}
+                  disabled={generateTokenMutation.isPending || !emergencyConsent || !contactsProfileId}
+                  data-testid="button-generate-emergency-share"
+                >
+                  <Link2 className="w-4 h-4 mr-2" />
+                  {generateTokenMutation.isPending ? "Creating..." : "Generate share"}
+                </Button>
+              </div>
+
+              {generatedToken && (
+                <div className="rounded-lg border p-4 space-y-3" data-testid="emergency-generated-share">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <QrCode className="w-4 h-4" /> Share created — shown only once
+                  </div>
+                  {qrDataUrl && (
+                    <img
+                      src={qrDataUrl}
+                      alt="Emergency share QR code"
+                      className="w-44 h-44 border rounded bg-white p-2"
+                      data-testid="img-emergency-qr"
+                    />
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}${generatedToken.shareUrl}`}
+                      className="font-mono text-xs"
+                      data-testid="input-emergency-share-url"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copyShareLink(generatedToken)}
+                      data-testid="button-copy-emergency-share"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {generatedToken.hasPin ? "PIN protected. " : ""}
+                    Expires {new Date(generatedToken.expiresAt).toLocaleString()}.
+                  </p>
+                </div>
+              )}
+
+              {/* Active tokens */}
+              <div className="space-y-2">
+                <Label className="text-sm">Active shares</Label>
+                {activeTokens.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active emergency shares.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {activeTokens.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between border rounded-lg p-3"
+                        data-testid={`emergency-token-${t.id}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {t.label || "Emergency share"}
+                            {t.hasPin && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                <KeyRound className="w-3 h-3 mr-1" />PIN
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Expires {new Date(t.expiresAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => revokeTokenMutation.mutate(t.id)}
+                          disabled={revokeTokenMutation.isPending}
+                          data-testid={`button-revoke-emergency-${t.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1 text-destructive" /> Revoke
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

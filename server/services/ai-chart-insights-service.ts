@@ -1,6 +1,12 @@
+// CDS-GATED — this service performs Clinical Decision Support (predictive chronic-disease
+// risk stratification, comprehensive history synthesis, and guideline-based care-gap
+// analysis). DISABLED by default via the ENABLE_CDS kill-switch pending FDA Non-Device CDS
+// determination + counsel review. NOT a NO-CDS claim.
+// See _cds-gate.ts, NO-CDS-TRIAGE.md, ventures/tabula-medica/PHR-CDS-COUNSEL-BRIEF.md.
 import OpenAI from "openai";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { assertCdsEnabled } from "./_cds-gate";
 
 let openaiClient: OpenAI | null = null;
 
@@ -201,6 +207,7 @@ ${(allergies || []).map((a: any) => `- ${a.name || a.substance}: ${a.reaction ||
 }
 
 export async function getPredictiveRiskStratification(patientId: string): Promise<PredictiveRiskStratification> {
+  assertCdsEnabled("ai-chart-insights-service.getPredictiveRiskStratification");
   const cached = riskCache.get(patientId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return { ...cached.data, fromCache: true };
@@ -317,6 +324,7 @@ Generate 4-6 chronic disease assessments based on the patient data. For diseases
 }
 
 export async function getComprehensiveHistorySummary(patientId: string): Promise<ComprehensiveHistorySummary> {
+  assertCdsEnabled("ai-chart-insights-service.getComprehensiveHistorySummary");
   const cached = historyCache.get(patientId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return { ...cached.data, fromCache: true };
@@ -481,6 +489,7 @@ Provide comprehensive coverage of ALL available data modules. End overallNarrati
 }
 
 export async function getCareGapAnalysis(patientId: string): Promise<CareGapAnalysis> {
+  assertCdsEnabled("ai-chart-insights-service.getCareGapAnalysis");
   const cached = careGapCache.get(patientId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return { ...cached.data, fromCache: true };

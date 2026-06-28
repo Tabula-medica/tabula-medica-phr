@@ -38038,6 +38038,25 @@ startxref
   app.use("/api/care-team-hub", careTeamHubRoutes.default);
   console.log("[Routes] Care Team Hub routes registered at /api/care-team-hub/*");
 
+  const patientContactsRoutes = await import("./routes/patient-contacts-routes");
+  app.use("/api/patient-contacts", patientContactsRoutes.default);
+  console.log("[Routes] Patient Contacts (Emergency Contact & Care Team) routes registered at /api/patient-contacts/*");
+
+  // GDPR core (account-scoped): right-to-erasure (30-day grace), DSAR export,
+  // consent recording. Stored in profiles.metadata (no migration). Mounted at
+  // /api/account/* — distinct from the /api/gdpr/* data-rights-request tracker.
+  const accountGdprRoutes = await import("./routes/account-gdpr-routes");
+  app.use("/api/account", accountGdprRoutes.default);
+  console.log("[Routes] GDPR core (deletion/export/consent) registered at /api/account/*");
+
+  // Emergency Info + break-glass single-use share. Authenticated emergency
+  // routes share the /api/patient-contacts base (extends that feature); the
+  // public break-glass redeem endpoint lives at /api/emergency (NO auth).
+  const emergencyRoutes = await import("./routes/emergency-routes");
+  app.use("/api/patient-contacts", emergencyRoutes.default);
+  app.use("/api/emergency", emergencyRoutes.publicRouter);
+  console.log("[Routes] Emergency Info & Break-Glass routes registered at /api/patient-contacts/:id/emergency* and /api/emergency/redeem");
+
   // ================== Zero-Knowledge Encryption Routes ==================
   const zkEncryptionRoutes = await import("./routes/zk-encryption-routes");
   app.use("/api/zk-encryption", zkEncryptionRoutes.default);
@@ -38198,7 +38217,13 @@ startxref
   app.get("/api/region-features", async (req: any, res) => {
     const userId = req.user?.claims?.sub || req.headers["x-user-id"];
     let region = "international";
-    if (userId) {
+    // Host edition takes precedence: tabulamedica.us = US (TEFCA/US networks on),
+    // tabulamedica.world = global (off). Else fall back to the user's saved preference.
+    if (req.edition === "us") {
+      region = "us";
+    } else if (req.edition === "world") {
+      region = "international";
+    } else if (userId) {
       const [account] = await phiDb.select({ region: accounts.region }).from(accounts).where(eq(accounts.id, userId)).limit(1);
       if (account?.region) region = account.region;
     }

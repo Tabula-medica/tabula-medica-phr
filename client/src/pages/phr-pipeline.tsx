@@ -318,7 +318,7 @@ export default function PHRPipelinePage() {
                 </CardTitle>
                 <CardDescription>
                   Ask questions about your health records using natural language.
-                  Powered by Gemini 1.5 Pro + Cloud Healthcare Search.
+                  Powered by Vertex AI (Gemini) + Cloud Healthcare Search.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -559,7 +559,7 @@ export default function PHRPipelinePage() {
                     { name: "Vertex AI Deduplication", status: "Operational", icon: Brain, color: "text-green-500" },
                     { name: "GCS Vault (The Vault)", status: "Operational", icon: Cloud, color: "text-green-500" },
                     { name: "Cloud Healthcare API FHIR Store", status: "Operational", icon: Server, color: "text-green-500" },
-                    { name: "Voice-to-Record (Gemini 1.5 Pro)", status: "Operational", icon: Volume2, color: "text-green-500" },
+                    { name: "Voice-to-Record (Vertex AI)", status: "Operational", icon: Volume2, color: "text-green-500" },
                     { name: "HIPAA Audit Logger", status: "Operational", icon: Shield, color: "text-green-500" },
                   ].map((svc) => (
                     <div key={svc.name} className="flex items-center justify-between py-2 border-b last:border-0">
