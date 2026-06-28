@@ -57,7 +57,7 @@ const howItWorks = [
   {
     icon: Sparkles,
     title: "AI-Powered Summarization",
-    description: "Using Med-Gemini 1.5 Pro, we transform hundreds of pages of raw clinical notes into a concise, chronological summary of your care.",
+    description: "Using Google's Gemini AI on Vertex AI (BAA-covered), we transform hundreds of pages of raw clinical notes into a concise, chronological summary of your care.",
   },
   {
     icon: GitMerge,
@@ -108,7 +108,7 @@ const features = [
   {
     icon: Brain,
     title: "AI Health Insights",
-    description: "Plain-language explanations of your medical data, powered by Med-Gemini with clinical audit trails.",
+    description: "Plain-language explanations of your medical data, powered by Vertex AI with clinical audit trails.",
   },
   {
     icon: Languages,
