@@ -14385,6 +14385,46 @@ export const appOnboardingStatusesTable = pgTable("app_onboarding_statuses", {
   completedAt: text("completed_at"),
 });
 
+// Uploaded documents (C1) — metadata for patient-uploaded files (the bytes live
+// in object storage at storage_url). Losing this on restart orphans every
+// uploaded file. May carry PHI in title/notes/provider/aiExtractedData, but the
+// file content is external; this table is the index. Indexed by patient.
+export const appUploadedDocumentsTable = pgTable(
+  "app_uploaded_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    onboardingSessionId: text("onboarding_session_id"),
+    patientId: text("patient_id").notNull(),
+    documentType: text("document_type").$type<UploadedDocument["documentType"]>().notNull(),
+    title: text("title").notNull(),
+    documentDate: text("document_date"),
+    tags: jsonb("tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    fileName: text("file_name").notNull(),
+    originalFileName: text("original_file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    fileSize: integer("file_size").notNull(),
+    storageUrl: text("storage_url").notNull(),
+    thumbnailUrl: text("thumbnail_url"),
+    uploadedAt: text("uploaded_at").notNull(),
+    processedAt: text("processed_at"),
+    aiExtractedData: jsonb("ai_extracted_data").$type<
+      NonNullable<UploadedDocument["aiExtractedData"]>
+    >(),
+    isVerified: boolean("is_verified").notNull().default(false),
+    verifiedBy: text("verified_by"),
+    verifiedAt: text("verified_at"),
+    notes: text("notes"),
+    scanStatus: text("scan_status").$type<NonNullable<UploadedDocument["scanStatus"]>>(),
+    scanMessage: text("scan_message"),
+    linkedRecordType: text("linked_record_type"),
+    linkedRecordId: text("linked_record_id"),
+    providerName: text("provider_name"),
+  },
+  (t) => ({
+    patientIdx: index("app_uploaded_documents_patient_idx").on(t.patientId),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

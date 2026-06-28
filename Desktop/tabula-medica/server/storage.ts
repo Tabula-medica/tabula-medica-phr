@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable } from "@shared/schema";
 import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15789,6 +15789,139 @@ export class DatabaseStorage extends MemStorage {
       lastStepCompleted: completedSteps[completedSteps.length - 1],
       completedAt: new Date().toISOString(),
     });
+  }
+
+  // ══ UploadedDocument entity (C1) — patient-uploaded file metadata ════════════
+  // Pure DB replacement: the Map has no readers outside these 5 methods. The file
+  // bytes live in object storage (storageUrl); this is the durable index that
+  // would otherwise orphan every upload on restart. deleteUploadedDocument stays
+  // ownership-scoped (id AND patientId).
+  private mapUploadedDocumentRow(
+    row: typeof appUploadedDocumentsTable.$inferSelect,
+  ): UploadedDocument {
+    return {
+      id: row.id,
+      onboardingSessionId: row.onboardingSessionId ?? undefined,
+      patientId: row.patientId,
+      documentType: row.documentType,
+      title: row.title,
+      documentDate: row.documentDate ?? undefined,
+      tags: row.tags ?? [],
+      fileName: row.fileName,
+      originalFileName: row.originalFileName,
+      mimeType: row.mimeType,
+      fileSize: row.fileSize,
+      storageUrl: row.storageUrl,
+      thumbnailUrl: row.thumbnailUrl ?? undefined,
+      uploadedAt: row.uploadedAt,
+      processedAt: row.processedAt ?? undefined,
+      aiExtractedData: row.aiExtractedData ?? undefined,
+      isVerified: row.isVerified,
+      verifiedBy: row.verifiedBy ?? undefined,
+      verifiedAt: row.verifiedAt ?? undefined,
+      notes: row.notes ?? undefined,
+      scanStatus: row.scanStatus ?? undefined,
+      scanMessage: row.scanMessage ?? undefined,
+      linkedRecordType: row.linkedRecordType ?? undefined,
+      linkedRecordId: row.linkedRecordId ?? undefined,
+      providerName: row.providerName ?? undefined,
+    };
+  }
+
+  /** Map a full UploadedDocument to column values (undefined -> null). */
+  private uploadedDocumentToValues(
+    doc: UploadedDocument,
+  ): typeof appUploadedDocumentsTable.$inferInsert {
+    return {
+      id: doc.id,
+      onboardingSessionId: doc.onboardingSessionId ?? null,
+      patientId: doc.patientId,
+      documentType: doc.documentType,
+      title: doc.title,
+      documentDate: doc.documentDate ?? null,
+      tags: doc.tags ?? [],
+      fileName: doc.fileName,
+      originalFileName: doc.originalFileName,
+      mimeType: doc.mimeType,
+      fileSize: doc.fileSize,
+      storageUrl: doc.storageUrl,
+      thumbnailUrl: doc.thumbnailUrl ?? null,
+      uploadedAt: doc.uploadedAt,
+      processedAt: doc.processedAt ?? null,
+      aiExtractedData: doc.aiExtractedData ?? null,
+      isVerified: doc.isVerified,
+      verifiedBy: doc.verifiedBy ?? null,
+      verifiedAt: doc.verifiedAt ?? null,
+      notes: doc.notes ?? null,
+      scanStatus: doc.scanStatus ?? null,
+      scanMessage: doc.scanMessage ?? null,
+      linkedRecordType: doc.linkedRecordType ?? null,
+      linkedRecordId: doc.linkedRecordId ?? null,
+      providerName: doc.providerName ?? null,
+    };
+  }
+
+  override async getUploadedDocuments(patientId: string): Promise<UploadedDocument[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appUploadedDocumentsTable)
+      .where(eq(appUploadedDocumentsTable.patientId, patientId))
+      .orderBy(desc(appUploadedDocumentsTable.uploadedAt));
+    return rows.map((r) => this.mapUploadedDocumentRow(r));
+  }
+
+  override async getUploadedDocument(id: string): Promise<UploadedDocument | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appUploadedDocumentsTable)
+      .where(eq(appUploadedDocumentsTable.id, id));
+    return row ? this.mapUploadedDocumentRow(row) : undefined;
+  }
+
+  override async createUploadedDocument(doc: InsertUploadedDocument): Promise<UploadedDocument> {
+    const full: UploadedDocument = {
+      id: randomUUID(),
+      ...doc,
+      title: doc.title,
+      tags: doc.tags || [],
+      documentDate: doc.documentDate,
+      uploadedAt: new Date().toISOString(),
+      isVerified: doc.isVerified || false,
+      scanStatus: doc.scanStatus || "pending",
+      scanMessage: doc.scanMessage,
+    };
+    const [row] = await this.dbc
+      .insert(appUploadedDocumentsTable)
+      .values(this.uploadedDocumentToValues(full))
+      .returning();
+    return this.mapUploadedDocumentRow(row);
+  }
+
+  override async updateUploadedDocument(
+    id: string,
+    updates: Partial<UploadedDocument>,
+  ): Promise<UploadedDocument | undefined> {
+    const existing = await this.getUploadedDocument(id);
+    if (!existing) return undefined;
+    const merged: UploadedDocument = { ...existing, ...updates, id: existing.id };
+    const [row] = await this.dbc
+      .update(appUploadedDocumentsTable)
+      .set(this.uploadedDocumentToValues(merged))
+      .where(eq(appUploadedDocumentsTable.id, id))
+      .returning();
+    return row ? this.mapUploadedDocumentRow(row) : undefined;
+  }
+
+  override async deleteUploadedDocument(id: string, patientId: string): Promise<void> {
+    // ownership-scoped: only deletes when the document belongs to patientId
+    await this.dbc
+      .delete(appUploadedDocumentsTable)
+      .where(
+        and(
+          eq(appUploadedDocumentsTable.id, id),
+          eq(appUploadedDocumentsTable.patientId, patientId),
+        ),
+      );
   }
 }
 

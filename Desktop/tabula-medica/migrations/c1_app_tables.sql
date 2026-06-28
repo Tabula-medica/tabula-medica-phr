@@ -265,6 +265,37 @@ CREATE TABLE IF NOT EXISTS app_onboarding_statuses (
   completed_at text
 );
 
+-- Uploaded documents (metadata index for patient-uploaded files; bytes live in
+-- object storage at storage_url). May carry PHI in title/notes/ai_extracted_data.
+CREATE TABLE IF NOT EXISTS app_uploaded_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  onboarding_session_id text,
+  patient_id text NOT NULL,
+  document_type text NOT NULL,
+  title text NOT NULL,
+  document_date text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  file_name text NOT NULL,
+  original_file_name text NOT NULL,
+  mime_type text NOT NULL,
+  file_size integer NOT NULL,
+  storage_url text NOT NULL,
+  thumbnail_url text,
+  uploaded_at text NOT NULL,
+  processed_at text,
+  ai_extracted_data jsonb,
+  is_verified boolean NOT NULL DEFAULT false,
+  verified_by text,
+  verified_at text,
+  notes text,
+  scan_status text,
+  scan_message text,
+  linked_record_type text,
+  linked_record_id text,
+  provider_name text
+);
+CREATE INDEX IF NOT EXISTS app_uploaded_documents_patient_idx ON app_uploaded_documents (patient_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
