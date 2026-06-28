@@ -146,7 +146,7 @@ export function CommandPalette() {
         { id: "nav-ascvd", title: "ASCVD Risk Calculator", icon: HeartHandshake, keywords: "cardiovascular heart risk", action: () => go("/ascvd-calculator") },
         { id: "nav-longevity", title: "Longevity Tracking", icon: Timer, keywords: "aging lifespan healthspan", action: () => go("/longevity-tracking") },
         { id: "nav-directives", title: "Advance Directives", icon: ScrollText, keywords: "living will power attorney", action: () => go("/advance-directives") },
-        { id: "nav-audit", title: "Clinical AI Audit", icon: ShieldCheck, keywords: "med-gemini safety confidence trust", action: () => go("/clinical-ai-audit") },
+        { id: "nav-audit", title: "Clinical AI Audit", icon: ShieldCheck, keywords: "vertex ai safety confidence trust", action: () => go("/clinical-ai-audit") },
       ],
     },
     {

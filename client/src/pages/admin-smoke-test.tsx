@@ -90,7 +90,7 @@ const SECTIONS: FlowSection[] = [
   {
     id: "ambient",
     title: "Ambient encounter notes",
-    description: "Whisper transcription + GPT-4 SOAP + action items.",
+    description: "Whisper transcription + Vertex AI SOAP + action items.",
     route: "/ambient-encounter",
     required: true,
     steps: [

@@ -429,7 +429,7 @@ export default function ExtractionPipeline() {
               <Card data-testid="conflict-list">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Model Disagreements</CardTitle>
-                  <CardDescription>Fields where GPT-4o and Claude 3.5 Sonnet extracted different values</CardDescription>
+                  <CardDescription>Fields where the two extraction models disagreed</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -451,12 +451,12 @@ export default function ExtractionPipeline() {
                         {showSideBySide ? (
                           <div className="grid grid-cols-2 gap-3 mt-2">
                             <div className="p-2 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-                              <div className="text-xs text-gray-500 mb-1">Model A (GPT-4o)</div>
+                              <div className="text-xs text-gray-500 mb-1">Model A</div>
                               <div className="font-mono text-sm font-medium">{c.modelAValue}</div>
                               <div className="text-xs text-gray-500 mt-1">Confidence: {c.modelAConfidence}%</div>
                             </div>
                             <div className="p-2 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-                              <div className="text-xs text-gray-500 mb-1">Model B (Claude 3.5)</div>
+                              <div className="text-xs text-gray-500 mb-1">Model B</div>
                               <div className="font-mono text-sm font-medium">{c.modelBValue}</div>
                               <div className="text-xs text-gray-500 mt-1">Confidence: {c.modelBConfidence}%</div>
                             </div>

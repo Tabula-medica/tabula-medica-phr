@@ -38,7 +38,7 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
 
 /**
  * Translation metadata. When a language's strings are added by machine
- * translation (GPT-4, etc.) instead of a human native speaker, mark
+ * translation (Vertex AI, etc.) instead of a human native speaker, mark
  * `machineTranslated: true` so a future translation pass can prioritize
  * human review. This metadata is consumed by the translation-coverage
  * dashboard and by the ClinicalDisclaimer component (which refuses to

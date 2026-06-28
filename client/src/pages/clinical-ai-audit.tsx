@@ -131,7 +131,7 @@ function ExplainabilityTooltip({ factors, children }: { factors: ExplainabilityF
           <div className="flex items-center gap-2 mb-2 border-b border-slate-700 pb-2">
             <Brain className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             <span className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest">
-              Med-Gemini Reasoning
+              Vertex AI Reasoning
             </span>
           </div>
           <ul className="space-y-2">
@@ -283,12 +283,12 @@ export default function ClinicalAiAudit() {
             Clinical AI Audit
           </h1>
           <p className="text-muted-foreground mt-1 text-sm md:text-base">
-            Med-Gemini safety verification — confidence scoring, source grounding, explainability & human-in-the-loop
+            Vertex AI safety verification — confidence scoring, source grounding, explainability & human-in-the-loop
           </p>
         </div>
         <Badge variant="outline" className="text-xs px-3 py-1.5 self-start md:self-center border-primary/50" data-testid="badge-model-version">
           <Sparkles className="h-3 w-3 mr-1.5 text-primary" aria-hidden="true" />
-          med-gemini-1.5-pro
+          gemini-2.5-flash
         </Badge>
       </div>
 
@@ -616,7 +616,7 @@ export default function ClinicalAiAudit() {
                 <Textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Describe what's inaccurate and what the correct interpretation should be..."
                   data-testid="input-feedback" className="min-h-[100px]" />
-                <p className="text-[10px] text-muted-foreground">This feedback will be used to fine-tune the Med-Gemini model through reinforcement learning from human feedback (RLHF).</p>
+                <p className="text-[10px] text-muted-foreground">This feedback helps us improve the AI model's accuracy.</p>
               </div>
             )}
           </div>
