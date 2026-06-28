@@ -14374,6 +14374,17 @@ export const appPatientNotificationPreferencesTable = pgTable(
   }),
 );
 
+// Onboarding status (C1) — a user's onboarding progress. Keyed directly by
+// user_id (the interface has no surrogate id). Held only in memory, completed
+// onboarding is forgotten on restart and users are re-prompted. One row per user.
+export const appOnboardingStatusesTable = pgTable("app_onboarding_statuses", {
+  userId: text("user_id").primaryKey(),
+  hasCompletedOnboarding: boolean("has_completed_onboarding").notNull().default(false),
+  completedSteps: jsonb("completed_steps").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  lastStepCompleted: text("last_step_completed"),
+  completedAt: text("completed_at"),
+});
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

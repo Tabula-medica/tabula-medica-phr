@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable } from "@shared/schema";
 import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15718,6 +15718,77 @@ export class DatabaseStorage extends MemStorage {
       .values({ patientId: preferences.patientId, ...values })
       .returning();
     return this.mapNotificationPreferencesRow(row);
+  }
+
+  // ══ OnboardingStatus entity (C1) — per-user onboarding progress ══════════════
+  // Pure DB replacement: the Map has no readers outside these 3 methods. Keyed by
+  // user_id; the returned shape has no user_id (the interface omits it). update
+  // merges a partial onto the existing-or-default row, mirroring MemStorage.
+  private mapOnboardingStatusRow(
+    row: typeof appOnboardingStatusesTable.$inferSelect,
+  ): OnboardingStatus {
+    return {
+      hasCompletedOnboarding: row.hasCompletedOnboarding,
+      completedSteps: row.completedSteps ?? [],
+      lastStepCompleted: row.lastStepCompleted ?? undefined,
+      completedAt: row.completedAt ?? undefined,
+    };
+  }
+
+  override async getOnboardingStatus(userId: string): Promise<OnboardingStatus | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appOnboardingStatusesTable)
+      .where(eq(appOnboardingStatusesTable.userId, userId));
+    return row ? this.mapOnboardingStatusRow(row) : undefined;
+  }
+
+  /** Insert-or-update the user's onboarding row with the given full field set. */
+  private async upsertOnboardingStatus(
+    userId: string,
+    status: OnboardingStatus,
+  ): Promise<OnboardingStatus> {
+    const values = {
+      hasCompletedOnboarding: status.hasCompletedOnboarding,
+      completedSteps: status.completedSteps,
+      lastStepCompleted: status.lastStepCompleted ?? null,
+      completedAt: status.completedAt ?? null,
+    };
+    const [row] = await this.dbc
+      .insert(appOnboardingStatusesTable)
+      .values({ userId, ...values })
+      .onConflictDoUpdate({ target: appOnboardingStatusesTable.userId, set: values })
+      .returning();
+    return this.mapOnboardingStatusRow(row);
+  }
+
+  override async updateOnboardingStatus(
+    userId: string,
+    status: Partial<OnboardingStatus>,
+  ): Promise<OnboardingStatus> {
+    const existing = (await this.getOnboardingStatus(userId)) ?? {
+      hasCompletedOnboarding: false,
+      completedSteps: [],
+    };
+    const merged: OnboardingStatus = {
+      hasCompletedOnboarding: status.hasCompletedOnboarding ?? existing.hasCompletedOnboarding,
+      completedSteps: status.completedSteps ?? existing.completedSteps,
+      lastStepCompleted: status.lastStepCompleted ?? existing.lastStepCompleted,
+      completedAt: status.completedAt ?? existing.completedAt,
+    };
+    return this.upsertOnboardingStatus(userId, merged);
+  }
+
+  override async completeOnboarding(
+    userId: string,
+    completedSteps: string[],
+  ): Promise<OnboardingStatus> {
+    return this.upsertOnboardingStatus(userId, {
+      hasCompletedOnboarding: true,
+      completedSteps,
+      lastStepCompleted: completedSteps[completedSteps.length - 1],
+      completedAt: new Date().toISOString(),
+    });
   }
 }
 

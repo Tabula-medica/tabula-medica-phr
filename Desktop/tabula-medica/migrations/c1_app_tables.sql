@@ -256,6 +256,15 @@ CREATE TABLE IF NOT EXISTS app_patient_notification_preferences (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS app_patient_notification_preferences_patient_idx ON app_patient_notification_preferences (patient_id);
 
+-- Onboarding status (per-user onboarding progress; no PHI). Keyed by user_id.
+CREATE TABLE IF NOT EXISTS app_onboarding_statuses (
+  user_id text PRIMARY KEY,
+  has_completed_onboarding boolean NOT NULL DEFAULT false,
+  completed_steps jsonb NOT NULL DEFAULT '[]'::jsonb,
+  last_step_completed text,
+  completed_at text
+);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
