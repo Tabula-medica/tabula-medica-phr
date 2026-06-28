@@ -209,6 +209,21 @@ CREATE TABLE IF NOT EXISTS app_ai_preferences (
   updated_at text NOT NULL
 );
 
+-- Research preferences (research/monetization consent opt-in). One row per patient.
+CREATE TABLE IF NOT EXISTS app_research_preferences (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id text NOT NULL,
+  allow_research boolean NOT NULL DEFAULT false,
+  allow_monetization boolean NOT NULL DEFAULT false,
+  preferred_method text NOT NULL DEFAULT 'safe_harbor',
+  allowed_purposes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  excluded_categories jsonb NOT NULL DEFAULT '[]'::jsonb,
+  require_notification boolean NOT NULL DEFAULT true,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS app_research_preferences_patient_idx ON app_research_preferences (patient_user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

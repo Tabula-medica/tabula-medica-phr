@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15490,6 +15490,77 @@ export class DatabaseStorage extends MemStorage {
       })
       .returning();
     return this.mapAiPreferencesRow(row);
+  }
+
+  // ══ ResearchPreferences entity (C1) — research/monetization consent ══════════
+  // Pure DB replacement: the Map has no readers outside these 2 methods. This is
+  // a consent record (research opt-in) keyed by patient; createOrUpdate is an
+  // upsert mirroring MemStorage (id + createdAt preserved across updates).
+  private mapResearchPreferencesRow(
+    row: typeof appResearchPreferencesTable.$inferSelect,
+  ): ResearchPreferences {
+    return {
+      id: row.id,
+      patientUserId: row.patientUserId,
+      allowResearch: row.allowResearch,
+      allowMonetization: row.allowMonetization,
+      preferredMethod: row.preferredMethod,
+      allowedPurposes: row.allowedPurposes ?? [],
+      excludedCategories: row.excludedCategories ?? [],
+      requireNotification: row.requireNotification,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getResearchPreferences(
+    patientUserId: string,
+  ): Promise<ResearchPreferences | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appResearchPreferencesTable)
+      .where(eq(appResearchPreferencesTable.patientUserId, patientUserId));
+    return row ? this.mapResearchPreferencesRow(row) : undefined;
+  }
+
+  override async createOrUpdateResearchPreferences(
+    prefs: InsertResearchPreferences,
+  ): Promise<ResearchPreferences> {
+    const now = new Date().toISOString();
+    const [existing] = await this.dbc
+      .select()
+      .from(appResearchPreferencesTable)
+      .where(eq(appResearchPreferencesTable.patientUserId, prefs.patientUserId));
+
+    const values = {
+      allowResearch: prefs.allowResearch ?? false,
+      allowMonetization: prefs.allowMonetization ?? false,
+      preferredMethod: prefs.preferredMethod ?? "safe_harbor",
+      allowedPurposes: (prefs.allowedPurposes as ResearchPreferences["allowedPurposes"]) ?? [],
+      excludedCategories:
+        (prefs.excludedCategories as ResearchPreferences["excludedCategories"]) ?? [],
+      requireNotification: prefs.requireNotification ?? true,
+    };
+
+    if (existing) {
+      const [row] = await this.dbc
+        .update(appResearchPreferencesTable)
+        .set({ ...values, updatedAt: now })
+        .where(eq(appResearchPreferencesTable.patientUserId, prefs.patientUserId))
+        .returning();
+      return this.mapResearchPreferencesRow(row);
+    }
+
+    const [row] = await this.dbc
+      .insert(appResearchPreferencesTable)
+      .values({
+        patientUserId: prefs.patientUserId,
+        ...values,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapResearchPreferencesRow(row);
   }
 }
 

@@ -14293,6 +14293,38 @@ export const appAiPreferencesTable = pgTable("app_ai_preferences", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// Research preferences (C1) — a patient's research / monetization opt-in and
+// de-identification choices. This is a CONSENT record (whether a patient permits
+// their data to be used for research): it must survive restarts, not reset to
+// the no-consent default. One row per patient (unique patient_user_id).
+export const appResearchPreferencesTable = pgTable(
+  "app_research_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientUserId: text("patient_user_id").notNull(),
+    allowResearch: boolean("allow_research").notNull().default(false),
+    allowMonetization: boolean("allow_monetization").notNull().default(false),
+    preferredMethod: text("preferred_method")
+      .$type<DeidentificationMethod>()
+      .notNull()
+      .default("safe_harbor"),
+    allowedPurposes: jsonb("allowed_purposes")
+      .$type<ResearchPurpose[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    excludedCategories: jsonb("excluded_categories")
+      .$type<DataCategory[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    requireNotification: boolean("require_notification").notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    patientIdx: uniqueIndex("app_research_preferences_patient_idx").on(t.patientUserId),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];
