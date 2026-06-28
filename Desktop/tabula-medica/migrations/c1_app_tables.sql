@@ -148,6 +148,43 @@ CREATE TABLE IF NOT EXISTS app_security_settings (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS app_security_settings_user_idx ON app_security_settings (user_id);
 
+-- Caregiver access log (HIPAA accounting of disclosures; append-only).
+CREATE TABLE IF NOT EXISTS app_caregiver_access_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  caregiver_id text NOT NULL,
+  caregiver_name text NOT NULL,
+  patient_user_id text NOT NULL,
+  access_type text NOT NULL,
+  resource_type text NOT NULL,
+  resource_id text,
+  action text NOT NULL,
+  ip_address text,
+  user_agent text,
+  approved boolean NOT NULL DEFAULT true,
+  emergency_override boolean NOT NULL DEFAULT false,
+  patient_notified boolean NOT NULL DEFAULT false,
+  accessed_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_caregiver_access_logs_patient_idx ON app_caregiver_access_logs (patient_user_id);
+CREATE INDEX IF NOT EXISTS app_caregiver_access_logs_caregiver_idx ON app_caregiver_access_logs (caregiver_id);
+
+-- Caregiver access request (pending sensitive-permission asks, patient-reviewed).
+CREATE TABLE IF NOT EXISTS app_caregiver_access_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  caregiver_id text NOT NULL,
+  caregiver_name text NOT NULL,
+  patient_user_id text NOT NULL,
+  requested_permission text NOT NULL,
+  reason text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  requested_at text NOT NULL,
+  reviewed_at text,
+  reviewed_by text,
+  review_notes text,
+  expires_at text
+);
+CREATE INDEX IF NOT EXISTS app_caregiver_access_requests_patient_idx ON app_caregiver_access_requests (patient_user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

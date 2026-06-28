@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15209,6 +15209,173 @@ export class DatabaseStorage extends MemStorage {
       })
       .returning();
     return this.mapSecuritySettingsRow(row);
+  }
+
+  // ══ CaregiverAccessLog entity (C1) — accounting of disclosures (append-only) ══
+  // Pure DB replacement: the Map has no readers outside these 2 methods. This is
+  // a HIPAA access-audit trail — it MUST survive restarts.
+  private mapCaregiverAccessLogRow(
+    row: typeof appCaregiverAccessLogsTable.$inferSelect,
+  ): import("@shared/schema").CaregiverAccessLog {
+    return {
+      id: row.id,
+      caregiverId: row.caregiverId,
+      caregiverName: row.caregiverName,
+      patientUserId: row.patientUserId,
+      accessType: row.accessType,
+      resourceType: row.resourceType,
+      resourceId: row.resourceId,
+      action: row.action,
+      ipAddress: row.ipAddress,
+      userAgent: row.userAgent,
+      approved: row.approved,
+      emergencyOverride: row.emergencyOverride,
+      patientNotified: row.patientNotified,
+      accessedAt: row.accessedAt,
+    };
+  }
+
+  override async getCaregiverAccessLogs(
+    patientUserId: string,
+    filters?: { caregiverId?: string; resourceType?: string; limit?: number },
+  ): Promise<import("@shared/schema").CaregiverAccessLog[]> {
+    const conds = [eq(appCaregiverAccessLogsTable.patientUserId, patientUserId)];
+    if (filters?.caregiverId)
+      conds.push(eq(appCaregiverAccessLogsTable.caregiverId, filters.caregiverId));
+    if (filters?.resourceType)
+      conds.push(eq(appCaregiverAccessLogsTable.resourceType, filters.resourceType));
+    const rows = await this.dbc
+      .select()
+      .from(appCaregiverAccessLogsTable)
+      .where(and(...conds))
+      .orderBy(desc(appCaregiverAccessLogsTable.accessedAt));
+    const logs = rows.map((r) => this.mapCaregiverAccessLogRow(r));
+    return filters?.limit ? logs.slice(0, filters.limit) : logs;
+  }
+
+  override async createCaregiverAccessLog(
+    log: import("@shared/schema").InsertCaregiverAccessLog,
+  ): Promise<import("@shared/schema").CaregiverAccessLog> {
+    const [row] = await this.dbc
+      .insert(appCaregiverAccessLogsTable)
+      .values({
+        caregiverId: log.caregiverId,
+        caregiverName: log.caregiverName,
+        patientUserId: log.patientUserId,
+        accessType: log.accessType,
+        resourceType: log.resourceType,
+        resourceId: log.resourceId ?? null,
+        action: log.action,
+        ipAddress: log.ipAddress ?? null,
+        userAgent: log.userAgent ?? null,
+        approved: log.approved !== false,
+        emergencyOverride: log.emergencyOverride || false,
+        patientNotified: log.patientNotified || false,
+        accessedAt: new Date().toISOString(),
+      })
+      .returning();
+    return this.mapCaregiverAccessLogRow(row);
+  }
+
+  // ══ CaregiverAccessRequest entity (C1) — pending sensitive-permission asks ════
+  // Pure DB replacement: the Map has no readers outside these 4 methods.
+  // reviewCaregiverAccessRequest stays ownership-scoped (patient must own it).
+  private mapCaregiverAccessRequestRow(
+    row: typeof appCaregiverAccessRequestsTable.$inferSelect,
+  ): import("@shared/schema").CaregiverAccessRequest {
+    return {
+      id: row.id,
+      caregiverId: row.caregiverId,
+      caregiverName: row.caregiverName,
+      patientUserId: row.patientUserId,
+      requestedPermission: row.requestedPermission,
+      reason: row.reason,
+      status: row.status,
+      requestedAt: row.requestedAt,
+      reviewedAt: row.reviewedAt,
+      reviewedBy: row.reviewedBy,
+      reviewNotes: row.reviewNotes,
+      expiresAt: row.expiresAt,
+    };
+  }
+
+  override async getCaregiverAccessRequests(
+    patientUserId: string,
+    status?: string,
+  ): Promise<import("@shared/schema").CaregiverAccessRequest[]> {
+    const conds = [eq(appCaregiverAccessRequestsTable.patientUserId, patientUserId)];
+    if (status)
+      conds.push(
+        eq(
+          appCaregiverAccessRequestsTable.status,
+          status as import("@shared/schema").CaregiverAccessRequest["status"],
+        ),
+      );
+    const rows = await this.dbc
+      .select()
+      .from(appCaregiverAccessRequestsTable)
+      .where(and(...conds))
+      .orderBy(desc(appCaregiverAccessRequestsTable.requestedAt));
+    return rows.map((r) => this.mapCaregiverAccessRequestRow(r));
+  }
+
+  override async getCaregiverAccessRequest(
+    id: string,
+  ): Promise<import("@shared/schema").CaregiverAccessRequest | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appCaregiverAccessRequestsTable)
+      .where(eq(appCaregiverAccessRequestsTable.id, id));
+    return row ? this.mapCaregiverAccessRequestRow(row) : undefined;
+  }
+
+  override async createCaregiverAccessRequest(
+    request: import("@shared/schema").InsertCaregiverAccessRequest,
+  ): Promise<import("@shared/schema").CaregiverAccessRequest> {
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const [row] = await this.dbc
+      .insert(appCaregiverAccessRequestsTable)
+      .values({
+        caregiverId: request.caregiverId,
+        caregiverName: request.caregiverName,
+        patientUserId: request.patientUserId,
+        requestedPermission: request.requestedPermission,
+        reason: request.reason,
+        status: "pending",
+        requestedAt: now,
+        reviewedAt: null,
+        reviewedBy: null,
+        reviewNotes: null,
+        expiresAt,
+      })
+      .returning();
+    return this.mapCaregiverAccessRequestRow(row);
+  }
+
+  override async reviewCaregiverAccessRequest(
+    id: string,
+    patientUserId: string,
+    approved: boolean,
+    notes?: string,
+  ): Promise<import("@shared/schema").CaregiverAccessRequest | undefined> {
+    // ownership-scoped: only the patient who owns the request may review it.
+    const [row] = await this.dbc
+      .update(appCaregiverAccessRequestsTable)
+      .set({
+        status: approved ? "approved" : "denied",
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: patientUserId,
+        reviewNotes: notes ?? null,
+      })
+      .where(
+        and(
+          eq(appCaregiverAccessRequestsTable.id, id),
+          eq(appCaregiverAccessRequestsTable.patientUserId, patientUserId),
+        ),
+      )
+      .returning();
+    return row ? this.mapCaregiverAccessRequestRow(row) : undefined;
   }
 }
 

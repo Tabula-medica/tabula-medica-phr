@@ -4972,6 +4972,59 @@ export const appCaregiversTable = pgTable(
   }),
 );
 
+// Caregiver access log (C1) — accounting of disclosures: every time a caregiver
+// views/acts on a patient's data. Append-only audit trail; losing it on restart
+// destroys the HIPAA access record. Indexed by patient.
+export const appCaregiverAccessLogsTable = pgTable(
+  "app_caregiver_access_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    caregiverId: text("caregiver_id").notNull(),
+    caregiverName: text("caregiver_name").notNull(),
+    patientUserId: text("patient_user_id").notNull(),
+    accessType: text("access_type").$type<CaregiverAccessLog["accessType"]>().notNull(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: text("resource_id"),
+    action: text("action").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    approved: boolean("approved").notNull().default(true),
+    emergencyOverride: boolean("emergency_override").notNull().default(false),
+    patientNotified: boolean("patient_notified").notNull().default(false),
+    accessedAt: text("accessed_at").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_caregiver_access_logs_patient_idx").on(t.patientUserId),
+    caregiverIdx: index("app_caregiver_access_logs_caregiver_idx").on(t.caregiverId),
+  }),
+);
+
+// Caregiver access request (C1) — a caregiver's pending request for a sensitive
+// permission, reviewed/approved by the patient. Held in memory it would forget
+// every pending request on restart. Indexed by patient.
+export const appCaregiverAccessRequestsTable = pgTable(
+  "app_caregiver_access_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    caregiverId: text("caregiver_id").notNull(),
+    caregiverName: text("caregiver_name").notNull(),
+    patientUserId: text("patient_user_id").notNull(),
+    requestedPermission: text("requested_permission")
+      .$type<CaregiverPermissionCategory>()
+      .notNull(),
+    reason: text("reason").notNull(),
+    status: text("status").$type<CaregiverAccessRequest["status"]>().notNull().default("pending"),
+    requestedAt: text("requested_at").notNull(),
+    reviewedAt: text("reviewed_at"),
+    reviewedBy: text("reviewed_by"),
+    reviewNotes: text("review_notes"),
+    expiresAt: text("expires_at"),
+  },
+  (t) => ({
+    patientIdx: index("app_caregiver_access_requests_patient_idx").on(t.patientUserId),
+  }),
+);
+
 // Schema for updating caregiver permissions
 export const updateCaregiverPermissionsSchema = z.object({
   permissions: z.array(z.enum(caregiverPermissionCategories)),
