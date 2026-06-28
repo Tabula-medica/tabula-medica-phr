@@ -239,6 +239,23 @@ CREATE TABLE IF NOT EXISTS app_default_sharing_policies (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS app_default_sharing_policies_key_idx ON app_default_sharing_policies (patient_user_id, recipient_type, data_category);
 
+-- Patient notification preferences (per-patient channel/reminder settings; no PHI).
+CREATE TABLE IF NOT EXISTS app_patient_notification_preferences (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text NOT NULL,
+  email_enabled boolean NOT NULL DEFAULT true,
+  sms_enabled boolean NOT NULL DEFAULT false,
+  push_enabled boolean NOT NULL DEFAULT true,
+  refill_reminders boolean NOT NULL DEFAULT true,
+  status_updates boolean NOT NULL DEFAULT true,
+  transfer_updates boolean NOT NULL DEFAULT true,
+  reminder_days_before integer NOT NULL DEFAULT 3,
+  quiet_hours_start text,
+  quiet_hours_end text,
+  preferred_language text NOT NULL DEFAULT 'en'
+);
+CREATE UNIQUE INDEX IF NOT EXISTS app_patient_notification_preferences_patient_idx ON app_patient_notification_preferences (patient_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -14351,6 +14351,29 @@ export const appDefaultSharingPoliciesTable = pgTable(
   }),
 );
 
+// Patient notification preferences (C1) — per-patient channel toggles, reminder
+// cadence, quiet hours, and language. No PHI. One row per patient.
+export const appPatientNotificationPreferencesTable = pgTable(
+  "app_patient_notification_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id").notNull(),
+    emailEnabled: boolean("email_enabled").notNull().default(true),
+    smsEnabled: boolean("sms_enabled").notNull().default(false),
+    pushEnabled: boolean("push_enabled").notNull().default(true),
+    refillReminders: boolean("refill_reminders").notNull().default(true),
+    statusUpdates: boolean("status_updates").notNull().default(true),
+    transferUpdates: boolean("transfer_updates").notNull().default(true),
+    reminderDaysBefore: integer("reminder_days_before").notNull().default(3),
+    quietHoursStart: text("quiet_hours_start"),
+    quietHoursEnd: text("quiet_hours_end"),
+    preferredLanguage: text("preferred_language").notNull().default("en"),
+  },
+  (t) => ({
+    patientIdx: uniqueIndex("app_patient_notification_preferences_patient_idx").on(t.patientId),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

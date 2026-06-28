@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable } from "@shared/schema";
 import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15646,6 +15646,78 @@ export class DatabaseStorage extends MemStorage {
       })
       .returning();
     return this.mapDefaultSharingPolicyRow(row);
+  }
+
+  // ══ PatientNotificationPreferences entity (C1) — per-patient channel prefs ════
+  // Pure DB replacement: the Map has no readers outside these 2 methods. Keyed by
+  // patient_id; createOrUpdate is an upsert. MemStorage applies the incoming
+  // (zod-defaulted) preferences wholesale on update, so we map the full column
+  // set in both branches (id preserved on update). Optional quiet-hours map back
+  // to undefined to match the interface.
+  private mapNotificationPreferencesRow(
+    row: typeof appPatientNotificationPreferencesTable.$inferSelect,
+  ): PatientNotificationPreferences {
+    return {
+      id: row.id,
+      patientId: row.patientId,
+      emailEnabled: row.emailEnabled,
+      smsEnabled: row.smsEnabled,
+      pushEnabled: row.pushEnabled,
+      refillReminders: row.refillReminders,
+      statusUpdates: row.statusUpdates,
+      transferUpdates: row.transferUpdates,
+      reminderDaysBefore: row.reminderDaysBefore,
+      quietHoursStart: row.quietHoursStart ?? undefined,
+      quietHoursEnd: row.quietHoursEnd ?? undefined,
+      preferredLanguage: row.preferredLanguage,
+    };
+  }
+
+  override async getNotificationPreferences(
+    patientId: string,
+  ): Promise<PatientNotificationPreferences | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appPatientNotificationPreferencesTable)
+      .where(eq(appPatientNotificationPreferencesTable.patientId, patientId));
+    return row ? this.mapNotificationPreferencesRow(row) : undefined;
+  }
+
+  override async createOrUpdateNotificationPreferences(
+    preferences: InsertPatientNotificationPreferences,
+  ): Promise<PatientNotificationPreferences> {
+    const values = {
+      emailEnabled: preferences.emailEnabled ?? true,
+      smsEnabled: preferences.smsEnabled ?? false,
+      pushEnabled: preferences.pushEnabled ?? true,
+      refillReminders: preferences.refillReminders ?? true,
+      statusUpdates: preferences.statusUpdates ?? true,
+      transferUpdates: preferences.transferUpdates ?? true,
+      reminderDaysBefore: preferences.reminderDaysBefore ?? 3,
+      quietHoursStart: preferences.quietHoursStart ?? null,
+      quietHoursEnd: preferences.quietHoursEnd ?? null,
+      preferredLanguage: preferences.preferredLanguage ?? "en",
+    };
+
+    const [existing] = await this.dbc
+      .select()
+      .from(appPatientNotificationPreferencesTable)
+      .where(eq(appPatientNotificationPreferencesTable.patientId, preferences.patientId));
+
+    if (existing) {
+      const [row] = await this.dbc
+        .update(appPatientNotificationPreferencesTable)
+        .set(values)
+        .where(eq(appPatientNotificationPreferencesTable.patientId, preferences.patientId))
+        .returning();
+      return this.mapNotificationPreferencesRow(row);
+    }
+
+    const [row] = await this.dbc
+      .insert(appPatientNotificationPreferencesTable)
+      .values({ patientId: preferences.patientId, ...values })
+      .returning();
+    return this.mapNotificationPreferencesRow(row);
   }
 }
 
