@@ -5819,6 +5819,30 @@ export const appSecuritySettingsTable = pgTable(
   }),
 );
 
+// Consent audit log (C1) — the consent accounting trail: every grant/revoke/
+// modify/access/export/policy_update on a patient's data-sharing consents. This
+// is the §164.524 / accounting-of-disclosures record; it MUST survive restarts.
+// Append-only; indexed by patient.
+export const appConsentAuditLogsTable = pgTable(
+  "app_consent_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientUserId: text("patient_user_id").notNull(),
+    recipientId: text("recipient_id"),
+    action: text("action").$type<ConsentAuditLog["action"]>().notNull(),
+    dataCategory: text("data_category").$type<DataCategory>(),
+    previousAccessLevel: text("previous_access_level").$type<AccessLevel>(),
+    newAccessLevel: text("new_access_level").$type<AccessLevel>(),
+    reason: text("reason"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    timestamp: text("timestamp").notNull(),
+  },
+  (t) => ({
+    patientIdx: index("app_consent_audit_logs_patient_idx").on(t.patientUserId),
+  }),
+);
+
 // Security Audit Log
 export const securityEventTypes = [
   "login",

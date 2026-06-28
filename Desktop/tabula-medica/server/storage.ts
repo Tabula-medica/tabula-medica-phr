@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable } from "@shared/schema";
 import type { SecurityEventType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -15376,6 +15376,60 @@ export class DatabaseStorage extends MemStorage {
       )
       .returning();
     return row ? this.mapCaregiverAccessRequestRow(row) : undefined;
+  }
+
+  // ══ ConsentAuditLog entity (C1) — consent accounting trail (append-only) ══════
+  // Pure DB replacement: the Map has no readers outside these 2 methods. Nullable
+  // columns map back to `undefined` (not null) to match the interface, whose
+  // optional fields are `?:`.
+  private mapConsentAuditLogRow(
+    row: typeof appConsentAuditLogsTable.$inferSelect,
+  ): ConsentAuditLog {
+    return {
+      id: row.id,
+      patientUserId: row.patientUserId,
+      recipientId: row.recipientId ?? undefined,
+      action: row.action,
+      dataCategory: row.dataCategory ?? undefined,
+      previousAccessLevel: row.previousAccessLevel ?? undefined,
+      newAccessLevel: row.newAccessLevel ?? undefined,
+      reason: row.reason ?? undefined,
+      ipAddress: row.ipAddress ?? undefined,
+      userAgent: row.userAgent ?? undefined,
+      timestamp: row.timestamp,
+    };
+  }
+
+  override async getConsentAuditLogs(
+    patientUserId: string,
+    limit?: number,
+  ): Promise<ConsentAuditLog[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appConsentAuditLogsTable)
+      .where(eq(appConsentAuditLogsTable.patientUserId, patientUserId))
+      .orderBy(desc(appConsentAuditLogsTable.timestamp));
+    const logs = rows.map((r) => this.mapConsentAuditLogRow(r));
+    return limit ? logs.slice(0, limit) : logs;
+  }
+
+  override async createConsentAuditLog(log: InsertConsentAuditLog): Promise<ConsentAuditLog> {
+    const [row] = await this.dbc
+      .insert(appConsentAuditLogsTable)
+      .values({
+        patientUserId: log.patientUserId,
+        recipientId: log.recipientId ?? null,
+        action: log.action,
+        dataCategory: log.dataCategory ?? null,
+        previousAccessLevel: log.previousAccessLevel ?? null,
+        newAccessLevel: log.newAccessLevel ?? null,
+        reason: log.reason ?? null,
+        ipAddress: log.ipAddress ?? null,
+        userAgent: log.userAgent ?? null,
+        timestamp: new Date().toISOString(),
+      })
+      .returning();
+    return this.mapConsentAuditLogRow(row);
   }
 }
 

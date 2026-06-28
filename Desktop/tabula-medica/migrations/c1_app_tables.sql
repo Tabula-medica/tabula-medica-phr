@@ -185,6 +185,22 @@ CREATE TABLE IF NOT EXISTS app_caregiver_access_requests (
 );
 CREATE INDEX IF NOT EXISTS app_caregiver_access_requests_patient_idx ON app_caregiver_access_requests (patient_user_id);
 
+-- Consent audit log (§164.524 consent accounting trail; append-only).
+CREATE TABLE IF NOT EXISTS app_consent_audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id text NOT NULL,
+  recipient_id text,
+  action text NOT NULL,
+  data_category text,
+  previous_access_level text,
+  new_access_level text,
+  reason text,
+  ip_address text,
+  user_agent text,
+  timestamp text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_consent_audit_logs_patient_idx ON app_consent_audit_logs (patient_user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
