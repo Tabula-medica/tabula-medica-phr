@@ -151,8 +151,8 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable } from "@shared/schema";
-import type { SecurityEventType } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable } from "@shared/schema";
+import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
 
@@ -15561,6 +15561,91 @@ export class DatabaseStorage extends MemStorage {
       })
       .returning();
     return this.mapResearchPreferencesRow(row);
+  }
+
+  // ══ DefaultSharingPolicy entity (C1) — per-recipient/category PHI defaults ════
+  // Pure DB replacement: the Map has no readers outside these 3 methods. Upsert
+  // keyed on the (patient, recipientType, dataCategory) composite, mirroring
+  // MemStorage (id + createdAt preserved across updates).
+  private mapDefaultSharingPolicyRow(
+    row: typeof appDefaultSharingPoliciesTable.$inferSelect,
+  ): DefaultSharingPolicy {
+    return {
+      id: row.id,
+      patientUserId: row.patientUserId,
+      recipientType: row.recipientType,
+      dataCategory: row.dataCategory,
+      defaultAccessLevel: row.defaultAccessLevel,
+      autoApprove: row.autoApprove,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  override async getDefaultSharingPolicies(
+    patientUserId: string,
+  ): Promise<DefaultSharingPolicy[]> {
+    const rows = await this.dbc
+      .select()
+      .from(appDefaultSharingPoliciesTable)
+      .where(eq(appDefaultSharingPoliciesTable.patientUserId, patientUserId));
+    return rows.map((r) => this.mapDefaultSharingPolicyRow(r));
+  }
+
+  override async getDefaultSharingPolicy(
+    patientUserId: string,
+    recipientType: string,
+    category: DataCategory,
+  ): Promise<DefaultSharingPolicy | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appDefaultSharingPoliciesTable)
+      .where(
+        and(
+          eq(appDefaultSharingPoliciesTable.patientUserId, patientUserId),
+          eq(appDefaultSharingPoliciesTable.recipientType, recipientType as RecipientType),
+          eq(appDefaultSharingPoliciesTable.dataCategory, category),
+        ),
+      );
+    return row ? this.mapDefaultSharingPolicyRow(row) : undefined;
+  }
+
+  override async createOrUpdateDefaultPolicy(
+    policy: InsertDefaultSharingPolicy,
+  ): Promise<DefaultSharingPolicy> {
+    const now = new Date().toISOString();
+    const existing = await this.getDefaultSharingPolicy(
+      policy.patientUserId,
+      policy.recipientType,
+      policy.dataCategory,
+    );
+
+    if (existing) {
+      const [row] = await this.dbc
+        .update(appDefaultSharingPoliciesTable)
+        .set({
+          defaultAccessLevel: policy.defaultAccessLevel || "none",
+          autoApprove: policy.autoApprove ?? false,
+          updatedAt: now,
+        })
+        .where(eq(appDefaultSharingPoliciesTable.id, existing.id))
+        .returning();
+      return this.mapDefaultSharingPolicyRow(row);
+    }
+
+    const [row] = await this.dbc
+      .insert(appDefaultSharingPoliciesTable)
+      .values({
+        patientUserId: policy.patientUserId,
+        recipientType: policy.recipientType,
+        dataCategory: policy.dataCategory,
+        defaultAccessLevel: policy.defaultAccessLevel || "none",
+        autoApprove: policy.autoApprove ?? false,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return this.mapDefaultSharingPolicyRow(row);
   }
 }
 

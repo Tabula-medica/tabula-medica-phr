@@ -14325,6 +14325,32 @@ export const appResearchPreferencesTable = pgTable(
   }),
 );
 
+// Default sharing policies (C1) — a patient's per-(recipientType, dataCategory)
+// default PHI access level + auto-approve flag. This is access-control config:
+// losing it on restart silently drops the patient's sharing defaults back to
+// nothing. Unique on (patient, recipientType, dataCategory); that composite
+// index also serves the by-patient lookup via its leftmost prefix.
+export const appDefaultSharingPoliciesTable = pgTable(
+  "app_default_sharing_policies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientUserId: text("patient_user_id").notNull(),
+    recipientType: text("recipient_type").$type<RecipientType>().notNull(),
+    dataCategory: text("data_category").$type<DataCategory>().notNull(),
+    defaultAccessLevel: text("default_access_level").$type<AccessLevel>().notNull().default("none"),
+    autoApprove: boolean("auto_approve").notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({
+    keyIdx: uniqueIndex("app_default_sharing_policies_key_idx").on(
+      t.patientUserId,
+      t.recipientType,
+      t.dataCategory,
+    ),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

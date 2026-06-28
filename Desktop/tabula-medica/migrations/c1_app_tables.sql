@@ -224,6 +224,21 @@ CREATE TABLE IF NOT EXISTS app_research_preferences (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS app_research_preferences_patient_idx ON app_research_preferences (patient_user_id);
 
+-- Default sharing policies (per-recipient/category PHI access defaults).
+-- Unique on (patient, recipient_type, data_category); that index also serves the
+-- by-patient lookup via its leftmost prefix.
+CREATE TABLE IF NOT EXISTS app_default_sharing_policies (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id text NOT NULL,
+  recipient_type text NOT NULL,
+  data_category text NOT NULL,
+  default_access_level text NOT NULL DEFAULT 'none',
+  auto_approve boolean NOT NULL DEFAULT false,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS app_default_sharing_policies_key_idx ON app_default_sharing_policies (patient_user_id, recipient_type, data_category);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
