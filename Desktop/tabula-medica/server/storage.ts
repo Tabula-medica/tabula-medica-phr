@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable, appRpmDevicesTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable, appRpmDevicesTable, appOnboardingSessionsTable } from "@shared/schema";
 import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -16034,6 +16034,139 @@ export class DatabaseStorage extends MemStorage {
 
   override async deleteRpmDevice(id: string): Promise<void> {
     await this.dbc.delete(appRpmDevicesTable).where(eq(appRpmDevicesTable.id, id));
+  }
+
+  // ══ PatientOnboardingSession entity (C1) — in-progress onboarding state ══════
+  // Pure DB replacement: the Map has no readers outside these 5 methods. Carries
+  // the patient's entered form data / health assessment as jsonb; optional
+  // columns map null <-> undefined. getOnboardingSessionByUser returns the user's
+  // first still-incomplete session, mirroring MemStorage.
+  private mapOnboardingSessionRow(
+    row: typeof appOnboardingSessionsTable.$inferSelect,
+  ): PatientOnboardingSession {
+    return {
+      id: row.id,
+      patientId: row.patientId ?? undefined,
+      userId: row.userId,
+      currentStep: row.currentStep,
+      completedSteps: row.completedSteps ?? [],
+      formData: row.formData ?? {},
+      aiExtractedData: row.aiExtractedData ?? undefined,
+      personalizedWelcome: row.personalizedWelcome ?? undefined,
+      healthAssessment: row.healthAssessment ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt ?? undefined,
+      isComplete: row.isComplete,
+    };
+  }
+
+  private onboardingSessionToValues(
+    session: PatientOnboardingSession,
+  ): typeof appOnboardingSessionsTable.$inferInsert {
+    return {
+      id: session.id,
+      patientId: session.patientId ?? null,
+      userId: session.userId,
+      currentStep: session.currentStep,
+      completedSteps: session.completedSteps,
+      formData: session.formData,
+      aiExtractedData: session.aiExtractedData ?? null,
+      personalizedWelcome: session.personalizedWelcome ?? null,
+      healthAssessment: session.healthAssessment ?? null,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      completedAt: session.completedAt ?? null,
+      isComplete: session.isComplete,
+    };
+  }
+
+  override async getOnboardingSession(id: string): Promise<PatientOnboardingSession | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appOnboardingSessionsTable)
+      .where(eq(appOnboardingSessionsTable.id, id));
+    return row ? this.mapOnboardingSessionRow(row) : undefined;
+  }
+
+  override async getOnboardingSessionByUser(
+    userId: string,
+  ): Promise<PatientOnboardingSession | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appOnboardingSessionsTable)
+      .where(
+        and(
+          eq(appOnboardingSessionsTable.userId, userId),
+          eq(appOnboardingSessionsTable.isComplete, false),
+        ),
+      );
+    return row ? this.mapOnboardingSessionRow(row) : undefined;
+  }
+
+  override async createOnboardingSession(
+    session: InsertPatientOnboardingSession,
+  ): Promise<PatientOnboardingSession> {
+    const now = new Date().toISOString();
+    const full: PatientOnboardingSession = {
+      id: randomUUID(),
+      userId: session.userId,
+      patientId: session.patientId,
+      currentStep: (session.currentStep || "welcome") as OnboardingStep,
+      completedSteps: (session.completedSteps || []) as OnboardingStep[],
+      formData: session.formData || {},
+      aiExtractedData: session.aiExtractedData,
+      personalizedWelcome: session.personalizedWelcome,
+      healthAssessment: session.healthAssessment,
+      createdAt: now,
+      updatedAt: now,
+      isComplete: session.isComplete || false,
+    };
+    const [row] = await this.dbc
+      .insert(appOnboardingSessionsTable)
+      .values(this.onboardingSessionToValues(full))
+      .returning();
+    return this.mapOnboardingSessionRow(row);
+  }
+
+  override async updateOnboardingSession(
+    id: string,
+    updates: Partial<PatientOnboardingSession>,
+  ): Promise<PatientOnboardingSession | undefined> {
+    const existing = await this.getOnboardingSession(id);
+    if (!existing) return undefined;
+    const merged: PatientOnboardingSession = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      updatedAt: new Date().toISOString(),
+    };
+    const [row] = await this.dbc
+      .update(appOnboardingSessionsTable)
+      .set(this.onboardingSessionToValues(merged))
+      .where(eq(appOnboardingSessionsTable.id, id))
+      .returning();
+    return row ? this.mapOnboardingSessionRow(row) : undefined;
+  }
+
+  override async completeOnboardingSession(
+    id: string,
+  ): Promise<PatientOnboardingSession | undefined> {
+    const existing = await this.getOnboardingSession(id);
+    if (!existing) return undefined;
+    const now = new Date().toISOString();
+    const completed: PatientOnboardingSession = {
+      ...existing,
+      isComplete: true,
+      completedAt: now,
+      updatedAt: now,
+    };
+    const [row] = await this.dbc
+      .update(appOnboardingSessionsTable)
+      .set(this.onboardingSessionToValues(completed))
+      .where(eq(appOnboardingSessionsTable.id, id))
+      .returning();
+    return row ? this.mapOnboardingSessionRow(row) : undefined;
   }
 }
 

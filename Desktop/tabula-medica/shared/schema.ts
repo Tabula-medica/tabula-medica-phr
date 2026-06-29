@@ -14455,6 +14455,40 @@ export const appRpmDevicesTable = pgTable(
   }),
 );
 
+// Patient onboarding sessions (C1) — in-progress onboarding state, including the
+// patient's entered form data and any AI-extracted/health-assessment payloads.
+// Held only in memory, an in-progress onboarding is lost on restart and the
+// patient starts over. Indexed by user. (formData/healthAssessment may carry
+// PHI; the file is stored as jsonb and protected by DB-at-rest encryption, the
+// same posture as the other first-party PHI tables in this migration.)
+export const appOnboardingSessionsTable = pgTable(
+  "app_onboarding_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: text("patient_id"),
+    userId: text("user_id").notNull(),
+    currentStep: text("current_step").$type<OnboardingStep>().notNull().default("welcome"),
+    completedSteps: jsonb("completed_steps")
+      .$type<OnboardingStep[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    formData: jsonb("form_data")
+      .$type<PatientOnboardingFormData>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    aiExtractedData: jsonb("ai_extracted_data").$type<AiExtractedFormData>(),
+    personalizedWelcome: jsonb("personalized_welcome").$type<PersonalizedWelcome>(),
+    healthAssessment: jsonb("health_assessment").$type<InitialHealthAssessment>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    completedAt: text("completed_at"),
+    isComplete: boolean("is_complete").notNull().default(false),
+  },
+  (t) => ({
+    userIdx: index("app_onboarding_sessions_user_idx").on(t.userId),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

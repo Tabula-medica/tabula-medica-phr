@@ -316,6 +316,25 @@ CREATE TABLE IF NOT EXISTS app_rpm_devices (
 CREATE INDEX IF NOT EXISTS app_rpm_devices_session_idx ON app_rpm_devices (onboarding_session_id);
 CREATE INDEX IF NOT EXISTS app_rpm_devices_patient_idx ON app_rpm_devices (patient_id);
 
+-- Patient onboarding sessions (in-progress onboarding state + entered form data).
+-- form_data / health_assessment may carry PHI; protected by DB-at-rest encryption.
+CREATE TABLE IF NOT EXISTS app_onboarding_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id text,
+  user_id text NOT NULL,
+  current_step text NOT NULL DEFAULT 'welcome',
+  completed_steps jsonb NOT NULL DEFAULT '[]'::jsonb,
+  form_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ai_extracted_data jsonb,
+  personalized_welcome jsonb,
+  health_assessment jsonb,
+  created_at text NOT NULL,
+  updated_at text NOT NULL,
+  completed_at text,
+  is_complete boolean NOT NULL DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS app_onboarding_sessions_user_idx ON app_onboarding_sessions (user_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
