@@ -151,7 +151,7 @@ import type {
   FhirApiAuditLog, InsertFhirApiAuditLog,
 } from "@shared/schema";
 import { defaultExportPolicies, wearablePlatformInfo, ehrPlatformInfo, riskLevels } from "@shared/schema";
-import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable, appRpmDevicesTable, appOnboardingSessionsTable } from "@shared/schema";
+import { riskFilterPresetsTable, providerPatientAssignmentsTable, securityAuditLogsTable, appUsersTable, appMedicalRecordsTable, appUserConsentRecordsTable, appUserSessionsTable, appVitalSignsTable, appMedicationsTable, appCaregiversTable, appAllergiesTable, appImmunizationsTable, appLabResultsTable, appAllergyEmergencyInfoTable, appCareGapsTable, appEhrConnectionsTable, appPatientsTable, appAppointmentsTable, appHealthGoalsTable, appProblemsTable, appWearableConnectionsTable, appWearableDataRecordsTable, appMedicationRemindersTable, appMedicationAdherenceRecordsTable, appDataSharingConsentsTable, appSharingRecipientsTable, appTwoFactorAuthsTable, appSecurityNotificationsTable, appSecuritySettingsTable, appCaregiverAccessLogsTable, appCaregiverAccessRequestsTable, appConsentAuditLogsTable, appAiPreferencesTable, appResearchPreferencesTable, appDefaultSharingPoliciesTable, appPatientNotificationPreferencesTable, appOnboardingStatusesTable, appUploadedDocumentsTable, appRpmDevicesTable, appOnboardingSessionsTable, appHealthAssessmentsTable } from "@shared/schema";
 import type { SecurityEventType, RecipientType } from "@shared/schema";
 import { db } from "./db";
 import { and, asc, desc, eq, gte, lte, inArray, ne, or } from "drizzle-orm";
@@ -16167,6 +16167,92 @@ export class DatabaseStorage extends MemStorage {
       .where(eq(appOnboardingSessionsTable.id, id))
       .returning();
     return row ? this.mapOnboardingSessionRow(row) : undefined;
+  }
+
+  // ══ InitialHealthAssessment entity (C1) — onboarding questionnaire ═══════════
+  // Pure DB replacement: the Map has no readers outside these 4 methods. Patient
+  // health data stored as jsonb (DB-at-rest encryption); optional columns map
+  // null <-> undefined. Indexed by onboarding session.
+  private mapHealthAssessmentRow(
+    row: typeof appHealthAssessmentsTable.$inferSelect,
+  ): InitialHealthAssessment {
+    return {
+      id: row.id,
+      onboardingSessionId: row.onboardingSessionId,
+      patientId: row.patientId ?? undefined,
+      questions: row.questions ?? [],
+      responses: row.responses ?? [],
+      aiAnalysis: row.aiAnalysis ?? undefined,
+      completedAt: row.completedAt ?? undefined,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private healthAssessmentToValues(
+    a: InitialHealthAssessment,
+  ): typeof appHealthAssessmentsTable.$inferInsert {
+    return {
+      id: a.id,
+      onboardingSessionId: a.onboardingSessionId,
+      patientId: a.patientId ?? null,
+      questions: a.questions,
+      responses: a.responses,
+      aiAnalysis: a.aiAnalysis ?? null,
+      completedAt: a.completedAt ?? null,
+      createdAt: a.createdAt,
+    };
+  }
+
+  override async getHealthAssessment(id: string): Promise<InitialHealthAssessment | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appHealthAssessmentsTable)
+      .where(eq(appHealthAssessmentsTable.id, id));
+    return row ? this.mapHealthAssessmentRow(row) : undefined;
+  }
+
+  override async getHealthAssessmentBySession(
+    sessionId: string,
+  ): Promise<InitialHealthAssessment | undefined> {
+    const [row] = await this.dbc
+      .select()
+      .from(appHealthAssessmentsTable)
+      .where(eq(appHealthAssessmentsTable.onboardingSessionId, sessionId));
+    return row ? this.mapHealthAssessmentRow(row) : undefined;
+  }
+
+  override async createHealthAssessment(
+    assessment: InsertHealthAssessment,
+  ): Promise<InitialHealthAssessment> {
+    const full: InitialHealthAssessment = {
+      id: randomUUID(),
+      onboardingSessionId: assessment.onboardingSessionId,
+      patientId: assessment.patientId,
+      questions: assessment.questions || [],
+      responses: assessment.responses || [],
+      aiAnalysis: assessment.aiAnalysis,
+      createdAt: new Date().toISOString(),
+    };
+    const [row] = await this.dbc
+      .insert(appHealthAssessmentsTable)
+      .values(this.healthAssessmentToValues(full))
+      .returning();
+    return this.mapHealthAssessmentRow(row);
+  }
+
+  override async updateHealthAssessment(
+    id: string,
+    updates: Partial<InitialHealthAssessment>,
+  ): Promise<InitialHealthAssessment | undefined> {
+    const existing = await this.getHealthAssessment(id);
+    if (!existing) return undefined;
+    const merged: InitialHealthAssessment = { ...existing, ...updates, id: existing.id };
+    const [row] = await this.dbc
+      .update(appHealthAssessmentsTable)
+      .set(this.healthAssessmentToValues(merged))
+      .where(eq(appHealthAssessmentsTable.id, id))
+      .returning();
+    return row ? this.mapHealthAssessmentRow(row) : undefined;
   }
 }
 

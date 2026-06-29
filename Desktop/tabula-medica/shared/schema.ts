@@ -14489,6 +14489,33 @@ export const appOnboardingSessionsTable = pgTable(
   }),
 );
 
+// Initial health assessments (C1) — the questionnaire a patient answers during
+// onboarding (questions + responses + optional AI analysis). Patient-entered
+// health data; held only in memory it is lost on restart. Stored as jsonb,
+// protected by DB-at-rest encryption. Indexed by onboarding session.
+export const appHealthAssessmentsTable = pgTable(
+  "app_health_assessments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    onboardingSessionId: text("onboarding_session_id").notNull(),
+    patientId: text("patient_id"),
+    questions: jsonb("questions")
+      .$type<HealthAssessmentQuestion[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    responses: jsonb("responses")
+      .$type<HealthAssessmentResponse[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    aiAnalysis: jsonb("ai_analysis").$type<HealthAssessmentAnalysis>(),
+    completedAt: text("completed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({
+    sessionIdx: index("app_health_assessments_session_idx").on(t.onboardingSessionId),
+  }),
+);
+
 // AI opt-out analytics event types
 export const aiOptOutEventTypes = ["ai_optout_enabled", "ai_optout_disabled"] as const;
 export type AIOptOutEventType = typeof aiOptOutEventTypes[number];

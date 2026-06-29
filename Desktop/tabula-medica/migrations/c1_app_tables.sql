@@ -335,6 +335,19 @@ CREATE TABLE IF NOT EXISTS app_onboarding_sessions (
 );
 CREATE INDEX IF NOT EXISTS app_onboarding_sessions_user_idx ON app_onboarding_sessions (user_id);
 
+-- Initial health assessments (onboarding questionnaire; patient health data).
+CREATE TABLE IF NOT EXISTS app_health_assessments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  onboarding_session_id text NOT NULL,
+  patient_id text,
+  questions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  responses jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ai_analysis jsonb,
+  completed_at text,
+  created_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_health_assessments_session_idx ON app_health_assessments (onboarding_session_id);
+
 -- 6) Vital signs (clinical PHI)
 CREATE TABLE IF NOT EXISTS app_vital_signs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
