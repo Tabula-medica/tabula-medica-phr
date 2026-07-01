@@ -25,9 +25,25 @@ export interface AIProviderConfig {
 }
 
 const providerConfig: AIProviderConfig = {
-  defaultProvider: (process.env.AI_DEFAULT_PROVIDER as AIProvider) || "openai",
+  // PHI-safety: default to Vertex (Google BAA-covered). Every AI feature in this
+  // app processes patient records, and OpenAI is NOT BAA-covered for this org, so
+  // PHI must never DEFAULT there. Prod already runs Vertex; the code default now
+  // matches. Override only for explicitly non-PHI features via setFeatureProvider.
+  defaultProvider: (process.env.AI_DEFAULT_PROVIDER as AIProvider) || "vertex",
   featureOverrides: {},
 };
+
+// Features that process PHI MUST use Vertex (Google BAA) and must NEVER be routed
+// or silently fall back to OpenAI (no BAA). getProviderForFeature pins these to
+// Vertex regardless of config/override, and the Vertex generators fail closed
+// (throw) instead of falling back to OpenAI when a PHI feature is in play.
+const PHI_FEATURES = new Set<string>([
+  "patient_summary",
+]);
+
+export function isPhiFeature(feature?: string): boolean {
+  return !!feature && PHI_FEATURES.has(feature);
+}
 
 let openaiClient: OpenAI | null = null;
 let vertexClient: VertexAI | null = null;
@@ -80,6 +96,10 @@ function getVertexModel(modelId?: string): GenerativeModel {
 }
 
 export function getProviderForFeature(feature: string): AIProvider {
+  // PHI features are pinned to Vertex and cannot be overridden to OpenAI.
+  if (PHI_FEATURES.has(feature)) {
+    return "vertex";
+  }
   if (providerConfig.featureOverrides[feature]) {
     return providerConfig.featureOverrides[feature];
   }
@@ -103,7 +123,8 @@ export async function generateText(
   console.log(`[AIProvider] Using ${provider} for feature: ${feature || "default"}`);
 
   if (provider === "vertex") {
-    return generateWithVertex(options);
+    // PHI features fail closed (no OpenAI fallback); non-PHI may fall back.
+    return generateWithVertex(options, !isPhiFeature(feature));
   }
   return generateWithOpenAI(options);
 }
@@ -128,7 +149,7 @@ async function generateWithOpenAI(options: AIGenerateOptions): Promise<string> {
   return response.choices[0]?.message?.content || "";
 }
 
-async function generateWithVertex(options: AIGenerateOptions): Promise<string> {
+async function generateWithVertex(options: AIGenerateOptions, allowOpenAIFallback = true): Promise<string> {
   try {
     const model = getVertexModel(options.model);
 
@@ -156,6 +177,11 @@ async function generateWithVertex(options: AIGenerateOptions): Promise<string> {
     }
     return "";
   } catch (error: any) {
+    if (!allowOpenAIFallback) {
+      // PHI feature: never send patient data to OpenAI (no BAA). Fail closed.
+      console.error("[AIProvider] Vertex error on PHI feature — failing closed, NO OpenAI fallback:", error.message);
+      throw error;
+    }
     console.error("[AIProvider] Vertex AI error, falling back to OpenAI:", error.message);
     return generateWithOpenAI(options);
   }
@@ -170,7 +196,8 @@ export async function* streamText(
   console.log(`[AIProvider] Streaming with ${provider} for feature: ${feature || "default"}`);
 
   if (provider === "vertex") {
-    yield* streamWithVertex(options);
+    // PHI features fail closed (no OpenAI fallback); non-PHI may fall back.
+    yield* streamWithVertex(options, !isPhiFeature(feature));
   } else {
     yield* streamWithOpenAI(options);
   }
@@ -201,7 +228,7 @@ async function* streamWithOpenAI(options: AIGenerateOptions): AsyncGenerator<str
   }
 }
 
-async function* streamWithVertex(options: AIGenerateOptions): AsyncGenerator<string, void, unknown> {
+async function* streamWithVertex(options: AIGenerateOptions, allowOpenAIFallback = true): AsyncGenerator<string, void, unknown> {
   try {
     const model = getVertexModel(options.model);
 
@@ -232,6 +259,11 @@ async function* streamWithVertex(options: AIGenerateOptions): AsyncGenerator<str
       }
     }
   } catch (error: any) {
+    if (!allowOpenAIFallback) {
+      // PHI feature: never stream patient data to OpenAI (no BAA). Fail closed.
+      console.error("[AIProvider] Vertex streaming error on PHI feature — failing closed, NO OpenAI fallback:", error.message);
+      throw error;
+    }
     console.error("[AIProvider] Vertex AI streaming error, falling back to OpenAI:", error.message);
     yield* streamWithOpenAI(options);
   }
