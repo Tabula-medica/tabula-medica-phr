@@ -392,6 +392,13 @@ export default function LandingPage() {
             <GlobalLanguageSwitcher />
           </div>
           <ThemeToggle />
+          <WouterLink
+            href="/signup"
+            className="hidden sm:inline-flex items-center rounded-lg border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            data-testid="link-nav-early-access"
+          >
+            Early access
+          </WouterLink>
           <Button onClick={handleLogin} size="sm" className="rounded-lg" data-testid="button-nav-login">
             Log In
           </Button>
@@ -835,6 +842,7 @@ export default function LandingPage() {
             <span data-testid="text-copyright">&copy; {new Date().getFullYear()} Tabula Medica</span>
           </div>
           <div className="flex flex-wrap items-center gap-5">
+            <a href="/signup" className="hover:text-foreground transition-colors" data-testid="link-footer-early-access">Early Access</a>
             <a href="/privacy-policy" className="hover:text-foreground transition-colors" data-testid="link-privacy">Privacy</a>
             <a href="/terms-of-service" className="hover:text-foreground transition-colors" data-testid="link-terms">Terms</a>
             <a href="/about/security" className="hover:text-foreground transition-colors" data-testid="link-security">Security</a>

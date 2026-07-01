@@ -191,6 +191,7 @@ const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboard
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
+const EarlyAccessSignup = lazy(() => import("@/pages/signup"));
 
 function Router() {
   return (
@@ -303,6 +304,7 @@ function Router() {
       <Route path="/compliance-dashboard" component={ComplianceDashboard} />
       <Route path="/uscdi-v3-compliance" component={USCDIv3Compliance} />
       <Route path="/welcome" component={Welcome} />
+      <Route path="/signup" component={EarlyAccessSignup} />
       <Route path="/login" component={Login} />
       <Route path="/auth/login" component={AuthLogin} />
       <Route path="/auth/register" component={AuthRegister} />
@@ -423,6 +425,7 @@ const pageTitles: Record<string, string> = {
   "/compliance-dashboard": "Compliance",
   "/uscdi-v3-compliance": "USCDI v3",
   "/welcome": "Welcome",
+  "/signup": "Request Early Access",
   "/login": "Sign In",
   "/consent": "Privacy Consent",
   "/connections": "Data Sources",
@@ -775,6 +778,8 @@ function AppContent() {
     "/auth/register",
     "/welcome",
     "/consent",
+    // Public early-access sign-up — must be reachable without authentication.
+    "/signup",
   ];
   if (!user && (publicClinicalRoutes.includes(location) || publicLegalRoutes.includes(location) || publicAuthRoutes.includes(location))) {
     return (
