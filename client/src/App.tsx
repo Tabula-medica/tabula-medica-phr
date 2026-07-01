@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -194,6 +194,7 @@ const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
 const EmergencyViewPage = lazy(() => import("@/pages/emergency-view"));
+const SimpleOnboarding = lazy(() => import("@/pages/simple-onboarding"));
 
 function Router() {
   return (
@@ -240,7 +241,8 @@ function Router() {
       <Route path="/preventive-screening" component={PreventiveScreening} />
       <Route path="/care-gaps" component={CareGaps} />
       <Route path="/ambient-encounter" component={AmbientEncounter} />
-      <Route path="/symptom-checker" component={SymptomChecker} />
+      {/* CDS Disabled — symptom triage is medical advice/SaMD; off for launch */}
+      <Route path="/symptom-checker" component={CDSDisabled} />
       <Route path="/beta-consent" component={BetaConsent} />
       <Route path="/patient-reported-outcomes" component={PatientReportedOutcomes} />
       <Route path="/gdpr" component={GdprDashboard} />
@@ -252,7 +254,8 @@ function Router() {
       <Route path="/voice-access" component={VoiceAccess} />
       <Route path="/document-translation" component={DocumentTranslation} />
       <Route path="/drug-savings" component={DrugSavings} />
-      <Route path="/drug-interactions" component={DrugInteractions} />
+      {/* CDS Disabled — drug-interaction alerting is clinical decision support; off for launch */}
+      <Route path="/drug-interactions" component={CDSDisabled} />
       <Route path="/prior-auth-letter" component={PriorAuthLetter} />
       <Route path="/insurance-learning" component={InsuranceLearning} />
       <Route path="/dental-integrations" component={DentalIntegrations} />
@@ -707,9 +710,21 @@ function AuthenticatedApp() {
 const SPLASH_WATCHDOG_MS = 6000;
 
 function AppContent() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const [splashTimedOut, setSplashTimedOut] = useState(false);
+
+  // Onboarding gate state. Only meaningful once authenticated — decides
+  // whether the single demographics onboarding screen must show before the
+  // app. hasCompletedOnboarding is the same flag the login flow checks.
+  const { data: onboardingStatus, isLoading: onboardingLoading } = useQuery<
+    { hasCompletedOnboarding?: boolean } | null
+  >({
+    queryKey: ["/api/onboarding/status"],
+    enabled: !!user,
+    retry: false,
+    staleTime: 1000 * 60 * 5,
+  });
 
   useEffect(() => {
     const pageTitle = pageTitles[location];
@@ -767,7 +782,8 @@ function AppContent() {
     );
   }
 
-  const publicClinicalRoutes = ["/drug-interactions", "/prior-auth-letter", "/symptom-checker"];
+  // symptom-checker + drug-interactions removed: they were public + gave medical advice (SaMD). Now CDS-disabled.
+  const publicClinicalRoutes = ["/prior-auth-letter"];
   // Legal pages must be reachable when signed out so App Store reviewers
   // (and any visitor following a footer link from the landing page) can
   // view Privacy/Terms/Cookie/Disclaimer/Accessibility/HIPAA Notice
@@ -812,6 +828,31 @@ function AppContent() {
 
   if (!user) {
     return <LandingPage />;
+  }
+
+  // Onboarding gate: an authenticated user who has NOT completed the single
+  // demographics onboarding sees ONLY that screen until they finish. While
+  // the status is still loading, hold on a spinner so we don't flash the app
+  // and then bounce to onboarding.
+  if (onboardingLoading && !onboardingStatus) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background" data-testid="status-onboarding-loading">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (onboardingStatus && onboardingStatus.hasCompletedOnboarding === false) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <SimpleOnboarding onDone={() => setLocation("/")} />
+      </Suspense>
+    );
   }
 
   const pendingHospital = sessionStorage.getItem("pending_hospital_name");
