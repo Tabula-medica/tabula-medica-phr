@@ -466,3 +466,143 @@ export function useSoftUpgradePrompt(initialTrigger?: UpgradeTrigger) {
 }
 
 export const UPGRADE_PROMPT_KEYS = Object.keys(PROMPT_CONFIG) as UpgradeTrigger[];
+
+/**
+ * Formats an optional server-supplied upgrade price into a short hint,
+ * falling back to the tier's static price hint when absent.
+ */
+function formatUpgradeHint(
+  tier: RequiredTier,
+  upgradePrice?: string | number,
+  trialDays?: number,
+): string {
+  const parts: string[] = [];
+  if (upgradePrice !== undefined && upgradePrice !== null && `${upgradePrice}`.length > 0) {
+    parts.push(typeof upgradePrice === "number" ? `$${upgradePrice}/mo` : `${upgradePrice}`);
+  } else {
+    parts.push(TIER_DISPLAY[tier].priceHint);
+  }
+  if (trialDays && trialDays > 0) {
+    parts.push(`${trialDays}-day free trial`);
+  }
+  return parts.join(" · ");
+}
+
+export interface UpgradeDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger: UpgradeTrigger;
+  /** Current usage count against the limit (e.g., connected FHIR sources). */
+  currentUsage?: number;
+  /** The plan limit the user has reached. */
+  limit?: number;
+  /** Server-supplied upgrade price, if available. */
+  upgradePrice?: string | number;
+  /** Server-supplied trial length in days, if available. */
+  trialDays?: number;
+  requiredTier?: RequiredTier;
+  currentTier?: "free" | RequiredTier;
+}
+
+/**
+ * Dialog shown when a user hits a plan limit (e.g., the free-tier FHIR
+ * connection cap). Thin wrapper over {@link SoftUpgradePrompt} that folds
+ * server-supplied usage/limit/price context into the description so the
+ * user understands exactly why the prompt appeared.
+ */
+export function UpgradeDialog({
+  open,
+  onOpenChange,
+  trigger,
+  currentUsage,
+  limit,
+  upgradePrice,
+  trialDays,
+  requiredTier,
+  currentTier,
+}: UpgradeDialogProps) {
+  const config = PROMPT_CONFIG[trigger];
+  const tier: RequiredTier = requiredTier ?? config?.defaultTier ?? "pro";
+
+  const usageSentence =
+    typeof currentUsage === "number" && typeof limit === "number"
+      ? `You've used ${currentUsage} of ${limit} connections on your current plan. `
+      : "";
+
+  const priceSentence =
+    upgradePrice !== undefined || (trialDays && trialDays > 0)
+      ? ` (${formatUpgradeHint(tier, upgradePrice, trialDays)})`
+      : "";
+
+  const overrideDescription = config
+    ? `${usageSentence}${config.description}${priceSentence}`
+    : undefined;
+
+  return (
+    <SoftUpgradePrompt
+      open={open}
+      onOpenChange={onOpenChange}
+      trigger={trigger}
+      overrideDescription={overrideDescription}
+      requiredTier={tier}
+      currentTier={currentTier}
+    />
+  );
+}
+
+export interface InlineFhirLimitBannerProps {
+  /** Number of connections currently used. */
+  used: number;
+  /** Plan connection limit. */
+  limit: number;
+  /** Server-supplied upgrade price, if available. */
+  upgradePrice?: string | number;
+  /** Server-supplied trial length in days, if available. */
+  trialDays?: number;
+}
+
+/**
+ * Inline banner surfaced on the connections page when a free-tier user is
+ * at or near their FHIR connection limit. Non-blocking — informs and links
+ * to upgrade without interrupting the flow.
+ */
+export function InlineFhirLimitBanner({
+  used,
+  limit,
+  upgradePrice,
+  trialDays,
+}: InlineFhirLimitBannerProps) {
+  const atLimit = used >= limit;
+  const tierMeta = TIER_DISPLAY.pro;
+
+  return (
+    <div
+      className="mb-4 flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+      role="status"
+      aria-live="polite"
+      data-testid="banner-fhir-limit"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <Database className="h-4 w-4 text-primary" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {atLimit
+              ? "You've reached your connection limit"
+              : "You're close to your connection limit"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {used} of {limit} health connections used ·{" "}
+            {formatUpgradeHint("pro", upgradePrice, trialDays)}
+          </p>
+        </div>
+      </div>
+      <Link href={tierMeta.ctaHref} className="flex-shrink-0">
+        <Button size="sm" data-testid="button-fhir-limit-upgrade">
+          {tierMeta.ctaLabel}
+        </Button>
+      </Link>
+    </div>
+  );
+}

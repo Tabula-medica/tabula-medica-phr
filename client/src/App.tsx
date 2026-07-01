@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +13,7 @@ import { RegionProvider } from "@/components/region-provider";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BottomNav } from "@/components/bottom-nav";
 import { LegalFooter } from "@/components/legal-footer";
+import { RouteErrorBoundary } from "@/components/route-error-boundary";
 
 import { GuardrailsDisclaimer } from "@/components/guardrails-disclaimer";
 import { ProfileSwitcher } from "@/components/profile-switcher";
@@ -191,6 +191,7 @@ const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboard
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
+const EarlyAccessSignup = lazy(() => import("@/pages/signup"));
 
 function Router() {
   return (
@@ -303,6 +304,7 @@ function Router() {
       <Route path="/compliance-dashboard" component={ComplianceDashboard} />
       <Route path="/uscdi-v3-compliance" component={USCDIv3Compliance} />
       <Route path="/welcome" component={Welcome} />
+      <Route path="/signup" component={EarlyAccessSignup} />
       <Route path="/login" component={Login} />
       <Route path="/auth/login" component={AuthLogin} />
       <Route path="/auth/register" component={AuthRegister} />
@@ -423,6 +425,7 @@ const pageTitles: Record<string, string> = {
   "/compliance-dashboard": "Compliance",
   "/uscdi-v3-compliance": "USCDI v3",
   "/welcome": "Welcome",
+  "/signup": "Request Early Access",
   "/login": "Sign In",
   "/consent": "Privacy Consent",
   "/connections": "Data Sources",
@@ -775,6 +778,8 @@ function AppContent() {
     "/auth/register",
     "/welcome",
     "/consent",
+    // Public early-access sign-up — must be reachable without authentication.
+    "/signup",
   ];
   if (!user && (publicClinicalRoutes.includes(location) || publicLegalRoutes.includes(location) || publicAuthRoutes.includes(location))) {
     return (
@@ -802,9 +807,12 @@ function AppContent() {
 }
 
 function App() {
-  useEffect(() => {
-    initCapacitor();
-  }, []);
+  // Native (Capacitor) initialization is intentionally NOT invoked here.
+  // The Capacitor plugin packages (@capacitor/app, /status-bar, etc.) are
+  // only installed in the native shell, which is generated on a Mac via
+  // `npx cap add`. Importing `initCapacitor` into the web bundle would pull
+  // in those unresolved modules and break the web build. Native init is
+  // wired inside the generated iOS/Android shell, not in the shared web App.
 
   return (
     <ThemeProvider>
