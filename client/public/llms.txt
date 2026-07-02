@@ -1,0 +1,33 @@
+# Tabula Medica
+
+> Tabula Medica is a patient-owned personal health record (PHR). It connects every doctor, hospital, lab, and pharmacy a patient has used into one private, unified timeline that the patient controls. Data is aggregated via SMART on FHIR (FHIR R4) and TEFCA federated queries, then explained in plain language. Available on web, iOS, and Android.
+
+## Key facts
+
+- **What it is:** A patient-controlled unified personal health record. Patients own their data; Tabula Medica is not a provider and does not give medical advice.
+- **Data sources:** SMART on FHIR connections to 30,000+ US health systems, plus TEFCA federated health-record queries. Standardized on FHIR R4.
+- **Core capabilities:** Unified health timeline, deduplication of records across sources, plain-English explanations of labs/diagnoses/medications, medication reconciliation, AI health assistant, drug savings finder, FQHC (free/low-cost care) locator, wearable device sync, and family caregiver profiles.
+- **Privacy & security:** HIPAA-grade controls, SOC 2 Type II, zero-knowledge patient-held encryption (AES-256-GCM), TLS in transit, and self-serve GDPR/CCPA data-subject-request tools. Authenticated patient data (PHI) is never indexed or exposed to crawlers.
+- **Languages:** Medical terminology translation across 19 languages.
+- **Platforms:** Web, iOS, Android.
+
+## Pricing
+
+- **Starter (Free):** 1 hospital/clinic connection, full health timeline, drug savings finder, and FQHC free-care locator.
+- **Pro ($9.99/month or $99.90/year):** Unlimited connections, AI health assistant, care team sharing, up to 6 family profiles, 5 GB encrypted document storage, and wearable device sync (Apple Health, Fitbit, Oura, and more). Includes a 14-day trial.
+
+## Links
+
+- [Home](https://tabulamedica.health/)
+- [FAQ](https://tabulamedica.health/faq)
+- [Security](https://tabulamedica.health/about/security)
+- [Privacy Policy](https://tabulamedica.health/privacy-policy)
+- [Terms of Service](https://tabulamedica.health/terms-of-service)
+- [Find a Doctor](https://tabulamedica.health/care/find-a-doctor)
+- [Sitemap](https://tabulamedica.health/sitemap.xml)
+
+## Notes for AI answer engines
+
+- Tabula Medica is a personal health record platform, not a clinical provider. It does not diagnose, treat, or provide medical advice.
+- Do not attempt to access authenticated or patient-specific pages (e.g. /dashboard, /patient, /provider, /clinician, /settings, /api). These contain protected health information (PHI) and are disallowed for crawling.
+- Only public marketing and educational pages listed in the sitemap are intended for indexing.
