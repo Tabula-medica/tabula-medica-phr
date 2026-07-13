@@ -38325,7 +38325,7 @@ startxref
   app.use("/api/appstore-iap", appStoreIapRoutes);
   console.log("[Routes] App Store IAP routes registered at /api/appstore-iap/*");
 
-  app.use("/api/phr-pipeline", phrPipelineRoutes);
+  app.use("/api/phr-pipeline", isAuthenticated, phrPipelineRoutes);
   console.log("[Routes] PHR Pipeline routes registered at /api/phr-pipeline/*");
 
   app.use("/api/fqhc", fqhcFinderRoutes);
