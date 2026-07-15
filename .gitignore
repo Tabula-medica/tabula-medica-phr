@@ -1,0 +1,69 @@
+# =============================================================================
+# Safety .gitignore for the home directory.
+#
+# IMPORTANT: this folder (C:\Users\Aggarwal) is itself a git repo with a GitHub
+# remote, and it USED to track the Desktop/tabula-medica project. Without these
+# rules a `git add -A` would stage the service-account keys, EIN/tax PDFs, and
+# access-key CSVs that live loose on the Desktop and push them to GitHub. These
+# patterns block that.
+#
+# 2026-07-14: Desktop/tabula-medica is its OWN git repo (the canonical one). It
+# was git-rm --cached out of this home repo and is now fully ignored below, so a
+# stray `git push att` can never leak portal/PHI source into the Attentiva repo.
+# =============================================================================
+
+# ---- Credentials / keys — NEVER commit ----
+*.pem
+*.p12
+*.key
+*service-account*.json
+*serviceaccount*.json
+*-adminsdk-*.json
+google-service-account.json
+.cf-token.txt
+*cf-token*.txt
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# ---- Canonical nested repo — never track from the home repo ----
+# Desktop/tabula-medica is its own repo; ignoring it here decouples it entirely
+# so it can't be re-staged or pushed to the `att` (Attentiva) remote by mistake.
+/Desktop/tabula-medica/
+
+# ---- Loose secret/personal files on the Desktop root ----
+# (these hit files directly in Desktop\, e.g. leaked GCP/Firebase key dumps + docs)
+/Desktop/*.json
+/Desktop/*.csv
+/Desktop/*.pdf
+/Desktop/*.exe
+
+# ---- Other home-dir secret stores ----
+/.ssh/
+/.secrets-quarantine/
+/KEYS/
+/.gnupg/
+/.aws/
+/.azure/
+/.docker/
+
+# ---- Credential-bearing tool/config dirs (gcloud ADC + tokens, browser data) ----
+/.config/
+/.cache/
+/.local/
+/AppData/
+/.expo/
+/.canvas/
+/.cookiecutter_replay/
+
+# ---- Tool credentials/state ----
+/.claude/.credentials.json
+/.claude.json
+/.claude.json.backup
+/.config/
+
+# ---- Bulk / non-source ----
+node_modules/
+**/node_modules/
+*.log
