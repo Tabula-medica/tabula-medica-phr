@@ -24,10 +24,20 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     "https://api.tabulamedica.health " +
     "https://tabulamedica.health " +
     "https://healthcare.googleapis.com " +
+    // Firebase Auth (GCIP): email/password + Google sign-in REST calls and
+    // ID-token refresh. Without these the browser blocks the auth request at
+    // the CSP layer and the Firebase SDK surfaces the generic
+    // `auth/internal-error` — the sign-in "never works" symptom.
+    "https://identitytoolkit.googleapis.com " +
+    "https://securetoken.googleapis.com " +
+    "https://www.googleapis.com " +
+    "https://united-planet-485003-n7-9f345.firebaseapp.com " +
     "https://rxnav.nlm.nih.gov " +
     "https://clinicaltables.nlm.nih.gov " +
     "wss://api.tabulamedica.health" + devConnectSrc + "; " +
-    "frame-src 'self' https://*.fastenhealth.com https://fastenhealth.com; " +
+    // firebaseapp.com + accounts.google.com are needed for the Google/Apple
+    // sign-in popup helper iframe.
+    "frame-src 'self' https://united-planet-485003-n7-9f345.firebaseapp.com https://accounts.google.com https://*.fastenhealth.com https://fastenhealth.com; " +
     "frame-ancestors 'self' *.tabulamedica.health tabulamedica.health *.replit.dev *.replit.app *.picard.replit.dev; " +
     "base-uri 'self'; " +
     "form-action 'self' https://*.fastenhealth.com;"
