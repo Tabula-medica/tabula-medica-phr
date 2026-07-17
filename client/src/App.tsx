@@ -195,6 +195,16 @@ const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
 const EmergencyViewPage = lazy(() => import("@/pages/emergency-view"));
 const SimpleOnboarding = lazy(() => import("@/pages/simple-onboarding"));
+const UsPaywall = lazy(() => import("@/pages/us-paywall"));
+
+// tabulamedica.us edition detection (client side). Only the .us edition is
+// ever subject to the $9.99/yr hard paywall — .health and .world are exempt.
+function isUsEdition(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.location.hostname.endsWith("tabulamedica.us")
+  );
+}
 
 function Router() {
   return (
@@ -726,6 +736,29 @@ function AppContent() {
     staleTime: 1000 * 60 * 5,
   });
 
+  // .us edition hard paywall gate. Only queried on tabulamedica.us AND once the
+  // user is authenticated + past onboarding. FAIL OPEN: on error, or when the
+  // paywall is not configured, we never gate (see decision below).
+  const usEdition = isUsEdition();
+  const checkoutSuccess =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("checkout") === "success";
+  const onboardingComplete =
+    !!onboardingStatus && onboardingStatus.hasCompletedOnboarding !== false;
+  const {
+    data: subStatus,
+    isLoading: subLoading,
+    isError: subError,
+  } = useQuery<{ configured?: boolean; active?: boolean } | null>({
+    queryKey: ["/api/billing/us/status"],
+    enabled: usEdition && !!user && onboardingComplete,
+    retry: false,
+    // Re-fetch fresh after returning from Stripe checkout so a just-activated
+    // subscription is reflected immediately.
+    staleTime: checkoutSuccess ? 0 : 1000 * 60,
+    refetchOnMount: checkoutSuccess ? "always" : true,
+  });
+
   useEffect(() => {
     const pageTitle = pageTitles[location];
     const next = pageTitle ? `${pageTitle} · Tabula Medica` : "Tabula Medica";
@@ -853,6 +886,33 @@ function AppContent() {
         <SimpleOnboarding onDone={() => setLocation("/")} />
       </Suspense>
     );
+  }
+
+  // .us hard paywall: after auth + onboarding, if the paywall is configured and
+  // the user is NOT active, render the paywall INSTEAD of the app. FAIL OPEN —
+  // if not configured, the status errored, or we're on a non-.us edition, the
+  // app renders normally and the user is never locked out.
+  if (usEdition && user && onboardingComplete && !subError) {
+    if (subLoading && !subStatus) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-background" data-testid="status-subscription-loading">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    if (subStatus && subStatus.configured === true && subStatus.active === false) {
+      return (
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center h-screen">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          }
+        >
+          <UsPaywall />
+        </Suspense>
+      );
+    }
   }
 
   const pendingHospital = sessionStorage.getItem("pending_hospital_name");

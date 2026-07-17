@@ -13,6 +13,7 @@ import {
   tierIncludesFeature,
 } from "./services/feature-gates";
 import { resolveUserTier } from "./middleware/require-feature";
+import { applyStripeSubscriptionEvent } from "./us-subscription-routes";
 
 const router = Router();
 
@@ -693,9 +694,20 @@ router.post("/webhook/stripe", async (req: Request, res: Response) => {
     console.log(`[Stripe Webhook] Received event: ${event.type}`);
 
     switch (event.type) {
+      // Consumer .us paywall: persist subscription state onto the auth users row.
+      // checkout.session.completed also flows here to hydrate the record early.
+      case "checkout.session.completed":
+        await applyStripeSubscriptionEvent(event);
+        monetizationService.hipaaAuditLog("stripe_checkout_completed", {
+          eventType: event.type,
+          sessionId: event.data?.object?.id,
+        });
+        break;
+
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
+        await applyStripeSubscriptionEvent(event);
         monetizationService.hipaaAuditLog("stripe_subscription_event", {
           eventType: event.type,
           subscriptionId: event.data?.object?.id,

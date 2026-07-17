@@ -379,6 +379,7 @@ import { registerAIDataHarmonizationRoutes } from "./ai-data-harmonization-route
 import { registerFHIRResourceLifecycleRoutes } from "./fhir-resource-lifecycle-routes";
 import { getComplianceStatus, getSecurityStatus, getTransportSecurityInfo } from "./security";
 import billingRoutes from "./billing-routes";
+import usSubscriptionRoutes from "./us-subscription-routes";
 import { registerHIPAAComplianceRoutes } from "./routes/hipaa-compliance-routes";
 import { registerLabDiagnosticsRoutes } from "./lab-diagnostics-integration-routes";
 import { registerFHIRR5ReadinessRoutes } from "./fhir-r5-readiness-routes";
@@ -37973,6 +37974,10 @@ startxref
   // ================== Billing & Monetization Routes ==================
   app.use("/api/billing", billingRoutes);
   console.log("[Routes] Billing routes registered at /api/billing/*");
+
+  // Consumer .us $9.99/yr hard-paywall subscription routes (US edition only).
+  app.use("/api/billing/us", usSubscriptionRoutes);
+  console.log("[Routes] US subscription routes registered at /api/billing/us/*");
 
   // ================== AI Case Review Routes ==================
   app.use("/api/case-review", aiCaseReviewRoutes);
