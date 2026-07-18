@@ -65,6 +65,20 @@ export default function AuthLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gcipReady = isGcipConfigured();
+  // Inside the native iOS/Android WebView wrapper, Google OAuth popups don't work
+  // (they error out), and offering a third-party login there triggers App Store
+  // Guideline 4.8 (Sign in with Apple required). The App Store reviewer still saw
+  // Google because the previous check relied ONLY on window.ReactNativeWebView,
+  // which can be absent at first paint or when a stale bundle is served. We now
+  // hide it on ANY of: the RN global, a pre-content global the shell injects
+  // (window.__TABULA_NATIVE_APP__), an `?app=1` query param the shell appends, or
+  // the build-time VITE_HIDE_THIRD_PARTY_LOGIN flag (deploy-level kill switch).
+  const hideThirdParty =
+    (typeof window !== "undefined" &&
+      (Boolean((window as unknown as { ReactNativeWebView?: unknown }).ReactNativeWebView) ||
+        (window as unknown as { __TABULA_NATIVE_APP__?: boolean }).__TABULA_NATIVE_APP__ === true ||
+        new URLSearchParams(window.location.search).has("app"))) ||
+    import.meta.env.VITE_HIDE_THIRD_PARTY_LOGIN === "true";
 
   // Exchange the freshly-minted Firebase ID token for a server session
   // cookie, then route into the app. The onboarding gate in App.tsx
@@ -263,27 +277,31 @@ export default function AuthLogin() {
                   </Button>
                 </form>
 
-                <div className="relative py-1">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white dark:bg-card px-2 text-muted-foreground">or</span>
-                  </div>
-                </div>
+                {!hideThirdParty && (
+                  <>
+                    <div className="relative py-1">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white dark:bg-card px-2 text-muted-foreground">or</span>
+                      </div>
+                    </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                  onClick={handleGoogleSignIn}
-                  disabled={busy || !gcipReady}
-                  data-testid="button-google-signin"
-                >
-                  <SiGoogle className="h-4 w-4 mr-2" />
-                  Continue with Google
-                </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                      onClick={handleGoogleSignIn}
+                      disabled={busy || !gcipReady}
+                      data-testid="button-google-signin"
+                    >
+                      <SiGoogle className="h-4 w-4 mr-2" />
+                      Continue with Google
+                    </Button>
+                  </>
+                )}
 
                 <p className="text-sm text-muted-foreground text-center pt-1">
                   {mode === "signin" ? (
