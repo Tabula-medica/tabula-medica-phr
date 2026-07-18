@@ -15,6 +15,8 @@
 # ---- Credentials / keys — NEVER commit ----
 *.pem
 *.p12
+*.p8
+*.mobileprovision
 *.key
 *service-account*.json
 *serviceaccount*.json
@@ -22,6 +24,17 @@
 google-service-account.json
 .cf-token.txt
 *cf-token*.txt
+
+# ---- Loose secret files dumped in the home ROOT (2026-07-18) ----
+# These caught real plaintext dumps (anthropic key / apple issuer id / cf token)
+# that the hyphenated patterns above missed. Broad, root-anchored catch-alls.
+*token*.txt
+*issuer*.txt
+*sk-ant*
+*secret*.txt
+*.tmp
+cf_targets.tmp
+
 .env
 .env.*
 !.env.example
@@ -38,6 +51,9 @@ google-service-account.json
 /Desktop/*.csv
 /Desktop/*.pdf
 /Desktop/*.exe
+# Project export zips staged on the Desktop (e.g. tabula-*.zip) can embed real
+# signing secrets (.p8/.p12/.mobileprovision) — never let git add . stage them.
+/Desktop/*.zip
 
 # ---- Other home-dir secret stores ----
 /.ssh/
@@ -67,3 +83,6 @@ google-service-account.json
 node_modules/
 **/node_modules/
 *.log
+.documo-key
+.secrets/
+documo.key
