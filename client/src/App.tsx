@@ -939,7 +939,13 @@ function App() {
         <TooltipProvider>
           <LanguageProvider>
             <RegionProvider>
-              <AppContent />
+              {/* Top-level boundary: a thrown render error on ANY surface
+                  (emergency card, paywall, onboarding, shared record, or the
+                  logged-out landing page) shows a recoverable error screen
+                  instead of white-screening the whole app. */}
+              <RouteErrorBoundary>
+                <AppContent />
+              </RouteErrorBoundary>
               <ServerFeatureGateListener />
               <WelcomeModal />
               <Toaster />

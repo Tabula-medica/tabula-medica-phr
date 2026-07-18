@@ -23,8 +23,13 @@ const TOUR_STORAGE_KEY = "tabula_completed_tours";
 
 export function useCompletedTours() {
   const [completedTours, setCompletedTours] = useState<string[]>(() => {
-    const stored = localStorage.getItem(TOUR_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const stored = localStorage.getItem(TOUR_STORAGE_KEY);
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   });
 
   const markComplete = useCallback((tourId: string) => {

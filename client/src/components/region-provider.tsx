@@ -69,8 +69,20 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const { data: serverRegion } = useQuery<{ region: AppRegion }>({
+  // Tolerate logged-out (401) and transient failures: never throw here, or an
+  // unauthenticated landing-page visitor white-screens the whole app.
+  const { data: serverRegion } = useQuery<{ region: AppRegion } | null>({
     queryKey: ["/api/region-preference"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/region-preference", { credentials: "include" });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    },
+    retry: false,
   });
 
   useEffect(() => {
