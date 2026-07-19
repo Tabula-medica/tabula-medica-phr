@@ -107,6 +107,13 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
   },
   sdohTable: { text: ["question", "response", "notes"], jsonb: [] },
 
+  // --- Advance directives ---
+  advanceDirectivesTable: {
+    text: ["familyPrimaryGoalOfCare", "goalsOfCare"],
+    jsonb: ["treatmentPreferences"],
+    textArray: ["codeStatus"],
+  },
+
   // --- Symptoms & followups ---
   symptomEntries: { text: ["description"], jsonb: [] },
   followups: { text: ["name", "notes"], jsonb: [] },
