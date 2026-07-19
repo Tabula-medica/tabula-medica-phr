@@ -1,0 +1,16 @@
+name: PHI-AI boundary guard
+
+# Fails the build if a non-BAA AI endpoint URL (OpenAI / Anthropic / consumer
+# Gemini) appears in source. PHI-bearing AI must go to Vertex (Google BAA).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  phi-ai-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for non-BAA AI endpoint URLs
+        run: bash scripts/phi-ai-guard.sh

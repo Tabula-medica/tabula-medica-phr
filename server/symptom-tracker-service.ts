@@ -1,4 +1,5 @@
 /**
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
  * Symptom Tracker Service
  * 
  * Allows patients to log symptoms and provides AI-powered contextual insights
@@ -206,14 +207,13 @@ export async function getSymptomInsights(
   }
 ): Promise<SymptomInsight> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return getMockSymptomInsight(symptomId, symptomName);
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -589,7 +589,6 @@ async function generatePeriodSummary(
   periodDays: number
 ): Promise<{ keyChanges: string[]; persistentIssues: string[]; summary: string }> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
   const fallback = {
     keyChanges: [
@@ -602,12 +601,12 @@ async function generatePeriodSummary(
     summary: `The symptom log shows ${symptoms.length} entries over ${periodDays} days. This refers to patient-reported symptoms. Records state varying severity levels. Informational only. Not medical advice.`,
   };
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return fallback;
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
