@@ -21,8 +21,13 @@ export interface AIProviderConfig {
   featureOverrides: Record<string, AIProvider>;
 }
 
+// PHI SAFETY: default to Vertex (Google BAA). PHI must NEVER route to OpenAI
+// (no BAA relied upon) or Anthropic. Only an explicit, reviewed env override can
+// change the default, and the Vertex path is fail-closed (see generateWithVertex /
+// streamWithVertex): a Vertex error throws rather than silently falling back to
+// OpenAI, so a transient failure can never leak PHI to a non-BAA provider.
 const providerConfig: AIProviderConfig = {
-  defaultProvider: (process.env.AI_DEFAULT_PROVIDER as AIProvider) || "openai",
+  defaultProvider: (process.env.AI_DEFAULT_PROVIDER as AIProvider) || "vertex",
   featureOverrides: {},
 };
 
@@ -153,8 +158,10 @@ async function generateWithVertex(options: AIGenerateOptions): Promise<string> {
     }
     return "";
   } catch (error: any) {
-    console.error("[AIProvider] Vertex AI error, falling back to OpenAI:", error.message);
-    return generateWithOpenAI(options);
+    // PHI SAFETY: FAIL CLOSED. Do NOT fall back to OpenAI — a Vertex failure must
+    // never silently route PHI to a non-BAA provider. Surface the error instead.
+    console.error("[AIProvider] Vertex AI error (fail-closed, no OpenAI fallback):", error.message);
+    throw new Error("AI temporarily unavailable. Please try again.");
   }
 }
 
@@ -229,8 +236,9 @@ async function* streamWithVertex(options: AIGenerateOptions): AsyncGenerator<str
       }
     }
   } catch (error: any) {
-    console.error("[AIProvider] Vertex AI streaming error, falling back to OpenAI:", error.message);
-    yield* streamWithOpenAI(options);
+    // PHI SAFETY: FAIL CLOSED — no OpenAI fallback on the streaming path either.
+    console.error("[AIProvider] Vertex AI streaming error (fail-closed, no OpenAI fallback):", error.message);
+    throw new Error("AI temporarily unavailable. Please try again.");
   }
 }
 
