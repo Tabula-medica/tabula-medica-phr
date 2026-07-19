@@ -1,4 +1,5 @@
 /**
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
  * Health Visualization Service
  * 
  * Analyzes trends from symptoms, medication adherence, and lab results.
@@ -143,14 +144,13 @@ async function generateTrendInsights(
   labs: LabResultPoint[]
 ): Promise<TrendInsight[]> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return getMockInsights();
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",

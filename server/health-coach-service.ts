@@ -1,4 +1,5 @@
 /**
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
  * AI Health Coach Service
  * 
  * Provides a conversational health coach that:
@@ -164,9 +165,8 @@ export async function getHealthCoachResponse(
   conversationHistory: ChatMessage[]
 ): Promise<HealthCoachResponse> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return {
       message: getFallbackResponse(userMessage),
       suggestions: getSuggestions(userMessage),
@@ -184,7 +184,7 @@ export async function getHealthCoachResponse(
       { role: "user" as const, content: userMessage },
     ];
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -398,7 +398,6 @@ export async function getPersonalizedGuidance(
   context: PatientContext
 ): Promise<PersonalizedGuidance> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
   
   // Build context summary
   const contextSummary = {
@@ -418,12 +417,12 @@ export async function getPersonalizedGuidance(
     })),
   };
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return getMockPersonalizedGuidance(context);
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
