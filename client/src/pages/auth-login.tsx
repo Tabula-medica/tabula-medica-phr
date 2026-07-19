@@ -5,30 +5,31 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
-import { SiGoogle } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   signInGcipWithEmail,
   signUpGcipWithEmail,
-  signInGcipWithGoogle,
   getGcipIdToken,
   isGcipConfigured,
 } from "@/lib/gcip";
 
 /**
- * DEAD-SIMPLE login. Email/password + Google, nothing else.
+ * DEAD-SIMPLE login. Email/password ONLY. No third-party sign-in.
  *
- * Flow: Firebase client SDK signs the user in (email/password OR Google
- * popup) -> we exchange the resulting Firebase ID token for a server
- * session cookie at POST /api/auth/gcip/session -> the server tells us
- * whether the account still needs onboarding. App-level routing
- * (client/src/App.tsx) then gates onboarding vs. the app, so all we do
- * here is land the user on "/".
+ * Flow: Firebase client SDK signs the user in with email/password -> we
+ * exchange the resulting Firebase ID token for a server session cookie at
+ * POST /api/auth/gcip/session -> the server tells us whether the account
+ * still needs onboarding. App-level routing (client/src/App.tsx) then gates
+ * onboarding vs. the app, so all we do here is land the user on "/".
  *
- * Removed (was over-engineered / breaking sign-in): Apple sign-in, the
- * TOTP/MFA challenge UI, and the separate register page. Account creation
- * is handled inline via the Sign in / Create account toggle.
+ * Third-party login (Google/Apple) was removed entirely, not conditionally
+ * hidden: the old `hideThirdParty` flag kept leaking Google to the App Store
+ * reviewer (first-paint timing on the runtime check) and OAuth popups don't
+ * work inside the native WebView wrapper anyway. Identity is still verified
+ * by Google Cloud Identity Platform server-side; the user just never sees a
+ * third-party button. This resolves App Store 4.8 (no third-party login to
+ * require an Apple-equivalent for) and 2.1(a) (the Google error can't occur).
  */
 
 /** Map raw Firebase auth/* error codes to plain, friendly copy. */
@@ -65,20 +66,6 @@ export default function AuthLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gcipReady = isGcipConfigured();
-  // Inside the native iOS/Android WebView wrapper, Google OAuth popups don't work
-  // (they error out), and offering a third-party login there triggers App Store
-  // Guideline 4.8 (Sign in with Apple required). The App Store reviewer still saw
-  // Google because the previous check relied ONLY on window.ReactNativeWebView,
-  // which can be absent at first paint or when a stale bundle is served. We now
-  // hide it on ANY of: the RN global, a pre-content global the shell injects
-  // (window.__TABULA_NATIVE_APP__), an `?app=1` query param the shell appends, or
-  // the build-time VITE_HIDE_THIRD_PARTY_LOGIN flag (deploy-level kill switch).
-  const hideThirdParty =
-    (typeof window !== "undefined" &&
-      (Boolean((window as unknown as { ReactNativeWebView?: unknown }).ReactNativeWebView) ||
-        (window as unknown as { __TABULA_NATIVE_APP__?: boolean }).__TABULA_NATIVE_APP__ === true ||
-        new URLSearchParams(window.location.search).has("app"))) ||
-    import.meta.env.VITE_HIDE_THIRD_PARTY_LOGIN === "true";
 
   // Exchange the freshly-minted Firebase ID token for a server session
   // cookie, then route into the app. The onboarding gate in App.tsx
@@ -124,25 +111,6 @@ export default function AuthLogin() {
     } catch (err: unknown) {
       const e2 = err as { code?: string; message?: string } | null;
       setError(friendlyAuthError(e2?.code, e2?.message));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      await signInGcipWithGoogle();
-      await completeSession();
-    } catch (err: unknown) {
-      const e2 = err as { code?: string; message?: string } | null;
-      const code = e2?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
-      } else {
-        setError(friendlyAuthError(code, e2?.message));
-      }
     } finally {
       setBusy(false);
     }
@@ -276,32 +244,6 @@ export default function AuthLogin() {
                     )}
                   </Button>
                 </form>
-
-                {!hideThirdParty && (
-                  <>
-                    <div className="relative py-1">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-border" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white dark:bg-card px-2 text-muted-foreground">or</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      size="lg"
-                      onClick={handleGoogleSignIn}
-                      disabled={busy || !gcipReady}
-                      data-testid="button-google-signin"
-                    >
-                      <SiGoogle className="h-4 w-4 mr-2" />
-                      Continue with Google
-                    </Button>
-                  </>
-                )}
 
                 <p className="text-sm text-muted-foreground text-center pt-1">
                   {mode === "signin" ? (
