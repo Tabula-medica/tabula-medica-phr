@@ -1,15 +1,15 @@
 /**
  * GCIP (Google Cloud Identity Platform / Firebase Auth) — NoorJyoti backend.
  *
- * Portfolio auth standard: GCIP email/password, NO third-party login UI.
- * Replaces Clerk. The web client (and mobile) sign in with the Firebase web SDK
- * and send the resulting ID token as `Authorization: Bearer <idToken>`.
+ * Portfolio auth standard: GCIP email/password, NO third-party login vendors.
+ * Replaces Clerk entirely.
  *
- * `resolveGcipUser` runs app-wide and is NON-BLOCKING: it verifies the Bearer
- * token if present and sets req.gcipUid / req.gcipEmail, but never rejects — an
- * absent/invalid token simply means "anonymous", so the public catalog/player
- * keeps working. Per-route `requireAuth` (see requireAuth.ts) enforces sign-in
- * where needed; `requireAdmin` gates the /admin surface via an allowlist.
+ * Transport = a first-party httpOnly SESSION COOKIE (not a Clerk/third-party
+ * cookie, not a bearer header), so the existing cookie-based api-client keeps
+ * working unchanged: the web client signs in with the Firebase web SDK, POSTs
+ * the fresh ID token to /api/auth/session, and this module mints an httpOnly
+ * `nj_session` cookie via firebase-admin. `resolveGcipUser` verifies that cookie
+ * on every request (non-blocking) and sets req.gcipUid / req.gcipEmail.
  *
  * Env: FIREBASE_PROJECT_ID (enables auth), ADMIN_EMAILS (admin allowlist),
  *      FIREBASE_SERVICE_ACCOUNT_JSON (base64 SA; optional — Cloud Run ADC by default).
@@ -19,6 +19,9 @@ import type { Request, Response, NextFunction } from "express";
 import { getApps, initializeApp, applicationDefault, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import "./requireAuth"; // pulls in the Express.Request augmentation (gcipUid/gcipEmail)
+
+export const SESSION_COOKIE = "nj_session";
+const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
 export function gcipConfigured(): boolean {
   return Boolean(process.env.FIREBASE_PROJECT_ID);
@@ -48,21 +51,60 @@ function ensureApp(): void {
   _initialized = true;
 }
 
-/** App-wide, non-blocking: resolve a GCIP user from the Bearer ID token (if any). */
+function readCookie(req: Request, name: string): string | undefined {
+  const header = req.headers.cookie;
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const i = part.indexOf("=");
+    if (i <= 0) continue;
+    if (part.slice(0, i).trim() === name) {
+      return decodeURIComponent(part.slice(i + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+/** App-wide, non-blocking: resolve a GCIP user from the nj_session cookie (if valid). */
 export async function resolveGcipUser(req: Request, _res: Response, next: NextFunction): Promise<void> {
-  const header = req.headers.authorization ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (token && gcipConfigured()) {
+  const cookie = readCookie(req, SESSION_COOKIE);
+  if (cookie && gcipConfigured()) {
     try {
       ensureApp();
-      const decoded = await getAuth().verifyIdToken(token);
+      const decoded = await getAuth().verifySessionCookie(cookie, true);
       req.gcipUid = decoded.uid;
       req.gcipEmail = decoded.email;
     } catch {
-      // Invalid/expired token → treat as anonymous. Never block the request.
+      // Invalid/expired/revoked session → treat as anonymous. Never block.
     }
   }
   next();
+}
+
+/** Exchange a fresh Firebase ID token for a signed session-cookie value. */
+export async function createSession(idToken: string): Promise<{ cookie: string; maxAgeMs: number }> {
+  ensureApp();
+  // Verify (rejects revoked/invalid) before minting the session cookie.
+  await getAuth().verifyIdToken(idToken, true);
+  const cookie = await getAuth().createSessionCookie(idToken, { expiresIn: SESSION_MAX_AGE_MS });
+  return { cookie, maxAgeMs: SESSION_MAX_AGE_MS };
+}
+
+export function sessionCookieHeader(value: string, maxAgeMs: number): string {
+  const parts = [
+    `${SESSION_COOKIE}=${encodeURIComponent(value)}`,
+    "Path=/",
+    `Max-Age=${Math.floor(maxAgeMs / 1000)}`,
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  if (process.env.NODE_ENV === "production") parts.push("Secure");
+  return parts.join("; ");
+}
+
+export function clearSessionCookieHeader(): string {
+  const parts = [`${SESSION_COOKIE}=`, "Path=/", "Max-Age=0", "HttpOnly", "SameSite=Lax"];
+  if (process.env.NODE_ENV === "production") parts.push("Secure");
+  return parts.join("; ");
 }
 
 /** Admin gate: require a verified GCIP user on the ADMIN_EMAILS allowlist. */

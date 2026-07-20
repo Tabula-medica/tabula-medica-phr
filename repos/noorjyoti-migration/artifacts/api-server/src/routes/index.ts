@@ -6,10 +6,12 @@ import unityRouter from "./unity";
 import pathsRouter from "./paths";
 import meRouter from "./me";
 import adminRouter from "./admin";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/auth", authRouter);
 router.use("/catalog", catalogRouter);
 router.use("/tracks", tracksRouter);
 router.use("/unity", unityRouter);

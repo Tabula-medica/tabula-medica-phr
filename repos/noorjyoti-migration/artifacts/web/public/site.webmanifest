@@ -1,0 +1,20 @@
+{
+  "name": "NoorJyoti — Sacred Audio Library",
+  "short_name": "NoorJyoti",
+  "description": "Listen to the world's great scriptures read aloud in soothing AI voices across nine languages.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0b0f1f",
+  "theme_color": "#0b0f1f",
+  "lang": "en",
+  "categories": ["lifestyle", "education", "books"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

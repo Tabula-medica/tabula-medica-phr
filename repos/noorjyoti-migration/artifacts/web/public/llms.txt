@@ -1,0 +1,30 @@
+# NoorJyoti
+
+> NoorJyoti is a free sacred-audio library. It reads the world's great
+> scriptures aloud in soothing, natural AI voices across nine languages, so
+> anyone can listen to the public-domain texts of the major spiritual
+> traditions.
+
+## What NoorJyoti offers
+
+- 21 scriptures across the world's major traditions, including the Bible
+  (KJV), the Quran (Pickthall), the Torah and Pirkei Avot, the Bhagavad Gita,
+  the Dhammapada, the Upanishads, the Heart Sutra, the Ramayana, the Guru
+  Granth Sahib, and the Jain Agamas (e.g. the Acaranga Sutra).
+- Continuous chapter-to-chapter recitation with a calm, distraction-free
+  audio player.
+- Narration in nine languages.
+- Full public-domain text shown as a readable transcript beneath the player.
+- Built for accessibility (WCAG 2.1 AA): keyboard navigation, screen-reader
+  live regions, and reduced-motion support.
+
+## Key facts
+
+- Cost: free.
+- Source texts: public domain.
+- Platforms: web app, plus native iOS and Android apps.
+
+## Links
+
+- Website: https://noorjyoti.com/
+- App: https://noorjyoti.app/
