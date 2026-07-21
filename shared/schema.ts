@@ -291,6 +291,69 @@ export type InsertPhrSdoh = z.infer<typeof insertPhrSdohSchema>;
 export type PhrSdohRecord = typeof sdohTable.$inferSelect;
 
 // ============================================
+// ADVANCE DIRECTIVES — Goals of Care & Treatment Preferences
+// ============================================
+//
+// One structured directive row per profile. PHI fields (goalsOfCare,
+// familyPrimaryGoalOfCare, codeStatus, treatmentPreferences) are encrypted at
+// rest via the phi-storage wrapper (see server/security/phi-column-map.ts →
+// `advanceDirectivesTable`). Uploaded directive FORMS are stored as normal
+// documents in the "advance_directives" system folder (folders.key).
+
+/** Code-status options for an advance directive. */
+export const advanceDirectiveCodeStatuses = ["Full Code", "DNR", "DNI"] as const;
+export type AdvanceDirectiveCodeStatus = typeof advanceDirectiveCodeStatuses[number];
+
+/** yes/no/null answer for each treatment-preference item. */
+export type TreatmentPreferenceValue = "yes" | "no" | null;
+
+/**
+ * Structured treatment-preference grid. The first 9 items are displayed as
+ * "requested" and the last 2 (feedingTube, intubation) as "not to be
+ * initiated", but all are stored uniformly as yes/no/null.
+ */
+export interface TreatmentPreferences {
+  antibioticsIv: TreatmentPreferenceValue;
+  antibioticsOral: TreatmentPreferenceValue;
+  bloodTransfusion: TreatmentPreferenceValue;
+  diagnosticTest: TreatmentPreferenceValue;
+  hcProxyInvoked: TreatmentPreferenceValue;
+  hospitalization: TreatmentPreferenceValue;
+  ivHydration: TreatmentPreferenceValue;
+  labTest: TreatmentPreferenceValue;
+  surgicalIntervention: TreatmentPreferenceValue;
+  feedingTube: TreatmentPreferenceValue;
+  intubation: TreatmentPreferenceValue;
+}
+
+export const advanceDirectivesTable = pgTable(
+  "advance_directives",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    familyPrimaryGoalOfCare: text("family_primary_goal_of_care"),
+    goalsOfCare: text("goals_of_care"),
+    // Multi-select code status stored as text[] (options: Full Code / DNR / DNI).
+    codeStatus: text("code_status").array(),
+    // Structured yes/no/null grid stored as jsonb (encrypted as an envelope).
+    treatmentPreferences: jsonb("treatment_preferences").$type<TreatmentPreferences>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileUx: uniqueIndex("advance_directives_profile_ux").on(t.profileId),
+  })
+);
+
+export const insertAdvanceDirectiveSchema = createInsertSchema(advanceDirectivesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAdvanceDirective = z.infer<typeof insertAdvanceDirectiveSchema>;
+export type AdvanceDirectiveRecord = typeof advanceDirectivesTable.$inferSelect;
+
+// ============================================
 // MEDICATION MANAGEMENT MODULE
 // ============================================
 

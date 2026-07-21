@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useUpload } from "@/hooks/use-upload";
 import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +19,7 @@ import {
   FileText, Shield, ExternalLink, Download, Heart, Users,
   AlertTriangle, Info, CheckCircle2, Phone, MapPin, Scale,
   Stethoscope, Clock, Building2, Globe, Search, ClipboardCheck,
+  Target, Upload, Loader2,
 } from "lucide-react";
 
 interface AdvanceDirectiveData {
@@ -116,6 +120,67 @@ const NATIONAL_RESOURCES = [
   { name: "AARP Advance Directive Forms", url: "https://www.aarp.org/caregiving/financial-legal/free-printable-advance-directives/", description: "Free printable advance directive forms for every state, with step-by-step instructions." },
 ];
 
+// ---- Goals of Care & Treatment Preferences (persisted to backend) ----
+
+type YesNo = "yes" | "no" | null;
+
+const CODE_STATUS_OPTIONS = ["Full Code", "DNR", "DNI"] as const;
+
+interface TreatmentPreferences {
+  antibioticsIv: YesNo;
+  antibioticsOral: YesNo;
+  bloodTransfusion: YesNo;
+  diagnosticTest: YesNo;
+  hcProxyInvoked: YesNo;
+  hospitalization: YesNo;
+  ivHydration: YesNo;
+  labTest: YesNo;
+  surgicalIntervention: YesNo;
+  feedingTube: YesNo;
+  intubation: YesNo;
+}
+
+const REQUESTED_ITEMS: { key: keyof TreatmentPreferences; label: string }[] = [
+  { key: "antibioticsIv", label: "Antibiotics (IV)" },
+  { key: "antibioticsOral", label: "Antibiotics (Oral)" },
+  { key: "bloodTransfusion", label: "Blood Transfusion" },
+  { key: "diagnosticTest", label: "Diagnostic Test" },
+  { key: "hcProxyInvoked", label: "Healthcare Proxy Invoked" },
+  { key: "hospitalization", label: "Hospitalization" },
+  { key: "ivHydration", label: "IV Hydration" },
+  { key: "labTest", label: "Lab Test" },
+  { key: "surgicalIntervention", label: "Surgical Intervention" },
+];
+
+const NOT_INITIATED_ITEMS: { key: keyof TreatmentPreferences; label: string }[] = [
+  { key: "feedingTube", label: "Feeding Tube" },
+  { key: "intubation", label: "Intubation" },
+];
+
+const EMPTY_TREATMENT_PREFS: TreatmentPreferences = {
+  antibioticsIv: null, antibioticsOral: null, bloodTransfusion: null,
+  diagnosticTest: null, hcProxyInvoked: null, hospitalization: null,
+  ivHydration: null, labTest: null, surgicalIntervention: null,
+  feedingTube: null, intubation: null,
+};
+
+interface GoalsOfCareData {
+  familyPrimaryGoalOfCare: string;
+  goalsOfCare: string;
+  codeStatus: string[];
+  treatmentPreferences: TreatmentPreferences;
+}
+
+interface DirectiveDocument {
+  id: string;
+  title: string;
+  mimeType: string;
+  objectKey: string;
+  source: string | null;
+  dateOfService: string | null;
+  createdAt: string;
+}
+
 export default function AdvanceDirectives() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
@@ -158,6 +223,98 @@ export default function AdvanceDirectives() {
     }
   });
 
+  // ---- Goals of Care & Treatment Preferences (server-persisted) ----
+  const [goals, setGoals] = useState<GoalsOfCareData>({
+    familyPrimaryGoalOfCare: "",
+    goalsOfCare: "",
+    codeStatus: [],
+    treatmentPreferences: { ...EMPTY_TREATMENT_PREFS },
+  });
+
+  const goalsQuery = useQuery<{ directive: GoalsOfCareData | null }>({
+    queryKey: ["/api/advance-directives"],
+  });
+
+  useEffect(() => {
+    const d = goalsQuery.data?.directive;
+    if (d) {
+      setGoals({
+        familyPrimaryGoalOfCare: d.familyPrimaryGoalOfCare ?? "",
+        goalsOfCare: d.goalsOfCare ?? "",
+        codeStatus: Array.isArray(d.codeStatus) ? d.codeStatus : [],
+        treatmentPreferences: { ...EMPTY_TREATMENT_PREFS, ...(d.treatmentPreferences ?? {}) },
+      });
+    }
+  }, [goalsQuery.data]);
+
+  const saveGoalsMutation = useMutation({
+    mutationFn: async (payload: GoalsOfCareData) => {
+      const res = await apiRequest("PUT", "/api/advance-directives", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/advance-directives"] });
+      toast({ title: "Saved", description: "Your goals of care and treatment preferences have been saved." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const toggleCodeStatus = (value: string, checked: boolean) => {
+    setGoals(prev => ({
+      ...prev,
+      codeStatus: checked
+        ? Array.from(new Set([...prev.codeStatus, value]))
+        : prev.codeStatus.filter(v => v !== value),
+    }));
+  };
+
+  const setTreatmentPref = (key: keyof TreatmentPreferences, value: YesNo) => {
+    setGoals(prev => ({
+      ...prev,
+      treatmentPreferences: { ...prev.treatmentPreferences, [key]: value },
+    }));
+  };
+
+  // ---- Advance Directive Documents (server folder + upload) ----
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const docsQuery = useQuery<{ folderId: string; documents: DirectiveDocument[] }>({
+    queryKey: ["/api/advance-directives/documents"],
+  });
+
+  const attachDocMutation = useMutation({
+    mutationFn: async (payload: { objectPath: string; title: string; mimeType: string }) => {
+      const res = await apiRequest("POST", "/api/advance-directives/documents", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/advance-directives/documents"] });
+      toast({ title: "Uploaded", description: "Document added to your Advance Directives folder." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const { uploadFile, isUploading } = useUpload({
+    onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
+  });
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await uploadFile(file);
+    if (result) {
+      await attachDocMutation.mutateAsync({
+        objectPath: result.objectPath,
+        title: file.name,
+        mimeType: file.type || "application/octet-stream",
+      });
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const filteredStates = Object.entries(STATE_DIRECTIVE_RESOURCES).filter(([abbr, state]) =>
     !searchState || state.name.toLowerCase().includes(searchState.toLowerCase()) || abbr.toLowerCase().includes(searchState.toLowerCase())
   );
@@ -184,12 +341,15 @@ export default function AdvanceDirectives() {
       </Alert>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full grid grid-cols-4 h-auto">
+        <TabsList className="w-full grid grid-cols-3 md:grid-cols-5 h-auto">
           <TabsTrigger value="overview" className="text-xs md:text-sm py-2" data-testid="tab-overview">
             <ClipboardCheck className="w-4 h-4 mr-1 hidden md:inline" /> Overview
           </TabsTrigger>
           <TabsTrigger value="myDirectives" className="text-xs md:text-sm py-2" data-testid="tab-my-directives">
             <FileText className="w-4 h-4 mr-1 hidden md:inline" /> My Directives
+          </TabsTrigger>
+          <TabsTrigger value="goalsOfCare" className="text-xs md:text-sm py-2" data-testid="tab-goals-of-care">
+            <Target className="w-4 h-4 mr-1 hidden md:inline" /> Goals of Care
           </TabsTrigger>
           <TabsTrigger value="stateForms" className="text-xs md:text-sm py-2" data-testid="tab-state-forms">
             <MapPin className="w-4 h-4 mr-1 hidden md:inline" /> State Forms
@@ -626,6 +786,169 @@ export default function AdvanceDirectives() {
                 <CheckCircle2 className="w-4 h-4 mr-2" /> Save All Directive Information
               </Button>
             </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="goalsOfCare" className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Goals of Care &amp; Treatment Preferences</h2>
+              <p className="text-sm text-muted-foreground">Saved securely to your health record</p>
+            </div>
+            <Button
+              onClick={() => saveGoalsMutation.mutate(goals)}
+              disabled={saveGoalsMutation.isPending || goalsQuery.isLoading}
+              data-testid="button-save-goals"
+            >
+              {saveGoalsMutation.isPending
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              Save
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Goals of Care</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Family's Primary Goal of Care</Label>
+                <Input
+                  value={goals.familyPrimaryGoalOfCare}
+                  onChange={e => setGoals(prev => ({ ...prev, familyPrimaryGoalOfCare: e.target.value }))}
+                  placeholder="e.g., Unknown"
+                  data-testid="input-family-primary-goal"
+                />
+              </div>
+              <div>
+                <Label>Goals of Care</Label>
+                <Textarea
+                  value={goals.goalsOfCare}
+                  onChange={e => setGoals(prev => ({ ...prev, goalsOfCare: e.target.value }))}
+                  placeholder="e.g., goal of care is function"
+                  rows={3}
+                  data-testid="input-goals-of-care"
+                />
+              </div>
+              <div>
+                <Label>Code Status</Label>
+                <div className="flex flex-wrap gap-4 mt-2">
+                  {CODE_STATUS_OPTIONS.map(opt => (
+                    <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={goals.codeStatus.includes(opt)}
+                        onCheckedChange={(c) => toggleCodeStatus(opt, c === true)}
+                        data-testid={`checkbox-code-status-${opt.replace(/\s/g, "-").toLowerCase()}`}
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2"><Stethoscope className="w-4 h-4 text-primary" /> Treatment Preferences</CardTitle>
+              <CardDescription>Set each treatment to Yes or No</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {[
+                { heading: "Requested", items: REQUESTED_ITEMS },
+                { heading: "Not to be initiated", items: NOT_INITIATED_ITEMS },
+              ].map(group => (
+                <div key={group.heading} className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">{group.heading}</h4>
+                  <div className="space-y-1">
+                    {group.items.map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between py-2 border-b border-muted last:border-0">
+                        <span className="text-sm">{label}</span>
+                        <div className="flex gap-2">
+                          {(["yes", "no"] as const).map(v => (
+                            <Button
+                              key={v}
+                              type="button"
+                              size="sm"
+                              variant={goals.treatmentPreferences[key] === v ? "default" : "outline"}
+                              onClick={() => setTreatmentPref(key, goals.treatmentPreferences[key] === v ? null : v)}
+                              data-testid={`toggle-${key}-${v}`}
+                            >
+                              {v === "yes" ? "Yes" : "No"}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={() => saveGoalsMutation.mutate(goals)}
+                disabled={saveGoalsMutation.isPending || goalsQuery.isLoading}
+                className="w-full"
+                data-testid="button-save-goals-all"
+              >
+                {saveGoalsMutation.isPending
+                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                Save Goals of Care &amp; Treatment Preferences
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> Advance Directive Documents</CardTitle>
+              <CardDescription>Upload signed forms (PDF or image). Stored in your Advance Directives folder.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleFileSelected}
+                  data-testid="input-directive-file"
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || attachDocMutation.isPending}
+                  data-testid="button-upload-directive"
+                >
+                  {(isUploading || attachDocMutation.isPending)
+                    ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    : <Upload className="w-4 h-4 mr-2" />}
+                  Upload Document
+                </Button>
+              </div>
+
+              {docsQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">Loading documents...</p>
+              ) : (docsQuery.data?.documents?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground" data-testid="text-no-directive-docs">No documents uploaded yet.</p>
+              ) : (
+                <div className="space-y-2" data-testid="list-directive-docs">
+                  {docsQuery.data!.documents.map(doc => (
+                    <div key={doc.id} className="flex items-center justify-between py-2 px-3 rounded-md border border-muted">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-sm truncate">{doc.title}</span>
+                      </div>
+                      <a href={`/objects/${doc.objectKey.replace(/^\/objects\//, "")}`} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="sm" className="text-xs" data-testid={`link-directive-doc-${doc.id}`}>
+                          <Download className="w-3 h-3 mr-1" /> View
+                        </Button>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 
