@@ -64,18 +64,36 @@ function readCookie(req: Request, name: string): string | undefined {
   return undefined;
 }
 
-/** App-wide, non-blocking: resolve a GCIP user from the nj_session cookie (if valid). */
+/**
+ * App-wide, non-blocking: resolve a GCIP user from either
+ *   • an `Authorization: Bearer <ID token>` header (mobile — the api-client
+ *     attaches it via setAuthTokenGetter), OR
+ *   • the httpOnly `nj_session` cookie (web).
+ * Absent/invalid → anonymous; never blocks.
+ */
 export async function resolveGcipUser(req: Request, _res: Response, next: NextFunction): Promise<void> {
-  const cookie = readCookie(req, SESSION_COOKIE);
-  if (cookie && gcipConfigured()) {
-    try {
-      ensureApp();
-      const decoded = await getAuth().verifySessionCookie(cookie, true);
+  if (!gcipConfigured()) {
+    next();
+    return;
+  }
+  const header = req.headers.authorization ?? "";
+  const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  try {
+    ensureApp();
+    if (bearer) {
+      const decoded = await getAuth().verifyIdToken(bearer, true);
       req.gcipUid = decoded.uid;
       req.gcipEmail = decoded.email;
-    } catch {
-      // Invalid/expired/revoked session → treat as anonymous. Never block.
+    } else {
+      const cookie = readCookie(req, SESSION_COOKIE);
+      if (cookie) {
+        const decoded = await getAuth().verifySessionCookie(cookie, true);
+        req.gcipUid = decoded.uid;
+        req.gcipEmail = decoded.email;
+      }
     }
+  } catch {
+    // Invalid/expired/revoked credential → treat as anonymous.
   }
   next();
 }
