@@ -1,12 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Windows Git-Bash guard: STOP MSYS from rewriting a leading-slash arg like
-# /tabula-medica-gcs/.private into C:/Program Files/Git/... (that mangling is
-# exactly what broke PRIVATE_OBJECT_DIR on the live service). Harmless on Linux.
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
-
 # ============================================================================
 # Tabula Medica PHR — production deploy (us-central1)
 # ----------------------------------------------------------------------------
@@ -33,8 +27,13 @@ SERVICE_NAME="${SERVICE_NAME:-tabula-medica-phr}"
 SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-1060107259776-compute@developer.gserviceaccount.com}"
 CLOUD_SQL_INSTANCE="${CLOUD_SQL_INSTANCE:-united-planet-485003-n7:us-central1:tabula-medica-db}"
 # GCS object-storage paths (bucket = tabula-medica-gcs). Leading-slash form
-# REQUIRED (parseObjectPath expects /<bucket>/<prefix>); MSYS guard above keeps
-# it intact.
+# REQUIRED (parseObjectPath expects /<bucket>/<prefix>). On Windows Git-Bash,
+# MSYS would rewrite this leading-slash value into C:/Program Files/Git/...
+# (that mangling is what broke PRIVATE_OBJECT_DIR on the live service). We guard
+# it NARROWLY on the deploy command below via a scoped MSYS2_ARG_CONV_EXCL that
+# excludes ONLY the PRIVATE_OBJECT_DIR arg — NOT a global MSYS_NO_PATHCONV, which
+# breaks gcloud's own bash launcher (it needs /c/... paths converted). Harmless
+# on Linux (the env var is simply ignored).
 PRIVATE_OBJECT_DIR_VALUE="${PRIVATE_OBJECT_DIR_VALUE:-/tabula-medica-gcs/.private}"
 
 echo "🚀 Deploying PHR to Cloud Run: ${SERVICE_NAME} (${REGION}) in ${PROJECT_ID}"
@@ -50,6 +49,7 @@ else
   echo "   (new service → initial revision takes 100%)"
 fi
 
+MSYS2_ARG_CONV_EXCL="PRIVATE_OBJECT_DIR=" \
 gcloud run deploy "${SERVICE_NAME}" \
   --source . \
   --project "${PROJECT_ID}" \
