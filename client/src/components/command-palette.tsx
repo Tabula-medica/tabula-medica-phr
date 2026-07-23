@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
+import { useTefcaEnabled } from "@/hooks/use-tefca";
 import {
   CommandDialog,
   CommandEmpty,
@@ -58,6 +59,8 @@ export function CommandPalette() {
     setOpen(false);
     setLocation(url);
   }, [setLocation]);
+
+  const tefcaEnabled = useTefcaEnabled();
 
   const sections: CommandSection[] = [
     {
@@ -190,6 +193,14 @@ export function CommandPalette() {
     },
   ];
 
+  // Hide TEFCA/Fasten-only commands on the international (.world) deployment.
+  const TEFCA_ONLY_COMMAND_IDS = new Set(["nav-connect", "nav-compliance-export", "nav-network-health"]);
+  const visibleSections = tefcaEnabled
+    ? sections
+    : sections
+        .map((s) => ({ ...s, items: s.items.filter((i) => !TEFCA_ONLY_COMMAND_IDS.has(i.id)) }))
+        .filter((s) => s.items.length > 0);
+
   return (
     <>
       <button
@@ -210,7 +221,7 @@ export function CommandPalette() {
         <CommandList className="max-h-[400px]">
           <CommandEmpty>No results found.</CommandEmpty>
 
-          {sections.map((section, sIdx) => (
+          {visibleSections.map((section, sIdx) => (
             <div key={section.heading}>
               {sIdx > 0 && <CommandSeparator />}
               <CommandGroup heading={section.heading}>

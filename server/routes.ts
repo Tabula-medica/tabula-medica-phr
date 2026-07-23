@@ -1101,6 +1101,40 @@ export async function registerRoutes(
     console.error("[Routes] Failed to initialize GCP integrations:", error);
   }
 
+  // ── TEFCA / Fasten Health feature flag ──────────────────────────────────
+  // TEFCA (the US-only health-information-exchange network) and its Fasten
+  // Health connector are US-only. The international `tabulamedica.world`
+  // deployment runs the SAME image with TEFCA_ENABLED=false so it exposes NO
+  // TEFCA/Fasten surface; the US `tabulamedica.us` deployment leaves the var
+  // unset (defaults ON). Default-on preserves existing behavior everywhere.
+  const TEFCA_ENABLED = process.env.TEFCA_ENABLED !== "false";
+
+  // Public, no-auth runtime config so the SPA can hide TEFCA UI on .world.
+  app.get("/api/public-config", (_req, res) => {
+    res.json({ tefcaEnabled: TEFCA_ENABLED });
+  });
+
+  // When disabled, hard-block the entire TEFCA/Fasten API surface. Registered
+  // here (before those routes are mounted below) so it intercepts every
+  // sub-route regardless of where it is added later in this large file.
+  if (!TEFCA_ENABLED) {
+    const TEFCA_BLOCKED_PREFIXES = [
+      "/api/tefca",
+      "/api/tefca-patient-viewer",
+      "/api/fasten-connect",
+      "/api/fhir-streaming",
+      "/api/compliance-export",
+    ];
+    app.use((req, res, next) => {
+      const p = req.path;
+      if (TEFCA_BLOCKED_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix + "/"))) {
+        return res.status(404).json({ error: "NOT_FOUND", message: "Feature not available in this region." });
+      }
+      next();
+    });
+    console.log("[Routes] TEFCA_ENABLED=false — TEFCA/Fasten API surface disabled for this deployment.");
+  }
+
   // Register patient onboarding routes
   registerOnboardingRoutes(app);
 
