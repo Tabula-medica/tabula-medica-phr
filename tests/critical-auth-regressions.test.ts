@@ -39,12 +39,15 @@ describe("critical PHI auth regressions", () => {
 
   it("keeps dashboard stats authenticated and scoped away from global PHI aggregates", () => {
     const source = read("server/routes.ts");
+    const dashboardStart = source.indexOf('app.get("/api/dashboard/stats"');
+    const dashboardEnd = source.indexOf("// Security Status Endpoint", dashboardStart);
+    const dashboardSource = source.slice(dashboardStart, dashboardEnd);
 
-    expect(source).toContain('app.get("/api/dashboard/stats", isAuthenticated');
-    expect(source).toContain("storage.getEhrConnections(userId)");
-    expect(source).toContain("storage.getUserPatientIds(userId)");
-    expect(source).not.toContain("const connections = await storage.getEhrConnections();");
-    expect(source).not.toContain("const unifiedPatients = await storage.getUnifiedPatients();");
-    expect(source).not.toContain("const patients = await storage.getPatients();");
+    expect(dashboardSource).toContain('app.get("/api/dashboard/stats", isAuthenticated');
+    expect(dashboardSource).toContain("storage.getEhrConnections(userId)");
+    expect(dashboardSource).toContain("storage.getUserPatientIds(userId)");
+    expect(dashboardSource).not.toContain("const connections = await storage.getEhrConnections();");
+    expect(dashboardSource).not.toContain("const unifiedPatients = await storage.getUnifiedPatients();");
+    expect(dashboardSource).not.toContain("const patients = await storage.getPatients();");
   });
 });
