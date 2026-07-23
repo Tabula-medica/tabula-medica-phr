@@ -22,6 +22,7 @@ import { NotificationDropdown, MobileNotificationDropdown } from "@/components/n
 import { EnhancedNotificationCenter } from "@/components/enhanced-notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
+import { useTefcaEnabled } from "@/hooks/use-tefca";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { SessionTimeoutModal } from "@/components/session-timeout-modal";
 import LandingPage from "@/pages/landing";
@@ -194,13 +195,17 @@ const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
 const EarlyAccessSignup = lazy(() => import("@/pages/signup"));
 
 function Router() {
+  // TEFCA/Fasten is US-only. On the international `.world` deployment
+  // (TEFCA_ENABLED=false) these routes are not registered, so direct
+  // navigation falls through to NotFound.
+  const tefcaEnabled = useTefcaEnabled();
   return (
     <RouteErrorBoundary>
     <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/my-health-record" component={MyHealthRecord} />
-      <Route path="/fasten-connect" component={FastenConnect} />
+      {tefcaEnabled && <Route path="/fasten-connect" component={FastenConnect} />}
       <Route path="/ehr-callback" component={EHRCallback} />
       <Route path="/pet-health-records" component={PetHealthRecords} />
       <Route path="/timeline" component={Timeline} />
@@ -268,7 +273,7 @@ function Router() {
       <Route path="/cms-1500" component={CMS1500ClaimForm} />
       <Route path="/find-provider" component={ProviderDirectory} />
       <Route path="/npi-lookup" component={NPILookup} />
-      <Route path="/compliance-export" component={ComplianceExport} />
+      {tefcaEnabled && <Route path="/compliance-export" component={ComplianceExport} />}
       <Route path="/network-health" component={NetworkHealth} />
       <Route path="/patient-viewer" component={TEFCAPatientViewer} />
       <Route path="/data-source-onboarding" component={DataSourceOnboarding} />
@@ -309,7 +314,7 @@ function Router() {
       <Route path="/auth/login" component={AuthLogin} />
       <Route path="/auth/register" component={AuthRegister} />
       <Route path="/consent" component={Consent} />
-      <Route path="/connections" component={Connections} />
+      {tefcaEnabled && <Route path="/connections" component={Connections} />}
       <Route path="/medplum" component={MedplumFHIR} />
       <Route path="/intake-history" component={IntakeHistory} />
       <Route path="/medications" component={Medications} />
@@ -333,7 +338,7 @@ function Router() {
       <Route path="/guided-onboarding" component={GuidedOnboarding} />
       <Route path="/patient-onboarding-wizard" component={PatientOnboardingWizard} />
       <Route path="/new-user-onboarding" component={NewUserOnboarding} />
-      <Route path="/comprehensive-onboarding" component={ComprehensiveOnboarding} />
+      {tefcaEnabled && <Route path="/comprehensive-onboarding" component={ComprehensiveOnboarding} />}
       <Route path="/health-questionnaire" component={HealthQuestionnaire} />
       <Route path="/sync-progress" component={SyncProgress} />
       <Route path="/qoca-aiot" component={QocaAIoT} />

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useRegion } from "@/components/region-provider";
+import { useTefcaEnabled } from "@/hooks/use-tefca";
 import { 
   LayoutDashboard, 
   Clock, 
@@ -108,6 +109,7 @@ const mainNavItems = [
     url: "/fasten-connect",
     icon: Link2,
     badge: null,
+    requiresTefca: true,
   },
   {
     title: "Symptom Checker",
@@ -650,6 +652,10 @@ function SectionHeader({
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const tefcaEnabled = useTefcaEnabled();
+  const mainNavItemsForRegion = mainNavItems.filter(
+    (item) => tefcaEnabled || !(item as { requiresTefca?: boolean }).requiresTefca,
+  );
   const [healthToolsOpen, setHealthToolsOpen] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [engagementOpen, setEngagementOpen] = useState(false);
@@ -750,7 +756,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider">Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map(renderNavItem)}
+              {mainNavItemsForRegion.map(renderNavItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
