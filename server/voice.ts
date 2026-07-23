@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { Buffer } from "node:buffer";
 import { speechToText, textToSpeech, openai } from "./replit_integrations/audio/client";
+import { isAuthenticated } from "./replit_integrations/auth";
 import { storage } from "./storage";
 
 const HEALTH_SYSTEM_PROMPT = `You are a helpful health assistant for Tabula Medica, a patient health records app. 
@@ -68,8 +69,13 @@ function parseVoiceCommand(transcript: string): VoiceCommand {
 }
 
 export function registerVoiceRoutes(app: Express): void {
-  app.post("/api/voice/command", async (req: Request, res: Response) => {
+  app.post("/api/voice/command", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { audio, format = "webm", language = "en" } = req.body;
       
       if (!audio) {
@@ -99,12 +105,14 @@ export function registerVoiceRoutes(app: Express): void {
         });
         responseText = completion.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you try again?";
       } else if (command.type === "read") {
-        const allergies = await storage.getAllergies();
-        const patients = await storage.getPatients();
-        
+        const patientIds = await storage.getUserPatientIds(userId);
+        const allergiesByPatient = await Promise.all(
+          patientIds.map((patientId) => storage.getAllergiesByPatient(patientId))
+        );
+        const allergies = allergiesByPatient.flat();
         let allMedications: Array<{ name: string; status: string }> = [];
-        for (const patient of patients) {
-          const meds = await storage.getMedicationsByPatient(patient.id);
+        for (const patientId of patientIds) {
+          const meds = await storage.getMedicationsByPatient(patientId);
           allMedications = allMedications.concat(meds);
         }
         
@@ -143,7 +151,7 @@ export function registerVoiceRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/voice/explain-term", async (req: Request, res: Response) => {
+  app.post("/api/voice/explain-term", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { audio, format = "webm" } = req.body;
       
@@ -181,7 +189,7 @@ export function registerVoiceRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/voice/text-to-speech", async (req: Request, res: Response) => {
+  app.post("/api/voice/text-to-speech", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { text, voice = "alloy" } = req.body;
       

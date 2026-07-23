@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
+import { isAuthenticated } from "./replit_integrations/auth";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -21,6 +22,8 @@ interface OnboardingSession {
 const sessions = new Map<string, OnboardingSession>();
 
 export function registerComprehensiveOnboardingRoutes(app: Express) {
+  app.use("/api/comprehensive-onboarding", isAuthenticated);
+
   app.post("/api/comprehensive-onboarding/session", (_req: Request, res: Response) => {
     const id = `onb-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const session: OnboardingSession = {
