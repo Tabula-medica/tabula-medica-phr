@@ -63,12 +63,17 @@ if (process.env.ENABLE_ECW_CHECK === 'false' || process.env.USE_TEFCA === 'true'
   console.log("TEFCA Mode Active: Skipping eCW Firewall Check.");
 }
 
-app.get("/", (req, res) => res.status(200).send("HEALTHY"));
+// NOTE: "/" is intentionally NOT a health endpoint. It must serve the SPA
+// (via the serveStatic catch-all) so visitors to the bare domain
+// (tabulamedica.us / .world / .health) land on the app instead of a plaintext
+// "HEALTHY" string. Cloud Run's startup probe is TCP on :8080, and deploy.sh
+// gates on "/health" (JSON) — neither needs "/".
 
 const isProduction = process.env.NODE_ENV === "production";
 
 
-const DEDICATED_HEALTH_PATHS = new Set(["/", "/health", "/api/health", "/_ah/health", "/_ah/start"]);
+// "/" removed intentionally — it now serves the SPA, not a health check.
+const DEDICATED_HEALTH_PATHS = new Set(["/health", "/api/health", "/_ah/health", "/_ah/start"]);
 
 let dbHealthy = true;
 let lastDbCheck = 0;
@@ -110,12 +115,6 @@ function handleRawHealthCheck(req: import("http").IncomingMessage, res: import("
   if (req.method !== "GET" && req.method !== "HEAD") return false;
 
   const isDedicatedHealthPath = DEDICATED_HEALTH_PATHS.has(urlPath);
-
-  if (urlPath === "/") {
-    res.writeHead(200, { "Content-Type": "text/plain", "Content-Length": "7", "Cache-Control": "no-cache, no-store" });
-    req.method !== "HEAD" ? res.end("HEALTHY") : res.end();
-    return true;
-  }
 
   if (isDedicatedHealthPath) {
     checkDbHealth().then((healthy) => {
