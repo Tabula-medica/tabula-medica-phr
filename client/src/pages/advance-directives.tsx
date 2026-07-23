@@ -336,7 +336,7 @@ export default function AdvanceDirectives() {
         <AlertDescription>
           This tool helps you organize advance directive information and find official state resources. It does not constitute
           legal advice. Consult with an attorney or your state's official resources to ensure your directives are legally valid.
-          All data is stored locally on your device.
+          Your directive and uploaded forms are stored securely and encrypted in your account.
         </AlertDescription>
       </Alert>
 
