@@ -1157,6 +1157,9 @@ export async function registerRoutes(
       "/api/aggregator-sync",
       "/api/fhir-streaming",
       "/api/compliance-export",
+      "/api/phr-pipeline",
+      "/api/comprehensive-onboarding",
+      "/api/ehr-integration",
     ];
     app.use((req, res, next) => {
       const p = req.path;
@@ -1909,12 +1912,23 @@ export async function registerRoutes(
   console.log("[Routes] AU Region routes registered at /api/au/*");
 
   // Dashboard Stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
     try {
-      const connections = await storage.getEhrConnections();
-      const unifiedPatients = await storage.getUnifiedPatients();
-      const patients = await storage.getPatients();
-      const appointments = await storage.getUpcomingAppointments();
+      const userId = (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const connections = await storage.getEhrConnections(userId);
+      const patientIds = await storage.getUserPatientIds(userId);
+      const patients = (await Promise.all(patientIds.map((patientId) => storage.getPatient(patientId))))
+        .filter(Boolean);
+      const patientIdSet = new Set(patientIds);
+      const appointments = (await storage.getUpcomingAppointments())
+        .filter((appointment) => patientIdSet.has(appointment.patientId));
+      const uniquePatientKeys = new Set(
+        patients.map((patient) => patient?.unifiedPatientId || patient?.id).filter(Boolean)
+      );
       
       let totalRecords = 0;
       let activeMedications = 0;
@@ -1927,7 +1941,7 @@ export async function registerRoutes(
       }
 
       res.json({
-        totalPatients: unifiedPatients.length, // Count unique patients, not EHR records
+        totalPatients: uniquePatientKeys.size, // Count unique patients, not EHR records
         activeConnections: connections.filter(c => c.status === 'connected').length,
         totalRecords,
         activeMedications,
