@@ -18,7 +18,7 @@ import {
   Sparkles, Bot, BookOpen, Target, ClipboardList, Mic, Languages, DollarSign,
   MessageSquare, Video, Users, ClipboardCheck, Stethoscope, Trophy,
   Settings, Shield, Eye, WifiOff, Accessibility,
-  ArrowRight, CheckCheck, Moon, Sun, LogOut, Home,
+  ArrowRight, CheckCheck, Moon, Sun, LogOut, Home, Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
