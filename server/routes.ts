@@ -1,6 +1,6 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { randomUUID } from "crypto";
+import { randomUUID, createHmac, timingSafeEqual } from "crypto";
 import { generateSecret, verifySync, generateURI } from "otplib";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -1208,6 +1208,35 @@ export async function registerRoutes(
   app.post("/api/fasten-connect/webhook", (req, res) => {
     const event = req.body;
     const timestamp = new Date().toISOString();
+
+    // Verify the Fasten webhook HMAC-SHA256 signature over the RAW body using
+    // FASTEN_SHARED_SECRET. Default is LOG-ONLY (never rejects) so an unverified
+    // signature scheme can't break live delivery; set FASTEN_WEBHOOK_ENFORCE=true
+    // to hard-reject once the header/scheme is confirmed from these logs.
+    const secret = process.env.FASTEN_SHARED_SECRET;
+    if (secret) {
+      const enforce = process.env.FASTEN_WEBHOOK_ENFORCE === "true";
+      const sigHeader = (req.headers["x-fasten-signature"] ||
+        req.headers["x-webhook-signature"] ||
+        req.headers["fasten-signature"] ||
+        req.headers["x-signature"]) as string | undefined;
+      const raw = (req as unknown as { rawBody?: Buffer }).rawBody;
+      let valid = false;
+      if (raw && sigHeader) {
+        const expected = createHmac("sha256", secret).update(raw).digest("hex");
+        const provided = (sigHeader.includes("=") ? sigHeader.split("=").pop()! : sigHeader).trim();
+        try {
+          valid = provided.length === expected.length &&
+            timingSafeEqual(Buffer.from(provided, "hex"), Buffer.from(expected, "hex"));
+        } catch { valid = false; }
+      }
+      if (!valid) {
+        const reason = !sigHeader ? "MISSING" : !raw ? "NO_RAW_BODY" : "MISMATCH";
+        console.warn(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_SIGNATURE_${reason} - headers:[${Object.keys(req.headers).filter((h) => /sign|fasten/i.test(h)).join(",") || "none"}] enforce:${enforce}`);
+        if (enforce) return res.status(401).json({ error: "invalid_signature" });
+      }
+    }
+
     console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
     res.status(200).json({ received: true });
   });
