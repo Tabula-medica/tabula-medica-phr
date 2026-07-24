@@ -12,7 +12,9 @@ import {
   buildSiteNavigationSchema,
   buildHowToSchema,
 } from "@/hooks/use-seo";
+import { ZeroKnowledgeBadge } from "@/components/zero-knowledge-badge";
 import {
+  Camera,
   Shield, Heart, ArrowRight, Link2, Globe, Lock,
   Search, Building2, MapPin, Loader2, ExternalLink,
   Activity, Brain, Languages, CheckCircle2,
