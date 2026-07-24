@@ -5,6 +5,14 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalLanguageSwitcher } from "@/components/language-provider";
 import { AIDemoTour, type AIDemoTourStep } from "@/components/ai-demo-tour";
 import {
+  useSEO,
+  buildOrganizationSchema,
+  buildWebApplicationSchema,
+  buildFAQSchema,
+  buildSiteNavigationSchema,
+  buildHowToSchema,
+} from "@/hooks/use-seo";
+import {
   Shield, Heart, ArrowRight, Link2, Globe, Lock,
   Search, Building2, MapPin, Loader2, ExternalLink,
   Activity, Brain, Languages, CheckCircle2,
@@ -42,7 +50,7 @@ const howItWorks = [
   {
     icon: Network,
     title: "National Interoperability",
-    description: "We connect to the Trusted Exchange Framework and Common Agreement (TEFCA) via Apigee, allowing you to pull records from over 70,000 healthcare sites across the country.",
+    description: "You can connect to major US health systems via SMART on FHIR (FHIR R4). Support for the Trusted Exchange Framework and Common Agreement (TEFCA) is planned.",
   },
   {
     icon: Sparkles,
@@ -108,7 +116,7 @@ const features = [
   {
     icon: Lock,
     title: "You Own Your Data",
-    description: "Share records with providers on your terms. Revoke access anytime. Zero-knowledge encryption.",
+    description: "Share records with providers on your terms. Revoke access anytime. Strong encryption in transit and at rest (AES-256-GCM); you control what is gathered and shared.",
   },
 ];
 
@@ -141,7 +149,7 @@ const landingTourSteps: AIDemoTourStep[] = [
     iconColor: "text-blue-600 dark:text-blue-300",
     title: "Connect your records once",
     body:
-      "Link your hospital portals through the national TEFCA network. We pull labs, medications, conditions, and visit notes from 70,000+ sites.",
+      "Link your hospital portals to major US health systems via SMART on FHIR (FHIR R4). We pull labs, medications, conditions, and visit notes. TEFCA support is planned.",
   },
   {
     icon: Sparkles,
@@ -218,7 +226,7 @@ function HospitalSearchBar() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           data-testid="input-landing-hospital-search"
-          placeholder="Search 25,000+ hospitals and health systems..."
+          placeholder="Search major US health systems via SMART on FHIR..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setShowResults(true)}
@@ -276,11 +284,11 @@ const LANDING_FAQS = [
   },
   {
     question: "How does Tabula Medica connect to my hospital?",
-    answer: "We use SMART on FHIR and TEFCA — the same secure standards hospitals use to share data with each other. You log into your patient portal once, and your records sync automatically. No data is stored on our servers without your explicit consent.",
+    answer: "We use SMART on FHIR (FHIR R4) — the same secure standard hospitals use to share data with each other (TEFCA support is planned). You log into your patient portal once, and your records sync automatically. No data is stored on our servers without your explicit consent.",
   },
   {
     question: "Is my health data safe?",
-    answer: "Absolutely. Tabula Medica is HIPAA compliant with SOC 2 Type II certification. All data is encrypted with AES-256 at rest and TLS 1.3 in transit. We use zero-knowledge encryption — meaning even we cannot read your records.",
+    answer: "Absolutely. Tabula Medica uses HIPAA-aligned safeguards; a SOC 2 Type II audit is planned. Data is protected with strong encryption in transit and at rest (AES-256-GCM) and TLS 1.3, and you control what is gathered and shared.",
   },
   {
     question: "What if I don't have health insurance?",
@@ -318,7 +326,7 @@ export default function LandingPage() {
 
   useSEO({
     title: "Your Health Records, United",
-    description: "Patient health record app. Connect all your hospitals into one secure, HIPAA-compliant timeline. SMART on FHIR, TEFCA, and AI-powered insights.",
+    description: "Patient health record app. Connect all your hospitals into one secure, HIPAA-compliant timeline. SMART on FHIR (FHIR R4), TEFCA support planned, and AI-powered insights.",
     canonicalPath: "/",
     structuredData: landingStructuredData,
   });
@@ -690,7 +698,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="flex-1 space-y-5">
               <h2 className="text-2xl sm:text-3xl font-serif font-bold text-foreground" data-testid="text-fasten-heading">
-                25,000+ Providers Connected
+                Major US Health Systems Connected
               </h2>
               <p className="text-muted-foreground leading-relaxed" data-testid="text-fasten-description">
                 Can't find your hospital? Fasten Health connects you to thousands of additional US healthcare providers including non-Epic systems. All your records flow securely into Tabula Medica.
