@@ -34,11 +34,25 @@ Standard scripts are defined in `package.json` (`dev`, `build`, `start`, `check`
   `DATABASE_URL=postgresql://tabula:tabula@localhost:5432/tabula`. Postgres is a system
   dependency (install/start it yourself; it is not part of the npm update script).
 
-### Auth
-- Web login is Google Cloud Identity Platform / Firebase (Google/Apple popup) and requires
-  `VITE_GCIP_*` + Firebase config; the login buttons are disabled without it, so authenticated
-  UI flows can't be exercised without those secrets. Public tools (e.g. the Symptom Checker at
-  `/symptom-checker`) work anonymously and are the easiest way to exercise core functionality.
+### Auth (Firebase / GCIP)
+- Web login is Google Cloud Identity Platform / Firebase, using **Google/Apple popup sign-in**
+  (no email/password form in the UI). It requires these **client build-time** env vars, read by
+  `client/src/lib/gcip.ts` via `import.meta.env` (must be present in the process env when
+  `npm run dev`/`npm run build` starts):
+  - `VITE_GCIP_API_KEY` — the Firebase Web API key (a secret; provide via Secrets).
+  - `VITE_GCIP_AUTH_DOMAIN` — e.g. `united-planet-485003-n7-9f345.firebaseapp.com`.
+  - `VITE_GCIP_PROJECT_ID` — e.g. `united-planet-485003-n7-9f345`.
+  When any are missing, `isGcipConfigured()` is false, the sign-in buttons are disabled, and the
+  page shows "Sign-in is temporarily unavailable".
+- Server-side token verification (`server/auth/gcip.ts`) validates GCIP ID tokens against
+  Google's public JWKS using `GCIP_PROJECT_ID` (falls back to `FIREBASE_PROJECT_ID`, then the
+  hardcoded default `united-planet-485003-n7-9f345`). It must match the client project. No
+  service-account key is needed just to verify tokens.
+- The chosen providers (Google, Apple, and any TOTP MFA) must be enabled in the Firebase console
+  for that project; `localhost` is an authorized domain by default. Completing a real sign-in
+  needs an actual Google/Apple account (interactive popup).
+- Public tools (e.g. the Symptom Checker at `/symptom-checker`) work anonymously and are the
+  easiest way to exercise core functionality without auth.
 - In dev, an ephemeral local admin is seeded into the in-memory store on startup (see
   `server/seed-admin.ts`); set `ADMIN_PASSWORD` for a stable password.
 
@@ -47,8 +61,9 @@ Standard scripts are defined in `package.json` (`dev`, `build`, `start`, `check`
   (mostly `@typescript-eslint/no-explicit-any`) unrelated to environment setup. `npm run build`
   bundles the server to `dist/index.cjs` and the client to `dist/public`.
 
-### Known issue at time of setup
-- The SPA renders a blank page on every route: `client/src/components/app-sidebar.tsx` uses the
-  `TestTubes` icon (line ~237) but never imports it from `lucide-react`, throwing
-  `ReferenceError: TestTubes is not defined` and crashing React on mount. Until that import is
-  added, verify core functionality via the backend API instead of the browser UI.
+### Sidebar icon imports (fixed)
+- `client/src/components/app-sidebar.tsx` is imported on every route, so a single undefined
+  reference there crashes the whole SPA (blank page). It previously used the `TestTubes`,
+  `ArrowLeftRight`, and `Crown` lucide icons without importing them; those imports were added.
+  If you add a new sidebar entry, remember to import its `lucide-react` icon or the app will
+  render blank on all routes.
