@@ -30,6 +30,27 @@ export function isGcipConfigured(): boolean {
   return Boolean(apiKey && authDomain && projectId);
 }
 
+/**
+ * True when the web app is running inside the Tabula Medica native iOS/Android
+ * WebView wrapper. OAuth popups (`signInWithPopup` for Google/Apple) cannot
+ * complete inside a WKWebView — Google blocks embedded-webview OAuth
+ * (`disallowed_useragent`) and popups can't round-trip back to the opener — so
+ * in that context the UI hides the social buttons and offers email/password
+ * sign-in instead. Detected via the native flag the wrapper injects before page
+ * scripts run (`window.__TABULA_NATIVE_APP__`, see phr-mobile config
+ * `NATIVE_FLAG_JS`) or the `?app=1` marker on the wrapper's entry URL.
+ */
+export function isNativeApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as { __TABULA_NATIVE_APP__?: boolean };
+  if (w.__TABULA_NATIVE_APP__ === true) return true;
+  try {
+    return new URLSearchParams(window.location.search).get("app") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function getApp(): FirebaseApp {
   if (cachedApp) return cachedApp;
   if (!isGcipConfigured()) {

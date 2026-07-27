@@ -11,8 +11,10 @@ import { Label } from "@/components/ui/label";
 import {
   signInGcipWithGoogle,
   signInGcipWithApple,
+  signInGcipWithEmail,
   getGcipIdToken,
   isGcipConfigured,
+  isNativeApp,
   isMfaChallenge,
   getMfaResolver,
   resolveTotpChallenge,
@@ -21,11 +23,15 @@ import {
 
 export default function AuthLogin() {
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const gcipReady = isGcipConfigured();
+  const nativeApp = isNativeApp();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const completeSession = async () => {
     const idToken = await getGcipIdToken(true);
@@ -49,6 +55,50 @@ export default function AuthLogin() {
     setLocation(result?.needsOnboarding ? "/new-patient-onboarding" : "/");
   };
 
+  // Shared error/MFA handling for any GCIP sign-in method.
+  const handleSignInError = (e: unknown, fallback: string) => {
+    if (isMfaChallenge(e)) {
+      try {
+        const resolver = getMfaResolver(e);
+        setMfaResolver(resolver);
+        setError(null);
+      } catch (resolverErr: any) {
+        setError(resolverErr?.message || "Could not start MFA challenge.");
+      }
+      return;
+    }
+    const err = e as { code?: string; message?: string } | null;
+    const code = err?.code;
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      setError(null);
+    } else if (
+      code === "auth/invalid-credential" ||
+      code === "auth/wrong-password" ||
+      code === "auth/user-not-found"
+    ) {
+      setError("Incorrect email or password.");
+    } else {
+      setError(err?.message || fallback);
+    }
+  };
+
+  const handleEmailSignIn = async () => {
+    if (!emailValid || password.length === 0) {
+      setError("Please enter your email and password.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await signInGcipWithEmail(email.trim(), password);
+      await completeSession();
+    } catch (e: unknown) {
+      handleSignInError(e, "Sign-in failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleProviderSignIn = async (
     providerLabel: "Google" | "Apple",
     signIn: () => Promise<unknown>,
@@ -59,23 +109,7 @@ export default function AuthLogin() {
       await signIn();
       await completeSession();
     } catch (e: unknown) {
-      if (isMfaChallenge(e)) {
-        try {
-          const resolver = getMfaResolver(e);
-          setMfaResolver(resolver);
-          setError(null);
-        } catch (resolverErr: any) {
-          setError(resolverErr?.message || "Could not start MFA challenge.");
-        }
-        return;
-      }
-      const err = e as { code?: string; message?: string } | null;
-      const code = err?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
-      } else {
-        setError(err?.message || `${providerLabel} sign-in failed. Please try again.`);
-      }
+      handleSignInError(e, `${providerLabel} sign-in failed. Please try again.`);
     } finally {
       setBusy(false);
     }
@@ -230,49 +264,95 @@ export default function AuthLogin() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
-                    <Button
-                      type="button"
-                      className="w-full"
-                      size="lg"
-                      onClick={handleGoogleSignIn}
-                      disabled={busy || !gcipReady}
-                      data-testid="button-google-signin"
+                  <>
+                    <form
+                      className="space-y-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleEmailSignIn();
+                      }}
                     >
-                      {busy ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        <>
-                          <SiGoogle className="h-4 w-4 mr-2" />
-                          Continue with Google
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
-                      size="lg"
-                      onClick={handleAppleSignIn}
-                      disabled={busy || !gcipReady}
-                      data-testid="button-apple-signin"
-                    >
-                      {busy ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        <>
-                          <SiApple className="h-4 w-4 mr-2" />
-                          Continue with Apple
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login-email" className="text-sm">Email</Label>
+                        <Input
+                          id="login-email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          data-testid="input-login-email"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login-password" className="text-sm">Password</Label>
+                        <Input
+                          id="login-password"
+                          type="password"
+                          autoComplete="current-password"
+                          placeholder="Your password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          data-testid="input-login-password"
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        size="lg"
+                        disabled={busy || !gcipReady || !emailValid || password.length === 0}
+                        data-testid="button-email-signin"
+                      >
+                        {busy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          "Sign in"
+                        )}
+                      </Button>
+                    </form>
+
+                    {!nativeApp && (
+                      <>
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-border" />
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white dark:bg-card px-2 text-muted-foreground">or continue with</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            size="lg"
+                            onClick={handleGoogleSignIn}
+                            disabled={busy || !gcipReady}
+                            data-testid="button-google-signin"
+                          >
+                            <SiGoogle className="h-4 w-4 mr-2" />
+                            Continue with Google
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
+                            size="lg"
+                            onClick={handleAppleSignIn}
+                            disabled={busy || !gcipReady}
+                            data-testid="button-apple-signin"
+                          >
+                            <SiApple className="h-4 w-4 mr-2" />
+                            Continue with Apple
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
                 <p className="text-xs text-muted-foreground text-center pt-2 flex items-center justify-center gap-1.5">
                   <Shield className="h-3 w-3" />
