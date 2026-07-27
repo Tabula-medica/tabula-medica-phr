@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  signInGcipWithGoogle,
-  signInGcipWithApple,
+  signInGcipWithGoogleRedirect,
+  signInGcipWithAppleRedirect,
+  completeGcipRedirectSignIn,
   signInGcipWithEmail,
   getGcipIdToken,
   isGcipConfigured,
@@ -99,24 +100,49 @@ export default function AuthLogin() {
     }
   };
 
+  // Redirect flow: signIn() navigates the whole page to Google/Apple. There's
+  // no inline result — completion happens on return via the effect below. So we
+  // don't call completeSession() here; on success the page has already unloaded.
   const handleProviderSignIn = async (
     providerLabel: "Google" | "Apple",
-    signIn: () => Promise<unknown>,
+    signIn: () => Promise<void>,
   ) => {
     setError(null);
     setBusy(true);
     try {
       await signIn();
-      await completeSession();
     } catch (e: unknown) {
       handleSignInError(e, `${providerLabel} sign-in failed. Please try again.`);
-    } finally {
       setBusy(false);
     }
   };
 
-  const handleGoogleSignIn = () => handleProviderSignIn("Google", signInGcipWithGoogle);
-  const handleAppleSignIn = () => handleProviderSignIn("Apple", signInGcipWithApple);
+  const handleGoogleSignIn = () => handleProviderSignIn("Google", signInGcipWithGoogleRedirect);
+  const handleAppleSignIn = () => handleProviderSignIn("Apple", signInGcipWithAppleRedirect);
+
+  // When the page loads back from a Google/Apple redirect, finish the sign-in.
+  // No-op on a normal page load (getRedirectResult returns null).
+  useEffect(() => {
+    if (!gcipReady) return;
+    let active = true;
+    (async () => {
+      try {
+        const user = await completeGcipRedirectSignIn();
+        if (user && active) {
+          setBusy(true);
+          await completeSession();
+        }
+      } catch (e: unknown) {
+        if (active) handleSignInError(e, "Sign-in failed. Please try again.");
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleMfaSubmit = async () => {
     if (!mfaResolver) return;

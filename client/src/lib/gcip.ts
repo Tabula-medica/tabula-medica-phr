@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
   signOut,
@@ -114,6 +116,46 @@ export async function signInGcipWithApple(): Promise<FirebaseUser> {
   provider.addScope("name");
   const cred = await signInWithPopup(getGcipAuth(), provider);
   return cred.user;
+}
+
+// ---------------------------------------------------------------------------
+// Redirect-based social sign-in (used by the LOGIN/REGISTER pages).
+//
+// The popup functions above depend on third-party cookies, which incognito
+// windows, Safari (ITP), and strict-privacy browsers block — that surfaced to
+// users as `auth/internal-error`. The redirect flow navigates the whole page
+// to Google/Apple and back, so it works in every browser with no third-party-
+// cookie dependency. These return `Promise<void>` because the page unloads
+// (navigates away) before the promise settles; the result is picked up on the
+// next page load via `completeGcipRedirectSignIn()`.
+//
+// (The popup variants are intentionally kept for in-app RE-AUTH, e.g.
+// security-settings.tsx, where an inline popup — not a full-page redirect that
+// would lose flow state — is the right UX.)
+// ---------------------------------------------------------------------------
+
+export async function signInGcipWithGoogleRedirect(): Promise<void> {
+  const provider = new GoogleAuthProvider();
+  await signInWithRedirect(getGcipAuth(), provider);
+}
+
+export async function signInGcipWithAppleRedirect(): Promise<void> {
+  const provider = new OAuthProvider("apple.com");
+  provider.addScope("email");
+  provider.addScope("name");
+  await signInWithRedirect(getGcipAuth(), provider);
+}
+
+/**
+ * Call once on auth-page load to finish a Google/Apple redirect sign-in.
+ * Returns the signed-in user when the page was reached via an OAuth redirect,
+ * or null on a normal page load. May throw a MultiFactorError (handle with
+ * isMfaChallenge/getMfaResolver) when the account has TOTP enrolled.
+ */
+export async function completeGcipRedirectSignIn(): Promise<FirebaseUser | null> {
+  if (!isGcipConfigured()) return null;
+  const result = await getRedirectResult(getGcipAuth());
+  return result?.user ?? null;
 }
 
 export async function signOutGcip(): Promise<void> {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
 import {
-  signInGcipWithGoogle,
-  signInGcipWithApple,
+  signInGcipWithGoogleRedirect,
+  signInGcipWithAppleRedirect,
+  completeGcipRedirectSignIn,
   signUpGcipWithEmail,
   getGcipIdToken,
   isGcipConfigured,
@@ -99,9 +100,12 @@ export default function AuthRegister() {
     }
   };
 
+  // Redirect flow: signIn() navigates the whole page to Google/Apple after
+  // consent is captured. Completion happens on return via the effect below, so
+  // we don't call completeSession() here.
   const handleProviderSignUp = async (
     providerLabel: "Google" | "Apple",
-    signIn: () => Promise<unknown>,
+    signIn: () => Promise<void>,
   ) => {
     if (!consentGiven) {
       setError("Please accept the terms of service and HIPAA acknowledgement to continue.");
@@ -111,22 +115,40 @@ export default function AuthRegister() {
     setBusy(true);
     try {
       await signIn();
-      await completeSession();
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string } | null;
-      const code = err?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
-      } else {
-        setError(err?.message || `${providerLabel} sign-up failed. Please try again.`);
-      }
-    } finally {
+      setError(err?.message || `${providerLabel} sign-up failed. Please try again.`);
       setBusy(false);
     }
   };
 
-  const handleGoogleSignUp = () => handleProviderSignUp("Google", signInGcipWithGoogle);
-  const handleAppleSignUp = () => handleProviderSignUp("Apple", signInGcipWithApple);
+  const handleGoogleSignUp = () => handleProviderSignUp("Google", signInGcipWithGoogleRedirect);
+  const handleAppleSignUp = () => handleProviderSignUp("Apple", signInGcipWithAppleRedirect);
+
+  // Finish a Google/Apple redirect sign-up when the page loads back from the
+  // provider. No-op on a normal page load.
+  useEffect(() => {
+    if (!gcipReady) return;
+    let active = true;
+    (async () => {
+      try {
+        const user = await completeGcipRedirectSignIn();
+        if (user && active) {
+          setBusy(true);
+          await completeSession();
+        }
+      } catch (e: unknown) {
+        const err = e as { message?: string } | null;
+        if (active) setError(err?.message || "Sign-up failed. Please try again.");
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background flex" data-testid="page-auth-register">
