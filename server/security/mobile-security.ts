@@ -37,7 +37,7 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     "frame-src 'self' https://*.fastenhealth.com https://fastenhealth.com https://united-planet-485003-n7-9f345.firebaseapp.com https://accounts.google.com https://appleid.apple.com; " +
     "frame-ancestors 'self' *.tabulamedica.health tabulamedica.health *.replit.dev *.replit.app *.picard.replit.dev; " +
     "base-uri 'self'; " +
-    "form-action 'self' https://*.fastenhealth.com;"
+    "form-action 'self' https://*.fastenhealth.com https://united-planet-485003-n7-9f345.firebaseapp.com https://accounts.google.com https://appleid.apple.com;"
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");

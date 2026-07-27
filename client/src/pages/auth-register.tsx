@@ -1,28 +1,113 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
-import { signInGcipWithGoogle, signInGcipWithApple, getGcipIdToken, isGcipConfigured } from "@/lib/gcip";
+import {
+  signInGcipWithGoogleRedirect,
+  signInGcipWithAppleRedirect,
+  completeGcipRedirectSignIn,
+  signUpGcipWithEmail,
+  getGcipIdToken,
+  isGcipConfigured,
+  isNativeApp,
+} from "@/lib/gcip";
 
 export default function AuthRegister() {
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptHipaa, setAcceptHipaa] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gcipReady = isGcipConfigured();
-  const canSubmit = acceptTerms && acceptHipaa && gcipReady;
+  const nativeApp = isNativeApp();
+  const consentGiven = acceptTerms && acceptHipaa && gcipReady;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canEmailSubmit =
+    consentGiven && emailValid && password.length >= 8 && password === confirmPassword;
 
+  // Complete the server session after any successful GCIP sign-up.
+  const completeSession = async () => {
+    const idToken = await getGcipIdToken(true);
+    if (!idToken) {
+      throw new Error("Could not get sign-in token. Please try again.");
+    }
+    const exchangeRes = await fetch("/api/auth/gcip/session", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    });
+    if (!exchangeRes.ok) {
+      const body = await exchangeRes.json().catch(() => ({}));
+      throw new Error(body?.message || "Failed to complete sign-up.");
+    }
+    const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
+    await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    setLocation(result?.needsOnboarding ? "/new-patient-onboarding" : "/");
+  };
+
+  const handleEmailSignUp = async () => {
+    if (!consentGiven) {
+      setError("Please accept the terms of service and HIPAA acknowledgement to continue.");
+      return;
+    }
+    if (!emailValid) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await signUpGcipWithEmail(email.trim(), password);
+      await completeSession();
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string } | null;
+      switch (err?.code) {
+        case "auth/email-already-in-use":
+          setError("An account with this email already exists. Please sign in instead.");
+          break;
+        case "auth/invalid-email":
+          setError("Please enter a valid email address.");
+          break;
+        case "auth/weak-password":
+          setError("Please choose a stronger password (at least 8 characters).");
+          break;
+        default:
+          setError(err?.message || "Sign-up failed. Please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Redirect flow: signIn() navigates the whole page to Google/Apple after
+  // consent is captured. Completion happens on return via the effect below, so
+  // we don't call completeSession() here.
   const handleProviderSignUp = async (
     providerLabel: "Google" | "Apple",
-    signIn: () => Promise<unknown>,
+    signIn: () => Promise<void>,
   ) => {
-    if (!canSubmit) {
+    if (!consentGiven) {
       setError("Please accept the terms of service and HIPAA acknowledgement to continue.");
       return;
     }
@@ -30,40 +115,40 @@ export default function AuthRegister() {
     setBusy(true);
     try {
       await signIn();
-      const idToken = await getGcipIdToken(true);
-      if (!idToken) {
-        throw new Error("Could not get sign-in token. Please try again.");
-      }
-      const exchangeRes = await fetch("/api/auth/gcip/session", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "X-Requested-With": "XMLHttpRequest",
-        },
-      });
-      if (!exchangeRes.ok) {
-        const body = await exchangeRes.json().catch(() => ({}));
-        throw new Error(body?.message || "Failed to complete sign-up.");
-      }
-      const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setLocation(result?.needsOnboarding ? "/new-patient-onboarding" : "/");
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string } | null;
-      const code = err?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
-      } else {
-        setError(err?.message || `${providerLabel} sign-up failed. Please try again.`);
-      }
-    } finally {
+      setError(err?.message || `${providerLabel} sign-up failed. Please try again.`);
       setBusy(false);
     }
   };
 
-  const handleGoogleSignUp = () => handleProviderSignUp("Google", signInGcipWithGoogle);
-  const handleAppleSignUp = () => handleProviderSignUp("Apple", signInGcipWithApple);
+  const handleGoogleSignUp = () => handleProviderSignUp("Google", signInGcipWithGoogleRedirect);
+  const handleAppleSignUp = () => handleProviderSignUp("Apple", signInGcipWithAppleRedirect);
+
+  // Finish a Google/Apple redirect sign-up when the page loads back from the
+  // provider. No-op on a normal page load.
+  useEffect(() => {
+    if (!gcipReady) return;
+    let active = true;
+    (async () => {
+      try {
+        const user = await completeGcipRedirectSignIn();
+        if (user && active) {
+          setBusy(true);
+          await completeSession();
+        }
+      } catch (e: unknown) {
+        const err = e as { message?: string } | null;
+        if (active) setError(err?.message || "Sign-up failed. Please try again.");
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background flex" data-testid="page-auth-register">
@@ -123,7 +208,7 @@ export default function AuthRegister() {
             <Card className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm">
               <CardHeader className="space-y-2">
                 <CardTitle className="text-2xl font-normal">Create your account</CardTitle>
-                <CardDescription>Sign up with Google to get started in seconds</CardDescription>
+                <CardDescription>Create your free account to get started</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {!gcipReady && (
@@ -171,14 +256,55 @@ export default function AuthRegister() {
                   </div>
                 </div>
 
-                <div className="space-y-2.5">
+                <form
+                  className="space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleEmailSignUp();
+                  }}
+                >
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-email" className="text-sm">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      data-testid="input-register-email"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-password" className="text-sm">Password</Label>
+                    <Input
+                      id="register-password"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      data-testid="input-register-password"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-confirm" className="text-sm">Confirm password</Label>
+                    <Input
+                      id="register-confirm"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Re-enter your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      data-testid="input-register-confirm"
+                    />
+                  </div>
                   <Button
-                    type="button"
+                    type="submit"
                     className="w-full"
                     size="lg"
-                    onClick={handleGoogleSignUp}
-                    disabled={busy || !canSubmit}
-                    data-testid="button-google-signup"
+                    disabled={busy || !canEmailSubmit}
+                    data-testid="button-email-signup"
                   >
                     {busy ? (
                       <>
@@ -186,34 +312,49 @@ export default function AuthRegister() {
                         Creating account...
                       </>
                     ) : (
-                      <>
+                      "Create account"
+                    )}
+                  </Button>
+                </form>
+
+                {!nativeApp && (
+                  <>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white dark:bg-card px-2 text-muted-foreground">or continue with</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        size="lg"
+                        onClick={handleGoogleSignUp}
+                        disabled={busy || !consentGiven}
+                        data-testid="button-google-signup"
+                      >
                         <SiGoogle className="h-4 w-4 mr-2" />
                         Continue with Google
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
-                    size="lg"
-                    onClick={handleAppleSignUp}
-                    disabled={busy || !canSubmit}
-                    data-testid="button-apple-signup"
-                  >
-                    {busy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      <>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
+                        size="lg"
+                        onClick={handleAppleSignUp}
+                        disabled={busy || !consentGiven}
+                        data-testid="button-apple-signup"
+                      >
                         <SiApple className="h-4 w-4 mr-2" />
                         Continue with Apple
-                      </>
-                    )}
-                  </Button>
-                </div>
+                      </Button>
+                    </div>
+                  </>
+                )}
                 <p className="text-xs text-muted-foreground text-center pt-1 flex items-center justify-center gap-1.5">
                   <Shield className="h-3 w-3" />
                   Protected by Google Cloud Identity Platform
