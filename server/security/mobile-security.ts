@@ -24,10 +24,17 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     "https://api.tabulamedica.health " +
     "https://tabulamedica.health " +
     "https://healthcare.googleapis.com " +
+    // Firebase / GCIP auth endpoints — REQUIRED for login; without these the
+    // browser blocks the auth fetch and the SDK reports auth/internal-error.
+    "https://identitytoolkit.googleapis.com " +
+    "https://securetoken.googleapis.com " +
+    "https://www.googleapis.com " +
+    "https://united-planet-485003-n7-9f345.firebaseapp.com " +
     "https://rxnav.nlm.nih.gov " +
     "https://clinicaltables.nlm.nih.gov " +
     "wss://api.tabulamedica.health" + devConnectSrc + "; " +
-    "frame-src 'self' https://*.fastenhealth.com https://fastenhealth.com; " +
+    // frame-src: allow the Firebase auth-domain + Google/Apple sign-in popups.
+    "frame-src 'self' https://*.fastenhealth.com https://fastenhealth.com https://united-planet-485003-n7-9f345.firebaseapp.com https://accounts.google.com https://appleid.apple.com; " +
     "frame-ancestors 'self' *.tabulamedica.health tabulamedica.health *.replit.dev *.replit.app *.picard.replit.dev; " +
     "base-uri 'self'; " +
     "form-action 'self' https://*.fastenhealth.com;"
