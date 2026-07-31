@@ -1,5 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createHash, randomUUID } from "crypto";
+import { isAuthenticated } from "./replit_integrations/auth";
+import { requireRole } from "./rbac";
 import type {
   AggregatorSyncRecord, InsertAggregatorSyncRecord,
   WebhookEvent, InsertWebhookEvent,
@@ -260,7 +262,17 @@ const webhookConfigs: WebhookConfig[] = [
   },
 ];
 
+function redactWebhookConfig(config: WebhookConfig) {
+  return {
+    ...config,
+    secret: config.secret && config.secret !== "configure-in-env"
+      ? "configured"
+      : "not_configured",
+  };
+}
+
 export function registerWebhookAggregatorRoutes(app: Express) {
+  const requireWebhookAdmin = [isAuthenticated, requireRole("admin")] as const;
 
   app.post("/webhooks/fasten", async (req: Request, res: Response) => {
     try {
@@ -491,7 +503,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.get("/api/aggregator-sync/stats", async (req: Request, res: Response) => {
+  app.get("/api/aggregator-sync/stats", ...requireWebhookAdmin, async (req: Request, res: Response) => {
     try {
       const totalSyncs = syncRecords.length;
       const byStatus: Record<string, number> = {};
@@ -526,7 +538,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.get("/api/aggregator-sync/:patientId", async (req: Request, res: Response) => {
+  app.get("/api/aggregator-sync/:patientId", ...requireWebhookAdmin, async (req: Request, res: Response) => {
     try {
       const { patientId } = req.params;
       const records = syncRecords.filter((r) => r.patientId === patientId);
@@ -547,7 +559,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.post("/api/aggregator-sync/:patientId/trigger", async (req: Request, res: Response) => {
+  app.post("/api/aggregator-sync/:patientId/trigger", ...requireWebhookAdmin, async (req: Request, res: Response) => {
     try {
       const { patientId } = req.params;
       const { force, source } = req.body;
@@ -601,7 +613,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.get("/api/aggregator-sync", async (req: Request, res: Response) => {
+  app.get("/api/aggregator-sync", ...requireWebhookAdmin, async (req: Request, res: Response) => {
     try {
       const { patientId, source, status, page = "1", limit = "20" } = req.query;
       let filtered = [...syncRecords];
@@ -635,7 +647,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.get("/api/webhooks/events", async (req: Request, res: Response) => {
+  app.get("/api/webhooks/events", ...requireWebhookAdmin, async (req: Request, res: Response) => {
     try {
       const { source, status, startDate, endDate, page = "1", limit = "20" } = req.query;
       let filtered = [...webhookEvents];
@@ -676,11 +688,11 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.get("/api/webhooks/config", async (_req: Request, res: Response) => {
+  app.get("/api/webhooks/config", ...requireWebhookAdmin, async (_req: Request, res: Response) => {
     try {
       res.json({
         success: true,
-        data: webhookConfigs,
+        data: webhookConfigs.map(redactWebhookConfig),
         total: webhookConfigs.length,
       });
     } catch (error) {
@@ -689,7 +701,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
     }
   });
 
-  app.post("/api/webhooks/config", async (req: Request, res: Response) => {
+  app.post("/api/webhooks/config", ...requireWebhookAdmin, async (req: Request, res: Response) => {
     try {
       const { source, endpointUrl, secret, enabled, eventTypes } = req.body;
 
@@ -716,7 +728,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
         console.log(`[WebhookAggregator] Updated webhook config for source=${source}`);
         return res.json({
           success: true,
-          data: existing,
+          data: redactWebhookConfig(existing),
           message: "Webhook configuration updated",
         });
       }
@@ -737,7 +749,7 @@ export function registerWebhookAggregatorRoutes(app: Express) {
       console.log(`[WebhookAggregator] Created webhook config for source=${source}`);
       return res.status(201).json({
         success: true,
-        data: newConfig,
+        data: redactWebhookConfig(newConfig),
         message: "Webhook configuration created",
       });
     } catch (error) {
