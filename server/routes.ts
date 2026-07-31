@@ -1149,6 +1149,9 @@ export async function registerRoutes(
       "/api/tefca",
       "/api/tefca-patient-viewer",
       "/api/fasten-connect",
+      "/webhooks/fasten",
+      "/api/webhooks",
+      "/api/aggregator-sync",
       "/api/fhir-streaming",
       "/api/compliance-export",
     ];
@@ -1250,12 +1253,11 @@ export async function registerRoutes(
     const timestamp = new Date().toISOString();
 
     // Verify the Fasten webhook HMAC-SHA256 signature over the RAW body using
-    // FASTEN_SHARED_SECRET. Default is LOG-ONLY (never rejects) so an unverified
-    // signature scheme can't break live delivery; set FASTEN_WEBHOOK_ENFORCE=true
-    // to hard-reject once the header/scheme is confirmed from these logs.
+    // FASTEN_SHARED_SECRET. When a secret is configured, default to enforcement;
+    // set FASTEN_WEBHOOK_ENFORCE=false only during a controlled vendor rollout.
     const secret = process.env.FASTEN_SHARED_SECRET;
     if (secret) {
-      const enforce = process.env.FASTEN_WEBHOOK_ENFORCE === "true";
+      const enforce = process.env.FASTEN_WEBHOOK_ENFORCE !== "false";
       const sigHeader = (req.headers["x-fasten-signature"] ||
         req.headers["x-webhook-signature"] ||
         req.headers["fasten-signature"] ||
@@ -1299,7 +1301,6 @@ export async function registerRoutes(
       .catch((err) => {
         console.error(`[FastenConnect] Export import dispatch error: ${err?.message}`);
       });
-
     res.status(200).json({ received: true });
   });
 
