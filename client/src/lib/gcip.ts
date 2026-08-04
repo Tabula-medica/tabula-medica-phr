@@ -3,6 +3,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -95,6 +96,15 @@ export async function signUpGcipWithEmail(
     password
   );
   return cred.user;
+}
+
+/**
+ * Send a password-reset email to the given address via GCIP. Resolves whether
+ * or not the address exists (email-enumeration protection); the caller should
+ * always show the same "check your email" confirmation.
+ */
+export async function sendGcipPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(getGcipAuth(), email);
 }
 
 export async function signInGcipWithGoogle(): Promise<FirebaseUser> {

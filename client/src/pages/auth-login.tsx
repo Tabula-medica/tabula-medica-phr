@@ -13,6 +13,7 @@ import {
   signInGcipWithAppleRedirect,
   completeGcipRedirectSignIn,
   signInGcipWithEmail,
+  sendGcipPasswordReset,
   getGcipIdToken,
   isGcipConfigured,
   isNativeApp,
@@ -30,6 +31,7 @@ export default function AuthLogin() {
   const [error, setError] = useState<string | null>(null);
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+  const [resetSent, setResetSent] = useState(false);
   const gcipReady = isGcipConfigured();
   const nativeApp = isNativeApp();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -95,6 +97,24 @@ export default function AuthLogin() {
       await completeSession();
     } catch (e: unknown) {
       handleSignInError(e, "Sign-in failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!emailValid) {
+      setError("Enter your email above, then tap “Forgot password.”");
+      return;
+    }
+    setError(null);
+    setResetSent(false);
+    setBusy(true);
+    try {
+      await sendGcipPasswordReset(email.trim());
+      setResetSent(true);
+    } catch (e: unknown) {
+      handleSignInError(e, "Could not send the reset email. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -243,6 +263,14 @@ export default function AuthLogin() {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
+                {resetSent && (
+                  <Alert data-testid="alert-reset-sent">
+                    <ShieldCheck className="h-4 w-4" />
+                    <AlertDescription>
+                      If an account exists for {email.trim()}, a password-reset link is on its way. Check your email (and spam folder).
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {mfaResolver ? (
                   <div className="space-y-3" data-testid="mfa-challenge">
                     <div>
@@ -338,6 +366,15 @@ export default function AuthLogin() {
                           "Sign in"
                         )}
                       </Button>
+                      <button
+                        type="button"
+                        onClick={handlePasswordReset}
+                        disabled={busy || !gcipReady}
+                        className="text-sm text-primary hover:underline font-medium text-center w-full disabled:opacity-50"
+                        data-testid="link-forgot-password"
+                      >
+                        Forgot password?
+                      </button>
                     </form>
 
                     {!nativeApp && (
