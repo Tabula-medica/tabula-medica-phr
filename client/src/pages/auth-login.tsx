@@ -376,45 +376,6 @@ export default function AuthLogin() {
                         Forgot password?
                       </button>
                     </form>
-
-                    {!nativeApp && (
-                      <>
-                        <div className="relative">
-                          <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-border" />
-                          </div>
-                          <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white dark:bg-card px-2 text-muted-foreground">or continue with</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2.5">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full"
-                            size="lg"
-                            onClick={handleGoogleSignIn}
-                            disabled={busy || !gcipReady}
-                            data-testid="button-google-signin"
-                          >
-                            <SiGoogle className="h-4 w-4 mr-2" />
-                            Continue with Google
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
-                            size="lg"
-                            onClick={handleAppleSignIn}
-                            disabled={busy || !gcipReady}
-                            data-testid="button-apple-signin"
-                          >
-                            <SiApple className="h-4 w-4 mr-2" />
-                            Continue with Apple
-                          </Button>
-                        </div>
-                      </>
-                    )}
                   </>
                 )}
                 <p className="text-xs text-muted-foreground text-center pt-2 flex items-center justify-center gap-1.5">
