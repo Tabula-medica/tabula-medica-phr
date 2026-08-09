@@ -142,8 +142,15 @@ export default function AuthLogin() {
 
   // When the page loads back from a Google/Apple redirect, finish the sign-in.
   // No-op on a normal page load (getRedirectResult returns null).
+  //
+  // IMPORTANT: skip this entirely inside the native app. In-app the third-party
+  // buttons are hidden (email/password only), so there is never a redirect to
+  // complete — and calling getRedirectResult() inside an iOS WKWebView throws
+  // auth/internal-error, whose catch used to render an error banner on a freshly
+  // loaded login page. That is the "error message on the Login/Registration
+  // page" that got the app rejected repeatedly (App Store Guideline 2.1a).
   useEffect(() => {
-    if (!gcipReady) return;
+    if (!gcipReady || nativeApp) return;
     let active = true;
     (async () => {
       try {
@@ -153,7 +160,14 @@ export default function AuthLogin() {
           await completeSession();
         }
       } catch (e: unknown) {
-        if (active) handleSignInError(e, "Sign-in failed. Please try again.");
+        // A background redirect-completion check must never surface as an error
+        // on a fresh login page. Only a genuine MFA challenge (from an actual
+        // social redirect) needs UI; anything else is logged, not shown.
+        if (active && isMfaChallenge(e)) {
+          handleSignInError(e, "");
+        } else if (import.meta.env.DEV) {
+          console.warn("[auth] redirect completion skipped:", e);
+        }
       } finally {
         if (active) setBusy(false);
       }
