@@ -5,8 +5,18 @@ import { logger } from "./utils/logger";
 import { authStorage } from "./replit_integrations/auth/storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { mobileOnboardingProgress } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { phiDb, decryptPhiRows } from "./storage/phi-storage";
+import {
+  mobileOnboardingProgress,
+  profiles,
+  medicationsTable,
+  allergiesTable,
+  medicalHistoryTable,
+  vaccinesTable,
+  surgeriesTable,
+  vitalSignsTable,
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 import { verifyAndResolveGcip } from "./auth/gcip";
 import { recordLoginAndNotify } from "./replit_integrations/auth/replitAuth";
 
@@ -169,6 +179,15 @@ function logAudit(userId: string, action: string, resourceType: string, resource
   logger.audit(action, { userId, resourceType, resourceId, outcome: "success" });
 }
 
+// Resolve the caller's PHR profile id from their account (GCIP user) id. Records
+// live in the phr_* tables keyed by profileId; the account owns the profile.
+// Mirrors getProfileId() in patient-health-record-routes.ts. Returns null when
+// the user has no profile yet (brand-new account).
+async function resolveProfileId(userId: string): Promise<string | null> {
+  const rows = await db.select({ id: profiles.id }).from(profiles).where(eq(profiles.accountId, userId)).limit(1);
+  return rows.length ? rows[0].id : null;
+}
+
 export function registerMobileApiRoutes(app: Express) {
   // GET /api/mobile/auth/config and POST /api/mobile/auth/auth0 were
   // removed: mobile no longer supports Auth0 SSO (no BAA with Auth0,
@@ -311,26 +330,28 @@ export function registerMobileApiRoutes(app: Express) {
     const uid = req.user!.id;
     logAudit(uid, "VIEW_RECORDS_SUMMARY", "patient_summary", uid);
     try {
-      const [meds, allergies, vitals, records, problems] = await Promise.all([
-        storage.getMedicationsByPatient(uid),
-        storage.getAllergiesByPatient(uid),
-        storage.getVitalsByPatient(uid),
-        storage.getMedicalRecordsByPatient(uid),
-        storage.getProblemsByPatient(uid),
+      const profileId = await resolveProfileId(uid);
+      if (!profileId) return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+      const [meds, allergies, conditions, vaccines, surgeries, vitals] = await Promise.all([
+        decryptPhiRows("medicationsTable", await phiDb.select().from(medicationsTable).where(eq(medicationsTable.profileId, profileId))),
+        decryptPhiRows("allergiesTable", await phiDb.select().from(allergiesTable).where(eq(allergiesTable.profileId, profileId))),
+        decryptPhiRows("medicalHistoryTable", await phiDb.select().from(medicalHistoryTable).where(eq(medicalHistoryTable.profileId, profileId))),
+        decryptPhiRows("vaccinesTable", await phiDb.select().from(vaccinesTable).where(eq(vaccinesTable.profileId, profileId))),
+        decryptPhiRows("surgeriesTable", await phiDb.select().from(surgeriesTable).where(eq(surgeriesTable.profileId, profileId))),
+        phiDb.select().from(vitalSignsTable).where(eq(vitalSignsTable.profileId, profileId)).orderBy(desc(vitalSignsTable.recordedAt)),
       ]);
-      const count = (meds?.length || 0) + (allergies?.length || 0) + (vitals?.length || 0) + (records?.length || 0) + (problems?.length || 0);
+      const total = meds.length + allergies.length + conditions.length + vaccines.length + surgeries.length + vitals.length;
       // No real records yet -> representative preview (keeps the screen populated).
-      if (!count) return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
-      const labs = (records || []).filter((r: any) => r.type === "lab_result");
-      const imms = (records || []).filter((r: any) => r.type === "immunization");
-      const activeMeds = (meds || []).filter((m: any) => m.status === "active");
-      const activeProblems = (problems || []).filter((p: any) => p.status === "active");
+      if (!total) return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+      const activeMeds = meds.filter((m: any) => m.status === "active");
+      const activeConds = conditions.filter((c: any) => (c.status || "active") === "active");
       const summary = {
-        conditions: { total: problems.length, active: activeProblems.length, resolved: (problems || []).filter((p: any) => p.status === "resolved").length },
+        conditions: { total: conditions.length, active: activeConds.length, resolved: conditions.filter((c: any) => c.status === "resolved").length },
         medications: { total: meds.length, active: activeMeds.length, stopped: meds.length - activeMeds.length },
-        labResults: { total: labs.length, recent: labs.slice(0, 5).length, abnormal: 0 },
-        vitals: { lastRecorded: vitals?.[0]?.recordedAt ?? null, recentCount: vitals?.length || 0 },
-        immunizations: { total: imms.length, upToDate: true },
+        labResults: { total: 0, recent: 0, abnormal: 0 },
+        vitals: { lastRecorded: (vitals[0] as any)?.recordedAt ?? null, recentCount: vitals.length },
+        immunizations: { total: vaccines.length, upToDate: true },
+        allergies: { total: allergies.length },
         appointments: { upcoming: 0, past: 0 },
         lastUpdated: new Date().toISOString(),
       };
@@ -351,16 +372,22 @@ export function registerMobileApiRoutes(app: Express) {
     logAudit(uid, "VIEW_TIMELINE", "timeline", uid);
     let events: Array<{ id: string; type: string; title: string; description: string; date: any; provider: string }> = [];
     try {
-      const [records, meds, problems] = await Promise.all([
-        storage.getMedicalRecordsByPatient(uid),
-        storage.getMedicationsByPatient(uid),
-        storage.getProblemsByPatient(uid),
-      ]);
-      const typeMap: Record<string, string> = { lab_result: "observation", encounter: "encounter", procedure: "procedure", immunization: "observation" };
-      for (const r of (records || [])) events.push({ id: String(r.id), type: typeMap[r.type as string] || "observation", title: r.description || "Record", description: "", date: r.date, provider: r.provider || "" });
-      for (const m of (meds || [])) events.push({ id: "med-" + m.id, type: "medication", title: [m.name, m.dosage].filter(Boolean).join(" "), description: m.instructions || "", date: m.startDate, provider: m.prescribedBy || "" });
-      for (const p of (problems || [])) events.push({ id: "cond-" + p.id, type: "condition", title: p.name, description: "", date: p.onsetDate, provider: "" });
-      events = events.filter((e) => e.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const profileId = await resolveProfileId(uid);
+      if (profileId) {
+        const [meds, conditions, vaccines, surgeries, vitals] = await Promise.all([
+          decryptPhiRows("medicationsTable", await phiDb.select().from(medicationsTable).where(eq(medicationsTable.profileId, profileId))),
+          decryptPhiRows("medicalHistoryTable", await phiDb.select().from(medicalHistoryTable).where(eq(medicalHistoryTable.profileId, profileId))),
+          decryptPhiRows("vaccinesTable", await phiDb.select().from(vaccinesTable).where(eq(vaccinesTable.profileId, profileId))),
+          decryptPhiRows("surgeriesTable", await phiDb.select().from(surgeriesTable).where(eq(surgeriesTable.profileId, profileId))),
+          phiDb.select().from(vitalSignsTable).where(eq(vitalSignsTable.profileId, profileId)).orderBy(desc(vitalSignsTable.recordedAt)),
+        ]);
+        for (const m of meds as any[]) events.push({ id: "med-" + m.id, type: "medication", title: [m.name, m.dose].filter(Boolean).join(" "), description: m.frequency || "", date: m.startDate || m.createdAt, provider: "" });
+        for (const c of conditions as any[]) events.push({ id: "cond-" + c.id, type: "condition", title: c.condition, description: c.notes || "", date: c.diagnosedDate || c.createdAt, provider: c.treatedBy || "" });
+        for (const v of vaccines as any[]) events.push({ id: "vac-" + v.id, type: "observation", title: v.vaccineName || "Vaccine", description: "Immunization", date: v.dateAdministered || v.createdAt, provider: v.provider || "" });
+        for (const s of surgeries as any[]) events.push({ id: "surg-" + s.id, type: "procedure", title: s.procedureName, description: s.facility || "", date: s.surgeryDate || s.createdAt, provider: s.surgeon || "" });
+        for (const vt of vitals as any[]) events.push({ id: "vit-" + vt.id, type: "observation", title: `${vt.vitalType}: ${vt.value}${vt.unit ? " " + vt.unit : ""}`, description: "", date: vt.recordedAt, provider: vt.source || "" });
+        events = events.filter((e) => e.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      }
     } catch (err) {
       logger.error("[MobileAPI] records/timeline failed", { err: (err as Error).message });
       events = [];
