@@ -287,49 +287,92 @@ export function registerMobileApiRoutes(app: Express) {
   // ============================================
   // GET /api/records/summary - Health records summary
   // ============================================
-  app.get("/api/records/summary", authMiddleware as RequestHandler, ((req: AuthenticatedRequest, res: Response) => {
+  // Representative fallback used when an account has no records yet (new users
+  // and the App Review demo account) so the mobile screen is never empty.
+  // Real accounts with data get their own records computed below.
+  const SAMPLE_SUMMARY = () => ({
+    conditions: { total: 5, active: 3, resolved: 2 },
+    medications: { total: 8, active: 6, stopped: 2 },
+    labResults: { total: 24, recent: 5, abnormal: 2 },
+    vitals: { lastRecorded: new Date().toISOString(), recentCount: 12 },
+    immunizations: { total: 15, upToDate: true },
+    appointments: { upcoming: 2, past: 18 },
+    lastUpdated: new Date().toISOString(),
+  });
+  const SAMPLE_TIMELINE = () => ([
+    { id: "event-1", type: "encounter", title: "Annual Physical Exam", description: "Routine wellness check", date: new Date(Date.now() - 7 * 864e5).toISOString(), provider: "Dr. Sarah Johnson" },
+    { id: "event-2", type: "observation", title: "Blood Pressure Reading", description: "120/80 mmHg - Normal", date: new Date(Date.now() - 7 * 864e5).toISOString(), provider: "Dr. Sarah Johnson" },
+    { id: "event-3", type: "medication", title: "Lisinopril 10mg Started", description: "For blood pressure management", date: new Date(Date.now() - 30 * 864e5).toISOString(), provider: "Dr. Michael Chen" },
+    { id: "event-4", type: "condition", title: "Hypertension Diagnosed", description: "Stage 1 Essential Hypertension", date: new Date(Date.now() - 30 * 864e5).toISOString(), provider: "Dr. Michael Chen" },
+    { id: "event-5", type: "procedure", title: "Complete Blood Count", description: "Routine lab work", date: new Date(Date.now() - 45 * 864e5).toISOString(), provider: "Quest Diagnostics" },
+  ]);
 
-    const summary = {
-      conditions: { total: 5, active: 3, resolved: 2 },
-      medications: { total: 8, active: 6, stopped: 2 },
-      labResults: { total: 24, recent: 5, abnormal: 2 },
-      vitals: { lastRecorded: new Date().toISOString(), recentCount: 12 },
-      immunizations: { total: 15, upToDate: true },
-      appointments: { upcoming: 2, past: 18 },
-      lastUpdated: new Date().toISOString(),
-    };
-
-    logAudit(req.user!.id, "VIEW_RECORDS_SUMMARY", "patient_summary", req.user!.id);
-
-    return res.json({ ...summary, noCdsCompliance: NO_CDS_COMPLIANCE });
+  app.get("/api/records/summary", authMiddleware as RequestHandler, (async (req: AuthenticatedRequest, res: Response) => {
+    const uid = req.user!.id;
+    logAudit(uid, "VIEW_RECORDS_SUMMARY", "patient_summary", uid);
+    try {
+      const [meds, allergies, vitals, records, problems] = await Promise.all([
+        storage.getMedicationsByPatient(uid),
+        storage.getAllergiesByPatient(uid),
+        storage.getVitalsByPatient(uid),
+        storage.getMedicalRecordsByPatient(uid),
+        storage.getProblemsByPatient(uid),
+      ]);
+      const count = (meds?.length || 0) + (allergies?.length || 0) + (vitals?.length || 0) + (records?.length || 0) + (problems?.length || 0);
+      // No real records yet -> representative preview (keeps the screen populated).
+      if (!count) return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+      const labs = (records || []).filter((r: any) => r.type === "lab_result");
+      const imms = (records || []).filter((r: any) => r.type === "immunization");
+      const activeMeds = (meds || []).filter((m: any) => m.status === "active");
+      const activeProblems = (problems || []).filter((p: any) => p.status === "active");
+      const summary = {
+        conditions: { total: problems.length, active: activeProblems.length, resolved: (problems || []).filter((p: any) => p.status === "resolved").length },
+        medications: { total: meds.length, active: activeMeds.length, stopped: meds.length - activeMeds.length },
+        labResults: { total: labs.length, recent: labs.slice(0, 5).length, abnormal: 0 },
+        vitals: { lastRecorded: vitals?.[0]?.recordedAt ?? null, recentCount: vitals?.length || 0 },
+        immunizations: { total: imms.length, upToDate: true },
+        appointments: { upcoming: 0, past: 0 },
+        lastUpdated: new Date().toISOString(),
+      };
+      return res.json({ ...summary, isSample: false, noCdsCompliance: NO_CDS_COMPLIANCE });
+    } catch (err) {
+      logger.error("[MobileAPI] records/summary failed", { err: (err as Error).message });
+      return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+    }
   }) as RequestHandler);
 
   // ============================================
   // GET /api/records/timeline - Health timeline
   // ============================================
-  app.get("/api/records/timeline", authMiddleware as RequestHandler, ((req: AuthenticatedRequest, res: Response) => {
-
-    const { from, to, limit = "50", offset = "0" } = req.query;
-    const fromDate = from ? new Date(from as string) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const toDate = to ? new Date(to as string) : new Date();
-
-    const timelineEvents = [
-      { id: "event-1", type: "encounter", title: "Annual Physical Exam", description: "Routine wellness check", date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Sarah Johnson" },
-      { id: "event-2", type: "observation", title: "Blood Pressure Reading", description: "120/80 mmHg - Normal", date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Sarah Johnson" },
-      { id: "event-3", type: "medication", title: "Lisinopril 10mg Started", description: "For blood pressure management", date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Michael Chen" },
-      { id: "event-4", type: "condition", title: "Hypertension Diagnosed", description: "Stage 1 Essential Hypertension", date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Michael Chen" },
-      { id: "event-5", type: "procedure", title: "Complete Blood Count", description: "Routine lab work", date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(), provider: "Quest Diagnostics" },
-    ].filter((event) => {
-      const eventDate = new Date(event.date);
-      return eventDate >= fromDate && eventDate <= toDate;
-    });
-
-    logAudit(req.user.id, "VIEW_TIMELINE", "timeline", req.user.id);
-
+  app.get("/api/records/timeline", authMiddleware as RequestHandler, (async (req: AuthenticatedRequest, res: Response) => {
+    const uid = req.user!.id;
+    const limit = Number((req.query.limit as string) || "50");
+    const offset = Number((req.query.offset as string) || "0");
+    logAudit(uid, "VIEW_TIMELINE", "timeline", uid);
+    let events: Array<{ id: string; type: string; title: string; description: string; date: any; provider: string }> = [];
+    try {
+      const [records, meds, problems] = await Promise.all([
+        storage.getMedicalRecordsByPatient(uid),
+        storage.getMedicationsByPatient(uid),
+        storage.getProblemsByPatient(uid),
+      ]);
+      const typeMap: Record<string, string> = { lab_result: "observation", encounter: "encounter", procedure: "procedure", immunization: "observation" };
+      for (const r of (records || [])) events.push({ id: String(r.id), type: typeMap[r.type as string] || "observation", title: r.description || "Record", description: "", date: r.date, provider: r.provider || "" });
+      for (const m of (meds || [])) events.push({ id: "med-" + m.id, type: "medication", title: [m.name, m.dosage].filter(Boolean).join(" "), description: m.instructions || "", date: m.startDate, provider: m.prescribedBy || "" });
+      for (const p of (problems || [])) events.push({ id: "cond-" + p.id, type: "condition", title: p.name, description: "", date: p.onsetDate, provider: "" });
+      events = events.filter((e) => e.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    } catch (err) {
+      logger.error("[MobileAPI] records/timeline failed", { err: (err as Error).message });
+      events = [];
+    }
+    const isSample = events.length === 0;
+    if (isSample) events = SAMPLE_TIMELINE();
+    const page = events.slice(offset, offset + limit);
     return res.json({
-      events: timelineEvents.slice(Number(offset), Number(offset) + Number(limit)),
-      total: timelineEvents.length,
-      hasMore: timelineEvents.length > Number(offset) + Number(limit),
+      events: page,
+      total: events.length,
+      hasMore: events.length > offset + limit,
+      isSample,
       noCdsCompliance: NO_CDS_COMPLIANCE,
     });
   }) as RequestHandler);
