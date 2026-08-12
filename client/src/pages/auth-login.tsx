@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
+import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, HeartPulse } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,10 @@ import {
   completeGcipRedirectSignIn,
   signInGcipWithEmail,
   sendGcipPasswordReset,
+  startPhoneSignIn,
+  confirmPhoneCode,
+  normalizePhoneE164,
+  clearRecaptcha,
   getGcipIdToken,
   isGcipConfigured,
   isNativeApp,
@@ -21,6 +25,7 @@ import {
   getMfaResolver,
   resolveTotpChallenge,
   type MultiFactorResolver,
+  type ConfirmationResult,
 } from "@/lib/gcip";
 
 export default function AuthLogin() {
@@ -32,9 +37,16 @@ export default function AuthLogin() {
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  // Phone (SMS) sign-in — the default, HealthEx-style passwordless path.
+  const [method, setMethod] = useState<"phone" | "email">("phone");
+  const [phone, setPhone] = useState("");
+  const [phoneStep, setPhoneStep] = useState<"enter" | "code">("enter");
+  const [smsCode, setSmsCode] = useState("");
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const gcipReady = isGcipConfigured();
   const nativeApp = isNativeApp();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const phoneE164 = normalizePhoneE164(phone);
 
   const completeSession = async () => {
     const idToken = await getGcipIdToken(true);
@@ -102,6 +114,64 @@ export default function AuthLogin() {
     }
   };
 
+  // Phone step 1: send the SMS code.
+  const handleSendCode = async () => {
+    if (!phoneE164) {
+      setError("Enter a valid mobile number, e.g. (571) 555-0123.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await startPhoneSignIn(phoneE164, "recaptcha-container");
+      setConfirmation(result);
+      setPhoneStep("code");
+    } catch (e: any) {
+      const code = e?.code as string | undefined;
+      if (code === "auth/invalid-phone-number") {
+        setError("That doesn't look like a valid mobile number.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a few minutes and try again.");
+      } else if (code === "auth/captcha-check-failed" || code === "auth/argument-error") {
+        setError("Couldn't verify this device. Refresh the page and try again.");
+      } else {
+        handleSignInError(e, "Couldn't send the code. Please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Phone step 2: verify the 6-digit SMS code.
+  const handleVerifyCode = async () => {
+    if (!confirmation || smsCode.length !== 6) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await confirmPhoneCode(confirmation, smsCode);
+      await completeSession();
+    } catch (e: any) {
+      if (e?.code === "auth/invalid-verification-code") {
+        setError("That code didn't match. Check the text and try again.");
+      } else if (e?.code === "auth/code-expired") {
+        setError("That code expired. Tap “Resend code.”");
+      } else {
+        handleSignInError(e, "Couldn't verify the code. Please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Back to the number entry step (e.g. wrong number, or to resend).
+  const resetPhoneFlow = () => {
+    clearRecaptcha();
+    setConfirmation(null);
+    setPhoneStep("enter");
+    setSmsCode("");
+    setError(null);
+  };
+
   const handlePasswordReset = async () => {
     if (!emailValid) {
       setError("Enter your email above, then tap “Forgot password.”");
@@ -142,8 +212,15 @@ export default function AuthLogin() {
 
   // When the page loads back from a Google/Apple redirect, finish the sign-in.
   // No-op on a normal page load (getRedirectResult returns null).
+  //
+  // IMPORTANT: skip this entirely inside the native app. In-app the third-party
+  // buttons are hidden (email/password only), so there is never a redirect to
+  // complete — and calling getRedirectResult() inside an iOS WKWebView throws
+  // auth/internal-error, whose catch used to render an error banner on a freshly
+  // loaded login page. That is the "error message on the Login/Registration
+  // page" that got the app rejected repeatedly (App Store Guideline 2.1a).
   useEffect(() => {
-    if (!gcipReady) return;
+    if (!gcipReady || nativeApp) return;
     let active = true;
     (async () => {
       try {
@@ -153,7 +230,14 @@ export default function AuthLogin() {
           await completeSession();
         }
       } catch (e: unknown) {
-        if (active) handleSignInError(e, "Sign-in failed. Please try again.");
+        // A background redirect-completion check must never surface as an error
+        // on a fresh login page. Only a genuine MFA challenge (from an actual
+        // social redirect) needs UI; anything else is logged, not shown.
+        if (active && isMfaChallenge(e)) {
+          handleSignInError(e, "");
+        } else if (import.meta.env.DEV) {
+          console.warn("[auth] redirect completion skipped:", e);
+        }
       } finally {
         if (active) setBusy(false);
       }
@@ -162,6 +246,12 @@ export default function AuthLogin() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tear down the invisible reCAPTCHA widget when leaving the page so a
+  // remount (or route change) rebuilds it from a clean slate.
+  useEffect(() => {
+    return () => clearRecaptcha();
   }, []);
 
   const handleMfaSubmit = async () => {
@@ -317,6 +407,125 @@ export default function AuthLogin() {
                       Cancel and start over
                     </Button>
                   </div>
+                ) : method === "phone" ? (
+                  <div className="space-y-4" data-testid="phone-signin">
+                    {phoneStep === "enter" ? (
+                      <form
+                        className="space-y-3"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void handleSendCode();
+                        }}
+                      >
+                        <div className="space-y-1.5">
+                          <Label htmlFor="login-phone" className="text-sm">Mobile number</Label>
+                          <Input
+                            id="login-phone"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            placeholder="(571) 555-0123"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            data-testid="input-login-phone"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            We'll text you a 6-digit code. Standard message rates may apply.
+                          </p>
+                        </div>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          size="lg"
+                          disabled={busy || !gcipReady || !phoneE164}
+                          data-testid="button-send-code"
+                        >
+                          {busy ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Sending code...
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Text me a code
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    ) : (
+                      <div className="space-y-3" data-testid="phone-code-step">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="login-sms-code" className="text-sm">
+                            Enter the code we texted to {phoneE164}
+                          </Label>
+                          <Input
+                            id="login-sms-code"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            placeholder="000000"
+                            maxLength={6}
+                            value={smsCode}
+                            onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
+                            className="text-center text-lg tracking-widest font-mono"
+                            data-testid="input-login-sms-code"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          className="w-full"
+                          size="lg"
+                          onClick={handleVerifyCode}
+                          disabled={busy || smsCode.length !== 6}
+                          data-testid="button-verify-code"
+                        >
+                          {busy ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verifying...
+                            </>
+                          ) : (
+                            "Verify and sign in"
+                          )}
+                        </Button>
+                        <div className="flex items-center justify-between text-sm">
+                          <button
+                            type="button"
+                            onClick={resetPhoneFlow}
+                            disabled={busy}
+                            className="text-muted-foreground hover:underline disabled:opacity-50"
+                            data-testid="link-change-number"
+                          >
+                            Change number
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSendCode}
+                            disabled={busy}
+                            className="text-primary font-medium hover:underline disabled:opacity-50"
+                            data-testid="link-resend-code"
+                          >
+                            Resend code
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* Invisible reCAPTCHA target for Firebase phone auth. */}
+                    <div id="recaptcha-container" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetPhoneFlow();
+                        setMethod("email");
+                      }}
+                      disabled={busy}
+                      className="text-sm text-muted-foreground hover:text-primary hover:underline text-center w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      data-testid="link-use-email"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Use email &amp; password instead
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <form
@@ -376,6 +585,19 @@ export default function AuthLogin() {
                         Forgot password?
                       </button>
                     </form>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMethod("phone");
+                      }}
+                      disabled={busy}
+                      className="text-sm text-muted-foreground hover:text-primary hover:underline text-center w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      data-testid="link-use-phone"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      Sign in with my phone number instead
+                    </button>
                   </>
                 )}
                 <p className="text-xs text-muted-foreground text-center pt-2 flex items-center justify-center gap-1.5">
@@ -384,12 +606,20 @@ export default function AuthLogin() {
                 </p>
               </CardContent>
             </Card>
-            <p className="text-sm text-muted-foreground text-center mt-6">
-              New to Tabula Medica?{" "}
-              <Link href="/auth/register" className="text-primary hover:underline font-medium" data-testid="link-register">
-                Create an account
+            <div className="mt-6 space-y-3">
+              <Link href="/auth/get-started" data-testid="link-get-started">
+                <Button variant="outline" className="w-full" size="lg">
+                  <HeartPulse className="h-4 w-4 mr-2" />
+                  New here? Set up by connecting your records
+                </Button>
               </Link>
-            </p>
+              <p className="text-sm text-muted-foreground text-center">
+                Prefer email?{" "}
+                <Link href="/auth/register" className="text-primary hover:underline font-medium" data-testid="link-register">
+                  Create an account
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>
