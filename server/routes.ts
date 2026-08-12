@@ -26,6 +26,13 @@ import {
 } from "@shared/schema";
 import OpenAI from "openai";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import {
+  isFastenConfigured,
+  isValidOrgConnectionId,
+  verifyFastenConnection,
+  linkFastenConnection,
+  triggerFastenExport,
+} from "./auth/fasten";
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
@@ -1239,6 +1246,63 @@ export async function registerRoutes(
 
     console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
     res.status(200).json({ received: true });
+  });
+
+  // --- Fasten "bring your own identity" sign-in (server/auth/fasten.ts) -----
+  // The Stitch widget hands the browser an org_connection_id on widget.complete.
+  // /verify is a lightweight UX check; /link is the security boundary: it
+  // requires an authenticated session (established via phone/SMS GCIP sign-in)
+  // and RE-VERIFIES the connection server-side with our private key before
+  // attaching it to the user. A forged org_connection_id never validates.
+
+  // Lightweight, unauthenticated status check so the signup UI can show
+  // "✓ verified — now secure your account". Returns only a boolean + platform;
+  // no PHI, and it does NOT create any session or link.
+  app.post("/api/auth/fasten/verify", async (req, res) => {
+    if (!isFastenConfigured()) {
+      return res.status(503).json({ message: "Fasten sign-in is not configured." });
+    }
+    const orgConnectionId = req.body?.orgConnectionId;
+    if (!isValidOrgConnectionId(orgConnectionId)) {
+      return res.status(400).json({ message: "Invalid connection id." });
+    }
+    const conn = await verifyFastenConnection(orgConnectionId.trim());
+    if (!conn) {
+      return res.json({ authorized: false });
+    }
+    return res.json({ authorized: true, platformType: conn.platformType ?? null });
+  });
+
+  // Attach a verified Fasten connection to the signed-in user + kick off the
+  // records export. Authenticated: the phone/SMS (GCIP) session must already
+  // exist, so req.user.claims.sub is the internal user id.
+  app.post("/api/auth/fasten/link", isAuthenticated, async (req, res) => {
+    if (!isFastenConfigured()) {
+      return res.status(503).json({ message: "Fasten sign-in is not configured." });
+    }
+    const userId = (req.user as any)?.claims?.sub as string | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated." });
+    }
+    const orgConnectionId = req.body?.orgConnectionId;
+    if (!isValidOrgConnectionId(orgConnectionId)) {
+      return res.status(400).json({ message: "Invalid connection id." });
+    }
+    const conn = await verifyFastenConnection(orgConnectionId.trim());
+    if (!conn) {
+      const ts = new Date().toISOString();
+      console.warn(`[HIPAA-AUDIT][FastenConnect] ${ts} - LINK_VERIFY_FAILED - user:${userId} conn:${orgConnectionId}`);
+      return res.status(401).json({ message: "Could not verify that health-record connection." });
+    }
+    const result = await linkFastenConnection(userId, conn);
+    if (result === "conflict") {
+      return res.status(409).json({ message: "That connection is already linked to another account." });
+    }
+    // Best-effort: start the FHIR export so records/demographics backfill.
+    const taskId = await triggerFastenExport(conn.orgConnectionId);
+    const ts = new Date().toISOString();
+    console.log(`[HIPAA-AUDIT][FastenConnect] ${ts} - LINK_SUCCESS - user:${userId} conn:${conn.orgConnectionId} platform:${conn.platformType ?? "unknown"} exportTask:${taskId ?? "none"}`);
+    return res.json({ linked: true, platformType: conn.platformType ?? null, exportStarted: Boolean(taskId) });
   });
 
   app.use("/api/ehr-integration", ehrIntegrationRoutes);

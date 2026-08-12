@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail } from "lucide-react";
+import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, HeartPulse } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -606,12 +606,20 @@ export default function AuthLogin() {
                 </p>
               </CardContent>
             </Card>
-            <p className="text-sm text-muted-foreground text-center mt-6">
-              New to Tabula Medica?{" "}
-              <Link href="/auth/register" className="text-primary hover:underline font-medium" data-testid="link-register">
-                Create an account
+            <div className="mt-6 space-y-3">
+              <Link href="/auth/get-started" data-testid="link-get-started">
+                <Button variant="outline" className="w-full" size="lg">
+                  <HeartPulse className="h-4 w-4 mr-2" />
+                  New here? Set up by connecting your records
+                </Button>
               </Link>
-            </p>
+              <p className="text-sm text-muted-foreground text-center">
+                Prefer email?{" "}
+                <Link href="/auth/register" className="text-primary hover:underline font-medium" data-testid="link-register">
+                  Create an account
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>
