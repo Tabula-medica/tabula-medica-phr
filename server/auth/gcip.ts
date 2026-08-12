@@ -24,6 +24,7 @@ export interface GcipClaims extends jose.JWTPayload {
   user_id?: string;
   email?: string;
   email_verified?: boolean;
+  phone_number?: string;
   name?: string;
   picture?: string;
   firebase?: {
@@ -139,6 +140,15 @@ export async function createUserFromGcipClaims(claims: GcipClaims): Promise<User
   const middleName = parts.length > 2 ? parts.slice(1, -1).join(" ") : "NMN";
   const lastName = parts.length > 1 ? parts[parts.length - 1] : null;
 
+  const signInProvider =
+    (claims.firebase?.sign_in_provider as string | undefined) ?? null;
+  // Phone sign-in: possession of the number is proof-of-verification, so we
+  // treat a phone-provider token as verified even though there's no email.
+  // The number is not stored on `users` (no column); it lives in the
+  // external_identities metadata below, which is where we keep IdP details.
+  const isPhoneSignIn = signInProvider === "phone" || Boolean(claims.phone_number);
+  const verified = (claims.email_verified ?? false) || isPhoneSignIn;
+
   return db.transaction(async (tx) => {
     const [newUser] = await tx
       .insert(users)
@@ -149,21 +159,22 @@ export async function createUserFromGcipClaims(claims: GcipClaims): Promise<User
         lastName,
         profileImageUrl: (claims.picture as string | undefined) ?? null,
         authProvider: "gcip",
-        isVerified: claims.email_verified ?? false,
-        verificationProvider: claims.email_verified ? "gcip" : null,
-        verifiedAt: claims.email_verified ? new Date() : null,
+        isVerified: verified,
+        verificationProvider: verified ? (isPhoneSignIn ? "gcip-phone" : "gcip") : null,
+        verifiedAt: verified ? new Date() : null,
       })
       .returning();
 
     if (!newUser) return null;
 
     // Persist the underlying Firebase sign-in provider (google.com /
-    // apple.com / password / ...) in metadata so admin tooling and any
+    // apple.com / password / phone / ...) in metadata so admin tooling and any
     // future "linked accounts" UI can tell which IdP a user used. The
     // outer `provider` column stays "gcip" so legacy ownership records
-    // still resolve and queries don't have to special-case Apple.
-    const signInProvider =
-      (claims.firebase?.sign_in_provider as string | undefined) ?? null;
+    // still resolve and queries don't have to special-case Apple/phone.
+    const metadata: Record<string, unknown> = {};
+    if (signInProvider) metadata.sign_in_provider = signInProvider;
+    if (claims.phone_number) metadata.phone_number = claims.phone_number;
 
     await tx
       .insert(externalIdentities)
@@ -173,7 +184,7 @@ export async function createUserFromGcipClaims(claims: GcipClaims): Promise<User
         externalSub,
         email: claims.email ?? null,
         emailVerified: claims.email_verified ?? false,
-        metadata: signInProvider ? { sign_in_provider: signInProvider } : null,
+        metadata: Object.keys(metadata).length ? metadata : null,
         linkedAt: new Date(),
         lastSeenAt: new Date(),
       })
