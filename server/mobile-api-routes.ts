@@ -5,8 +5,18 @@ import { logger } from "./utils/logger";
 import { authStorage } from "./replit_integrations/auth/storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { mobileOnboardingProgress } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { phiDb, decryptPhiRows } from "./storage/phi-storage";
+import {
+  mobileOnboardingProgress,
+  profiles,
+  medicationsTable,
+  allergiesTable,
+  medicalHistoryTable,
+  vaccinesTable,
+  surgeriesTable,
+  vitalSignsTable,
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 import { verifyAndResolveGcip } from "./auth/gcip";
 import { recordLoginAndNotify } from "./replit_integrations/auth/replitAuth";
 
@@ -169,6 +179,15 @@ function logAudit(userId: string, action: string, resourceType: string, resource
   logger.audit(action, { userId, resourceType, resourceId, outcome: "success" });
 }
 
+// Resolve the caller's PHR profile id from their account (GCIP user) id. Records
+// live in the phr_* tables keyed by profileId; the account owns the profile.
+// Mirrors getProfileId() in patient-health-record-routes.ts. Returns null when
+// the user has no profile yet (brand-new account).
+async function resolveProfileId(userId: string): Promise<string | null> {
+  const rows = await db.select({ id: profiles.id }).from(profiles).where(eq(profiles.accountId, userId)).limit(1);
+  return rows.length ? rows[0].id : null;
+}
+
 export function registerMobileApiRoutes(app: Express) {
   // GET /api/mobile/auth/config and POST /api/mobile/auth/auth0 were
   // removed: mobile no longer supports Auth0 SSO (no BAA with Auth0,
@@ -287,49 +306,100 @@ export function registerMobileApiRoutes(app: Express) {
   // ============================================
   // GET /api/records/summary - Health records summary
   // ============================================
-  app.get("/api/records/summary", authMiddleware as RequestHandler, ((req: AuthenticatedRequest, res: Response) => {
+  // Representative fallback used when an account has no records yet (new users
+  // and the App Review demo account) so the mobile screen is never empty.
+  // Real accounts with data get their own records computed below.
+  const SAMPLE_SUMMARY = () => ({
+    conditions: { total: 5, active: 3, resolved: 2 },
+    medications: { total: 8, active: 6, stopped: 2 },
+    labResults: { total: 24, recent: 5, abnormal: 2 },
+    vitals: { lastRecorded: new Date().toISOString(), recentCount: 12 },
+    immunizations: { total: 15, upToDate: true },
+    appointments: { upcoming: 2, past: 18 },
+    lastUpdated: new Date().toISOString(),
+  });
+  const SAMPLE_TIMELINE = () => ([
+    { id: "event-1", type: "encounter", title: "Annual Physical Exam", description: "Routine wellness check", date: new Date(Date.now() - 7 * 864e5).toISOString(), provider: "Dr. Sarah Johnson" },
+    { id: "event-2", type: "observation", title: "Blood Pressure Reading", description: "120/80 mmHg - Normal", date: new Date(Date.now() - 7 * 864e5).toISOString(), provider: "Dr. Sarah Johnson" },
+    { id: "event-3", type: "medication", title: "Lisinopril 10mg Started", description: "For blood pressure management", date: new Date(Date.now() - 30 * 864e5).toISOString(), provider: "Dr. Michael Chen" },
+    { id: "event-4", type: "condition", title: "Hypertension Diagnosed", description: "Stage 1 Essential Hypertension", date: new Date(Date.now() - 30 * 864e5).toISOString(), provider: "Dr. Michael Chen" },
+    { id: "event-5", type: "procedure", title: "Complete Blood Count", description: "Routine lab work", date: new Date(Date.now() - 45 * 864e5).toISOString(), provider: "Quest Diagnostics" },
+  ]);
 
-    const summary = {
-      conditions: { total: 5, active: 3, resolved: 2 },
-      medications: { total: 8, active: 6, stopped: 2 },
-      labResults: { total: 24, recent: 5, abnormal: 2 },
-      vitals: { lastRecorded: new Date().toISOString(), recentCount: 12 },
-      immunizations: { total: 15, upToDate: true },
-      appointments: { upcoming: 2, past: 18 },
-      lastUpdated: new Date().toISOString(),
-    };
-
-    logAudit(req.user!.id, "VIEW_RECORDS_SUMMARY", "patient_summary", req.user!.id);
-
-    return res.json({ ...summary, noCdsCompliance: NO_CDS_COMPLIANCE });
+  app.get("/api/records/summary", authMiddleware as RequestHandler, (async (req: AuthenticatedRequest, res: Response) => {
+    const uid = req.user!.id;
+    logAudit(uid, "VIEW_RECORDS_SUMMARY", "patient_summary", uid);
+    try {
+      const profileId = await resolveProfileId(uid);
+      if (!profileId) return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+      const [meds, allergies, conditions, vaccines, surgeries, vitals] = await Promise.all([
+        decryptPhiRows("medicationsTable", await phiDb.select().from(medicationsTable).where(eq(medicationsTable.profileId, profileId))),
+        decryptPhiRows("allergiesTable", await phiDb.select().from(allergiesTable).where(eq(allergiesTable.profileId, profileId))),
+        decryptPhiRows("medicalHistoryTable", await phiDb.select().from(medicalHistoryTable).where(eq(medicalHistoryTable.profileId, profileId))),
+        decryptPhiRows("vaccinesTable", await phiDb.select().from(vaccinesTable).where(eq(vaccinesTable.profileId, profileId))),
+        decryptPhiRows("surgeriesTable", await phiDb.select().from(surgeriesTable).where(eq(surgeriesTable.profileId, profileId))),
+        phiDb.select().from(vitalSignsTable).where(eq(vitalSignsTable.profileId, profileId)).orderBy(desc(vitalSignsTable.recordedAt)),
+      ]);
+      const total = meds.length + allergies.length + conditions.length + vaccines.length + surgeries.length + vitals.length;
+      // No real records yet -> representative preview (keeps the screen populated).
+      if (!total) return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+      const activeMeds = meds.filter((m: any) => m.status === "active");
+      const activeConds = conditions.filter((c: any) => (c.status || "active") === "active");
+      const summary = {
+        conditions: { total: conditions.length, active: activeConds.length, resolved: conditions.filter((c: any) => c.status === "resolved").length },
+        medications: { total: meds.length, active: activeMeds.length, stopped: meds.length - activeMeds.length },
+        labResults: { total: 0, recent: 0, abnormal: 0 },
+        vitals: { lastRecorded: (vitals[0] as any)?.recordedAt ?? null, recentCount: vitals.length },
+        immunizations: { total: vaccines.length, upToDate: true },
+        allergies: { total: allergies.length },
+        appointments: { upcoming: 0, past: 0 },
+        lastUpdated: new Date().toISOString(),
+      };
+      return res.json({ ...summary, isSample: false, noCdsCompliance: NO_CDS_COMPLIANCE });
+    } catch (err) {
+      logger.error("[MobileAPI] records/summary failed", { err: (err as Error).message });
+      return res.json({ ...SAMPLE_SUMMARY(), isSample: true, noCdsCompliance: NO_CDS_COMPLIANCE });
+    }
   }) as RequestHandler);
 
   // ============================================
   // GET /api/records/timeline - Health timeline
   // ============================================
-  app.get("/api/records/timeline", authMiddleware as RequestHandler, ((req: AuthenticatedRequest, res: Response) => {
-
-    const { from, to, limit = "50", offset = "0" } = req.query;
-    const fromDate = from ? new Date(from as string) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const toDate = to ? new Date(to as string) : new Date();
-
-    const timelineEvents = [
-      { id: "event-1", type: "encounter", title: "Annual Physical Exam", description: "Routine wellness check", date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Sarah Johnson" },
-      { id: "event-2", type: "observation", title: "Blood Pressure Reading", description: "120/80 mmHg - Normal", date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Sarah Johnson" },
-      { id: "event-3", type: "medication", title: "Lisinopril 10mg Started", description: "For blood pressure management", date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Michael Chen" },
-      { id: "event-4", type: "condition", title: "Hypertension Diagnosed", description: "Stage 1 Essential Hypertension", date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), provider: "Dr. Michael Chen" },
-      { id: "event-5", type: "procedure", title: "Complete Blood Count", description: "Routine lab work", date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(), provider: "Quest Diagnostics" },
-    ].filter((event) => {
-      const eventDate = new Date(event.date);
-      return eventDate >= fromDate && eventDate <= toDate;
-    });
-
-    logAudit(req.user.id, "VIEW_TIMELINE", "timeline", req.user.id);
-
+  app.get("/api/records/timeline", authMiddleware as RequestHandler, (async (req: AuthenticatedRequest, res: Response) => {
+    const uid = req.user!.id;
+    const limit = Number((req.query.limit as string) || "50");
+    const offset = Number((req.query.offset as string) || "0");
+    logAudit(uid, "VIEW_TIMELINE", "timeline", uid);
+    let events: Array<{ id: string; type: string; title: string; description: string; date: any; provider: string }> = [];
+    try {
+      const profileId = await resolveProfileId(uid);
+      if (profileId) {
+        const [meds, conditions, vaccines, surgeries, vitals] = await Promise.all([
+          decryptPhiRows("medicationsTable", await phiDb.select().from(medicationsTable).where(eq(medicationsTable.profileId, profileId))),
+          decryptPhiRows("medicalHistoryTable", await phiDb.select().from(medicalHistoryTable).where(eq(medicalHistoryTable.profileId, profileId))),
+          decryptPhiRows("vaccinesTable", await phiDb.select().from(vaccinesTable).where(eq(vaccinesTable.profileId, profileId))),
+          decryptPhiRows("surgeriesTable", await phiDb.select().from(surgeriesTable).where(eq(surgeriesTable.profileId, profileId))),
+          phiDb.select().from(vitalSignsTable).where(eq(vitalSignsTable.profileId, profileId)).orderBy(desc(vitalSignsTable.recordedAt)),
+        ]);
+        for (const m of meds as any[]) events.push({ id: "med-" + m.id, type: "medication", title: [m.name, m.dose].filter(Boolean).join(" "), description: m.frequency || "", date: m.startDate || m.createdAt, provider: "" });
+        for (const c of conditions as any[]) events.push({ id: "cond-" + c.id, type: "condition", title: c.condition, description: c.notes || "", date: c.diagnosedDate || c.createdAt, provider: c.treatedBy || "" });
+        for (const v of vaccines as any[]) events.push({ id: "vac-" + v.id, type: "observation", title: v.vaccineName || "Vaccine", description: "Immunization", date: v.dateAdministered || v.createdAt, provider: v.provider || "" });
+        for (const s of surgeries as any[]) events.push({ id: "surg-" + s.id, type: "procedure", title: s.procedureName, description: s.facility || "", date: s.surgeryDate || s.createdAt, provider: s.surgeon || "" });
+        for (const vt of vitals as any[]) events.push({ id: "vit-" + vt.id, type: "observation", title: `${vt.vitalType}: ${vt.value}${vt.unit ? " " + vt.unit : ""}`, description: "", date: vt.recordedAt, provider: vt.source || "" });
+        events = events.filter((e) => e.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      }
+    } catch (err) {
+      logger.error("[MobileAPI] records/timeline failed", { err: (err as Error).message });
+      events = [];
+    }
+    const isSample = events.length === 0;
+    if (isSample) events = SAMPLE_TIMELINE();
+    const page = events.slice(offset, offset + limit);
     return res.json({
-      events: timelineEvents.slice(Number(offset), Number(offset) + Number(limit)),
-      total: timelineEvents.length,
-      hasMore: timelineEvents.length > Number(offset) + Number(limit),
+      events: page,
+      total: events.length,
+      hasMore: events.length > offset + limit,
+      isSample,
       noCdsCompliance: NO_CDS_COMPLIANCE,
     });
   }) as RequestHandler);

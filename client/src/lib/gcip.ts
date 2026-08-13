@@ -9,6 +9,8 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
   signOut,
   onAuthStateChanged,
   multiFactor,
@@ -20,6 +22,7 @@ import {
   type Unsubscribe,
   type MultiFactorError,
   type MultiFactorResolver,
+  type ConfirmationResult,
 } from "firebase/auth";
 
 const apiKey = import.meta.env.VITE_GCIP_API_KEY as string | undefined;
@@ -168,6 +171,112 @@ export async function completeGcipRedirectSignIn(): Promise<FirebaseUser | null>
   return result?.user ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Phone (SMS one-time-code) sign-in — the "HealthEx-easy" passwordless path.
+//
+// Flow: normalizePhoneE164() -> startPhoneSignIn() (sends the SMS via an
+// invisible reCAPTCHA) -> confirmPhoneCode() with the 6-digit code the user
+// received. GCIP mints an ID token whose firebase.sign_in_provider is "phone";
+// the server (verifyAndResolveGcip) provisions/links the user from it exactly
+// like Google/Apple, so no new backend endpoint is needed.
+//
+// OPS PREREQS (one-time, Firebase/GCIP console for project
+// united-planet-485003-n7-9f345):
+//   1. Authentication > Sign-in method > enable "Phone".
+//   2. Project must be on the Blaze plan (SMS has per-message cost + quota).
+//   3. Add every serving domain (tabulamedica.us/.world/.health, localhost)
+//      to Authentication > Settings > Authorized domains, or reCAPTCHA blocks
+//      the send with auth/argument-error.
+// ---------------------------------------------------------------------------
+
+let cachedRecaptcha: RecaptchaVerifier | null = null;
+
+/**
+ * Normalize a user-typed phone number to E.164 (e.g. "+15715550123"), which is
+ * the only format GCIP's phone auth accepts. Assumes US (+1) when no country
+ * code is given — the PHR's launch markets are US (.us) / global (.world) with
+ * US default. Returns null when the input can't be a valid number.
+ */
+export function normalizePhoneE164(raw: string, defaultCountry = "1"): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Already E.164.
+  if (/^\+[1-9]\d{6,14}$/.test(trimmed)) return trimmed;
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+  // US 10-digit -> prepend country code.
+  if (digits.length === 10) return `+${defaultCountry}${digits}`;
+  // 11-digit starting with the US country code.
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  // Anything else with a plausible length: assume it already carries a country
+  // code and just needs the leading "+".
+  if (digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  return null;
+}
+
+/**
+ * Lazily build (once) an invisible reCAPTCHA verifier bound to a container
+ * element the caller renders. Firebase phone auth requires this anti-abuse
+ * step; "invisible" means the user never sees a puzzle unless Google decides
+ * the request is suspicious. Reused across resend attempts on the same page.
+ */
+function getRecaptcha(containerId: string): RecaptchaVerifier {
+  if (cachedRecaptcha) return cachedRecaptcha;
+  cachedRecaptcha = new RecaptchaVerifier(getGcipAuth(), containerId, {
+    size: "invisible",
+  });
+  return cachedRecaptcha;
+}
+
+/**
+ * Tear down the reCAPTCHA verifier. Call when leaving the phone-sign-in view or
+ * after a hard failure so the next attempt starts from a clean widget (a stale
+ * verifier throws auth/internal-error on reuse after certain errors).
+ */
+export function clearRecaptcha(): void {
+  if (cachedRecaptcha) {
+    try {
+      cachedRecaptcha.clear();
+    } catch {
+      /* already gone */
+    }
+    cachedRecaptcha = null;
+  }
+}
+
+/**
+ * Step 1 of phone sign-in: send a 6-digit SMS code to an E.164 number.
+ * `containerId` is the id of an (empty) element in the DOM for the invisible
+ * reCAPTCHA. Returns a ConfirmationResult to pass to confirmPhoneCode().
+ */
+export async function startPhoneSignIn(
+  phoneE164: string,
+  containerId: string,
+): Promise<ConfirmationResult> {
+  const verifier = getRecaptcha(containerId);
+  try {
+    return await signInWithPhoneNumber(getGcipAuth(), phoneE164, verifier);
+  } catch (err) {
+    // A failed send can leave the verifier in an unusable state; reset so the
+    // user's retry rebuilds it.
+    clearRecaptcha();
+    throw err;
+  }
+}
+
+/**
+ * Step 2 of phone sign-in: exchange the SMS code for a signed-in user. Throws
+ * auth/invalid-verification-code when the code is wrong or expired.
+ */
+export async function confirmPhoneCode(
+  confirmation: ConfirmationResult,
+  code: string,
+): Promise<FirebaseUser> {
+  const cred = await confirmation.confirm(code.replace(/\D/g, ""));
+  clearRecaptcha();
+  return cred.user;
+}
+
 export async function signOutGcip(): Promise<void> {
   await signOut(getGcipAuth());
 }
@@ -301,4 +410,4 @@ export async function resolveTotpChallenge(
   return cred.user;
 }
 
-export type { FirebaseUser, MultiFactorError, MultiFactorResolver };
+export type { FirebaseUser, MultiFactorError, MultiFactorResolver, ConfirmationResult };

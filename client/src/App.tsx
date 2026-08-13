@@ -150,6 +150,7 @@ const Welcome = lazy(() => import("@/pages/welcome"));
 const Login = lazy(() => import("@/pages/login"));
 const AuthLogin = lazy(() => import("@/pages/auth-login"));
 const AuthRegister = lazy(() => import("@/pages/auth-register"));
+const FastenSignup = lazy(() => import("@/pages/fasten-signup"));
 const Consent = lazy(() => import("@/pages/consent"));
 const SharedRecordView = lazy(() => import("@/pages/shared-record-view"));
 const SharedHealthDataViewer = lazy(() => import("@/pages/shared-health-data-viewer"));
@@ -313,6 +314,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/auth/login" component={AuthLogin} />
       <Route path="/auth/register" component={AuthRegister} />
+      <Route path="/auth/get-started" component={FastenSignup} />
       <Route path="/consent" component={Consent} />
       {tefcaEnabled && <Route path="/connections" component={Connections} />}
       <Route path="/medplum" component={MedplumFHIR} />
@@ -781,6 +783,7 @@ function AppContent() {
     "/login",
     "/auth/login",
     "/auth/register",
+    "/auth/get-started",
     "/welcome",
     "/consent",
     // Public early-access sign-up — must be reachable without authentication.

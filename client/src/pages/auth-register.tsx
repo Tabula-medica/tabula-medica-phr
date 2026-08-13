@@ -127,8 +127,15 @@ export default function AuthRegister() {
 
   // Finish a Google/Apple redirect sign-up when the page loads back from the
   // provider. No-op on a normal page load.
+  //
+  // IMPORTANT: skip this entirely inside the native app. In-app the third-party
+  // buttons are hidden (email/password only), so there is never a redirect to
+  // complete — and calling getRedirectResult() inside an iOS WKWebView throws
+  // auth/internal-error, whose catch used to render an error banner on a freshly
+  // loaded registration page. That is the "error message on the Login/
+  // Registration page" that got the app rejected repeatedly (Guideline 2.1a).
   useEffect(() => {
-    if (!gcipReady) return;
+    if (!gcipReady || nativeApp) return;
     let active = true;
     (async () => {
       try {
@@ -138,8 +145,11 @@ export default function AuthRegister() {
           await completeSession();
         }
       } catch (e: unknown) {
-        const err = e as { message?: string } | null;
-        if (active) setError(err?.message || "Sign-up failed. Please try again.");
+        // Never surface a background redirect-completion failure as a page-load
+        // error. Log only (a fresh sign-up can't have a real MFA challenge).
+        if (import.meta.env.DEV) {
+          console.warn("[auth] redirect completion skipped:", e);
+        }
       } finally {
         if (active) setBusy(false);
       }
