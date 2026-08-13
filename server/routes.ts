@@ -35806,7 +35806,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || await getSamplePatientId();
-      const { name, size, contentType, title, documentDate, documentType, tags } = req.body;
+      const { name, size, contentType, title, documentDate, documentType, subcategory, tags } = req.body;
       const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
       const userAgent = req.headers["user-agent"] || "Unknown";
 
@@ -35869,13 +35869,14 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       res.json({
         uploadURL,
         objectPath,
-        metadata: { 
-          name, 
-          size, 
+        metadata: {
+          name,
+          size,
           contentType,
           title,
           documentDate,
           documentType,
+          subcategory,
           tags,
         },
       });
@@ -35893,11 +35894,12 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
       const userAgent = req.headers["user-agent"] || "Unknown";
 
-      const { 
-        objectPath, 
-        title, 
-        documentDate, 
-        documentType, 
+      const {
+        objectPath,
+        title,
+        documentDate,
+        documentType,
+        subcategory,
         tags,
         originalFileName,
         mimeType,
@@ -35906,6 +35908,18 @@ Return to clinic in 2 weeks for glucose monitoring.`;
 
       if (!objectPath || !title || !originalFileName) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // A subcategory is only accepted when it belongs to the auto-tag category
+      // the chosen document type maps onto
+      const { uploadedDocumentTypeToAutoTagCategory, isValidSubcategory } = await import("@shared/schema");
+      let validatedSubcategory: string | undefined;
+      if (subcategory) {
+        const mappedCategory = uploadedDocumentTypeToAutoTagCategory[(documentType || "other") as keyof typeof uploadedDocumentTypeToAutoTagCategory];
+        if (!mappedCategory || !isValidSubcategory(mappedCategory, subcategory)) {
+          return res.status(400).json({ error: `Invalid subcategory "${subcategory}" for document type "${documentType || "other"}"` });
+        }
+        validatedSubcategory = subcategory;
       }
 
       // Get patient ID for the user
@@ -35919,6 +35933,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const doc = await storage.createUploadedDocument({
         patientId,
         documentType: documentType || "other",
+        subcategory: validatedSubcategory,
         title,
         documentDate,
         tags: tags || [],
@@ -35936,9 +35951,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         userId,
         eventType: "document_upload_success",
         description: "User successfully uploaded document",
-        metadata: { 
+        metadata: {
           documentId: "[REDACTED]",
           documentType: documentType || "other",
+          subcategory: validatedSubcategory || "none",
         },
         ipAddress,
         userAgent,
@@ -35950,6 +35966,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
           id: doc.id,
           title: doc.title,
           documentType: doc.documentType,
+          subcategory: doc.subcategory,
           uploadedAt: doc.uploadedAt,
         },
       });
@@ -36160,7 +36177,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
 
       // Import the document tagging service
-      const { classifyDocumentWithExplanation, saveDocumentAutoTag, autoTagCategoryLabels } = await import("./document-tagging-service");
+      const { classifyDocumentWithExplanation, saveDocumentAutoTag, autoTagCategoryLabels, autoTagSubcategoryLabels } = await import("./document-tagging-service");
 
       // Classify the document with AI
       const result = await classifyDocumentWithExplanation(
@@ -36177,10 +36194,11 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       await storage.createSecurityAuditLog({
         userId,
         eventType: "doc_autotag_applied",
-        description: `AI auto-tagged document as ${autoTagCategoryLabels[result.category]}`,
+        description: `AI auto-tagged document as ${autoTagCategoryLabels[result.category]}${autoTag.subcategory ? ` (${autoTagSubcategoryLabels[autoTag.subcategory]})` : ""}`,
         metadata: {
           documentId: "[REDACTED]",
           category: result.category,
+          subcategory: autoTag.subcategory || "none",
           confidence: result.confidence.toString(),
           isAiClassified: "true",
         },
@@ -36193,6 +36211,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         autoTag: {
           ...autoTag,
           categoryLabel: autoTagCategoryLabels[result.category],
+          subcategoryLabel: autoTag.subcategory ? autoTagSubcategoryLabels[autoTag.subcategory] : null,
         },
       });
     } catch (error) {
@@ -36205,22 +36224,26 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   app.get("/api/documents/:documentId/auto-tag", requirePermission("documents:read"), async (req, res) => {
     try {
       const { documentId } = req.params;
-      const { getDocumentAutoTag, autoTagCategoryLabels, getEffectiveCategory } = await import("./document-tagging-service");
+      const { getDocumentAutoTag, autoTagCategoryLabels, autoTagSubcategoryLabels, getEffectiveCategory, getEffectiveSubcategory } = await import("./document-tagging-service");
 
       const autoTag = getDocumentAutoTag(documentId);
-      
+
       if (!autoTag) {
         return res.status(404).json({ error: "No auto-tag found for this document" });
       }
 
       const effectiveCategory = getEffectiveCategory(autoTag);
+      const effectiveSubcategory = getEffectiveSubcategory(autoTag);
 
       res.json({
         autoTag: {
           ...autoTag,
           categoryLabel: autoTagCategoryLabels[autoTag.category],
+          subcategoryLabel: autoTag.subcategory ? autoTagSubcategoryLabels[autoTag.subcategory] : null,
           effectiveCategory,
           effectiveCategoryLabel: autoTagCategoryLabels[effectiveCategory],
+          effectiveSubcategory,
+          effectiveSubcategoryLabel: effectiveSubcategory ? autoTagSubcategoryLabels[effectiveSubcategory] : null,
         },
       });
     } catch (error) {
@@ -36245,15 +36268,17 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         return res.status(400).json({ error: "Invalid request body", details: parseResult.error.errors });
       }
 
-      const { newCategory, newTags, reason } = parseResult.data;
-      const { overrideDocumentAutoTag, autoTagCategoryLabels, getDocumentAutoTag } = await import("./document-tagging-service");
+      const { newCategory, newSubcategory, newTags, reason } = parseResult.data;
+      const { overrideDocumentAutoTag, autoTagCategoryLabels, autoTagSubcategoryLabels, getDocumentAutoTag } = await import("./document-tagging-service");
+      const { isValidSubcategory } = await import("@shared/schema");
 
       // Get original auto-tag for logging
       const originalAutoTag = getDocumentAutoTag(documentId);
       const originalCategory = originalAutoTag?.category || "unknown";
 
       // Apply the override
-      const updatedAutoTag = overrideDocumentAutoTag(documentId, newCategory, newTags, reason, userId);
+      const validatedSubcategory = newSubcategory && isValidSubcategory(newCategory, newSubcategory) ? newSubcategory : null;
+      const updatedAutoTag = overrideDocumentAutoTag(documentId, newCategory, newTags, reason, userId, validatedSubcategory);
 
       if (!updatedAutoTag) {
         return res.status(404).json({ error: "No auto-tag found for this document to override" });
@@ -36263,11 +36288,12 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       await storage.createSecurityAuditLog({
         userId,
         eventType: "doc_autotag_overridden",
-        description: `User overrode auto-tag from ${autoTagCategoryLabels[originalCategory as keyof typeof autoTagCategoryLabels] || originalCategory} to ${autoTagCategoryLabels[newCategory]}`,
+        description: `User overrode auto-tag from ${autoTagCategoryLabels[originalCategory as keyof typeof autoTagCategoryLabels] || originalCategory} to ${autoTagCategoryLabels[newCategory]}${validatedSubcategory ? ` (${autoTagSubcategoryLabels[validatedSubcategory]})` : ""}`,
         metadata: {
           documentId: "[REDACTED]",
           originalCategory,
           newCategory,
+          newSubcategory: validatedSubcategory || "none",
           reason: reason ? "[REDACTED]" : undefined,
         },
         ipAddress,
@@ -36279,7 +36305,9 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         autoTag: {
           ...updatedAutoTag,
           categoryLabel: autoTagCategoryLabels[updatedAutoTag.category],
+          subcategoryLabel: updatedAutoTag.subcategory ? autoTagSubcategoryLabels[updatedAutoTag.subcategory] : null,
           effectiveCategoryLabel: autoTagCategoryLabels[newCategory],
+          effectiveSubcategoryLabel: validatedSubcategory ? autoTagSubcategoryLabels[validatedSubcategory] : null,
         },
       });
     } catch (error) {
