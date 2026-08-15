@@ -155,6 +155,7 @@ import healthTrackingRoutes from "./health-tracking-routes";
 import aiAuditEngineRoutes from "./ai-audit-engine-routes";
 import personalizedEducationRoutes from "./personalized-education-routes";
 import medicationManagementRoutes from "./medication-management-routes";
+import erxCancellationRoutes from "./erx-cancellation-routes";
 import providerPopulationManagementRoutes from "./provider-population-management-routes";
 import comprehensiveCarePlanRoutes from "./comprehensive-care-plan-routes";
 import enhancedProviderAnalyticsRoutes from "./enhanced-provider-analytics-routes";
@@ -1311,6 +1312,8 @@ export async function registerRoutes(
   console.log("[Routes] Personalized Education routes registered at /api/personalized-education/*");
   app.use("/api/medication-management", medicationManagementRoutes);
   console.log("[Routes] Medication Management routes registered at /api/medication-management/*");
+  app.use("/api/erx-cancellation", erxCancellationRoutes);
+  console.log("[Routes] eRx Cancellation routes registered at /api/erx-cancellation/*");
   app.use("/api/provider-population", providerPopulationManagementRoutes);
   app.use("/api/comprehensive-care-plans", comprehensiveCarePlanRoutes);
   app.use("/api/enhanced-provider-analytics", enhancedProviderAnalyticsRoutes);

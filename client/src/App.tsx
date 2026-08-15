@@ -157,6 +157,7 @@ const SharedHealthDataViewer = lazy(() => import("@/pages/shared-health-data-vie
 const Connections = lazy(() => import("@/pages/connections"));
 const IntakeHistory = lazy(() => import("@/pages/intake-history"));
 const Medications = lazy(() => import("@/pages/medications"));
+const ErxCancellations = lazy(() => import("@/pages/erx-cancellations"));
 const Conditions = lazy(() => import("@/pages/conditions"));
 const LabResults = lazy(() => import("@/pages/lab-results"));
 const Vitals = lazy(() => import("@/pages/vitals"));
@@ -320,6 +321,7 @@ function Router() {
       <Route path="/medplum" component={MedplumFHIR} />
       <Route path="/intake-history" component={IntakeHistory} />
       <Route path="/medications" component={Medications} />
+      <Route path="/erx-cancellations" component={ErxCancellations} />
       <Route path="/conditions" component={Conditions} />
       <Route path="/lab-results" component={LabResults} />
       <Route path="/vitals" component={Vitals} />
@@ -438,6 +440,7 @@ const pageTitles: Record<string, string> = {
   "/connections": "Data Sources",
   "/intake-history": "Health History",
   "/medications": "Medications",
+  "/erx-cancellations": "Prescription Cancellations",
   "/conditions": "Conditions",
   "/lab-results": "Lab Results",
   "/vitals": "Vitals",
