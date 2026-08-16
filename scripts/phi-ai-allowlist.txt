@@ -1,5 +1,7 @@
 # scripts/phi-ai-allowlist.txt — P1-1 migration backlog (non-BAA AI_INTEGRATIONS_OPENAI proxy).
 # Grandfathered RATCHET; migrate to server/services/ai-gateway.ts to drain. Goal: empty.
+# REMAINING are multi-turn chat / streaming / vision / audio / embeddings calls that need
+# gateway enhancements (a messages[] / stream / multimodal method), plus provider-abstraction.
 server/services/ai-gateway.ts
 server/lib/vertex-openai.ts
 server/lib/baa-chat.ts
@@ -41,8 +43,6 @@ server/services/fhir-data-integration-service.ts
 server/services/healthcare-data-aggregator-service.ts
 server/services/multimodal-document-parser.ts
 server/services/patientAssistant.ts
-server/services/unified-ai-onboarding-service.ts
 server/symptom-tracker-service.ts
-server/timeline-story-service.ts
 server/usability-features-service.ts
 server/utils/openai-client.ts

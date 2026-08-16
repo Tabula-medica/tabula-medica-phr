@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { createHash } from "crypto";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
@@ -215,16 +216,13 @@ Provide:
 
 Remember to use simple language and explain any medical terms.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HEALTH_ASSISTANT_SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      max_completion_tokens: 1500,
+    const content = await generatePhiSafeText({
+      system: HEALTH_ASSISTANT_SYSTEM_PROMPT,
+      user: prompt,
+      maxTokens: 1500,
     });
 
-    return response.choices[0]?.message?.content || "Unable to generate summary.";
+    return content || "Unable to generate summary.";
   }
 
   async getProactiveReminders(
@@ -345,16 +343,13 @@ Provide:
 
 Keep it conversational and supportive.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HEALTH_ASSISTANT_SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      max_completion_tokens: 1500,
+    const content = await generatePhiSafeText({
+      system: HEALTH_ASSISTANT_SYSTEM_PROMPT,
+      user: prompt,
+      maxTokens: 1500,
     });
 
-    return response.choices[0]?.message?.content || "Unable to generate health summary.";
+    return content || "Unable to generate health summary.";
   }
 
   clearConversation(userId: string, profileId: string): void {
@@ -621,17 +616,13 @@ Patient has:
 Provide JSON with: checklist (array of preparation tasks with id, task, description, completed=false, required), preparations (array of strings), questionsToAsk (array of questions to discuss), documentsToReview (array of documents to bring).`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a helpful health assistant. Respond with valid JSON only. Do not provide medical advice." },
-          { role: "user", content: prompt },
-        ],
-        max_completion_tokens: 1500,
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        system: "You are a helpful health assistant. Respond with valid JSON only. Do not provide medical advice.",
+        user: prompt,
+        maxTokens: 1500,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         return JSON.parse(content);
       }
@@ -726,17 +717,13 @@ Respond with JSON containing:
 - relatedTopics: Array of related health topics they might want to learn about`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: HEALTH_ASSISTANT_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        max_completion_tokens: 1500,
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        system: HEALTH_ASSISTANT_SYSTEM_PROMPT,
+        user: prompt,
+        maxTokens: 1500,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         return {
@@ -838,35 +825,21 @@ Respond with JSON containing:
       .map(m => `${m.role === "user" ? "Patient" : "Assistant"}: ${m.content}`)
       .join("\n\n");
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical records assistant. Summarize the following patient-assistant conversation concisely. Extract key topics, health concerns discussed, and any important takeaways. Format as a brief summary paragraph followed by bullet points of key topics. Do NOT provide medical advice.`,
-        },
-        { role: "user", content: `Summarize this conversation:\n\n${transcript}` },
-      ],
-      max_completion_tokens: 800,
-    });
+    const summaryContent = await generatePhiSafeText({
+      system: `You are a medical records assistant. Summarize the following patient-assistant conversation concisely. Extract key topics, health concerns discussed, and any important takeaways. Format as a brief summary paragraph followed by bullet points of key topics. Do NOT provide medical advice.`,
+      user: `Summarize this conversation:\n\n${transcript}`,
+      maxTokens: 800,
+    }) || "Unable to generate summary.";
 
-    const summaryContent = response.choices[0]?.message?.content || "Unable to generate summary.";
-
-    const topicResponse = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `Extract 2-5 short topic tags from this conversation. Return ONLY a JSON array of strings, e.g. ["medications", "blood pressure"]. No other text.`,
-        },
-        { role: "user", content: transcript },
-      ],
-      max_completion_tokens: 200,
-    });
+    const topicText = await generatePhiSafeText({
+      system: `Extract 2-5 short topic tags from this conversation. Return ONLY a JSON array of strings, e.g. ["medications", "blood pressure"]. No other text.`,
+      user: transcript,
+      responseMimeType: "application/json",
+      maxTokens: 200,
+    }) || "[]";
 
     let topics: string[] = [];
     try {
-      const topicText = topicResponse.choices[0]?.message?.content || "[]";
       topics = JSON.parse(topicText);
     } catch { topics = []; }
 
@@ -918,22 +891,11 @@ Respond with JSON containing:
       snippets.push(`[${conv.title}] ${userMsgs.map(m => m.content).join(" | ")}`);
     }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical records assistant. Create a period summary of the patient's interactions with the health assistant. Highlight recurring themes, common concerns, and overall health engagement. Do NOT provide medical advice. Keep it concise.`,
-        },
-        {
-          role: "user",
-          content: `Summarize these ${inRange.length} conversations from ${startDate} to ${endDate}:\n\n${snippets.join("\n")}`,
-        },
-      ],
-      max_completion_tokens: 800,
-    });
-
-    const summaryContent = response.choices[0]?.message?.content || "Unable to generate period summary.";
+    const summaryContent = await generatePhiSafeText({
+      system: `You are a medical records assistant. Create a period summary of the patient's interactions with the health assistant. Highlight recurring themes, common concerns, and overall health engagement. Do NOT provide medical advice. Keep it concise.`,
+      user: `Summarize these ${inRange.length} conversations from ${startDate} to ${endDate}:\n\n${snippets.join("\n")}`,
+      maxTokens: 800,
+    }) || "Unable to generate period summary.";
 
     const insight = await storage.createAssistantInsight({
       userId,
