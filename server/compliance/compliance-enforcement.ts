@@ -48,7 +48,10 @@ export function enforceSecurityHeaders(req: Request, res: Response, next: NextFu
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-XSS-Protection", "1; mode=block");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    // microphone=(self) — the voice intake UX needs getUserMedia. Kept consistent
+    // with the other Permissions-Policy writers (mobile-security, tls-middleware,
+    // compliance-headers) so mic is enabled regardless of middleware order.
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
   }
   next();
 }
