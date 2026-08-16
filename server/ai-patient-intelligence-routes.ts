@@ -5,8 +5,10 @@ import {
   PatientDataInput,
   ConditionCategory,
 } from "./services/ai-patient-intelligence-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 const ALLOWED_ROLES = ["administrator", "clinician", "care_coordinator", "nurse"];
 
@@ -147,7 +149,7 @@ router.post("/risk-profile", checkRole, async (req: Request, res: Response) => {
       "readmission",
     ]);
 
-    const userId = (req as any).session?.user?.id || "system";
+    const userId = getUserId(req);
 
     const riskProfile = await aiPatientIntelligenceService.generateRiskProfile(
       validatedPatientData as PatientDataInput,
@@ -173,7 +175,7 @@ router.post("/medication-safety", checkRole, async (req: Request, res: Response)
     const { patientData } = req.body;
 
     const validatedPatientData = PatientDataSchema.parse(patientData);
-    const userId = (req as any).session?.user?.id || "system";
+    const userId = getUserId(req);
 
     const safetyAnalysis = await aiPatientIntelligenceService.analyzeMedicationSafety(
       validatedPatientData as PatientDataInput,
@@ -198,7 +200,7 @@ router.post("/care-plan", checkRole, async (req: Request, res: Response) => {
     const { patientData } = req.body;
 
     const validatedPatientData = PatientDataSchema.parse(patientData);
-    const userId = (req as any).session?.user?.id || "system";
+    const userId = getUserId(req);
 
     const carePlan = await aiPatientIntelligenceService.generatePersonalizedCarePlan(
       validatedPatientData as PatientDataInput,
@@ -223,7 +225,7 @@ router.post("/comprehensive", checkRole, async (req: Request, res: Response) => 
     const { patientData } = req.body;
 
     const validatedPatientData = PatientDataSchema.parse(patientData);
-    const userId = (req as any).session?.user?.id || "system";
+    const userId = getUserId(req);
 
     const comprehensive = await aiPatientIntelligenceService.getComprehensivePatientIntelligence(
       validatedPatientData as PatientDataInput,

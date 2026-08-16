@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { logPhiAccess, queryAuditLogs, getPatientAccessReport, getAuditCompliance } from "./security/hipaa-audit";
 import { getComplianceStatus, getSecurityStatus, getTransportSecurityInfo } from "./security";
 import { enforcePolicyCompliance } from "./security/policy-enforcement";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { storage } from "./storage";
 
 const SECURITY_ADMIN_ROLES = ["admin", "compliance_officer", "security_admin"];
@@ -149,10 +150,9 @@ const SAMPLE_ALERTS: SecurityAlert[] = [
 ];
 
 export function registerSecurityDashboardRoutes(app: Express) {
-  app.get("/api/security/metrics", async (req: Request, res: Response) => {
+  app.get("/api/security/metrics", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -186,10 +186,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/compliance-status", async (req: Request, res: Response) => {
+  app.get("/api/security/compliance-status", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -224,10 +223,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/rbac/roles", async (req: Request, res: Response) => {
+  app.get("/api/security/rbac/roles", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -247,10 +245,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/rbac/permissions", async (req: Request, res: Response) => {
+  app.get("/api/security/rbac/permissions", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -292,10 +289,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/alerts", async (req: Request, res: Response) => {
+  app.get("/api/security/alerts", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -315,10 +311,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/audit-logs", async (req: Request, res: Response) => {
+  app.get("/api/security/audit-logs", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { startDate, endDate, resourceType, action, limit } = req.query;
 
       logPhiAccess({
@@ -401,10 +396,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/encryption-status", async (req: Request, res: Response) => {
+  app.get("/api/security/encryption-status", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -448,10 +442,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.post("/api/security/access-check", async (req: Request, res: Response) => {
+  app.post("/api/security/access-check", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { targetUserId, targetRole, resourceType, action, patientId } = req.body;
 
       logPhiAccess({
@@ -481,10 +474,9 @@ export function registerSecurityDashboardRoutes(app: Express) {
     }
   });
 
-  app.get("/api/security/session-info", async (req: Request, res: Response) => {
+  app.get("/api/security/session-info", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const session = (req as any).session;
 
       res.json({

@@ -1,9 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 function sanitizePhi(text: string): string {
   return text
@@ -497,34 +494,28 @@ class AIPredictiveComplianceService {
     changePercent: number,
     forecast: ForecastPoint[]
   ): Promise<string> {
-    if (!process.env.OPENAI_API_KEY || !openai) {
+    if (!aiEnabled) {
       return this.generateFallbackTrendInsights(category, direction, changePercent, forecast);
     }
 
     try {
       const highRiskDays = forecast.filter(f => f.riskLevel === "high" || f.riskLevel === "critical").length;
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_PREDICTIVE_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this compliance trend data:
+
+      const content = await generatePhiSafeText({
+        system: NO_CDS_PREDICTIVE_PROMPT,
+        user: `Analyze this compliance trend data:
 Category: ${sanitizePhi(category)}
 Trend Direction: ${direction}
 Change: ${changePercent.toFixed(1)}%
 Forecast Period: ${forecast.length} days
 High-Risk Days Predicted: ${highRiskDays}
 
-Provide a brief (2-3 sentences) compliance-focused insight about this trend and its implications for data governance. Focus on policy and process improvements, NOT clinical recommendations.`
-          }
-        ],
-        max_tokens: 200,
+Provide a brief (2-3 sentences) compliance-focused insight about this trend and its implications for data governance. Focus on policy and process improvements, NOT clinical recommendations.`,
+        maxTokens: 200,
         temperature: 0.3
       });
 
-      return response.choices[0]?.message?.content || this.generateFallbackTrendInsights(category, direction, changePercent, forecast);
+      return content || this.generateFallbackTrendInsights(category, direction, changePercent, forecast);
     } catch (error) {
       console.error("[AIPredictiveCompliance] AI trend analysis error:", error);
       return this.generateFallbackTrendInsights(category, direction, changePercent, forecast);
@@ -649,31 +640,25 @@ Provide a brief (2-3 sentences) compliance-focused insight about this trend and 
     trend: TrendAnalysis,
     highRiskDays: number
   ): Promise<string> {
-    if (!process.env.OPENAI_API_KEY || !openai) {
+    if (!aiEnabled) {
       return this.generateFallbackDeviationAnalysis(category, severity, trend, highRiskDays);
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_PREDICTIVE_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this predicted compliance deviation:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_PREDICTIVE_PROMPT,
+        user: `Analyze this predicted compliance deviation:
 Category: ${sanitizePhi(category)}
 Severity: ${severity}
 Trend: ${trend.trendDirection} (${trend.changePercent.toFixed(1)}% change)
 High-Risk Days: ${highRiskDays} in next 14 days
 
-Provide a brief analysis (2-3 sentences) of the compliance risk and recommended preventive measures. Focus on data governance and policy enforcement, NOT clinical aspects.`
-          }
-        ],
-        max_tokens: 200,
+Provide a brief analysis (2-3 sentences) of the compliance risk and recommended preventive measures. Focus on data governance and policy enforcement, NOT clinical aspects.`,
+        maxTokens: 200,
         temperature: 0.3
       });
 
-      return response.choices[0]?.message?.content || this.generateFallbackDeviationAnalysis(category, severity, trend, highRiskDays);
+      return content || this.generateFallbackDeviationAnalysis(category, severity, trend, highRiskDays);
     } catch (error) {
       console.error("[AIPredictiveCompliance] AI deviation analysis error:", error);
       return this.generateFallbackDeviationAnalysis(category, severity, trend, highRiskDays);
@@ -879,30 +864,24 @@ Provide a brief analysis (2-3 sentences) of the compliance risk and recommended 
     deviation: ComplianceDeviation,
     template: { title: string; category: string }
   ): Promise<string> {
-    if (!process.env.OPENAI_API_KEY || !openai) {
+    if (!aiEnabled) {
       return `This ${template.category} remediation is recommended to address the predicted ${deviation.category.replace(/_/g, " ")} deviation. Implementation will help prevent compliance issues before they occur.`;
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_PREDICTIVE_PROMPT },
-          {
-            role: "user",
-            content: `Explain why this remediation is appropriate:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_PREDICTIVE_PROMPT,
+        user: `Explain why this remediation is appropriate:
 Deviation: ${sanitizePhi(deviation.category)} (${deviation.severity} severity)
 Remediation: ${sanitizePhi(template.title)}
 Type: ${template.category}
 
-Provide a brief (1-2 sentences) rationale for this specific remediation approach. Focus on compliance and governance benefits.`
-          }
-        ],
-        max_tokens: 100,
+Provide a brief (1-2 sentences) rationale for this specific remediation approach. Focus on compliance and governance benefits.`,
+        maxTokens: 100,
         temperature: 0.3
       });
 
-      return response.choices[0]?.message?.content || `This remediation addresses the ${deviation.category} risk through targeted ${template.category} improvements.`;
+      return content || `This remediation addresses the ${deviation.category} risk through targeted ${template.category} improvements.`;
     } catch (error) {
       return `This remediation addresses the ${deviation.category} risk through targeted ${template.category} improvements.`;
     }
@@ -1041,32 +1020,26 @@ Provide a brief (1-2 sentences) rationale for this specific remediation approach
     const highCount = deviations.filter(d => d.severity === "high").length;
     const improvingTrends = trends.filter(t => t.trendDirection === "decreasing").length;
 
-    if (!process.env.OPENAI_API_KEY || !openai) {
+    if (!aiEnabled) {
       return this.generateFallbackExecutiveSummary(riskScore, criticalCount, highCount, improvingTrends, deviations.length);
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_PREDICTIVE_PROMPT },
-          {
-            role: "user",
-            content: `Generate an executive summary for this compliance forecast:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_PREDICTIVE_PROMPT,
+        user: `Generate an executive summary for this compliance forecast:
 Overall Risk Score: ${riskScore}/100
 Critical Deviations Predicted: ${criticalCount}
 High-Risk Deviations: ${highCount}
 Total Predictions: ${deviations.length}
 Improving Trends: ${improvingTrends} of ${trends.length}
 
-Write a brief (3-4 sentences) executive summary suitable for leadership. Focus on compliance posture, key risks, and recommended actions. Do NOT include any clinical recommendations.`
-          }
-        ],
-        max_tokens: 250,
+Write a brief (3-4 sentences) executive summary suitable for leadership. Focus on compliance posture, key risks, and recommended actions. Do NOT include any clinical recommendations.`,
+        maxTokens: 250,
         temperature: 0.3
       });
 
-      return response.choices[0]?.message?.content || this.generateFallbackExecutiveSummary(riskScore, criticalCount, highCount, improvingTrends, deviations.length);
+      return content || this.generateFallbackExecutiveSummary(riskScore, criticalCount, highCount, improvingTrends, deviations.length);
     } catch (error) {
       return this.generateFallbackExecutiveSummary(riskScore, criticalCount, highCount, improvingTrends, deviations.length);
     }

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "../services/ai-gateway";
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -40,13 +40,7 @@ interface PatientChartSummary {
   };
 }
 
-function getOpenAIClient(): OpenAI | null {
-  try {
-    return new OpenAI();
-  } catch {
-    return null;
-  }
-}
+const aiEnabled = true;
 
 async function resolveAccountIdFromSession(req: AuthRequest): Promise<string | null> {
   const sub = req.user?.claims?.sub;
@@ -211,8 +205,7 @@ function fallbackSummary(ctx: ChartContext): PatientChartSummary {
 }
 
 async function llmSummary(ctx: ChartContext): Promise<PatientChartSummary> {
-  const client = getOpenAIClient();
-  if (!client || !ctx.hasAnyData) return fallbackSummary(ctx);
+  if (!aiEnabled || !ctx.hasAnyData) return fallbackSummary(ctx);
 
   const userContext = JSON.stringify(
     {
@@ -237,17 +230,12 @@ Respond ONLY in this JSON shape (all fields required):
 Each section maximum 6 items. Each label maximum 60 characters. Keep tone warm and concise. Severe allergies should be marked priority "high".`;
 
   try {
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-    const completion = await client.chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContext },
-      ],
-      response_format: { type: "json_object" },
+    const raw = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userContext,
+      responseMimeType: "application/json",
     });
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw || "{}");
 
     const buildSection = (
       title: string,

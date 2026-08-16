@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export type FHIRResourceType =
   | "Patient"
@@ -516,17 +511,13 @@ ${context?.preferredActions?.length ? `Preferred action types: ${context.preferr
 
 Generate a complete workflow with appropriate triggers, conditions, and actions.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: AI_SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+  const content = await generatePhiSafeText({
+    system: AI_SYSTEM_PROMPT,
+    user: userPrompt,
+    responseMimeType: "application/json",
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
   if (!content) {
     throw new Error("No response from AI model");
   }
@@ -570,17 +561,13 @@ Enhancement Request: "${enhancementRequest}"
 
 Modify the workflow to incorporate the requested enhancements while maintaining its core functionality.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: AI_SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+  const content = await generatePhiSafeText({
+    system: AI_SYSTEM_PROMPT,
+    user: userPrompt,
+    responseMimeType: "application/json",
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
   if (!content) {
     throw new Error("No response from AI model");
   }
@@ -606,17 +593,13 @@ Provide suggestions for:
 
 Return as JSON with keys: suggestions, potentialIssues, optimizations (all arrays of strings).`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: AI_SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2048,
+  const content = await generatePhiSafeText({
+    system: AI_SYSTEM_PROMPT,
+    user: userPrompt,
+    responseMimeType: "application/json",
+    maxTokens: 2048,
   });
 
-  const content = response.choices[0]?.message?.content;
   if (!content) {
     throw new Error("No response from AI model");
   }
@@ -998,17 +981,13 @@ Focus on:
 Return 3-5 actionable insights. Return ONLY valid JSON.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You are an expert workflow analytics advisor. Analyze workflow performance data and provide actionable insights. Always return valid JSON." },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+    const content = await generatePhiSafeText({
+      system: "You are an expert workflow analytics advisor. Analyze workflow performance data and provide actionable insights. Always return valid JSON.",
+      user: userPrompt,
+      responseMimeType: "application/json",
+      maxTokens: 2048,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI model");
     }

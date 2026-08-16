@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-function getOpenAIClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) {
-    return null;
-  }
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 export interface MedicationInput {
   drug_name: string;
@@ -225,8 +220,7 @@ export async function generateMedicationSummary(
     };
   }
 
-  const openai = getOpenAIClient();
-  if (!openai) {
+  if (!aiEnabled) {
     return {
       language: targetLanguage,
       taking: grouped.taking,
@@ -239,13 +233,9 @@ export async function generateMedicationSummary(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: MEDICATION_SUMMARY_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Translate ONLY the limitations array and disclaimer to ${targetLanguage}. DO NOT modify any medication data fields (drug, dose, frequency, route, source, record_id, details).
+    const content = await generatePhiSafeText({
+      system: MEDICATION_SUMMARY_SYSTEM_PROMPT,
+      user: `Translate ONLY the limitations array and disclaimer to ${targetLanguage}. DO NOT modify any medication data fields (drug, dose, frequency, route, source, record_id, details).
 
 Limitations to translate: ${JSON.stringify(limitations)}
 Disclaimer to translate: "${getLocalizedDisclaimer("en")}"
@@ -254,14 +244,11 @@ Return valid JSON:
 {
   "translated_limitations": [...],
   "translated_disclaimer": "..."
-}`
-        }
-      ],
+}`,
       temperature: 0.2,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }

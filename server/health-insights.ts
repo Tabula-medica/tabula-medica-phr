@@ -1,5 +1,5 @@
 import type { Medication, Allergy, LabResult, MedicalRecord } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import {
   ExplainableInsight,
   explainMedicationSafetyAlert,
@@ -13,15 +13,10 @@ import {
 
 type MedWithClasses = { medication: Medication; classes: string[] };
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
 const AI_MODEL_INFO: AIModelInfo = {
-  modelId: "gpt-4",
-  modelVersion: "gpt-4-turbo",
-  provider: "OpenAI",
+  modelId: "gemini-2.5-flash",
+  modelVersion: "gemini-2.5-flash",
+  provider: "Vertex AI (Google BAA)",
   responseFormat: "json_object",
 };
 
@@ -636,14 +631,12 @@ Provide a response in JSON format with these fields:
 Important: Use simple, everyday language. Avoid medical jargon. Explain as if talking to someone with no medical background.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -904,21 +897,14 @@ export async function generateHealthRiskAssessment(patientId: string): Promise<H
   };
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a health risk assessment AI. Analyze patient health data to identify potential risk areas.
+    const content = await generatePhiSafeText({
+      system: `You are a health risk assessment AI. Analyze patient health data to identify potential risk areas.
 Categories: cardiovascular, metabolic, respiratory, mental_health, chronic_disease, lifestyle, medication, preventive_care
 Risk levels: low, moderate, elevated, high
 
 IMPORTANT: Provide educational health insights only. Never diagnose or prescribe.
 Respond with a JSON object containing a "risks" array.`,
-        },
-        {
-          role: "user",
-          content: `Analyze this patient data for health risks:
+      user: `Analyze this patient data for health risks:
 ${JSON.stringify(patientData, null, 2)}
 
 Return JSON object:
@@ -934,14 +920,11 @@ Return JSON object:
     "evidenceBasis": ["data point used"]
   }]
 }`,
-        },
-      ],
-      max_tokens: 1500,
+      maxTokens: 1500,
       temperature: 0.3,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return [];
 
     const parsed = JSON.parse(content);
@@ -984,19 +967,12 @@ export async function createHealthCoachingSession(
   const patientData = await gatherPatientContext(patient.id);
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a supportive AI health coach. Create personalized coaching plans based on patient data.
+    const content = await generatePhiSafeText({
+      system: `You are a supportive AI health coach. Create personalized coaching plans based on patient data.
 Focus on: education, encouragement, achievable goals, and healthy habits.
 NEVER provide medical advice or treatment recommendations.
 Respond with a JSON object containing the coaching plan.`,
-        },
-        {
-          role: "user",
-          content: `Create a health coaching plan for this patient:
+      user: `Create a health coaching plan for this patient:
 Goal Type: ${goalType}
 ${customGoal ? `Custom Goal: ${customGoal}` : ""}
 
@@ -1014,14 +990,11 @@ Return JSON object:
     { "title": "Week 2 goal", "description": "What to achieve" }
   ]
 }`,
-        },
-      ],
-      max_tokens: 1000,
+      maxTokens: 1000,
       temperature: 0.6,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return null;
 
     const plan = JSON.parse(content);
@@ -1048,22 +1021,16 @@ export async function getCoachingAdvice(sessionId: string, question: string): Pr
   if (!session) return "Session not found.";
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a supportive AI health coach helping a patient with their goal: "${session.currentGoal}".
+    const content = await generatePhiSafeText({
+      system: `You are a supportive AI health coach helping a patient with their goal: "${session.currentGoal}".
 Provide encouraging, educational responses. Never give medical advice.
 Keep responses concise and actionable.`,
-        },
-        { role: "user", content: question },
-      ],
-      max_tokens: 300,
+      user: question,
+      maxTokens: 300,
       temperature: 0.7,
     });
 
-    return response.choices[0]?.message?.content || "I'm here to help you with your health goals.";
+    return content || "I'm here to help you with your health goals.";
   } catch (error) {
     console.error("Error getting coaching advice:", error);
     return "I'm having trouble responding right now. Please try again.";

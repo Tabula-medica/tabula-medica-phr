@@ -1,18 +1,10 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey && baseURL) {
-      openaiClient = new OpenAI({ apiKey, baseURL });
-    }
-  }
-  return openaiClient;
-}
+// PHI-bearing scribe generation now runs through the Vertex/BAA gateway, which is
+// always available. Fallback note/summary builders remain a resilient path on error.
+// NOTE: this service only performs text generation over already-transcribed content
+// (input.inputType "audio_transcript" is a text string) — no audio transcription API.
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This AI-generated clinical documentation is for EDUCATIONAL and DOCUMENTATION ASSISTANCE purposes only. It is NOT a substitute for clinical judgment. All notes must be reviewed, verified, and signed by a licensed healthcare provider before becoming part of the official medical record. This system does NOT provide clinical decision support.";
 
@@ -189,12 +181,11 @@ export async function generateClinicalNote(
 ): Promise<{ note: ClinicalNote; disclaimer: string }> {
   logHipaaAudit("GENERATE_CLINICAL_NOTE", userId, input.patientId, `Note type: ${input.noteType || 'SOAP'}, Input type: ${input.inputType}`);
   
-  const openai = getOpenAI();
-  if (!openai) {
-    console.log("[MedicalScribe] OpenAI not configured, using fallback note generation");
+  if (!aiEnabled) {
+    console.log("[MedicalScribe] AI not configured, using fallback note generation");
     return buildFallbackNote(input);
   }
-  
+
   const noteType = input.noteType || "SOAP";
   
   const systemPrompt = `You are an AI medical scribe assistant that generates structured clinical documentation from doctor-patient conversations or clinical notes. You MUST:
@@ -253,23 +244,19 @@ ${input.content}
 Extract all relevant clinical information and organize into the specified structure. Be thorough but only include information explicitly stated or clearly implied from the input.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4096,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
+      maxTokens: 4096,
     });
-    
-    const content = response.choices[0]?.message?.content;
+
     if (!content) {
       throw new Error("Empty response from AI");
     }
-    
+
     const result = JSON.parse(content);
-    
+
     const note: ClinicalNote = {
       noteId: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       noteType,
@@ -514,12 +501,11 @@ export async function summarizeConversation(
 ): Promise<{ summary: ConversationSummary; disclaimer: string }> {
   logHipaaAudit("SUMMARIZE_CONVERSATION", userId, patientId, `Conversation length: ${conversation.length} chars`);
   
-  const openai = getOpenAI();
-  if (!openai) {
-    console.log("[MedicalScribe] OpenAI not configured, using fallback summary");
+  if (!aiEnabled) {
+    console.log("[MedicalScribe] AI not configured, using fallback summary");
     return buildFallbackSummary(conversation);
   }
-  
+
   const systemPrompt = `You are a medical scribe assistant that summarizes doctor-patient conversations. Extract and organize:
 1. Key symptoms discussed
 2. Diagnoses mentioned or considered
@@ -544,23 +530,19 @@ Output JSON:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Summarize this medical conversation:\n\n${conversation}` }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Summarize this medical conversation:\n\n${conversation}`,
+      responseMimeType: "application/json",
+      maxTokens: 2048,
     });
-    
-    const content = response.choices[0]?.message?.content;
+
     if (!content) {
       throw new Error("Empty response");
     }
-    
+
     const result = JSON.parse(content);
-    
+
     const summary: ConversationSummary = {
       summaryId: `summary-${Date.now()}`,
       keyPoints: result.keyPoints || [],
@@ -646,8 +628,7 @@ export async function generatePostVisitSummary(
 ): Promise<{ postVisitSummary: PostVisitSummary; disclaimer: string }> {
   logHipaaAudit("GENERATE_POST_VISIT_SUMMARY", userId, patientId, `Conversation length: ${conversation.length} chars`);
 
-  const openai = getOpenAI();
-  if (!openai) {
+  if (!aiEnabled) {
     return buildFallbackPostVisitSummary(conversation);
   }
 
@@ -680,17 +661,13 @@ Output JSON:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Generate a patient-friendly post-visit summary from this encounter:\n\n${conversation}` }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 3072,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Generate a patient-friendly post-visit summary from this encounter:\n\n${conversation}`,
+      responseMimeType: "application/json",
+      maxTokens: 3072,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("Empty response");
 
     const result = JSON.parse(content);

@@ -1,12 +1,7 @@
 import { Router } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function logPhiAccess(action: string, details: Record<string, unknown>): void {
   console.log(JSON.stringify({
@@ -88,17 +83,15 @@ ${context.recentActivity ? `- Recent Activity: ${context.recentActivity.join(", 
 `;
     }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...(contextMessage ? [{ role: "user" as const, content: `Here is my current treatment context:\n${contextMessage}` }] : []),
-        { role: "user", content: question },
-      ],
-      max_completion_tokens: 1024,
-    });
+    const userPrompt = contextMessage
+      ? `Here is my current treatment context:\n${contextMessage}\n\n${question}`
+      : question;
 
-    const answer = response.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response. Please try again.";
+    const answer = (await generatePhiSafeText({
+      system: SYSTEM_PROMPT,
+      user: userPrompt,
+      maxTokens: 1024,
+    })) || "I'm sorry, I couldn't generate a response. Please try again.";
 
     logPhiAccess("AI_TIMELINE_RESPONSE", {
       responseLength: answer.length,
@@ -124,13 +117,9 @@ router.post("/explain-phase", async (req, res) => {
 
     logPhiAccess("AI_EXPLAIN_PHASE", { phaseName, condition });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Please explain this treatment phase in simple, supportive terms:
+    const explanation = (await generatePhiSafeText({
+      system: SYSTEM_PROMPT,
+      user: `Please explain this treatment phase in simple, supportive terms:
 
 Phase: ${phaseName}
 ${phaseDescription ? `Description: ${phaseDescription}` : ""}
@@ -144,12 +133,8 @@ Include:
 5. What comes after this phase
 
 Remember to be encouraging and add an educational disclaimer.`,
-        },
-      ],
-      max_completion_tokens: 1024,
-    });
-
-    const explanation = response.choices[0]?.message?.content || "Unable to generate explanation.";
+      maxTokens: 1024,
+    })) || "Unable to generate explanation.";
 
     res.json({
       explanation,
@@ -171,13 +156,9 @@ router.post("/explain-milestone", async (req, res) => {
 
     logPhiAccess("AI_EXPLAIN_MILESTONE", { milestoneTitle, milestoneType });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Please explain this treatment milestone in simple, supportive terms:
+    const explanation = (await generatePhiSafeText({
+      system: SYSTEM_PROMPT,
+      user: `Please explain this treatment milestone in simple, supportive terms:
 
 Milestone: ${milestoneTitle}
 Type: ${milestoneType || "Unknown"}
@@ -191,12 +172,8 @@ Include:
 4. Any common questions patients have
 
 Be encouraging and add an educational disclaimer.`,
-        },
-      ],
-      max_completion_tokens: 800,
-    });
-
-    const explanation = response.choices[0]?.message?.content || "Unable to generate explanation.";
+      maxTokens: 800,
+    })) || "Unable to generate explanation.";
 
     res.json({
       explanation,
@@ -221,13 +198,9 @@ router.post("/summarize-progress", async (req, res) => {
       currentPhase: context.currentPhase,
     });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Please provide an encouraging summary of this patient's treatment progress:
+    const summary = (await generatePhiSafeText({
+      system: SYSTEM_PROMPT,
+      user: `Please provide an encouraging summary of this patient's treatment progress:
 
 Condition: ${context.condition}${context.conditionSubtype ? ` (${context.conditionSubtype})` : ""}
 Current Phase: ${context.currentPhase}
@@ -242,12 +215,8 @@ Please include:
 4. Words of encouragement
 
 Keep the tone supportive and celebratory of their progress.`,
-        },
-      ],
-      max_completion_tokens: 800,
-    });
-
-    const summary = response.choices[0]?.message?.content || "Unable to generate summary.";
+      maxTokens: 800,
+    })) || "Unable to generate summary.";
 
     res.json({
       summary,

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { getAuditLogger } from "./integrations/factory";
 
 export interface PatientRecord {
@@ -203,24 +203,13 @@ function hashIdentifier(id: string): string {
 }
 
 class AIPatientReconciliationEngine {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private config: ReconciliationConfig = DEFAULT_CONFIG;
 
   constructor() {
-    this.initializeOpenAI();
     this.initializeDefaultStrategies();
     this.initializeSampleData();
     console.log("[AIPatientReconciliation] Service initialized");
-  }
-
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      console.log("[AIPatientReconciliation] OpenAI client configured");
-    }
   }
 
   private initializeDefaultStrategies(): void {
@@ -967,7 +956,7 @@ class AIPatientReconciliationEngine {
     const candidate = matchCandidates.get(candidateId);
     if (!candidate) return null;
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return this.generateFallbackAnalysis(candidate);
     }
 
@@ -1006,12 +995,8 @@ Respond in JSON format:
   "suggestedFieldResolutions": [{"fieldName": "string", "reason": "string", "source": "string"}]
 }`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a patient data quality expert analyzing duplicate patient records for reconciliation.
+      const content = await generatePhiSafeText({
+        system: `You are a patient data quality expert analyzing duplicate patient records for reconciliation.
 
 CRITICAL NO-CDS POLICY (STRICTLY ENFORCED):
 - You MUST NEVER provide clinical decision support, medical advice, or treatment recommendations
@@ -1021,14 +1006,11 @@ CRITICAL NO-CDS POLICY (STRICTLY ENFORCED):
 - Focus exclusively on: data matching algorithms, field consistency, source reliability, merge strategies
 
 Your role is LIMITED to data quality analysis for HIPAA-compliant patient record reconciliation.`,
-          },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
+        user: prompt,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateFallbackAnalysis(candidate);
       }

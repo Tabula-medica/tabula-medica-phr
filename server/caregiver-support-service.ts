@@ -4,7 +4,7 @@
  * provides AI-generated health summaries, and secure messaging.
  */
 
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 // Safe verb enforcement - ONLY these 4 verbs allowed
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -75,13 +75,8 @@ export interface CaregiverHealthSummary {
 const caregiverAccessStorage: CaregiverAccess[] = [];
 const caregiverMessageStorage: CaregiverMessage[] = [];
 
-// Initialize OpenAI client
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (e) {
-  console.log("[CaregiverSupport] OpenAI not configured, using mock responses");
-}
+// AI generation via PHI-safe Vertex/BAA gateway
+const aiEnabled = true;
 
 function validateSafeVerbs(text: string): boolean {
   const lowerText = text.toLowerCase();
@@ -336,22 +331,15 @@ export async function generateCaregiverSummary(
     appointments: access.permissions.viewAppointments ? patientData?.appointments : undefined,
   };
 
-  if (openai && Object.values(filteredData).some(v => v)) {
+  if (aiEnabled && Object.values(filteredData).some(v => v)) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: CAREGIVER_SUMMARY_PROMPT },
-          { 
-            role: "user", 
-            content: `Generate a caregiver summary for this patient data (only include permitted data types):\n${JSON.stringify(filteredData, null, 2)}` 
-          }
-        ],
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        system: CAREGIVER_SUMMARY_PROMPT,
+        user: `Generate a caregiver summary for this patient data (only include permitted data types):\n${JSON.stringify(filteredData, null, 2)}`,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
-      
-      const content = response.choices[0]?.message?.content;
+
       if (content) {
         const parsed = JSON.parse(content);
         return sanitizeSummary(patientId, parsed);

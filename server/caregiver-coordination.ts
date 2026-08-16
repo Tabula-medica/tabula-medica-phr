@@ -1,18 +1,13 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { storage } from "./storage";
 import { logAuditEntry } from "./explainability";
 import { checkDataConsent, logDataAccess } from "./consent";
-import type { 
-  CaregiverUpdateRequest, 
+import type {
+  CaregiverUpdateRequest,
   InsertCaregiverUpdateRequest,
   Caregiver,
   User
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface CareTeamMember {
   id: string;
@@ -132,31 +127,20 @@ export async function generatePatientActivitySummary(
   }
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare coordination assistant helping caregivers stay informed about a patient's health status.
+    const summary = (await generatePhiSafeText({
+      system: `You are a healthcare coordination assistant helping caregivers stay informed about a patient's health status.
 Generate a brief, clear summary of the patient's recent health activity for care team communication.
 Focus on actionable information that caregivers need to know.
 Keep the summary concise (2-3 sentences) and professional.
-Do not provide medical advice - only summarize available information.`
-        },
-        {
-          role: "user",
-          content: `Generate a patient activity summary based on:
+Do not provide medical advice - only summarize available information.`,
+      user: `Generate a patient activity summary based on:
 - Active medications: ${activeMeds.map(m => m.name).join(", ") || "None recorded"}
 - Active conditions: ${activeProblems.map(p => p.name).join(", ") || "None recorded"}
 - Upcoming appointments: ${upcomingAppts.length} scheduled
 - Recent lab tests: ${recentLabs.length} results available
-- Known allergies: ${allergies.map(a => a.name).join(", ") || "None recorded"}`
-        }
-      ],
-      max_completion_tokens: 200,
-    });
-    
-    const summary = response.choices[0]?.message?.content || "Unable to generate summary.";
+- Known allergies: ${allergies.map(a => a.name).join(", ") || "None recorded"}`,
+      maxTokens: 200,
+    })) || "Unable to generate summary.";
     
     logAuditEntry({
       insightId: `caregiver-summary-${Date.now()}`,
@@ -207,31 +191,22 @@ export async function generateAIAssistedResponse(
     const medications = await storage.getMedicationsByPatient(patient.id);
     const appointments = await storage.getAppointments();
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are helping a caregiver (${responderName}) draft a response to a care team update request.
+    const responseText = await generatePhiSafeText({
+      system: `You are helping a caregiver (${responderName}) draft a response to a care team update request.
 Generate a helpful, professional suggested response based on the request type and available patient information.
 Keep responses brief (1-2 sentences) and factual.
-Do not provide medical advice - only suggest how to communicate status updates.`
-        },
-        {
-          role: "user",
-          content: `Request type: ${request.requestType}
+Do not provide medical advice - only suggest how to communicate status updates.`,
+      user: `Request type: ${request.requestType}
 Request message: "${request.message}"
 Available context:
 - Current medications: ${medications.filter(m => m.status === "active").map(m => m.name).join(", ") || "None"}
 - Upcoming appointments: ${appointments.filter(a => new Date(a.scheduledAt) > new Date()).length}
 
-Generate a suggested response the caregiver can use or modify.`
-        }
-      ],
-      max_completion_tokens: 150,
+Generate a suggested response the caregiver can use or modify.`,
+      maxTokens: 150,
     });
-    
-    return response.choices[0]?.message?.content || "Update received - I will provide more details soon.";
+
+    return responseText || "Update received - I will provide more details soon.";
   } catch (error) {
     console.error("Error generating AI-assisted response:", error);
     return "Update received - I will provide more details when available.";

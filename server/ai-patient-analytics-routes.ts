@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 // NO-CDS COMPLIANCE: These are OPERATIONAL analytics for resource planning and population health management
 // They do NOT provide clinical decision support or treatment recommendations
@@ -236,7 +239,7 @@ const NO_CDS_DISCLAIMER = {
 
 // GET readmission risk predictions
 router.get("/readmission-risk", async (req, res) => {
-  const userId = req.query.userId as string || "system";
+  const userId = getUserId(req);
   
   await logPhiAccess({
     userId,
@@ -265,7 +268,7 @@ router.get("/readmission-risk", async (req, res) => {
 
 // GET chronic condition management analytics
 router.get("/chronic-conditions", async (req, res) => {
-  const userId = req.query.userId as string || "system";
+  const userId = getUserId(req);
   
   await logPhiAccess({
     userId,
@@ -293,7 +296,7 @@ router.get("/chronic-conditions", async (req, res) => {
 
 // GET program utilization analytics (NO-CDS: operational metrics only)
 router.get("/treatment-effectiveness", async (req, res) => {
-  const userId = req.query.userId as string || "system";
+  const userId = getUserId(req);
   
   await logPhiAccess({
     userId,
@@ -321,7 +324,7 @@ router.get("/treatment-effectiveness", async (req, res) => {
 
 // GET population health trends
 router.get("/population-trends", async (req, res) => {
-  const userId = req.query.userId as string || "system";
+  const userId = getUserId(req);
   
   await logPhiAccess({
     userId,
@@ -341,7 +344,7 @@ router.get("/population-trends", async (req, res) => {
 
 // GET comprehensive operational analytics report (NO-CDS compliant)
 router.get("/comprehensive-report", async (req, res) => {
-  const userId = req.query.userId as string || "system";
+  const userId = getUserId(req);
   
   await logPhiAccess({
     userId,

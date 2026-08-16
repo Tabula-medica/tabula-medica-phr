@@ -7,8 +7,11 @@ import {
   RemediationPriority,
   RegulatoryFramework 
 } from "./services/ai-backlog-analysis";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -39,7 +42,7 @@ function sanitizeDetails(details: Record<string, unknown>): Record<string, unkno
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   console.log(`[HIPAA_AUDIT] ${JSON.stringify({
     timestamp: new Date().toISOString(),
     action,
@@ -60,7 +63,7 @@ const filterSchema = z.object({
 
 router.post("/sync", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("SYNC_BACKLOG", "backlog", req, { action: "sync_request" });
 
     const result = await aiBacklogAnalysisService.syncBacklog(userId);
@@ -138,7 +141,7 @@ router.get("/metrics", (req: Request, res: Response) => {
 
 router.post("/remediation-plan", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("GENERATE_REMEDIATION_PLAN", "remediation_plan", req, { action: "plan_generation_request" });
 
     const plan = await aiBacklogAnalysisService.generateRemediationPlan(userId);
@@ -220,7 +223,7 @@ router.get("/priority-queue", (req: Request, res: Response) => {
 
 router.get("/summary", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("GET_SUMMARY", "backlog_summary", req, { action: "summary_request" });
 
     await aiBacklogAnalysisService.syncBacklog(userId);

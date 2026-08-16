@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data analyst assistant that helps clinicians with documentation, data quality, and patient education. 
 
@@ -351,7 +351,7 @@ export async function generateAIEnhancedInsights(
 ): Promise<CopilotDashboardData> {
   const baseInsights = await generateCopilotInsights(patients);
   
-  if (!openai || patients.length === 0) {
+  if (!aiEnabled || patients.length === 0) {
     return baseInsights;
   }
 
@@ -366,16 +366,9 @@ export async function generateAIEnhancedInsights(
       unreviewed_docs: p.documents.filter(d => !d.has_been_reviewed).length,
     }));
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: NO_CDS_SYSTEM_PROMPT
-        },
-        {
-          role: "user",
-          content: `Analyze this patient panel data and provide additional data quality and workflow insights. 
+    const content = await generatePhiSafeText({
+      system: NO_CDS_SYSTEM_PROMPT,
+      user: `Analyze this patient panel data and provide additional data quality and workflow insights.
 DO NOT provide any clinical recommendations.
 
 PATIENT SUMMARIES:
@@ -387,14 +380,12 @@ EXISTING INSIGHTS COUNT:
 - Pending reviews: ${baseInsights.summary.pending_reviews}
 
 Provide a brief (2-3 sentence) workflow summary focusing on documentation completeness and data quality only.
-Return JSON: {"workflow_summary": "...", "additional_notes": ["..."]}`
-        }
-      ],
-      max_tokens: 500,
+Return JSON: {"workflow_summary": "...", "additional_notes": ["..."]}`,
+      responseMimeType: "application/json",
+      maxTokens: 500,
       temperature: 0.2
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       try {
         const aiData = JSON.parse(content);

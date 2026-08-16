@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 export interface FHIRResource {
   id: string;
@@ -491,7 +491,7 @@ class FHIRResourceLifecycleService {
         };
       }).filter(r => r.score > 0);
 
-      if (query.semantic && process.env.OPENAI_API_KEY) {
+      if (query.semantic && aiEnabled) {
         try {
           const semanticResults = await this.semanticSearch(query.text, resources);
           results = this.mergeSearchResults(results, semanticResults);
@@ -523,26 +523,16 @@ class FHIRResourceLifecycleService {
   }
 
   private async semanticSearch(query: string, resources: FHIRResource[]): Promise<ResourceSearchResult[]> {
-    if (!openai) {
+    if (!aiEnabled) {
       return [];
     }
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a FHIR resource search assistant. Given a natural language query and a list of resource summaries, return the IDs of resources that match the semantic meaning of the query. Return JSON with: matchingIds (array of resource IDs), reasoning (brief)"
-        },
-        {
-          role: "user",
-          content: `Query: "${query}"\n\nResources:\n${resources.slice(0, 20).map(r => `- ${r.resourceType}/${r.id}: ${JSON.stringify(r).slice(0, 200)}`).join('\n')}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 500
+    const content = await generatePhiSafeText({
+      system: "You are a FHIR resource search assistant. Given a natural language query and a list of resource summaries, return the IDs of resources that match the semantic meaning of the query. Return JSON with: matchingIds (array of resource IDs), reasoning (brief)",
+      user: `Query: "${query}"\n\nResources:\n${resources.slice(0, 20).map(r => `- ${r.resourceType}/${r.id}: ${JSON.stringify(r).slice(0, 200)}`).join('\n')}`,
+      responseMimeType: "application/json",
+      maxTokens: 500
     });
 
-    const content = response.choices[0].message.content;
     if (content) {
       const parsed = JSON.parse(content);
       const matchingIds = parsed.matchingIds || [];

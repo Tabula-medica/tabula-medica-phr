@@ -17,7 +17,7 @@ import type {
   CarePlanGoal,
   CarePlanIntervention,
 } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 const carePlans = new Map<string, CollaborativeCarePlan>();
 const contributors = new Map<string, CarePlanContributor>();
@@ -26,12 +26,7 @@ const changes = new Map<string, CarePlanChange>();
 const acknowledgments = new Map<string, CarePlanAcknowledgment>();
 const suggestions = new Map<string, CarePlanSuggestion>();
 
-let openaiClient: OpenAI | null = null;
-try {
-  openaiClient = new OpenAI();
-} catch (e) {
-  console.log("[CollaborativeCarePlan] OpenAI client not configured, using fallback suggestions");
-}
+const aiEnabled = true;
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -578,7 +573,7 @@ export async function generateAISuggestions(
   
   const generatedSuggestions: CarePlanSuggestion[] = [];
   
-  if (openaiClient) {
+  if (aiEnabled) {
     try {
       const prompt = `You are a clinical decision support AI. Analyze this care plan and patient data to suggest improvements.
 
@@ -597,14 +592,12 @@ Patient Data:
 
 Provide 2-3 specific, actionable suggestions to improve this care plan based on the patient's current health data. Format as JSON array with objects containing: suggestionType (goal_adjustment, intervention_add, intervention_modify, new_goal), title, description, rationale, priority (high, medium, low), confidence (0-100).`;
 
-      const response = await openaiClient.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
-      
-      const content = response.choices[0]?.message?.content;
+
       if (content) {
         const parsed = JSON.parse(content);
         const aiSuggestions = Array.isArray(parsed) ? parsed : parsed.suggestions || [];

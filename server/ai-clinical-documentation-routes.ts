@@ -14,12 +14,14 @@ import {
   VisitData,
   LabSummary,
 } from "./services/aiClinicalDocumentationService";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 function logHipaaAudit(action: string, userId: string, details: string) {
   console.log(`[HIPAA-AUDIT] ${new Date().toISOString()} | Action: ${action} | User: ${userId} | Details: ${details}`);
 }
 
 const router = Router();
+router.use(requireUser);
 
 const ROUTES_NO_CDS_DISCLAIMER = NO_CDS_DISCLAIMER;
 
@@ -27,7 +29,7 @@ router.post("/notes/generate", async (req: Request, res: Response) => {
   try {
     const visitData: VisitData = req.body.visitData;
     const noteType = req.body.noteType || "soap";
-    const userId = req.body.userId || "system";
+    const userId = getUserId(req);
     
     if (!visitData || !visitData.patientId || !visitData.chiefComplaint) {
       return res.status(400).json({
@@ -61,7 +63,7 @@ router.post("/notes/generate", async (req: Request, res: Response) => {
 router.post("/notes/lab-summary", async (req: Request, res: Response) => {
   try {
     const labSummary: LabSummary = req.body.labSummary;
-    const userId = req.body.userId || "system";
+    const userId = getUserId(req);
     
     if (!labSummary || !labSummary.patientId || !labSummary.results) {
       return res.status(400).json({
@@ -96,7 +98,7 @@ router.post("/codes/suggest", async (req: Request, res: Response) => {
   try {
     const visitData: VisitData = req.body.visitData;
     const noteContent = req.body.noteContent;
-    const userId = req.body.userId || "system";
+    const userId = getUserId(req);
     
     if (!visitData || !visitData.patientId) {
       return res.status(400).json({
@@ -130,7 +132,7 @@ router.post("/codes/suggest", async (req: Request, res: Response) => {
 
 router.get("/codes/common", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit(
       "COMMON_CODES_ACCESS",
@@ -157,7 +159,7 @@ router.get("/codes/common", async (req: Request, res: Response) => {
 router.get("/codes/history/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = req.query.userId as string || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit(
       "CODE_HISTORY_ACCESS",
@@ -184,7 +186,7 @@ router.get("/codes/history/:patientId", async (req: Request, res: Response) => {
 
 router.get("/notes", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit(
       "NOTES_LIST_ACCESS",
@@ -212,7 +214,7 @@ router.get("/notes", async (req: Request, res: Response) => {
 router.get("/notes/:noteId", async (req: Request, res: Response) => {
   try {
     const { noteId } = req.params;
-    const userId = req.query.userId as string || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit(
       "NOTE_ACCESS",
@@ -246,7 +248,7 @@ router.get("/notes/:noteId", async (req: Request, res: Response) => {
 router.get("/notes/patient/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = req.query.userId as string || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit(
       "PATIENT_NOTES_ACCESS",
@@ -275,8 +277,9 @@ router.get("/notes/patient/:patientId", async (req: Request, res: Response) => {
 router.patch("/notes/:noteId/status", async (req: Request, res: Response) => {
   try {
     const { noteId } = req.params;
-    const { status, userId } = req.body;
-    
+    const { status } = req.body;
+    const userId = getUserId(req);
+
     if (!status || !["draft", "reviewed", "finalized"].includes(status)) {
       return res.status(400).json({
         error: "Valid status (draft, reviewed, finalized) is required",
@@ -286,7 +289,7 @@ router.patch("/notes/:noteId/status", async (req: Request, res: Response) => {
     
     logHipaaAudit(
       "NOTE_STATUS_UPDATE",
-      userId || "system",
+      userId,
       `Updated clinical note ${noteId} status to ${status}`
     );
     
@@ -316,8 +319,9 @@ router.patch("/notes/:noteId/status", async (req: Request, res: Response) => {
 router.patch("/notes/:noteId/content", async (req: Request, res: Response) => {
   try {
     const { noteId } = req.params;
-    const { content, userId } = req.body;
-    
+    const { content } = req.body;
+    const userId = getUserId(req);
+
     if (!content) {
       return res.status(400).json({
         error: "content object is required",
@@ -327,7 +331,7 @@ router.patch("/notes/:noteId/content", async (req: Request, res: Response) => {
     
     logHipaaAudit(
       "NOTE_CONTENT_UPDATE",
-      userId || "system",
+      userId,
       `Updated clinical note ${noteId} content`
     );
     
@@ -356,7 +360,7 @@ router.patch("/notes/:noteId/content", async (req: Request, res: Response) => {
 
 router.get("/dashboard", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit(
       "DOCUMENTATION_DASHBOARD_ACCESS",

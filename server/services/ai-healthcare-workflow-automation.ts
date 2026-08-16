@@ -1,9 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "CRITICAL COMPLIANCE NOTICE: This automation is for DATA QUALITY, GOVERNANCE, CARE COORDINATION, and OPERATIONAL purposes ONLY. It does NOT provide clinical decision support, treatment recommendations, or medical advice. All outputs must be reviewed by qualified personnel.";
 
@@ -598,7 +596,7 @@ export class AIHealthcareWorkflowAutomationService {
   }
 
   private async performRiskAssessment(trigger: PatientRiskAssessmentTrigger): Promise<RiskAssessmentResult> {
-    if (openai) {
+    if (aiEnabled) {
       return this.performAIRiskAssessment(trigger);
     }
     return this.performRuleBasedRiskAssessment(trigger);
@@ -606,12 +604,9 @@ export class AIHealthcareWorkflowAutomationService {
 
   private async performAIRiskAssessment(trigger: PatientRiskAssessmentTrigger): Promise<RiskAssessmentResult> {
     try {
-      const response = await openai!.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare workflow automation assistant focused on CARE COORDINATION and OPERATIONAL EFFICIENCY.
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        system: `You are a healthcare workflow automation assistant focused on CARE COORDINATION and OPERATIONAL EFFICIENCY.
 
 CRITICAL: You do NOT provide clinical decision support. Focus ONLY on:
 - Data quality issues
@@ -626,17 +621,11 @@ Return JSON:
   "riskScore": 0-100,
   "riskFactors": [{"category": "care_coordination|data_quality|administrative|follow_up", "name": "string", "description": "string", "severity": "critical|high|medium|low", "suggestedAction": "string"}],
   "coordinationNeeds": [{"type": "scheduling|outreach|education|care_team_notification", "priority": "critical|high|medium|low", "description": "string", "suggestedActions": ["string"], "assignee": "string"}]
-}`
-          },
-          {
-            role: "user",
-            content: `Analyze care coordination needs for patient ${trigger.patientId} based on: ${trigger.triggerReason}. Data elements: ${JSON.stringify(trigger.dataElements)}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        user: `Analyze care coordination needs for patient ${trigger.patientId} based on: ${trigger.triggerReason}. Data elements: ${JSON.stringify(trigger.dataElements)}`
       });
 
-      const parsed = JSON.parse(response.choices[0].message.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       return {
         id: generateId("risk-result"),
@@ -821,14 +810,11 @@ Return JSON:
   }
 
   private async performAlertCorrelationAnalysis(alerts: CorrelatedAlert[]): Promise<AIAnalysis> {
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `Analyze data quality alert correlations. Return JSON:
+        const responseText = await generatePhiSafeText({
+          responseMimeType: "application/json",
+          system: `Analyze data quality alert correlations. Return JSON:
 {
   "patternDetected": "string",
   "rootCauseAnalysis": "string",
@@ -836,17 +822,11 @@ Return JSON:
   "confidenceScore": 0.0-1.0,
   "relatedPatterns": ["string"]
 }
-Focus on DATA QUALITY patterns only, not clinical interpretations.`
-            },
-            {
-              role: "user",
-              content: `Analyze these correlated alerts: ${JSON.stringify(alerts)}`
-            }
-          ],
-          response_format: { type: "json_object" }
+Focus on DATA QUALITY patterns only, not clinical interpretations.`,
+          user: `Analyze these correlated alerts: ${JSON.stringify(alerts)}`
         });
 
-        return JSON.parse(response.choices[0].message.content || "{}");
+        return JSON.parse(responseText || "{}");
       } catch (error) {
         console.error("AI alert analysis failed:", error);
       }

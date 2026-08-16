@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface QualityIssue {
   id: string;
@@ -318,18 +313,14 @@ async function generateAICorrectionSuggestions(
   resource: any,
   issues: QualityIssue[]
 ): Promise<CorrectionSuggestion[]> {
-  if (!openai || issues.length === 0) return [];
+  if (issues.length === 0) return [];
 
   const criticalIssues = issues.filter(i => i.severity === "error" || i.severity === "critical");
   if (criticalIssues.length === 0) return [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR data quality expert. Analyze the quality issues and suggest corrections.
+    const content = await generatePhiSafeText({
+      system: `You are a FHIR data quality expert. Analyze the quality issues and suggest corrections.
 
 Return a JSON object with a "suggestions" array:
 {
@@ -343,18 +334,12 @@ Return a JSON object with a "suggestions" array:
   ]
 }
 
-Focus on actionable, standards-compliant corrections. Only suggest values you are confident about.`
-        },
-        {
-          role: "user",
-          content: `FHIR Resource (${resource.resourceType || "Unknown"}):\n${JSON.stringify(resource, null, 2)}\n\nQuality Issues:\n${JSON.stringify(criticalIssues.map(i => ({ field: i.field, issue: i.message, current: i.currentValue })), null, 2)}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+Focus on actionable, standards-compliant corrections. Only suggest values you are confident about.`,
+      user: `FHIR Resource (${resource.resourceType || "Unknown"}):\n${JSON.stringify(resource, null, 2)}\n\nQuality Issues:\n${JSON.stringify(criticalIssues.map(i => ({ field: i.field, issue: i.message, current: i.currentValue })), null, 2)}`,
+      responseMimeType: "application/json",
+      maxTokens: 500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return [];
 
     const parsed = JSON.parse(content);
@@ -377,25 +362,14 @@ Focus on actionable, standards-compliant corrections. Only suggest values you ar
 }
 
 async function generateAIAnalysis(resource: any, issues: QualityIssue[]): Promise<string> {
-  if (!openai) return "AI analysis unavailable";
-
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a FHIR data quality analyst. Provide a brief 2-3 sentence analysis of the resource quality. Focus on clinical relevance and data completeness. This is for informational purposes only, not clinical decision support."
-        },
-        {
-          role: "user",
-          content: `Resource type: ${resource.resourceType || "Unknown"}\nIssue count: ${issues.length}\nCritical issues: ${issues.filter(i => i.severity === "critical" || i.severity === "error").length}\nIssue types: ${Array.from(new Set(issues.map(i => i.issueType))).join(", ")}`
-        }
-      ],
-      max_completion_tokens: 150,
+    const content = await generatePhiSafeText({
+      system: "You are a FHIR data quality analyst. Provide a brief 2-3 sentence analysis of the resource quality. Focus on clinical relevance and data completeness. This is for informational purposes only, not clinical decision support.",
+      user: `Resource type: ${resource.resourceType || "Unknown"}\nIssue count: ${issues.length}\nCritical issues: ${issues.filter(i => i.severity === "critical" || i.severity === "error").length}\nIssue types: ${Array.from(new Set(issues.map(i => i.issueType))).join(", ")}`,
+      maxTokens: 150,
     });
 
-    return response.choices[0]?.message?.content || "Analysis unavailable";
+    return content || "Analysis unavailable";
   } catch (error) {
     console.error("[RealtimeFHIRQuality] AI analysis error:", error);
     return "AI analysis failed";

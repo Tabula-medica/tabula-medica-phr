@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -129,14 +129,7 @@ export interface PatientInsights {
   priorityActions: string[];
 }
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 export async function generatePatientInsights(
   patientId: string,
@@ -159,9 +152,7 @@ export async function generatePatientInsights(
     details: "AI-generated patient insights with optimization suggestions and adherence risk assessment",
   });
 
-  const client = getOpenAIClient();
-  
-  if (client) {
+  if (aiEnabled) {
     try {
       const prompt = `Analyze this patient data and generate comprehensive health insights. Use ONLY these safe verbs: "shows", "states", "refers to", "means". NEVER use: recommend, suggest, advise, prescribe, should, must, diagnose, treat.
 
@@ -182,14 +173,12 @@ Generate a JSON response with:
 
 Remember: All text MUST use only "shows", "states", "refers to", "means" - never prescriptive language.`;
 
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         return ensureSafeContent({
@@ -199,7 +188,7 @@ Remember: All text MUST use only "shows", "states", "refers to", "means" - never
         });
       }
     } catch (error) {
-      console.error("[AIPatientInsights] OpenAI error, using mock data:", error);
+      console.error("[AIPatientInsights] AI gateway error, using mock data:", error);
     }
   }
 

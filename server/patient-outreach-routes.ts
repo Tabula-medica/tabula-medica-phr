@@ -15,9 +15,10 @@ import {
   runCampaign,
   getOutreachAnalytics,
 } from "./services/patient-outreach-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 export function registerPatientOutreachRoutes(app: Express): void {
-  app.get("/api/patient-outreach/campaigns", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/campaigns", requireUser, async (req: Request, res: Response) => {
     try {
       const campaigns = getCampaigns();
       res.json({ campaigns });
@@ -27,7 +28,7 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-outreach/campaigns/:id", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/campaigns/:id", requireUser, async (req: Request, res: Response) => {
     try {
       const campaign = getCampaignById(req.params.id);
       if (!campaign) {
@@ -40,9 +41,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-outreach/campaigns", async (req: Request, res: Response) => {
+  app.post("/api/patient-outreach/campaigns", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -54,9 +55,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/patient-outreach/campaigns/:id/status", async (req: Request, res: Response) => {
+  app.patch("/api/patient-outreach/campaigns/:id/status", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const { status } = req.body;
@@ -72,9 +73,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-outreach/campaigns/:id/run", async (req: Request, res: Response) => {
+  app.post("/api/patient-outreach/campaigns/:id/run", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -86,7 +87,7 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-outreach/messages", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/messages", requireUser, async (req: Request, res: Response) => {
     try {
       const { campaignId, patientId, status } = req.query;
       const messages = getOutreachMessages({
@@ -101,9 +102,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-outreach/messages", async (req: Request, res: Response) => {
+  app.post("/api/patient-outreach/messages", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -115,7 +116,7 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-outreach/tasks", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/tasks", requireUser, async (req: Request, res: Response) => {
     try {
       const { assignedTo, status, patientId } = req.query;
       const tasks = getCareTeamTasks({
@@ -130,9 +131,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-outreach/tasks", async (req: Request, res: Response) => {
+  app.post("/api/patient-outreach/tasks", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -144,9 +145,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/patient-outreach/tasks/:id/status", async (req: Request, res: Response) => {
+  app.patch("/api/patient-outreach/tasks/:id/status", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const { status, notes } = req.body;
@@ -162,7 +163,7 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-outreach/criteria", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/criteria", requireUser, async (req: Request, res: Response) => {
     try {
       const criteria = getOutreachCriteria();
       res.json({ criteria });
@@ -172,9 +173,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-outreach/identify-patients", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/identify-patients", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const { criteriaId } = req.query;
@@ -192,9 +193,9 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-outreach/generate-message", async (req: Request, res: Response) => {
+  app.post("/api/patient-outreach/generate-message", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const { patientId, patientName, outreachType, context } = req.body;
@@ -215,7 +216,7 @@ export function registerPatientOutreachRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-outreach/analytics", async (req: Request, res: Response) => {
+  app.get("/api/patient-outreach/analytics", requireUser, async (req: Request, res: Response) => {
     try {
       const analytics = getOutreachAnalytics();
       res.json({ analytics });

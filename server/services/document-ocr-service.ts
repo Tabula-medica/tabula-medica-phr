@@ -286,15 +286,20 @@ export interface DocumentSearchResult {
 class DocumentSearchService {
   private extractedDocuments: Map<string, ExtractedDocumentData> = new Map();
   
-  addDocument(data: ExtractedDocumentData) {
-    this.extractedDocuments.set(data.documentId, data);
+  addDocument(userId: string, data: ExtractedDocumentData) {
+    // P0-4: namespace entries by user so one user's documents are invisible and
+    // un-fetchable to any other user.
+    this.extractedDocuments.set(`${userId}::${data.documentId}`, data);
   }
-  
-  search(params: DocumentSearchParams): DocumentSearchResult[] {
+
+  search(userId: string, params: DocumentSearchParams): DocumentSearchResult[] {
     const results: DocumentSearchResult[] = [];
-    
+
+    const prefix = `${userId}::`;
     const entries = Array.from(this.extractedDocuments.entries());
-    for (const [docId, doc] of entries) {
+    for (const [key, doc] of entries) {
+      if (!key.startsWith(prefix)) continue; // P0-4: only the calling user's documents
+      const docId = doc.documentId;
       if (params.patientId && !docId.includes(params.patientId)) continue;
       if (params.category && doc.category !== params.category) continue;
       
@@ -378,8 +383,10 @@ class DocumentSearchService {
     return results.slice(offset, offset + limit);
   }
   
-  getDocument(documentId: string): ExtractedDocumentData | undefined {
-    return this.extractedDocuments.get(documentId);
+  getDocument(userId: string, documentId: string): ExtractedDocumentData | undefined {
+    // P0-4: the namespaced key enforces ownership — a document owned by another
+    // user is un-fetchable (returns undefined -> 404 at the route).
+    return this.extractedDocuments.get(`${userId}::${documentId}`);
   }
 }
 

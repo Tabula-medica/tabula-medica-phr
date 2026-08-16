@@ -1,15 +1,7 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-function getOpenAIClient(): OpenAI | null {
-  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return new OpenAI({
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    });
-  }
-  return null;
-}
+const aiEnabled = true;
 
 const DISCLAIMER = "This ASCVD risk score is for educational and tracking purposes only. It does not constitute medical advice. The Pooled Cohort Equations have known limitations and may over- or under-estimate risk in some populations. Always discuss your cardiovascular risk with your healthcare provider.";
 
@@ -531,19 +523,12 @@ export const ascvdCalculatorService = {
   },
 
   async autoCalculateFromPatientData(profileId: string): Promise<ASCVDResult | { error: string; fallbackInputs?: Partial<ASCVDInputs> }> {
-    const openai = getOpenAIClient();
-    if (!openai) {
+    if (!aiEnabled) {
       return { error: "AI service unavailable. Please enter your values manually." };
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `You are a health data extraction assistant. Your job is to extract ASCVD risk calculator inputs from patient health records.
+      const systemPrompt = `You are a health data extraction assistant. Your job is to extract ASCVD risk calculator inputs from patient health records.
 
 Given patient health data, extract these values for the Pooled Cohort Equations ASCVD risk calculator:
 - age (number, years)
@@ -572,11 +557,9 @@ Return JSON with:
 }
 
 If critical fields (age, sex, totalCholesterol, hdlCholesterol, systolicBP) cannot be determined, set "canCalculate": false.
-Important: This is for educational tracking only — NOT clinical decision support. All outputs must include a disclaimer.`,
-          },
-          {
-            role: "user",
-            content: `Extract ASCVD calculator inputs from this patient profile (ID: ${profileId}).
+Important: This is for educational tracking only — NOT clinical decision support. All outputs must include a disclaimer.`;
+
+      const userPrompt = `Extract ASCVD calculator inputs from this patient profile (ID: ${profileId}).
 
 Use any available health data including:
 - Demographics (age, sex, race/ethnicity)
@@ -588,13 +571,15 @@ Use any available health data including:
 - Family history (premature heart disease)
 - BMI/weight data
 
-For this demonstration, generate realistic sample patient data for a 55-year-old patient to show the ASCVD calculator in action. Include data sources for each value.`,
-          },
-        ],
+For this demonstration, generate realistic sample patient data for a 55-year-old patient to show the ASCVD calculator in action. Include data sources for each value.`;
+
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const content = completion.choices[0]?.message?.content;
       if (!content) {
         return { error: "AI returned empty response. Please enter values manually." };
       }

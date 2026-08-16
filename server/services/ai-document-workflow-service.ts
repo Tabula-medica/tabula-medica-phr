@@ -218,6 +218,7 @@ function initializeDefaultRules() {
 initializeDefaultRules();
 
 export function getRules(userId?: string): WorkflowRule[] {
+  // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route ai-document-generation-routes.ts:136 calls getRules() without a userId; make param required once it passes getUserId(req)
   auditLog("RULES_VIEWED", userId || "system", undefined, `Viewed ${rules.size} workflow rules`);
   return Array.from(rules.values()).sort((a, b) => {
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };

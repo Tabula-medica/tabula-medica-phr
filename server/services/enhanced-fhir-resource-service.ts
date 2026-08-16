@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
-export type FHIRResourceType = 
+export type FHIRResourceType =
   | "Patient" | "Condition" | "Medication" | "MedicationRequest"
   | "AllergyIntolerance" | "Immunization" | "Procedure"
   | "Observation" | "DiagnosticReport" | "Encounter"
@@ -747,17 +742,14 @@ Validation Issues:
 
 Provide 3-5 specific, actionable suggestions to improve this resource's data quality and FHIR compliance. Format as a JSON object with a "suggestions" array.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a FHIR data quality expert. Provide practical suggestions to improve healthcare data quality and interoperability." },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1000,
+      const responseText = await generatePhiSafeText({
+        system: "You are a FHIR data quality expert. Provide practical suggestions to improve healthcare data quality and interoperability.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const aiResponse = JSON.parse(response.choices[0]?.message?.content || '{"suggestions":[]}');
+      const aiResponse = JSON.parse(responseText || '{"suggestions":[]}');
 
       return {
         suggestions: aiResponse.suggestions || [],

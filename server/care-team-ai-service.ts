@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+const aiEnabled = true;
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -368,12 +361,11 @@ export async function generateMeetingAgenda(
   includePatientIds?: string[]
 ): Promise<MeetingAgenda> {
   try {
-    const client = getOpenAIClient();
-    if (!client) {
-      throw new Error("OpenAI not available");
+    if (!aiEnabled) {
+      throw new Error("AI not available");
     }
-    
-    const relevantAlerts = includePatientIds 
+
+    const relevantAlerts = includePatientIds
       ? MOCK_PATIENT_ALERTS.filter(a => includePatientIds.includes(a.patientId))
       : MOCK_PATIENT_ALERTS;
     
@@ -402,14 +394,11 @@ ${relevantSummaries.map(s => `- ${s.patientName} (${s.riskLevel} risk): ${s.cond
 
 Create a structured agenda with sections and time allocations.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
+    await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.3,
-      max_tokens: 1500,
+      maxTokens: 1500,
     });
 
     const mockAgenda = generateMockMeetingAgenda(meetingType, scheduledFor, attendees);
@@ -565,11 +554,10 @@ export async function generateDiscussionSummary(channelId: string): Promise<Disc
   if (!channel) return null;
   
   try {
-    const client = getOpenAIClient();
-    if (!client) {
-      throw new Error("OpenAI not available");
+    if (!aiEnabled) {
+      throw new Error("AI not available");
     }
-    
+
     const systemPrompt = `You are a care team discussion summarizer.
 CRITICAL RULES:
 - Use ONLY these verbs: "shows", "states", "refers to", "means"
@@ -586,16 +574,13 @@ Extract:
 2. Decisions made
 3. Action items with assignees`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
+    await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.3,
-      max_tokens: 1000,
+      maxTokens: 1000,
     });
-    
+
     return generateMockDiscussionSummary(channel);
   } catch (error) {
     console.log("Using mock discussion summary");

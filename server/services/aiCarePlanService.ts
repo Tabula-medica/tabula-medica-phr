@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { getAuditLogger } from "./integrations/factory";
 import type {
@@ -16,18 +16,6 @@ import type {
   AIInterventionStatus,
   CarePlanStatus,
 } from "@shared/schema";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
-}
 
 const NO_CDS_CARE_PLAN_GUARDRAIL = `
 CRITICAL COMPLIANCE REQUIREMENT - NO CLINICAL DECISION SUPPORT:
@@ -398,11 +386,6 @@ export const aiCarePlanService = {
     interventions: AICarePlanIntervention[];
     educationMaterials: PatientEducationMaterial[];
   }> {
-    const client = getOpenAIClient();
-    if (!client) {
-      throw new Error("OpenAI client not available");
-    }
-
     const systemPrompt = `You are generating a care plan TEMPLATE that organizes documented patient health information.
 Your role is to structure documented information into a care plan format for provider review.
 
@@ -441,19 +424,15 @@ ORGANIZATION PREFERENCES:
 
 Create 3-5 goal TEMPLATES and 4-6 care coordination activities based on the documented information. All items must be marked as drafts for provider review.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2500,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
+      maxTokens: 2500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
-      throw new Error("No response from OpenAI");
+      throw new Error("No response from AI gateway");
     }
 
     const parsed = JSON.parse(content);

@@ -1,10 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data integration assistant. You provide ONLY:
 - Data quality summaries and metrics
@@ -457,7 +454,7 @@ export async function generateAIInsights(patient: Patient360View): Promise<AIIns
 }
 
 async function generateOpenAIInsights(patient: Patient360View): Promise<AIInsight[]> {
-  if (!openai) {
+  if (!aiEnabled) {
     return [];
   }
 
@@ -475,17 +472,13 @@ Authorized Users: ${patient.security.authorizedUsers}
 
 Provide 1-2 additional insights about data integration, quality trends, or security considerations. Format as JSON array with objects containing: category, severity, title, description, recommendation.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-      { role: "user", content: prompt }
-    ],
-    response_format: { type: "json_object" },
-    max_tokens: 500
+  const content = await generatePhiSafeText({
+    system: NO_CDS_SYSTEM_PROMPT,
+    user: prompt,
+    responseMimeType: "application/json",
+    maxTokens: 500,
   });
 
-  const content = response.choices[0]?.message?.content;
   if (!content) return [];
 
   try {
@@ -514,7 +507,7 @@ export async function generatePatient360Summary(patientId: string): Promise<stri
     return "Patient not found.";
   }
 
-  if (!openai) {
+  if (!aiEnabled) {
     return generateRuleBasedSummary(patient);
   }
 
@@ -529,16 +522,13 @@ Last Updated: ${patient.lastUpdated.toISOString()}
 
 Provide a 2-3 sentence summary focusing on data completeness, integration status, and any data quality concerns.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 200
+    const summaryText = await generatePhiSafeText({
+      system: NO_CDS_SYSTEM_PROMPT,
+      user: prompt,
+      maxTokens: 200,
     });
 
-    return response.choices[0]?.message?.content || generateRuleBasedSummary(patient);
+    return summaryText || generateRuleBasedSummary(patient);
   } catch {
     return generateRuleBasedSummary(patient);
   }

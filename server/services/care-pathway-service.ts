@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 export interface PathwayStage {
   id: string;
@@ -946,7 +944,7 @@ class CarePathwayService {
       recommendationsCount: uncompletedContent.length
     });
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const adherence = await this.getAdherenceAnalytics(patientPathwayId);
         const prompt = `As a healthcare education specialist, recommend the most relevant educational content for a patient.
@@ -967,14 +965,13 @@ Prioritize content based on patient needs. Return a JSON array with objects cont
 
 Respond with only valid JSON array.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
+        const content = await generatePhiSafeText({
+          user: prompt,
           temperature: 0.3,
-          response_format: { type: "json_object" }
+          responseMimeType: "application/json",
         });
 
-        const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+        const aiResult = JSON.parse(content || "{}");
         const recommendations = (aiResult.recommendations || []) as { contentId: string; reason: string; relevanceScore: number }[];
 
         return recommendations.map(rec => {
@@ -1139,7 +1136,7 @@ Respond with only valid JSON array.`;
     nudgeType: string,
     adherence: AdherenceAnalytics
   ): Promise<string> {
-    if (openai) {
+    if (aiEnabled) {
       try {
         const prompt = `Generate a brief, supportive healthcare nudge message (2-3 sentences max).
 
@@ -1158,14 +1155,13 @@ Requirements:
 
 Respond with only the message text.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
+        const content = await generatePhiSafeText({
+          user: prompt,
           temperature: 0.7,
-          max_tokens: 150
+          maxTokens: 150,
         });
 
-        return response.choices[0].message.content || this.getFallbackNudgeMessage(nudgeType, adherence);
+        return content || this.getFallbackNudgeMessage(nudgeType, adherence);
       } catch (error) {
         console.error("[CarePathway] AI nudge generation failed:", error);
       }

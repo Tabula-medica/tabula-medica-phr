@@ -7,14 +7,20 @@ import vaccineRulesEngineV2, {
 } from "./services/vaccine-rules-engine-v2";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { lookupCVX, resolveCVXFromInput, getAllCVXForGroup, getAllVaccineGroups, getAllActiveCVXCodes } from "./services/cvx-registry";
+import { requireUser, getUserId, assertOwnsProfile } from "./middleware/require-user";
+import { storage } from "./storage";
 
 const router = Router();
+
+// P0-2: every route in this router requires an authenticated user. PHI routes
+// carrying :patientId/:profileId additionally assert profile ownership below.
+router.use(requireUser);
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This information is based on CDC/ACIP published schedules and your recorded history. This is NOT medical advice. Always confirm with your clinician or pharmacist before receiving any vaccine.";
 
 router.get("/cvx-codes", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -95,7 +101,7 @@ router.get("/cvx-registry/full", async (req: Request, res: Response) => {
 
 router.get("/vaccine-groups", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -121,7 +127,7 @@ router.get("/vaccine-groups", async (req: Request, res: Response) => {
 
 router.get("/schedule-rules", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -173,10 +179,10 @@ router.get("/schedule-rules/:vaccineGroup", async (req: Request, res: Response) 
   }
 });
 
-router.get("/immunizations/:patientId/:profileId", async (req: Request, res: Response) => {
+router.get("/immunizations/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const events = await vaccineScheduleEngine.getImmunizationEvents(patientId, profileId, userId);
     res.json({
@@ -195,7 +201,7 @@ router.get("/immunizations/:patientId/:profileId", async (req: Request, res: Res
 
 router.post("/immunizations", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const eventData = req.body;
 
     if (!eventData.patientId || !eventData.profileId || !eventData.vaccineCode || !eventData.dateAdministered) {
@@ -220,11 +226,11 @@ router.post("/immunizations", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/summary/:patientId/:profileId", async (req: Request, res: Response) => {
+router.get("/summary/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
     const { birthDate } = req.query;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     if (!birthDate || typeof birthDate !== "string") {
       return res.status(400).json({
@@ -244,11 +250,11 @@ router.get("/summary/:patientId/:profileId", async (req: Request, res: Response)
   }
 });
 
-router.get("/series-status/:patientId/:profileId", async (req: Request, res: Response) => {
+router.get("/series-status/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
     const { birthDate } = req.query;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     if (!birthDate || typeof birthDate !== "string") {
       return res.status(400).json({
@@ -273,10 +279,10 @@ router.get("/series-status/:patientId/:profileId", async (req: Request, res: Res
   }
 });
 
-router.get("/risk-flags/:patientId/:profileId", async (req: Request, res: Response) => {
+router.get("/risk-flags/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const flags = await vaccineScheduleEngine.getPatientRiskFlags(patientId, profileId, userId);
     res.json({
@@ -308,11 +314,11 @@ router.get("/risk-flags/:patientId/:profileId", async (req: Request, res: Respon
   }
 });
 
-router.put("/risk-flags/:patientId/:profileId", async (req: Request, res: Response) => {
+router.put("/risk-flags/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
     const { flags } = req.body;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     if (!Array.isArray(flags)) {
       return res.status(400).json({
@@ -336,10 +342,10 @@ router.put("/risk-flags/:patientId/:profileId", async (req: Request, res: Respon
   }
 });
 
-router.get("/reminders/:patientId/:profileId", async (req: Request, res: Response) => {
+router.get("/reminders/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const reminders = await vaccineScheduleEngine.getReminders(patientId, profileId, userId);
     res.json({
@@ -359,7 +365,7 @@ router.get("/reminders/:patientId/:profileId", async (req: Request, res: Respons
 router.post("/reminders", async (req: Request, res: Response) => {
   try {
     const { patientId, profileId, vaccineGroup, dueDate, reminderDate, channel } = req.body;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     if (!patientId || !profileId || !vaccineGroup || !dueDate || !reminderDate || !channel) {
       return res.status(400).json({
@@ -392,10 +398,10 @@ router.post("/reminders", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/evidence/:patientId/:profileId", async (req: Request, res: Response) => {
+router.get("/evidence/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const files = await vaccineScheduleEngine.getEvidenceFiles(patientId, profileId, userId);
     res.json({
@@ -414,7 +420,7 @@ router.get("/evidence/:patientId/:profileId", async (req: Request, res: Response
 
 router.post("/evidence", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const fileData = req.body;
 
     if (!fileData.patientId || !fileData.profileId || !fileData.fileName || !fileData.fileUrl) {
@@ -441,7 +447,7 @@ router.post("/evidence", async (req: Request, res: Response) => {
 
 router.post("/fhir-import", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { bundle, patientId, profileId, sourceEhrName, options } = req.body;
 
     if (!bundle || !patientId || !profileId || !sourceEhrName) {
@@ -490,12 +496,25 @@ router.post("/fhir-import", async (req: Request, res: Response) => {
 
 router.post("/fhir-import/ehr", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
-    const { connectionId, patientId, profileId, patientFhirId, accessToken, fhirServerUrl, ehrName } = req.body;
+    const userId = getUserId(req);
+    // P0-2 SSRF/token-relay fix: never accept accessToken or fhirServerUrl from
+    // the request body. Resolve the caller-owned connection server-side and use
+    // ONLY its stored (transparently decrypted) token + FHIR base URL.
+    const { connectionId, patientId, profileId, patientFhirId, ehrName } = req.body;
 
-    if (!connectionId || !patientId || !profileId || !patientFhirId || !accessToken || !fhirServerUrl || !ehrName) {
+    if (!connectionId || !patientId || !profileId || !patientFhirId || !ehrName) {
       return res.status(400).json({
         error: "Missing required fields for EHR import",
+        disclaimer: NO_CDS_DISCLAIMER,
+      });
+    }
+
+    const connection = (await storage.getEhrConnections(userId)).find((c) => c.id === connectionId);
+    const accessToken = connection?.tokens?.accessToken;
+    const fhirServerUrl = connection?.fhirConfig?.fhirBaseUrl;
+    if (!connection || !accessToken || !fhirServerUrl) {
+      return res.status(404).json({
+        error: "EHR connection not found",
         disclaimer: NO_CDS_DISCLAIMER,
       });
     }
@@ -541,7 +560,7 @@ router.post("/fhir-import/ehr", async (req: Request, res: Response) => {
 
 router.post("/fhir-import/resolve-conflict", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { conflict, resolution } = req.body;
 
     if (!conflict || !resolution) {
@@ -586,7 +605,7 @@ router.post("/fhir-import/resolve-conflict", async (req: Request, res: Response)
 
 router.get("/fhir-import/sources", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     logPhiAccess({
       userId,
@@ -628,7 +647,7 @@ router.get("/rules-engine/version", async (req: Request, res: Response) => {
 
 router.get("/rules-engine/export", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -654,7 +673,7 @@ router.get("/rules-engine/export", async (req: Request, res: Response) => {
 
 router.get("/rules-engine/rules", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { vaccineGroup } = req.query;
 
     logPhiAccess({
@@ -696,7 +715,7 @@ router.get("/rules-engine/rules", async (req: Request, res: Response) => {
 
 router.post("/rules-engine/evaluate", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { 
       patientId,
       profileId,
@@ -746,7 +765,7 @@ router.post("/rules-engine/evaluate", async (req: Request, res: Response) => {
 
 router.post("/rules-engine/catch-up", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId, profileId, vaccineGroup, ageMonths, dosesReceived, lastDoseDate } = req.body;
 
     if (!vaccineGroup || ageMonths === undefined) {
@@ -794,7 +813,7 @@ router.post("/rules-engine/catch-up", async (req: Request, res: Response) => {
 
 router.post("/rules-engine/immunocompromise-evaluation", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId, profileId, vaccineGroup, immunocompromiseStatus } = req.body;
 
     if (!vaccineGroup || !immunocompromiseStatus) {
@@ -840,7 +859,7 @@ router.post("/rules-engine/immunocompromise-evaluation", async (req: Request, re
 
 router.get("/rules-engine/contraindications/:vaccineGroup", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { vaccineGroup } = req.params;
 
     logPhiAccess({
@@ -871,7 +890,7 @@ router.get("/rules-engine/contraindications/:vaccineGroup", async (req: Request,
 
 router.post("/rules-engine/special-populations", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { vaccineGroup, riskFlags } = req.body;
 
     if (!vaccineGroup) {

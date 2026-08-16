@@ -2,8 +2,11 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash } from "crypto";
 import { aiExecutiveSummaryService, ReportPeriod } from "./services/ai-executive-summary";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -34,7 +37,7 @@ function sanitizeDetails(details: Record<string, unknown>): Record<string, unkno
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   console.log(`[HIPAA_AUDIT] ${JSON.stringify({
     timestamp: new Date().toISOString(),
     action,
@@ -60,7 +63,7 @@ const listReportsSchema = z.object({
 router.post("/generate", async (req: Request, res: Response) => {
   try {
     const { reportType, startDate, endDate } = generateReportSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("GENERATE_EXECUTIVE_SUMMARY", "report", req, { reportType, startDate, endDate });
 
@@ -114,7 +117,7 @@ router.get("/reports/:id", async (req: Request, res: Response) => {
 
 router.post("/reports/:id/regenerate-insights", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("REGENERATE_INSIGHTS", "report", req, { reportId: req.params.id });
 
     const report = await aiExecutiveSummaryService.regenerateInsights(req.params.id, userId);

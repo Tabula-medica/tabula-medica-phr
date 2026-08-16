@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This report is for INFORMATIONAL and EDUCATIONAL purposes only. It does NOT constitute medical advice, diagnosis, or clinical decision support. All healthcare decisions must be made by qualified healthcare providers.";
 
@@ -844,17 +839,13 @@ Provide insights in JSON format:
 
 IMPORTANT: These insights are for informational purposes only and do not constitute clinical decision support.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You are a healthcare analytics expert providing operational insights. Always include NO-CDS disclaimers." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1500,
+    const content = await generatePhiSafeText({
+      system: "You are a healthcare analytics expert providing operational insights. Always include NO-CDS disclaimers.",
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       const insightsArray = parsed.insights || parsed;

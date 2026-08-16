@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type {
   CarePlan,
   CarePlanGoal,
@@ -9,14 +9,7 @@ import type {
   CareTeamRole,
 } from "@shared/schema";
 
-let openai: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+const aiEnabled = true;
 
 export interface PatientContext {
   patientId: string;
@@ -154,12 +147,11 @@ export async function generateCarePlan(
   primaryCondition: string,
   additionalNotes?: string
 ): Promise<GeneratedCarePlan> {
-  const client = getOpenAI();
-  if (!client) {
-    console.log("[AICarePlanAutomation] OpenAI not configured, using fallback");
+  if (!aiEnabled) {
+    console.log("[AICarePlanAutomation] AI disabled, using fallback");
     return generateFallbackCarePlan(primaryCondition);
   }
-  
+
   try {
     const prompt = `You are a clinical decision support AI assistant helping healthcare providers create comprehensive care plans. Based on the patient context and primary condition, generate a detailed care plan.
 
@@ -211,15 +203,14 @@ Generate a comprehensive care plan in JSON format with the following structure:
 
 Focus on patient-centered, evidence-based care with measurable goals and actionable interventions.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const text = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(text || "{}");
+
     const goals: CarePlanGoal[] = (result.goals || []).map((g: any) => ({
       id: g.id || generateId(),
       description: g.description,
@@ -295,9 +286,8 @@ export async function suggestTasks(
   carePlan: CarePlan,
   patientContext: PatientContext
 ): Promise<TaskRecommendation[]> {
-  const client = getOpenAI();
-  if (!client) {
-    console.log("[AICarePlanAutomation] OpenAI not configured, using fallback tasks");
+  if (!aiEnabled) {
+    console.log("[AICarePlanAutomation] AI disabled, using fallback tasks");
     return [{
       title: "Review care plan progress",
       description: "Assess patient progress toward care plan goals and adjust as needed",
@@ -340,14 +330,13 @@ Generate 3-5 prioritized tasks in JSON format:
 
 Focus on actionable, patient-centered tasks that advance care plan goals.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const text = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(text || "{}");
     return (result.tasks || []).map((t: any) => ({
       title: t.title,
       description: t.description,
@@ -378,14 +367,13 @@ export async function suggestInterventions(
   patientContext: PatientContext,
   goalId?: string
 ): Promise<InterventionSuggestion[]> {
-  const client = getOpenAI();
-  if (!client) {
-    console.log("[AICarePlanAutomation] OpenAI not configured, using fallback interventions");
+  if (!aiEnabled) {
+    console.log("[AICarePlanAutomation] AI disabled, using fallback interventions");
     return [];
   }
-  
+
   try {
-    const targetGoals = goalId 
+    const targetGoals = goalId
       ? carePlan.goals.filter(g => g.id === goalId)
       : carePlan.goals.filter(g => g.status !== "achieved" && g.status !== "cancelled");
 
@@ -418,14 +406,13 @@ Generate 2-4 evidence-based intervention suggestions in JSON format:
 
 Focus on patient-centered, evidence-based interventions that complement existing care.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const text = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(text || "{}");
     return (result.interventions || []).map((i: any) => ({
       goalId: i.goalId || (targetGoals[0]?.id || ""),
       description: i.description,
@@ -444,12 +431,11 @@ export async function optimizeCarePlan(
   carePlan: CarePlan,
   patientContext: PatientContext
 ): Promise<CarePlanOptimization> {
-  const client = getOpenAI();
-  if (!client) {
-    console.log("[AICarePlanAutomation] OpenAI not configured, using fallback optimization");
+  if (!aiEnabled) {
+    console.log("[AICarePlanAutomation] AI disabled, using fallback optimization");
     return { currentIssues: [], suggestedAdjustments: [], predictedOutcome: [] };
   }
-  
+
   try {
     const prompt = `You are a clinical decision support AI helping optimize care plans. Analyze the care plan for potential improvements and predict outcomes.
 
@@ -499,14 +485,13 @@ Provide optimization analysis in JSON format:
 
 Focus on practical, evidence-based improvements.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const text = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(text || "{}");
     return {
       currentIssues: result.currentIssues || [],
       suggestedAdjustments: result.suggestedAdjustments || [],
@@ -532,11 +517,10 @@ export async function generateProgressSummary(
   nextSteps: string[];
   overallProgress: number;
 }> {
-  const client = getOpenAI();
   const progress = calculateOverallProgress(carePlan);
-  
-  if (!client) {
-    console.log("[AICarePlanAutomation] OpenAI not configured, using fallback summary");
+
+  if (!aiEnabled) {
+    console.log("[AICarePlanAutomation] AI disabled, using fallback summary");
     return {
       summary: `Care plan is ${progress}% complete with ${carePlan.goals.filter(g => g.status === "achieved").length} of ${carePlan.goals.length} goals achieved.`,
       keyAchievements: carePlan.goals.filter(g => g.status === "achieved").map(g => g.description),
@@ -570,14 +554,13 @@ Generate a progress summary in JSON format:
   "overallProgress": number (0-100)
 }`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const text = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(text || "{}");
     return {
       summary: result.summary || "Progress summary unavailable",
       keyAchievements: result.keyAchievements || [],
@@ -610,12 +593,10 @@ export async function generatePersonalizedCarePlan(
   treatmentGoals?: string[],
   additionalNotes?: string
 ): Promise<PersonalizedCarePlan> {
-  const client = getOpenAI();
-  
   const basePlan = await generateCarePlan(patientContext, primaryCondition, additionalNotes);
-  
-  if (!client) {
-    console.log("[AICarePlanAutomation] OpenAI not configured, using fallback personalized plan");
+
+  if (!aiEnabled) {
+    console.log("[AICarePlanAutomation] AI disabled, using fallback personalized plan");
     return generateFallbackPersonalizedPlan(patientContext, primaryCondition, basePlan);
   }
   
@@ -710,16 +691,15 @@ Generate comprehensive personalized recommendations in JSON format:
 
 Generate 3-5 recommendations in each category. Focus on evidence-based, patient-centered recommendations considering the patient's age, conditions, medications, and allergies. Ensure recommendations are actionable and specific to the patient's situation.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const text = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
-      max_tokens: 4000,
+      maxTokens: 4000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(text || "{}");
+
     return {
       carePlan: basePlan,
       lifestyleRecommendations: (result.lifestyleRecommendations || []).map((r: any) => ({

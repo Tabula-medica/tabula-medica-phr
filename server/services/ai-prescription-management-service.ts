@@ -1,18 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: AI prescription assistance is for INFORMATIONAL AND WORKFLOW SUPPORT PURPOSES ONLY. This does NOT constitute clinical decision support, medical advice, or treatment recommendations. All prescribing decisions must be made by qualified healthcare professionals based on their clinical judgment and direct patient evaluation.";
-
-let openai: OpenAI | null = null;
-function getOpenAI(): OpenAI | null {
-  if (!openai && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openai;
-}
 
 export interface PatientMedicationProfile {
   patientId: string;
@@ -315,14 +304,8 @@ async function generateAIMedicationRationale(
   request: MedicationSelectionRequest,
   suggestions: MedicationSuggestion[]
 ): Promise<string> {
-  const client = getOpenAI();
-  
-  if (!client) {
-    return `Based on the indication "${request.indication}" and patient profile, the suggested medications have been selected considering the patient's current medication list, documented allergies, and known drug interactions. All suggestions require clinician review before prescribing.`;
-  }
-  
   try {
-    const prompt = `You are a clinical decision support assistant (NOT providing medical advice). 
+    const prompt = `You are a clinical decision support assistant (NOT providing medical advice).
 Summarize the rationale for medication suggestions for a patient with:
 - Indication: ${request.indication}
 - Current conditions: ${request.patientProfile.conditions.join(", ")}
@@ -338,14 +321,11 @@ Provide a brief, professional summary of why these options were identified. Emph
 
 Keep response under 200 words.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+    return (await generatePhiSafeText({
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 300,
-    });
-    
-    return response.choices[0]?.message?.content || "AI rationale generation unavailable.";
+      maxTokens: 300,
+    })) || "AI rationale generation unavailable.";
   } catch (error) {
     console.error("[AIPrescription] AI rationale error:", error);
     return "AI-generated rationale unavailable. Please review suggestions based on clinical guidelines.";
@@ -551,18 +531,16 @@ export async function updateRefillRequestStatus(
 }
 
 async function generateAIAdherenceInsights(issues: AdherenceIssue[]): Promise<string[]> {
-  const client = getOpenAI();
-  
   const defaultInsights = [
     "Adherence patterns suggest potential barriers to medication compliance.",
     "Consider discussing medication schedule optimization with the patient.",
     "Patient may benefit from reminder systems or simplified regimens."
   ];
-  
-  if (!client || issues.length === 0) {
+
+  if (issues.length === 0) {
     return defaultInsights;
   }
-  
+
   try {
     const prompt = `As a pharmacy adherence analyst (NOT providing medical advice), generate 3-4 brief insights about medication adherence based on these issues:
 
@@ -575,14 +553,11 @@ Focus on:
 
 Keep insights brief and actionable. Return as JSON array of strings.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+    const content = (await generatePhiSafeText({
+      user: prompt,
       temperature: 0.4,
-      max_tokens: 300,
-    });
-    
-    const content = response.choices[0]?.message?.content || "";
+      maxTokens: 300,
+    })) || "";
     const match = content.match(/\[[\s\S]*\]/);
     if (match) {
       return JSON.parse(match[0]);

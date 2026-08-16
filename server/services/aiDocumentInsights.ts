@@ -1,12 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "not-set",
-  ...(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && {
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  }),
-});
 
 export interface DocumentAnalysisRequest {
   documentId: string;
@@ -91,20 +84,11 @@ export async function analyzeDocument(
     return createEmptyInsights(request.documentId, "No content available for analysis");
   }
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    console.log("[AI Document Insights] OpenAI API key not configured, returning fallback insights");
-    return createFallbackInsights(request);
-  }
-
   try {
     const prompt = buildDocumentAnalysisPrompt(request);
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare document analysis AI assistant. Your role is to:
+
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare document analysis AI assistant. Your role is to:
 1. Extract and summarize key findings from clinical documents
 2. Identify abnormal results and their clinical significance
 3. Detect trends by comparing with patient context
@@ -120,18 +104,12 @@ IMPORTANT GUIDELINES:
 - Be accurate and thorough in extracting medical values
 - Prioritize patient safety in action items
 
-Format your response as valid JSON matching the DocumentInsightsOutput schema.`
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 3000
+Format your response as valid JSON matching the DocumentInsightsOutput schema.`,
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 3000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }

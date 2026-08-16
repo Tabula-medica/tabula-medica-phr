@@ -1,14 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 export type VitalType = "blood_pressure" | "glucose" | "weight" | "temperature" | "pulse_ox" | "heart_rate" | "respiratory_rate";
 export type SymptomSeverity = "mild" | "moderate" | "severe";
@@ -738,22 +731,14 @@ Provide:
 
 Keep response educational and encouraging. Include clear disclaimer that this is NOT medical advice.`;
 
-      const client = getOpenAIClient();
-      if (client) {
-        const response = await client.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a health education assistant providing general wellness insights. You NEVER provide medical advice, diagnoses, or treatment recommendations. Always encourage users to consult healthcare providers for medical concerns."
-            },
-            { role: "user", content: prompt }
-          ],
-          max_tokens: 500,
+      if (aiEnabled) {
+        const content = await generatePhiSafeText({
+          system: "You are a health education assistant providing general wellness insights. You NEVER provide medical advice, diagnoses, or treatment recommendations. Always encourage users to consult healthcare providers for medical concerns.",
+          user: prompt,
+          maxTokens: 500,
           temperature: 0.7,
-        });
+        }) || "";
 
-        const content = response.choices[0]?.message?.content || "";
         const parts = content.split(/suggestions?:/i);
         
         overallSummary = parts[0]?.replace(/summary:?/i, "").trim() || 
@@ -764,7 +749,7 @@ Keep response educational and encouraging. Include clear disclaimer that this is
           suggestions.push(...suggestionLines.slice(0, 3).map(s => s.trim()));
         }
       } else {
-        throw new Error("OpenAI client not available");
+        throw new Error("AI gateway not available");
       }
     } catch (error) {
       console.error("[PatientGeneratedHealthData] AI analysis error:", error);

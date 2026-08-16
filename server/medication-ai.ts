@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { storage } from "./storage";
 import type { 
   Medication,
@@ -17,11 +17,6 @@ import type {
   InsertAdherenceCoachingSession
 } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
 // Generate personalized reminder message for a medication
 export async function generateReminderMessage(
   medicationName: string,
@@ -30,29 +25,20 @@ export async function generateReminderMessage(
   patientName?: string
 ): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a friendly health assistant helping patients remember to take their medications. 
+    const content = await generatePhiSafeText({
+      system: `You are a friendly health assistant helping patients remember to take their medications.
 Generate a brief, encouraging reminder message (1-2 sentences max) for a medication reminder.
-Be warm but professional. Do not provide medical advice.`
-        },
-        {
-          role: "user",
-          content: `Generate a medication reminder for:
+Be warm but professional. Do not provide medical advice.`,
+      user: `Generate a medication reminder for:
 Medication: ${medicationName}
 Dosage: ${dosage}
 Frequency: ${frequency.replace(/_/g, " ")}
-${patientName ? `Patient name: ${patientName}` : ""}`
-        }
-      ],
-      max_tokens: 100,
+${patientName ? `Patient name: ${patientName}` : ""}`,
+      maxTokens: 100,
       temperature: 0.7,
     });
 
-    return response.choices[0]?.message?.content || `Time to take your ${medicationName} (${dosage}).`;
+    return content || `Time to take your ${medicationName} (${dosage}).`;
   } catch (error) {
     console.error("Error generating reminder message:", error);
     return `Time to take your ${medicationName} (${dosage}).`;
@@ -82,12 +68,8 @@ export async function analyzedrugInteractions(
   }));
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a clinical pharmacology AI assistant. Analyze the provided medication list for potential drug-drug interactions.
+    const content = await generatePhiSafeText({
+      system: `You are a clinical pharmacology AI assistant. Analyze the provided medication list for potential drug-drug interactions.
 For each interaction found, provide:
 - The two medications involved
 - Severity (minor, moderate, major, or contraindicated)
@@ -96,11 +78,8 @@ For each interaction found, provide:
 - A recommendation for the patient
 
 IMPORTANT: This is for educational purposes only. Always advise patients to consult their healthcare provider.
-You must respond with a valid JSON object containing an "interactions" array.`
-        },
-        {
-          role: "user",
-          content: `Analyze these medications for interactions:
+You must respond with a valid JSON object containing an "interactions" array.`,
+      user: `Analyze these medications for interactions:
 ${JSON.stringify(medicationList, null, 2)}
 
 Respond with a JSON object containing an "interactions" array:
@@ -115,15 +94,12 @@ Respond with a JSON object containing an "interactions" array:
   }]
 }
 
-If no significant interactions, return { "interactions": [] }.`
-        }
-      ],
-      max_tokens: 1500,
+If no significant interactions, return { "interactions": [] }.`,
+      maxTokens: 1500,
       temperature: 0.3,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return [];
 
     let parsed: any;
@@ -215,28 +191,18 @@ export async function generateTimingOptimization(
   if (activeMeds.length === 0) return null;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a helpful pharmacist assistant. Based on the medication list, provide ONE brief tip (2-3 sentences max) about optimal timing for taking these medications.
+    const tip = await generatePhiSafeText({
+      system: `You are a helpful pharmacist assistant. Based on the medication list, provide ONE brief tip (2-3 sentences max) about optimal timing for taking these medications.
 Consider factors like: food interactions, time of day preferences, combining medications safely.
-Keep the advice general and always recommend consulting a healthcare provider for specific guidance.`
-        },
-        {
-          role: "user",
-          content: `Medications:
+Keep the advice general and always recommend consulting a healthcare provider for specific guidance.`,
+      user: `Medications:
 ${activeMeds.map(m => `- ${m.name} (${m.dosage}, ${m.frequency})`).join("\n")}
 
-Provide a brief timing tip.`
-        }
-      ],
-      max_tokens: 150,
+Provide a brief timing tip.`,
+      maxTokens: 150,
       temperature: 0.5,
     });
 
-    const tip = response.choices[0]?.message?.content;
     if (!tip) return null;
 
     return await storage.createMedicationAIInsight({
@@ -443,12 +409,8 @@ export async function generateAdherenceCoaching(
   const reasonLabel = missedDoseReasonLabels[missedReason];
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an empathetic medication adherence coach. Your role is to:
+    const content = await generatePhiSafeText({
+      system: `You are an empathetic medication adherence coach. Your role is to:
 1. Acknowledge the patient's situation without judgment
 2. Understand barriers to medication adherence
 3. Provide practical, personalized strategies to improve adherence
@@ -463,26 +425,20 @@ Respond with a JSON object containing:
   "motivationalMessage": "A warm, encouraging message (2-3 sentences)"
 }
 
-Keep responses concise, warm, and practical.`
-        },
-        {
-          role: "user",
-          content: `A patient missed their ${medicationName || "medication"} dose.
+Keep responses concise, warm, and practical.`,
+      user: `A patient missed their ${medicationName || "medication"} dose.
 
 Reason: ${reasonLabel}
 ${patientInput ? `Patient's additional context: "${patientInput}"` : ""}
 ${adherenceStats ? `Current adherence rate: ${adherenceStats.adherenceRate}%` : ""}
 ${adherenceStats?.streak ? `Current streak: ${adherenceStats.streak} days` : ""}
 
-Please provide personalized coaching to help them stay on track.`
-        }
-      ],
-      max_tokens: 500,
+Please provide personalized coaching to help them stay on track.`,
+      maxTokens: 500,
       temperature: 0.7,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     let parsed: any = {
       analysis: "We understand that staying consistent with medications can be challenging. Let's work together to find solutions.",
       recommendations: [
@@ -561,12 +517,8 @@ export async function generateProactiveCoaching(
   const reasonLabel = missedDoseReasonLabels[topReason.reason];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a proactive medication adherence coach conducting a check-in. Based on patterns in the patient's medication history, provide personalized coaching.
+    const content = await generatePhiSafeText({
+      system: `You are a proactive medication adherence coach conducting a check-in. Based on patterns in the patient's medication history, provide personalized coaching.
 
 Respond with a JSON object:
 {
@@ -574,25 +526,19 @@ Respond with a JSON object:
   "recommendations": ["3-4 tailored recommendations based on the specific pattern"],
   "actionPlan": ["2-3 concrete steps to address this pattern"],
   "motivationalMessage": "Encouraging message acknowledging their efforts"
-}`
-        },
-        {
-          role: "user",
-          content: `Patient adherence analysis:
+}`,
+      user: `Patient adherence analysis:
 - Most common reason for missed doses: ${reasonLabel} (${topReason.percentage}% of misses)
 - Time most likely to miss: ${patterns.timePatterns.sort((a, b) => b.missedCount - a.missedCount)[0]?.timeOfDay || "varies"}
 - Day most likely to miss: ${patterns.dayPatterns.sort((a, b) => b.missedCount - a.missedCount)[0]?.dayOfWeek || "varies"}
 - Medications: ${medications.map(m => m.name).join(", ")}
 
-Generate a proactive check-in coaching session.`
-        }
-      ],
-      max_tokens: 500,
+Generate a proactive check-in coaching session.`,
+      maxTokens: 500,
       temperature: 0.7,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return null;
 
     const parsed = JSON.parse(content);
@@ -627,12 +573,8 @@ export async function generateMotivationalCoaching(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an encouraging medication adherence coach celebrating a patient's progress. Be warm, specific about their achievement, and reinforce positive behaviors.
+    const content = await generatePhiSafeText({
+      system: `You are an encouraging medication adherence coach celebrating a patient's progress. Be warm, specific about their achievement, and reinforce positive behaviors.
 
 Respond with a JSON object:
 {
@@ -640,24 +582,18 @@ Respond with a JSON object:
   "recommendations": ["2-3 tips to maintain this momentum"],
   "actionPlan": ["1-2 ways to reward themselves or stay motivated"],
   "motivationalMessage": "Celebratory message highlighting their success"
-}`
-        },
-        {
-          role: "user",
-          content: `Patient achievements:
+}`,
+      user: `Patient achievements:
 - Current streak: ${currentStreak} consecutive days of taking all medications
 - Current adherence rate: ${adherenceRate}%
 ${previousRate ? `- Improved from: ${previousRate}%` : ""}
 
-Generate an encouraging coaching message.`
-        }
-      ],
-      max_tokens: 400,
+Generate an encouraging coaching message.`,
+      maxTokens: 400,
       temperature: 0.8,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return null;
 
     const parsed = JSON.parse(content);

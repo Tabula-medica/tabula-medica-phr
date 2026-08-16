@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = `IMPORTANT DISCLAIMER: This AI-generated analysis is for INFORMATIONAL PURPOSES ONLY. It does NOT constitute medical advice, clinical recommendations, or a substitute for professional medical judgment. Healthcare decisions should ONLY be made by qualified healthcare providers who have examined the patient. This system is NOT a Clinical Decision Support (CDS) system and should NOT be used for diagnosis, treatment planning, or prescribing decisions.`;
 
@@ -352,20 +347,14 @@ Provide a JSON response with the following structure:
 Base your analysis on clinical evidence and the data provided. Do not make medical recommendations.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical data analyst. Analyze patient data objectively without making treatment recommendations. Your outputs are informational only and will be clearly marked as non-clinical decision support. Always express findings in terms of observed data patterns, not prescriptive advice.`,
-          },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+      const responseText = await generatePhiSafeText({
+        system: `You are a clinical data analyst. Analyze patient data objectively without making treatment recommendations. Your outputs are informational only and will be clearly marked as non-clinical decision support. Always express findings in terms of observed data patterns, not prescriptive advice.`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       return {
         id: randomUUID(),
@@ -499,20 +488,14 @@ Provide a JSON response:
 Base analysis on established drug interaction databases and clinical literature. Express findings objectively without prescriptive language.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical pharmacology analyst. Identify potential drug interactions and safety concerns objectively. Do not give prescriptive advice. All findings are for informational review only.`,
-          },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 3000,
+      const responseText = await generatePhiSafeText({
+        system: `You are a clinical pharmacology analyst. Identify potential drug interactions and safety concerns objectively. Do not give prescriptive advice. All findings are for informational review only.`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 3000,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       const analysis: MedicationSafetyAnalysis = {
         id: randomUUID(),
@@ -631,20 +614,14 @@ Provide a JSON response:
 All outputs should be informational and educational. Do not provide prescriptive medical advice.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          {
-            role: "system",
-            content: `You are a patient health educator and data analyst. Generate informational health summaries and educational content based on patient data. Do not provide medical advice or treatment recommendations. Focus on patient education and awareness.`,
-          },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 3500,
+      const responseText = await generatePhiSafeText({
+        system: `You are a patient health educator and data analyst. Generate informational health summaries and educational content based on patient data. Do not provide medical advice or treatment recommendations. Focus on patient education and awareness.`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 3500,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       const plan: PersonalizedCarePlan = {
         id: randomUUID(),

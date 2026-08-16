@@ -1,13 +1,8 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import crypto from "crypto";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashForAudit(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
@@ -473,22 +468,16 @@ Format your response as a JSON array with objects containing: title, reason, for
 
 Remember: These are EDUCATIONAL recommendations only, NOT medical advice.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a health education curator. You recommend educational content to help people understand their health better. You NEVER provide medical advice. Always focus on general wellness, understanding health topics, and healthy lifestyle habits." 
-        },
-        { role: "user", content: prompt }
-      ],
-      max_completion_tokens: 800,
-      response_format: { type: "json_object" },
+    const aiContent = await generatePhiSafeText({
+      system: "You are a health education curator. You recommend educational content to help people understand their health better. You NEVER provide medical advice. Always focus on general wellness, understanding health topics, and healthy lifestyle habits.",
+      user: prompt,
+      maxTokens: 800,
+      responseMimeType: "application/json",
     });
 
     let aiRecommendations;
     try {
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(aiContent || "{}");
       aiRecommendations = parsed.recommendations || parsed.topics || [];
     } catch {
       aiRecommendations = [];
@@ -539,22 +528,16 @@ Format your response as JSON with:
 
 IMPORTANT: Include a disclaimer that this is educational content only.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a health education writer. You create clear, helpful content about health topics using everyday language. You NEVER provide medical advice, diagnosis, or treatment recommendations. You always remind readers to consult healthcare providers for personal health questions." 
-        },
-        { role: "user", content: prompt }
-      ],
-      max_completion_tokens: 1000,
-      response_format: { type: "json_object" },
+    const genContent = await generatePhiSafeText({
+      system: "You are a health education writer. You create clear, helpful content about health topics using everyday language. You NEVER provide medical advice, diagnosis, or treatment recommendations. You always remind readers to consult healthcare providers for personal health questions.",
+      user: prompt,
+      maxTokens: 1000,
+      responseMimeType: "application/json",
     });
 
     let generatedContent;
     try {
-      generatedContent = JSON.parse(response.choices[0]?.message?.content || "{}");
+      generatedContent = JSON.parse(genContent || "{}");
     } catch {
       generatedContent = { error: "Failed to parse generated content" };
     }
@@ -607,19 +590,11 @@ Provide:
 
 Do NOT provide medical advice. This is educational only.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a patient health educator. You explain medical and health topics in simple, friendly terms. You help people understand their health without providing medical advice." 
-        },
-        { role: "user", content: prompt }
-      ],
-      max_completion_tokens: 600,
-    });
-
-    const explanation = response.choices[0]?.message?.content || "Unable to generate explanation.";
+    const explanation = (await generatePhiSafeText({
+      system: "You are a patient health educator. You explain medical and health topics in simple, friendly terms. You help people understand their health without providing medical advice.",
+      user: prompt,
+      maxTokens: 600,
+    })) || "Unable to generate explanation.";
 
     res.json({
       topic,

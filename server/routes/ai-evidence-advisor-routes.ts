@@ -1,12 +1,7 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "../services/ai-gateway";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const EVIDENCE_SYSTEM_PROMPT = `You are a global health education assistant for Tabula Medica, a patient health records platform. You provide evidence-based, WHO-guideline-aligned health information to patients worldwide.
 
@@ -158,23 +153,14 @@ router.post("/ask", async (req: Request, res: Response) => {
       ? `\nThe user is asking about the topic: "${ADVISOR_TOPICS.find(t => t.id === topicId)?.title || topicId}".`
       : "";
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: EVIDENCE_SYSTEM_PROMPT + languageInstruction + topicContext,
-        },
-        {
-          role: "user",
-          content: question,
-        },
-      ],
-      max_tokens: 1500,
+    const completion = await generatePhiSafeText({
+      system: EVIDENCE_SYSTEM_PROMPT + languageInstruction + topicContext,
+      user: question,
+      maxTokens: 1500,
       temperature: 0.3,
     });
 
-    const answer = (completion.choices[0]?.message?.content || "I was unable to generate a response. Please try again.") + DISCLAIMER;
+    const answer = (completion || "I was unable to generate a response. Please try again.") + DISCLAIMER;
 
     res.json({
       answer,
@@ -219,25 +205,16 @@ router.post("/explain-term", async (req: Request, res: Response) => {
       ? `Respond in ${language}. Keep the medical term in English but explain in ${language}.`
       : "";
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical terminology educator. Explain medical terms in simple, everyday language that anyone can understand. Include: 1) A simple definition, 2) Why it matters for health, 3) When someone might encounter this term. Keep it brief (3-4 sentences). ${langNote}`,
-        },
-        {
-          role: "user",
-          content: `Explain the medical term: "${term}"`,
-        },
-      ],
-      max_tokens: 300,
+    const completion = await generatePhiSafeText({
+      system: `You are a medical terminology educator. Explain medical terms in simple, everyday language that anyone can understand. Include: 1) A simple definition, 2) Why it matters for health, 3) When someone might encounter this term. Keep it brief (3-4 sentences). ${langNote}`,
+      user: `Explain the medical term: "${term}"`,
+      maxTokens: 300,
       temperature: 0.2,
     });
 
     res.json({
       term,
-      explanation: completion.choices[0]?.message?.content || "Unable to explain this term at the moment.",
+      explanation: completion || "Unable to explain this term at the moment.",
       disclaimer: "This is for educational purposes only.",
     });
   } catch (error: any) {

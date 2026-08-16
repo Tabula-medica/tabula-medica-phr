@@ -1,12 +1,10 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { aiDataCatalogService, DataAsset, DataDomain } from "./ai-data-catalog";
 import { aiDataDiscoveryClassificationService, SensitiveDataType } from "./ai-data-discovery-classification";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_LINEAGE_PROMPT = `You are a healthcare data lineage analyst focusing on tracing data flow and dependencies.
 
@@ -1021,7 +1019,7 @@ ${contextNodes.map(n => `- ${n.displayName} (${n.type}): ${n.description}`).join
 Active Violations: ${graph.complianceSummary.violations.length}
 `;
 
-    if (!openai) {
+    if (!aiEnabled) {
       return {
         query,
         analysis: `Based on the lineage graph analysis: The data flows from ${graph.metrics.sourceSystemCount} source systems through ${graph.metrics.transformationCount} transformations to ${graph.metrics.dataStoreCount} data stores. Current risk level is ${graph.riskSummary.overallRisk} with ${graph.complianceSummary.violations.length} compliance items needing attention.`,
@@ -1038,19 +1036,11 @@ Active Violations: ${graph.complianceSummary.violations.length}
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_LINEAGE_PROMPT },
-          { 
-            role: "user", 
-            content: `Analyze this data lineage and answer: ${query}\n\nLineage Context:\n${graphSummary}` 
-          },
-        ],
-        max_tokens: 1000,
-      });
-
-      const response = completion.choices[0]?.message?.content || "Unable to generate analysis";
+      const response = (await generatePhiSafeText({
+        system: NO_CDS_LINEAGE_PROMPT,
+        user: `Analyze this data lineage and answer: ${query}\n\nLineage Context:\n${graphSummary}`,
+        maxTokens: 1000,
+      })) || "Unable to generate analysis";
 
       return {
         query,

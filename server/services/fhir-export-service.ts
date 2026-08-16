@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export type ExportFormat = "fhir_json" | "fhir_xml" | "csv" | "hl7v2" | "ndjson";
 
@@ -126,17 +126,9 @@ const sampleMedications = [
 ];
 
 class FHIRExportService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private exportJobs: Map<string, ExportJob> = new Map();
   private exportRequests: Map<string, ExportRequest> = new Map();
-
-  constructor() {
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    } else {
-      console.log("[FHIRExport] OpenAI client not configured, using fallback suggestions");
-    }
-  }
 
   async createExportRequest(userId: string, request: ExportRequest): Promise<ExportRequest> {
     const id = `export-req-${randomUUID().slice(0, 8)}`;
@@ -516,7 +508,7 @@ class FHIRExportService {
   async getAIExportSuggestions(userId: string, context?: { recentConditions?: string[]; purpose?: string }): Promise<ExportSuggestion[]> {
     console.log(`[HIPAA-AUDIT][FHIRExport] AI suggestions requested: user=${userId}`);
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return this.getDefaultSuggestions();
     }
 
@@ -538,14 +530,13 @@ Return a JSON array of export suggestions. Each suggestion should have:
 
 Return ONLY valid JSON array, no markdown.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
+      const response = await generatePhiSafeText({
+        user: prompt,
         temperature: 0.7,
-        max_tokens: 1500,
+        maxTokens: 1500,
       });
 
-      const content = response.choices[0]?.message?.content || "[]";
+      const content = response || "[]";
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const suggestions = JSON.parse(cleanContent);
 

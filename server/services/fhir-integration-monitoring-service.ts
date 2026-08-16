@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 export interface IntegrationEndpoint {
   id: string;
@@ -600,27 +600,20 @@ class FHIRIntegrationMonitoringService {
       : 0;
 
     try {
-      if (!openai) {
-        throw new Error("OpenAI API key not configured");
+      if (!aiEnabled) {
+        throw new Error("AI not configured");
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert in FHIR integration monitoring and healthcare IT infrastructure. Analyze the provided metrics and provide actionable insights. Focus on:
+      const content = await generatePhiSafeText({
+        system: `You are an expert in FHIR integration monitoring and healthcare IT infrastructure. Analyze the provided metrics and provide actionable insights. Focus on:
 1. Overall system health summary
 2. Specific recommendations for improvement
 3. Detected anomalies
 4. Trend analysis
 5. Risk assessment
 
-Keep responses concise and actionable. This is for operational monitoring, not clinical decision-making.`
-          },
-          {
-            role: "user",
-            content: `Analyze this FHIR integration monitoring data:
+Keep responses concise and actionable. This is for operational monitoring, not clinical decision-making.`,
+        user: `Analyze this FHIR integration monitoring data:
 
 Metrics Summary (24h):
 - Total data points: ${metrics.length}
@@ -635,14 +628,11 @@ ${alerts.slice(0, 5).map(a => `- ${a.severity.toUpperCase()}: ${a.title}`).join(
 Recent Errors:
 ${errors.slice(0, 5).map(e => `- ${e.errorType}: ${e.message}`).join('\n')}
 
-Provide JSON response with: summary, recommendations (array), anomalies (array), trends (array), riskAssessment`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000
+Provide JSON response with: summary, recommendations (array), anomalies (array), trends (array), riskAssessment`,
+        responseMimeType: "application/json",
+        maxTokens: 1000
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         return {

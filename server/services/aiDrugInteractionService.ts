@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -248,21 +243,14 @@ IMPORTANT:
 - Provide concise, clinician-focused explanations.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a clinical pharmacology expert. Analyze medications for potential interactions and provide evidence-based assessments. Respond in valid JSON only.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You are a clinical pharmacology expert. Analyze medications for potential interactions and provide evidence-based assessments. Respond in valid JSON only.",
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 2000,
-      response_format: { type: "json_object" },
+      maxTokens: 2000,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }

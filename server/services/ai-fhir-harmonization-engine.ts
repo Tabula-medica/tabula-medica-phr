@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type {
   ExternalSystemMapping,
   FieldMappingDefinition,
@@ -65,7 +65,7 @@ const STANDARD_CODE_SYSTEMS = {
 };
 
 class AIFHIRHarmonizationEngine {
-  private openai: OpenAI | null = null;
+  private aiEnabled: boolean = false;
   private systemMappings: Map<string, ExternalSystemMapping> = new Map();
   private discrepancies: Map<string, SemanticDiscrepancy> = new Map();
   private consolidatedRules: Map<string, ConsolidatedMappingRule> = new Map();
@@ -81,24 +81,15 @@ class AIFHIRHarmonizationEngine {
   };
 
   constructor() {
-    this.initializeOpenAI();
+    this.initializeAI();
     this.initializeSampleMappings();
     console.log("[AIFHIRHarmonization] Engine initialized");
   }
 
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({
-        apiKey,
-        baseURL: baseURL || undefined,
-      });
-      console.log("[AIFHIRHarmonization] OpenAI client configured");
-    } else {
-      console.log("[AIFHIRHarmonization] OpenAI not configured, using rule-based analysis");
-    }
+  private initializeAI(): void {
+    // AI harmonization analysis runs through the PHI-safe Vertex (BAA) gateway.
+    this.aiEnabled = true;
+    console.log("[AIFHIRHarmonization] PHI-safe AI gateway configured");
   }
 
   private initializeSampleMappings(): void {
@@ -245,7 +236,7 @@ class AIFHIRHarmonizationEngine {
         }
       }
 
-      if (this.config.enableAIAnalysis && this.openai) {
+      if (this.config.enableAIAnalysis && this.aiEnabled) {
         const aiAnalysis = await this.getAIHarmonizationAnalysis(mappingsToAnalyze, detectedDiscrepancies);
         analysis.aiRecommendations = aiAnalysis.recommendations;
         analysis.interoperabilityReport = aiAnalysis.interoperabilityReport;
@@ -519,7 +510,7 @@ class AIFHIRHarmonizationEngine {
     recommendations: string[];
     interoperabilityReport: HarmonizationAnalysis["interoperabilityReport"];
   }> {
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return {
         recommendations: this.generateRuleBasedRecommendations(discrepancies),
         interoperabilityReport: this.generateRuleBasedInteroperabilityReport(mappings, discrepancies),
@@ -571,19 +562,15 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 2000,
+      const content = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: prompt,
+        maxTokens: 2000,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
 
       return {
         recommendations: [

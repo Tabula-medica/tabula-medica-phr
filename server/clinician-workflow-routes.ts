@@ -150,7 +150,7 @@ router.post("/task", async (req: Request, res: Response) => {
     
     tasks.push(task);
     
-    console.log(`[ClinicianWorkflow] Task created: ${task.id} for patient ${validated.patientName}`);
+    console.log(`[ClinicianWorkflow] Task created: ${task.id}`);
     
     res.status(201).json({
       success: true,
@@ -202,7 +202,7 @@ router.post("/appointment", async (req: Request, res: Response) => {
     
     appointmentRequests.push(appointmentRequest);
     
-    console.log(`[ClinicianWorkflow] Appointment request created: ${appointmentRequest.id} for patient ${validated.patientName}`);
+    console.log(`[ClinicianWorkflow] Appointment request created: ${appointmentRequest.id}`);
     
     res.status(201).json({
       success: true,
@@ -253,7 +253,7 @@ router.post("/chart-note", async (req: Request, res: Response) => {
     
     chartNotes.push(chartNote);
     
-    console.log(`[ClinicianWorkflow] Chart note created: ${chartNote.id} for patient ${validated.patientName}`);
+    console.log(`[ClinicianWorkflow] Chart note created: ${chartNote.id}`);
     
     res.status(201).json({
       success: true,

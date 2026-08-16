@@ -2,14 +2,15 @@ import { Router, Request, Response } from "express";
 import { stateIISConnectorService } from "./services/state-iis-connector-service";
 import { iisBackgroundSyncService } from "./services/iis-background-sync-service";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: IIS data is for record verification only. This is NOT clinical decision support. All immunization decisions must be made by qualified healthcare providers in consultation with patients.";
 
-router.get("/connectors", async (req: Request, res: Response) => {
+router.get("/connectors", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -34,10 +35,10 @@ router.get("/connectors", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/connectors/:connectorId", async (req: Request, res: Response) => {
+router.get("/connectors/:connectorId", requireUser, async (req: Request, res: Response) => {
   try {
     const { connectorId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     logPhiAccess({
       userId,
@@ -69,10 +70,10 @@ router.get("/connectors/:connectorId", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/connectors/state/:stateCode", async (req: Request, res: Response) => {
+router.get("/connectors/state/:stateCode", requireUser, async (req: Request, res: Response) => {
   try {
     const { stateCode } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     logPhiAccess({
       userId,
@@ -104,9 +105,9 @@ router.get("/connectors/state/:stateCode", async (req: Request, res: Response) =
   }
 });
 
-router.get("/connected", async (req: Request, res: Response) => {
+router.get("/connected", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -130,10 +131,10 @@ router.get("/connected", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/connect/:stateCode", async (req: Request, res: Response) => {
+router.post("/connect/:stateCode", requireUser, async (req: Request, res: Response) => {
   try {
     const { stateCode } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const connector = await stateIISConnectorService.connectState(stateCode, userId);
     res.json({
@@ -151,10 +152,10 @@ router.post("/connect/:stateCode", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/disconnect/:stateCode", async (req: Request, res: Response) => {
+router.post("/disconnect/:stateCode", requireUser, async (req: Request, res: Response) => {
   try {
     const { stateCode } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const connector = await stateIISConnectorService.disconnectState(stateCode, userId);
     res.json({
@@ -172,11 +173,11 @@ router.post("/disconnect/:stateCode", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/sync/:connectorId", async (req: Request, res: Response) => {
+router.post("/sync/:connectorId", requireUser, async (req: Request, res: Response) => {
   try {
     const { connectorId } = req.params;
     const { patientId } = req.body;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     if (!patientId) {
       return res.status(400).json({
@@ -201,10 +202,10 @@ router.post("/sync/:connectorId", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/sync/job/:jobId", async (req: Request, res: Response) => {
+router.get("/sync/job/:jobId", requireUser, async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     logPhiAccess({
       userId,
@@ -236,10 +237,10 @@ router.get("/sync/job/:jobId", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/sync/patient/:patientId", async (req: Request, res: Response) => {
+router.get("/sync/patient/:patientId", requireUser, async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     logPhiAccess({
       userId,
@@ -265,10 +266,10 @@ router.get("/sync/patient/:patientId", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/verifications/:patientId", async (req: Request, res: Response) => {
+router.get("/verifications/:patientId", requireUser, async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     logPhiAccess({
       userId,
@@ -320,10 +321,10 @@ router.get("/health", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/errors/:errorIndex/resolve", async (req: Request, res: Response) => {
+router.post("/errors/:errorIndex/resolve", requireUser, async (req: Request, res: Response) => {
   try {
     const errorIndex = parseInt(req.params.errorIndex, 10);
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const resolved = await stateIISConnectorService.resolveError(errorIndex, userId);
     if (!resolved) {
@@ -347,9 +348,9 @@ router.post("/errors/:errorIndex/resolve", async (req: Request, res: Response) =
   }
 });
 
-router.get("/scheduler/stats", async (req: Request, res: Response) => {
+router.get("/scheduler/stats", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -372,9 +373,9 @@ router.get("/scheduler/stats", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/schedules", async (req: Request, res: Response) => {
+router.get("/schedules", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     logPhiAccess({
       userId,
       action: "read",
@@ -398,10 +399,10 @@ router.get("/schedules", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/schedules", async (req: Request, res: Response) => {
+router.post("/schedules", requireUser, async (req: Request, res: Response) => {
   try {
     const { connectorId, patientId, frequency } = req.body;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     if (!connectorId || !patientId || !frequency) {
       return res.status(400).json({
@@ -425,11 +426,11 @@ router.post("/schedules", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/schedules/:scheduleId", async (req: Request, res: Response) => {
+router.patch("/schedules/:scheduleId", requireUser, async (req: Request, res: Response) => {
   try {
     const { scheduleId } = req.params;
     const { frequency, enabled } = req.body;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const schedule = await iisBackgroundSyncService.updateSchedule(scheduleId, { frequency, enabled }, userId);
     res.json({
@@ -446,10 +447,10 @@ router.patch("/schedules/:scheduleId", async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/schedules/:scheduleId", async (req: Request, res: Response) => {
+router.delete("/schedules/:scheduleId", requireUser, async (req: Request, res: Response) => {
   try {
     const { scheduleId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const deleted = await iisBackgroundSyncService.deleteSchedule(scheduleId, userId);
     if (!deleted) {
@@ -473,10 +474,10 @@ router.delete("/schedules/:scheduleId", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/schedules/:scheduleId/trigger", async (req: Request, res: Response) => {
+router.post("/schedules/:scheduleId/trigger", requireUser, async (req: Request, res: Response) => {
   try {
     const { scheduleId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
 
     const job = await iisBackgroundSyncService.triggerManualSync(scheduleId, userId);
     res.json({

@@ -1,10 +1,5 @@
 import type { Express, Request, Response } from "express";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 interface OnboardingSession {
   id: string;
@@ -78,12 +73,8 @@ export function registerComprehensiveOnboardingRoutes(app: Express) {
     const { sessionId, fastenData } = req.body;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical data extraction assistant. Given raw health record data from Fasten Health (FHIR format), extract and organize patient information into a structured format. Only extract what is clearly present in the data. Do not invent or assume information.
+      const content = (await generatePhiSafeText({
+        system: `You are a medical data extraction assistant. Given raw health record data from Fasten Health (FHIR format), extract and organize patient information into a structured format. Only extract what is clearly present in the data. Do not invent or assume information.
 
 Return JSON with these sections (omit sections with no data):
 {
@@ -103,17 +94,10 @@ Return JSON with these sections (omit sections with no data):
   "insurance": { "provider": "", "policyNumber": "", "groupNumber": "" },
   "emergencyContacts": [{ "name": "", "relationship": "", "phone": "" }]
 }`,
-          },
-          {
-            role: "user",
-            content: `Extract patient data from these health records:\n${JSON.stringify(fastenData || {})}`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
-      });
-
-      const content = response.choices[0]?.message?.content || "{}";
+        user: `Extract patient data from these health records:\n${JSON.stringify(fastenData || {})}`,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
+      })) || "{}";
       const extracted = JSON.parse(content);
 
       const session = sessions.get(sessionId);
@@ -134,12 +118,8 @@ Return JSON with these sections (omit sections with no data):
     const { allData } = req.body;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a health data review assistant. Review the patient's onboarding data for completeness and provide helpful observations. This is NOT medical advice - only data quality feedback.
+      const content = (await generatePhiSafeText({
+        system: `You are a health data review assistant. Review the patient's onboarding data for completeness and provide helpful observations. This is NOT medical advice - only data quality feedback.
 
 Return JSON:
 {
@@ -149,17 +129,10 @@ Return JSON:
   "suggestedActions": ["recommended next steps in the app"],
   "summary": "A 2-3 sentence summary of their health profile"
 }`,
-          },
-          {
-            role: "user",
-            content: JSON.stringify(allData),
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 800,
-      });
-
-      const content = response.choices[0]?.message?.content || "{}";
+        user: JSON.stringify(allData),
+        responseMimeType: "application/json",
+        maxTokens: 800,
+      })) || "{}";
       const review = JSON.parse(content);
       res.json({ success: true, review });
     } catch (error: any) {
@@ -185,12 +158,8 @@ Return JSON:
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical documentation assistant helping a patient organize their health history. Based on the patient's description, suggest possible conditions they might want to document. These are NOT diagnoses - just suggestions for what they might want to add to their records.
+      const content = (await generatePhiSafeText({
+        system: `You are a medical documentation assistant helping a patient organize their health history. Based on the patient's description, suggest possible conditions they might want to document. These are NOT diagnoses - just suggestions for what they might want to add to their records.
 
 Return JSON:
 {
@@ -200,17 +169,10 @@ Return JSON:
 }
 
 Maximum 5 suggestions. Only suggest conditions clearly implied by the patient's own description.`,
-          },
-          {
-            role: "user",
-            content: `Patient description: "${description}"\nAge: ${age || "unknown"}\nGender: ${gender || "unknown"}`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 500,
-      });
-
-      const content = response.choices[0]?.message?.content || '{"suggestions":[]}';
+        user: `Patient description: "${description}"\nAge: ${age || "unknown"}\nGender: ${gender || "unknown"}`,
+        responseMimeType: "application/json",
+        maxTokens: 500,
+      })) || '{"suggestions":[]}';
       const parsed = JSON.parse(content);
       res.json({ success: true, suggestions: parsed.suggestions || [] });
     } catch (error: any) {

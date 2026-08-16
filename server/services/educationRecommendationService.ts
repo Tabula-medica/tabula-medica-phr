@@ -1,17 +1,12 @@
-import OpenAI from "openai";
 import {
   LibraryEducationContent,
   LibraryEducationFAQ,
   CarePlan,
 } from "@shared/schema";
 import * as educationLibraryService from "./educationLibraryService";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-} else {
-  console.log("[EducationRecommendation] OpenAI API key not configured, using rule-based recommendations");
-}
+const aiEnabled = true;
 
 export interface PatientProfile {
   id: string;
@@ -96,7 +91,7 @@ export async function generateRecommendations(
   const availableContent = educationLibraryService.getAllContent().filter(c => c.status === "approved");
   const availableFAQs = educationLibraryService.getAllFAQs().filter(f => f.status === "approved");
 
-  if (!openai) {
+  if (!aiEnabled) {
     return generateRuleBasedRecommendations(context, availableContent, availableFAQs);
   }
 
@@ -117,13 +112,9 @@ export async function generateRecommendations(
       tags: f.tags,
     }));
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: RECOMMENDATION_PROMPT },
-        {
-          role: "user",
-          content: `Generate personalized education recommendations for this patient.
+    const response = await generatePhiSafeText({
+      system: RECOMMENDATION_PROMPT,
+      user: `Generate personalized education recommendations for this patient.
 
 PATIENT PROFILE:
 Name: ${context.patient.name}
@@ -171,13 +162,11 @@ Return a JSON object with:
 }
 
 Recommend 3-5 most relevant items, prioritizing unviewed content.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1500,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
+    const content = response || "{}";
     const parsed = JSON.parse(content);
 
     const recommendations: EducationRecommendation[] = (parsed.recommendations || []).map((rec: any, idx: number) => {

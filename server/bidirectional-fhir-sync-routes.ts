@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { bidirectionalFhirSyncService } from "./services/bidirectional-fhir-sync-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 router.get("/dashboard", async (req, res) => {
   try {
@@ -62,7 +65,7 @@ router.get("/configurations/:configId", async (req, res) => {
 
 router.patch("/configurations/:configId", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "system";
+    const userId = getUserId(req);
     const config = await bidirectionalFhirSyncService.updateConfiguration(
       req.params.configId,
       req.body,
@@ -106,7 +109,7 @@ router.get("/pending-changes/:changeId", async (req, res) => {
 
 router.post("/pending-changes/:changeId/approve", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "user";
+    const userId = getUserId(req);
     const { notes, fieldResolutions } = req.body;
     const change = await bidirectionalFhirSyncService.approveChange(
       req.params.changeId,
@@ -123,7 +126,7 @@ router.post("/pending-changes/:changeId/approve", async (req, res) => {
 
 router.post("/pending-changes/:changeId/reject", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "user";
+    const userId = getUserId(req);
     const { reason } = req.body;
     if (!reason) {
       return res.status(400).json({ error: "Rejection reason is required" });
@@ -142,7 +145,7 @@ router.post("/pending-changes/:changeId/reject", async (req, res) => {
 
 router.post("/pending-changes/:changeId/resolve-conflict", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "user";
+    const userId = getUserId(req);
     const { fieldPath, resolution } = req.body;
     if (!fieldPath || !resolution) {
       return res.status(400).json({ error: "Field path and resolution are required" });
@@ -201,7 +204,7 @@ router.get("/jobs/:jobId", async (req, res) => {
 
 router.post("/jobs/start", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "user";
+    const userId = getUserId(req);
     const { serverId, resourceTypes, direction } = req.body;
     if (!serverId || !resourceTypes || !direction) {
       return res.status(400).json({ error: "Server ID, resource types, and direction are required" });
@@ -221,7 +224,7 @@ router.post("/jobs/start", async (req, res) => {
 
 router.post("/jobs/:jobId/pause", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "user";
+    const userId = getUserId(req);
     const job = await bidirectionalFhirSyncService.pauseSyncJob(req.params.jobId, userId);
     res.json({ success: true, job });
   } catch (error) {
@@ -232,7 +235,7 @@ router.post("/jobs/:jobId/pause", async (req, res) => {
 
 router.post("/jobs/:jobId/resume", async (req, res) => {
   try {
-    const userId = req.headers["x-user-id"] as string || "user";
+    const userId = getUserId(req);
     const job = await bidirectionalFhirSyncService.resumeSyncJob(req.params.jobId, userId);
     res.json({ success: true, job });
   } catch (error) {

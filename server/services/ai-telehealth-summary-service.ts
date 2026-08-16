@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import {
   NO_CDS_POLICY,
   NO_CDS_DISCLAIMER,
@@ -6,11 +6,6 @@ import {
   sanitizeNoCDSObject,
   logNoCDSCompliance,
 } from "../security/no-cds-guardrails";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface TelehealthSessionContext {
   patientName: string;
@@ -100,48 +95,14 @@ CRITICAL RULES:
 - All arrays may be empty if no relevant data exists
 - Return ONLY valid JSON, no markdown or extra text`;
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return {
-      chiefComplaint: context.chiefComplaint,
-      diagnosisDiscussed: [],
-      treatmentPlan: "",
-      medicationChanges: [],
-      followUpInstructions: [
-        "Follow up with provider as discussed during the visit",
-        "Contact the office if any concerns arise",
-      ],
-      nextSteps: [
-        "Review any materials shared during the session",
-        "Complete any follow-up items discussed with provider",
-      ],
-      patientQuestions: context.sessionNotes
-        .filter((n) => n.noteType === "question")
-        .map((n) => n.content),
-      additionalNotes: context.sessionNotes
-        .filter((n) => n.isShared)
-        .map((n) => n.content)
-        .join("\n"),
-      noCdsDisclaimer: NO_CDS_DISCLAIMER,
-      aiGenerated: false,
-    };
-  }
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a medical documentation assistant that generates structured post-visit summaries using ONLY observational, non-prescriptive language. You NEVER provide clinical decision support.",
-      },
-      { role: "user", content: prompt },
-    ],
+  const rawContent = await generatePhiSafeText({
+    system:
+      "You are a medical documentation assistant that generates structured post-visit summaries using ONLY observational, non-prescriptive language. You NEVER provide clinical decision support.",
+    user: prompt,
     temperature: 0.3,
-    max_tokens: 1500,
-    response_format: { type: "json_object" },
-  });
-
-  const rawContent = response.choices[0]?.message?.content || "{}";
+    maxTokens: 1500,
+    responseMimeType: "application/json",
+  }) || "{}";
 
   let parsed: Record<string, unknown>;
   try {

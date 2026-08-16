@@ -3,7 +3,10 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { aiPolicyEnforcementService, ViolationCategory } from "./services/ai-policy-enforcement";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -34,7 +37,7 @@ function sanitizeDetails(details: Record<string, unknown>): Record<string, unkno
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   console.log(`[HIPAA_AUDIT] ${JSON.stringify({
     timestamp: new Date().toISOString(),
     action,
@@ -98,7 +101,7 @@ const checkBlockedSchema = z.object({
 router.post("/analyze", async (req: Request, res: Response) => {
   try {
     const entry = auditLogEntrySchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ANALYZE_SINGLE_ENTRY", "audit_log", req, {
       auditLogId: entry.id,
@@ -124,7 +127,7 @@ router.post("/analyze", async (req: Request, res: Response) => {
 router.post("/analyze-batch", async (req: Request, res: Response) => {
   try {
     const { entries } = batchAnalyzeSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ANALYZE_BATCH_ENTRIES", "audit_logs", req, { count: entries.length });
 
@@ -196,7 +199,7 @@ router.get("/assessments/:id", async (req: Request, res: Response) => {
 router.post("/assessments/:id/review", async (req: Request, res: Response) => {
   try {
     const { status, notes } = reviewAssessmentSchema.parse(req.body);
-    const reviewerId = (req as any).user?.id || "system";
+    const reviewerId = getUserId(req);
 
     logHipaaAudit("REVIEW_ASSESSMENT", "assessment", req, {
       assessmentId: req.params.id,
@@ -254,7 +257,7 @@ router.get("/configs/:id", async (req: Request, res: Response) => {
 router.patch("/configs/:id", async (req: Request, res: Response) => {
   try {
     const updates = updateConfigSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("UPDATE_ENFORCEMENT_CONFIG", "config", req, {
       configId: req.params.id,

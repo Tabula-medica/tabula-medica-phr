@@ -1,9 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 function sanitizePhi(text: string): string {
   return text
@@ -741,7 +738,7 @@ class AIThreatIntelligenceService {
 
     let aiSummary: string[] = [];
     
-    if (process.env.OPENAI_API_KEY && openai) {
+    if (aiEnabled) {
       try {
         const context = sanitizePhi(JSON.stringify({
           activeThreatsCount: activeThreats.length,
@@ -750,21 +747,14 @@ class AIThreatIntelligenceService {
           recentRegUpdates: recentUpdates
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_THREAT_PROMPT },
-            {
-              role: "user",
-              content: `Based on this threat intelligence summary, provide 3-4 key focus areas for a healthcare organization's security team: ${context}`
-            }
-          ],
-          max_tokens: 300,
+        const content = await generatePhiSafeText({
+          system: NO_CDS_THREAT_PROMPT,
+          user: `Based on this threat intelligence summary, provide 3-4 key focus areas for a healthcare organization's security team: ${context}`,
+          maxTokens: 300,
           temperature: 0.5
         });
 
-        const content = response.choices[0]?.message?.content || "";
-        aiSummary = content.split(/\d+\.\s+/).filter(s => s.trim().length > 10).slice(0, 4);
+        aiSummary = (content || "").split(/\d+\.\s+/).filter(s => s.trim().length > 10).slice(0, 4);
       } catch (error) {
         console.error("[AIThreatIntelligence] AI summary generation error:", error);
       }

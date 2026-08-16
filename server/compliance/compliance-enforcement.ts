@@ -4,12 +4,13 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import { 
-  defaultComplianceConfig, 
-  isCDSFeatureEnabled, 
+import {
+  defaultComplianceConfig,
+  isCDSFeatureEnabled,
   getCDSDisabledMessage,
-  type ComplianceConfig 
+  type ComplianceConfig
 } from "@shared/compliance-controls";
+import { redactPhiFromObject } from "../security/phi-safe-logger";
 
 let complianceConfig: ComplianceConfig = defaultComplianceConfig;
 
@@ -48,7 +49,10 @@ export function enforceSecurityHeaders(req: Request, res: Response, next: NextFu
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-XSS-Protection", "1; mode=block");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    // microphone=(self) — the voice intake UX needs getUserMedia. Kept consistent
+    // with the other Permissions-Policy writers (mobile-security, tls-middleware,
+    // compliance-headers) so mic is enabled regardless of middleware order.
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
   }
   next();
 }
@@ -94,7 +98,8 @@ export async function logComplianceEvent(
     userId: (req?.session as any)?.userId || null,
     ipAddress: req?.ip || null,
     userAgent: req?.headers["user-agent"] || null,
-    details,
+    // P0-7.4: redact PHI from caller-supplied details before it hits the logs.
+    details: redactPhiFromObject(details),
     complianceCategories: ["hipaa", "soc2"] as const,
   };
   

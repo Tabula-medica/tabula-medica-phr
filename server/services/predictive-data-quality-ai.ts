@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
@@ -15,10 +15,6 @@ import type {
   PredictiveQualityDashboard,
 } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data quality analysis assistant. You analyze data quality patterns and trends to predict potential issues.
 
@@ -662,13 +658,9 @@ class PredictiveDataQualityAI {
     horizon: string
   ): Promise<string> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this data quality trend and provide a brief assessment:
+      const responseText = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this data quality trend and provide a brief assessment:
 
 Target: ${trend.targetName} (${trend.targetType})
 Current Score: ${trend.currentScore.toFixed(1)}/100
@@ -680,13 +672,11 @@ Anomalies Detected: ${trend.anomalies.length}
 Seasonal Patterns: ${trend.seasonalPatterns.join(", ") || "None"}
 
 Provide a 2-3 sentence analysis focusing ONLY on data quality implications, NOT clinical interpretations.`,
-          },
-        ],
-        max_tokens: 200,
+        maxTokens: 200,
         temperature: 0.3,
       });
 
-      return response.choices[0]?.message?.content || "Analysis unavailable";
+      return responseText || "Analysis unavailable";
     } catch (error) {
       console.error("[PredictiveDataQualityAI] AI analysis error:", error);
       return `Based on ${trend.analyzedPeriod.dataPoints} data points, the ${trend.targetType} shows a ${trend.trendDirection} trend. Current score is ${trend.currentScore.toFixed(1)} with predicted score of ${predictedScore.toFixed(1)} over ${horizon}.`;

@@ -1,8 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_COHORT_PROMPT = `You are an AI-powered Patient Cohort Builder assistant. Your role is to:
 1. Parse natural language queries to define patient cohorts
@@ -277,15 +277,12 @@ const samplePatients: PatientMatch[] = [
 export async function parseNaturalLanguageQuery(query: string): Promise<ParsedQuery> {
   logHipaaAudit("QUERY_PARSED", { queryLength: query.length });
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_COHORT_PROMPT },
-          {
-            role: "user",
-            content: `Parse the following natural language query into structured cohort criteria. Return a JSON object with:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_COHORT_PROMPT,
+        responseMimeType: "application/json",
+        user: `Parse the following natural language query into structured cohort criteria. Return a JSON object with:
 - criteria: a structured criteria group
 - suggestedName: a short name for the cohort
 - description: a description of what the cohort represents
@@ -294,12 +291,8 @@ export async function parseNaturalLanguageQuery(query: string): Promise<ParsedQu
 Query: "${query}"
 
 Return valid JSON only.`,
-          },
-        ],
-        response_format: { type: "json_object" },
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         const sanitizedName = enforceCdsCompliance(parsed.suggestedName || "Custom Cohort").sanitized;

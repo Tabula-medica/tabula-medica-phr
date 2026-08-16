@@ -6,14 +6,16 @@ import {
   type AudienceType,
   type PatientFHIRData
 } from "./services/ai-fhir-data-summarization-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This summary is for informational and educational purposes only. It does NOT constitute clinical decision support, diagnosis, or medical advice. All information requires verification by qualified healthcare professionals before use in clinical decisions.";
 
 router.post("/summarize", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { 
       patientId, 
       viewType, 
@@ -83,7 +85,7 @@ router.post("/summarize", async (req: Request, res: Response) => {
 
 router.get("/medications/:patientId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const audience = (req.query.audience as AudienceType) || "patient";
 
@@ -113,7 +115,7 @@ router.get("/medications/:patientId", async (req: Request, res: Response) => {
 
 router.get("/conditions/:patientId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const audience = (req.query.audience as AudienceType) || "patient";
 
@@ -143,7 +145,7 @@ router.get("/conditions/:patientId", async (req: Request, res: Response) => {
 
 router.get("/labs/:patientId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const audience = (req.query.audience as AudienceType) || "patient";
 
@@ -173,7 +175,7 @@ router.get("/labs/:patientId", async (req: Request, res: Response) => {
 
 router.get("/encounters/:patientId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const audience = (req.query.audience as AudienceType) || "patient";
 
@@ -203,7 +205,7 @@ router.get("/encounters/:patientId", async (req: Request, res: Response) => {
 
 router.get("/comprehensive/:patientId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const audience = (req.query.audience as AudienceType) || "patient";
 
@@ -233,7 +235,7 @@ router.get("/comprehensive/:patientId", async (req: Request, res: Response) => {
 
 router.post("/batch-summarize", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId, viewTypes, audience } = req.body;
 
     if (!patientId) {

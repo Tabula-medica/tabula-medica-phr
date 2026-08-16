@@ -1,11 +1,9 @@
-import OpenAI from "openai";
 import { createHash, randomUUID } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
 import { aiDataGovernanceService } from "./ai-data-governance";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data governance enforcement specialist.
 
@@ -219,19 +217,15 @@ class AIPolicyEnforcementService {
     violationCategory: ViolationCategory
   ): Promise<{ analysis: string; recommendations: string[]; severity: "critical" | "high" | "medium" | "low" }> {
     const fallback = this.getDefaultAnalysis(entry, config, violationCategory);
-    
-    if (!openai) {
+
+    if (!aiEnabled) {
       return fallback;
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this potential policy violation:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this potential policy violation:
 
 Policy: ${config.policyName}
 Enforcement Level: ${config.enforcementLevel}
@@ -252,13 +246,10 @@ Provide JSON response:
 }
 
 Focus ONLY on access control and policy compliance. NO clinical analysis.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 400,
+        maxTokens: 400,
       });
 
-      const content = response.choices[0]?.message?.content || "";
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
