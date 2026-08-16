@@ -1,9 +1,6 @@
 # scripts/phi-ai-allowlist.txt — P1-1 migration backlog (non-BAA AI clients).
-# TWO grandfathered populations, both RATCHETED by scripts/phi-ai-guard.sh:
-#  (1) AI_INTEGRATIONS_OPENAI_* proxy env;  (2) direct new OpenAI({apiKey:OPENAI_API_KEY})/bare.
-# Both route to Vertex via the vertex-openai build shim at runtime (implicit).
-# No NEW file may add either; migrate to server/services/ai-gateway.ts to drain. Goal: empty.
-# The gateway + shim + real-openai wrapper are always allowed:
+# TWO grandfathered populations RATCHETED by phi-ai-guard.sh: (1) AI_INTEGRATIONS_OPENAI_* proxy;
+# (2) direct new OpenAI({apiKey:OPENAI_API_KEY})/bare. Migrate to ai-gateway.ts to drain. Goal: empty.
 server/services/ai-gateway.ts
 server/lib/vertex-openai.ts
 server/lib/baa-chat.ts
@@ -12,64 +9,28 @@ server/ai-document-categorization.ts
 server/ai-note-assistant-routes.ts
 server/ambient-encounter-service.ts
 server/appointment-assistant-service.ts
-server/care-team-ai-service.ts
 server/caregiver-mode-service.ts
-server/caregiver-support-service.ts
 server/clinical-documentation-routes.ts
-server/clinician-summary-service.ts
-server/communication-summary-service.ts
 server/document-summary-service.ts
 server/entity-extraction-service.ts
 server/health-coach-service.ts
-server/health-inbox-service.ts
-server/health-journal-service.ts
 server/health-visualization-service.ts
-server/imaging-report-translator-service.ts
 server/index.ts
 server/integrations-debug-routes.ts
 server/lib/baa-chat.ts
-server/med-reconciliation-service.ts
 server/medical-assistant.ts
 server/monitoring-routes.ts
 server/patient-chatbot-routes.ts
 server/prescription-draft-service.ts
-server/proactive-alerts-service.ts
-server/referral-letter-service.ts
 server/replit_integrations/audio/client.ts
 server/replit_integrations/chat/routes.ts
 server/replit_integrations/image/client.ts
 server/routes.ts
-server/routes/ai-patient-chart-summary-routes.ts
 server/routes/card-ocr-routes.ts
-server/routes/patient-education-center-routes.ts
-server/routes/prior-auth-letter-routes.ts
-server/routes/symptom-checker-routes.ts
-server/services/ai-access-control.ts
-server/services/ai-advanced-analytics.ts
 server/services/ai-automated-documentation-service.ts
-server/services/ai-backlog-analysis.ts
 server/services/ai-clinical-documentation.ts
-server/services/ai-clinical-workflow-automation.ts
-server/services/ai-clinical-workflow-enhancements-service.ts
-server/services/ai-cohort-advanced-analytics.ts
-server/services/ai-cohort-comparison.ts
-server/services/ai-cohort-predictive-analytics.ts
-server/services/ai-compliance-reporting.ts
-server/services/ai-compliance-training.ts
-server/services/ai-data-catalog.ts
-server/services/ai-data-discovery-classification.ts
-server/services/ai-data-governance.ts
-server/services/ai-data-harmonization-service.ts
-server/services/ai-data-ingestion-service.ts
-server/services/ai-data-lineage.ts
-server/services/ai-data-stewardship.ts
 server/services/ai-document-generation-service.ts
-server/services/ai-executive-summary.ts
-server/services/ai-fhir-data-pipeline.ts
 server/services/ai-fhir-data-quality-engine.ts
-server/services/ai-fhir-deep-analysis.ts
-server/services/ai-fhir-harmonization-enhanced.ts
-server/services/ai-fhir-interoperability-hub.ts
 server/services/ai-fhir-transformation.ts
 server/services/ai-gateway.ts
 server/services/ai-harmonization-assistant.ts

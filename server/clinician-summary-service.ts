@@ -5,7 +5,7 @@
  * AI insights, vital signs, and upcoming appointments.
  */
 
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 // Safe verb enforcement - ONLY these 4 verbs allowed
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -118,13 +118,8 @@ export interface ClinicianHealthSummary {
 // In-memory storage for generated summaries
 const summaryStorage: Map<string, ClinicianHealthSummary[]> = new Map();
 
-// Initialize OpenAI client
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (e) {
-  console.log("[ClinicianSummary] OpenAI not configured, using mock responses");
-}
+// AI generation via PHI-safe Vertex/BAA gateway
+const aiEnabled = true;
 
 function validateSafeVerbs(text: string): boolean {
   const lowerText = text.toLowerCase();
@@ -311,22 +306,15 @@ export async function generateClinicianSummary(
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   
-  if (openai && hasPatientData(input)) {
+  if (aiEnabled && hasPatientData(input)) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: CLINICIAN_SUMMARY_PROMPT },
-          { 
-            role: "user", 
-            content: `Generate a clinician summary for this patient data from the last 30 days:\n${JSON.stringify(input, null, 2)}` 
-          }
-        ],
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        system: CLINICIAN_SUMMARY_PROMPT,
+        user: `Generate a clinician summary for this patient data from the last 30 days:\n${JSON.stringify(input, null, 2)}`,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
-      
-      const content = response.choices[0]?.message?.content;
+
       if (content) {
         const parsed = JSON.parse(content);
         const summary = buildSummaryFromAI(input, parsed, now);

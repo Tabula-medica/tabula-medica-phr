@@ -1,17 +1,10 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { getAuditLogger } from "./integrations/factory";
 import { parseHL7Message, FHIRConversionResult } from "./hl7-v2-handler";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 export type DataFormat = "dicom" | "hl7_v2" | "fhir_r4" | "ccd" | "ccda" | "pdf" | "csv" | "json" | "unknown";
 
@@ -760,20 +753,15 @@ function parseGenericJSON(rawData: string, result: ParsedHealthData): ParsedHeal
 }
 
 async function parseWithAI(rawData: string, result: ParsedHealthData): Promise<ParsedHealthData> {
-  const openai = getOpenAI();
-  if (!openai) {
-    console.warn("[DataIngestion] OpenAI not available, skipping AI parsing");
+  if (!aiEnabled) {
+    console.warn("[DataIngestion] AI not available, skipping AI parsing");
     return result;
   }
-  
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare data parsing assistant. Extract structured health information from unstructured data.
-          
+    const responseText = await generatePhiSafeText({
+      system: `You are a healthcare data parsing assistant. Extract structured health information from unstructured data.
+
 STRICT RULES:
 - Extract only factual data present in the input
 - Do not interpret, diagnose, or make clinical recommendations
@@ -787,18 +775,13 @@ Output JSON schema:
   "medications": [{ "displayText": string, "dosage": string, "confidence": number }],
   "observations": [{ "displayText": string, "value": string, "unit": string, "confidence": number }],
   "procedures": [{ "displayText": string, "date": string, "confidence": number }]
-}`
-        },
-        {
-          role: "user",
-          content: `Parse this health data and extract structured information:\n\n${rawData.substring(0, 4000)}`
-        }
-      ],
-      response_format: { type: "json_object" },
+}`,
+      user: `Parse this health data and extract structured information:\n\n${rawData.substring(0, 4000)}`,
+      responseMimeType: "application/json",
       temperature: 0.1,
     });
-    
-    const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+
+    const parsed = JSON.parse(responseText || "{}");
     
     if (parsed.patient) result.patient = parsed.patient;
     if (parsed.conditions) result.conditions = parsed.conditions;
@@ -883,18 +866,13 @@ async function extractEntitiesWithAI(job: IngestionJob): Promise<ExtractedEntiti
     }
   }
   
-  const openai = getOpenAI();
-  if (openai) {
+  if (aiEnabled) {
     try {
       const dataPreview = JSON.stringify(job.parsedData).substring(0, 3000);
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical entity extraction assistant. Extract additional entities not already captured.
-            
+
+      const responseText = await generatePhiSafeText({
+        system: `You are a medical entity extraction assistant. Extract additional entities not already captured.
+
 STRICT RULES:
 - Extract only factual data present in the input
 - Do not interpret, diagnose, or make clinical recommendations
@@ -907,18 +885,13 @@ Output JSON:
   "immunizations": [{ "text": string, "type": "immunization", "confidence": number }],
   "socialHistory": [{ "text": string, "type": "social_history", "confidence": number }],
   "familyHistory": [{ "text": string, "type": "family_history", "confidence": number }]
-}`
-          },
-          {
-            role: "user",
-            content: `Extract additional medical entities from this parsed health data:\n\n${dataPreview}`
-          }
-        ],
-        response_format: { type: "json_object" },
+}`,
+        user: `Extract additional medical entities from this parsed health data:\n\n${dataPreview}`,
+        responseMimeType: "application/json",
         temperature: 0.1,
       });
-      
-      const extracted = JSON.parse(response.choices[0]?.message?.content || "{}");
+
+      const extracted = JSON.parse(responseText || "{}");
       
       if (extracted.allergies) entities.allergies = extracted.allergies;
       if (extracted.immunizations) entities.immunizations = extracted.immunizations;

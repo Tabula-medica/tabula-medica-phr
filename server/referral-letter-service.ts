@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+const aiEnabled = true;
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -182,10 +175,10 @@ export async function generateReferralLetter(
   let letterContent: string;
   
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OpenAI API key not configured");
+    if (!aiEnabled) {
+      throw new Error("AI not available");
     }
-    
+
     const systemPrompt = `You are a medical documentation assistant generating referral letters.
 CRITICAL RULES:
 - Use ONLY these verbs: "shows", "states", "refers to", "means"
@@ -213,22 +206,14 @@ ${request.additionalNotes ? `\nAdditional notes: ${request.additionalNotes}` : "
 
 Generate the referral letter using only safe, descriptive language.`;
 
-    const client = getOpenAIClient();
-    if (!client) {
-      throw new Error("OpenAI client not available");
-    }
-    
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
+    const aiText = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.3,
-      max_tokens: 1500,
+      maxTokens: 1500,
     });
 
-    letterContent = response.choices[0]?.message?.content || generateMockReferralLetter(request);
+    letterContent = aiText || generateMockReferralLetter(request);
     letterContent = sanitizeText(letterContent);
   } catch (error) {
     console.log("Using mock referral letter generation");

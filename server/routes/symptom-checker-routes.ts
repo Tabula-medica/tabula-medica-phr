@@ -1,19 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
-import OpenAI from "openai";
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db";
 import { symptomCheckerSessions, accounts } from "@shared/schema";
+import { generatePhiSafeText } from "../services/ai-gateway";
 
 const router = Router();
 
-function getOpenAIClient(): OpenAI | null {
-  try {
-    return new OpenAI();
-  } catch {
-    return null;
-  }
-}
+const aiEnabled = true;
 
 // ---------------------------------------------------------------------------
 // Deterministic red-flag rules. These short-circuit any LLM output and force
@@ -231,8 +225,7 @@ function fallbackTriage(input: z.infer<typeof triageSchema>): TriageResult {
 async function llmTriage(
   input: z.infer<typeof triageSchema>
 ): Promise<TriageResult> {
-  const client = getOpenAIClient();
-  if (!client) return fallbackTriage(input);
+  if (!aiEnabled) return fallbackTriage(input);
 
   const userContext = `
 Patient-reported information:
@@ -255,16 +248,12 @@ Respond ONLY in this JSON shape:
 }`;
 
   try {
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-    const completion = await client.chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContext },
-      ],
-      response_format: { type: "json_object" },
-    });
-    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const raw =
+      (await generatePhiSafeText({
+        system: systemPrompt,
+        user: userContext,
+        responseMimeType: "application/json",
+      })) || "{}";
     const parsed = JSON.parse(raw);
 
     const allowedUrgency = ["SELF_CARE", "PRIMARY_CARE", "URGENT_CARE", "ER"];

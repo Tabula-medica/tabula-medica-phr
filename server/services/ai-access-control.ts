@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import crypto from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 export type AccessLevel = "none" | "read" | "write" | "admin";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -664,34 +664,25 @@ class AIAccessControlService {
     let reasoning: string;
     let confidence: number;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are an AI assistant specializing in healthcare data access governance. Generate access policy suggestions based on HIPAA minimum necessary principle and role-based access control best practices. 
+        const response = await generatePhiSafeText({
+          system: `You are an AI assistant specializing in healthcare data access governance. Generate access policy suggestions based on HIPAA minimum necessary principle and role-based access control best practices.
 
 CRITICAL: This is for DATA ACCESS GOVERNANCE only. Do NOT provide any clinical recommendations, treatment suggestions, or diagnostic guidance. Focus only on who should access what data and under what conditions.
 
-Return JSON with: name, description, accessLevel (none/read/write), conditions (array of {type, field, operator, value, description}), dataElements (array of {element, accessLevel, sensitivityLevel, auditRequired}).`
-            },
-            {
-              role: "user",
-              content: `Generate an access policy for:
+Return JSON with: name, description, accessLevel (none/read/write), conditions (array of {type, field, operator, value, description}), dataElements (array of {element, accessLevel, sensitivityLevel, auditRequired}).`,
+          user: `Generate an access policy for:
 Role: ${role?.name || roleId} (${role?.description || "Unknown role"})
 Resource Type: ${resourceType}
 Existing policies for this role: ${existingPolicies.length}
 Role permissions: ${role?.permissions?.join(", ") || "None defined"}
-Role restrictions: ${role?.resourceRestrictions?.join(", ") || "None defined"}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1000
+Role restrictions: ${role?.resourceRestrictions?.join(", ") || "None defined"}`,
+          responseMimeType: "application/json",
+          maxTokens: 1000
         });
 
-        const parsed = JSON.parse(response.choices[0].message.content || "{}");
+        const parsed = JSON.parse(response || "{}");
         suggestedPolicy = {
           name: parsed.name || `${role?.name || roleId} ${resourceType} Access`,
           description: parsed.description || `AI-suggested policy for ${role?.name || roleId} accessing ${resourceType}`,
@@ -702,7 +693,7 @@ Role restrictions: ${role?.resourceRestrictions?.join(", ") || "None defined"}`
         reasoning = parsed.reasoning || "Generated based on role permissions and HIPAA minimum necessary principle";
         confidence = 0.85;
       } catch (error) {
-        console.error("OpenAI error, using rule-based suggestion:", error);
+        console.error("AI gateway error, using rule-based suggestion:", error);
         ({ suggestedPolicy, reasoning, confidence } = this.generateRuleBasedSuggestion(role, resourceType));
       }
     } else {

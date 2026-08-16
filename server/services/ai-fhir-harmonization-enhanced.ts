@@ -1,10 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data harmonization assistant. You provide ONLY:
 - Data inconsistency detection and reporting
@@ -501,7 +498,7 @@ export async function generateHarmonizationSuggestion(inconsistencyId: string): 
 }
 
 async function getAISuggestion(inconsistency: DataInconsistency): Promise<{ value: any; confidence: number; reasoning: string } | null> {
-  if (!openai) {
+  if (!aiEnabled) {
     return null;
   }
 
@@ -518,17 +515,13 @@ Provide a JSON response with:
 - confidence: confidence score 0-1
 - reasoning: explanation of why this value was selected (data quality reasoning only)`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-      { role: "user", content: prompt }
-    ],
-    response_format: { type: "json_object" },
-    max_tokens: 300
+  const content = await generatePhiSafeText({
+    system: NO_CDS_SYSTEM_PROMPT,
+    user: prompt,
+    responseMimeType: "application/json",
+    maxTokens: 300
   });
 
-  const content = response.choices[0]?.message?.content;
   if (!content) return null;
 
   try {
