@@ -1,18 +1,9 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: CDC public health data enrichment is for INFORMATIONAL AND AWARENESS PURPOSES ONLY. This does NOT constitute medical advice, clinical decision support, or treatment recommendations. All health decisions must be made in consultation with qualified healthcare professionals.";
 
-let openai: OpenAI | null = null;
-function getOpenAI(): OpenAI | null {
-  if (!openai && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openai;
-}
+const aiEnabled = true;
 
 export interface PatientDemographics {
   patientId: string;
@@ -435,16 +426,14 @@ function generateEnvironmentalAlerts(patient: PatientDemographics): Environmenta
 }
 
 async function generateAIInsights(patient: PatientDemographics, enrichment: Partial<PatientCDCEnrichment>): Promise<string[]> {
-  const client = getOpenAI();
-  
-  if (!client) {
+  if (!aiEnabled) {
     return [
       `Based on your location in ${patient.state} and health profile, staying current on vaccinations is important.`,
       "Regular check-ins with your healthcare provider can help you stay on top of preventive care.",
       "Monitor local health advisories to stay informed about conditions in your area."
     ];
   }
-  
+
   try {
     const prompt = `You are a public health information assistant. Based on the following patient profile and CDC data, provide 3-4 personalized health awareness insights. Keep responses general and educational - NOT medical advice.
 
@@ -458,14 +447,11 @@ Provide brief, actionable awareness points. Format as a JSON array of strings.
 
 IMPORTANT: Include a reminder that these are general health awareness points and not personalized medical advice.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+    const content = (await generatePhiSafeText({
+      user: prompt,
       temperature: 0.7,
-      max_tokens: 500,
-    });
-    
-    const content = response.choices[0]?.message?.content || "";
+      maxTokens: 500,
+    })) || "";
     const match = content.match(/\[[\s\S]*\]/);
     if (match) {
       return JSON.parse(match[0]);

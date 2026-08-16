@@ -1,17 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  if (process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-    console.log("[HealthGoalTracking] OpenAI client initialized");
-  }
-} catch (error) {
-  console.log("[HealthGoalTracking] OpenAI client not available, using fallback");
-}
+const aiEnabled = true;
+console.log("[HealthGoalTracking] AI gateway (Vertex/BAA) enabled");
 
 export type GoalCategory = 
   | "exercise" 
@@ -617,15 +607,11 @@ class HealthGoalTrackingService {
   async generateGoalSuggestions(patientId: string, healthContext: PatientHealthContext): Promise<GoalSuggestion[]> {
     const disclaimer = "DISCLAIMER: These goal suggestions are for informational purposes only and do not constitute medical advice. Always consult with your healthcare provider before starting any new health program or making changes to your treatment plan.";
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a health goal suggestion assistant. Based on the patient's health context, suggest personalized, achievable health goals. 
-              
+        const content = await generatePhiSafeText({
+          system: `You are a health goal suggestion assistant. Based on the patient's health context, suggest personalized, achievable health goals.
+
 IMPORTANT: You are NOT providing medical advice. All suggestions must be general wellness goals that are safe and appropriate for the patient's conditions.
 
 Return a JSON array of goal suggestions with this structure:
@@ -651,27 +637,21 @@ Focus on:
 1. Goals that address the patient's specific conditions
 2. Gradual, achievable targets
 3. Evidence-based wellness practices
-4. Lifestyle modifications that complement medical treatment`
-            },
-            {
-              role: "user",
-              content: `Patient Health Context:
+4. Lifestyle modifications that complement medical treatment`,
+          user: `Patient Health Context:
 - Age: ${healthContext.demographics.age}, Gender: ${healthContext.demographics.gender}
 - Active Conditions: ${healthContext.conditions.filter(c => c.status === 'active').map(c => c.name).join(", ") || "None"}
 - Current Medications: ${healthContext.medications.map(m => `${m.name} ${m.dosage}`).join(", ") || "None"}
-- Recent Vitals: 
+- Recent Vitals:
   ${healthContext.recentVitals.bloodPressure ? `BP: ${healthContext.recentVitals.bloodPressure.systolic}/${healthContext.recentVitals.bloodPressure.diastolic}` : ""}
   ${healthContext.recentVitals.weight ? `Weight: ${healthContext.recentVitals.weight.value} ${healthContext.recentVitals.weight.unit}` : ""}
   ${healthContext.recentVitals.bmi ? `BMI: ${healthContext.recentVitals.bmi.value}` : ""}
 
-Suggest 4-6 personalized, achievable health goals for this patient.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 1500,
+Suggest 4-6 personalized, achievable health goals for this patient.`,
+          responseMimeType: "application/json",
+          maxTokens: 1500,
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           return parsed.suggestions.map((s: any, i: number) => ({

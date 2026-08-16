@@ -1,16 +1,5 @@
-import OpenAI from "openai";
 import crypto from "crypto";
-
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-  console.log("[PersonalizedHealthSummary] OpenAI client configured");
-} catch (error) {
-  console.log("[PersonalizedHealthSummary] OpenAI not configured, using fallback");
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This summary is for informational and educational purposes only. It is NOT medical advice and does NOT replace consultation with your healthcare provider. Always discuss health decisions with your doctor.";
 
@@ -297,19 +286,6 @@ async function generateAINarrative(data: PatientHealthData, trends: KeyTrend[], 
   const improvingTrends = trends.filter(t => t.direction === "improving");
   const worseningTrends = trends.filter(t => t.direction === "worsening");
 
-  if (!openai) {
-    const overview = `${patientName} is currently managing ${activeConditions.length} active health condition${activeConditions.length !== 1 ? "s" : ""}: ${activeConditions.join(", ") || "none listed"}. There are ${activeMeds} active medication${activeMeds !== 1 ? "s" : ""} in the current treatment plan.`;
-    
-    const progress = improvingTrends.length > 0 
-      ? `Good news! ${improvingTrends.map(t => t.metric).join(" and ")} ${improvingTrends.length === 1 ? "is" : "are"} showing improvement.`
-      : "Your health metrics have been stable recently.";
-
-    const attentionAreas = worseningTrends.map(t => `${t.metric}: ${t.description}`);
-    const positiveProgress = improvingTrends.map(t => `${t.metric}: ${t.description}`);
-
-    return { overview, progress, attentionAreas, positiveProgress };
-  }
-
   try {
     const prompt = `Generate a brief, friendly health summary narrative for a patient. Use simple language a non-medical person can understand.
 
@@ -329,17 +305,14 @@ Provide JSON with:
 
 IMPORTANT: This is educational information only, not medical advice. Keep language simple and encouraging.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a patient health communicator. Generate friendly, easy-to-understand health summaries. Never provide medical advice." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+    const responseText = await generatePhiSafeText({
+      system: "You are a patient health communicator. Generate friendly, easy-to-understand health summaries. Never provide medical advice.",
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 500,
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     return {
       overview: result.overview || `${patientName} is managing ${activeConditions.length} health conditions with ${activeMeds} medications.`,
       progress: result.progress || "Your health metrics have been monitored consistently.",

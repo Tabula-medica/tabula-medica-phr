@@ -1,16 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  if (process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-} catch (error) {
-  console.log("[Gamification] OpenAI client not available");
-}
+const aiEnabled = true;
 
 export type BadgeCategory = "health_goals" | "education" | "logging" | "habits" | "engagement" | "milestones" | "special";
 export type BadgeRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -483,25 +473,16 @@ class GamificationService {
 
     const categoryMessages = messages[activityType] || messages.health_goal;
     
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "Generate a brief, encouraging health motivation message (1-2 sentences). Be warm and supportive. NO medical advice.",
-            },
-            {
-              role: "user",
-              content: `User stats: Level ${progress.level}, ${progress.currentStreak} day streak, ${progress.stats.healthGoalsCompleted} goals completed. Activity: ${activityType}.`,
-            },
-          ],
-          max_tokens: 100,
+        const aiMessage = await generatePhiSafeText({
+          system: "Generate a brief, encouraging health motivation message (1-2 sentences). Be warm and supportive. NO medical advice.",
+          user: `User stats: Level ${progress.level}, ${progress.currentStreak} day streak, ${progress.stats.healthGoalsCompleted} goals completed. Activity: ${activityType}.`,
+          maxTokens: 100,
         });
 
         return {
-          message: response.choices[0].message.content || categoryMessages[Math.floor(Math.random() * categoryMessages.length)],
+          message: aiMessage || categoryMessages[Math.floor(Math.random() * categoryMessages.length)],
           encouragement: encouragements[Math.floor(Math.random() * encouragements.length)],
           nextMilestone,
           suggestedActions,

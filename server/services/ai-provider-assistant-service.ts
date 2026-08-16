@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { checkGovernanceCompliance, getDocumentTypes, generateDocument } from "./ai-document-generation-service";
 import type { DocumentGenerationRequest, GeneratedDocument } from "./ai-document-generation-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: AI-generated content is for informational and operational purposes only. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals.";
 
@@ -265,20 +260,12 @@ Requirements:
   let content: string;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: "You are a HIPAA-compliant clinical documentation assistant. Generate professional medical summaries based on selected patient data. Never fabricate data. Always include relevant clinical context. Output is for provider review only, not clinical decision support.",
-        },
-        { role: "user", content: prompt },
-      ],
+    content = await generatePhiSafeText({
+      system: "You are a HIPAA-compliant clinical documentation assistant. Generate professional medical summaries based on selected patient data. Never fabricate data. Always include relevant clinical context. Output is for provider review only, not clinical decision support.",
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 2000,
-    });
-
-    content = response.choices[0]?.message?.content || "";
+      maxTokens: 2000,
+    }) || "";
     if (!content.trim()) {
       content = generateFallbackSummary(request);
     }

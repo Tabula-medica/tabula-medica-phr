@@ -1,22 +1,5 @@
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    if (apiKey) {
-      openaiClient = new OpenAI({
-        apiKey,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-    } else {
-      console.log("[AIPatientEngagement] OpenAI API key not configured, using fallback responses");
-    }
-  }
-  return openaiClient!;
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PreventiveCareOutreach {
   id: string;
@@ -522,8 +505,6 @@ export async function getPreventiveOutreach(): Promise<PreventiveCareOutreach[]>
 }
 
 export async function generateProactiveOutreach(patientId: string): Promise<PreventiveCareOutreach> {
-  const openai = getOpenAI();
-  
   const newOutreach: PreventiveCareOutreach = {
     id: `out-${Date.now()}`,
     patientId,
@@ -540,32 +521,20 @@ export async function generateProactiveOutreach(patientId: string): Promise<Prev
     createdAt: new Date().toISOString(),
   };
 
-  if (openai) {
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a preventive care AI assistant generating outreach recommendations.
+  try {
+    const aiContent = await generatePhiSafeText({
+      system: `You are a preventive care AI assistant generating outreach recommendations.
 Generate a personalized preventive care recommendation based on clinical guidelines.
-IMPORTANT: This is for INFORMATIONAL purposes only and does not constitute clinical decision support.`
-          },
-          {
-            role: "user",
-            content: `Generate a preventive care outreach recommendation for patient ${patientId}.`
-          }
-        ],
-        max_tokens: 500,
-      });
+IMPORTANT: This is for INFORMATIONAL purposes only and does not constitute clinical decision support.`,
+      user: `Generate a preventive care outreach recommendation for patient ${patientId}.`,
+      maxTokens: 500,
+    });
 
-      const aiContent = response.choices[0]?.message?.content;
-      if (aiContent) {
-        newOutreach.aiReasoning = aiContent + " [Note: This is for informational purposes only and does not constitute clinical decision support.]";
-      }
-    } catch (error) {
-      console.log("[AIPatientEngagement] OpenAI call failed, using fallback");
+    if (aiContent) {
+      newOutreach.aiReasoning = aiContent + " [Note: This is for informational purposes only and does not constitute clinical decision support.]";
     }
+  } catch (error) {
+    console.log("[AIPatientEngagement] AI call failed, using fallback");
   }
 
   outreachStore.set(newOutreach.id, newOutreach);

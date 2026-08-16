@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { getAuditLogger } from "./integrations/factory";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 export type SyncResourceType = "Patient" | "Condition" | "Medication" | "MedicationRequest";
 export type SyncDirection = "inbound" | "outbound" | "bidirectional";
@@ -763,24 +758,13 @@ export async function getAIConflictRecommendation(changeId: string): Promise<str
     throw new Error(`Change ${changeId} not found`);
   }
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return change.aiRecommendation || "AI recommendation not available. Please review manually based on your clinical judgment and data source trustworthiness.";
-  }
-
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare data analyst helping resolve FHIR resource synchronization conflicts. 
+    const recommendationText = await generatePhiSafeText({
+      system: `You are a healthcare data analyst helping resolve FHIR resource synchronization conflicts.
 Analyze the conflict and provide a recommendation. Be specific about which values to use and why.
 Consider data freshness, source reliability, and clinical implications.
 Keep your response concise and actionable.`,
-        },
-        {
-          role: "user",
-          content: `Please analyze this ${change.resourceType} synchronization ${change.changeType === "update" ? "conflict" : "change"}:
+      user: `Please analyze this ${change.resourceType} synchronization ${change.changeType === "update" ? "conflict" : "change"}:
 
 Resource Type: ${change.resourceType}
 Change Type: ${change.changeType}
@@ -796,12 +780,10 @@ Specific Conflicts:
 ${change.conflicts.map((c) => `- ${c.fieldName}: Local="${JSON.stringify(c.localValue)}" vs Remote="${JSON.stringify(c.remoteValue)}"`).join("\n")}
 
 Provide a recommendation on how to resolve this, including which source to trust for each conflicting field.`,
-        },
-      ],
-      max_tokens: 500,
+      maxTokens: 500,
     });
 
-    const recommendation = response.choices[0]?.message?.content || "Unable to generate AI recommendation.";
+    const recommendation = recommendationText || "Unable to generate AI recommendation.";
     
     change.aiRecommendation = recommendation;
     change.updatedAt = new Date().toISOString();
