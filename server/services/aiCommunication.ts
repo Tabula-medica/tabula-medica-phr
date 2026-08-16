@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
 
@@ -255,12 +256,8 @@ export async function summarizePatientMessage(
   const context = await getPatientContext(patientId);
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare message analyst helping providers efficiently process patient messages.
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare message analyst helping providers efficiently process patient messages.
           
 Analyze the patient message and provide a structured summary that helps the provider quickly understand and prioritize the message.
 
@@ -291,20 +288,13 @@ Analyze the latest message and provide:
 PRIORITY GUIDELINES:
 - urgent: Emergency symptoms, severe pain, mental health crisis, medication errors
 - high: New concerning symptoms, medication questions, time-sensitive requests
-- normal: General questions, appointment requests, routine follow-ups`
-        },
-        {
-          role: "user",
-          content: `Analyze this patient message:\n\n${messageContent}`,
-        },
-      ],
+- normal: General questions, appointment requests, routine follow-ups`,
+      user: `Analyze this patient message:\n\n${messageContent}`,
       temperature: 0.3,
-      max_tokens: 800,
-    });
-
-    const content = response.choices[0]?.message?.content || "";
+      maxTokens: 800,
+    }) || "";
     let parsed: any;
-    
+
     try {
       parsed = JSON.parse(content);
     } catch {
@@ -408,12 +398,8 @@ export async function generateFollowUpDraft(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare communication assistant drafting personalized follow-up messages for patients.
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare communication assistant drafting personalized follow-up messages for patients.
 
 Patient Context:
 - Name: ${context.patientName}
@@ -439,20 +425,13 @@ Respond with JSON:
   "personalizedElements": ["Element 1 used for personalization", "Element 2"],
   "actionItems": ["Suggested action 1", "Action 2"],
   "tone": "encouraging|informative|reminder|congratulatory"
-}`
-        },
-        {
-          role: "user",
-          content: `Generate a follow-up message for this situation: ${triggerDescription}`,
-        },
-      ],
+}`,
+      user: `Generate a follow-up message for this situation: ${triggerDescription}`,
       temperature: 0.7,
-      max_tokens: 600,
-    });
-
-    const content = response.choices[0]?.message?.content || "";
+      maxTokens: 600,
+    }) || "";
     let parsed: any;
-    
+
     try {
       parsed = JSON.parse(content);
     } catch {
@@ -550,12 +529,8 @@ export async function prioritizeProviderInbox(
   if (messages.length === 0) return [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare message triage assistant. Analyze and prioritize patient messages for a provider.
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare message triage assistant. Analyze and prioritize patient messages for a provider.
 
 For each message, determine:
 1. Priority level (urgent/high/normal)
@@ -575,23 +550,16 @@ Respond with JSON array:
     "summary": "Brief summary",
     "estimatedResponseTime": "Within X hours"
   }
-]`
-        },
-        {
-          role: "user",
-          content: `Analyze and prioritize these messages:\n\n${JSON.stringify(messages.map(m => ({
-            id: m.id,
-            subject: m.subject,
-            content: m.content.substring(0, 500),
-            timestamp: m.timestamp,
-          })))}`,
-        },
-      ],
+]`,
+      user: `Analyze and prioritize these messages:\n\n${JSON.stringify(messages.map(m => ({
+        id: m.id,
+        subject: m.subject,
+        content: m.content.substring(0, 500),
+        timestamp: m.timestamp,
+      })))}`,
       temperature: 0.3,
-      max_tokens: 1500,
-    });
-
-    const content = response.choices[0]?.message?.content || "";
+      maxTokens: 1500,
+    }) || "";
     try {
       return JSON.parse(content);
     } catch {

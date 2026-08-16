@@ -1493,12 +1493,7 @@ import {
   logNoCDSCompliance,
 } from "./security/no-cds-guardrails";
 
-import OpenAI from "openai";
-
-const portalOpenai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 interface PatientEducationArticle {
   id: string;
@@ -1553,39 +1548,8 @@ router.post("/patient/:patientId/education/generate", async (req: Request, res: 
 
     const topicText = topic || (conditions.length > 0 ? conditions[0] : "general wellness");
 
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      const fallbackArticle: PatientEducationArticle = {
-        id: generateId("edu"),
-        patientId,
-        title: `Understanding ${topicText}`,
-        summary: `An overview of ${topicText} based on current health documentation. This material is for informational purposes only.`,
-        content: `This educational material covers key aspects of ${topicText} that may be relevant to your health records.\n\nKey Points:\n- Regular monitoring may help track changes over time\n- Lifestyle factors such as diet, exercise, and stress management are commonly discussed in health literature\n- Keeping a log of symptoms or changes can be helpful during provider visits\n- Always discuss any questions about your health with your care team\n\nResources:\n- Your care team can provide personalized guidance\n- Visit trusted health information sites for additional reading`,
-        topics: [topicText, "general wellness"],
-        readingLevel: "general",
-        noCdsDisclaimer: NO_CDS_DISCLAIMER,
-        aiGenerated: false,
-        createdAt: new Date().toISOString(),
-      };
-
-      patientEducationArticles.push(fallbackArticle);
-
-      await logPhiAccess({
-        userId: patientId,
-        patientId,
-        resourceType: "PatientEducation",
-        action: "write",
-        details: `Fallback education content generated for topic: ${topicText}`,
-      });
-
-      return res.status(201).json(fallbackArticle);
-    }
-
-    const response = await portalOpenai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a health education content writer. ${NO_CDS_POLICY}
+    const responseText = await generatePhiSafeText({
+      system: `You are a health education content writer. ${NO_CDS_POLICY}
 
 Generate patient-friendly educational content about the requested topic.
 The patient has the following documented conditions: ${conditions.join(", ") || "none specified"}.
@@ -1601,20 +1565,15 @@ Output format (JSON):
 }
 
 Use only observational and informational language. Never provide medical advice.`,
-        },
-        {
-          role: "user",
-          content: `Generate educational content about: ${topicText}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      user: `Generate educational content about: ${topicText}`,
+      responseMimeType: "application/json",
       temperature: 0.7,
-      max_tokens: 1200,
+      maxTokens: 1200,
     });
 
     let parsed: any;
     try {
-      parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      parsed = JSON.parse(responseText || "{}");
     } catch {
       parsed = {
         title: `Understanding ${topicText}`,

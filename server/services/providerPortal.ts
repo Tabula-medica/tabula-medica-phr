@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import type { Patient, MedicalRecord, VitalSign, Problem } from "@shared/schema";
 import { analyzePatientHealth, generateHealthSnapshot } from "./remoteMonitoring";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 // Summary cache for automatic generation with TTL
 interface CachedSummary {
@@ -496,19 +491,11 @@ Generate a JSON response with the following structure. Be specific, clinically a
   "confidenceScore": 0.0-1.0
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are an expert clinical AI assistant trained in evidence-based medicine. Generate precise, actionable clinical summaries. Respond only with valid JSON. Focus on patient safety and clinical decision support." 
-        },
-        { role: "user", content: clinicalPrompt },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You are an expert clinical AI assistant trained in evidence-based medicine. Generate precise, actionable clinical summaries. Respond only with valid JSON. Focus on patient safety and clinical decision support.",
+      user: clinicalPrompt,
       temperature: 0.2,
-    });
-
-    const content = response.choices[0]?.message?.content || "";
+    }) || "";
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("Failed to parse AI response");

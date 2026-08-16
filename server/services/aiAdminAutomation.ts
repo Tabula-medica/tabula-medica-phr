@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import type { Patient, Appointment, Medication, MedicalRecord } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 interface Provider {
   id: string;
@@ -340,15 +335,14 @@ Return JSON:
   }
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(responseText || "{}");
+
     const slots: OptimizedScheduleSlot[] = (result.slots || []).map((slot: any, index: number) => ({
       id: `slot_${Date.now()}_${index}`,
       providerId: slot.providerId || relevantProviders[0]?.id || "prov_001",
@@ -483,14 +477,13 @@ Generate a prior authorization request with strong clinical justification. Retur
   "cptSuggestions": [{"code": "string", "description": "string"}]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.4,
     });
 
-    const aiContent = JSON.parse(response.choices[0].message.content || "{}");
+    const aiContent = JSON.parse(responseText || "{}");
 
     const request: PriorAuthRequest = {
       id: `pa_${Date.now()}`,
@@ -666,14 +659,13 @@ Generate a complete visit summary. Return JSON:
   "patientFriendlySummary": "Easy-to-understand summary in plain language (2-3 sentences)"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.4,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(responseText || "{}");
 
     return {
       id: `vs_${Date.now()}`,
@@ -786,14 +778,13 @@ Generate a professional referral letter. Return JSON:
   "letterContent": "Full professional referral letter text (formal medical letter format)"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(responseText || "{}");
 
     return {
       id: `ref_${Date.now()}`,
@@ -943,14 +934,13 @@ Generate personalized additions to the intake form. Return JSON:
   "estimatedTime": number (minutes)
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.4,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     
     const additionalFields: IntakeFormField[] = (result.additionalFields || []).map((f: any, i: number) => ({
       id: f.id || `custom_${Date.now()}_${i}`,
@@ -1089,14 +1079,13 @@ Analyze the responses and return JSON:
   "priorityForProvider": "routine|attention_needed|urgent"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const analysis = JSON.parse(response.choices[0].message.content || "{}");
+    const analysis = JSON.parse(responseText || "{}");
 
     return {
       formId,

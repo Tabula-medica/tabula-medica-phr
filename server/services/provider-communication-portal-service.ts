@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export type MessagePriority = "critical" | "high" | "medium" | "low";
 export type MessageCategory = 
@@ -126,17 +121,14 @@ Analyze and respond with JSON only:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a healthcare message triage assistant. Respond only with valid JSON." },
-          { role: "user", content: triagePrompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 500,
+      const responseText = await generatePhiSafeText({
+        system: "You are a healthcare message triage assistant. Respond only with valid JSON.",
+        user: triagePrompt,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const triageResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const triageResult = JSON.parse(responseText || "{}");
       
       const triaged: TriagedMessage = {
         messageId,
@@ -224,17 +216,14 @@ Generate a professional, empathetic draft response. Respond with JSON only:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a healthcare communication assistant. Draft professional responses that require provider review. Respond only with valid JSON." },
-          { role: "user", content: draftPrompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1000,
+      const responseText = await generatePhiSafeText({
+        system: "You are a healthcare communication assistant. Draft professional responses that require provider review. Respond only with valid JSON.",
+        user: draftPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const draftResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const draftResult = JSON.parse(responseText || "{}");
       
       const draft: DraftResponse = {
         id: randomUUID(),

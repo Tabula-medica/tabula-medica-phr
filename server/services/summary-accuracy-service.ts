@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT } from "../security/no-cds-guardrails";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface FactClaim {
   id: string;
@@ -49,12 +44,8 @@ function generateClaimId(): string {
 
 async function extractFactClaims(summaryText: string): Promise<Omit<FactClaim, "verified" | "sourceFound" | "sourceReference" | "sourceValue" | "discrepancy">[]> {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical fact extractor. Given a patient health summary, extract individual factual claims that can be verified against source records.
+    const content = await generatePhiSafeText({
+      system: `You are a medical fact extractor. Given a patient health summary, extract individual factual claims that can be verified against source records.
 
 For each claim, provide:
 - "text": The exact factual claim from the summary
@@ -65,18 +56,11 @@ Return a JSON array of claims. Focus on extractable, verifiable facts (medicatio
 Do NOT include opinions, recommendations, or general health education statements.
 
 Respond ONLY with a valid JSON array.`,
-        },
-        {
-          role: "user",
-          content: summaryText.slice(0, 4000),
-        },
-      ],
-      max_tokens: 2000,
+      user: summaryText.slice(0, 4000),
+      maxTokens: 2000,
       temperature: 0.1,
-      response_format: { type: "json_object" },
-    });
-
-    const content = completion.choices[0]?.message?.content || '{"claims":[]}';
+      responseMimeType: "application/json",
+    }) || '{"claims":[]}';
     const parsed = JSON.parse(content);
     const claims = Array.isArray(parsed) ? parsed : parsed.claims || [];
 

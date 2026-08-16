@@ -1,9 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+// PHI-bearing generation runs through the Vertex/BAA gateway (P1-1.2).
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "EDUCATIONAL CONTENT ONLY. This AI-generated content is for informational purposes and NOT medical advice or clinical decision support. All clinical decisions must be made by qualified healthcare providers based on their professional judgment and direct patient assessment.";
 
@@ -246,7 +244,7 @@ class AIProviderCollaborationService {
     let aiInsights = "";
 
     try {
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+      if (aiEnabled) {
         // Use de-identified data in prompt - no real names, dates, or identifiable info sent to AI
         const prompt = `You are a clinical documentation specialist helping prepare a patient case summary for a ${consultingSpecialty} consultation.
 
@@ -271,14 +269,12 @@ Please provide a structured case summary in JSON format with:
 
 Respond only with valid JSON.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          max_completion_tokens: 1500,
-          response_format: { type: "json_object" }
+        const content = await generatePhiSafeText({
+          user: prompt,
+          maxTokens: 1500,
+          responseMimeType: "application/json",
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           aiSummary = parsed.clinicalSummary || "";
@@ -352,7 +348,7 @@ Respond only with valid JSON.`;
     let aiRationale = "";
 
     try {
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+      if (aiEnabled) {
         // Use de-identified data - only clinical conditions without identifiers
         const prompt = `You are a medical research librarian helping find relevant research papers for a complex clinical case.
 
@@ -386,14 +382,12 @@ Respond in JSON format:
 
 Note: Generate realistic but example paper suggestions for educational purposes.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          max_completion_tokens: 2000,
-          response_format: { type: "json_object" }
+        const content = await generatePhiSafeText({
+          user: prompt,
+          maxTokens: 2000,
+          responseMimeType: "application/json",
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           suggestedPapers = (parsed.suggestedPapers || []).map((p: any, idx: number) => ({
@@ -490,7 +484,7 @@ Note: Generate realistic but example paper suggestions for educational purposes.
     let aiSuggestions: string[] = [];
 
     try {
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+      if (aiEnabled) {
         // Use de-identified data in prompt - real names NOT sent to AI
         const prompt = `You are a medical communication specialist helping draft a professional inter-provider communication.
 
@@ -525,14 +519,12 @@ Please draft a professional inter-provider communication in JSON format:
   "suggestions": ["Array of suggestions for improving the communication"]
 }`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          max_completion_tokens: 1500,
-          response_format: { type: "json_object" }
+        const content = await generatePhiSafeText({
+          user: prompt,
+          maxTokens: 1500,
+          responseMimeType: "application/json",
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           draftContent = parsed.fullDraft || "";

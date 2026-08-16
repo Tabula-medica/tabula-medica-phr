@@ -1,22 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type { PatientRecordData, PatientCondition, PatientMedication, PatientEncounter, PatientVital, PatientLabResult } from "./ai-patient-summary-service";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey) {
-      openaiClient = new OpenAI({
-        apiKey,
-        baseURL: baseURL || undefined,
-      });
-    }
-  }
-  return openaiClient;
-}
+// PHI-bearing generation runs through the Vertex/BAA gateway (P1-1.2).
+const aiEnabled = true;
 
 export interface ClinicalDocumentationSnippet {
   id: string;
@@ -94,22 +80,17 @@ export class AIProviderAutomationService {
     encounterContext?: { reason?: string; chiefComplaint?: string; findings?: string }
   ): Promise<ProviderAutomationResult<ClinicalDocumentationSnippet>> {
     const startTime = Date.now();
-    const client = getOpenAIClient();
 
-    if (!client) {
+    if (!aiEnabled) {
       return this.generateFallbackDocumentation(patientData, documentType, encounterContext, startTime);
     }
 
     try {
       const prompt = this.buildDocumentationPrompt(patientData, documentType, encounterContext);
-      
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping healthcare providers with clinical documentation. Generate structured clinical documentation snippets based on patient data. 
-            
+
+      const responseText = await generatePhiSafeText({
+        system: `You are an AI assistant helping healthcare providers with clinical documentation. Generate structured clinical documentation snippets based on patient data.
+
 CRITICAL COMPLIANCE REQUIREMENTS:
 - This is INFORMATIONAL ONLY - NOT clinical decision support
 - Include all relevant disclaimers
@@ -125,15 +106,13 @@ Return JSON with this structure:
   "sections": [{"header": "string", "text": "string"}],
   "suggestedIcdCodes": [{"code": "string", "description": "string", "confidence": 0.0-1.0}],
   "suggestedCptCodes": [{"code": "string", "description": "string"}]
-}`
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+}`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
       
       const snippet: ClinicalDocumentationSnippet = {
         id: this.generateId(),
@@ -167,21 +146,16 @@ Return JSON with this structure:
     urgency: ReferralNote["urgency"] = "routine"
   ): Promise<ProviderAutomationResult<ReferralNote>> {
     const startTime = Date.now();
-    const client = getOpenAIClient();
 
-    if (!client) {
+    if (!aiEnabled) {
       return this.generateFallbackReferral(patientData, referralType, targetCondition, urgency, startTime);
     }
 
     try {
       const prompt = this.buildReferralPrompt(patientData, referralType, targetCondition, urgency);
-      
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping healthcare providers draft referral notes. Generate comprehensive referral documentation based on patient data and clinical context.
+
+      const responseText = await generatePhiSafeText({
+        system: `You are an AI assistant helping healthcare providers draft referral notes. Generate comprehensive referral documentation based on patient data and clinical context.
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - This is INFORMATIONAL ONLY - NOT clinical decision support
@@ -194,21 +168,19 @@ Return JSON with this structure:
 {
   "specialtyRecommendation": "string",
   "clinicalSummary": "string",
-  "reasonForReferral": "string", 
+  "reasonForReferral": "string",
   "relevantHistory": "string",
   "currentMedications": "string",
   "relevantLabFindings": "string",
   "specificQuestions": ["string"],
   "suggestedSpecialists": ["string"]
-}`
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+}`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
       
       const referral: ReferralNote = {
         id: this.generateId(),
@@ -243,21 +215,16 @@ Return JSON with this structure:
     patientData: PatientRecordData
   ): Promise<ProviderAutomationResult<PreventiveCareOrder[]>> {
     const startTime = Date.now();
-    const client = getOpenAIClient();
 
-    if (!client) {
+    if (!aiEnabled) {
       return this.generateFallbackPreventiveOrders(patientData, startTime);
     }
 
     try {
       const prompt = this.buildPreventiveCarPrompt(patientData);
-      
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping healthcare providers identify applicable preventive care recommendations based on patient demographics, history, and current guidelines (USPSTF, CDC, ACS).
+
+      const responseText = await generatePhiSafeText({
+        system: `You are an AI assistant helping healthcare providers identify applicable preventive care recommendations based on patient demographics, history, and current guidelines (USPSTF, CDC, ACS).
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - This is INFORMATIONAL ONLY - NOT clinical decision support
@@ -284,16 +251,14 @@ Return JSON with this structure:
       "contraindications": ["string"]
     }
   ]
-}`
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2500,
+}`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 2500,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
-      
+      const parsed = JSON.parse(responseText || "{}");
+
       const orders: PreventiveCareOrder[] = (parsed.orders || []).map((order: any) => ({
         id: this.generateId(),
         orderType: order.orderType || "screening",

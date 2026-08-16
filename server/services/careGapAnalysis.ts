@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT } from "../security/no-cds-guardrails";
 import type {
@@ -9,11 +9,6 @@ import type {
   CareGapPriority,
   Patient,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 export async function analyzePatientCareGaps(
   request: CareGapAnalysisRequest
@@ -231,21 +226,14 @@ Respond in JSON format with the following structure:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Analyze the following patient data and identify care gaps:\n\n${patientContext}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Analyze the following patient data and identify care gaps:\n\n${patientContext}`,
+      responseMimeType: "application/json",
       temperature: 0.3,
-      max_tokens: 2000,
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       return getDefaultAnalysis(recommendations);
     }
@@ -374,29 +362,20 @@ export async function generateAISummary(patientId: string): Promise<string> {
     .slice(0, 3);
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a patient-friendly health information assistant. Generate a brief, encouraging summary of a patient's preventive care status. Use simple language suitable for patients. Do not provide medical advice - only summarize their current status as general health information and note that discussing findings with their healthcare provider is an option. ${NO_CDS_DISCLAIMER_SHORT}`,
-        },
-        {
-          role: "user",
-          content: `Patient: ${summary.patientName}, Age ${summary.age}
+    const content = await generatePhiSafeText({
+      system: `You are a patient-friendly health information assistant. Generate a brief, encouraging summary of a patient's preventive care status. Use simple language suitable for patients. Do not provide medical advice - only summarize their current status as general health information and note that discussing findings with their healthcare provider is an option. ${NO_CDS_DISCLAIMER_SHORT}`,
+      user: `Patient: ${summary.patientName}, Age ${summary.age}
 Compliance Score: ${summary.overallComplianceScore}%
 Open Care Gaps: ${openGaps.map((g) => g.recommendation.title).join(", ") || "None"}
 Upcoming Vaccinations: ${upcomingVaccines.map((v) => v.vaccineName).join(", ") || "None scheduled"}
 
 Generate a 3-4 sentence patient-friendly summary of their preventive care status.`,
-        },
-      ],
       temperature: 0.7,
-      max_tokens: 300,
+      maxTokens: 300,
     });
 
     return (
-      response.choices[0]?.message?.content ||
+      content ||
       "Your preventive care summary is being prepared. Please check back later."
     );
   } catch (error) {
