@@ -1,16 +1,9 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { EventEmitter } from "events";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 export type IngestionErrorSeverity = "warning" | "error" | "critical" | "fatal";
 export type IngestionErrorCategory = 
@@ -1420,8 +1413,7 @@ export class EnhancedDataIngestionService {
   }
 
   private async enhanceWithAI(userId: string, profile: DataProfile): Promise<void> {
-    const openai = getOpenAI();
-    if (!openai) return;
+    if (!aiEnabled) return;
 
     logPhiAccess({
       userId,
@@ -1432,16 +1424,9 @@ export class EnhancedDataIngestionService {
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a data quality analyst. Analyze the data profile and provide 2-3 additional insights or recommendations. Be concise.",
-          },
-          {
-            role: "user",
-            content: `Data Profile Summary:
+      const aiInsights = await generatePhiSafeText({
+        system: "You are a data quality analyst. Analyze the data profile and provide 2-3 additional insights or recommendations. Be concise.",
+        user: `Data Profile Summary:
 - Dataset: ${profile.datasetName}
 - Records: ${profile.recordCount}
 - Quality Score: ${profile.qualityScore.toFixed(1)}%
@@ -1453,12 +1438,9 @@ ${profile.qualityDimensions.completeness.issues.join("\n")}
 ${profile.qualityDimensions.validity.issues.join("\n")}
 
 Provide 2-3 additional insights.`,
-          },
-        ],
-        max_tokens: 300,
+        maxTokens: 300,
       });
 
-      const aiInsights = response.choices[0]?.message?.content;
       if (aiInsights) {
         profile.recommendations.push({
           priority: "medium",

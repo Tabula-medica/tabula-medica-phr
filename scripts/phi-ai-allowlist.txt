@@ -1,5 +1,5 @@
-# scripts/phi-ai-allowlist.txt — P1-1 migration backlog (non-BAA AI clients). TWO populations
-# RATCHETED: (1) AI_INTEGRATIONS_OPENAI_* proxy; (2) direct new OpenAI(). Migrate to ai-gateway.ts. Goal: empty.
+# scripts/phi-ai-allowlist.txt — P1-1 backlog (non-BAA AI clients). TWO populations RATCHETED:
+# (1) AI_INTEGRATIONS_OPENAI_* proxy; (2) direct new OpenAI(). Migrate to ai-gateway.ts. Goal: empty.
 server/services/ai-gateway.ts
 server/lib/vertex-openai.ts
 server/lib/baa-chat.ts
@@ -43,43 +43,11 @@ server/services/aiPatientEngagement.ts
 server/services/aiProgressFeedbackService.ts
 server/services/analytics-customization.ts
 server/services/document-ocr-service.ts
-server/services/dual-mode-ecosystem-service.ts
-server/services/educationRecommendationService.ts
-server/services/enhanced-ai-health-journey-service.ts
-server/services/enhanced-data-ingestion-service.ts
-server/services/enhanced-health-journey-service.ts
-server/services/fhir-advanced-search-service.ts
 server/services/fhir-data-integration-service.ts
-server/services/fhir-data-quality-service.ts
-server/services/fhir-deep-analysis-service.ts
-server/services/fhir-export-service.ts
-server/services/fhir-integration-monitoring-service.ts
-server/services/fhir-resource-lifecycle-service.ts
-server/services/fhir-standards-mapping-service.ts
-server/services/health-copilot-service.ts
 server/services/healthcare-data-aggregator-service.ts
-server/services/iot-health-sensor-service.ts
-server/services/medication-summary-service.ts
 server/services/multimodal-document-parser.ts
-server/services/operations-analytics-service.ts
 server/services/patient-engagement-hub-service.ts
-server/services/patient-feedback-analysis-service.ts
-server/services/patient-generated-health-data-service.ts
 server/services/patientAssistant.ts
-server/services/patientEducationMessagingService.ts
-server/services/personalized-health-journey-service.ts
-server/services/phr-orchestration-service.ts
-server/services/predictive-analytics-service.ts
-server/services/predictiveAnalytics.ts
-server/services/proactive-patient-support-service.ts
-server/services/qoca-aiot-service.ts
-server/services/snapshot-pdf-service.ts
-server/services/translation-guardrail-service.ts
-server/services/user-role-management-service.ts
-server/services/uspstf-guidelines.ts
-server/smart-search-service.ts
-server/support-resources-routes.ts
 server/symptom-tracker-service.ts
 server/usability-features-service.ts
 server/utils/openai-client.ts
-server/visit-prep-service.ts

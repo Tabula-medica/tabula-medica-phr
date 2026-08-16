@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { dedupTriggerService, type DedupTriggerResult } from "./dedup-trigger-service";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PipelineStageResult {
   stage: string;
@@ -704,17 +705,10 @@ class PHROrchestrationService {
     const queryLower = query.toLowerCase();
 
     try {
-      const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI();
-
       const fhirContext = this.buildFhirContextForVoice(userId);
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a HIPAA-compliant health record voice assistant for Tabula Medica.
+      const aiAnswer = await generatePhiSafeText({
+        system: `You are a HIPAA-compliant health record voice assistant for Tabula Medica.
 You answer patient questions about their health records by querying their FHIR data.
 Always cite your sources with ResourceType, ID, and date.
 Be specific with dates, values, and provider names.
@@ -723,17 +717,10 @@ Never provide medical advice — only report what is in the records.
 
 Patient's FHIR records context:
 ${JSON.stringify(fhirContext, null, 2)}`,
-          },
-          {
-            role: "user",
-            content: query,
-          },
-        ],
+        user: query,
         temperature: 0.2,
-        max_tokens: 500,
-      });
-
-      const aiAnswer = response.choices[0]?.message?.content || "";
+        maxTokens: 500,
+      }) || "";
 
       const sources = this.extractSourcesFromContext(fhirContext, queryLower);
 
@@ -741,7 +728,7 @@ ${JSON.stringify(fhirContext, null, 2)}`,
         answer: aiAnswer,
         sources,
         confidence: 0.92 + Math.random() * 0.06,
-        model: "gpt-4o",
+        model: "vertex-gemini-2.5-flash",
         queryParsed: query,
       };
     } catch (aiErr) {

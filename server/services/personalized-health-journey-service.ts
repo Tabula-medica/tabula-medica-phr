@@ -1,11 +1,4 @@
-import OpenAI from "openai";
-
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (error) {
-  console.log("[PersonalizedHealthJourney] OpenAI client not available, using fallback responses");
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface HealthJourney {
   id: string;
@@ -171,35 +164,15 @@ class PersonalizedHealthJourneyService {
   private carePlanTasks: Map<string, CarePlanTask> = new Map();
   private gamificationProfiles: Map<string, GamificationProfile> = new Map();
   private insights: Map<string, JourneyInsight> = new Map();
-  private openaiAvailable: boolean = false;
+  private aiEnabled: boolean = true;
 
   private readonly NO_CDS_DISCLAIMER = "This information is for educational purposes only and does not constitute medical advice. Always consult your healthcare provider for personalized medical decisions.";
 
   constructor() {
     this.initializeSampleData();
-    this.checkOpenAIAvailability();
     console.log("[PersonalizedHealthJourney] Service initialized with adaptive learning");
     console.log("[PersonalizedHealthJourney] Features: Educational modules, care plans, gamification");
     console.log("[PersonalizedHealthJourney] NO-CDS compliance enabled for all AI outputs");
-  }
-
-  private async checkOpenAIAvailability() {
-    if (!openai) {
-      this.openaiAvailable = false;
-      return;
-    }
-    try {
-      await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: "test" }],
-        max_tokens: 5,
-      });
-      this.openaiAvailable = true;
-      console.log("[PersonalizedHealthJourney] OpenAI integration active");
-    } catch {
-      this.openaiAvailable = false;
-      console.log("[PersonalizedHealthJourney] OpenAI not available, using fallback");
-    }
   }
 
   private initializeSampleData() {
@@ -954,7 +927,7 @@ class PersonalizedHealthJourneyService {
     const journey = this.journeys.get(journeyId);
     if (!journey) return [];
 
-    if (!this.openaiAvailable || !openai) {
+    if (!this.aiEnabled) {
       return this.getFallbackRecommendations(journey);
     }
 
@@ -963,14 +936,10 @@ class PersonalizedHealthJourneyService {
       const tasks = await this.getCarePlanTasks(journeyId);
       const profile = this.gamificationProfiles.get(journey.patientId);
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          {
-            role: "system",
-            content: `You are a health journey advisor helping patients manage chronic conditions. Generate personalized, encouraging recommendations based on their progress.
-            
-IMPORTANT: 
+      const content = await generatePhiSafeText({
+        system: `You are a health journey advisor helping patients manage chronic conditions. Generate personalized, encouraging recommendations based on their progress.
+
+IMPORTANT:
 - Keep recommendations brief and actionable
 - Focus on positive reinforcement
 - Never provide specific medical advice
@@ -982,11 +951,8 @@ Each recommendation should have:
 - message: Encouraging message (2-3 sentences)
 - priority: "low" | "medium" | "high"
 - actionable: boolean
-- suggestedAction: string if actionable`
-          },
-          {
-            role: "user",
-            content: `Patient journey data:
+- suggestedAction: string if actionable`,
+        user: `Patient journey data:
 - Condition: ${journey.conditionType}
 - Overall progress: ${journey.overallProgress}%
 - Current phase: ${journey.currentPhase}/${journey.totalPhases}
@@ -996,14 +962,12 @@ Each recommendation should have:
 - Points: ${profile?.totalPoints || 0}
 - Tasks completed today: ${tasks.filter(t => t.status === 'completed').length}/${tasks.length}
 
-Generate personalized recommendations.`
-          }
-        ],
-        max_tokens: 500,
+Generate personalized recommendations.`,
+        responseMimeType: "application/json",
+        maxTokens: 500,
         temperature: 0.7
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return this.getFallbackRecommendations(journey);
 
       const recommendations = JSON.parse(content);

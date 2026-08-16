@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface Permission {
   id: string;
@@ -74,16 +74,13 @@ export interface UserActivity {
 }
 
 class UserRoleManagementService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private permissions: Map<string, Permission> = new Map();
   private roles: Map<string, Role> = new Map();
   private userAssignments: Map<string, UserRoleAssignment> = new Map();
   private roleSuggestions: Map<string, RoleSuggestion[]> = new Map();
 
   constructor() {
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    }
     this.initializePermissions();
     this.initializeDefaultRoles();
     this.initializeSampleUsers();
@@ -508,7 +505,7 @@ class UserRoleManagementService {
     const userActivities = this.getSampleUserActivities();
     const roles = this.getAllRoles();
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return this.getDefaultRoleSuggestions(userActivities);
     }
 
@@ -541,14 +538,11 @@ Return a JSON array of role suggestions. Each suggestion should have:
 
 Return ONLY valid JSON array, no markdown.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
+      const content = (await generatePhiSafeText({
+        user: prompt,
         temperature: 0.7,
-        max_tokens: 2000,
-      });
-
-      const content = response.choices[0]?.message?.content || "[]";
+        maxTokens: 2000,
+      })) || "[]";
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const suggestions = JSON.parse(cleanContent);
 

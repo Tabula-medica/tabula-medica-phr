@@ -1,14 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
 
 export interface PatientSupportProfile {
   id: string;
@@ -423,33 +414,24 @@ class ProactivePatientSupportService {
       : patient.supportNeeds.find(n => n.status === "identified");
 
     try {
-      const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare communication specialist generating personalized patient outreach messages. 
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare communication specialist generating personalized patient outreach messages.
 Create empathetic, clear, and actionable messages that encourage patient engagement.
 Keep messages brief, warm, and focused on the patient's wellbeing.
 Never include specific medical details or test results in messages.
-Return JSON with: subject (string), message (string), callToAction (string).`
-          },
-          {
-            role: "user",
-            content: `Generate a ${outreachType} message for:
+Return JSON with: subject (string), message (string), callToAction (string).`,
+        user: `Generate a ${outreachType} message for:
 Patient: ${patient.patientName}
 Age: ${patient.age}
 Conditions: ${patient.conditions.join(", ")}
 Preferred Channel: ${patient.communicationHistory.preferredChannel}
 ${supportNeed ? `Support Need: ${supportNeed.description}` : ""}
-Last Contact: ${new Date(patient.communicationHistory.lastContact).toLocaleDateString()}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 400
+Last Contact: ${new Date(patient.communicationHistory.lastContact).toLocaleDateString()}`,
+        responseMimeType: "application/json",
+        maxTokens: 400
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       const outreach: OutreachRecord = {
         id: `out-${Date.now()}`,
@@ -469,7 +451,7 @@ Last Contact: ${new Date(patient.communicationHistory.lastContact).toLocaleDateS
 
       return outreach;
     } catch (error) {
-      console.error("[ProactiveSupport] OpenAI error:", error);
+      console.error("[ProactiveSupport] AI error:", error);
       const fallbackOutreach: OutreachRecord = {
         id: `out-${Date.now()}`,
         type: outreachType,
@@ -680,34 +662,25 @@ Last Contact: ${new Date(patient.communicationHistory.lastContact).toLocaleDateS
     });
 
     try {
-      const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare analytics AI identifying patients who may benefit from additional support.
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare analytics AI identifying patients who may benefit from additional support.
 Analyze the patient profile and provide actionable recommendations.
 Return JSON with: riskAssessment (string summary), recommendedActions (array of strings).
 Focus on preventive care, wellness opportunities, and care coordination.
-This is for INFORMATIONAL purposes only, not clinical decision support.`
-          },
-          {
-            role: "user",
-            content: `Analyze support needs for:
+This is for INFORMATIONAL purposes only, not clinical decision support.`,
+        user: `Analyze support needs for:
 Patient: ${patient.patientName}, Age: ${patient.age}
 Conditions: ${patient.conditions.join(", ")}
 Risk Level: ${patient.riskLevel}
 Last Visit: ${patient.lastVisit || "Unknown"}
 Response Rate: ${(patient.communicationHistory.responseRate * 100).toFixed(0)}%
 Feedback Trend: ${patient.feedbackTrend}
-Current Support Needs: ${patient.supportNeeds.map(n => n.description).join("; ") || "None identified"}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500
+Current Support Needs: ${patient.supportNeeds.map(n => n.description).join("; ") || "None identified"}`,
+        responseMimeType: "application/json",
+        maxTokens: 500
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       return {
         riskAssessment: parsed.riskAssessment || `Patient has ${patient.riskLevel} risk level with ${patient.supportNeeds.length} identified support needs.`,
@@ -715,7 +688,7 @@ Current Support Needs: ${patient.supportNeeds.map(n => n.description).join("; ")
         urgentNeeds: patient.supportNeeds.filter(n => n.priority === "urgent")
       };
     } catch (error) {
-      console.error("[ProactiveSupport] OpenAI error:", error);
+      console.error("[ProactiveSupport] AI error:", error);
       return {
         riskAssessment: `Patient has ${patient.riskLevel} risk level with ${patient.supportNeeds.length} identified support needs.`,
         recommendedActions: [
