@@ -4,12 +4,13 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import { 
-  defaultComplianceConfig, 
-  isCDSFeatureEnabled, 
+import {
+  defaultComplianceConfig,
+  isCDSFeatureEnabled,
   getCDSDisabledMessage,
-  type ComplianceConfig 
+  type ComplianceConfig
 } from "@shared/compliance-controls";
+import { redactPhiFromObject } from "../security/phi-safe-logger";
 
 let complianceConfig: ComplianceConfig = defaultComplianceConfig;
 
@@ -97,7 +98,8 @@ export async function logComplianceEvent(
     userId: (req?.session as any)?.userId || null,
     ipAddress: req?.ip || null,
     userAgent: req?.headers["user-agent"] || null,
-    details,
+    // P0-7.4: redact PHI from caller-supplied details before it hits the logs.
+    details: redactPhiFromObject(details),
     complianceCategories: ["hipaa", "soc2"] as const,
   };
   
