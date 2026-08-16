@@ -2,8 +2,10 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash } from "crypto";
 import { aiDataGovernanceService } from "./services/ai-data-governance";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -34,7 +36,7 @@ function sanitizeDetails(details: Record<string, unknown>): Record<string, unkno
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   console.log(`[HIPAA_AUDIT] ${JSON.stringify({
     timestamp: new Date().toISOString(),
     action,
@@ -95,7 +97,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
 
 router.post("/analyze-practices", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ANALYZE_DATA_PRACTICES", "governance", req, {});
 
     const result = await aiDataGovernanceService.analyzeDataPractices(userId);
@@ -139,7 +141,7 @@ router.get("/policies/:id", async (req: Request, res: Response) => {
 
 router.post("/policies/:id/suggest-updates", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("SUGGEST_POLICY_UPDATES", "policy", req, { policyId: req.params.id });
 
     const updates = await aiDataGovernanceService.suggestPolicyUpdates(req.params.id, userId);
@@ -153,7 +155,7 @@ router.post("/policies/:id/suggest-updates", async (req: Request, res: Response)
 router.post("/policy-updates/:id/approve", async (req: Request, res: Response) => {
   try {
     const { approved } = z.object({ approved: z.boolean() }).parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("APPROVE_POLICY_UPDATE", "policy_update", req, {
       updateId: req.params.id,
@@ -193,7 +195,7 @@ router.get("/violations", async (req: Request, res: Response) => {
 
 router.post("/violations/:id/acknowledge", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ACKNOWLEDGE_VIOLATION", "violation", req, { violationId: req.params.id });
 
     const result = await aiDataGovernanceService.acknowledgeViolation(req.params.id, userId);
@@ -211,7 +213,7 @@ router.post("/violations/:id/acknowledge", async (req: Request, res: Response) =
 router.post("/violations/:id/resolve", async (req: Request, res: Response) => {
   try {
     const { notes } = z.object({ notes: z.string().min(1).max(2000) }).parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("RESOLVE_VIOLATION", "violation", req, {
       violationId: req.params.id,
@@ -236,7 +238,7 @@ router.post("/violations/:id/resolve", async (req: Request, res: Response) => {
 router.post("/access-reviews", async (req: Request, res: Response) => {
   try {
     const { userId, reviewPeriodDays } = conductAccessReviewSchema.parse(req.body);
-    const reviewerId = (req as any).user?.id || "system";
+    const reviewerId = getUserId(req);
 
     logHipaaAudit("CONDUCT_ACCESS_REVIEW", "access_review", req, {
       targetUserId: userId,
@@ -288,7 +290,7 @@ router.get("/access-reviews/:id", async (req: Request, res: Response) => {
 router.post("/access-reviews/:id/approve", async (req: Request, res: Response) => {
   try {
     const { decision, notes } = approveAccessReviewSchema.parse(req.body);
-    const reviewerId = (req as any).user?.id || "system";
+    const reviewerId = getUserId(req);
 
     logHipaaAudit("APPROVE_ACCESS_REVIEW", "access_review", req, {
       reviewId: req.params.id,
@@ -319,7 +321,7 @@ router.post("/access-reviews/:id/approve", async (req: Request, res: Response) =
 router.post("/enforce", async (req: Request, res: Response) => {
   try {
     const { policyId, targetUserId, targetResource } = enforcePolicySchema.parse(req.body);
-    const enforcerId = (req as any).user?.id || "system";
+    const enforcerId = getUserId(req);
 
     logHipaaAudit("ENFORCE_POLICY", "enforcement", req, {
       policyId,
@@ -360,7 +362,7 @@ const reviewSuggestionSchema = z.object({
 
 router.get("/policy-gaps", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ANALYZE_POLICY_GAPS", "governance", req, {});
 
     const gaps = await aiDataGovernanceService.analyzePolicyGaps(userId);
@@ -378,7 +380,7 @@ router.get("/policy-gaps", async (req: Request, res: Response) => {
 
 router.post("/policies/:id/suggest-amendments", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const includeRemediation = req.query.includeRemediation !== "false";
 
     logHipaaAudit("SUGGEST_POLICY_AMENDMENTS", "policy", req, { 
@@ -408,7 +410,7 @@ router.post("/policies/:id/suggest-amendments", async (req: Request, res: Respon
 
 router.post("/suggest-all-amendments", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("SUGGEST_ALL_POLICY_AMENDMENTS", "governance", req, {});
 
     const suggestions = await aiDataGovernanceService.suggestAllPolicyAmendments(userId);
@@ -469,7 +471,7 @@ router.get("/policy-suggestions/:id", async (req: Request, res: Response) => {
 router.post("/policy-suggestions/:id/review", async (req: Request, res: Response) => {
   try {
     const { action, notes } = reviewSuggestionSchema.parse(req.body);
-    const reviewerId = (req as any).user?.id || "system";
+    const reviewerId = getUserId(req);
 
     logHipaaAudit("REVIEW_POLICY_SUGGESTION", "suggestion", req, {
       suggestionId: req.params.id,
@@ -499,7 +501,7 @@ router.post("/policy-suggestions/:id/review", async (req: Request, res: Response
 
 router.post("/policy-suggestions/:id/implement", async (req: Request, res: Response) => {
   try {
-    const implementerId = (req as any).user?.id || "system";
+    const implementerId = getUserId(req);
 
     logHipaaAudit("IMPLEMENT_POLICY_SUGGESTION", "suggestion", req, {
       suggestionId: req.params.id,
@@ -642,7 +644,7 @@ router.post("/access-review-schedules/:id/run", async (req: Request, res: Respon
 
 router.post("/access-reviews/:id/automate", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const schedules = aiDataGovernanceService.listAccessReviewSchedules();
     const defaultSchedule = schedules[0];
 
@@ -716,7 +718,7 @@ router.get("/automated-review-results/:id", async (req: Request, res: Response) 
 router.post("/automated-review-results/:id/human-review", async (req: Request, res: Response) => {
   try {
     const { decision, notes } = humanReviewSchema.parse(req.body);
-    const reviewerId = (req as any).user?.id || "system";
+    const reviewerId = getUserId(req);
 
     logHipaaAudit("HUMAN_REVIEW_AUTOMATED_RESULT", "automated_reviews", req, {
       resultId: req.params.id,
@@ -804,7 +806,7 @@ const fullReviewFiltersSchema = z.object({
 router.post("/access-reviews/:id/full-automation", async (req: Request, res: Response) => {
   try {
     const reviewId = req.params.id;
-    const systemUserId = (req as any).user?.id || "system";
+    const systemUserId = getUserId(req);
 
     logHipaaAudit("TRIGGER_FULL_AUTOMATED_REVIEW", "access_review", req, { reviewId });
 
@@ -832,7 +834,7 @@ router.post("/access-reviews/:id/full-automation", async (req: Request, res: Res
 
 router.post("/access-reviews/batch-full-automation", async (req: Request, res: Response) => {
   try {
-    const systemUserId = (req as any).user?.id || "system";
+    const systemUserId = getUserId(req);
 
     logHipaaAudit("TRIGGER_BATCH_FULL_AUTOMATION", "access_reviews", req, {});
 

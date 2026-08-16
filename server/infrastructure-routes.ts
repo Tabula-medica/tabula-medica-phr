@@ -26,8 +26,10 @@ import { phrService } from './services/phr-service';
 import { providerAdminService } from './services/provider-admin-service';
 import { checkDrugInteractions } from './clinical-decision-support-service';
 import { insertComprehensiveIntakeSchema } from '@shared/schema';
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 // Rate limiting store
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -75,7 +77,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 // Patient access verification middleware
 function verifyPatientAccess(req: Request, res: Response, next: NextFunction) {
   const requestedPatientId = req.params.patientId || req.body?.patientId;
-  const userId = (req.user as any)?.id || req.headers["x-session-id"] || "system";
+  const userId = getUserId(req);
   
   // Log PHI access attempt
   console.log(`[HIPAA-AUDIT] PHI access - User: ${userId}, PatientId: ${requestedPatientId}, Action: ${req.method} ${req.path}, IP: ${req.ip}`);
@@ -1025,7 +1027,7 @@ router.post("/uscdi-v5/exchange", async (req: Request, res: Response) => {
       action: "USCDI_V5_EXCHANGE",
       resourceType: "USCDIExchange",
       resourceId: patientId,
-      actorId: requestingProvider || "system",
+      actorId: getUserId(req),
       actorRole: "data_exchange",
       timestamp: new Date().toISOString(),
       details: { dataClasses: requestedDataClasses, purpose },
@@ -1201,7 +1203,7 @@ router.post("/tefca/query", async (req: Request, res: Response) => {
       action: "TEFCA_QUERY",
       resourceType: "TEFCAQuery",
       resourceId: requestId,
-      actorId: requestingUser?.name || "system",
+      actorId: getUserId(req),
       actorRole: "tefca_exchange",
       timestamp: new Date().toISOString(),
       details: { purpose, patientName: `${patientDemographics.lastName}, ${patientDemographics.firstName}` },
@@ -2291,8 +2293,8 @@ router.post("/messaging/conversation/:conversationId/read", rateLimiter, (req: R
   try {
     const { conversationId } = req.params;
     const { userId } = req.body;
-    secureMessagingService.markAsRead(conversationId, userId || "patient-001");
-    logAudit("messages_marked_read", userId || "patient-001", "SecureMessaging", req);
+    secureMessagingService.markAsRead(conversationId, getUserId(req));
+    logAudit("messages_marked_read", getUserId(req), "SecureMessaging", req);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to mark as read" });

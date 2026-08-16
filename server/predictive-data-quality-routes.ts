@@ -3,7 +3,10 @@ import { z } from "zod";
 import { predictiveDataQualityAI } from "./services/predictive-data-quality-ai";
 import { createHash } from "crypto";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 const sanitizePhi = (text: string): string => {
   return text
@@ -232,7 +235,7 @@ router.patch("/predictions/:predictionId/acknowledge", async (req: Request, res:
 
     const updated = await predictiveDataQualityAI.acknowledgePrediction(
       predictionId,
-      acknowledgedBy || "system"
+      getUserId(req)
     );
 
     if (!updated) {
@@ -326,7 +329,7 @@ router.patch("/alerts/:alertId/acknowledge", async (req: Request, res: Response)
 
     const updated = await predictiveDataQualityAI.acknowledgeProactiveAlert(
       alertId,
-      acknowledgedBy || "system"
+      getUserId(req)
     );
 
     if (!updated) {
@@ -357,7 +360,7 @@ router.patch("/alerts/:alertId/resolve", async (req: Request, res: Response) => 
 
     const updated = await predictiveDataQualityAI.resolveProactiveAlert(
       alertId,
-      resolvedBy || "system",
+      getUserId(req),
       resolutionNotes
     );
 

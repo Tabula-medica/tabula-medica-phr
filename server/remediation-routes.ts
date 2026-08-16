@@ -3,7 +3,10 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { aiRemediationEngine } from "./services/ai-remediation-engine";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -46,7 +49,7 @@ function logHipaaAudit(
   req: Request,
   details: Record<string, unknown>
 ): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   const auditEntry = {
     timestamp: new Date().toISOString(),
     action,
@@ -195,7 +198,7 @@ router.post("/workflows", async (req: Request, res: Response) => {
 
 router.post("/workflows/:id/execute", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("EXECUTE_WORKFLOW", "workflow", req, { workflowId: req.params.id });
 
     const workflow = await aiRemediationEngine.executeWorkflow(req.params.id, userId);
@@ -213,7 +216,7 @@ router.post("/workflows/:id/execute", async (req: Request, res: Response) => {
 router.post("/workflows/:id/rollback", async (req: Request, res: Response) => {
   try {
     const { reason } = z.object({ reason: z.string().min(1).max(1000) }).parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ROLLBACK_WORKFLOW", "workflow", req, {
       workflowId: req.params.id,
@@ -263,7 +266,7 @@ router.get("/approvals/:id", async (req: Request, res: Response) => {
 router.post("/approvals/:id/decide", async (req: Request, res: Response) => {
   try {
     const { decision, notes, reason } = approvalDecisionSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     const approval = await aiRemediationEngine.getApprovalRequest(req.params.id);
     if (!approval) {

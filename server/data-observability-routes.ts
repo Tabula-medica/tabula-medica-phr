@@ -3,7 +3,10 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { aiDataObservabilityService } from "./services/ai-data-observability";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -46,7 +49,7 @@ function logHipaaAudit(
   req: Request,
   details: Record<string, unknown>
 ): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   const auditEntry = {
     timestamp: new Date().toISOString(),
     action,
@@ -320,7 +323,7 @@ router.get("/anomalies/:id", async (req: Request, res: Response) => {
 
 router.post("/anomalies/:id/acknowledge", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ACKNOWLEDGE_ANOMALY", "anomaly", req, { anomalyId: req.params.id });
 
     const anomaly = await aiDataObservabilityService.acknowledgeAnomaly(req.params.id, userId);
@@ -338,7 +341,7 @@ router.post("/anomalies/:id/acknowledge", async (req: Request, res: Response) =>
 router.post("/anomalies/:id/resolve", async (req: Request, res: Response) => {
   try {
     const { notes } = z.object({ notes: z.string().min(1).max(2000) }).parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("RESOLVE_ANOMALY", "anomaly", req, {
       anomalyId: req.params.id,
@@ -394,7 +397,7 @@ router.get("/alerts", async (req: Request, res: Response) => {
 
 router.post("/alerts/:id/acknowledge", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ACKNOWLEDGE_ALERT", "alert", req, { alertId: req.params.id });
 
     const alert = await aiDataObservabilityService.acknowledgeAlert(req.params.id, userId);
@@ -596,7 +599,7 @@ router.post("/schema/detect-drift", async (req: Request, res: Response) => {
 
 router.post("/schema/drift/:id/acknowledge", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ACKNOWLEDGE_SCHEMA_DRIFT", "schema", req, { driftId: req.params.id });
     const event = await aiDataObservabilityService.acknowledgeSchemaDrift(req.params.id, userId);
     if (!event) {
@@ -611,7 +614,7 @@ router.post("/schema/drift/:id/acknowledge", async (req: Request, res: Response)
 
 router.post("/schema/drift/:id/resolve", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("RESOLVE_SCHEMA_DRIFT", "schema", req, { driftId: req.params.id });
     const event = await aiDataObservabilityService.resolveSchemaDrift(req.params.id, userId);
     if (!event) {

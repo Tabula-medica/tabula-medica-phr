@@ -11,7 +11,10 @@ import {
   SuggestionStatus,
 } from "./services/ai-fhir-interoperability-hub";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return `hash_${id.slice(0, 4)}...${id.slice(-4)}`;
@@ -208,7 +211,7 @@ router.post("/mismatches/:id/acknowledge", async (req: Request, res: Response) =
       return res.status(400).json({ success: false, error: "Invalid mismatch ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("ACKNOWLEDGE_MISMATCH", { mismatchId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const mismatch = aiFhirInteroperabilityHub.acknowledgeMismatch(id, userId);
@@ -226,7 +229,7 @@ router.post("/mismatches/:id/resolve", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid mismatch ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("RESOLVE_MISMATCH", { mismatchId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const mismatch = aiFhirInteroperabilityHub.resolveMismatch(id, userId);
@@ -300,7 +303,7 @@ router.post("/suggestions/:id/apply", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid suggestion ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("APPLY_SUGGESTION", { suggestionId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const suggestion = aiFhirInteroperabilityHub.applySuggestion(id, userId);
@@ -318,7 +321,7 @@ router.post("/suggestions/:id/reject", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid suggestion ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("REJECT_SUGGESTION", { suggestionId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const suggestion = aiFhirInteroperabilityHub.rejectSuggestion(id, userId);
