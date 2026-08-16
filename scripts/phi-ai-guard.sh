@@ -59,4 +59,22 @@ if [ -n "$new_proxy" ]; then
   exit 1
 fi
 
-echo "PHI-AI guard: OK — no non-BAA AI endpoint URLs, no new non-BAA proxy refs."
+# Third check — RATCHET on direct `new OpenAI(...)` construction (the second
+# non-BAA population: OPENAI_API_KEY / bare clients). Like the proxy files these
+# route to Vertex via the build shim at runtime, but implicitly. The shim itself
+# constructs `new (RealOpenAI as any)(...)` (not `new OpenAI(`), so it is not
+# flagged. Grandfathered files are in the allowlist; no NEW file may construct an
+# OpenAI client — use server/services/ai-gateway.ts.
+new_client="$(grep -rlE "new OpenAI\(" server/ --include='*.ts' 2>/dev/null \
+  | grep -vE 'vertex-openai\.ts|\.test\.ts' \
+  | grep -vFf "$ALLOWLIST" \
+  || true)"
+if [ -n "$new_client" ]; then
+  echo "::error::PHI-AI GUARD FAILED — new file(s) construct a direct OpenAI client (new OpenAI(...))."
+  echo "$new_client"
+  echo ""
+  echo "PHI-bearing AI must go through server/services/ai-gateway.ts (Vertex/BAA)."
+  exit 1
+fi
+
+echo "PHI-AI guard: OK — no non-BAA AI endpoint URLs, no new non-BAA proxy/client refs."
