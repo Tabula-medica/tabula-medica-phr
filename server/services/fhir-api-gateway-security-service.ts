@@ -904,7 +904,7 @@ class FHIRAPIGatewaySecurityService {
           resolved: false
         };
 
-        if (pattern.aiEnhanced && this.openai) {
+        if (pattern.aiEnhanced && this.aiEnabled) {
           try {
             event.aiAnalysis = await this.getAIThreatAnalysis(pattern, matchingRequests);
           } catch (error) {
