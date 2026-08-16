@@ -13,8 +13,11 @@ import {
   generateSampleFHIRData,
   TerminologySystem
 } from "./services/ai-fhir-data-harmonization-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 router.get("/stats", async (_req: Request, res: Response) => {
   try {
@@ -141,8 +144,8 @@ router.post("/sessions/:sessionId/validate-mapping/:mappingId", async (req: Requ
   try {
     const { sessionId, mappingId } = req.params;
     const { validatedBy } = req.body;
-    
-    const success = validateConceptMapping(mappingId, sessionId, validatedBy || "system");
+
+    const success = validateConceptMapping(mappingId, sessionId, validatedBy || getUserId(req));
     
     if (!success) {
       return res.status(404).json({ error: "Session or mapping not found" });

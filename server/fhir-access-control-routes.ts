@@ -1,10 +1,11 @@
 import { Express } from "express";
 import { fhirAccessControlService } from "./services/fhir-access-control-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 export function registerFHIRAccessControlRoutes(app: Express): void {
   const BASE_PATH = "/api/fhir-access-control";
 
-  app.get(`${BASE_PATH}/policies`, async (req, res) => {
+  app.get(`${BASE_PATH}/policies`, requireUser, async (req, res) => {
     try {
       const policies = await fhirAccessControlService.getPolicies();
       res.json({ policies });
@@ -14,7 +15,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/policies/:policyId`, async (req, res) => {
+  app.get(`${BASE_PATH}/policies/:policyId`, requireUser, async (req, res) => {
     try {
       const policy = await fhirAccessControlService.getPolicy(req.params.policyId);
       if (!policy) {
@@ -27,7 +28,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/policies`, async (req, res) => {
+  app.post(`${BASE_PATH}/policies`, requireUser, async (req, res) => {
     try {
       const policy = await fhirAccessControlService.createPolicy(req.body);
       res.status(201).json(policy);
@@ -37,7 +38,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.patch(`${BASE_PATH}/policies/:policyId`, async (req, res) => {
+  app.patch(`${BASE_PATH}/policies/:policyId`, requireUser, async (req, res) => {
     try {
       const policy = await fhirAccessControlService.updatePolicy(req.params.policyId, req.body);
       if (!policy) {
@@ -50,7 +51,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.delete(`${BASE_PATH}/policies/:policyId`, async (req, res) => {
+  app.delete(`${BASE_PATH}/policies/:policyId`, requireUser, async (req, res) => {
     try {
       const deleted = await fhirAccessControlService.deletePolicy(req.params.policyId);
       if (!deleted) {
@@ -63,7 +64,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/roles`, async (req, res) => {
+  app.get(`${BASE_PATH}/roles`, requireUser, async (req, res) => {
     try {
       const roles = await fhirAccessControlService.getRoles();
       res.json({ roles });
@@ -73,7 +74,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/roles/:role`, async (req, res) => {
+  app.get(`${BASE_PATH}/roles/:role`, requireUser, async (req, res) => {
     try {
       const role = await fhirAccessControlService.getRole(req.params.role as any);
       if (!role) {
@@ -86,7 +87,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/smart-scopes`, async (req, res) => {
+  app.get(`${BASE_PATH}/smart-scopes`, requireUser, async (req, res) => {
     try {
       const scopes = await fhirAccessControlService.getSMARTScopes();
       res.json({ scopes });
@@ -96,7 +97,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/evaluate`, async (req, res) => {
+  app.post(`${BASE_PATH}/evaluate`, requireUser, async (req, res) => {
     try {
       const { userId, userRole, appId, appScopes, resourceType, resourceId, action, patientContext, requestContext } = req.body;
       
@@ -122,7 +123,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/consents`, async (req, res) => {
+  app.get(`${BASE_PATH}/consents`, requireUser, async (req, res) => {
     try {
       const { patientId } = req.query;
       let consents;
@@ -138,7 +139,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/consents/:consentId`, async (req, res) => {
+  app.get(`${BASE_PATH}/consents/:consentId`, requireUser, async (req, res) => {
     try {
       const consent = await fhirAccessControlService.getConsent(req.params.consentId);
       if (!consent) {
@@ -151,7 +152,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/consents`, async (req, res) => {
+  app.post(`${BASE_PATH}/consents`, requireUser, async (req, res) => {
     try {
       const { request, decision } = req.body;
       if (!request || !decision) {
@@ -165,9 +166,9 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/consents/:consentId/revoke`, async (req, res) => {
+  app.post(`${BASE_PATH}/consents/:consentId/revoke`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const consent = await fhirAccessControlService.revokeConsent(req.params.consentId, userId);
       if (!consent) {
         return res.status(404).json({ error: "Consent not found" });
@@ -179,7 +180,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.patch(`${BASE_PATH}/consents/:consentId/permissions`, async (req, res) => {
+  app.patch(`${BASE_PATH}/consents/:consentId/permissions`, requireUser, async (req, res) => {
     try {
       const { resourcePermissions } = req.body;
       if (!resourcePermissions) {
@@ -196,7 +197,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/access-log`, async (req, res) => {
+  app.get(`${BASE_PATH}/access-log`, requireUser, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
       const log = await fhirAccessControlService.getAccessLog(limit);
@@ -207,7 +208,7 @@ export function registerFHIRAccessControlRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/stats`, async (req, res) => {
+  app.get(`${BASE_PATH}/stats`, requireUser, async (req, res) => {
     try {
       const stats = await fhirAccessControlService.getAccessStats();
       res.json(stats);

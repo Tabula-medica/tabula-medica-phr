@@ -1,7 +1,10 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
+import { requireUser } from "../middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 router.get("/access-patterns", async (req: Request, res: Response) => {
   try {

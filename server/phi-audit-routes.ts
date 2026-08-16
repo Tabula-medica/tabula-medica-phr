@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { z } from "zod";
 import crypto from "crypto";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const auditQuerySchema = z.object({
   action: z.string().optional(),
@@ -40,10 +41,9 @@ function computeIntegrityHash(log: Record<string, unknown>): string {
 }
 
 export function registerPhiAuditRoutes(app: Express): void {
-  app.get("/api/audit/logs", async (req: Request, res: Response) => {
+  app.get("/api/audit/logs", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
 
       const parsed = auditQuerySchema.safeParse(req.query);
       if (!parsed.success) {
@@ -115,7 +115,7 @@ export function registerPhiAuditRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/audit/logs/stats", async (req: Request, res: Response) => {
+  app.get("/api/audit/logs/stats", requireUser, async (req: Request, res: Response) => {
     try {
       const allLogs = await storage.getAllSecurityAuditLogs({ limit: 10000 });
 
@@ -158,10 +158,9 @@ export function registerPhiAuditRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/audit/logs/export", async (req: Request, res: Response) => {
+  app.post("/api/audit/logs/export", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
 
       const { format, filters } = req.body;
       const allLogs = await storage.getAllSecurityAuditLogs({
