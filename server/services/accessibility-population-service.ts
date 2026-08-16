@@ -1,11 +1,6 @@
 import crypto from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type { SupportedLanguage } from "./unified-ai-onboarding-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -400,19 +395,13 @@ export async function generateSimplifiedContent(
       ? "Rewrite this for a 6th-grade reading level. Use very simple words and short sentences. Avoid all medical jargon."
       : "Rewrite this for a high school reading level. Explain any medical terms used.";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { 
-          role: "system", 
-          content: `${levelInstruction} Keep the same meaning but make it easier to understand. NEVER provide medical advice.` 
-        },
-        { role: "user", content },
-      ],
-      max_completion_tokens: 500,
+    const result = await generatePhiSafeText({
+      system: `${levelInstruction} Keep the same meaning but make it easier to understand. NEVER provide medical advice.`,
+      user: content,
+      maxTokens: 500,
     });
 
-    return response.choices[0]?.message?.content || content;
+    return result || content;
   } catch (error) {
     console.error("[AccessibilityPopulation] Simplify content error:", error);
     return content;

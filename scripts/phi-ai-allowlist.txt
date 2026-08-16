@@ -1,45 +1,32 @@
 # scripts/phi-ai-allowlist.txt
 # P1-1 migration backlog: files that still reference the non-BAA Replit OpenAI
-# proxy (AI_INTEGRATIONS_OPENAI_*). They are grandfathered so the guard is a
-# RATCHET — no NEW file may add the proxy. Remove a line here as its file is
-# migrated to server/services/ai-gateway.ts (Vertex/BAA). Goal: empty file.
-# NOTE: at runtime these already route to Vertex via the vertex-openai build
-# shim when AI_PROVIDER=vertex (default); migration makes that explicit.
-# The gateway + shim themselves are always allowed:
+# proxy (AI_INTEGRATIONS_OPENAI_*). Grandfathered RATCHET — no NEW file may add
+# it. Remove a line as its file migrates to server/services/ai-gateway.ts.
+# NOTE: these already route to Vertex via the vertex-openai build shim
+# (AI_PROVIDER=vertex default); migration makes it explicit. Goal: empty.
 server/services/ai-gateway.ts
 server/lib/vertex-openai.ts
 server/lib/baa-chat.ts
 server/utils/openai-client.ts
 server/admin-workflow-routes.ts
-server/advanced-visualization-routes.ts
 server/ai-document-categorization.ts
 server/ai-document-intelligence-routes.ts
 server/ai-medication-service.ts
 server/ai-note-assistant-routes.ts
-server/ai-provider-search-service.ts
-server/ai-safety-analysis-routes.ts
 server/ai-timeline-assistant-routes.ts
 server/appointment-assistant-service.ts
-server/care-plan-service.ts
 server/care-team-collaboration-routes.ts
 server/caregiver-coordination.ts
 server/caregiver-mode-service.ts
 server/clinical-decision-support-service.ts
 server/clinical-documentation-routes.ts
 server/comprehensive-onboarding-routes.ts
-server/content-recommendations.ts
-server/differential-diagnosis-service.ts
 server/document-summarization-routes.ts
 server/document-summary-service.ts
-server/document-tagging-service.ts
-server/eli12-service.ts
 server/enhanced-document-management.ts
 server/entity-extraction-service.ts
-server/explain-anything-service.ts
 server/health-coach-service.ts
-server/health-insights-service.ts
 server/health-insights.ts
-server/health-story-routes.ts
 server/health-visualization-service.ts
 server/index.ts
 server/infrastructure-routes.ts
@@ -48,34 +35,24 @@ server/lib/baa-chat.ts
 server/medical-assistant.ts
 server/medical-autocomplete-service.ts
 server/medication-ai.ts
-server/medication-management-routes.ts
 server/monitoring-routes.ts
 server/onboarding.ts
 server/patient-chatbot-routes.ts
 server/patient-health-analytics-routes.ts
-server/patient-health-record-routes.ts
 server/patient-onboarding-wizard-routes.ts
 server/personalized-content-routes.ts
-server/personalized-education-routes.ts
-server/pharmacy-ai.ts
-server/predictive-health.ts
 server/replit_integrations/audio/client.ts
 server/replit_integrations/chat/routes.ts
 server/replit_integrations/image/client.ts
 server/routes.ts
 server/routes/ai-evidence-advisor-routes.ts
 server/routes/card-ocr-routes.ts
-server/routes/dental-integration-routes.ts
-server/routes/drug-savings-routes.ts
 server/routes/insurance-learning-routes.ts
-server/services/accessibility-population-service.ts
 server/services/adherenceCoaching.ts
-server/services/advanced-reporting-analytics-service.ts
 server/services/ai-adaptive-onboarding-service.ts
 server/services/ai-admin-operations-service.ts
 server/services/ai-audit-engine.ts
 server/services/ai-audit-log-analyzer.ts
-server/services/ai-audit-log-enrichment-service.ts
 server/services/ai-automated-documentation-service.ts
 server/services/ai-care-monitoring-service.ts
 server/services/ai-case-review-service.ts
@@ -83,14 +60,10 @@ server/services/ai-chart-explanation-service.ts
 server/services/ai-chart-insights-service.ts
 server/services/ai-chronic-disease-management.ts
 server/services/ai-clinical-documentation.ts
-server/services/ai-clinical-note-summarization.ts
 server/services/ai-communication-analytics-service.ts
-server/services/ai-compliance-monitoring.ts
-server/services/ai-conflict-resolution-service.ts
 server/services/ai-data-governance-service.ts
 server/services/ai-data-observability.ts
 server/services/ai-deep-fhir-analytics-service.ts
-server/services/ai-document-extraction.ts
 server/services/ai-document-generation-service.ts
 server/services/ai-fhir-advanced-standardization.ts
 server/services/ai-fhir-analytics-service.ts
@@ -99,7 +72,6 @@ server/services/ai-fhir-api-integration-service.ts
 server/services/ai-fhir-custom-validation-service.ts
 server/services/ai-fhir-data-exchange-service.ts
 server/services/ai-fhir-data-harmonization-service.ts
-server/services/ai-fhir-data-ingestion-service.ts
 server/services/ai-fhir-data-integration.ts
 server/services/ai-fhir-data-lake-analytics-service.ts
 server/services/ai-fhir-data-monetization-service.ts
@@ -107,25 +79,19 @@ server/services/ai-fhir-data-quality-engine.ts
 server/services/ai-fhir-data-standardization.ts
 server/services/ai-fhir-data-summarization-service.ts
 server/services/ai-fhir-governance-quality-control-service.ts
-server/services/ai-fhir-harmonization-engine.ts
 server/services/ai-fhir-insights-engine-service.ts
-server/services/ai-fhir-insights-service.ts
 server/services/ai-fhir-nl-search-service.ts
-server/services/ai-fhir-patient-validation-service.ts
 server/services/ai-fhir-profiling-engine.ts
 server/services/ai-fhir-report-automation-service.ts
 server/services/ai-fhir-resource-generator-service.ts
 server/services/ai-fhir-resource-management-service.ts
 server/services/ai-fhir-resource-mapper-service.ts
-server/services/ai-fhir-template-generator-service.ts
 server/services/ai-fhir-visualization-service.ts
 server/services/ai-fhir-workflow-builder-service.ts
-server/services/ai-fhir-workflow-orchestrator.ts
 server/services/ai-guided-recall-service.ts
 server/services/ai-harmonization-assistant.ts
 server/services/ai-health-assistant.ts
 server/services/ai-healthcare-analytics-service.ts
-server/services/ai-journey-summary-service.ts
 server/services/ai-medical-assistant.ts
 server/services/ai-medical-scribe-service.ts
 server/services/ai-onboarding-agent-service.ts

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "CRITICAL COMPLIANCE NOTICE: This AI-driven FHIR workflow automation is for DATA QUALITY, GOVERNANCE, and OPERATIONAL purposes ONLY. It does NOT provide clinical decision support, treatment recommendations, or medical advice. All outputs must be reviewed by qualified personnel.";
 
@@ -169,25 +169,18 @@ class AIFHIRWorkflowOrchestratorService {
   private workflows: Map<string, FHIRWorkflowDefinition> = new Map();
   private executions: Map<string, FHIRWorkflowExecution> = new Map();
   private templates: Map<string, WorkflowTemplate> = new Map();
-  private openai: OpenAI | null = null;
+  private aiEnabled: boolean = false;
 
   constructor() {
-    this.initializeOpenAI();
+    this.initializeAI();
     this.initializeTemplates();
     this.initializeSampleWorkflows();
   }
 
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    if (apiKey) {
-      this.openai = new OpenAI({
-        apiKey,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
-      });
-      console.log("[AIFHIRWorkflowOrchestrator] OpenAI client initialized");
-    } else {
-      console.log("[AIFHIRWorkflowOrchestrator] OpenAI API key not configured, using fallback");
-    }
+  private initializeAI(): void {
+    // AI analysis runs through the PHI-safe Vertex (BAA) gateway.
+    this.aiEnabled = true;
+    console.log("[AIFHIRWorkflowOrchestrator] PHI-safe AI gateway initialized");
   }
 
   private generateId(prefix: string): string {
@@ -861,24 +854,14 @@ class AIFHIRWorkflowOrchestratorService {
   }
 
   private async generateAIAnalysis(stepType: string, metrics: StepExecutionResult["metrics"]): Promise<StepExecutionResult["aiAnalysis"]> {
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a data quality analyst providing brief insights about FHIR data processing. ${NO_CDS_DISCLAIMER}`
-            },
-            {
-              role: "user",
-              content: `Generate a brief analysis for a ${stepType} step that processed ${metrics?.recordsProcessed || 0} records with quality score ${metrics?.qualityScore?.toFixed(1) || "N/A"}. Provide: 1) A one-sentence summary, 2) Two key insights, 3) One recommendation.`
-            }
-          ],
-          max_tokens: 200
-        });
+        const content = await generatePhiSafeText({
+          system: `You are a data quality analyst providing brief insights about FHIR data processing. ${NO_CDS_DISCLAIMER}`,
+          user: `Generate a brief analysis for a ${stepType} step that processed ${metrics?.recordsProcessed || 0} records with quality score ${metrics?.qualityScore?.toFixed(1) || "N/A"}. Provide: 1) A one-sentence summary, 2) Two key insights, 3) One recommendation.`,
+          maxTokens: 200,
+        }) || "";
 
-        const content = response.choices[0]?.message?.content || "";
         return {
           summary: `Successfully processed ${metrics?.recordsProcessed || 0} records`,
           insights: ["High processing efficiency achieved", "Data quality meets standards"],
