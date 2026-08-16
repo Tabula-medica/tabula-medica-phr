@@ -174,7 +174,8 @@ class DatabaseDedupService {
                 action,
               });
 
-              console.log(`[DatabaseDedup] ${action}: ${record.firstName} ${record.lastName} <-> ${candidate.firstName} ${candidate.lastName} (${score}%)`);
+              // PHI-safe: log record ids only, never patient names.
+              console.log(`[DatabaseDedup] ${action}: ${record.id} <-> ${candidate.id} (${score}%)`);
             }
           }
         } catch (err: any) {
