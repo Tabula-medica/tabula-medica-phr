@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "EDUCATIONAL CONTENT ONLY. This AI-generated analysis is for informational and educational purposes ONLY. It does NOT constitute medical advice, diagnosis, or clinical decision support. All clinical decisions must be made by qualified healthcare providers based on their professional judgment, direct patient assessment, and complete medical history. This tool is designed to assist with research and education, not to replace clinical expertise.";
 
@@ -364,12 +359,8 @@ class AICaseReviewService {
     try {
       const analysisPrompt = this.buildAnalysisPrompt(caseReview.anonymizedData);
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI medical research assistant helping healthcare providers analyze anonymized case data for educational purposes. You provide potential differential diagnoses, treatment options based on current evidence, and relevant clinical trial information.
+      const completionText = await generatePhiSafeText({
+        system: `You are an AI medical research assistant helping healthcare providers analyze anonymized case data for educational purposes. You provide potential differential diagnoses, treatment options based on current evidence, and relevant clinical trial information.
 
 CRITICAL: Your output is for EDUCATIONAL AND RESEARCH PURPOSES ONLY. It does NOT constitute medical advice or clinical decision support. All clinical decisions must be made by qualified healthcare providers.
 
@@ -383,17 +374,12 @@ Respond in JSON format with the following structure:
   "urgencyAssessment": "routine"|"urgent"|"emergent",
   "specialtyConsultRecommendations": string[]
 }`,
-          },
-          {
-            role: "user",
-            content: analysisPrompt,
-          },
-        ],
-        response_format: { type: "json_object" },
+        user: analysisPrompt,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      const result = JSON.parse(completionText || "{}");
 
       caseReview.potentialDiagnoses = (result.potentialDiagnoses || []).map((d: any, i: number) => ({
         id: `diag-${caseId}-${i}`,
@@ -577,12 +563,8 @@ Provide potential diagnoses, treatment options, and recommendations for this cas
         .map(m => `[${m.senderName} - ${m.senderRole}]: ${m.content}`)
         .join("\n\n");
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping to summarize multi-provider medical discussions for care coordination. Provide a concise summary, key points, and action items. Focus on clinical decisions and recommendations.
+      const completionText = await generatePhiSafeText({
+        system: `You are an AI assistant helping to summarize multi-provider medical discussions for care coordination. Provide a concise summary, key points, and action items. Focus on clinical decisions and recommendations.
 
 Respond in JSON format:
 {
@@ -592,17 +574,12 @@ Respond in JSON format:
 }
 
 IMPORTANT: This is for care coordination only, not clinical decision support.`,
-          },
-          {
-            role: "user",
-            content: `Summarize this multi-provider discussion:\n\n${messagesText}`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        user: `Summarize this multi-provider discussion:\n\n${messagesText}`,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      const result = JSON.parse(completionText || "{}");
 
       return {
         summary: result.summary || "Summary unavailable",

@@ -1,72 +1,32 @@
-# scripts/phi-ai-allowlist.txt
-# P1-1 migration backlog: files still referencing the non-BAA Replit OpenAI
-# proxy (AI_INTEGRATIONS_OPENAI_*). Grandfathered RATCHET — no NEW file may add
-# it. Remove a line as its file migrates to server/services/ai-gateway.ts.
-# These already route to Vertex via the vertex-openai build shim (default);
-# migration makes it explicit. Goal: empty.
+# scripts/phi-ai-allowlist.txt — P1-1 migration backlog (non-BAA AI_INTEGRATIONS_OPENAI proxy).
+# Grandfathered RATCHET; migrate to server/services/ai-gateway.ts to drain. Goal: empty.
 server/services/ai-gateway.ts
 server/lib/vertex-openai.ts
 server/lib/baa-chat.ts
 server/utils/openai-client.ts
-server/admin-workflow-routes.ts
 server/ai-document-categorization.ts
-server/ai-document-intelligence-routes.ts
-server/ai-medication-service.ts
 server/ai-note-assistant-routes.ts
-server/ai-timeline-assistant-routes.ts
 server/appointment-assistant-service.ts
-server/care-team-collaboration-routes.ts
-server/caregiver-coordination.ts
 server/caregiver-mode-service.ts
-server/clinical-decision-support-service.ts
 server/clinical-documentation-routes.ts
-server/comprehensive-onboarding-routes.ts
-server/document-summarization-routes.ts
 server/document-summary-service.ts
-server/enhanced-document-management.ts
 server/entity-extraction-service.ts
 server/health-coach-service.ts
-server/health-insights.ts
 server/health-visualization-service.ts
 server/index.ts
-server/infrastructure-routes.ts
 server/integrations-debug-routes.ts
 server/lib/baa-chat.ts
 server/medical-assistant.ts
-server/medical-autocomplete-service.ts
-server/medication-ai.ts
 server/monitoring-routes.ts
-server/onboarding.ts
 server/patient-chatbot-routes.ts
-server/patient-health-analytics-routes.ts
-server/patient-onboarding-wizard-routes.ts
-server/personalized-content-routes.ts
 server/replit_integrations/audio/client.ts
 server/replit_integrations/chat/routes.ts
 server/replit_integrations/image/client.ts
 server/routes.ts
-server/routes/ai-evidence-advisor-routes.ts
 server/routes/card-ocr-routes.ts
-server/routes/insurance-learning-routes.ts
-server/services/adherenceCoaching.ts
-server/services/ai-adaptive-onboarding-service.ts
-server/services/ai-admin-operations-service.ts
-server/services/ai-audit-engine.ts
-server/services/ai-audit-log-analyzer.ts
 server/services/ai-automated-documentation-service.ts
-server/services/ai-care-monitoring-service.ts
-server/services/ai-case-review-service.ts
-server/services/ai-chart-explanation-service.ts
-server/services/ai-chart-insights-service.ts
-server/services/ai-chronic-disease-management.ts
 server/services/ai-clinical-documentation.ts
-server/services/ai-communication-analytics-service.ts
-server/services/ai-data-governance-service.ts
-server/services/ai-data-observability.ts
-server/services/ai-deep-fhir-analytics-service.ts
 server/services/ai-document-generation-service.ts
-server/services/ai-fhir-advanced-standardization.ts
-server/services/ai-fhir-analytics-service.ts
 server/services/ai-fhir-api-gateway.ts
 server/services/ai-fhir-api-integration-service.ts
 server/services/ai-fhir-custom-validation-service.ts

@@ -3280,12 +3280,7 @@ router.get("/provider-admin/audit-log", (req: Request, res: Response) => {
 
 // ========== Provider Medication Adherence Routes ==========
 import { medicationAdherenceService } from "./services/medication-adherence-service";
-import OpenAI from "openai";
-
-const adherenceOpenai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 const adherenceAiCache = new Map<string, { data: string; timestamp: number }>();
 const AI_CACHE_TTL = 5 * 60 * 1000;
@@ -3452,17 +3447,12 @@ ${flagsText}
 
 Provide an observational summary of this patient's medication adherence patterns.`;
 
-    const response = await adherenceOpenai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 800,
+    const insight = (await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: 800,
       temperature: 0.3,
-    });
-
-    const insight = response.choices[0]?.message?.content || "Unable to generate adherence insight at this time.";
+    })) || "Unable to generate adherence insight at this time.";
 
     adherenceAiCache.set(cacheKey, { data: insight, timestamp: Date.now() });
 
@@ -3673,18 +3663,6 @@ ${intakeHistory.map(i => `  ${i.submittedAt} via ${i.source} - Sections: ${i.sec
 `
       : "";
 
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined;
-
-    if (!apiKey) {
-      const fallbackSummary = generateFallbackSummary(patient, intakeHistory, flags, completedOnboarding);
-      patientSummaryCache.set(patientId, { summary: fallbackSummary, generatedAt: new Date().toISOString(), expiresAt: Date.now() + 300000 });
-      logAuditEntry({ action: "PROVIDER_GENERATE_AI_PATIENT_SUMMARY_FALLBACK", resourceType: "AIPatientSummary", resourceId: patientId, actorId: "provider", actorRole: "provider", timestamp: new Date().toISOString(), details: { method: "fallback" }, outcome: "success", ipAddress: req.ip || "unknown" });
-      return res.json({ summary: fallbackSummary, generatedAt: new Date().toISOString(), cached: false });
-    }
-
-    const openaiClient = new OpenAI({ apiKey, baseURL });
-
     const systemPrompt = `You are a clinical data summarization assistant generating concise patient record summaries for healthcare providers.
 
 CRITICAL NO-CDS COMPLIANCE REQUIREMENTS:
@@ -3725,17 +3703,12 @@ PATIENT RECORD (from provider system):
 ${onboardingContext}${labContext}${vitalContext}${intakeContext}
 ${flags.length > 0 ? `CLINICAL FLAGS: ${flags.join("; ")}` : ""}`;
 
-    const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 1200,
+    const summary = (await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: 1200,
       temperature: 0.3,
-    });
-
-    const summary = completion.choices[0]?.message?.content || "Unable to generate summary.";
+    })) || "Unable to generate summary.";
     const generatedAt = new Date().toISOString();
 
     patientSummaryCache.set(patientId, { summary, generatedAt, expiresAt: Date.now() + 300000 });
