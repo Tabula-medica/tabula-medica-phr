@@ -1,12 +1,7 @@
-import OpenAI from "openai";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { storage } from "./storage";
 import type { DedupRecordType, ConflictSeverity, DedupConflictType } from "@shared/schema";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 export interface SourceRecord {
   sourceId: string;
@@ -159,18 +154,14 @@ Respond with JSON:
 If records in a group have different dosages/values/reactions, set hasConflict=true and describe the discrepancy in conflictDetails.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+    // P1-1.2: PHI-bearing record matching runs through the Vertex/BAA gateway.
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
-      max_tokens: 1500,
+      maxTokens: 1500,
     });
-
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No response from AI");
 
     const parsed = JSON.parse(content);

@@ -28,7 +28,6 @@ server/clinical-decision-support-service.ts
 server/clinical-documentation-routes.ts
 server/comprehensive-onboarding-routes.ts
 server/content-recommendations.ts
-server/dedup-service.ts
 server/differential-diagnosis-service.ts
 server/document-summarization-routes.ts
 server/document-summary-service.ts
