@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useUpload } from "@/hooks/use-upload";
 import { ClinicalDisclaimer } from "@/components/clinical-disclaimer";
+import { AcpStateRules } from "@/components/acp-state-rules";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -787,6 +788,10 @@ export default function AdvanceDirectives() {
               </Button>
             </CardFooter>
           </Card>
+          {/* State-aware execution rules + printable signable/unsigned directive (shared ACP engine) */}
+          <div className="mt-4">
+            <AcpStateRules directive={directive} goals={goals} />
+          </div>
         </TabsContent>
 
         <TabsContent value="goalsOfCare" className="space-y-4">
