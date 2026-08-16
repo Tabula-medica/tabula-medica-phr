@@ -1,6 +1,5 @@
-# scripts/phi-ai-allowlist.txt — P1-1 migration backlog (non-BAA AI clients).
-# TWO grandfathered populations RATCHETED by phi-ai-guard.sh: (1) AI_INTEGRATIONS_OPENAI_* proxy;
-# (2) direct new OpenAI({apiKey:OPENAI_API_KEY})/bare. Migrate to ai-gateway.ts to drain. Goal: empty.
+# scripts/phi-ai-allowlist.txt — P1-1 migration backlog (non-BAA AI clients). TWO populations
+# RATCHETED: (1) AI_INTEGRATIONS_OPENAI_* proxy; (2) direct new OpenAI(). Migrate to ai-gateway.ts. Goal: empty.
 server/services/ai-gateway.ts
 server/lib/vertex-openai.ts
 server/lib/baa-chat.ts
@@ -31,51 +30,18 @@ server/services/ai-automated-documentation-service.ts
 server/services/ai-clinical-documentation.ts
 server/services/ai-document-generation-service.ts
 server/services/ai-fhir-data-quality-engine.ts
-server/services/ai-fhir-transformation.ts
 server/services/ai-gateway.ts
 server/services/ai-harmonization-assistant.ts
 server/services/ai-health-assistant.ts
-server/services/ai-health-summary-service.ts
-server/services/ai-healthcare-workflow-automation.ts
-server/services/ai-imaging-diagnostic-service.ts
-server/services/ai-incident-response.ts
-server/services/ai-medical-record-review-service.ts
 server/services/ai-onboarding-assistant.ts
 server/services/ai-onboarding-service.ts
-server/services/ai-patient-360.ts
-server/services/ai-patient-cohort-builder.ts
-server/services/ai-patient-education-hub.ts
-server/services/ai-patient-journey-explorer.ts
-server/services/ai-patient-summary-service.ts
 server/services/ai-policy-chatbot.ts
-server/services/ai-policy-drafting.ts
-server/services/ai-policy-enforcement.ts
-server/services/ai-policy-lifecycle.ts
-server/services/ai-predictive-compliance.ts
-server/services/ai-proactive-data-quality.ts
 server/services/ai-proactive-patient-engagement-chatbot-service.ts
-server/services/ai-profile-insights-service.ts
-server/services/ai-provider-workflow-service.ts
 server/services/ai-provider.ts
-server/services/ai-risk-stratification-service.ts
-server/services/ai-security-posture.ts
-server/services/ai-threat-intelligence.ts
-server/services/aiCareCoordinationService.ts
-server/services/aiCarePlanAutomation.ts
-server/services/aiCarePlanDraftService.ts
 server/services/aiCommunication.ts
-server/services/aiPatientCommunicationService.ts
 server/services/aiPatientEngagement.ts
-server/services/aiPatientInsightsService.ts
-server/services/aiPatientRiskStratification.ts
 server/services/aiProgressFeedbackService.ts
 server/services/analytics-customization.ts
-server/services/analytics-dashboard.ts
-server/services/care-pathway-service.ts
-server/services/careTeamOutreachService.ts
-server/services/claims-analysis.ts
-server/services/clinical-summary-translation.ts
-server/services/collaborativeCarePlan.ts
 server/services/document-ocr-service.ts
 server/services/dual-mode-ecosystem-service.ts
 server/services/educationRecommendationService.ts

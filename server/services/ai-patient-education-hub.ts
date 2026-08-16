@@ -1,9 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 export type ContentCategory = "condition" | "medication" | "treatment" | "lifestyle" | "prevention" | "nutrition" | "mental_health" | "emergency";
 export type ContentFormat = "article" | "video" | "tutorial" | "quiz" | "infographic" | "interactive";
@@ -315,8 +313,8 @@ export class AIPatientEducationHubService {
     category?: ContentCategory
   ): Promise<PersonalizedContent> {
     const profile = await this.getOrCreatePatientProfile(patientId);
-    
-    if (openai) {
+
+    if (aiEnabled) {
       return this.generateAIPersonalizedContent(profile, topic, category);
     }
     return this.generateRuleBasedContent(profile, topic, category);
@@ -340,12 +338,9 @@ ${category ? `- Category: ${category}` : ""}
 `;
 
     try {
-      const response = await openai!.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a patient education specialist. Create personalized health education content based on the patient's profile.
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        system: `You are a patient education specialist. Create personalized health education content based on the patient's profile.
 
 Return JSON with:
 {
@@ -372,15 +367,12 @@ Guidelines:
 - Be encouraging and supportive
 - Focus on practical, actionable information
 - NEVER provide medical advice or recommendations - only educational information
-- Always include a disclaimer that this is educational only`
-          },
-          { role: "user", content: contextPrompt }
-        ],
-        response_format: { type: "json_object" }
+- Always include a disclaimer that this is educational only`,
+        user: contextPrompt
       });
 
-      const parsed = JSON.parse(response.choices[0].message.content || "{}");
-      
+      const parsed = JSON.parse(responseText || "{}");
+
       const content: PersonalizedContent = {
         id: generateId("content"),
         patientId: profile.patientId,
@@ -521,7 +513,7 @@ Guidelines:
       m.name.toLowerCase() === medicationName.toLowerCase()
     ) || profile.medications[0];
 
-    if (openai) {
+    if (aiEnabled) {
       return this.generateAIMedicationTutorial(profile, medication);
     }
     return this.generateRuleBasedMedicationTutorial(profile, medication);
@@ -532,12 +524,9 @@ Guidelines:
     medication: MedicationInfo
   ): Promise<MedicationAdherenceTutorial> {
     try {
-      const response = await openai!.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `Create an interactive medication adherence tutorial. Return JSON with:
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        system: `Create an interactive medication adherence tutorial. Return JSON with:
 {
   "title": "Tutorial title",
   "description": "Brief description",
@@ -553,18 +542,12 @@ Guidelines:
   "sideEffectManagement": ["advice1", "advice2"]
 }
 
-IMPORTANT: This is EDUCATIONAL only. Never provide medical advice. Focus on practical tips for remembering and taking medication correctly.`
-          },
-          {
-            role: "user",
-            content: `Create tutorial for: ${medication.name} (${medication.dosage}), ${medication.frequency}. Purpose: ${medication.purpose}. Patient conditions: ${profile.conditions.join(", ")}.`
-          }
-        ],
-        response_format: { type: "json_object" }
+IMPORTANT: This is EDUCATIONAL only. Never provide medical advice. Focus on practical tips for remembering and taking medication correctly.`,
+        user: `Create tutorial for: ${medication.name} (${medication.dosage}), ${medication.frequency}. Purpose: ${medication.purpose}. Patient conditions: ${profile.conditions.join(", ")}.`
       });
 
-      const parsed = JSON.parse(response.choices[0].message.content || "{}");
-      
+      const parsed = JSON.parse(responseText || "{}");
+
       const tutorial: MedicationAdherenceTutorial = {
         id: generateId("med-tutorial"),
         patientId: profile.patientId,
@@ -713,7 +696,7 @@ IMPORTANT: This is EDUCATIONAL only. Never provide medical advice. Focus on prac
       return this.generateGenericTreatmentTutorial(profile);
     }
 
-    if (openai) {
+    if (aiEnabled) {
       return this.generateAITreatmentTutorial(profile, treatmentPlan);
     }
     return this.generateRuleBasedTreatmentTutorial(profile, treatmentPlan);
@@ -724,12 +707,9 @@ IMPORTANT: This is EDUCATIONAL only. Never provide medical advice. Focus on prac
     treatmentPlan: TreatmentPlanInfo
   ): Promise<TreatmentPlanTutorial> {
     try {
-      const response = await openai!.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `Create an educational tutorial explaining a treatment plan. Return JSON with:
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        system: `Create an educational tutorial explaining a treatment plan. Return JSON with:
 {
   "title": "Tutorial title",
   "description": "Brief description",
@@ -760,18 +740,12 @@ IMPORTANT: This is EDUCATIONAL only. Never provide medical advice. Focus on prac
   "timelineExplanation": "Overall timeline"
 }
 
-IMPORTANT: Educational only. Never provide medical advice.`
-          },
-          {
-            role: "user",
-            content: `Treatment Plan: ${treatmentPlan.name} for ${treatmentPlan.condition}. Goals: ${treatmentPlan.goals.join(", ")}. Patient conditions: ${profile.conditions.join(", ")}.`
-          }
-        ],
-        response_format: { type: "json_object" }
+IMPORTANT: Educational only. Never provide medical advice.`,
+        user: `Treatment Plan: ${treatmentPlan.name} for ${treatmentPlan.condition}. Goals: ${treatmentPlan.goals.join(", ")}. Patient conditions: ${profile.conditions.join(", ")}.`
       });
 
-      const parsed = JSON.parse(response.choices[0].message.content || "{}");
-      
+      const parsed = JSON.parse(responseText || "{}");
+
       const tutorial: TreatmentPlanTutorial = {
         id: generateId("treatment-tutorial"),
         patientId: profile.patientId,
@@ -958,7 +932,7 @@ IMPORTANT: Educational only. Never provide medical advice.`
   async generateContentRecommendations(patientId: string): Promise<ContentRecommendation[]> {
     const profile = await this.getOrCreatePatientProfile(patientId);
 
-    if (openai) {
+    if (aiEnabled) {
       return this.generateAIRecommendations(profile);
     }
     return this.generateRuleBasedRecommendations(profile);
@@ -966,12 +940,9 @@ IMPORTANT: Educational only. Never provide medical advice.`
 
   private async generateAIRecommendations(profile: PatientEducationProfile): Promise<ContentRecommendation[]> {
     try {
-      const response = await openai!.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `Generate personalized health education content recommendations. Return JSON array:
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        system: `Generate personalized health education content recommendations. Return JSON array:
 [{
   "title": "Content title",
   "summary": "Brief summary",
@@ -984,17 +955,11 @@ IMPORTANT: Educational only. Never provide medical advice.`
   "priority": "high|medium|low"
 }]
 
-Generate 5-8 recommendations. Educational content only - no medical advice.`
-          },
-          {
-            role: "user",
-            content: `Patient: Conditions: ${profile.conditions.join(", ")}. Medications: ${profile.medications.map(m => m.name).join(", ")}. Interests: ${profile.interests.join(", ")}. Risk factors: ${profile.riskFactors.join(", ")}. Completed: ${profile.completedModules.length} modules.`
-          }
-        ],
-        response_format: { type: "json_object" }
+Generate 5-8 recommendations. Educational content only - no medical advice.`,
+        user: `Patient: Conditions: ${profile.conditions.join(", ")}. Medications: ${profile.medications.map(m => m.name).join(", ")}. Interests: ${profile.interests.join(", ")}. Risk factors: ${profile.riskFactors.join(", ")}. Completed: ${profile.completedModules.length} modules.`
       });
 
-      const parsed = JSON.parse(response.choices[0].message.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
       const items = Array.isArray(parsed) ? parsed : (parsed.recommendations || []);
       
       const recs: ContentRecommendation[] = items.map((r: any) => ({

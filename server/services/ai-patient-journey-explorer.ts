@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import {
@@ -10,8 +9,9 @@ import {
   RiskLevel,
   PatternType,
 } from "./ai-clinical-workflow-automation";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_JOURNEY_PROMPT = `You are an AI-powered Patient Journey Explorer assistant. Your role is to:
 1. Analyze patient pathway patterns for operational visualization
@@ -591,7 +591,7 @@ function initializeSamplePathways(): void {
 class AIPatientJourneyExplorer {
   constructor() {
     initializeSamplePathways();
-    console.log("[AIPatientJourneyExplorer] OpenAI client", openai ? "configured" : "not configured");
+    console.log("[AIPatientJourneyExplorer] AI gateway", aiEnabled ? "configured" : "not configured");
     console.log("[AIPatientJourneyExplorer] Service initialized");
   }
 
@@ -791,7 +791,7 @@ class AIPatientJourneyExplorer {
 
     let aiPatterns: Array<{ type: string; description: string; frequency: number; averageDuration: number; operationalInsight: string }> = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const nodesSummary = pathway.nodes.map(n => ({
           type: n.type,
@@ -801,13 +801,11 @@ class AIPatientJourneyExplorer {
           isDelayed: n.status === "delayed",
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_JOURNEY_PROMPT },
-            {
-              role: "user",
-              content: `Analyze temporal patterns in this patient journey for OPERATIONAL insights only.
+        const content = await generatePhiSafeText({
+          system: NO_CDS_JOURNEY_PROMPT,
+          temperature: 0.7,
+          maxTokens: 800,
+          user: `Analyze temporal patterns in this patient journey for OPERATIONAL insights only.
 
 Journey Summary:
 - Total nodes: ${pathway.nodes.length}
@@ -825,13 +823,8 @@ Identify 2-3 temporal patterns. For each provide:
 5. operationalInsight (workflow improvement suggestion)
 
 Format as JSON array. NO clinical recommendations.`,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 800,
-        });
+        }) || "";
 
-        const content = response.choices[0]?.message?.content || "";
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           aiPatterns = JSON.parse(jsonMatch[0]);
@@ -904,15 +897,13 @@ Format as JSON array. NO clinical recommendations.`,
     let recommendations: string[] = [];
     let confidence = 75;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_JOURNEY_PROMPT },
-            {
-              role: "user",
-              content: `Patient Journey Analysis Query: "${query}"
+        const content = await generatePhiSafeText({
+          system: NO_CDS_JOURNEY_PROMPT,
+          temperature: 0.7,
+          maxTokens: 600,
+          user: `Patient Journey Analysis Query: "${query}"
 
 Journey Context:
 - Current Phase: ${pathway.currentPhase}
@@ -930,13 +921,8 @@ Provide OPERATIONAL analysis answering the query. Include:
 3. confidence: Confidence score 0-100
 
 Format as JSON object. NO clinical recommendations.`,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 600,
-        });
+        }) || "";
 
-        const content = response.choices[0]?.message?.content || "";
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);

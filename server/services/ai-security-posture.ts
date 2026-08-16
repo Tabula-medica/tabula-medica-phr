@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import crypto from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 export type RiskLevel = "critical" | "high" | "medium" | "low" | "informational";
 export type RemediationStatus = "pending" | "in_progress" | "completed" | "failed" | "skipped";
@@ -595,25 +595,16 @@ class AISecurityPostureService {
   async generateThreatPrediction(): Promise<ThreatIntelligence> {
     let threatData: Partial<ThreatIntelligence>;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare cybersecurity threat analyst. Generate realistic predictive threat intelligence for healthcare FHIR systems. Focus on infrastructure/security threats, NOT clinical recommendations. Return JSON with: threatName, category (one of: zero_day, known_vulnerability, configuration_drift, access_anomaly, data_exfiltration, malware, insider_threat), severity (critical/high/medium/low), description, indicators (array of {type, value, confidence, context}), predictedLikelihood (0-1), predictedImpact (0-1), timeToExploit, affectedSystems, mitigationRecommendations.`
-            },
-            {
-              role: "user",
-              content: "Generate a predictive threat intelligence report for a healthcare organization's FHIR infrastructure, focusing on emerging attack vectors."
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1000
+        const content = await generatePhiSafeText({
+          system: `You are a healthcare cybersecurity threat analyst. Generate realistic predictive threat intelligence for healthcare FHIR systems. Focus on infrastructure/security threats, NOT clinical recommendations. Return JSON with: threatName, category (one of: zero_day, known_vulnerability, configuration_drift, access_anomaly, data_exfiltration, malware, insider_threat), severity (critical/high/medium/low), description, indicators (array of {type, value, confidence, context}), predictedLikelihood (0-1), predictedImpact (0-1), timeToExploit, affectedSystems, mitigationRecommendations.`,
+          user: "Generate a predictive threat intelligence report for a healthcare organization's FHIR infrastructure, focusing on emerging attack vectors.",
+          responseMimeType: "application/json",
+          maxTokens: 1000
         });
 
-        const parsed = JSON.parse(response.choices[0].message.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         threatData = {
           threatName: parsed.threatName || "Emerging Healthcare Threat",
           category: parsed.category || "zero_day",

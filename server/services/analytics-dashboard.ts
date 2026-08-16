@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -301,11 +299,11 @@ function generateUserEngagementMetrics(): UserEngagementMetrics {
 }
 
 async function generateAIInsights(dashboard: Partial<AnalyticsDashboard>): Promise<string[]> {
-  if (!openai) {
-    console.log("[AnalyticsDashboard] OpenAI not configured, using default insights");
+  if (!aiEnabled) {
+    console.log("[AnalyticsDashboard] AI disabled, using default insights");
     return getDefaultInsights(dashboard);
   }
-  
+
   try {
     const prompt = `Analyze these healthcare workflow KPIs and provide 5 brief operational insights (NOT clinical recommendations):
 
@@ -317,19 +315,13 @@ Engagement: ${dashboard.engagement?.dailyActiveUsers || 0} daily active users, $
 
 Provide 5 brief insights about operational efficiency, data quality, or system health. Each insight should be 1 sentence. NO clinical advice.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare operations analyst. Provide brief operational insights only. NO clinical recommendations. Focus on workflow efficiency, data quality, and system performance."
-        },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 400
+    const text = await generatePhiSafeText({
+      system: "You are a healthcare operations analyst. Provide brief operational insights only. NO clinical recommendations. Focus on workflow efficiency, data quality, and system performance.",
+      user: prompt,
+      maxTokens: 400,
     });
 
-    const insights = response.choices[0]?.message?.content?.split("\n")
+    const insights = text.split("\n")
       .filter(line => line.trim().length > 10)
       .slice(0, 5) || [];
 

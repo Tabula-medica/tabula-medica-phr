@@ -1,10 +1,8 @@
-import OpenAI from "openai";
 import { createHash, randomUUID } from "crypto";
 import { getAuditLogger } from "./integrations/factory";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_POLICY_LIFECYCLE_PROMPT = `You are a healthcare data governance policy lifecycle analyst specializing in regulatory compliance and policy management.
 
@@ -621,7 +619,7 @@ class AIPolicyLifecycleService {
       }
     }
 
-    if (openai && newConflicts.length > 0) {
+    if (aiEnabled && newConflicts.length > 0) {
       for (const conflict of newConflicts) {
         try {
           const aiAnalysis = await this.getAIConflictRecommendation(conflict);
@@ -701,7 +699,7 @@ class AIPolicyLifecycleService {
   }
 
   private async getAIConflictRecommendation(conflict: PolicyConflict): Promise<{ recommendation: string; impact: string }> {
-    if (!openai) {
+    if (!aiEnabled) {
       return {
         recommendation: conflict.aiRecommendation,
         impact: conflict.impactAssessment,
@@ -709,13 +707,9 @@ class AIPolicyLifecycleService {
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_POLICY_LIFECYCLE_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this policy conflict and provide recommendations:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_POLICY_LIFECYCLE_PROMPT,
+        user: `Analyze this policy conflict and provide recommendations:
 
 Conflict Type: ${conflict.conflictType}
 Severity: ${conflict.severity}
@@ -728,14 +722,11 @@ Provide:
 2. An impact assessment if left unresolved (1-2 sentences)
 
 Format as JSON: {"recommendation": "...", "impact": "..."}`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 500,
+        maxTokens: 500,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
       return {
         recommendation: parsed.recommendation || conflict.aiRecommendation,
         impact: parsed.impact || conflict.impactAssessment,
@@ -1213,15 +1204,11 @@ Format as JSON: {"recommendation": "...", "impact": "..."}`,
     let riskConsiderations: string[];
     let aiRationale: string;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: AI_POLICY_DRAFT_PROMPT },
-            {
-              role: "user",
-              content: `Draft a ${request.type} policy with the following requirements:
+        const content = await generatePhiSafeText({
+          system: AI_POLICY_DRAFT_PROMPT,
+          user: `Draft a ${request.type} policy with the following requirements:
 Name: ${request.name}
 Description: ${request.description}
 Regulatory Frameworks: ${request.regulatoryFrameworks.join(", ")}
@@ -1236,14 +1223,11 @@ Provide response as JSON with structure:
   "complianceNotes": ["..."],
   "riskConsiderations": ["..."],
   "rationale": "..."
-}`
-            }
-          ],
+}`,
           temperature: 0.7,
-          max_tokens: 1500,
+          maxTokens: 1500,
         });
 
-        const content = response.choices[0]?.message?.content || "";
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -1399,15 +1383,11 @@ Provide response as JSON with structure:
       let impactAnalysis: string;
       let implementationSteps: string[];
 
-      if (openai) {
+      if (aiEnabled) {
         try {
-          const response = await openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-              { role: "system", content: AI_AMENDMENT_PROMPT },
-              {
-                role: "user",
-                content: `Suggest amendments for policy "${policy.name}" based on this regulatory change:
+          const content = await generatePhiSafeText({
+            system: AI_AMENDMENT_PROMPT,
+            user: `Suggest amendments for policy "${policy.name}" based on this regulatory change:
 Regulation: ${regChange.regulation}
 Change: ${regChange.description}
 Impact Level: ${regChange.impactLevel}
@@ -1419,14 +1399,11 @@ Provide response as JSON:
   "rationale": "...",
   "impactAnalysis": "...",
   "implementationSteps": ["..."]
-}`
-              }
-            ],
+}`,
             temperature: 0.7,
-            max_tokens: 1000,
+            maxTokens: 1000,
           });
 
-          const content = response.choices[0]?.message?.content || "";
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);

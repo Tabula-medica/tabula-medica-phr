@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: This information is for care coordination and operational efficiency purposes only. It does not constitute clinical decision support and should not replace clinical judgment. All clinical decisions must be made by qualified healthcare professionals.";
 
@@ -452,9 +445,7 @@ export async function getIntelligentAssignment(
   
   const workloadTracker = new Map<string, number>();
   members.forEach(m => workloadTracker.set(m.id, m.currentWorkload));
-  
-  const client = getOpenAIClient();
-  
+
   for (const item of alertsOrTasks) {
     const isAlert = 'type' in item && ['critical', 'high', 'medium', 'low'].includes(item.type as string);
     const requiredSkills = item.requiredSkills || [];
@@ -474,18 +465,11 @@ export async function getIntelligentAssignment(
     const topMember = scoredMembers[0];
     let reasoning = "";
     
-    if (client && scoredMembers.length > 0) {
+    if (aiEnabled && scoredMembers.length > 0) {
       try {
-        const response = await client.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a care coordination AI assistant. Provide a brief (2-3 sentence) explanation for why a care team member is the best choice for an assignment. Focus on role fit, skills match, and workload balance. Do not provide clinical advice.`,
-            },
-            {
-              role: "user",
-              content: `Task/Alert: "${item.title}" - ${item.description}
+        reasoning = await generatePhiSafeText({
+          system: `You are a care coordination AI assistant. Provide a brief (2-3 sentence) explanation for why a care team member is the best choice for an assignment. Focus on role fit, skills match, and workload balance. Do not provide clinical advice.`,
+          user: `Task/Alert: "${item.title}" - ${item.description}
 Required skills: ${requiredSkills.join(", ") || "None specified"}
 Required roles: ${requiredRoles.join(", ") || "Any"}
 Recommended member: ${topMember.member.name} (${topMember.member.role})
@@ -494,14 +478,11 @@ Member workload: ${topMember.currentLoad}%
 Score: ${topMember.score.toFixed(1)}
 
 Explain briefly why this assignment makes sense.`,
-            },
-          ],
-          max_tokens: 150,
+          maxTokens: 150,
           temperature: 0.3,
         });
-        reasoning = response.choices[0]?.message?.content || "";
       } catch (error) {
-        console.error("[AICareCoordination] OpenAI error:", error);
+        console.error("[AICareCoordination] AI gateway error:", error);
       }
     }
     
@@ -546,8 +527,7 @@ export async function predictNoShows(
 ): Promise<NoShowPrediction[]> {
   const histories = patientHistories || samplePatientHistory;
   const predictions: NoShowPrediction[] = [];
-  const client = getOpenAIClient();
-  
+
   for (const appointment of appointments) {
     logHipaaAudit("AI_NOSHOW_PREDICTION", appointment.patientId, `Analyzing no-show risk for appointment ${appointment.id}`);
     
@@ -701,18 +681,11 @@ export async function predictNoShows(
     }
     
     let aiInsights = "";
-    if (client && riskLevel !== "low") {
+    if (aiEnabled && riskLevel !== "low") {
       try {
-        const response = await client.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare operations AI assistant. Provide a brief (2-3 sentences) operational insight about appointment no-show risk and intervention strategies. Focus on practical operational suggestions. Do not provide clinical or medical advice.`,
-            },
-            {
-              role: "user",
-              content: `Patient appointment risk analysis:
+        aiInsights = await generatePhiSafeText({
+          system: `You are a healthcare operations AI assistant. Provide a brief (2-3 sentences) operational insight about appointment no-show risk and intervention strategies. Focus on practical operational suggestions. Do not provide clinical or medical advice.`,
+          user: `Patient appointment risk analysis:
 Risk level: ${riskLevel}
 Risk score: ${riskScore}
 Key risk factors: ${riskFactors.map(f => f.factor).join(", ")}
@@ -720,14 +693,11 @@ Appointment type: ${appointment.appointmentType}
 ${history ? `Historical no-shows: ${history.noShowCount} of ${history.totalAppointments}` : "No history available"}
 
 Provide a brief operational insight.`,
-            },
-          ],
-          max_tokens: 150,
+          maxTokens: 150,
           temperature: 0.3,
         });
-        aiInsights = response.choices[0]?.message?.content || "";
       } catch (error) {
-        console.error("[AICareCoordination] OpenAI error:", error);
+        console.error("[AICareCoordination] AI gateway error:", error);
       }
     }
     
@@ -760,8 +730,7 @@ export async function generateCareGapReport(
 ): Promise<CareGapReport> {
   const gaps = careGaps || sampleCareGaps;
   const progress = patientProgress || samplePatientProgress;
-  const client = getOpenAIClient();
-  
+
   logHipaaAudit("AI_CARE_GAP_REPORT", teamId, "Generating comprehensive care gap report");
   
   const now = new Date();
@@ -819,18 +788,11 @@ export async function generateCareGapReport(
   
   const aiRecommendations: CareGapReport["aiRecommendations"] = [];
   
-  if (client) {
+  if (aiEnabled) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare operations AI assistant. Generate 3-4 actionable recommendations for improving care gap closure and patient progress. Focus on operational efficiency, team coordination, and resource allocation. Do not provide clinical recommendations.`,
-          },
-          {
-            role: "user",
-            content: `Care Gap Report Summary:
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare operations AI assistant. Generate 3-4 actionable recommendations for improving care gap closure and patient progress. Focus on operational efficiency, team coordination, and resource allocation. Do not provide clinical recommendations.`,
+        user: `Care Gap Report Summary:
 - Total patients: ${uniquePatients.size}
 - Total gaps: ${gaps.length}
 - Critical gaps: ${criticalGaps.length}
@@ -842,13 +804,10 @@ export async function generateCareGapReport(
 
 Generate actionable operational recommendations in JSON format:
 [{"recommendation": "...", "priority": "high|medium|low", "expectedImpact": "...", "resourcesNeeded": "..."}]`,
-          },
-        ],
-        max_tokens: 500,
+        maxTokens: 500,
         temperature: 0.4,
       });
-      
-      const content = response.choices[0]?.message?.content || "";
+
       try {
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
@@ -859,7 +818,7 @@ Generate actionable operational recommendations in JSON format:
         console.error("[AICareCoordination] Failed to parse AI recommendations:", e);
       }
     } catch (error) {
-      console.error("[AICareCoordination] OpenAI error:", error);
+      console.error("[AICareCoordination] AI gateway error:", error);
     }
   }
   
