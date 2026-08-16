@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 let openaiClient: OpenAI | null = null;
@@ -393,15 +394,10 @@ Respond helpfully to the patient's message.`
     let actionItems: string[] = [];
     let aiPersonalizationNote = '';
     
-    const openai = getOpenAI();
-    if (openai) {
+    {
       try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a patient education content generator. Create personalized, easy-to-understand health education content.
+        const completionText = await generatePhiSafeText({
+          system: `You are a patient education content generator. Create personalized, easy-to-understand health education content.
 
 IMPORTANT:
 1. Adjust language complexity based on health literacy level: ${healthLiteracyLevel}
@@ -418,22 +414,17 @@ Generate educational content in JSON format with:
   "keyTakeaways": ["Key point 1", "Key point 2", "Key point 3"],
   "actionItems": ["Action 1", "Action 2"],
   "personalizationNote": "Brief note on how this was personalized"
-}`
-            },
-            {
-              role: 'user',
-              content: `Create personalized education for a patient with:
+}`,
+          user: `Create personalized education for a patient with:
 - Conditions: ${conditions.join(', ') || 'General wellness'}
 - Medications: ${medications.join(', ') || 'None specified'}
 - Treatment plan: ${treatmentPlan || 'General health maintenance'}
-- Health literacy: ${healthLiteracyLevel}`
-            }
-          ],
-          max_completion_tokens: 1000,
-          response_format: { type: 'json_object' }
+- Health literacy: ${healthLiteracyLevel}`,
+          maxTokens: 1000,
+          responseMimeType: 'application/json'
         });
-        
-        const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+
+        const parsed = JSON.parse(completionText || '{}');
         content = parsed.content || '';
         summary = parsed.summary || '';
         keyTakeaways = parsed.keyTakeaways || [];
@@ -554,15 +545,10 @@ Remember, your healthcare team is your partner in health. Don't hesitate to reac
     let message = '';
     let aiGeneratedContent = '';
     
-    const openai = getOpenAI();
-    if (openai) {
+    {
       try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a healthcare communication specialist. Generate warm, professional follow-up messages for patients.
+        const completionText = await generatePhiSafeText({
+          system: `You are a healthcare communication specialist. Generate warm, professional follow-up messages for patients.
 
 Guidelines:
 1. Be empathetic and patient-centered
@@ -576,18 +562,13 @@ Generate in JSON format:
   "subject": "Brief, clear subject line",
   "message": "Complete message body",
   "aiNote": "Brief note on personalization approach"
-}`
-            },
-            {
-              role: 'user',
-              content: `Generate a ${type} follow-up for patient ${patientName}. Context: ${JSON.stringify(context || {})}`
-            }
-          ],
-          max_completion_tokens: 500,
-          response_format: { type: 'json_object' }
+}`,
+          user: `Generate a ${type} follow-up for patient ${patientName}. Context: ${JSON.stringify(context || {})}`,
+          maxTokens: 500,
+          responseMimeType: 'application/json'
         });
-        
-        const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+
+        const parsed = JSON.parse(completionText || '{}');
         subject = parsed.subject || '';
         message = parsed.message || '';
         aiGeneratedContent = parsed.aiNote || '';
@@ -724,15 +705,10 @@ Generate in JSON format:
     feedback.status = 'completed';
     feedback.completedAt = new Date().toISOString();
     
-    const openai = getOpenAI();
-    if (openai && responses.length > 0) {
+    if (responses.length > 0) {
       try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `Analyze patient feedback and provide insights. Return JSON:
+        const completionText = await generatePhiSafeText({
+          system: `Analyze patient feedback and provide insights. Return JSON:
 {
   "overallSentiment": "positive|neutral|negative",
   "keyThemes": ["theme1", "theme2"],
@@ -740,18 +716,13 @@ Generate in JSON format:
   "commendations": ["praise1"],
   "followUpRecommended": true/false,
   "aiInsights": "Brief summary of findings"
-}`
-            },
-            {
-              role: 'user',
-              content: `Analyze this feedback: ${JSON.stringify(responses)}`
-            }
-          ],
-          max_completion_tokens: 500,
-          response_format: { type: 'json_object' }
+}`,
+          user: `Analyze this feedback: ${JSON.stringify(responses)}`,
+          maxTokens: 500,
+          responseMimeType: 'application/json'
         });
-        
-        feedback.aiSentimentAnalysis = JSON.parse(completion.choices[0]?.message?.content || '{}');
+
+        feedback.aiSentimentAnalysis = JSON.parse(completionText || '{}');
       } catch (error) {
         console.log('[FeedbackService] OpenAI error:', error);
         feedback.aiSentimentAnalysis = {

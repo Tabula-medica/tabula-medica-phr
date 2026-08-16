@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export type ProfileStatus = "draft" | "active" | "retired" | "deprecated";
 export type DeviationType = "missing_element" | "cardinality_violation" | "type_mismatch" | "value_set_violation" | "constraint_violation" | "extension_required" | "slicing_issue";
@@ -201,24 +201,13 @@ const US_CORE_EXTENSIONS = [
 class AIFHIRProfilingEngine {
   private profiles: Map<string, FHIRProfile> = new Map();
   private analyses: Map<string, PatternAnalysis> = new Map();
-  private openai: OpenAI | null = null;
+  // PHI-bearing LLM calls now run through the Vertex/BAA gateway; AI enhancement
+  // is always available, with rule-based analysis as a resilient fallback on error.
+  private aiEnabled = true;
 
   constructor() {
-    this.initializeOpenAI();
     this.seedSampleProfiles();
-    console.log("[AIFHIRProfilingEngine] Service initialized");
-  }
-
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey && baseURL) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      console.log("[AIFHIRProfilingEngine] OpenAI client configured");
-    } else {
-      console.log("[AIFHIRProfilingEngine] OpenAI not configured, using rule-based analysis");
-    }
+    console.log("[AIFHIRProfilingEngine] Service initialized (Vertex/BAA AI enhancement)");
   }
 
   private seedSampleProfiles(): void {
@@ -420,7 +409,7 @@ class AIFHIRProfilingEngine {
       }
     }
 
-    if (this.openai && patterns.length > 0) {
+    if (this.aiEnabled && patterns.length > 0) {
       try {
         const enhancedPatterns = await this.enhancePatternsWithAI(resourceType, patterns, resources.slice(0, 5));
         return enhancedPatterns;
@@ -751,7 +740,7 @@ class AIFHIRProfilingEngine {
       }
     }
 
-    if (this.openai && (patterns.length > 0 || deviations.length > 0)) {
+    if (this.aiEnabled && (patterns.length > 0 || deviations.length > 0)) {
       try {
         const aiSuggestions = await this.generateAISuggestions(resourceType, patterns, deviations, resources.slice(0, 3));
         suggestions.push(...aiSuggestions);
@@ -829,7 +818,7 @@ class AIFHIRProfilingEngine {
     patterns: DetectedPattern[],
     sampleResources: Array<Record<string, unknown>>
   ): Promise<DetectedPattern[]> {
-    if (!this.openai) return patterns;
+    if (!this.aiEnabled) return patterns;
 
     const prompt = `Analyze these FHIR ${resourceType} resource patterns and enhance the descriptions.
 DO NOT provide any clinical advice or medical recommendations.
@@ -850,17 +839,14 @@ Respond in JSON format:
 { "enhancedPatterns": [{ "id": "pattern-id", "refinedDescription": "...", "harmonizationBenefit": "...", "suggestedAction": "..." }] }`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a FHIR profiling expert. Analyze data patterns and suggest profile improvements. Never provide clinical advice." },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a FHIR profiling expert. Analyze data patterns and suggest profile improvements. Never provide clinical advice.",
+        user: prompt,
         temperature: 0.3,
-        max_tokens: 1000,
+        maxTokens: 1000,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         if (parsed.enhancedPatterns) {
@@ -886,7 +872,7 @@ Respond in JSON format:
     deviations: ProfileDeviation[],
     sampleResources: Array<Record<string, unknown>>
   ): Promise<ProfileSuggestion[]> {
-    if (!this.openai) return [];
+    if (!this.aiEnabled) return [];
 
     const prompt = `Based on the FHIR ${resourceType} analysis, suggest custom profiles or extensions.
 DO NOT provide any clinical advice or medical recommendations.
@@ -915,17 +901,14 @@ Response format:
 }`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a FHIR profiling expert. Suggest practical profile improvements. Never provide clinical advice." },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a FHIR profiling expert. Suggest practical profile improvements. Never provide clinical advice.",
+        user: prompt,
         temperature: 0.4,
-        max_tokens: 800,
+        maxTokens: 800,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         if (parsed.extension) {

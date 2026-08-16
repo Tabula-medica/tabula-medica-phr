@@ -1,11 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY 
-  ? new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    })
-  : null;
+// PHI-bearing LLM mapping now runs through the Vertex/BAA gateway; AI is always
+// available, with rule-based fallback mapping produced on error.
+const aiEnabled = true;
 
 interface MappingRule {
   id: string;
@@ -206,25 +203,16 @@ export class AIFHIRResourceMapperService {
     let aiSuggestions: string[] = [];
     let issues: MappingIssue[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: `You are an expert FHIR data mapper. Convert the given healthcare resource to ${targetFormat} format following FHIR R4 specification. Return valid JSON only.`
-            },
-            {
-              role: "user",
-              content: `Convert this resource to ${targetFormat}:\n${JSON.stringify(sourceResource, null, 2)}\n\nReturn a JSON object with: { "mappedResource": {...}, "issues": [...], "suggestions": [...] }`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096
+        const content = await generatePhiSafeText({
+          system: `You are an expert FHIR data mapper. Convert the given healthcare resource to ${targetFormat} format following FHIR R4 specification. Return valid JSON only.`,
+          user: `Convert this resource to ${targetFormat}:\n${JSON.stringify(sourceResource, null, 2)}\n\nReturn a JSON object with: { "mappedResource": {...}, "issues": [...], "suggestions": [...] }`,
+          responseMimeType: "application/json",
+          maxTokens: 4096,
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         mappedResource = parsed.mappedResource || this.fallbackMapping(sourceResource, targetFormat);
         issues = parsed.issues || [];
         aiSuggestions = parsed.suggestions || [];
@@ -286,25 +274,16 @@ export class AIFHIRResourceMapperService {
     let rule: MappingRule;
     let explanation: string = "";
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert in healthcare data interoperability. Generate field mappings from source schema to FHIR R4 format."
-            },
-            {
-              role: "user",
-              content: `Generate a mapping rule to convert this schema to ${targetFormat}:\n${JSON.stringify(sourceSchema, null, 2)}\n\nReturn JSON: { "fieldMappings": [...], "transformations": [...], "explanation": "..." }`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096
+        const content = await generatePhiSafeText({
+          system: "You are an expert in healthcare data interoperability. Generate field mappings from source schema to FHIR R4 format.",
+          user: `Generate a mapping rule to convert this schema to ${targetFormat}:\n${JSON.stringify(sourceSchema, null, 2)}\n\nReturn JSON: { "fieldMappings": [...], "transformations": [...], "explanation": "..." }`,
+          responseMimeType: "application/json",
+          maxTokens: 4096,
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         rule = {
           id: `rule-ai-${Date.now()}`,
           name: `AI-Generated: ${sourceSchema.name || 'Custom'} to ${targetFormat}`,

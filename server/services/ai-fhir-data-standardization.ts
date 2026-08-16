@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = `DISCLAIMER: This FHIR data standardization system is for DATA INTEROPERABILITY AND TECHNICAL PURPOSES ONLY. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals.`;
@@ -152,29 +152,16 @@ const UNIT_CONVERSIONS: Record<string, { target: string; factor: number }> = {
 };
 
 class AIFHIRDataStandardizationService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private requests: Map<string, FHIRStandardizationRequest> = new Map();
   private profiles: Map<string, HarmonizationProfile> = new Map();
   private commonElements: Map<string, CommonDataElement> = new Map();
 
   constructor() {
-    this.initializeOpenAI();
     this.initializeSampleProfiles();
     this.initializeCommonDataElements();
-    console.log("[AIFHIRStandardization] Service initialized with AI-powered harmonization");
+    console.log("[AIFHIRStandardization] Service initialized with AI-powered harmonization (Vertex/BAA gateway)");
     console.log("[AIFHIRStandardization] NO-CDS compliance enabled for all outputs");
-  }
-
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL: baseURL || undefined });
-      console.log("[AIFHIRStandardization] OpenAI client configured for intelligent mapping");
-    } else {
-      console.log("[AIFHIRStandardization] Using rule-based standardization (AI not configured)");
-    }
   }
 
   private initializeSampleProfiles(): void {
@@ -402,7 +389,7 @@ class AIFHIRDataStandardizationService {
       standardized = this.standardizeMedicationRequest(standardized, resourceIssues, fieldMappings, options);
     }
 
-    if (options.inferMissingFields && this.openai) {
+    if (options.inferMissingFields && this.aiEnabled) {
       standardized = await this.aiInferMissingFields(standardized, resourceIssues, userId);
     }
 
@@ -673,7 +660,7 @@ class AIFHIRDataStandardizationService {
   }
 
   private async aiInferMissingFields(resource: any, issues: StandardizationIssue[], userId: string): Promise<any> {
-    if (!this.openai) return resource;
+    if (!this.aiEnabled) return resource;
 
     const missingFields = issues.filter(i => i.category === "missing_field" && i.severity !== "info");
     if (missingFields.length === 0) return resource;
@@ -695,17 +682,13 @@ Missing fields: ${missingFields.map(f => f.field).join(", ")}
 For each missing field, suggest a reasonable default value based on the resource type and context.
 Return ONLY a JSON object with field paths as keys and suggested values. Do not provide clinical advice.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 500,
+      const content = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: prompt,
+        maxTokens: 500,
         temperature: 0.3
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         try {
           const suggestions = JSON.parse(content.replace(/```json\n?|\n?```/g, ""));
@@ -766,7 +749,7 @@ Return ONLY a JSON object with field paths as keys and suggested values. Do not 
       recommendations.push(`Map ${missingCodes.length} codes to standard terminologies (SNOMED-CT, LOINC, RxNorm)`);
     }
 
-    if (this.openai && resources.length > 0) {
+    if (this.aiEnabled && resources.length > 0) {
       try {
         logPhiAccess({
           userId,
@@ -786,17 +769,13 @@ Return ONLY a JSON object with field paths as keys and suggested values. Do not 
           }, {} as Record<string, number>)
         };
 
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-            { role: "user", content: `Based on this FHIR standardization summary, provide 3-5 technical recommendations for improving data interoperability. Focus on data quality, not clinical aspects.\n\nSummary: ${JSON.stringify(summary)}` }
-          ],
-          max_tokens: 300,
+        const content = await generatePhiSafeText({
+          system: NO_CDS_SYSTEM_PROMPT,
+          user: `Based on this FHIR standardization summary, provide 3-5 technical recommendations for improving data interoperability. Focus on data quality, not clinical aspects.\n\nSummary: ${JSON.stringify(summary)}`,
+          maxTokens: 300,
           temperature: 0.5
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const aiRecs = content.split(/\d+\.\s+/).filter(r => r.trim().length > 10).slice(0, 5);
           recommendations.push(...aiRecs.map(r => r.trim()));
