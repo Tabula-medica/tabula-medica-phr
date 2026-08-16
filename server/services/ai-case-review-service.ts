@@ -13,6 +13,7 @@ function logHIPAAAudit(action: string, details: Record<string, any>): void {
     timestamp: new Date().toISOString(),
     service: "AICaseReview",
     action,
+    // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: shared audit helper also logs provider-less automated events (ai_analysis_completed, discussion_summary_requested) that have no user
     userId: details.providerId || "system",
     caseId: details.caseId,
     details: {

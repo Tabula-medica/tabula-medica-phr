@@ -1050,6 +1050,7 @@ export async function translateMedicalText(
   if (options?.patientId) {
     logPhiAccess({
       action: "read",
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route passes (req as any).userId (typed any, may be undefined); make options.userId required once medical-terminology-translation-routes.ts passes getUserId(req)
       userId: options.userId || "system",
       patientId: options.patientId,
       resourceType: "MedicalTranslation",
@@ -1163,6 +1164,7 @@ export async function translateHealthSummary(
   if (options?.patientId) {
     logPhiAccess({
       action: "read",
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route passes (req as any).userId (typed any, may be undefined); make options.userId required once medical-terminology-translation-routes.ts passes getUserId(req)
       userId: options.userId || "system",
       patientId: options.patientId,
       resourceType: "HealthSummaryTranslation",

@@ -489,6 +489,7 @@ class AIPolicyLifecycleService {
       await auditLogger.log({
         action: `POLICY_LIFECYCLE_${action}`,
         resourceType: "PolicyLifecycle",
+        // eslint-disable-next-line tabulaAuth/no-fallback-identity -- not an identity fallback: this is resourceId (the policy being acted on), userId is a separate required param; "system" here means a policy-less lifecycle event
         resourceId: policyId || "system",
         userId,
         outcome: "success",

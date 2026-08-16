@@ -905,6 +905,7 @@ class FHIRSyncScheduler {
     conflict.status = "resolved";
     conflict.resolutionStrategy = strategy;
     conflict.resolvedData = resolvedData;
+    // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: automated scheduler sync (line ~736 this.resolveConflict) resolves conflicts with no user; request path passes a real userId
     conflict.resolvedBy = userId || "system";
     conflict.resolvedAt = new Date().toISOString();
     

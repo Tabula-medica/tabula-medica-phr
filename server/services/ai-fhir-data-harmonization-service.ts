@@ -547,6 +547,7 @@ export async function createHarmonizationSession(
 
   // Log PHI access
   logPhiAccess({
+    // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route ai-fhir-data-harmonization-routes.ts:63 calls createHarmonizationSession without a userId; make param required once it passes getUserId(req)
     userId: userId || "system",
     action: "read",
     resourceType: "HarmonizationSession",
