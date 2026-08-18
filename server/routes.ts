@@ -1193,8 +1193,21 @@ export async function registerRoutes(
       const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
       origin = `${proto}://${host}`;
     }
-    const redirectUri = `${origin}/api/fasten-connect/callback`;
-    console.log("[FastenConnect] Config requested - publicId present:", !!publicId, "redirectUri:", redirectUri);
+    // An explicit FASTEN_HEALTH_REDIRECT_URL wins over host-derived inference.
+    // The redirect URI MUST exactly match one registered in the Fasten Connect
+    // dashboard for this public_id; otherwise Fasten rejects the connection.
+    // The host inference above is Replit-era and breaks on Cloud Run (REPLIT_*
+    // unset -> falls back to x-forwarded-host, which can be the internal
+    // *.run.app URL), so pin it via env to avoid redirect-mismatch failures.
+    const redirectOverride = process.env.FASTEN_HEALTH_REDIRECT_URL?.trim();
+    const redirectUri = redirectOverride || `${origin}/api/fasten-connect/callback`;
+    console.log(
+      "[FastenConnect] Config requested - publicId present:",
+      !!publicId,
+      "redirectUri:",
+      redirectUri,
+      redirectOverride ? "(from FASTEN_HEALTH_REDIRECT_URL)" : "(derived from host)",
+    );
     res.json({ publicId, redirectUri });
   });
 
@@ -1246,6 +1259,59 @@ export async function registerRoutes(
 
     console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
     res.status(200).json({ received: true });
+  });
+
+  // Native-app handoff page. The iOS app opens this in the system browser
+  // (expo-web-browser) with ?redirect=<app deep link>. It renders the Fasten
+  // Stitch widget; on widget.complete it bounces back to the app's custom scheme
+  // with the org_connection_id, which the app then POSTs to
+  // /api/mobile/fasten/link (re-verified server-side). Only the app's own
+  // scheme is allowed as a redirect target to prevent open-redirect abuse.
+  app.get("/fasten-native", (req, res) => {
+    const ALLOWED_SCHEMES = ["tabulamedica://"];
+    const redirect = String(req.query.redirect || "");
+    if (!ALLOWED_SCHEMES.some((s) => redirect.startsWith(s))) {
+      return res.status(400).send("Invalid redirect target.");
+    }
+    const publicId =
+      process.env.FASTEN_HEALTH_CLIENT_ID ||
+      "public_live_8ccv8p175drs4hw1o7g60120ogh36zp4tama0qd4epdn5";
+    // redirect is scheme-validated above; JSON-encode for safe JS embedding.
+    const redirectJs = JSON.stringify(redirect);
+    const publicIdAttr = publicId.replace(/"/g, "&quot;");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect your records</title>
+<link rel="stylesheet" href="https://cdn.fastenhealth.com/connect/v4/fasten-stitch-element.css">
+<script type="module" src="https://cdn.fastenhealth.com/connect/v4/fasten-stitch-element.js"></script>
+<style>body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f8fafc}#wrap{max-width:640px;margin:0 auto;padding:16px}</style>
+</head><body><div id="wrap"><div id="host"></div></div>
+<script>
+  (function () {
+    var REDIRECT = ${redirectJs};
+    function bounce(params) {
+      var sep = REDIRECT.indexOf('?') === -1 ? '?' : '&';
+      window.location.href = REDIRECT + sep + params;
+    }
+    var el = document.createElement('fasten-stitch-element');
+    el.setAttribute('public-id', "${publicIdAttr}");
+    document.getElementById('host').appendChild(el);
+    el.addEventListener('eventBus', function (event) {
+      try {
+        var raw = event && event.detail ? event.detail.data : null;
+        var data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+        var id = data.org_connection_id || data.orgConnectionId;
+        if ((data.event_type === 'connection.complete' || data.connection_status === 'authorized') && id) {
+          bounce('org_connection_id=' + encodeURIComponent(id));
+        } else if (data.event_type === 'connection.error' || data.connection_status === 'failed') {
+          bounce('error=' + encodeURIComponent(data.error_message || 'connection_failed'));
+        }
+      } catch (e) { /* ignore unparseable events */ }
+    });
+  })();
+</script>
+</body></html>`);
   });
 
   // --- Fasten "bring your own identity" sign-in (server/auth/fasten.ts) -----
