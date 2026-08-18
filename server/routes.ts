@@ -1193,8 +1193,21 @@ export async function registerRoutes(
       const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
       origin = `${proto}://${host}`;
     }
-    const redirectUri = `${origin}/api/fasten-connect/callback`;
-    console.log("[FastenConnect] Config requested - publicId present:", !!publicId, "redirectUri:", redirectUri);
+    // An explicit FASTEN_HEALTH_REDIRECT_URL wins over host-derived inference.
+    // The redirect URI MUST exactly match one registered in the Fasten Connect
+    // dashboard for this public_id; otherwise Fasten rejects the connection.
+    // The host inference above is Replit-era and breaks on Cloud Run (REPLIT_*
+    // unset -> falls back to x-forwarded-host, which can be the internal
+    // *.run.app URL), so pin it via env to avoid redirect-mismatch failures.
+    const redirectOverride = process.env.FASTEN_HEALTH_REDIRECT_URL?.trim();
+    const redirectUri = redirectOverride || `${origin}/api/fasten-connect/callback`;
+    console.log(
+      "[FastenConnect] Config requested - publicId present:",
+      !!publicId,
+      "redirectUri:",
+      redirectUri,
+      redirectOverride ? "(from FASTEN_HEALTH_REDIRECT_URL)" : "(derived from host)",
+    );
     res.json({ publicId, redirectUri });
   });
 
