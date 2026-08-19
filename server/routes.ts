@@ -1245,6 +1245,21 @@ export async function registerRoutes(
     }
 
     console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
+
+    // A finished EHI export is what actually carries the patient's records:
+    // hand it to the import pipeline (fire-and-forget so Fasten always gets a
+    // prompt 200 and never retries because our import was slow).
+    import("./auth/fasten-export-parsing")
+      .then(({ isFastenExportSuccessEvent }) => {
+        if (!isFastenExportSuccessEvent(event)) return;
+        return import("./auth/fasten-import").then(({ processFastenExportEvent }) =>
+          processFastenExportEvent(event).then(() => undefined),
+        );
+      })
+      .catch((err) => {
+        console.error(`[FastenConnect] Export import dispatch error: ${err?.message}`);
+      });
+
     res.status(200).json({ received: true });
   });
 
