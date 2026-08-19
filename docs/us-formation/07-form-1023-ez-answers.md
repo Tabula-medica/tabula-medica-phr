@@ -47,7 +47,7 @@ attorney. Getting this wrong is the fastest route to a revoked exemption.
 
 | Field | Answer |
 |---|---|
-| 1. Full name of organization | **[[ORG_NAME]]** — exactly as on the Certificate of Incorporation and the EIN record |
+| 1. Full name of organization | **Kinbridge Global, Inc.** — exactly as on the Certificate of Incorporation and the EIN record |
 | 2. Care of name | Blank unless mail should go via a specific person |
 | 3–4. Mailing address | Your operating address. Real street address. This becomes public on the IRS Tax Exempt Organization Search. |
 | 5. Employer Identification Number | From `06` |
@@ -100,7 +100,7 @@ amend the certificate before proceeding.
 
 ### Suggested text for Part III.2
 
-> [[ORG_NAME]] produces and freely distributes children's literacy and storytelling content;
+> Kinbridge Global, Inc. produces and freely distributes children's literacy and storytelling content;
 > provides free tools that enable individuals to obtain and control their own medical
 > records; delivers direct community welfare assistance; and documents and openly licenses
 > at-risk languages and cultural heritage. All programs are provided free of charge to the

@@ -34,11 +34,11 @@ So they go in now, not later.
 ```
                     CERTIFICATE OF INCORPORATION
                                 OF
-                          [[ORG_NAME]]
+                          Kinbridge Global, Inc.
               A Delaware Non-Stock, Non-Profit Corporation
 
 
-FIRST:   The name of this corporation is [[ORG_NAME]].
+FIRST:   The name of this corporation is Kinbridge Global, Inc.
 
 SECOND:  The address of its registered office in the State of Delaware is
          ____________________________, in the City of ______________,

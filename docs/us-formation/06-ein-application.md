@@ -21,7 +21,7 @@ You do not need to file a paper Form SS-4 unless the responsible party has no SS
 | Who is the responsible party? | **Individual** — then their name and SSN/ITIN |
 | Is the responsible party a member/officer? | **Yes**, and select the role |
 | Where is the business physically located? | Your actual operating address — a real street address, not a PO box |
-| Legal name of entity | **[[ORG_NAME]]** — exactly as on the Certificate of Incorporation, including "Inc." if you used it |
+| Legal name of entity | **Kinbridge Global, Inc.** — exactly as on the Certificate of Incorporation, including "Inc." if you used it |
 | Trade name / DBA | Leave blank here. Register programme trade names separately (`01`). |
 | County and state where located | Your operating county and state |
 | State where the entity is incorporated | **Delaware** |

@@ -16,7 +16,7 @@ certificate, your 1023 and your website is a real audit flag.
 
 ## The purpose statement
 
-> **[[ORG_NAME]] is organized and operated exclusively for charitable and educational
+> **Kinbridge Global, Inc. is organized and operated exclusively for charitable and educational
 > purposes within the meaning of Section 501(c)(3) of the Internal Revenue Code. The
 > organization advances literacy, health-record access, community welfare, and the
 > preservation of language and culture in underserved communities, providing its programmes
@@ -34,7 +34,7 @@ sentence that pre-empts the commercial-purpose question before anyone asks it.
 
 For bios, footers, and the 1023-EZ mission field if it truncates:
 
-> **[[ORG_NAME]] builds free educational, health and cultural resources for underserved
+> **Kinbridge Global, Inc. builds free educational, health and cultural resources for underserved
 > communities.**
 
 ## NTEE code

@@ -13,12 +13,12 @@ organisation's programmes.
 ```
                       CONFLICT OF INTEREST POLICY
                                   OF
-                            [[ORG_NAME]]
+                            Kinbridge Global, Inc.
 
 
 ARTICLE I — PURPOSE
 
-The purpose of this policy is to protect the interests of [[ORG_NAME]] (the
+The purpose of this policy is to protect the interests of Kinbridge Global, Inc. (the
 "Corporation") when it contemplates entering into a transaction or arrangement
 that might benefit the private interest of an officer or director, or might
 result in an excess benefit transaction. This policy is intended to supplement,
@@ -183,7 +183,7 @@ Board of its responsibility for ensuring that periodic reviews are conducted.
                           ANNUAL STATEMENT
 
 I, ____________________________, affirm that I have received a copy of the
-Conflict of Interest Policy of [[ORG_NAME]]; that I have read and understand
+Conflict of Interest Policy of Kinbridge Global, Inc.; that I have read and understand
 it; that I agree to comply with it; and that I understand that the Corporation
 is a charitable organization which, in order to maintain its federal tax
 exemption, must engage primarily in activities that accomplish one or more of

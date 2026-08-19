@@ -14,7 +14,7 @@ on the record for a first-year organisation.
 ```
                      MINUTES OF THE ORGANIZATIONAL MEETING
                         OF THE BOARD OF DIRECTORS OF
-                              [[ORG_NAME]]
+                              Kinbridge Global, Inc.
 
 
 Date:      ______________, 20____

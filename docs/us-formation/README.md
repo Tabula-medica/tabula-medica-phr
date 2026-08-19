@@ -4,8 +4,9 @@ Everything needed to stand up the umbrella charity in the United States, in fili
 India (Section 8, 12A/80G, CSR-1, FCRA) is deliberately **out of scope here** — see
 `../NONPROFIT_AND_FREE_MARKETING_PLAYBOOK.md` §1 when you come back to it.
 
-**Decisions already made:** Delaware nonstock corporation · Form 1023-EZ · neutral umbrella
-name with Katha.kids, UHR, Noorjyoti and Unraj as programme brands underneath.
+**Decisions already made:** Delaware nonstock corporation · Form 1023-EZ · umbrella named
+**Kinbridge Global, Inc.**, with Katha.kids, UHR, Noorjyoti and Unraj as programme brands
+underneath.
 
 > These are working drafts, not legal advice. Have a nonprofit attorney read
 > `02`, `03` and `04` before you file. Every form field cited was verified against public
@@ -14,14 +15,16 @@ name with Katha.kids, UHR, Noorjyoti and Unraj as programme brands underneath.
 
 ---
 
-## Before anything: replace the placeholder
+## The name is settled
 
-Every document uses `[[ORG_NAME]]` for the legal name and `[[STATE]]` for your operating
-state. Pick the name (`01`), clear it, then find-and-replace across the folder:
+**`Kinbridge Global`**, filed in Delaware as **`Kinbridge Global, Inc.`** — Delaware requires
+a corporate name to contain one of *association, company, corporation, club, foundation,
+fund, incorporated, institute, society, union, syndicate* or *limited* (or an abbreviation),
+and "Global" is not one of them. "Inc." satisfies the rule while leaving the public-facing
+brand as plain *Kinbridge Global*. See `01` for the clearance checks still to run.
 
-```bash
-grep -rl '\[\[ORG_NAME\]\]' docs/us-formation/ | xargs sed -i 's/\[\[ORG_NAME\]\]/Your Chosen Name, Inc./g'
-```
+The legal name is already filled in throughout these documents. The one placeholder left is
+`[[STATE]]` for your operating state, which is still an open question — see below.
 
 ---
 
@@ -33,7 +36,7 @@ determination letter that requires the EIN that requires the incorporation.
 
 | # | Step | Cost | Time | Doc |
 |---|---|---:|---|---|
-| 1 | Clear and pick the legal name | $0 | 1 day | `01` |
+| 1 | Clear the name — *Kinbridge Global, Inc.* | $0 | 1 day | `01` |
 | 2 | Recruit 3 unrelated directors | $0 | 1–7 days | `03` §3 |
 | 3 | Appoint a Delaware registered agent | $50–125/yr | 1 day | below |
 | 4 | File the Certificate of Incorporation | $109 | 1–5 days | `02` |

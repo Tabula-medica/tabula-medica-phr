@@ -13,13 +13,13 @@ in the corporate records.
 ```
                                 BYLAWS
                                   OF
-                            [[ORG_NAME]]
+                            Kinbridge Global, Inc.
                  A Delaware Non-Stock, Non-Profit Corporation
 
 
 ARTICLE I — NAME AND PURPOSE
 
-1.1  Name. The name of the corporation is [[ORG_NAME]] (the "Corporation").
+1.1  Name. The name of the corporation is Kinbridge Global, Inc. (the "Corporation").
 
 1.2  Purpose. The Corporation is organized and operated exclusively for
      charitable and educational purposes within the meaning of Section
@@ -269,7 +269,7 @@ ARTICLE XII — DISSOLUTION
 
                             CERTIFICATION
 
-I certify that I am the duly elected Secretary of [[ORG_NAME]], and that the
+I certify that I am the duly elected Secretary of Kinbridge Global, Inc., and that the
 foregoing Bylaws were adopted by its Board of Directors on the ____ day of
 ______________, 20____.
 

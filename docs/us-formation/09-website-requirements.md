@@ -84,7 +84,7 @@ One Ad Grants account per organisation — but you may advertise **multiple doma
 organisation owns that serve its mission**. So:
 
 ```
-Account: [[ORG_NAME]]
+Account: Kinbridge Global, Inc.
 ├── Campaign: Katha.kids     → 2+ ad groups → katha.kids landing pages
 ├── Campaign: UHR            → 2+ ad groups → UHR landing pages
 ├── Campaign: Noorjyoti      → 2+ ad groups → Noorjyoti landing pages
@@ -109,7 +109,7 @@ You can accept donations as soon as the corporation exists — they simply are n
 tax-deductible to the donor until the determination is issued, at which point deductibility
 applies retroactively to the incorporation date. Say exactly that on the Donate page:
 
-> [[ORG_NAME]] is a Delaware non-profit corporation. Our application for recognition as a
+> Kinbridge Global, Inc. is a Delaware non-profit corporation. Our application for recognition as a
 > 501(c)(3) tax-exempt organization is pending. Once recognised, exemption applies
 > retroactively to our date of incorporation, and contributions made from that date forward
 > are expected to be tax-deductible to the extent allowed by law.
