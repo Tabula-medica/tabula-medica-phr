@@ -1,13 +1,7 @@
-import OpenAI from "openai";
-
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+// PHI-bearing referral generation must use Vertex AI (Google BAA), never the consumer OpenAI
+// endpoint (no BAA). baaChatFetch routes to Vertex by default and throws when AI isn't configured
+// so the existing try/catch falls back to the deterministic mock — PHI never leaves without a BAA.
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -182,10 +176,10 @@ export async function generateReferralLetter(
   let letterContent: string;
   
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OpenAI API key not configured");
+    if (!isAiConfigured()) {
+      throw new Error("AI not configured");
     }
-    
+
     const systemPrompt = `You are a medical documentation assistant generating referral letters.
 CRITICAL RULES:
 - Use ONLY these verbs: "shows", "states", "refers to", "means"
@@ -213,22 +207,24 @@ ${request.additionalNotes ? `\nAdditional notes: ${request.additionalNotes}` : "
 
 Generate the referral letter using only safe, descriptive language.`;
 
-    const client = getOpenAIClient();
-    if (!client) {
-      throw new Error("OpenAI client not available");
-    }
-    
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 1500,
+    // Routes to Vertex AI (Google BAA) by default; only OpenAI on an explicit non-PHI opt-in.
+    const response = await baaChatFetch({
+      body: {
+        model: "gpt-4o", // mapped to a Vertex model by the helper
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 1500,
+      },
     });
+    if (!response.ok) {
+      throw new Error(`referral AI HTTP ${response.status}`);
+    }
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
 
-    letterContent = response.choices[0]?.message?.content || generateMockReferralLetter(request);
+    letterContent = data.choices?.[0]?.message?.content || generateMockReferralLetter(request);
     letterContent = sanitizeText(letterContent);
   } catch (error) {
     console.log("Using mock referral letter generation");
