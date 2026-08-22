@@ -8,6 +8,9 @@ import {
   keyFingerprint,
   loadSigningKeyFromEnv,
   loadTrustedPublicKeysFromEnv,
+  CANONICALIZE_MAX_DEPTH,
+  CANONICALIZE_MAX_NODES,
+  DocumentTooComplexError,
   publicKeyDer,
   verifyPassport,
   type HealthPassport,
@@ -54,6 +57,23 @@ describe("canonicalize", () => {
 
   it("preserves array order, which is meaningful in FHIR", () => {
     expect(canonicalize([1, 2])).not.toBe(canonicalize([2, 1]));
+  });
+
+  it("refuses a tree deeper than the bound instead of overflowing the stack", () => {
+    // The verify endpoint is unauthenticated, so this tree is attacker-chosen.
+    let deep: unknown = 1;
+    for (let i = 0; i < CANONICALIZE_MAX_DEPTH + 5; i++) deep = { a: deep };
+    expect(() => canonicalize(deep)).toThrow(DocumentTooComplexError);
+  });
+
+  it("refuses a tree wider than the node budget", () => {
+    const wide = Array.from({ length: CANONICALIZE_MAX_NODES + 10 }, (_, i) => i);
+    expect(() => canonicalize(wide)).toThrow(DocumentTooComplexError);
+  });
+
+  it("still canonicalises a document of realistic size", () => {
+    const bundle = buildIpsBundle(sampleInput());
+    expect(() => canonicalize(bundle)).not.toThrow();
   });
 
   it("sorts keys recursively", () => {
@@ -154,6 +174,19 @@ describe("issuePassport / verifyPassport", () => {
     const result = verifyPassport(forged, pinned);
     expect(result.valid).toBe(false);
     expect(result).toMatchObject({ reason: "signature-mismatch" });
+  });
+
+  it("rejects an over-complex document without doing the signature work", () => {
+    const { passport } = issue();
+    const hostile = JSON.parse(JSON.stringify(passport));
+    let deep: unknown = 1;
+    for (let i = 0; i < CANONICALIZE_MAX_DEPTH + 5; i++) deep = { a: deep };
+    hostile.document = deep;
+
+    expect(verifyPassport(hostile)).toMatchObject({
+      valid: false,
+      reason: "document-too-complex",
+    });
   });
 
   it("rejects an unknown envelope format", () => {

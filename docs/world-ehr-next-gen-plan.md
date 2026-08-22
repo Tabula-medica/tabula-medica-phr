@@ -217,6 +217,14 @@ POST /api/world/ips/verify    → verify a passport
 clinician who has never heard of Tabula Medica can check a document a patient
 handed them. It verifies in memory and stores nothing.
 
+Unauthenticated also means the posted document is attacker-chosen, so the work
+it can buy is bounded twice: the route carries its own body limit
+(`PASSPORT_VERIFY_BODY_LIMIT`, default 512kb, mounted ahead of the global 10mb
+parser so the stricter cap is the one that applies), and canonicalisation
+refuses a tree deeper than 64 levels or holding more than 200,000 values —
+far above any real IPS bundle, and enough to stop a body whose only purpose is
+to be walked. Both rejections happen before any signature work.
+
 The passport endpoint returns **503 rather than an unsigned body** when no
 signing key is configured — a caller that asked for a passport must not silently
 receive something unverifiable that looks like one.

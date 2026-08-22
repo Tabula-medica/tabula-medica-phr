@@ -122,6 +122,7 @@ export type PassportFailure =
   | "unsupported-format"
   | "superseded-format"
   | "unsupported-algorithm"
+  | "document-too-complex"
   | "malformed-key"
   | "hash-mismatch"
   | "signature-mismatch";
@@ -147,18 +148,59 @@ const SUPERSEDED_FORMAT = "tabula-medica.health-passport.v1";
  * removes that whole class of failure. Arrays keep their order — in FHIR,
  * array order is meaningful.
  */
+export class DocumentTooComplexError extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "DocumentTooComplexError";
+  }
+}
+
+/**
+ * Bounds on what canonicalisation will walk.
+ *
+ * The verify endpoint is unauthenticated by design, so an anonymous caller
+ * controls the tree this function recurses over. Without a bound, a deeply
+ * nested or very wide body buys an attacker a full recursive walk — key sort
+ * and string build at every level — before any cheap cryptographic rejection
+ * can happen, and deep enough nesting overflows the stack outright.
+ *
+ * A real IPS bundle is shallow and a few thousand nodes at most, so these
+ * limits are far above any legitimate document and still bound the work.
+ */
+export const CANONICALIZE_MAX_DEPTH = 64;
+export const CANONICALIZE_MAX_NODES = 200_000;
+
 export function canonicalize(value: unknown): string {
+  return canonicalizeNode(value, 0, { count: 0 });
+}
+
+function canonicalizeNode(
+  value: unknown,
+  depth: number,
+  budget: { count: number },
+): string {
+  if (depth > CANONICALIZE_MAX_DEPTH) {
+    throw new DocumentTooComplexError(
+      `Document nests deeper than ${CANONICALIZE_MAX_DEPTH} levels.`,
+    );
+  }
+  if ((budget.count += 1) > CANONICALIZE_MAX_NODES) {
+    throw new DocumentTooComplexError(
+      `Document holds more than ${CANONICALIZE_MAX_NODES} values.`,
+    );
+  }
+
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value) ?? "null";
   }
   if (Array.isArray(value)) {
-    return `[${value.map(canonicalize).join(",")}]`;
+    return `[${value.map((v) => canonicalizeNode(v, depth + 1, budget)).join(",")}]`;
   }
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries
-    .map(([k, v]) => `${JSON.stringify(k)}:${canonicalize(v)}`)
+    .map(([k, v]) => `${JSON.stringify(k)}:${canonicalizeNode(v, depth + 1, budget)}`)
     .join(",")}}`;
 }
 
@@ -461,7 +503,21 @@ export function verifyPassport(
     };
   }
 
-  const canonical = Buffer.from(canonicalize(passport.document), "utf8");
+  // Bounded, and the bound is checked before the signature: canonicalising an
+  // attacker-supplied tree is the expensive half of this endpoint.
+  let canonical: Buffer;
+  try {
+    canonical = Buffer.from(canonicalize(passport.document), "utf8");
+  } catch (error) {
+    if (error instanceof DocumentTooComplexError) {
+      return {
+        valid: false,
+        reason: "document-too-complex",
+        detail: `${error.message} It was rejected without being verified.`,
+      };
+    }
+    throw error;
+  }
 
   if (b64url(sha256(canonical)) !== passport.documentHash) {
     return {
