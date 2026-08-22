@@ -266,6 +266,33 @@ function checkContraindications(medication: CommonMedication, context: PatientCo
   return warnings;
 }
 
+/**
+ * Warn when a prescriber-entered frequency could not be read.
+ *
+ * `dosesPerDayFromFrequency` returns null rather than guessing, but the
+ * quantity still has to be computed from something — so it falls back to the
+ * catalogue's dosing. That fallback is safe only if it is visible: otherwise a
+ * sig reading "one tablet every other day" can be dispensed at a once-daily
+ * quantity, and nothing on the draft says so. An explicit quantity from the
+ * prescriber overrides the computation entirely, so there is nothing to warn
+ * about in that case.
+ */
+function unparsedFrequencyWarning(
+  frequency: string | undefined,
+  parsedDosesPerDay: number | null,
+  explicitQuantity: number | undefined,
+  fallbackDosesPerDay: number,
+): string[] {
+  if (!frequency || parsedDosesPerDay !== null || explicitQuantity !== undefined) {
+    return [];
+  }
+  return [
+    `Quantity not derived from the written frequency: "${frequency}" could not be ` +
+      `parsed into doses per day, so ${fallbackDosesPerDay} dose(s)/day was used. ` +
+      "Verify the quantity against the sig, or enter an explicit quantity.",
+  ];
+}
+
 export async function generatePrescriptionDraft(
   context: PatientContext,
   medicationName: string,
@@ -296,11 +323,12 @@ export async function generatePrescriptionDraft(
     // Unclassified: the policy withholds the extended supply on purpose. The
     // system cannot tell whether this is amoxicillin or amlodipine, and
     // guessing 100 days on an antibiotic is the failure worth preventing.
+    const unknownParsedDoses = customizations?.frequency
+      ? dosesPerDayFromFrequency(customizations.frequency)
+      : null;
     const unknownDefaults = resolveDispenseDefaults({
       dispenseClass: "unclassified",
-      dosesPerDay: customizations?.frequency
-        ? dosesPerDayFromFrequency(customizations.frequency) ?? 1
-        : 1,
+      dosesPerDay: unknownParsedDoses ?? 1,
       careSetting: customizations?.careSetting,
       isNewStart: customizations?.isNewStart,
       requestedDaysSupply: customizations?.daysSupply,
@@ -328,6 +356,12 @@ export async function generatePrescriptionDraft(
       warnings: [
         "Medication not in common database - full review needed",
         "Extended 100-day supply withheld: the medication is unclassified, so an antibiotic, controlled substance, or monitoring-bound drug cannot be ruled out.",
+        ...unparsedFrequencyWarning(
+          customizations?.frequency,
+          unknownParsedDoses,
+          customizations?.quantity,
+          1,
+        ),
       ],
       interactions: checkInteractions(medicationName, context.currentMedications),
       status: "draft",
@@ -341,9 +375,16 @@ export async function generatePrescriptionDraft(
   
   // Doses/day follows the prescribed frequency when it is overridden, so the
   // dispensed quantity tracks the actual regimen rather than the catalogue's.
-  const dosesPerDay = customizations?.frequency
-    ? dosesPerDayFromFrequency(customizations.frequency) ?? baseMed.dosesPerDay
-    : baseMed.dosesPerDay;
+  const parsedDosesPerDay = customizations?.frequency
+    ? dosesPerDayFromFrequency(customizations.frequency)
+    : null;
+  const dosesPerDay = parsedDosesPerDay ?? baseMed.dosesPerDay;
+  const frequencyWarning = unparsedFrequencyWarning(
+    customizations?.frequency,
+    parsedDosesPerDay,
+    customizations?.quantity,
+    baseMed.dosesPerDay,
+  );
 
   const dispense = resolveDispenseDefaults({
     dispenseClass: baseMed.dispenseClass,
@@ -381,8 +422,8 @@ export async function generatePrescriptionDraft(
     dispensePolicyReason: dispense.capReason,
     instructions,
     warnings: dispense.capReason
-      ? [...allWarnings, `Dispensing: ${dispense.capReason}`]
-      : allWarnings,
+      ? [...allWarnings, ...frequencyWarning, `Dispensing: ${dispense.capReason}`]
+      : [...allWarnings, ...frequencyWarning],
     interactions,
     status: "draft",
     disclaimer: "Draft prescription. Requires clinician review, verification, and signature before dispensing.",

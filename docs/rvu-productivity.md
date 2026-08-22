@@ -84,8 +84,9 @@ Validation rejects, among others:
 - duplicate code+modifier rows
 - unrecognised PFS status indicators
 - **implausible GPCIs** — values cluster near 1.0, so anything outside `0.3–3.0`
-  is almost always a decimal-point or column-offset error in the import, and it
-  would scale every claim in that locality
+  (inclusive — real malpractice GPCIs reach both edges) is almost always a
+  decimal-point or column-offset error in the import, and it would scale every
+  claim in that locality
 
 ### Refusals, not defaults
 

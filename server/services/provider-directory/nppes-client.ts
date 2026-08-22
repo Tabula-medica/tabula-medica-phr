@@ -164,10 +164,11 @@ function mapRecord(record: NppesRecord, seed: Zip5): ProviderResult | null {
 /**
  * Search NPPES for providers of a specialty near a ZIP.
  *
- * Queries each ZIP prefix separately (nearest ring first), merges by NPI, and
- * ranks by postal proximity. A failed prefix degrades to a warning rather than
- * failing the whole search — partial results beat no results when someone is
- * trying to place a referral.
+ * Queries each ZIP prefix separately (nearest ring first) and each of the
+ * specialty's taxonomy fragments within it, merges by NPI, and ranks by postal
+ * proximity. A failed query degrades to a warning rather than failing the whole
+ * search — partial results beat no results when someone is trying to place a
+ * referral.
  */
 export async function searchProviders(
   input: ProviderSearchInput,
@@ -194,50 +195,61 @@ export async function searchProviders(
   const byNpi = new Map<string, ProviderResult>();
 
   for (const prefix of prefixes) {
-    const params = new URLSearchParams({
-      version: NPPES_VERSION,
-      limit: String(NPPES_MAX_LIMIT),
-      country_code: "US",
-      postal_code: `${prefix}*`,
-      taxonomy_description: `${specialty.taxonomyFragments[0]}*`,
-    });
+    // Every taxonomy fragment for the specialty is queried, not just the first.
+    // A specialty maps onto more than one NUCC string — a primary-care search
+    // that only asked for "Family Medicine" would silently return no
+    // internists — and querying one fragment hides the rest of the specialty.
+    // Fragments are ordered most specific first, and the first record for an
+    // NPI wins, so a provider matched by the specific fragment keeps that
+    // taxonomy label.
+    for (const fragment of specialty.taxonomyFragments) {
+      const params = new URLSearchParams({
+        version: NPPES_VERSION,
+        limit: String(NPPES_MAX_LIMIT),
+        country_code: "US",
+        postal_code: `${prefix}*`,
+        taxonomy_description: `${fragment}*`,
+      });
 
-    try {
-      const response = await doFetch(`${NPPES_ENDPOINT}?${params.toString()}`);
-      if (!response.ok) {
-        warnings.push(`ZIP prefix ${prefix}: NPPES returned ${response.status}.`);
-        continue;
-      }
+      try {
+        const response = await doFetch(`${NPPES_ENDPOINT}?${params.toString()}`);
+        if (!response.ok) {
+          warnings.push(
+            `ZIP prefix ${prefix} (${fragment}): NPPES returned ${response.status}.`,
+          );
+          continue;
+        }
 
-      const payload = (await response.json()) as {
-        results?: NppesRecord[];
-        Errors?: Array<{ description?: string }>;
-      };
+        const payload = (await response.json()) as {
+          results?: NppesRecord[];
+          Errors?: Array<{ description?: string }>;
+        };
 
-      if (payload.Errors?.length) {
+        if (payload.Errors?.length) {
+          warnings.push(
+            `ZIP prefix ${prefix} (${fragment}): ${payload.Errors[0]?.description ?? "NPPES error"}.`,
+          );
+          continue;
+        }
+
+        const records = payload.results ?? [];
+        if (records.length === NPPES_MAX_LIMIT) {
+          warnings.push(
+            `ZIP prefix ${prefix} (${fragment}): hit the NPPES 200-result cap, so some providers in this area are not listed. Narrow the search to see them.`,
+          );
+        }
+
+        for (const record of records) {
+          const mapped = mapRecord(record, seed);
+          // First occurrence wins: prefixes are ordered nearest-first, so an
+          // earlier ring already holds the closer copy of a duplicate NPI.
+          if (mapped && !byNpi.has(mapped.npi)) byNpi.set(mapped.npi, mapped);
+        }
+      } catch (error) {
         warnings.push(
-          `ZIP prefix ${prefix}: ${payload.Errors[0]?.description ?? "NPPES error"}.`,
-        );
-        continue;
-      }
-
-      const records = payload.results ?? [];
-      if (records.length === NPPES_MAX_LIMIT) {
-        warnings.push(
-          `ZIP prefix ${prefix}: hit the NPPES 200-result cap, so some providers in this area are not listed. Narrow the search to see them.`,
+          `ZIP prefix ${prefix} (${fragment}): lookup failed (${(error as Error).message}).`,
         );
       }
-
-      for (const record of records) {
-        const mapped = mapRecord(record, seed);
-        // First occurrence wins: prefixes are ordered nearest-first, so an
-        // earlier ring already holds the closer copy of a duplicate NPI.
-        if (mapped && !byNpi.has(mapped.npi)) byNpi.set(mapped.npi, mapped);
-      }
-    } catch (error) {
-      warnings.push(
-        `ZIP prefix ${prefix}: lookup failed (${(error as Error).message}).`,
-      );
     }
   }
 

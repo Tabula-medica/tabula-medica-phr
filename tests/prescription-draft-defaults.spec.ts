@@ -69,6 +69,35 @@ describe("generatePrescriptionDraft", () => {
     expect(draft.quantity).toBe(200);
   });
 
+  it("warns when the written frequency could not be parsed into a quantity", async () => {
+    // The failure this prevents: a sig reading "one tablet every 36 hours"
+    // silently dispensed at the catalogue's once-daily quantity, with nothing
+    // on the draft saying the quantity and the sig disagree.
+    const draft = await generatePrescriptionDraft(context, "Lisinopril", {
+      frequency: "one tablet every 36 hours",
+    });
+    expect(
+      draft.warnings.some((w) => w.includes("could not be")),
+    ).toBe(true);
+    expect(draft.warnings.some((w) => w.includes("every 36 hours"))).toBe(true);
+  });
+
+  it("stays quiet when the prescriber supplied an explicit quantity", async () => {
+    const draft = await generatePrescriptionDraft(context, "Lisinopril", {
+      frequency: "one tablet every 36 hours",
+      quantity: 67,
+    });
+    expect(draft.quantity).toBe(67);
+    expect(draft.warnings.some((w) => w.includes("could not be"))).toBe(false);
+  });
+
+  it("warns about an unparseable frequency on an unclassified medication too", async () => {
+    const draft = await generatePrescriptionDraft(context, "Amoxicillin", {
+      frequency: "one tablet every 36 hours",
+    });
+    expect(draft.warnings.some((w) => w.includes("could not be"))).toBe(true);
+  });
+
   it("shortens a new start and says why", async () => {
     const draft = await generatePrescriptionDraft(context, "Metformin", {
       isNewStart: true,

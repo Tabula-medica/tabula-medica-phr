@@ -44,6 +44,18 @@ const VALID_STATUS: ReadonlySet<string> = new Set<PfsStatusIndicator>([
   "D",
 ]);
 
+/**
+ * Plausible GPCI band, inclusive at both ends.
+ *
+ * Published GPCIs sit close to 1.0 — the widest real spread is the malpractice
+ * index, which runs from roughly 0.3 in Puerto Rico to well over 2 in South
+ * Florida. Anything outside this band is far more likely to be a decimal-point
+ * slip or a column offset in the import than a real locality, and it would
+ * scale every claim priced in that locality.
+ */
+export const GPCI_PLAUSIBLE_MIN = 0.3;
+export const GPCI_PLAUSIBLE_MAX = 3.0;
+
 export interface LoadedRvuRow extends RvuRow {
   /** AMA-licensed text. Absent unless the deployment holds a license. */
   descriptor?: string;
@@ -155,11 +167,16 @@ export function validatePfsTables(raw: RawPfsTables): string[] {
     ] as const) {
       // GPCIs cluster tightly around 1.0. A value outside this band is almost
       // always a decimal-point or column-offset error in the import, not a real
-      // locality, and it would scale every claim in that region.
-      if (!Number.isFinite(value) || value <= 0.3 || value >= 3) {
+      // locality, and it would scale every claim in that region. The band is
+      // inclusive: real malpractice GPCIs do reach the low end (Puerto Rico)
+      // and the high end (South Florida), and rejecting an exact boundary
+      // value would refuse a legitimate CMS file.
+      if (!Number.isFinite(value) || value < GPCI_PLAUSIBLE_MIN || value > GPCI_PLAUSIBLE_MAX) {
         problems.push(
           `locality ${row.localityCode} has an implausible ${field}: ${value} ` +
-            "(GPCIs cluster near 1.0; check the import for a column offset)",
+            `(GPCIs cluster near 1.0; accepted range is ` +
+            `${GPCI_PLAUSIBLE_MIN}–${GPCI_PLAUSIBLE_MAX} inclusive — check the ` +
+            "import for a column offset)",
         );
       }
     }

@@ -17,7 +17,10 @@ export interface SpecialtyDefinition {
   name: string;
   /**
    * Fragments passed to NPPES `taxonomy_description` with a trailing `*`.
-   * Ordered most specific first — the client tries them in order.
+   * The client queries every fragment and merges the results by NPI, because a
+   * specialty maps onto more than one NUCC string. Ordered most specific
+   * first: the first record seen for an NPI wins, so a provider matched by the
+   * specific fragment keeps that taxonomy label.
    */
   taxonomyFragments: string[];
   /** Spoken and typed forms a user might offer, all lowercase. */

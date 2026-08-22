@@ -233,8 +233,39 @@ describe("searchProviders", () => {
       ),
     });
     expect(out.providers).toHaveLength(1);
-    expect(out.warnings.length).toBe(2);
+    // Two failed prefixes, and cardiology carries two taxonomy fragments, so
+    // each prefix fails once per fragment.
+    expect(out.warnings.length).toBe(4);
     expect(out.warnings[0]).toContain("503");
+  });
+
+  it("queries every taxonomy fragment, not just the first", async () => {
+    const asked: string[] = [];
+    const out = await searchProviders({
+      specialtyId: "primary-care",
+      zip: "94110",
+      rings: 0,
+      fetchImpl: async (url) => {
+        const href = typeof url === "string" ? url : url.toString();
+        const taxonomy = new URL(href).searchParams.get("taxonomy_description")!;
+        asked.push(taxonomy);
+        // Only the second fragment has anyone in this area. Querying the first
+        // fragment alone would return an empty list and look like "no primary
+        // care nearby", which is the failure this guards against.
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            results: taxonomy.startsWith("Internal Medicine")
+              ? [nppesRecord("4444444444", "Internist", "94112")]
+              : [],
+          }),
+        } as Response;
+      },
+    });
+
+    expect(asked).toEqual(["Family Medicine*", "Internal Medicine*"]);
+    expect(out.providers.map((p) => p.npi)).toEqual(["4444444444"]);
   });
 
   it("warns when NPPES truncates at its 200-result cap", async () => {

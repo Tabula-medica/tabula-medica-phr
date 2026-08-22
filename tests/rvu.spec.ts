@@ -179,6 +179,36 @@ describe("table validation", () => {
     expect(problems.some((p) => p.includes("implausible"))).toBe(true);
   });
 
+  it("accepts GPCIs at the band's boundaries, which are real localities", () => {
+    // Puerto Rico's malpractice GPCI sits at the bottom of the published range
+    // and South Florida's near the top. An exclusive band would refuse a
+    // legitimate CMS file for having a value exactly on the edge.
+    const t = fixtureTables();
+    const problems = validatePfsTables({
+      ...t,
+      gpci: {
+        ...t.gpci,
+        rows: [
+          { localityCode: "low", workGpci: 0.3, peGpci: 0.3, malpracticeGpci: 0.3 },
+          { localityCode: "high", workGpci: 3.0, peGpci: 3.0, malpracticeGpci: 3.0 },
+        ],
+      },
+    });
+    expect(problems.filter((p) => p.includes("implausible"))).toEqual([]);
+  });
+
+  it("still rejects a GPCI just outside the band", () => {
+    const t = fixtureTables();
+    const problems = validatePfsTables({
+      ...t,
+      gpci: {
+        ...t.gpci,
+        rows: [{ localityCode: "99", workGpci: 0.29, peGpci: 1, malpracticeGpci: 3.01 }],
+      },
+    });
+    expect(problems.filter((p) => p.includes("implausible"))).toHaveLength(2);
+  });
+
   it("rejects a duplicate code+modifier row", () => {
     const t = fixtureTables();
     const problems = validatePfsTables({
