@@ -28,13 +28,48 @@ import { isAuthenticated } from "./replit_integrations/auth";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { buildIpsBundle, collectIpsInput } from "./services/world/ips-generator";
 import { validateIpsBundle } from "./services/world/ips-validator";
+import { createPublicKey } from "node:crypto";
 import {
   deriveProvenance,
   issuePassport,
   loadSigningKeyFromEnv,
+  loadTrustedPublicKeysFromEnv,
+  publicKeyDer,
   verifyPassport,
   type HealthPassport,
 } from "./services/world/health-passport";
+
+/**
+ * Public keys the verify endpoint trusts as passport issuers.
+ *
+ * The deployment's own signing key is included — a host that issues passports
+ * trivially recognises its own — alongside any peers configured in
+ * `PASSPORT_TRUSTED_PUBLIC_KEYS`. Resolved per request rather than at boot so
+ * a rotated key takes effect without a restart; the work is a handful of key
+ * parses and only runs on an endpoint that is called rarely.
+ *
+ * An empty list is a legitimate state, not an error: the endpoint still
+ * verifies internal consistency and reports `issuerVerified: false`.
+ */
+function trustedVerificationKeys(): Buffer[] {
+  const keys = loadTrustedPublicKeysFromEnv();
+
+  const signingKeyPem = loadSigningKeyFromEnv();
+  if (signingKeyPem) {
+    try {
+      const own = createPublicKey(signingKeyPem)
+        .export({ type: "spki", format: "pem" })
+        .toString();
+      const der = publicKeyDer(own);
+      if (!keys.some((k) => k.equals(der))) keys.push(der);
+    } catch {
+      // A malformed signing key already breaks issuance loudly; it must not
+      // also take down verification.
+    }
+  }
+
+  return keys;
+}
 
 function getSessionUserId(req: Request): string | null {
   return (
@@ -241,8 +276,27 @@ export function registerWorldIpsRoutes(app: Express): void {
         });
       }
 
-      const result = verifyPassport(passport);
-      res.json({ result });
+      // Verify against the keys this deployment trusts, not against whatever
+      // key the posted envelope carries. Without this the endpoint would
+      // answer `valid: true` for any self-signed forgery, and the caller would
+      // read the forger's own `keyId` and `assurance` back as though this host
+      // had confirmed them.
+      const trusted = trustedVerificationKeys();
+      const result = verifyPassport(passport, trusted.length ? trusted : undefined);
+
+      res.json({
+        result,
+        trustedKeyCount: trusted.length,
+        interpretation:
+          result.valid && result.issuerVerified
+            ? "The signature verified under a key this host trusts. keyId, assurance " +
+              "and statement are the issuer's own claims about this document."
+            : result.valid
+              ? "The envelope is internally consistent, but the signing key is not one " +
+                "this host trusts. Treat keyId and assurance as unverified claims — see " +
+                "`result.caveat`."
+              : "The passport did not verify. Do not rely on its contents.",
+      });
     } catch (error) {
       console.error("[WorldIPS] Verification failed:", error);
       res.status(500).json({ error: "Failed to verify health passport" });

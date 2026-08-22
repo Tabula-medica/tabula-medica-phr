@@ -7,6 +7,8 @@ import {
   issuePassport,
   keyFingerprint,
   loadSigningKeyFromEnv,
+  loadTrustedPublicKeysFromEnv,
+  publicKeyDer,
   verifyPassport,
   type HealthPassport,
 } from "../server/services/world/health-passport";
@@ -136,7 +138,16 @@ describe("issuePassport / verifyPassport", () => {
       signedAt: SIGNED_AT,
     });
 
-    expect(verifyPassport(forged).valid).toBe(true); // internally consistent
+    // Internally consistent — but the result must say the issuer is unknown,
+    // not merely `valid: true`.
+    const unpinned = verifyPassport(forged);
+    expect(unpinned).toMatchObject({
+      valid: true,
+      keyTrust: "unverified-issuer",
+      issuerVerified: false,
+    });
+    if (unpinned.valid) expect(unpinned.caveat).toContain("unauthenticated claims");
+
     const pinned = Buffer.from(
       createPublicKey(keys.publicKeyPem).export({ type: "spki", format: "der" }),
     );
@@ -165,6 +176,76 @@ describe("issuePassport / verifyPassport", () => {
     expect(verifyPassport(bad)).toMatchObject({ reason: "malformed-key" });
   });
 
+  it("refuses to let an attacker upgrade the assurance level in transit", () => {
+    // The v1 signature covered only the document bytes, so provenance sat
+    // outside it: a genuine patient-asserted passport could be relabelled
+    // provider-attested and would still verify under the REAL issuer key.
+    // This is the forgery the envelope binding exists to stop.
+    const { keys, passport } = issue();
+    const tampered = JSON.parse(JSON.stringify(passport));
+    tampered.provenance.assurance = "provider-attested";
+    tampered.provenance.statement =
+      "Every element in this summary originated from a verified healthcare source.";
+
+    const result = verifyPassport(tampered, publicKeyDer(keys.publicKeyPem));
+    expect(result.valid).toBe(false);
+    expect(result).toMatchObject({ reason: "signature-mismatch" });
+  });
+
+  it("refuses a spoofed keyId, which is what an out-of-band check compares", () => {
+    const { keys, passport } = issue();
+    const tampered = JSON.parse(JSON.stringify(passport));
+    tampered.signature.keyId = "PublishedTabulaFp";
+
+    expect(verifyPassport(tampered, publicKeyDer(keys.publicKeyPem))).toMatchObject({
+      valid: false,
+      reason: "signature-mismatch",
+    });
+    // And unpinned too: the envelope no longer hangs together at all.
+    expect(verifyPassport(tampered).valid).toBe(false);
+  });
+
+  it("marks a genuine passport issuer-verified only when the key is pinned", () => {
+    const { keys, passport } = issue();
+
+    const unpinned = verifyPassport(passport);
+    expect(unpinned).toMatchObject({
+      valid: true,
+      keyTrust: "unverified-issuer",
+      issuerVerified: false,
+    });
+
+    const pinned = verifyPassport(passport, publicKeyDer(keys.publicKeyPem));
+    expect(pinned).toMatchObject({
+      valid: true,
+      keyTrust: "pinned",
+      issuerVerified: true,
+    });
+    if (pinned.valid) expect(pinned.caveat).toBeUndefined();
+  });
+
+  it("accepts a trusted-key list and verifies against any member", () => {
+    const { keys, passport } = issue();
+    const other = generatePassportKeyPair();
+    const result = verifyPassport(passport, [
+      publicKeyDer(other.publicKeyPem),
+      publicKeyDer(keys.publicKeyPem),
+    ]);
+    expect(result).toMatchObject({ valid: true, issuerVerified: true });
+  });
+
+  it("rejects the superseded v1 envelope rather than accepting a downgrade", () => {
+    // Relabelling a v2 envelope as v1 would restore the ability to edit
+    // provenance under a genuine signature, so v1 is refused outright.
+    const { passport } = issue();
+    const downgraded = JSON.parse(JSON.stringify(passport));
+    downgraded.format = "tabula-medica.health-passport.v1";
+    expect(verifyPassport(downgraded)).toMatchObject({
+      valid: false,
+      reason: "superseded-format",
+    });
+  });
+
   it("carries the assurance statement through to the verification result", () => {
     const { passport } = issue();
     const result = verifyPassport(passport);
@@ -173,6 +254,39 @@ describe("issuePassport / verifyPassport", () => {
       expect(result.assurance).toBe("patient-asserted");
       expect(result.statement).toContain("entered by the patient");
     }
+  });
+});
+
+describe("loadTrustedPublicKeysFromEnv", () => {
+  it("returns an empty list when unset — no trusted key is a valid state", () => {
+    delete process.env.PASSPORT_TRUSTED_PUBLIC_KEYS;
+    expect(loadTrustedPublicKeysFromEnv()).toEqual([]);
+  });
+
+  it("loads a PEM key and one wrapped in base64", () => {
+    const a = generatePassportKeyPair();
+    const b = generatePassportKeyPair();
+    process.env.PASSPORT_TRUSTED_PUBLIC_KEYS = [
+      a.publicKeyPem.trim(),
+      Buffer.from(b.publicKeyPem).toString("base64"),
+    ].join(",");
+
+    const keys = loadTrustedPublicKeysFromEnv();
+    expect(keys).toHaveLength(2);
+    expect(keys.some((k) => k.equals(publicKeyDer(a.publicKeyPem)))).toBe(true);
+    expect(keys.some((k) => k.equals(publicKeyDer(b.publicKeyPem)))).toBe(true);
+    delete process.env.PASSPORT_TRUSTED_PUBLIC_KEYS;
+  });
+
+  it("skips a malformed entry instead of failing the whole list", () => {
+    // Skipping makes the verifier less trusting, never more — the safe way to
+    // fail. Taking the endpoint down over one bad key would not be.
+    const good = generatePassportKeyPair();
+    process.env.PASSPORT_TRUSTED_PUBLIC_KEYS = `not-a-key,${good.publicKeyPem.trim()}`;
+    const keys = loadTrustedPublicKeysFromEnv();
+    expect(keys).toHaveLength(1);
+    expect(keys[0].equals(publicKeyDer(good.publicKeyPem))).toBe(true);
+    delete process.env.PASSPORT_TRUSTED_PUBLIC_KEYS;
   });
 });
 

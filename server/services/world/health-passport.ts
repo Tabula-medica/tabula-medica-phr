@@ -73,7 +73,7 @@ export interface PassportSignature {
 
 export interface HealthPassport {
   /** Envelope format version — bumped on any breaking canonicalisation change. */
-  format: "tabula-medica.health-passport.v1";
+  format: "tabula-medica.health-passport.v2";
   issuer: string;
   /** SHA-256 of the canonical document bytes, base64url. */
   documentHash: string;
@@ -82,26 +82,59 @@ export interface HealthPassport {
   document: IpsBundle;
 }
 
+/**
+ * How much the verifier actually knows about who signed.
+ *
+ * `pinned` — the signature verified under a key the verifier already trusted,
+ * so `keyId`, `assurance` and `statement` are the issuer's claims.
+ *
+ * `unverified-issuer` — the signature verified only under the key carried
+ * inside the envelope. That proves the envelope is internally consistent and
+ * unaltered *since whoever signed it did so*; it says nothing about who that
+ * was. Anyone can mint a self-consistent passport with their own key and put
+ * any `keyId` and any `assurance` in it.
+ */
+export type PassportKeyTrust = "pinned" | "unverified-issuer";
+
 export type PassportVerification =
   | {
       valid: true;
+      /** Whether the signing key was one the verifier already trusted. */
+      keyTrust: PassportKeyTrust;
+      /** True only when keyTrust is "pinned". The field callers must branch on. */
+      issuerVerified: boolean;
       keyId: string;
       signedAt: string;
       assurance: AssuranceLevel;
       /** Repeated at the top level so callers cannot ignore it. */
       statement: string;
+      /**
+       * Present whenever `issuerVerified` is false. Says, in the response
+       * itself, that `keyId` and `assurance` are unauthenticated claims — a
+       * consumer that reads only `valid` would otherwise treat a self-signed
+       * forgery as an attested clinical document.
+       */
+      caveat?: string;
     }
   | { valid: false; reason: PassportFailure; detail: string };
 
 export type PassportFailure =
   | "unsupported-format"
+  | "superseded-format"
   | "unsupported-algorithm"
   | "malformed-key"
   | "hash-mismatch"
   | "signature-mismatch";
 
 const ISSUER = "Tabula Medica";
-const FORMAT = "tabula-medica.health-passport.v1";
+const FORMAT = "tabula-medica.health-passport.v2";
+/**
+ * v1 signed only the document bytes, leaving `provenance.assurance` outside
+ * the signature. Accepting it now would be a downgrade attack: an attacker
+ * could relabel a v2 envelope as v1 and regain the ability to edit the
+ * assurance level under a genuine issuer signature. It is refused outright.
+ */
+const SUPERSEDED_FORMAT = "tabula-medica.health-passport.v1";
 
 // ── Canonicalisation ────────────────────────────────────────────────────────
 
@@ -225,13 +258,51 @@ export function deriveProvenance(
 // ── Issue / verify ──────────────────────────────────────────────────────────
 
 /**
+ * The bytes actually signed.
+ *
+ * v1 signed the canonical document alone, on the reasoning that re-wrapping
+ * the same document with different provenance metadata should not invalidate
+ * the signature. That reasoning was backwards. It meant `provenance.assurance`
+ * — the field that says whether a clinician may rely on this content — sat
+ * outside the signature, so a genuine `patient-asserted` passport could be
+ * edited in transit to read `provider-attested` and would still verify under
+ * the real issuer key. The whole envelope is now bound.
+ *
+ * `documentHash` stands in for the document itself: it is checked against a
+ * freshly computed hash before the signature is examined, so binding the hash
+ * binds the content.
+ */
+function signedAttributes(passport: {
+  format: string;
+  issuer: string;
+  documentHash: string;
+  provenance: PassportProvenance;
+  signature: Omit<PassportSignature, "value">;
+}): Buffer {
+  return Buffer.from(
+    canonicalize({
+      format: passport.format,
+      issuer: passport.issuer,
+      documentHash: passport.documentHash,
+      provenance: passport.provenance,
+      signature: {
+        algorithm: passport.signature.algorithm,
+        publicKey: passport.signature.publicKey,
+        keyId: passport.signature.keyId,
+        signedAt: passport.signature.signedAt,
+      },
+    }),
+    "utf8",
+  );
+}
+
+/**
  * Wrap an IPS document in a signed passport envelope.
  *
  * `signedAt` is injected so the caller controls the clock (and so tests are
- * deterministic). The signature covers the canonical document bytes only —
- * not the envelope — so re-wrapping the same document with different
- * provenance metadata cannot silently invalidate it, and a verifier can
- * always recompute exactly what was signed.
+ * deterministic). The signature covers the envelope — issuer, document hash,
+ * provenance and key metadata — so no field a verifier reads can be altered
+ * without breaking it.
  */
 export function issuePassport(params: {
   document: IpsBundle;
@@ -246,49 +317,140 @@ export function issuePassport(params: {
   const publicKey = createPublicKey(privateKey);
   const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
 
-  // Ed25519 signs the message directly; the algorithm argument must be null.
-  const signature = cryptoSign(null, canonical, privateKey);
-
-  return {
+  const unsigned = {
     format: FORMAT,
     issuer: ISSUER,
     documentHash: b64url(sha256(canonical)),
     provenance,
     signature: {
-      algorithm: "Ed25519",
-      value: b64url(signature),
+      algorithm: "Ed25519" as const,
       publicKey: b64url(
         publicKey.export({ type: "spki", format: "der" }) as Buffer,
       ),
       keyId: keyFingerprint(publicKeyPem),
       signedAt,
     },
+  };
+
+  // Ed25519 signs the message directly; the algorithm argument must be null.
+  const signature = cryptoSign(null, signedAttributes(unsigned), privateKey);
+
+  return {
+    ...unsigned,
+    format: FORMAT,
+    signature: { ...unsigned.signature, value: b64url(signature) },
     document,
   };
 }
 
 /**
- * Verify a passport with no network access and no prior knowledge of the
- * issuer beyond (optionally) a pinned public key.
+ * Load public keys this deployment trusts as passport issuers.
  *
- * When `expectedPublicKeyDer` is omitted the signature is checked against the
- * key embedded in the envelope. That proves internal consistency — the
- * document has not been altered since it was signed — but NOT that the signer
- * is Tabula Medica, since an attacker can re-sign modified content with their
- * own key. A verifier that cares about issuer identity must pin the key
- * (compare `signature.keyId` against a published fingerprint, or pass it in
- * here). This asymmetry is stated plainly because getting it wrong is the
- * standard way signed-document schemes fail in the field.
+ * Accepts a comma- or newline-separated list of SPKI PEM keys (each optionally
+ * base64-wrapped, since secret managers differ on newline handling) in
+ * `PASSPORT_TRUSTED_PUBLIC_KEYS`. The deployment's own signing key is added by
+ * the caller — a host that issues passports trivially trusts itself.
+ *
+ * An empty list is the honest default: a verifier with no trusted keys reports
+ * `issuerVerified: false` rather than pretending it recognised the signer.
+ */
+export function loadTrustedPublicKeysFromEnv(): Buffer[] {
+  const raw = process.env.PASSPORT_TRUSTED_PUBLIC_KEYS;
+  if (!raw || !raw.trim()) return [];
+
+  const keys: Buffer[] = [];
+  const add = (pem: string | null) => {
+    if (!pem) return;
+    try {
+      const der = createPublicKey(pem).export({
+        type: "spki",
+        format: "der",
+      }) as Buffer;
+      if (!keys.some((k) => k.equals(der))) keys.push(der);
+    } catch {
+      // A malformed entry is skipped rather than thrown: one bad key must not
+      // take the verify endpoint down, and the result of skipping is a *less*
+      // trusting verifier, never a more trusting one.
+    }
+  };
+
+  // PEM blocks are pulled out whole first — their bodies contain newlines, so
+  // splitting the variable on whitespace would shred them.
+  const pemBlock = /-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g;
+  const remainder = raw.replace(/\\n/g, "\n").replace(pemBlock, (block) => {
+    add(block);
+    return " ";
+  });
+
+  // Anything left over is treated as base64-wrapped PEM, since secret managers
+  // differ on whether they preserve newlines.
+  for (const token of remainder.split(/[,\s]+/)) {
+    if (token.trim()) add(safeBase64ToUtf8(token.trim()));
+  }
+
+  return keys;
+}
+
+function safeBase64ToUtf8(value: string): string | null {
+  try {
+    const decoded = Buffer.from(value, "base64").toString("utf8");
+    return decoded.includes("BEGIN") ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+/** DER SPKI bytes of a PEM public key, for building a trusted-key list. */
+export function publicKeyDer(publicKeyPem: string): Buffer {
+  return createPublicKey(publicKeyPem).export({
+    type: "spki",
+    format: "der",
+  }) as Buffer;
+}
+
+const UNVERIFIED_ISSUER_CAVEAT =
+  "The signature verified only under the key carried inside this passport, " +
+  "which this verifier does not recognise. `keyId`, `assurance` and " +
+  "`statement` are therefore unauthenticated claims made by whoever signed " +
+  "it — anyone can mint a self-consistent passport asserting any issuer and " +
+  "any assurance level. Do NOT treat this document as issuer-verified or " +
+  "provider-attested without comparing keyId against the issuer's published " +
+  "fingerprint out of band.";
+
+/**
+ * Verify a passport with no network access.
+ *
+ * Pass the public key(s) the verifier trusts. When none are supplied the
+ * signature is still checked, but only against the key embedded in the
+ * envelope — which proves the envelope is internally consistent and NOT that
+ * the signer is who the envelope says. That distinction is carried in the
+ * result as `keyTrust` / `issuerVerified` / `caveat`, not left to a docstring,
+ * because a caller reading `valid` alone is exactly how signed-document
+ * schemes fail in the field.
  */
 export function verifyPassport(
   passport: HealthPassport,
-  expectedPublicKeyDer?: Buffer,
+  expectedPublicKeyDer?: Buffer | readonly Buffer[],
 ): PassportVerification {
-  if (passport?.format !== FORMAT) {
+  // The declared type is a literal, but this input arrives off the wire and
+  // can hold anything, so the format is compared as a plain string.
+  const declaredFormat: string = passport?.format;
+  if (declaredFormat === SUPERSEDED_FORMAT) {
+    return {
+      valid: false,
+      reason: "superseded-format",
+      detail:
+        `Passport format "${SUPERSEDED_FORMAT}" is no longer accepted: its ` +
+        "signature did not cover the provenance block, so the assurance level " +
+        "could be altered without breaking the signature. Re-issue as " +
+        `"${FORMAT}".`,
+    };
+  }
+  if (declaredFormat !== FORMAT) {
     return {
       valid: false,
       reason: "unsupported-format",
-      detail: `Unknown passport format "${passport?.format}".`,
+      detail: `Unknown passport format "${declaredFormat}".`,
     };
   }
   if (passport.signature?.algorithm !== "Ed25519") {
@@ -310,46 +472,68 @@ export function verifyPassport(
     };
   }
 
-  const keyDer =
-    expectedPublicKeyDer ??
-    Buffer.from(passport.signature.publicKey, "base64url");
+  const trusted = expectedPublicKeyDer
+    ? Array.isArray(expectedPublicKeyDer)
+      ? (expectedPublicKeyDer as readonly Buffer[])
+      : [expectedPublicKeyDer as Buffer]
+    : [];
 
-  let publicKey;
-  try {
-    publicKey = createPublicKey({
-      key: keyDer,
-      format: "der",
-      type: "spki",
-    });
-  } catch (error) {
+  // With no trusted key, fall back to the envelope's own — and say so in the
+  // result. Never silently upgrade a self-asserted key to a trusted one.
+  const candidates = trusted.length
+    ? trusted
+    : [Buffer.from(passport.signature.publicKey, "base64url")];
+  const keyTrust: PassportKeyTrust = trusted.length ? "pinned" : "unverified-issuer";
+
+  const signed = signedAttributes(passport);
+  const signatureBytes = Buffer.from(passport.signature.value, "base64url");
+
+  let parsedAny = false;
+  let verified = false;
+  for (const keyDer of candidates) {
+    let publicKey;
+    try {
+      publicKey = createPublicKey({ key: keyDer, format: "der", type: "spki" });
+    } catch {
+      continue;
+    }
+    parsedAny = true;
+    if (cryptoVerify(null, signed, publicKey, signatureBytes)) {
+      verified = true;
+      break;
+    }
+  }
+
+  if (!parsedAny) {
     return {
       valid: false,
       reason: "malformed-key",
-      detail: `Public key could not be parsed: ${(error as Error).message}`,
+      detail:
+        trusted.length > 0
+          ? "No trusted public key could be parsed."
+          : "Public key could not be parsed from the passport envelope.",
     };
   }
 
-  const ok = cryptoVerify(
-    null,
-    canonical,
-    publicKey,
-    Buffer.from(passport.signature.value, "base64url"),
-  );
-
-  if (!ok) {
+  if (!verified) {
     return {
       valid: false,
       reason: "signature-mismatch",
       detail:
-        "The signature does not verify against the document under this key.",
+        trusted.length > 0
+          ? "The signature does not verify against this envelope under any trusted key."
+          : "The signature does not verify against this envelope under the key it carries.",
     };
   }
 
   return {
     valid: true,
+    keyTrust,
+    issuerVerified: keyTrust === "pinned",
     keyId: passport.signature.keyId,
     signedAt: passport.signature.signedAt,
     assurance: passport.provenance.assurance,
     statement: passport.provenance.statement,
+    ...(keyTrust === "pinned" ? {} : { caveat: UNVERIFIED_ISSUER_CAVEAT }),
   };
 }

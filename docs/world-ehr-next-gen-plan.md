@@ -184,11 +184,26 @@ block a `provider-attested` claim. Today every passport is honestly
 *Key pinning.* Verifying against the key embedded in the envelope proves the
 document is internally consistent — not that Tabula Medica signed it, since an
 attacker can re-sign modified content with their own key. `verifyPassport`
-accepts a pinned public key for callers that need issuer identity, and the
-asymmetry is documented at the call site. A test demonstrates the forgery that
-succeeds without pinning and fails with it. This is the standard way
-signed-document schemes fail in the field, so it is stated plainly rather than
-glossed.
+takes the public key(s) the verifier trusts, and **the result says which
+situation it is in**: `keyTrust` is `pinned` or `unverified-issuer`,
+`issuerVerified` is the boolean to branch on, and an unpinned success carries a
+`caveat` stating that `keyId` and `assurance` are unauthenticated claims. A
+docstring warning was not enough — a caller that reads `valid` and stops is
+exactly how these schemes fail, so the warning travels in the response body.
+
+The `/verify` endpoint pins automatically: it verifies against
+`PASSPORT_TRUSTED_PUBLIC_KEYS` plus the deployment's own signing key, rather
+than against whatever key the posted envelope happens to carry.
+
+*What the signature covers.* The envelope, not just the document: format,
+issuer, document hash, the whole provenance block, and the key metadata. The
+first cut signed the document bytes alone, which left `provenance.assurance`
+outside the signature — so a genuine `patient-asserted` passport could be
+edited in transit to read `provider-attested` and would still verify under the
+real issuer key. That is the one forgery that survives correct key pinning, and
+it is now a `signature-mismatch`. Fixing it was a breaking canonicalisation
+change, so the envelope is `…health-passport.v2`; v1 is refused outright rather
+than accepted, since honouring it would restore the same hole as a downgrade.
 
 ### 3.4 API — `server/world-ips-routes.ts`
 
@@ -216,6 +231,13 @@ base64). Until it is set, `/api/world/ips` works and `/api/world/ips/passport`
 returns 503. Generate with `generatePassportKeyPair()`. The key must be stable
 and backed up: rotating it invalidates every passport issued under the old key,
 so publish the fingerprint (`keyFingerprint()`) for verifiers to pin.
+
+`PASSPORT_TRUSTED_PUBLIC_KEYS` holds the SPKI PEM public keys this deployment
+trusts as issuers — comma-separated, each raw or base64-wrapped. The
+deployment's own signing key is trusted implicitly. Leaving it unset is a
+legitimate state: `/verify` still checks the envelope and reports
+`issuerVerified: false`, which is the honest answer for a host that recognises
+nobody.
 
 ---
 
