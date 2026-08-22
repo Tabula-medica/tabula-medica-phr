@@ -300,6 +300,10 @@ import { registerWebhookAggregatorRoutes } from "./webhook-aggregator-routes";
 import { registerGcpArchitectureRoutes } from "./gcp-architecture-routes";
 import { registerProfilePhotoRoutes } from "./profile-photo-routes";
 import { registerAdvanceDirectivesRoutes } from "./advance-directives-routes";
+import { registerWorldIpsRoutes } from "./world-ips-routes";
+import { registerClinicalWorkflowRoutes } from "./clinical-workflow-routes-v2";
+import { registerHccRoutes } from "./hcc-routes";
+import { registerRvuRoutes } from "./rvu-routes";
 import healthQuestionnaireRoutes from "./health-questionnaire-routes";
 import healthReportRoutes from "./health-report-routes";
 import providerCommunicationRoutes from "./provider-communication-routes";
@@ -1631,6 +1635,10 @@ export async function registerRoutes(
   registerGcpArchitectureRoutes(app);
   registerProfilePhotoRoutes(app);
   registerAdvanceDirectivesRoutes(app);
+  registerWorldIpsRoutes(app);
+  registerClinicalWorkflowRoutes(app);
+  registerHccRoutes(app);
+  registerRvuRoutes(app);
 
   app.use("/api/health-questionnaire", healthQuestionnaireRoutes);
   console.log("[Routes] Health Questionnaire routes registered at /api/health-questionnaire/*");
