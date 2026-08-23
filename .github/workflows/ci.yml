@@ -29,6 +29,13 @@ on:
   push:
     branches: [main]
 
+# Least privilege for GITHUB_TOKEN. Every job here only reads the repository —
+# nothing writes commits, comments, releases or packages — so the default
+# broader grant is unnecessary standing authority on a workflow that runs
+# arbitrary pull-request code.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
