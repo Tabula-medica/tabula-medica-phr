@@ -9,12 +9,48 @@ import {
   verifyRecoveryCode,
 } from "./services/mfa-recovery-codes";
 import { comprehensiveAuditTrailService } from "./services/comprehensive-audit-trail-service";
+import {
+  sendMfaSecurityEmail,
+  type MfaEmailEvent,
+} from "./services/mfa-notification-service";
+import { isEmailConfigured } from "./services/email-service";
 
 const GCIP_SECRET_SENTINEL = "gcip-managed";
 
 function getUserId(req: Request): string | null {
   const sub = (req.user as any)?.claims?.sub;
   return typeof sub === "string" && sub.length > 0 ? sub : null;
+}
+
+function getUserEmail(req: Request): string | null {
+  const email = (req.user as any)?.claims?.email;
+  return typeof email === "string" && email.length > 0 ? email : null;
+}
+
+/**
+ * Fire the out-of-band security email for an MFA change. Best-effort by
+ * design: a mail failure is logged and surfaced as a boolean, never
+ * thrown, so it can't undo an MFA change that already committed.
+ */
+async function notifyMfaChange(
+  userId: string,
+  req: Request,
+  event: MfaEmailEvent,
+  extra: { recoveryCodesRemaining?: number } = {}
+): Promise<boolean> {
+  try {
+    const ctx = getAuditContext(req);
+    const outcome = await sendMfaSecurityEmail(userId, getUserEmail(req), event, {
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+      occurredAt: new Date(),
+      recoveryCodesRemaining: extra.recoveryCodesRemaining,
+    });
+    return outcome.sent;
+  } catch (err: any) {
+    console.error(`[MFA] security email for "${event}" threw:`, err?.message);
+    return false;
+  }
 }
 
 function getAuditContext(req: Request) {
@@ -72,6 +108,7 @@ export function registerMfaRoutes(app: Express): void {
         res.json({
           enrolled: enabled,
           recoveryCodesRemaining: remaining,
+          securityEmailConfigured: isEmailConfigured(),
         });
       } catch (err: any) {
         console.error("[MFA] status error:", err?.message);
@@ -121,7 +158,10 @@ export function registerMfaRoutes(app: Express): void {
         }
 
         await logMfaAudit(userId, req, "enroll", true);
-        res.json({ recoveryCodes: codes });
+        const emailSent = await notifyMfaChange(userId, req, "enrolled", {
+          recoveryCodesRemaining: codes.length,
+        });
+        res.json({ recoveryCodes: codes, securityEmailSent: emailSent });
       } catch (err: any) {
         console.error("[MFA] enrolled error:", err?.message);
         await logMfaAudit(userId, req, "enroll", false, err?.message);
@@ -152,7 +192,13 @@ export function registerMfaRoutes(app: Express): void {
           .set({ backupCodesHash: hashes, updatedAt: new Date() })
           .where(eq(mfaSecretsTable.userId, userId));
         await logMfaAudit(userId, req, "regenerate", true);
-        res.json({ recoveryCodes: codes });
+        const emailSent = await notifyMfaChange(
+          userId,
+          req,
+          "recovery_codes_regenerated",
+          { recoveryCodesRemaining: codes.length }
+        );
+        res.json({ recoveryCodes: codes, securityEmailSent: emailSent });
       } catch (err: any) {
         console.error("[MFA] regenerate error:", err?.message);
         await logMfaAudit(userId, req, "regenerate", false, err?.message);
@@ -216,7 +262,14 @@ export function registerMfaRoutes(app: Express): void {
           })
           .where(eq(mfaSecretsTable.userId, userId));
         await logMfaAudit(userId, req, "recovery_used", true);
-        res.json({ ok: true, recoveryCodesRemaining: remaining.length });
+        const emailSent = await notifyMfaChange(userId, req, "recovery_code_used", {
+          recoveryCodesRemaining: remaining.length,
+        });
+        res.json({
+          ok: true,
+          recoveryCodesRemaining: remaining.length,
+          securityEmailSent: emailSent,
+        });
       } catch (err: any) {
         console.error("[MFA] consume error:", err?.message);
         await logMfaAudit(userId, req, "recovery_used", false, err?.message);
@@ -243,7 +296,8 @@ export function registerMfaRoutes(app: Express): void {
           })
           .where(eq(mfaSecretsTable.userId, userId));
         await logMfaAudit(userId, req, "disable", true);
-        res.json({ ok: true });
+        const emailSent = await notifyMfaChange(userId, req, "disabled");
+        res.json({ ok: true, securityEmailSent: emailSent });
       } catch (err: any) {
         console.error("[MFA] disable error:", err?.message);
         await logMfaAudit(userId, req, "disable", false, err?.message);

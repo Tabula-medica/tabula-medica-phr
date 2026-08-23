@@ -10,7 +10,7 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **Typecheck**: `npm run typecheck`
 *   **Codegen (Drizzle)**: `npm run generate`
 *   **DB Push (Drizzle)**: `npm run db:push`
-*   **Required Env Vars**: `RESEND_API_KEY`, `NETWORK_ALERT_EMAIL`, `RESEND_FROM_EMAIL` (for email alerts); GCP credentials for Secret Manager fallback; `AI_DEFAULT_PROVIDER=vertex` (defaults to OpenAI fallback if unset — OpenAI standard tier has **no BAA** and must not touch PHI; Vertex AI runs under the existing GCP BAA and is the HIPAA-compliant default).
+*   **Required Env Vars**: `RESEND_API_KEY`, `NETWORK_ALERT_EMAIL`, `RESEND_FROM_EMAIL` (for email alerts and MFA security notifications — without `RESEND_API_KEY` no MFA confirmation email is sent, and `GET /api/auth/mfa/status` reports `securityEmailConfigured: false`); optional `APP_PUBLIC_URL` and `SUPPORT_EMAIL` for the links in those emails; GCP credentials for Secret Manager fallback; `AI_DEFAULT_PROVIDER=vertex` (defaults to OpenAI fallback if unset — OpenAI standard tier has **no BAA** and must not touch PHI; Vertex AI runs under the existing GCP BAA and is the HIPAA-compliant default).
 
 ## Stack
 
