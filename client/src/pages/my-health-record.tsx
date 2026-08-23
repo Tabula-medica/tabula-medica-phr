@@ -233,9 +233,9 @@ function AddRecordDialog({ category, onAdd }: { category: string; onAdd: (data: 
               />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label htmlFor="my-health-record-status">Status</Label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger data-testid={`select-status-${category}`}>
+                <SelectTrigger id="my-health-record-status" data-testid={`select-status-${category}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

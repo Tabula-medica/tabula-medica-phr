@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -934,7 +935,7 @@ export default function HealthQuestionnaire() {
         </div>
 
         <div className="space-y-2">
-          <Label className="flex items-center gap-1">
+          <Label htmlFor="heightFeet" className="flex items-center gap-1">
             <Ruler className="h-4 w-4 mr-1" />
             Height <span className="text-destructive">*</span>
           </Label>
@@ -1044,15 +1045,15 @@ export default function HealthQuestionnaire() {
         </div>
 
         <div className="space-y-3">
-          <Label className="flex items-center gap-1 text-muted-foreground">
+          <FieldCaption className="flex items-center gap-1 text-muted-foreground">
             <Syringe className="h-4 w-4 mr-1" />
             Immunizations (optional)
-          </Label>
+          </FieldCaption>
           <p className="text-sm text-muted-foreground">Select any vaccines you've received</p>
           <div className="space-y-2">
             {IMMUNIZATION_OPTIONS.map(({ value, label }) => (
               <div key={value} className="flex items-center space-x-3">
-                <Checkbox
+                <Checkbox aria-label="Immunizations (optional)"
                   id={`immunization-${value}`}
                   data-testid={`checkbox-immunization-${value}`}
                   checked={profile.immunizations.includes(value)}
@@ -1211,8 +1212,8 @@ export default function HealthQuestionnaire() {
                           >
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Year Diagnosed</Label>
-                                <Input
+                                <FieldCaption className="text-xs text-muted-foreground">Year Diagnosed</FieldCaption>
+                                <Input aria-label="Year Diagnosed"
                                   type="number"
                                   min="1900"
                                   max={new Date().getFullYear()}
@@ -1223,12 +1224,12 @@ export default function HealthQuestionnaire() {
                                 />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Current Status</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Current Status</FieldCaption>
                                 <Select
                                   value={details?.status || ""}
                                   onValueChange={(value) => updateConditionDetail(condition.id, "status", value)}
                                 >
-                                  <SelectTrigger data-testid={`select-status-${condition.id}`}>
+                                  <SelectTrigger aria-label="Current Status" data-testid={`select-status-${condition.id}`}>
                                     <SelectValue placeholder="Select..." />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1242,8 +1243,8 @@ export default function HealthQuestionnaire() {
                               </div>
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Current Treatment</Label>
-                              <Textarea
+                              <FieldCaption className="text-xs text-muted-foreground">Current Treatment</FieldCaption>
+                              <Textarea aria-label="Current Treatment"
                                 placeholder="Describe current treatment (optional)"
                                 value={details?.treatment || ""}
                                 onChange={(e) => updateConditionDetail(condition.id, "treatment", e.target.value)}
@@ -1253,8 +1254,8 @@ export default function HealthQuestionnaire() {
                             </div>
                             {condition.id === "other-diagnosis" && (
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Diagnosis Description</Label>
-                                <Textarea
+                                <FieldCaption className="text-xs text-muted-foreground">Diagnosis Description</FieldCaption>
+                                <Textarea aria-label="Diagnosis Description"
                                   placeholder="Please describe your other diagnosis..."
                                   value={medicalHistory.otherDiagnosisText}
                                   onChange={(e) => setMedicalHistory({ ...medicalHistory, otherDiagnosisText: e.target.value })}
@@ -1333,12 +1334,12 @@ export default function HealthQuestionnaire() {
                 <CardContent className="pt-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Allergy Type</Label>
+                      <FieldCaption>Allergy Type</FieldCaption>
                       <Select
                         value={allergy.type}
                         onValueChange={(value) => updateAllergy(allergy.id, "type", value)}
                       >
-                        <SelectTrigger data-testid={`select-allergy-type-${index}`}>
+                        <SelectTrigger aria-label="Allergy Type" data-testid={`select-allergy-type-${index}`}>
                           <SelectValue placeholder="Select type..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -1349,8 +1350,8 @@ export default function HealthQuestionnaire() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Allergen</Label>
-                      <Input
+                      <FieldCaption>Allergen</FieldCaption>
+                      <Input aria-label="Allergen"
                         placeholder="e.g., Penicillin, Peanuts"
                         value={allergy.allergen}
                         onChange={(e) => updateAllergy(allergy.id, "allergen", e.target.value)}
@@ -1361,12 +1362,12 @@ export default function HealthQuestionnaire() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Reaction Type</Label>
+                      <FieldCaption>Reaction Type</FieldCaption>
                       <Select
                         value={allergy.reactionType}
                         onValueChange={(value) => updateAllergy(allergy.id, "reactionType", value)}
                       >
-                        <SelectTrigger data-testid={`select-reaction-type-${index}`}>
+                        <SelectTrigger aria-label="Reaction Type" data-testid={`select-reaction-type-${index}`}>
                           <SelectValue placeholder="Select reaction..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -1377,12 +1378,12 @@ export default function HealthQuestionnaire() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Severity</Label>
+                      <FieldCaption>Severity</FieldCaption>
                       <Select
                         value={allergy.severity}
                         onValueChange={(value) => updateAllergy(allergy.id, "severity", value)}
                       >
-                        <SelectTrigger data-testid={`select-severity-${index}`}>
+                        <SelectTrigger aria-label="Severity" data-testid={`select-severity-${index}`}>
                           <SelectValue placeholder="Select severity..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -1396,8 +1397,8 @@ export default function HealthQuestionnaire() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Year of Reaction (optional)</Label>
-                      <Input
+                      <FieldCaption>Year of Reaction (optional)</FieldCaption>
+                      <Input aria-label="Year of Reaction (optional)"
                         type="number"
                         min="1900"
                         max={new Date().getFullYear()}
@@ -1494,12 +1495,12 @@ export default function HealthQuestionnaire() {
                 <CardContent className="pt-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Category</Label>
+                      <FieldCaption>Category</FieldCaption>
                       <Select
                         value={med.category}
                         onValueChange={(value) => updateMedication(med.id, "category", value)}
                       >
-                        <SelectTrigger data-testid={`select-med-category-${index}`}>
+                        <SelectTrigger aria-label="Category" data-testid={`select-med-category-${index}`}>
                           <SelectValue placeholder="Select type..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -1510,8 +1511,8 @@ export default function HealthQuestionnaire() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Medication Name</Label>
-                      <Input
+                      <FieldCaption>Medication Name</FieldCaption>
+                      <Input aria-label="Medication Name"
                         placeholder="e.g., Lisinopril, Vitamin D"
                         value={med.name}
                         onChange={(e) => updateMedication(med.id, "name", e.target.value)}
@@ -1522,8 +1523,8 @@ export default function HealthQuestionnaire() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Dose (optional)</Label>
-                      <Input
+                      <FieldCaption>Dose (optional)</FieldCaption>
+                      <Input aria-label="Dose (optional)"
                         placeholder="e.g., 10mg, 1000 IU"
                         value={med.dose}
                         onChange={(e) => updateMedication(med.id, "dose", e.target.value)}
@@ -1531,12 +1532,12 @@ export default function HealthQuestionnaire() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Frequency (optional)</Label>
+                      <FieldCaption>Frequency (optional)</FieldCaption>
                       <Select
                         value={med.frequency}
                         onValueChange={(value) => updateMedication(med.id, "frequency", value)}
                       >
-                        <SelectTrigger data-testid={`select-med-frequency-${index}`}>
+                        <SelectTrigger aria-label="Frequency (optional)" data-testid={`select-med-frequency-${index}`}>
                           <SelectValue placeholder="Select frequency..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -1686,12 +1687,12 @@ export default function HealthQuestionnaire() {
                 </Button>
                 <CardContent className="pt-6 space-y-4">
                   <div className="space-y-2">
-                    <Label>Surgery Type</Label>
+                    <FieldCaption>Surgery Type</FieldCaption>
                     <Select
                       value={surgery.name}
                       onValueChange={(value) => updateSurgery(surgery.id, "name", value)}
                     >
-                      <SelectTrigger data-testid={`select-surgery-type-${index}`}>
+                      <SelectTrigger aria-label="Surgery Type" data-testid={`select-surgery-type-${index}`}>
                         <SelectValue placeholder="Select surgery..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1704,8 +1705,8 @@ export default function HealthQuestionnaire() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Year (approximate)</Label>
-                      <Input
+                      <FieldCaption>Year (approximate)</FieldCaption>
+                      <Input aria-label="Year (approximate)"
                         type="number"
                         min="1900"
                         max={new Date().getFullYear()}
@@ -1716,8 +1717,8 @@ export default function HealthQuestionnaire() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Notes (optional)</Label>
-                      <Input
+                      <FieldCaption>Notes (optional)</FieldCaption>
+                      <Input aria-label="Notes (optional)"
                         placeholder="Any additional details"
                         value={surgery.notes}
                         onChange={(e) => updateSurgery(surgery.id, "notes", e.target.value)}
@@ -1958,12 +1959,12 @@ export default function HealthQuestionnaire() {
             <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Relative</Label>
+                  <FieldCaption>Relative</FieldCaption>
                   <Select
                     value={entry.relative}
                     onValueChange={(value) => updateFamilyHistoryEntry(entry.id, "relative", value)}
                   >
-                    <SelectTrigger data-testid={`select-relative-${index}`}>
+                    <SelectTrigger aria-label="Relative" data-testid={`select-relative-${index}`}>
                       <SelectValue placeholder="Select relative..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1974,12 +1975,12 @@ export default function HealthQuestionnaire() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Condition</Label>
+                  <FieldCaption>Condition</FieldCaption>
                   <Select
                     value={entry.conditionId}
                     onValueChange={(value) => updateFamilyHistoryEntry(entry.id, "conditionId", value)}
                   >
-                    <SelectTrigger data-testid={`select-family-condition-${index}`}>
+                    <SelectTrigger aria-label="Condition" data-testid={`select-family-condition-${index}`}>
                       <SelectValue placeholder="Select condition..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1992,8 +1993,8 @@ export default function HealthQuestionnaire() {
               </div>
 
               <div className="space-y-2">
-                <Label>Age at Diagnosis (optional)</Label>
-                <Input
+                <FieldCaption>Age at Diagnosis (optional)</FieldCaption>
+                <Input aria-label="Age at Diagnosis (optional)"
                   type="number"
                   min="0"
                   max="120"
@@ -2069,7 +2070,7 @@ export default function HealthQuestionnaire() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Status</Label>
+            <Label htmlFor="health-questionnaire-status">Status</Label>
             <Select
               value={socialHistory.tobacco.status}
               onValueChange={(value) => setSocialHistory({
@@ -2077,7 +2078,7 @@ export default function HealthQuestionnaire() {
                 tobacco: { ...socialHistory.tobacco, status: value },
               })}
             >
-              <SelectTrigger data-testid="select-tobacco-status">
+              <SelectTrigger id="health-questionnaire-status" data-testid="select-tobacco-status">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
@@ -2091,11 +2092,11 @@ export default function HealthQuestionnaire() {
           {(socialHistory.tobacco.status === "former" || socialHistory.tobacco.status === "current") && (
             <>
               <div className="space-y-2">
-                <Label>Types used (select all that apply)</Label>
+                <FieldCaption>Types used (select all that apply)</FieldCaption>
                 <div className="grid grid-cols-2 gap-2">
                   {NICOTINE_TYPES.map((type) => (
                     <div key={type.value} className="flex items-center gap-2">
-                      <Checkbox
+                      <Checkbox aria-label="Types used (select all that apply)"
                         id={`nicotine-${type.value}`}
                         checked={socialHistory.tobacco.types.includes(type.value)}
                         onCheckedChange={() => toggleNicotineType(type.value)}
@@ -2111,8 +2112,8 @@ export default function HealthQuestionnaire() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Years used</Label>
-                  <Input
+                  <Label htmlFor="health-questionnaire-years-used">Years used</Label>
+                  <Input id="health-questionnaire-years-used"
                     type="number"
                     min="0"
                     placeholder="e.g., 10"
@@ -2125,8 +2126,8 @@ export default function HealthQuestionnaire() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Average per day</Label>
-                  <Input
+                  <Label htmlFor="health-questionnaire-average-per-day">Average per day</Label>
+                  <Input id="health-questionnaire-average-per-day"
                     placeholder="e.g., 1 pack"
                     value={socialHistory.tobacco.amountPerDay}
                     onChange={(e) => setSocialHistory({
@@ -2140,8 +2141,8 @@ export default function HealthQuestionnaire() {
 
               {socialHistory.tobacco.status === "former" && (
                 <div className="space-y-2">
-                  <Label>Quit year</Label>
-                  <Input
+                  <Label htmlFor="health-questionnaire-quit-year">Quit year</Label>
+                  <Input id="health-questionnaire-quit-year"
                     type="number"
                     min="1900"
                     max={new Date().getFullYear()}
@@ -2167,7 +2168,7 @@ export default function HealthQuestionnaire() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Status</Label>
+            <Label htmlFor="health-questionnaire-status-2">Status</Label>
             <Select
               value={socialHistory.vaping.status}
               onValueChange={(value) => setSocialHistory({
@@ -2175,7 +2176,7 @@ export default function HealthQuestionnaire() {
                 vaping: { ...socialHistory.vaping, status: value },
               })}
             >
-              <SelectTrigger data-testid="select-vaping-status">
+              <SelectTrigger id="health-questionnaire-status-2" data-testid="select-vaping-status">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
@@ -2189,7 +2190,7 @@ export default function HealthQuestionnaire() {
           {(socialHistory.vaping.status === "former" || socialHistory.vaping.status === "current") && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Substance</Label>
+                <Label htmlFor="health-questionnaire-substance">Substance</Label>
                 <Select
                   value={socialHistory.vaping.substance}
                   onValueChange={(value) => setSocialHistory({
@@ -2197,7 +2198,7 @@ export default function HealthQuestionnaire() {
                     vaping: { ...socialHistory.vaping, substance: value },
                   })}
                 >
-                  <SelectTrigger data-testid="select-vaping-substance">
+                  <SelectTrigger id="health-questionnaire-substance" data-testid="select-vaping-substance">
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -2208,7 +2209,7 @@ export default function HealthQuestionnaire() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Frequency</Label>
+                <Label htmlFor="health-questionnaire-frequency">Frequency</Label>
                 <Select
                   value={socialHistory.vaping.frequency}
                   onValueChange={(value) => setSocialHistory({
@@ -2216,7 +2217,7 @@ export default function HealthQuestionnaire() {
                     vaping: { ...socialHistory.vaping, frequency: value },
                   })}
                 >
-                  <SelectTrigger data-testid="select-vaping-frequency">
+                  <SelectTrigger id="health-questionnaire-frequency" data-testid="select-vaping-frequency">
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -2238,7 +2239,7 @@ export default function HealthQuestionnaire() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Frequency</Label>
+            <Label htmlFor="health-questionnaire-frequency-2">Frequency</Label>
             <Select
               value={socialHistory.alcohol.frequency}
               onValueChange={(value) => setSocialHistory({
@@ -2246,7 +2247,7 @@ export default function HealthQuestionnaire() {
                 alcohol: { ...socialHistory.alcohol, frequency: value },
               })}
             >
-              <SelectTrigger data-testid="select-alcohol-frequency">
+              <SelectTrigger id="health-questionnaire-frequency-2" data-testid="select-alcohol-frequency">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
@@ -2260,8 +2261,8 @@ export default function HealthQuestionnaire() {
           {socialHistory.alcohol.frequency && socialHistory.alcohol.frequency !== "never" && (
             <>
               <div className="space-y-2">
-                <Label>Typical drinks per week (optional)</Label>
-                <Input
+                <Label htmlFor="health-questionnaire-typical-drinks-per-week-optional">Typical drinks per week (optional)</Label>
+                <Input id="health-questionnaire-typical-drinks-per-week-optional"
                   type="number"
                   min="0"
                   placeholder="e.g., 5"
@@ -2300,7 +2301,7 @@ export default function HealthQuestionnaire() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Status</Label>
+            <Label htmlFor="health-questionnaire-status-3">Status</Label>
             <Select
               value={socialHistory.drugs.status}
               onValueChange={(value) => setSocialHistory({
@@ -2308,7 +2309,7 @@ export default function HealthQuestionnaire() {
                 drugs: { ...socialHistory.drugs, status: value },
               })}
             >
-              <SelectTrigger data-testid="select-drug-status">
+              <SelectTrigger id="health-questionnaire-status-3" data-testid="select-drug-status">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
@@ -2322,11 +2323,11 @@ export default function HealthQuestionnaire() {
           {(socialHistory.drugs.status === "past" || socialHistory.drugs.status === "current") && (
             <>
               <div className="space-y-2">
-                <Label>Types (select all that apply)</Label>
+                <FieldCaption>Types (select all that apply)</FieldCaption>
                 <div className="grid grid-cols-2 gap-2">
                   {DRUG_TYPES.map((type) => (
                     <div key={type.value} className="flex items-center gap-2">
-                      <Checkbox
+                      <Checkbox aria-label="Types (select all that apply)"
                         id={`drug-${type.value}`}
                         checked={socialHistory.drugs.types.includes(type.value)}
                         onCheckedChange={() => toggleDrugType(type.value)}
@@ -2341,8 +2342,8 @@ export default function HealthQuestionnaire() {
               </div>
 
               <div className="space-y-2">
-                <Label>Frequency and last use (optional)</Label>
-                <Textarea
+                <Label htmlFor="health-questionnaire-frequency-and-last-use-optional">Frequency and last use (optional)</Label>
+                <Textarea id="health-questionnaire-frequency-and-last-use-optional"
                   placeholder="e.g., Marijuana occasionally, last used 2 years ago"
                   value={socialHistory.drugs.frequencyAndLastUse}
                   onChange={(e) => setSocialHistory({

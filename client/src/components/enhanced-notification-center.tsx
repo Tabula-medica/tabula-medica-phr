@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 type NotificationCategory = "message" | "alert" | "health_update" | "reminder" | "appointment" | "medication" | "caregiver" | "system";
 type NotificationPriority = "low" | "normal" | "high" | "urgent";
@@ -344,7 +345,7 @@ export function EnhancedNotificationCenter() {
                       "p-3 hover-elevate cursor-pointer relative group",
                       !notification.read && "bg-primary/5"
                     )}
-                    onClick={() => handleNotificationClick(notification)}
+                    {...clickable(() => handleNotificationClick(notification))}
                     data-testid={`notification-item-${notification.id}`}
                   >
                     <div className="flex items-start gap-3">

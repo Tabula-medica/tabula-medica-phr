@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -1016,25 +1017,25 @@ function ConfigurationTab() {
             <CardContent>
               <div className="grid md:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Auth Type</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Auth Type</FieldCaption>
                   <p className="font-medium">{server.authType}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Sync Direction</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Sync Direction</FieldCaption>
                   <p className="font-medium capitalize">{server.syncDirection}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Conflict Strategy</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Conflict Strategy</FieldCaption>
                   <p className="font-medium capitalize">{server.conflictStrategy.replace("_", " ")}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Auto-Approve Threshold</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Auto-Approve Threshold</FieldCaption>
                   <p className="font-medium">{Math.round(server.autoApproveThreshold * 100)}%</p>
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Supported Resources</Label>
+                <FieldCaption className="text-xs text-muted-foreground mb-2 block">Supported Resources</FieldCaption>
                 <div className="flex flex-wrap gap-2">
                   {server.supportedResources.map((resource) => {
                     const Icon = resourceIcons[resource] || FileText;

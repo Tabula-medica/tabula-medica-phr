@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -182,9 +183,9 @@ function DemographicsStep({ data, onChange }: { data: DemographicsData; onChange
             <Input id="dob" data-testid="input-dob" type="date" value={data.dateOfBirth} onChange={e => update("dateOfBirth", e.target.value)} />
           </div>
           <div>
-            <Label>Biological Sex *</Label>
+            <Label htmlFor="patient-intake-wizard-biological-sex">Biological Sex *</Label>
             <Select value={data.sex} onValueChange={v => update("sex", v)}>
-              <SelectTrigger data-testid="select-sex"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger id="patient-intake-wizard-biological-sex" data-testid="select-sex"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="male">Male</SelectItem>
                 <SelectItem value="female">Female</SelectItem>
@@ -258,9 +259,9 @@ function DemographicsStep({ data, onChange }: { data: DemographicsData; onChange
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label>State</Label>
+              <Label htmlFor="patient-intake-wizard-state">State</Label>
               <Select value={data.address.state} onValueChange={v => updateAddress("state", v)}>
-                <SelectTrigger data-testid="select-state"><SelectValue placeholder="State" /></SelectTrigger>
+                <SelectTrigger id="patient-intake-wizard-state" data-testid="select-state"><SelectValue placeholder="State" /></SelectTrigger>
                 <SelectContent>
                   {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
@@ -421,13 +422,13 @@ function MedicalHistoryStep({ data, onChange }: { data: MedicalHistoryData; onCh
             <CardContent className="pt-4">
               <div className="grid sm:grid-cols-3 gap-3">
                 <div>
-                  <Label>Condition</Label>
-                  <Input data-testid="input-family-condition" value={familyEntry.condition} onChange={e => setFamilyEntry({ ...familyEntry, condition: e.target.value })} placeholder="e.g., Heart Disease" />
+                  <Label htmlFor="patient-intake-wizard-condition">Condition</Label>
+                  <Input id="patient-intake-wizard-condition" data-testid="input-family-condition" value={familyEntry.condition} onChange={e => setFamilyEntry({ ...familyEntry, condition: e.target.value })} placeholder="e.g., Heart Disease" />
                 </div>
                 <div>
-                  <Label>Relationship</Label>
+                  <Label htmlFor="patient-intake-wizard-relationship">Relationship</Label>
                   <Select value={familyEntry.relationship} onValueChange={v => setFamilyEntry({ ...familyEntry, relationship: v })}>
-                    <SelectTrigger data-testid="select-family-relationship"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="patient-intake-wizard-relationship" data-testid="select-family-relationship"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="mother">Mother</SelectItem>
                       <SelectItem value="father">Father</SelectItem>
@@ -438,8 +439,8 @@ function MedicalHistoryStep({ data, onChange }: { data: MedicalHistoryData; onCh
                   </Select>
                 </div>
                 <div>
-                  <Label>Age of Onset</Label>
-                  <Input data-testid="input-family-age" type="number" value={familyEntry.ageOfOnset} onChange={e => setFamilyEntry({ ...familyEntry, ageOfOnset: e.target.value })} placeholder="Optional" />
+                  <Label htmlFor="patient-intake-wizard-age-of-onset">Age of Onset</Label>
+                  <Input id="patient-intake-wizard-age-of-onset" data-testid="input-family-age" type="number" value={familyEntry.ageOfOnset} onChange={e => setFamilyEntry({ ...familyEntry, ageOfOnset: e.target.value })} placeholder="Optional" />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-3">
@@ -505,13 +506,13 @@ function AllergiesStep({ data, onChange }: { data: AllergiesData; onChange: (d: 
           <CardContent className="pt-4 space-y-3">
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <Label>Allergen Name *</Label>
-                <Input data-testid="input-allergy-name" value={entry.name} onChange={e => setEntry({ ...entry, name: e.target.value })} placeholder="e.g., Penicillin" />
+                <Label htmlFor="patient-intake-wizard-allergen-name">Allergen Name *</Label>
+                <Input id="patient-intake-wizard-allergen-name" data-testid="input-allergy-name" value={entry.name} onChange={e => setEntry({ ...entry, name: e.target.value })} placeholder="e.g., Penicillin" />
               </div>
               <div>
-                <Label>Type</Label>
+                <Label htmlFor="patient-intake-wizard-type">Type</Label>
                 <Select value={entry.type} onValueChange={v => setEntry({ ...entry, type: v as any })}>
-                  <SelectTrigger data-testid="select-allergy-type"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="patient-intake-wizard-type" data-testid="select-allergy-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="medication">Medication</SelectItem>
                     <SelectItem value="food">Food</SelectItem>
@@ -520,9 +521,9 @@ function AllergiesStep({ data, onChange }: { data: AllergiesData; onChange: (d: 
                 </Select>
               </div>
               <div>
-                <Label>Severity</Label>
+                <Label htmlFor="patient-intake-wizard-severity">Severity</Label>
                 <Select value={entry.severity} onValueChange={v => setEntry({ ...entry, severity: v as any })}>
-                  <SelectTrigger data-testid="select-allergy-severity"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="patient-intake-wizard-severity" data-testid="select-allergy-severity"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mild">Mild</SelectItem>
                     <SelectItem value="moderate">Moderate</SelectItem>
@@ -532,8 +533,8 @@ function AllergiesStep({ data, onChange }: { data: AllergiesData; onChange: (d: 
                 </Select>
               </div>
               <div>
-                <Label>Reaction *</Label>
-                <Input data-testid="input-allergy-reaction" value={entry.reaction} onChange={e => setEntry({ ...entry, reaction: e.target.value })} placeholder="e.g., Rash, hives" />
+                <Label htmlFor="patient-intake-wizard-reaction">Reaction *</Label>
+                <Input id="patient-intake-wizard-reaction" data-testid="input-allergy-reaction" value={entry.reaction} onChange={e => setEntry({ ...entry, reaction: e.target.value })} placeholder="e.g., Rash, hives" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -597,20 +598,20 @@ function MedicationsStep({ data, onChange }: { data: MedicationsData; onChange: 
           <CardContent className="pt-4 space-y-3">
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <Label>Medication Name *</Label>
-                <Input data-testid="input-med-name" value={entry.name} onChange={e => setEntry({ ...entry, name: e.target.value })} placeholder="e.g., Lisinopril" />
+                <Label htmlFor="patient-intake-wizard-medication-name">Medication Name *</Label>
+                <Input id="patient-intake-wizard-medication-name" data-testid="input-med-name" value={entry.name} onChange={e => setEntry({ ...entry, name: e.target.value })} placeholder="e.g., Lisinopril" />
               </div>
               <div>
-                <Label>Dosage</Label>
-                <Input data-testid="input-med-dosage" value={entry.dosage} onChange={e => setEntry({ ...entry, dosage: e.target.value })} placeholder="e.g., 10mg" />
+                <Label htmlFor="patient-intake-wizard-dosage">Dosage</Label>
+                <Input id="patient-intake-wizard-dosage" data-testid="input-med-dosage" value={entry.dosage} onChange={e => setEntry({ ...entry, dosage: e.target.value })} placeholder="e.g., 10mg" />
               </div>
               <div>
-                <Label>Frequency</Label>
-                <Input data-testid="input-med-frequency" value={entry.frequency} onChange={e => setEntry({ ...entry, frequency: e.target.value })} placeholder="e.g., Once daily" />
+                <Label htmlFor="patient-intake-wizard-frequency">Frequency</Label>
+                <Input id="patient-intake-wizard-frequency" data-testid="input-med-frequency" value={entry.frequency} onChange={e => setEntry({ ...entry, frequency: e.target.value })} placeholder="e.g., Once daily" />
               </div>
               <div>
-                <Label>Prescribed For</Label>
-                <Input data-testid="input-med-prescribed-for" value={entry.prescribedFor} onChange={e => setEntry({ ...entry, prescribedFor: e.target.value })} placeholder="e.g., High blood pressure" />
+                <Label htmlFor="patient-intake-wizard-prescribed-for">Prescribed For</Label>
+                <Input id="patient-intake-wizard-prescribed-for" data-testid="input-med-prescribed-for" value={entry.prescribedFor} onChange={e => setEntry({ ...entry, prescribedFor: e.target.value })} placeholder="e.g., High blood pressure" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -655,9 +656,9 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
         <h3 className="text-sm font-semibold mb-3">Tobacco Use</h3>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <Label>Status</Label>
+            <Label htmlFor="patient-intake-wizard-status">Status</Label>
             <Select value={data.tobacco.status} onValueChange={v => onChange({ ...data, tobacco: { ...data.tobacco, status: v } })}>
-              <SelectTrigger data-testid="select-tobacco-status"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="patient-intake-wizard-status" data-testid="select-tobacco-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="never">Never used</SelectItem>
                 <SelectItem value="former">Former user</SelectItem>
@@ -668,17 +669,17 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
           {(data.tobacco.status === "former" || data.tobacco.status === "current") && (
             <>
               <div>
-                <Label>Type</Label>
-                <Input data-testid="input-tobacco-type" value={data.tobacco.type} onChange={e => onChange({ ...data, tobacco: { ...data.tobacco, type: e.target.value } })} placeholder="e.g., Cigarettes" />
+                <Label htmlFor="patient-intake-wizard-type-2">Type</Label>
+                <Input id="patient-intake-wizard-type-2" data-testid="input-tobacco-type" value={data.tobacco.type} onChange={e => onChange({ ...data, tobacco: { ...data.tobacco, type: e.target.value } })} placeholder="e.g., Cigarettes" />
               </div>
               <div>
-                <Label>Years Used</Label>
-                <Input data-testid="input-tobacco-years" type="number" value={data.tobacco.yearsUsed ?? ""} onChange={e => onChange({ ...data, tobacco: { ...data.tobacco, yearsUsed: e.target.value ? parseInt(e.target.value) : undefined } })} />
+                <Label htmlFor="patient-intake-wizard-years-used">Years Used</Label>
+                <Input id="patient-intake-wizard-years-used" data-testid="input-tobacco-years" type="number" value={data.tobacco.yearsUsed ?? ""} onChange={e => onChange({ ...data, tobacco: { ...data.tobacco, yearsUsed: e.target.value ? parseInt(e.target.value) : undefined } })} />
               </div>
               {data.tobacco.status === "former" && (
                 <div>
-                  <Label>Quit Date</Label>
-                  <Input data-testid="input-tobacco-quit" type="date" value={data.tobacco.quitDate} onChange={e => onChange({ ...data, tobacco: { ...data.tobacco, quitDate: e.target.value } })} />
+                  <Label htmlFor="patient-intake-wizard-quit-date">Quit Date</Label>
+                  <Input id="patient-intake-wizard-quit-date" data-testid="input-tobacco-quit" type="date" value={data.tobacco.quitDate} onChange={e => onChange({ ...data, tobacco: { ...data.tobacco, quitDate: e.target.value } })} />
                 </div>
               )}
             </>
@@ -692,9 +693,9 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
         <h3 className="text-sm font-semibold mb-3">Alcohol Use</h3>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <Label>Status</Label>
+            <Label htmlFor="patient-intake-wizard-status-2">Status</Label>
             <Select value={data.alcohol.status} onValueChange={v => onChange({ ...data, alcohol: { ...data.alcohol, status: v } })}>
-              <SelectTrigger data-testid="select-alcohol-status"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="patient-intake-wizard-status-2" data-testid="select-alcohol-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="never">Never</SelectItem>
                 <SelectItem value="social">Social drinker</SelectItem>
@@ -705,8 +706,8 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
           </div>
           {data.alcohol.status !== "never" && (
             <div>
-              <Label>Frequency</Label>
-              <Input data-testid="input-alcohol-frequency" value={data.alcohol.frequency} onChange={e => onChange({ ...data, alcohol: { ...data.alcohol, frequency: e.target.value } })} placeholder="e.g., 1-2 drinks/week" />
+              <Label htmlFor="patient-intake-wizard-frequency-2">Frequency</Label>
+              <Input id="patient-intake-wizard-frequency-2" data-testid="input-alcohol-frequency" value={data.alcohol.frequency} onChange={e => onChange({ ...data, alcohol: { ...data.alcohol, frequency: e.target.value } })} placeholder="e.g., 1-2 drinks/week" />
             </div>
           )}
         </div>
@@ -718,9 +719,9 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
         <h3 className="text-sm font-semibold mb-3">Exercise</h3>
         <div className="grid sm:grid-cols-3 gap-4">
           <div>
-            <Label>Frequency</Label>
+            <Label htmlFor="patient-intake-wizard-frequency-3">Frequency</Label>
             <Select value={data.exercise.frequency} onValueChange={v => onChange({ ...data, exercise: { ...data.exercise, frequency: v } })}>
-              <SelectTrigger data-testid="select-exercise-frequency"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="patient-intake-wizard-frequency-3" data-testid="select-exercise-frequency"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
                 <SelectItem value="1-2_days">1-2 days/week</SelectItem>
@@ -731,12 +732,12 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
             </Select>
           </div>
           <div>
-            <Label>Type</Label>
-            <Input data-testid="input-exercise-type" value={data.exercise.type} onChange={e => onChange({ ...data, exercise: { ...data.exercise, type: e.target.value } })} placeholder="e.g., Walking, yoga" />
+            <Label htmlFor="patient-intake-wizard-type-3">Type</Label>
+            <Input id="patient-intake-wizard-type-3" data-testid="input-exercise-type" value={data.exercise.type} onChange={e => onChange({ ...data, exercise: { ...data.exercise, type: e.target.value } })} placeholder="e.g., Walking, yoga" />
           </div>
           <div>
-            <Label>Duration</Label>
-            <Input data-testid="input-exercise-duration" value={data.exercise.duration} onChange={e => onChange({ ...data, exercise: { ...data.exercise, duration: e.target.value } })} placeholder="e.g., 30 minutes" />
+            <Label htmlFor="patient-intake-wizard-duration">Duration</Label>
+            <Input id="patient-intake-wizard-duration" data-testid="input-exercise-duration" value={data.exercise.duration} onChange={e => onChange({ ...data, exercise: { ...data.exercise, duration: e.target.value } })} placeholder="e.g., 30 minutes" />
           </div>
         </div>
       </div>
@@ -747,13 +748,13 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
         <h3 className="text-sm font-semibold mb-3">Other</h3>
         <div className="grid sm:grid-cols-3 gap-4">
           <div>
-            <Label>Occupation</Label>
-            <Input data-testid="input-occupation" value={data.occupation} onChange={e => update("occupation", e.target.value)} placeholder="e.g., Software engineer" />
+            <Label htmlFor="patient-intake-wizard-occupation">Occupation</Label>
+            <Input id="patient-intake-wizard-occupation" data-testid="input-occupation" value={data.occupation} onChange={e => update("occupation", e.target.value)} placeholder="e.g., Software engineer" />
           </div>
           <div>
-            <Label>Marital Status</Label>
+            <Label htmlFor="patient-intake-wizard-marital-status">Marital Status</Label>
             <Select value={data.maritalStatus} onValueChange={v => update("maritalStatus", v)}>
-              <SelectTrigger data-testid="select-marital-status"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger id="patient-intake-wizard-marital-status" data-testid="select-marital-status"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="single">Single</SelectItem>
                 <SelectItem value="married">Married</SelectItem>
@@ -764,9 +765,9 @@ function SocialHistoryStep({ data, onChange }: { data: SocialHistoryData; onChan
             </Select>
           </div>
           <div>
-            <Label>Living Situation</Label>
+            <Label htmlFor="patient-intake-wizard-living-situation">Living Situation</Label>
             <Select value={data.livingSituation} onValueChange={v => update("livingSituation", v)}>
-              <SelectTrigger data-testid="select-living-situation"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger id="patient-intake-wizard-living-situation" data-testid="select-living-situation"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="alone">Lives alone</SelectItem>
                 <SelectItem value="with_spouse">Lives with spouse/partner</SelectItem>
@@ -786,7 +787,7 @@ function InsuranceStep({ data, onChange }: { data: InsuranceData; onChange: (d: 
   return (
     <div className="space-y-6" data-testid="step-insurance">
       <div className="flex items-center gap-3">
-        <Label className="text-sm font-semibold">Do you have health insurance?</Label>
+        <FieldCaption className="text-sm font-semibold">Do you have health insurance?</FieldCaption>
         <div className="flex gap-2">
           <Badge
             variant={data.hasInsurance ? "default" : "outline"}
@@ -813,29 +814,29 @@ function InsuranceStep({ data, onChange }: { data: InsuranceData; onChange: (d: 
             <h3 className="text-sm font-semibold mb-3">Primary Insurance</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <Label>Insurance Provider</Label>
-                <Input data-testid="input-ins-provider" value={data.primary.provider} onChange={e => onChange({ ...data, primary: { ...data.primary, provider: e.target.value } })} placeholder="e.g., Blue Cross Blue Shield" />
+                <Label htmlFor="patient-intake-wizard-insurance-provider">Insurance Provider</Label>
+                <Input id="patient-intake-wizard-insurance-provider" data-testid="input-ins-provider" value={data.primary.provider} onChange={e => onChange({ ...data, primary: { ...data.primary, provider: e.target.value } })} placeholder="e.g., Blue Cross Blue Shield" />
               </div>
               <div>
-                <Label>Plan Name</Label>
-                <Input data-testid="input-ins-plan" value={data.primary.planName} onChange={e => onChange({ ...data, primary: { ...data.primary, planName: e.target.value } })} placeholder="e.g., PPO Gold" />
+                <Label htmlFor="patient-intake-wizard-plan-name">Plan Name</Label>
+                <Input id="patient-intake-wizard-plan-name" data-testid="input-ins-plan" value={data.primary.planName} onChange={e => onChange({ ...data, primary: { ...data.primary, planName: e.target.value } })} placeholder="e.g., PPO Gold" />
               </div>
               <div>
-                <Label>Member ID</Label>
-                <Input data-testid="input-ins-member-id" value={data.primary.memberId} onChange={e => onChange({ ...data, primary: { ...data.primary, memberId: e.target.value } })} />
+                <Label htmlFor="patient-intake-wizard-member-id">Member ID</Label>
+                <Input id="patient-intake-wizard-member-id" data-testid="input-ins-member-id" value={data.primary.memberId} onChange={e => onChange({ ...data, primary: { ...data.primary, memberId: e.target.value } })} />
               </div>
               <div>
-                <Label>Group Number</Label>
-                <Input data-testid="input-ins-group" value={data.primary.groupNumber} onChange={e => onChange({ ...data, primary: { ...data.primary, groupNumber: e.target.value } })} />
+                <Label htmlFor="patient-intake-wizard-group-number">Group Number</Label>
+                <Input id="patient-intake-wizard-group-number" data-testid="input-ins-group" value={data.primary.groupNumber} onChange={e => onChange({ ...data, primary: { ...data.primary, groupNumber: e.target.value } })} />
               </div>
               <div>
-                <Label>Subscriber Name</Label>
-                <Input data-testid="input-ins-subscriber" value={data.primary.subscriberName} onChange={e => onChange({ ...data, primary: { ...data.primary, subscriberName: e.target.value } })} placeholder="If different from patient" />
+                <Label htmlFor="patient-intake-wizard-subscriber-name">Subscriber Name</Label>
+                <Input id="patient-intake-wizard-subscriber-name" data-testid="input-ins-subscriber" value={data.primary.subscriberName} onChange={e => onChange({ ...data, primary: { ...data.primary, subscriberName: e.target.value } })} placeholder="If different from patient" />
               </div>
               <div>
-                <Label>Relationship to Subscriber</Label>
+                <Label htmlFor="patient-intake-wizard-relationship-to-subscriber">Relationship to Subscriber</Label>
                 <Select value={data.primary.relationship} onValueChange={v => onChange({ ...data, primary: { ...data.primary, relationship: v } })}>
-                  <SelectTrigger data-testid="select-ins-relationship"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger id="patient-intake-wizard-relationship-to-subscriber" data-testid="select-ins-relationship"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="self">Self</SelectItem>
                     <SelectItem value="spouse">Spouse</SelectItem>
@@ -853,16 +854,16 @@ function InsuranceStep({ data, onChange }: { data: InsuranceData; onChange: (d: 
             <h3 className="text-sm font-semibold mb-3">Preferred Pharmacy</h3>
             <div className="grid sm:grid-cols-3 gap-4">
               <div>
-                <Label>Pharmacy Name</Label>
-                <Input data-testid="input-pharmacy-name" value={data.pharmacy.name} onChange={e => onChange({ ...data, pharmacy: { ...data.pharmacy, name: e.target.value } })} placeholder="e.g., CVS Pharmacy" />
+                <Label htmlFor="patient-intake-wizard-pharmacy-name">Pharmacy Name</Label>
+                <Input id="patient-intake-wizard-pharmacy-name" data-testid="input-pharmacy-name" value={data.pharmacy.name} onChange={e => onChange({ ...data, pharmacy: { ...data.pharmacy, name: e.target.value } })} placeholder="e.g., CVS Pharmacy" />
               </div>
               <div>
-                <Label>Phone</Label>
-                <Input data-testid="input-pharmacy-phone" type="tel" value={data.pharmacy.phone} onChange={e => onChange({ ...data, pharmacy: { ...data.pharmacy, phone: e.target.value } })} />
+                <Label htmlFor="patient-intake-wizard-phone">Phone</Label>
+                <Input id="patient-intake-wizard-phone" data-testid="input-pharmacy-phone" type="tel" value={data.pharmacy.phone} onChange={e => onChange({ ...data, pharmacy: { ...data.pharmacy, phone: e.target.value } })} />
               </div>
               <div>
-                <Label>Address</Label>
-                <Input data-testid="input-pharmacy-address" value={data.pharmacy.address} onChange={e => onChange({ ...data, pharmacy: { ...data.pharmacy, address: e.target.value } })} />
+                <Label htmlFor="patient-intake-wizard-address">Address</Label>
+                <Input id="patient-intake-wizard-address" data-testid="input-pharmacy-address" value={data.pharmacy.address} onChange={e => onChange({ ...data, pharmacy: { ...data.pharmacy, address: e.target.value } })} />
               </div>
             </div>
           </div>

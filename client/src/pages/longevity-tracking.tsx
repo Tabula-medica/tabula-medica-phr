@@ -375,8 +375,8 @@ export default function LongevityTracking() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <Label>Biomarker Name</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-biomarker-name">Biomarker Name</Label>
+                    <Input id="longevity-tracking-biomarker-name"
                       value={newBiomarker.name || ""}
                       onChange={e => setNewBiomarker(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="e.g., HbA1c"
@@ -384,8 +384,8 @@ export default function LongevityTracking() {
                     />
                   </div>
                   <div>
-                    <Label>Value</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-value">Value</Label>
+                    <Input id="longevity-tracking-value"
                       value={newBiomarker.value || ""}
                       onChange={e => setNewBiomarker(prev => ({ ...prev, value: e.target.value }))}
                       placeholder="e.g., 5.4"
@@ -393,8 +393,8 @@ export default function LongevityTracking() {
                     />
                   </div>
                   <div>
-                    <Label>Unit</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-unit">Unit</Label>
+                    <Input id="longevity-tracking-unit"
                       value={newBiomarker.unit || ""}
                       onChange={e => setNewBiomarker(prev => ({ ...prev, unit: e.target.value }))}
                       placeholder="e.g., %"
@@ -404,8 +404,8 @@ export default function LongevityTracking() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <Label>Date</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-date">Date</Label>
+                    <Input id="longevity-tracking-date"
                       type="date"
                       value={newBiomarker.date || new Date().toISOString().split("T")[0]}
                       onChange={e => setNewBiomarker(prev => ({ ...prev, date: e.target.value }))}
@@ -413,12 +413,12 @@ export default function LongevityTracking() {
                     />
                   </div>
                   <div>
-                    <Label>Category</Label>
+                    <Label htmlFor="longevity-tracking-category">Category</Label>
                     <Select
                       value={newBiomarker.category || "metabolic"}
                       onValueChange={v => setNewBiomarker(prev => ({ ...prev, category: v }))}
                     >
-                      <SelectTrigger data-testid="select-biomarker-category"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="longevity-tracking-category" data-testid="select-biomarker-category"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {BIOMARKER_CATEGORIES.map(c => (
                           <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
@@ -427,12 +427,12 @@ export default function LongevityTracking() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Status</Label>
+                    <Label htmlFor="longevity-tracking-status">Status</Label>
                     <Select
                       value={newBiomarker.status || "unknown"}
                       onValueChange={v => setNewBiomarker(prev => ({ ...prev, status: v as any }))}
                     >
-                      <SelectTrigger data-testid="select-biomarker-status"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="longevity-tracking-status" data-testid="select-biomarker-status"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="optimal">Optimal</SelectItem>
                         <SelectItem value="borderline">Borderline</SelectItem>
@@ -524,12 +524,12 @@ export default function LongevityTracking() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>Category</Label>
+                  <Label htmlFor="longevity-tracking-category-2">Category</Label>
                   <Select
                     value={newMetric.category || ""}
                     onValueChange={v => setNewMetric(prev => ({ ...prev, category: v, metric: "" }))}
                   >
-                    <SelectTrigger data-testid="select-metric-category"><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-category-2" data-testid="select-metric-category"><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
                       {LONGEVITY_CATEGORIES.map(c => (
                         <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
@@ -539,12 +539,12 @@ export default function LongevityTracking() {
                 </div>
                 {newMetric.category && (
                   <div>
-                    <Label>Metric</Label>
+                    <Label htmlFor="longevity-tracking-metric">Metric</Label>
                     <Select
                       value={newMetric.metric || ""}
                       onValueChange={v => setNewMetric(prev => ({ ...prev, metric: v }))}
                     >
-                      <SelectTrigger data-testid="select-metric-name"><SelectValue placeholder="Select metric" /></SelectTrigger>
+                      <SelectTrigger id="longevity-tracking-metric" data-testid="select-metric-name"><SelectValue placeholder="Select metric" /></SelectTrigger>
                       <SelectContent>
                         {LONGEVITY_CATEGORIES.find(c => c.key === newMetric.category)?.metrics.map(m => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
@@ -555,8 +555,8 @@ export default function LongevityTracking() {
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <Label>Value</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-value-2">Value</Label>
+                    <Input id="longevity-tracking-value-2"
                       value={newMetric.value || ""}
                       onChange={e => setNewMetric(prev => ({ ...prev, value: e.target.value }))}
                       placeholder="e.g., 45.2"
@@ -564,8 +564,8 @@ export default function LongevityTracking() {
                     />
                   </div>
                   <div>
-                    <Label>Date</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-date-2">Date</Label>
+                    <Input id="longevity-tracking-date-2"
                       type="date"
                       value={newMetric.date || new Date().toISOString().split("T")[0]}
                       onChange={e => setNewMetric(prev => ({ ...prev, date: e.target.value }))}
@@ -573,8 +573,8 @@ export default function LongevityTracking() {
                     />
                   </div>
                   <div>
-                    <Label>Notes</Label>
-                    <Input
+                    <Label htmlFor="longevity-tracking-notes">Notes</Label>
+                    <Input id="longevity-tracking-notes"
                       value={newMetric.notes || ""}
                       onChange={e => setNewMetric(prev => ({ ...prev, notes: e.target.value }))}
                       placeholder="Optional notes"
@@ -643,8 +643,8 @@ export default function LongevityTracking() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
-                  <Label className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Date</Label>
-                  <Input
+                  <Label htmlFor="longevity-tracking-date-3" className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Date</Label>
+                  <Input id="longevity-tracking-date-3"
                     type="date"
                     value={newLog.date || ""}
                     onChange={e => setNewLog(prev => ({ ...prev, date: e.target.value }))}
@@ -652,9 +652,9 @@ export default function LongevityTracking() {
                   />
                 </div>
                 <div>
-                  <Label className="flex items-center gap-1"><Moon className="w-3 h-3" /> Sleep (hours)</Label>
+                  <Label htmlFor="longevity-tracking-sleep-hours" className="flex items-center gap-1"><Moon className="w-3 h-3" /> Sleep (hours)</Label>
                   <Select value={newLog.sleep || ""} onValueChange={v => setNewLog(prev => ({ ...prev, sleep: v }))}>
-                    <SelectTrigger data-testid="select-sleep"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-sleep-hours" data-testid="select-sleep"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["< 5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9+"].map(h => (
                         <SelectItem key={h} value={h}>{h} hrs</SelectItem>
@@ -663,9 +663,9 @@ export default function LongevityTracking() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="flex items-center gap-1"><Dumbbell className="w-3 h-3" /> Exercise Type</Label>
+                  <Label htmlFor="longevity-tracking-exercise-type" className="flex items-center gap-1"><Dumbbell className="w-3 h-3" /> Exercise Type</Label>
                   <Select value={newLog.exercise || ""} onValueChange={v => setNewLog(prev => ({ ...prev, exercise: v }))}>
-                    <SelectTrigger data-testid="select-exercise"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-exercise-type" data-testid="select-exercise"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["None", "Walking", "Running", "Cycling", "Swimming", "Weights", "HIIT", "Yoga", "Sports", "Zone 2 Cardio", "Other"].map(e => (
                         <SelectItem key={e} value={e}>{e}</SelectItem>
@@ -674,8 +674,8 @@ export default function LongevityTracking() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="flex items-center gap-1"><Timer className="w-3 h-3" /> Minutes</Label>
-                  <Input
+                  <Label htmlFor="longevity-tracking-minutes" className="flex items-center gap-1"><Timer className="w-3 h-3" /> Minutes</Label>
+                  <Input id="longevity-tracking-minutes"
                     type="number"
                     value={newLog.exerciseMinutes || ""}
                     onChange={e => setNewLog(prev => ({ ...prev, exerciseMinutes: e.target.value }))}
@@ -687,9 +687,9 @@ export default function LongevityTracking() {
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
-                  <Label className="flex items-center gap-1"><Brain className="w-3 h-3" /> Mood</Label>
+                  <Label htmlFor="longevity-tracking-mood" className="flex items-center gap-1"><Brain className="w-3 h-3" /> Mood</Label>
                   <Select value={newLog.mood || ""} onValueChange={v => setNewLog(prev => ({ ...prev, mood: v }))}>
-                    <SelectTrigger data-testid="select-mood"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-mood" data-testid="select-mood"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["Excellent", "Good", "Okay", "Low", "Poor"].map(m => (
                         <SelectItem key={m} value={m}>{m}</SelectItem>
@@ -698,9 +698,9 @@ export default function LongevityTracking() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="flex items-center gap-1"><Zap className="w-3 h-3" /> Stress Level</Label>
+                  <Label htmlFor="longevity-tracking-stress-level" className="flex items-center gap-1"><Zap className="w-3 h-3" /> Stress Level</Label>
                   <Select value={newLog.stress || ""} onValueChange={v => setNewLog(prev => ({ ...prev, stress: v }))}>
-                    <SelectTrigger data-testid="select-stress"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-stress-level" data-testid="select-stress"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["Very Low", "Low", "Moderate", "High", "Very High"].map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -709,9 +709,9 @@ export default function LongevityTracking() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="flex items-center gap-1"><Droplets className="w-3 h-3" /> Hydration (glasses)</Label>
+                  <Label htmlFor="longevity-tracking-hydration-glasses" className="flex items-center gap-1"><Droplets className="w-3 h-3" /> Hydration (glasses)</Label>
                   <Select value={newLog.hydration || ""} onValueChange={v => setNewLog(prev => ({ ...prev, hydration: v }))}>
-                    <SelectTrigger data-testid="select-hydration"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-hydration-glasses" data-testid="select-hydration"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["0-2", "3-4", "5-6", "7-8", "9-10", "10+"].map(h => (
                         <SelectItem key={h} value={h}>{h}</SelectItem>
@@ -720,9 +720,9 @@ export default function LongevityTracking() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="flex items-center gap-1"><Clock className="w-3 h-3" /> Fasting Window</Label>
+                  <Label htmlFor="longevity-tracking-fasting-window" className="flex items-center gap-1"><Clock className="w-3 h-3" /> Fasting Window</Label>
                   <Select value={newLog.fasting || ""} onValueChange={v => setNewLog(prev => ({ ...prev, fasting: v }))}>
-                    <SelectTrigger data-testid="select-fasting"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="longevity-tracking-fasting-window" data-testid="select-fasting"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["None", "12 hours", "14 hours", "16 hours (16:8)", "18 hours", "20 hours (OMAD)", "24+ hours", "Extended (36+)"].map(f => (
                         <SelectItem key={f} value={f}>{f}</SelectItem>
@@ -733,8 +733,8 @@ export default function LongevityTracking() {
               </div>
 
               <div>
-                <Label>Supplements Taken Today</Label>
-                <Input
+                <Label htmlFor="longevity-tracking-supplements-taken-today">Supplements Taken Today</Label>
+                <Input id="longevity-tracking-supplements-taken-today"
                   value={newLog.supplements || ""}
                   onChange={e => setNewLog(prev => ({ ...prev, supplements: e.target.value }))}
                   placeholder="e.g., Vitamin D, Omega-3, Magnesium"
@@ -743,8 +743,8 @@ export default function LongevityTracking() {
               </div>
 
               <div>
-                <Label>Notes</Label>
-                <Textarea
+                <Label htmlFor="longevity-tracking-notes-2">Notes</Label>
+                <Textarea id="longevity-tracking-notes-2"
                   value={newLog.notes || ""}
                   onChange={e => setNewLog(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="How are you feeling? Any symptoms, observations, or wins?"

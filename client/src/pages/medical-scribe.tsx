@@ -406,9 +406,9 @@ export default function MedicalScribePage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Input Type</label>
+                    <label htmlFor="medical-scribe-input-type" className="text-sm font-medium mb-2 block">Input Type</label>
                     <Select value={inputType} onValueChange={(v) => setInputType(v as any)}>
-                      <SelectTrigger data-testid="select-input-type">
+                      <SelectTrigger id="medical-scribe-input-type" data-testid="select-input-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -418,9 +418,9 @@ export default function MedicalScribePage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Note Type</label>
+                    <label htmlFor="medical-scribe-note-type" className="text-sm font-medium mb-2 block">Note Type</label>
                     <Select value={noteType} onValueChange={setNoteType}>
-                      <SelectTrigger data-testid="select-note-type">
+                      <SelectTrigger id="medical-scribe-note-type" data-testid="select-note-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

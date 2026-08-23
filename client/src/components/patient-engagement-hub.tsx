@@ -436,8 +436,8 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Provider Name</label>
-                    <Input
+                    <label htmlFor="patient-engagement-hub-provider-name" className="text-sm font-medium">Provider Name</label>
+                    <Input id="patient-engagement-hub-provider-name"
                       placeholder="Dr. Smith"
                       value={newThreadData.providerName}
                       onChange={(e) => setNewThreadData({ ...newThreadData, providerName: e.target.value, providerUserId: e.target.value.toLowerCase().replace(/\s/g, "-") })}
@@ -445,8 +445,8 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Subject</label>
-                    <Input
+                    <label htmlFor="patient-engagement-hub-subject" className="text-sm font-medium">Subject</label>
+                    <Input id="patient-engagement-hub-subject"
                       placeholder="Question about my medication"
                       value={newThreadData.subject}
                       onChange={(e) => setNewThreadData({ ...newThreadData, subject: e.target.value })}
@@ -454,12 +454,12 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Category</label>
+                    <label htmlFor="patient-engagement-hub-category" className="text-sm font-medium">Category</label>
                     <Select
                       value={newThreadData.category}
                       onValueChange={(v) => setNewThreadData({ ...newThreadData, category: v })}
                     >
-                      <SelectTrigger data-testid="select-category">
+                      <SelectTrigger id="patient-engagement-hub-category" data-testid="select-category">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -473,8 +473,8 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Message</label>
-                    <Textarea
+                    <label htmlFor="patient-engagement-hub-message" className="text-sm font-medium">Message</label>
+                    <Textarea id="patient-engagement-hub-message"
                       placeholder="Type your message..."
                       value={newThreadData.content}
                       onChange={(e) => setNewThreadData({ ...newThreadData, content: e.target.value })}
@@ -647,8 +647,8 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Provider Name</label>
-                    <Input
+                    <label htmlFor="patient-engagement-hub-provider-name-2" className="text-sm font-medium">Provider Name</label>
+                    <Input id="patient-engagement-hub-provider-name-2"
                       placeholder="Dr. Smith"
                       value={newAppointmentData.providerName}
                       onChange={(e) => setNewAppointmentData({ ...newAppointmentData, providerName: e.target.value, providerUserId: e.target.value.toLowerCase().replace(/\s/g, "-") })}
@@ -656,12 +656,12 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Appointment Type</label>
+                    <label htmlFor="patient-engagement-hub-appointment-type" className="text-sm font-medium">Appointment Type</label>
                     <Select
                       value={newAppointmentData.appointmentType}
                       onValueChange={(v) => setNewAppointmentData({ ...newAppointmentData, appointmentType: v })}
                     >
-                      <SelectTrigger data-testid="select-appt-type">
+                      <SelectTrigger id="patient-engagement-hub-appointment-type" data-testid="select-appt-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -676,8 +676,8 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Preferred Date & Time</label>
-                    <Input
+                    <label htmlFor="patient-engagement-hub-preferred-date-time" className="text-sm font-medium">Preferred Date & Time</label>
+                    <Input id="patient-engagement-hub-preferred-date-time"
                       type="datetime-local"
                       value={newAppointmentData.scheduledDate}
                       onChange={(e) => setNewAppointmentData({ ...newAppointmentData, scheduledDate: e.target.value })}
@@ -685,8 +685,8 @@ export function PatientEngagementHub({ profileId }: { profileId?: string }) {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Reason for Visit</label>
-                    <Textarea
+                    <label htmlFor="patient-engagement-hub-reason-for-visit" className="text-sm font-medium">Reason for Visit</label>
+                    <Textarea id="patient-engagement-hub-reason-for-visit"
                       placeholder="Briefly describe the reason for your visit..."
                       value={newAppointmentData.reasonForVisit}
                       onChange={(e) => setNewAppointmentData({ ...newAppointmentData, reasonForVisit: e.target.value })}

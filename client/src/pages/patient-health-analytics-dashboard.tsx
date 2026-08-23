@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Select,
   SelectContent,
@@ -624,12 +625,12 @@ export default function PatientHealthAnalyticsDashboard() {
                       <div
                         key={anomaly.id}
                         className="p-3 border rounded-lg cursor-pointer hover-elevate"
-                        onClick={() => {
+                        {...clickable(() => {
                           setSelectedAnomaly(anomaly);
                           if (!anomaly.aiExplanation) {
                             analyzeAnomalyMutation.mutate(anomaly);
                           }
-                        }}
+                        })}
                         data-testid={`anomaly-${anomaly.id}`}
                       >
                         <div className="flex items-center justify-between mb-2">

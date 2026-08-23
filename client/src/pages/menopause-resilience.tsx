@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -677,9 +678,9 @@ export default function MenopauseResilience() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-foreground">Hormone</Label>
+              <Label htmlFor="menopause-resilience-hormone" className="text-foreground">Hormone</Label>
               <Select value={hormoneForm.hormoneType} onValueChange={(v) => setHormoneForm({ ...hormoneForm, hormoneType: v as MenoHormoneType })}>
-                <SelectTrigger data-testid="select-meno-hormone-type" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="menopause-resilience-hormone" data-testid="select-meno-hormone-type" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="estradiol">Estradiol (E2)</SelectItem>
                   <SelectItem value="progesterone">Progesterone (P4)</SelectItem>
@@ -692,18 +693,18 @@ export default function MenopauseResilience() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Value ({HORMONE_CONFIG[hormoneForm.hormoneType].unit})</Label>
-                <Input type="number" step="0.01" value={hormoneForm.value} onChange={(e) => setHormoneForm({ ...hormoneForm, value: e.target.value })} placeholder="e.g. 45.2" data-testid="input-meno-hormone-value" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-value" className="text-foreground">Value ({HORMONE_CONFIG[hormoneForm.hormoneType].unit})</Label>
+                <Input id="menopause-resilience-value" type="number" step="0.01" value={hormoneForm.value} onChange={(e) => setHormoneForm({ ...hormoneForm, value: e.target.value })} placeholder="e.g. 45.2" data-testid="input-meno-hormone-value" className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Date</Label>
-                <Input type="date" value={hormoneForm.date} onChange={(e) => setHormoneForm({ ...hormoneForm, date: e.target.value })} data-testid="input-meno-hormone-date" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-date" className="text-foreground">Date</Label>
+                <Input id="menopause-resilience-date" type="date" value={hormoneForm.date} onChange={(e) => setHormoneForm({ ...hormoneForm, date: e.target.value })} data-testid="input-meno-hormone-date" className="min-h-[44px]" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Source</Label>
+              <Label htmlFor="menopause-resilience-source" className="text-foreground">Source</Label>
               <Select value={hormoneForm.source} onValueChange={(v) => setHormoneForm({ ...hormoneForm, source: v as any })}>
-                <SelectTrigger data-testid="select-meno-hormone-source" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="menopause-resilience-source" data-testid="select-meno-hormone-source" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="lab">Lab Result</SelectItem>
                   <SelectItem value="at_home_kit">At-Home Test Kit</SelectItem>
@@ -712,12 +713,12 @@ export default function MenopauseResilience() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Lab Name (optional)</Label>
-              <Input value={hormoneForm.labName} onChange={(e) => setHormoneForm({ ...hormoneForm, labName: e.target.value })} placeholder="e.g. Quest Diagnostics" data-testid="input-meno-lab-name" className="min-h-[44px]" />
+              <Label htmlFor="menopause-resilience-lab-name-optional" className="text-foreground">Lab Name (optional)</Label>
+              <Input id="menopause-resilience-lab-name-optional" value={hormoneForm.labName} onChange={(e) => setHormoneForm({ ...hormoneForm, labName: e.target.value })} placeholder="e.g. Quest Diagnostics" data-testid="input-meno-lab-name" className="min-h-[44px]" />
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Notes (optional)</Label>
-              <Textarea value={hormoneForm.notes} onChange={(e) => setHormoneForm({ ...hormoneForm, notes: e.target.value })} placeholder="Any observations..." data-testid="input-meno-hormone-notes" />
+              <Label htmlFor="menopause-resilience-notes-optional" className="text-foreground">Notes (optional)</Label>
+              <Textarea id="menopause-resilience-notes-optional" value={hormoneForm.notes} onChange={(e) => setHormoneForm({ ...hormoneForm, notes: e.target.value })} placeholder="Any observations..." data-testid="input-meno-hormone-notes" />
             </div>
           </div>
           <DialogFooter>
@@ -738,9 +739,9 @@ export default function MenopauseResilience() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-foreground">Biomarker</Label>
+              <Label htmlFor="menopause-resilience-biomarker" className="text-foreground">Biomarker</Label>
               <Select value={biomarkerForm.type} onValueChange={(v) => setBiomarkerForm({ ...biomarkerForm, type: v as BiomarkerType })}>
-                <SelectTrigger data-testid="select-biomarker-type" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="menopause-resilience-biomarker" data-testid="select-biomarker-type" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="boneDensity">Bone Density (T-score)</SelectItem>
                   <SelectItem value="muscleMass">Muscle Mass (kg)</SelectItem>
@@ -751,18 +752,18 @@ export default function MenopauseResilience() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Value ({BIOMARKER_CONFIG[biomarkerForm.type].unit})</Label>
-                <Input type="number" step="0.1" value={biomarkerForm.value} onChange={(e) => setBiomarkerForm({ ...biomarkerForm, value: e.target.value })} placeholder={biomarkerForm.type === "boneDensity" ? "e.g. -1.2" : biomarkerForm.type === "sleepEfficiency" ? "e.g. 85" : "e.g. 92"} data-testid="input-biomarker-value" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-value-2" className="text-foreground">Value ({BIOMARKER_CONFIG[biomarkerForm.type].unit})</Label>
+                <Input id="menopause-resilience-value-2" type="number" step="0.1" value={biomarkerForm.value} onChange={(e) => setBiomarkerForm({ ...biomarkerForm, value: e.target.value })} placeholder={biomarkerForm.type === "boneDensity" ? "e.g. -1.2" : biomarkerForm.type === "sleepEfficiency" ? "e.g. 85" : "e.g. 92"} data-testid="input-biomarker-value" className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Date</Label>
-                <Input type="date" value={biomarkerForm.date} onChange={(e) => setBiomarkerForm({ ...biomarkerForm, date: e.target.value })} data-testid="input-biomarker-date" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-date-2" className="text-foreground">Date</Label>
+                <Input id="menopause-resilience-date-2" type="date" value={biomarkerForm.date} onChange={(e) => setBiomarkerForm({ ...biomarkerForm, date: e.target.value })} data-testid="input-biomarker-date" className="min-h-[44px]" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Source</Label>
+              <Label htmlFor="menopause-resilience-source-2" className="text-foreground">Source</Label>
               <Select value={biomarkerForm.source} onValueChange={(v) => setBiomarkerForm({ ...biomarkerForm, source: v as any })}>
-                <SelectTrigger data-testid="select-biomarker-source" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="menopause-resilience-source-2" data-testid="select-biomarker-source" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="dexa_scan">DEXA Scan</SelectItem>
                   <SelectItem value="lab">Lab Result</SelectItem>
@@ -772,8 +773,8 @@ export default function MenopauseResilience() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Notes (optional)</Label>
-              <Textarea value={biomarkerForm.notes} onChange={(e) => setBiomarkerForm({ ...biomarkerForm, notes: e.target.value })} data-testid="input-biomarker-notes" />
+              <Label htmlFor="menopause-resilience-notes-optional-2" className="text-foreground">Notes (optional)</Label>
+              <Textarea id="menopause-resilience-notes-optional-2" value={biomarkerForm.notes} onChange={(e) => setBiomarkerForm({ ...biomarkerForm, notes: e.target.value })} data-testid="input-biomarker-notes" />
             </div>
           </div>
           <DialogFooter>
@@ -794,23 +795,23 @@ export default function MenopauseResilience() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-foreground">Provider Name</Label>
-              <Input value={shareForm.providerName} onChange={(e) => setShareForm({ ...shareForm, providerName: e.target.value })} placeholder="Dr. Johnson" data-testid="input-meno-provider-name" className="min-h-[44px]" />
+              <Label htmlFor="menopause-resilience-provider-name" className="text-foreground">Provider Name</Label>
+              <Input id="menopause-resilience-provider-name" value={shareForm.providerName} onChange={(e) => setShareForm({ ...shareForm, providerName: e.target.value })} placeholder="Dr. Johnson" data-testid="input-meno-provider-name" className="min-h-[44px]" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Email (optional)</Label>
-                <Input type="email" value={shareForm.providerEmail} onChange={(e) => setShareForm({ ...shareForm, providerEmail: e.target.value })} placeholder="doctor@clinic.com" data-testid="input-meno-provider-email" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-email-optional" className="text-foreground">Email (optional)</Label>
+                <Input id="menopause-resilience-email-optional" type="email" value={shareForm.providerEmail} onChange={(e) => setShareForm({ ...shareForm, providerEmail: e.target.value })} placeholder="doctor@clinic.com" data-testid="input-meno-provider-email" className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Specialty (optional)</Label>
-                <Input value={shareForm.providerSpecialty} onChange={(e) => setShareForm({ ...shareForm, providerSpecialty: e.target.value })} placeholder="e.g. Endocrinology" data-testid="input-meno-provider-specialty" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-specialty-optional" className="text-foreground">Specialty (optional)</Label>
+                <Input id="menopause-resilience-specialty-optional" value={shareForm.providerSpecialty} onChange={(e) => setShareForm({ ...shareForm, providerSpecialty: e.target.value })} placeholder="e.g. Endocrinology" data-testid="input-meno-provider-specialty" className="min-h-[44px]" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Expires In</Label>
+              <Label htmlFor="menopause-resilience-expires-in" className="text-foreground">Expires In</Label>
               <Select value={String(shareForm.expiresInDays)} onValueChange={(v) => setShareForm({ ...shareForm, expiresInDays: parseInt(v) })}>
-                <SelectTrigger data-testid="select-meno-share-expiry" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="menopause-resilience-expires-in" data-testid="select-meno-share-expiry" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="7">7 days</SelectItem>
                   <SelectItem value="30">30 days</SelectItem>
@@ -820,7 +821,7 @@ export default function MenopauseResilience() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Data to Share</Label>
+              <FieldCaption className="text-foreground">Data to Share</FieldCaption>
               <div className="space-y-2">
                 {[
                   { key: "hormones", label: "Hormone levels (E2, P4, T, thyroid)" },
@@ -831,7 +832,7 @@ export default function MenopauseResilience() {
                   { key: "notes", label: "Personal notes" },
                 ].map((perm) => (
                   <div key={perm.key} className="flex items-center gap-2 min-h-[36px]">
-                    <Checkbox id={`meno-perm-${perm.key}`} checked={shareForm.permissions.includes(perm.key)}
+                    <Checkbox aria-label="Data to Share" id={`meno-perm-${perm.key}`} checked={shareForm.permissions.includes(perm.key)}
                       onCheckedChange={(checked) => setShareForm({ ...shareForm, permissions: checked ? [...shareForm.permissions, perm.key] : shareForm.permissions.filter(p => p !== perm.key) })}
                       data-testid={`checkbox-meno-perm-${perm.key}`} className="h-5 w-5" />
                     <Label htmlFor={`meno-perm-${perm.key}`} className="text-sm text-foreground cursor-pointer">{perm.label}</Label>
@@ -858,9 +859,9 @@ export default function MenopauseResilience() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-foreground">Stage</Label>
+              <Label htmlFor="menopause-resilience-stage" className="text-foreground">Stage</Label>
               <Select value={profileForm.stage} onValueChange={(v) => setProfileForm({ ...profileForm, stage: v as MenoStage })}>
-                <SelectTrigger data-testid="select-meno-stage" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="menopause-resilience-stage" data-testid="select-meno-stage" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="perimenopause">Perimenopause</SelectItem>
                   <SelectItem value="menopause">Menopause</SelectItem>
@@ -870,12 +871,12 @@ export default function MenopauseResilience() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Age</Label>
-                <Input type="number" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} placeholder="e.g. 48" data-testid="input-meno-age" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-age" className="text-foreground">Age</Label>
+                <Input id="menopause-resilience-age" type="number" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} placeholder="e.g. 48" data-testid="input-meno-age" className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Last Period Date</Label>
-                <Input type="date" value={profileForm.lastPeriodDate} onChange={(e) => setProfileForm({ ...profileForm, lastPeriodDate: e.target.value })} data-testid="input-meno-last-period" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-last-period-date" className="text-foreground">Last Period Date</Label>
+                <Input id="menopause-resilience-last-period-date" type="date" value={profileForm.lastPeriodDate} onChange={(e) => setProfileForm({ ...profileForm, lastPeriodDate: e.target.value })} data-testid="input-meno-last-period" className="min-h-[44px]" />
               </div>
             </div>
           </div>
@@ -897,14 +898,14 @@ export default function MenopauseResilience() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-foreground">Name</Label>
-              <Input value={therapyForm.name} onChange={(e) => setTherapyForm({ ...therapyForm, name: e.target.value })} placeholder="e.g. Estradiol patch, Vitamin D3, Magnesium" data-testid="input-therapy-name" className="min-h-[44px]" />
+              <Label htmlFor="menopause-resilience-name" className="text-foreground">Name</Label>
+              <Input id="menopause-resilience-name" value={therapyForm.name} onChange={(e) => setTherapyForm({ ...therapyForm, name: e.target.value })} placeholder="e.g. Estradiol patch, Vitamin D3, Magnesium" data-testid="input-therapy-name" className="min-h-[44px]" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Type</Label>
+                <Label htmlFor="menopause-resilience-type" className="text-foreground">Type</Label>
                 <Select value={therapyForm.type} onValueChange={(v) => setTherapyForm({ ...therapyForm, type: v as any })}>
-                  <SelectTrigger data-testid="select-therapy-type" className="min-h-[44px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="menopause-resilience-type" data-testid="select-therapy-type" className="min-h-[44px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="HRT">Hormone Replacement Therapy</SelectItem>
                     <SelectItem value="supplement">Supplement</SelectItem>
@@ -913,18 +914,18 @@ export default function MenopauseResilience() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Route</Label>
-                <Input value={therapyForm.route} onChange={(e) => setTherapyForm({ ...therapyForm, route: e.target.value })} placeholder="e.g. transdermal, oral, vaginal" data-testid="input-therapy-route" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-route" className="text-foreground">Route</Label>
+                <Input id="menopause-resilience-route" value={therapyForm.route} onChange={(e) => setTherapyForm({ ...therapyForm, route: e.target.value })} placeholder="e.g. transdermal, oral, vaginal" data-testid="input-therapy-route" className="min-h-[44px]" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Dosage</Label>
-                <Input value={therapyForm.dosage} onChange={(e) => setTherapyForm({ ...therapyForm, dosage: e.target.value })} placeholder="e.g. 0.1 mg/day" data-testid="input-therapy-dosage" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-dosage" className="text-foreground">Dosage</Label>
+                <Input id="menopause-resilience-dosage" value={therapyForm.dosage} onChange={(e) => setTherapyForm({ ...therapyForm, dosage: e.target.value })} placeholder="e.g. 0.1 mg/day" data-testid="input-therapy-dosage" className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Start Date</Label>
-                <Input type="date" value={therapyForm.startDate} onChange={(e) => setTherapyForm({ ...therapyForm, startDate: e.target.value })} data-testid="input-therapy-start" className="min-h-[44px]" />
+                <Label htmlFor="menopause-resilience-start-date" className="text-foreground">Start Date</Label>
+                <Input id="menopause-resilience-start-date" type="date" value={therapyForm.startDate} onChange={(e) => setTherapyForm({ ...therapyForm, startDate: e.target.value })} data-testid="input-therapy-start" className="min-h-[44px]" />
               </div>
             </div>
           </div>

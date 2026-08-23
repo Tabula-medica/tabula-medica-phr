@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1017,11 +1018,11 @@ function EmergencyContactForm({ initialData, onSave, onCancel, isPending }: { in
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <Switch checked={formData.isPrimary} onCheckedChange={(checked) => setFormData({ ...formData, isPrimary: checked })} data-testid="switch-ec-primary" />
-          <Label>Primary Contact</Label>
+          <FieldCaption>Primary Contact</FieldCaption>
         </div>
         <div className="flex items-center gap-2">
           <Switch checked={formData.canMakeDecisions} onCheckedChange={(checked) => setFormData({ ...formData, canMakeDecisions: checked })} data-testid="switch-ec-decisions" />
-          <Label>Can Make Medical Decisions</Label>
+          <FieldCaption>Can Make Medical Decisions</FieldCaption>
         </div>
       </div>
       <DialogFooter>

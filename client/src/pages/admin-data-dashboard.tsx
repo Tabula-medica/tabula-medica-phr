@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Link } from "wouter";
 import {
   AlertTriangle,
@@ -278,7 +279,7 @@ function ConflictResolutionDialog({
         </div>
 
         <div className="space-y-3">
-          <Label className="text-sm font-medium">Resolution Strategy</Label>
+          <FieldCaption className="text-sm font-medium">Resolution Strategy</FieldCaption>
           <RadioGroup value={resolution} onValueChange={(v) => setResolution(v as typeof resolution)}>
             <div className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate">
               <RadioGroupItem value="local" id="local" />

@@ -44,6 +44,7 @@ import {
 import { format, addDays } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface HealthContext {
   recentSymptoms: Array<{ name: string; severity: number; date: string }>;
@@ -163,7 +164,7 @@ function SuggestionCard({
       className={`p-4 rounded-lg border cursor-pointer transition-colors ${
         selected ? "border-primary bg-primary/5" : "hover:border-primary/50"
       }`}
-      onClick={onSelect}
+      {...clickable(onSelect)}
       data-testid={`card-suggestion-${suggestion.date}`}
     >
       <div className="flex items-start justify-between gap-2">

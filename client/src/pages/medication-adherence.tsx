@@ -226,17 +226,17 @@ export default function MedicationAdherence() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Medication Name</Label>
-                  <Input placeholder="Enter medication name" data-testid="input-med-name" />
+                  <Label htmlFor="medication-adherence-medication-name">Medication Name</Label>
+                  <Input id="medication-adherence-medication-name" placeholder="Enter medication name" data-testid="input-med-name" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Dosage</Label>
-                  <Input placeholder="e.g., 10mg" data-testid="input-dosage" />
+                  <Label htmlFor="medication-adherence-dosage">Dosage</Label>
+                  <Input id="medication-adherence-dosage" placeholder="e.g., 10mg" data-testid="input-dosage" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Frequency</Label>
+                  <Label htmlFor="medication-adherence-frequency">Frequency</Label>
                   <Select>
-                    <SelectTrigger data-testid="select-frequency">
+                    <SelectTrigger id="medication-adherence-frequency" data-testid="select-frequency">
                       <SelectValue placeholder="Select frequency" />
                     </SelectTrigger>
                     <SelectContent>

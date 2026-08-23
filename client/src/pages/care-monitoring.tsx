@@ -714,8 +714,8 @@ export default function CareMonitoringPage() {
                 <p className="text-sm mt-1">{selectedEvent.details}</p>
               </div>
               <div>
-                <label className="text-sm font-medium">Review Notes</label>
-                <Textarea
+                <label htmlFor="care-monitoring-review-notes" className="text-sm font-medium">Review Notes</label>
+                <Textarea id="care-monitoring-review-notes"
                   value={reviewNotes}
                   onChange={(e) => setReviewNotes(e.target.value)}
                   placeholder="Add any notes about this event review..."

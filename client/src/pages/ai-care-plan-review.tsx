@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Brain,
   Sparkles,
@@ -455,7 +456,7 @@ export default function AICarePlanReviewPage() {
                     className={`p-4 rounded-lg border mb-3 cursor-pointer transition-colors hover-elevate ${
                       selectedDraft?.id === draft.id ? "border-primary bg-muted" : ""
                     }`}
-                    onClick={() => setSelectedDraft(draft)}
+                    {...clickable(() => setSelectedDraft(draft))}
                     data-testid={`draft-card-${draft.id}`}
                   >
                     <div className="flex items-center justify-between mb-2">

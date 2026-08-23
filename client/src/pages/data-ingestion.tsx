@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import {
   Upload,
@@ -31,6 +32,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface SupportedFormat {
   format: string;
@@ -339,7 +341,7 @@ OBX|5|NM|PLT^Platelet Count^L||225|10^9/L|150-400|N|||F`;
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label>Raw Data</Label>
+                    <FieldCaption>Raw Data</FieldCaption>
                     {detectFormatMutation.data && (
                       <Badge variant="secondary" data-testid="badge-detected-format">
                         {FORMAT_ICONS[detectFormatMutation.data.format] || <FileText className="h-4 w-4" />}
@@ -605,7 +607,7 @@ OBX|5|NM|PLT^Platelet Count^L||225|10^9/L|150-400|N|||F`;
                         <div
                           key={job.id}
                           className={`p-3 border rounded-lg cursor-pointer transition-colors ${currentJobId === job.id ? "border-primary bg-primary/5" : "hover-elevate"}`}
-                          onClick={() => setCurrentJobId(job.id)}
+                          {...clickable(() => setCurrentJobId(job.id))}
                           data-testid={`job-${job.id}`}
                         >
                           <div className="flex items-center justify-between">

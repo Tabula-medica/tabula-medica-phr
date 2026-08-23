@@ -152,7 +152,7 @@ export function DocumentScanner({ onResult, anonymous = false, className }: Docu
         </div>
 
         {!preview ? (
-          <div
+          <div role="presentation"
             className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}

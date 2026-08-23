@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
@@ -674,7 +675,7 @@ function GenerateCarePlanDialog({ open, onOpenChange }: {
           </div>
 
           <div className="space-y-2">
-            <Label>Focus Areas (optional)</Label>
+            <FieldCaption>Focus Areas (optional)</FieldCaption>
             <div className="flex flex-wrap gap-2">
               {allCategories.map((category) => {
                 const Icon = categoryIcons[category];
@@ -698,9 +699,9 @@ function GenerateCarePlanDialog({ open, onOpenChange }: {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Timeframe</Label>
+              <Label htmlFor="ai-personalized-care-pla-timeframe">Timeframe</Label>
               <Select value={timeframe} onValueChange={(v) => setTimeframe(v as typeof timeframe)}>
-                <SelectTrigger data-testid="select-timeframe">
+                <SelectTrigger id="ai-personalized-care-pla-timeframe" data-testid="select-timeframe">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -712,9 +713,9 @@ function GenerateCarePlanDialog({ open, onOpenChange }: {
             </div>
 
             <div className="space-y-2">
-              <Label>Complexity</Label>
+              <Label htmlFor="ai-personalized-care-pla-complexity">Complexity</Label>
               <Select value={complexityLevel} onValueChange={(v) => setComplexityLevel(v as typeof complexityLevel)}>
-                <SelectTrigger data-testid="select-complexity">
+                <SelectTrigger id="ai-personalized-care-pla-complexity" data-testid="select-complexity">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

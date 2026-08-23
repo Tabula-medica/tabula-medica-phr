@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   User,
   Pill,
@@ -345,12 +346,12 @@ export default function PatientFHIRPortal() {
       </Alert>
 
       <div className="mb-6">
-        <Label>Select Your Profile</Label>
+        <Label htmlFor="patient-fhir-portal-select-your-profile">Select Your Profile</Label>
         {patientsQuery.isLoading ? (
           <p className="text-sm text-muted-foreground mt-2">Loading...</p>
         ) : (
           <Select value={selectedPatient} onValueChange={(val) => { setSelectedPatient(val); setSelectedThread(null); }}>
-            <SelectTrigger className="w-64 mt-2" data-testid="select-patient">
+            <SelectTrigger id="patient-fhir-portal-select-your-profile" className="w-64 mt-2" data-testid="select-patient">
               <SelectValue placeholder="Choose your profile" />
             </SelectTrigger>
             <SelectContent>
@@ -592,9 +593,9 @@ export default function PatientFHIRPortal() {
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                           <div>
-                            <Label>To</Label>
+                            <Label htmlFor="patient-fhir-portal-to">To</Label>
                             <Select value={newThreadRecipient} onValueChange={setNewThreadRecipient}>
-                              <SelectTrigger className="mt-1" data-testid="select-recipient">
+                              <SelectTrigger id="patient-fhir-portal-to" className="mt-1" data-testid="select-recipient">
                                 <SelectValue placeholder="Select recipient" />
                               </SelectTrigger>
                               <SelectContent>
@@ -607,12 +608,12 @@ export default function PatientFHIRPortal() {
                             </Select>
                           </div>
                           <div>
-                            <Label>Subject</Label>
-                            <Input value={newThreadSubject} onChange={(e) => setNewThreadSubject(e.target.value)} className="mt-1" placeholder="Enter subject" data-testid="input-subject" />
+                            <Label htmlFor="patient-fhir-portal-subject">Subject</Label>
+                            <Input id="patient-fhir-portal-subject" value={newThreadSubject} onChange={(e) => setNewThreadSubject(e.target.value)} className="mt-1" placeholder="Enter subject" data-testid="input-subject" />
                           </div>
                           <div>
-                            <Label>Message</Label>
-                            <Textarea value={newThreadContent} onChange={(e) => setNewThreadContent(e.target.value)} className="mt-1" rows={4} placeholder="Type your message..." data-testid="input-message-content" />
+                            <Label htmlFor="patient-fhir-portal-message">Message</Label>
+                            <Textarea id="patient-fhir-portal-message" value={newThreadContent} onChange={(e) => setNewThreadContent(e.target.value)} className="mt-1" rows={4} placeholder="Type your message..." data-testid="input-message-content" />
                           </div>
                           <div className="flex items-center space-x-2">
                             <Checkbox id="urgent" checked={newThreadUrgent} onCheckedChange={(c) => setNewThreadUrgent(c === true)} />
@@ -634,7 +635,7 @@ export default function PatientFHIRPortal() {
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-2">
                       {threadsQuery.data?.threads.map((thread) => (
-                        <div key={thread.id} onClick={() => setSelectedThread(thread.id)} className={`p-3 rounded border cursor-pointer hover-elevate ${selectedThread === thread.id ? "border-primary bg-primary/5" : ""}`} data-testid={`thread-${thread.id}`}>
+                        <div key={thread.id} {...clickable(() => setSelectedThread(thread.id))} className={`p-3 rounded border cursor-pointer hover-elevate ${selectedThread === thread.id ? "border-primary bg-primary/5" : ""}`} data-testid={`thread-${thread.id}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-medium text-sm truncate">{thread.subject}</span>
                             {thread.isUrgent && <Badge className="bg-red-100 text-red-800">Urgent</Badge>}
@@ -701,7 +702,7 @@ export default function PatientFHIRPortal() {
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3">
                       {questionnairesQuery.data?.questionnaires.map((q) => (
-                        <div key={q.id} onClick={() => q.status !== "completed" && setSelectedQuestionnaire(q.id)} className={`p-3 rounded border ${q.status !== "completed" ? "cursor-pointer hover-elevate" : ""} ${selectedQuestionnaire === q.id ? "border-primary" : ""}`} data-testid={`questionnaire-${q.id}`}>
+                        <div key={q.id} {...clickable(() => q.status !== "completed" && setSelectedQuestionnaire(q.id))} className={`p-3 rounded border ${q.status !== "completed" ? "cursor-pointer hover-elevate" : ""} ${selectedQuestionnaire === q.id ? "border-primary" : ""}`} data-testid={`questionnaire-${q.id}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-medium">{q.title}</span>
                             <Badge className={STATUS_COLORS[q.status]}>{q.status}</Badge>

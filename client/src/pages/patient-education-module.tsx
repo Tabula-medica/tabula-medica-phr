@@ -40,6 +40,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface TopicSearchResult {
   id: string;
@@ -880,7 +881,7 @@ export default function PatientEducationModule() {
                       <div
                         key={topic.id}
                         className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
-                        onClick={() => handleSelectTopic(topic)}
+                        {...clickable(() => handleSelectTopic(topic))}
                         data-testid={`search-result-${topic.id}`}
                       >
                         <div className="flex items-center gap-3">

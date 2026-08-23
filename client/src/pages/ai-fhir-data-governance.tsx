@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -499,8 +500,8 @@ export default function AIFHIRDataGovernance() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Resource ID</Label>
-                  <Input
+                  <Label htmlFor="ai-fhir-data-governance-resource-id">Resource ID</Label>
+                  <Input id="ai-fhir-data-governance-resource-id"
                     placeholder="Enter resource ID"
                     value={assessResourceId}
                     onChange={(e) => setAssessResourceId(e.target.value)}
@@ -508,9 +509,9 @@ export default function AIFHIRDataGovernance() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="ai-fhir-data-governance-resource-type">Resource Type</Label>
                   <Select value={assessResourceType} onValueChange={setAssessResourceType}>
-                    <SelectTrigger data-testid="select-resource-type">
+                    <SelectTrigger id="ai-fhir-data-governance-resource-type" data-testid="select-resource-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -524,8 +525,8 @@ export default function AIFHIRDataGovernance() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Resource Data (JSON)</Label>
-                <Textarea
+                <Label htmlFor="ai-fhir-data-governance-resource-data-json">Resource Data (JSON)</Label>
+                <Textarea id="ai-fhir-data-governance-resource-data-json"
                   placeholder='{"resourceType": "Patient", "id": "123", ...}'
                   value={assessResourceData}
                   onChange={(e) => setAssessResourceData(e.target.value)}
@@ -680,9 +681,9 @@ export default function AIFHIRDataGovernance() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Select Node</Label>
+                  <Label htmlFor="ai-fhir-data-governance-select-node">Select Node</Label>
                   <Select value={selectedNode} onValueChange={setSelectedNode}>
-                    <SelectTrigger data-testid="select-impact-node">
+                    <SelectTrigger id="ai-fhir-data-governance-select-node" data-testid="select-impact-node">
                       <SelectValue placeholder="Select a node to analyze" />
                     </SelectTrigger>
                     <SelectContent>
@@ -693,7 +694,7 @@ export default function AIFHIRDataGovernance() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Analysis Type</Label>
+                  <FieldCaption>Analysis Type</FieldCaption>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"

@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Share2,
   Download,
@@ -355,7 +357,7 @@ export default function ShareExport() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Export Format</Label>
+                <FieldCaption>Export Format</FieldCaption>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {exportFormats.map((format) => (
                     <div
@@ -365,7 +367,7 @@ export default function ShareExport() {
                           ? "border-accent bg-accent/10"
                           : "border-border"
                       }`}
-                      onClick={() => setExportFormat(format.value)}
+                      {...clickable(() => setExportFormat(format.value))}
                       data-testid={`format-${format.value}`}
                     >
                       <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0">

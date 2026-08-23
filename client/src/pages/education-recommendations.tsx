@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   BookOpen,
   Sparkles,
@@ -295,7 +296,7 @@ export default function EducationRecommendationsPage() {
                         <div
                           key={rec.id}
                           className="flex items-start justify-between gap-4 p-3 rounded-md border hover-elevate cursor-pointer"
-                          onClick={() => setSelectedRecommendation(rec)}
+                          {...clickable(() => setSelectedRecommendation(rec))}
                           data-testid={`recommendation-${rec.id}`}
                         >
                           <div className="flex items-start gap-3 flex-1">
@@ -591,8 +592,8 @@ export default function EducationRecommendationsPage() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Patient ID</Label>
-                <Input
+                <Label htmlFor="education-recommendation-patient-id">Patient ID</Label>
+                <Input id="education-recommendation-patient-id"
                   placeholder="e.g., patient-123"
                   value={newPatient.id}
                   onChange={(e) => setNewPatient({ ...newPatient, id: e.target.value })}
@@ -600,8 +601,8 @@ export default function EducationRecommendationsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Patient Name</Label>
-                <Input
+                <Label htmlFor="education-recommendation-patient-name">Patient Name</Label>
+                <Input id="education-recommendation-patient-name"
                   placeholder="e.g., John Smith"
                   value={newPatient.name}
                   onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
@@ -610,8 +611,8 @@ export default function EducationRecommendationsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Conditions (comma-separated)</Label>
-              <Textarea
+              <Label htmlFor="education-recommendation-conditions-comma-separated">Conditions (comma-separated)</Label>
+              <Textarea id="education-recommendation-conditions-comma-separated"
                 placeholder="e.g., Type 2 Diabetes, Hypertension, Obesity"
                 value={newPatient.conditions}
                 onChange={(e) => setNewPatient({ ...newPatient, conditions: e.target.value })}
@@ -619,8 +620,8 @@ export default function EducationRecommendationsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Active Medications (comma-separated)</Label>
-              <Input
+              <Label htmlFor="education-recommendation-active-medications-comma-separated">Active Medications (comma-separated)</Label>
+              <Input id="education-recommendation-active-medications-comma-separated"
                 placeholder="e.g., Metformin, Lisinopril"
                 value={newPatient.medications}
                 onChange={(e) => setNewPatient({ ...newPatient, medications: e.target.value })}
@@ -629,8 +630,8 @@ export default function EducationRecommendationsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Allergies (comma-separated)</Label>
-                <Input
+                <Label htmlFor="education-recommendation-allergies-comma-separated">Allergies (comma-separated)</Label>
+                <Input id="education-recommendation-allergies-comma-separated"
                   placeholder="e.g., Penicillin"
                   value={newPatient.allergies}
                   onChange={(e) => setNewPatient({ ...newPatient, allergies: e.target.value })}
@@ -638,9 +639,9 @@ export default function EducationRecommendationsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Risk Level</Label>
+                <Label htmlFor="education-recommendation-risk-level">Risk Level</Label>
                 <Select value={newPatient.riskLevel} onValueChange={(v: any) => setNewPatient({ ...newPatient, riskLevel: v })}>
-                  <SelectTrigger data-testid="select-risk-level">
+                  <SelectTrigger id="education-recommendation-risk-level" data-testid="select-risk-level">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

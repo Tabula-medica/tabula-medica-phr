@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -256,9 +256,9 @@ function SubmitTab({
           <CardContent className="space-y-6">
             {instrument.items.map((item, idx) => (
               <div key={item.id} className="space-y-2" data-testid={`question-${item.id}`}>
-                <Label className="text-sm font-medium leading-snug">
+                <FieldCaption className="text-sm font-medium leading-snug">
                   {idx + 1}. {item.text}
-                </Label>
+                </FieldCaption>
                 <RadioGroup
                   value={
                     typeof answers[item.id] === "number"
@@ -271,7 +271,7 @@ function SubmitTab({
                   className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                 >
                   {item.options.map((opt) => (
-                    <Label
+                    <FieldCaption
                       key={opt.value}
                       className="flex items-center gap-2 rounded border px-3 py-2 cursor-pointer hover-elevate"
                     >
@@ -280,7 +280,7 @@ function SubmitTab({
                         data-testid={`radio-${item.id}-${opt.value}`}
                       />
                       <span className="text-sm">{opt.label}</span>
-                    </Label>
+                    </FieldCaption>
                   ))}
                 </RadioGroup>
               </div>

@@ -268,8 +268,8 @@ function NewVerificationDialog({ onSuccess }: { onSuccess: () => void }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Relationship Type</Label>
-              <Input value={verType?.relationship || ""} disabled data-testid="input-relationship-type" />
+              <Label htmlFor="family-verification-relationship-type">Relationship Type</Label>
+              <Input id="family-verification-relationship-type" value={verType?.relationship || ""} disabled data-testid="input-relationship-type" />
             </div>
 
             <Separator />

@@ -477,7 +477,7 @@ function DocumentViewerModal({ document, onClose, onDownload }: { document: Docu
   const displayedInsights = insights || cachedInsights || null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div role="presentation" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <Card className="max-w-4xl w-full max-h-[85vh] overflow-hidden animate-in fade-in zoom-in" onClick={(e) => e.stopPropagation()}>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap border-b py-3">
           <div className="flex items-center gap-3 flex-wrap">

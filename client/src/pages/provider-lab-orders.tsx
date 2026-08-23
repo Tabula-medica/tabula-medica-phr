@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -512,12 +513,12 @@ export default function ProviderLabOrders() {
                               </Button>
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs">Priority</Label>
+                              <FieldCaption className="text-xs">Priority</FieldCaption>
                               <Select
                                 value={test.priority}
                                 onValueChange={(v) => updateTestPriority(test.testId, v as "routine" | "urgent" | "stat")}
                               >
-                                <SelectTrigger className="h-8" data-testid={`select-priority-${test.testId}`}>
+                                <SelectTrigger aria-label="Priority" className="h-8" data-testid={`select-priority-${test.testId}`}>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -548,9 +549,9 @@ export default function ProviderLabOrders() {
                   <Separator />
 
                   <div className="space-y-2">
-                    <Label className="text-sm">Lab Provider</Label>
+                    <Label htmlFor="provider-lab-orders-lab-provider" className="text-sm">Lab Provider</Label>
                     <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                      <SelectTrigger data-testid="select-order-provider">
+                      <SelectTrigger id="provider-lab-orders-lab-provider" data-testid="select-order-provider">
                         <SelectValue placeholder="Select lab provider" />
                       </SelectTrigger>
                       <SelectContent>

@@ -496,6 +496,11 @@ export default function VideoRoomPage() {
 
       <div className="flex-1 flex">
         <div className={`flex-1 relative ${showChat ? "pr-80" : ""}`}>
+          {/* Live peer video. WCAG 2.2 AA 1.2.4 (Captions, Live) applies
+              and is not yet met: real-time captioning needs a transcription
+              service on the media pipeline. Tracked in the accessibility
+              conformance report as a known gap. */}
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={remoteVideoRef}
             autoPlay

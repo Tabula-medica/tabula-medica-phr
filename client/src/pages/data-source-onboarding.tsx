@@ -288,12 +288,12 @@ export default function DataSourceOnboarding() {
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Source Type</Label>
+            <Label htmlFor="data-source-onboarding-source-type">Source Type</Label>
             <Select
               value={config.type}
               onValueChange={(v) => setConfig({ ...config, type: v as ConnectionConfig["type"] })}
             >
-              <SelectTrigger data-testid="select-source-type">
+              <SelectTrigger id="data-source-onboarding-source-type" data-testid="select-source-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -312,8 +312,8 @@ export default function DataSourceOnboarding() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Source Name</Label>
-            <Input
+            <Label htmlFor="data-source-onboarding-source-name">Source Name</Label>
+            <Input id="data-source-onboarding-source-name"
               data-testid="input-source-name"
               placeholder="e.g., Hospital Connection"
               value={config.name}
@@ -325,8 +325,8 @@ export default function DataSourceOnboarding() {
         {(config.type === "api" || config.type === "fhir_subscription") && (
           <>
             <div className="space-y-2">
-              <Label>API Endpoint URL</Label>
-              <Input
+              <Label htmlFor="data-source-onboarding-api-endpoint-url">API Endpoint URL</Label>
+              <Input id="data-source-onboarding-api-endpoint-url"
                 data-testid="input-endpoint"
                 placeholder="https://fhir.example.com/api/FHIR/R4"
                 value={config.endpoint || ""}
@@ -335,12 +335,12 @@ export default function DataSourceOnboarding() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Authentication Type</Label>
+                <Label htmlFor="data-source-onboarding-authentication-type">Authentication Type</Label>
                 <Select
                   value={config.authType}
                   onValueChange={(v) => setConfig({ ...config, authType: v as any })}
                 >
-                  <SelectTrigger data-testid="select-auth-type">
+                  <SelectTrigger id="data-source-onboarding-authentication-type" data-testid="select-auth-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -354,8 +354,8 @@ export default function DataSourceOnboarding() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Timeout (ms)</Label>
-                <Input
+                <Label htmlFor="data-source-onboarding-timeout-ms">Timeout (ms)</Label>
+                <Input id="data-source-onboarding-timeout-ms"
                   data-testid="input-timeout"
                   type="number"
                   value={config.timeout || 30000}
@@ -370,8 +370,8 @@ export default function DataSourceOnboarding() {
           <>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Host</Label>
-                <Input
+                <Label htmlFor="data-source-onboarding-host">Host</Label>
+                <Input id="data-source-onboarding-host"
                   data-testid="input-host"
                   placeholder="sftp.example.com"
                   value={config.host || ""}
@@ -379,8 +379,8 @@ export default function DataSourceOnboarding() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Port</Label>
-                <Input
+                <Label htmlFor="data-source-onboarding-port">Port</Label>
+                <Input id="data-source-onboarding-port"
                   data-testid="input-port"
                   type="number"
                   placeholder="22"
@@ -391,8 +391,8 @@ export default function DataSourceOnboarding() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Username</Label>
-                <Input
+                <Label htmlFor="data-source-onboarding-username">Username</Label>
+                <Input id="data-source-onboarding-username"
                   data-testid="input-username"
                   placeholder="username"
                   value={config.username || ""}
@@ -400,8 +400,8 @@ export default function DataSourceOnboarding() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Password</Label>
-                <Input
+                <Label htmlFor="data-source-onboarding-password">Password</Label>
+                <Input id="data-source-onboarding-password"
                   data-testid="input-password"
                   type="password"
                   placeholder="********"
@@ -681,11 +681,11 @@ export default function DataSourceOnboarding() {
           <>
             <Separator />
             <div className="space-y-4">
-              <Label className="text-base">Alert Thresholds</Label>
+              <Label htmlFor="data-source-onboarding-alert-thresholds" className="text-base">Alert Thresholds</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm">Quality Drop (%)</Label>
-                  <Input
+                  <Label htmlFor="data-source-onboarding-quality-drop" className="text-sm">Quality Drop (%)</Label>
+                  <Input id="data-source-onboarding-quality-drop" id="data-source-onboarding-alert-thresholds"
                     type="number"
                     value={anomalyConfig.thresholds.qualityDropPercent}
                     onChange={(e) =>
@@ -701,8 +701,8 @@ export default function DataSourceOnboarding() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm">Volume Change (%)</Label>
-                  <Input
+                  <Label htmlFor="data-source-onboarding-volume-change" className="text-sm">Volume Change (%)</Label>
+                  <Input id="data-source-onboarding-volume-change"
                     type="number"
                     value={anomalyConfig.thresholds.volumeChangePercent}
                     onChange={(e) =>
@@ -718,8 +718,8 @@ export default function DataSourceOnboarding() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm">Error Rate (%)</Label>
-                  <Input
+                  <Label htmlFor="data-source-onboarding-error-rate" className="text-sm">Error Rate (%)</Label>
+                  <Input id="data-source-onboarding-error-rate"
                     type="number"
                     value={anomalyConfig.thresholds.errorRatePercent}
                     onChange={(e) =>
@@ -735,8 +735,8 @@ export default function DataSourceOnboarding() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm">Check Interval (minutes)</Label>
-                  <Input
+                  <Label htmlFor="data-source-onboarding-check-interval-minutes" className="text-sm">Check Interval (minutes)</Label>
+                  <Input id="data-source-onboarding-check-interval-minutes"
                     type="number"
                     value={anomalyConfig.checkIntervalMinutes}
                     onChange={(e) =>
@@ -905,6 +905,10 @@ export default function DataSourceOnboarding() {
                   </div>
                 </div>
               ) : (
+                // Placeholder explainer clip. The production video must ship
+                // with a WebVTT caption track (WCAG 2.2 AA 1.2.2, Captions
+                // (Prerecorded)); tracked in the conformance report.
+                // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video
                   ref={videoRef}
                   className="absolute inset-0 w-full h-full object-contain bg-black"

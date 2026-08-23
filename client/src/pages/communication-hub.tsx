@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface Participant {
   id: string;
@@ -378,7 +379,7 @@ export default function CommunicationHub() {
                               ? "bg-accent" 
                               : "hover:bg-muted"
                           }`}
-                          onClick={() => setSelectedConversation(conv.id)}
+                          {...clickable(() => setSelectedConversation(conv.id))}
                           data-testid={`conversation-${conv.id}`}
                         >
                           <div className="flex items-start gap-3">

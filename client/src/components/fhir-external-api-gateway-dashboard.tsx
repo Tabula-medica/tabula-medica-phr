@@ -769,10 +769,10 @@ function CreateClientDialog({ onClose }: { onClose: () => void }) {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>FHIR Versions</Label>
+            <Label htmlFor="fhir-external-api-gatewa-fhir-versions">FHIR Versions</Label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
-                <input
+                <input id="fhir-external-api-gatewa-fhir-versions"
                   type="checkbox"
                   checked={formData.fhirVersions.includes("R4")}
                   onChange={(e) => {
@@ -800,8 +800,8 @@ function CreateClientDialog({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Rate Limits (per minute)</Label>
-            <Input
+            <Label htmlFor="fhir-external-api-gatewa-rate-limits-per-minute">Rate Limits (per minute)</Label>
+            <Input id="fhir-external-api-gatewa-rate-limits-per-minute"
               type="number"
               value={formData.rateLimits.requestsPerMinute}
               onChange={(e) => setFormData({

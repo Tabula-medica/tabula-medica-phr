@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { clickable } from "@/lib/a11y";
 import {
   User,
   Database,
@@ -284,7 +285,7 @@ export default function Patient360() {
                         ? "bg-primary/10 border border-primary"
                         : "bg-muted/50"
                     }`}
-                    onClick={() => setSelectedPatientId(patient.patientId)}
+                    {...clickable(() => setSelectedPatientId(patient.patientId))}
                     data-testid={`card-patient-${patient.patientId}`}
                   >
                     <div className="flex items-center justify-between">

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -421,7 +422,7 @@ export default function ImmunizationsHub() {
                   </AlertDescription>
                 </Alert>
                 <div className="space-y-2">
-                  <Label>Select Healthcare Provider</Label>
+                  <FieldCaption>Select Healthcare Provider</FieldCaption>
                   <div className="grid grid-cols-1 gap-2">
                     {fhirSourcesData?.sources?.map((source) => (
                       <Button
@@ -470,12 +471,12 @@ export default function ImmunizationsHub() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Vaccine Type</Label>
+                  <Label htmlFor="immunizations-hub-vaccine-type">Vaccine Type</Label>
                   <Select
                     value={newRecord.vaccineGroup}
                     onValueChange={(value) => setNewRecord({ ...newRecord, vaccineGroup: value, vaccineName: value })}
                   >
-                    <SelectTrigger data-testid="select-vaccine-type">
+                    <SelectTrigger id="immunizations-hub-vaccine-type" data-testid="select-vaccine-type">
                       <SelectValue placeholder="Select vaccine" />
                     </SelectTrigger>
                     <SelectContent>
@@ -486,8 +487,8 @@ export default function ImmunizationsHub() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Date Administered</Label>
-                  <Input
+                  <Label htmlFor="immunizations-hub-date-administered">Date Administered</Label>
+                  <Input id="immunizations-hub-date-administered"
                     type="date"
                     value={newRecord.dateAdministered}
                     onChange={(e) => setNewRecord({ ...newRecord, dateAdministered: e.target.value })}
@@ -495,8 +496,8 @@ export default function ImmunizationsHub() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Lot Number (optional)</Label>
-                  <Input
+                  <Label htmlFor="immunizations-hub-lot-number-optional">Lot Number (optional)</Label>
+                  <Input id="immunizations-hub-lot-number-optional"
                     value={newRecord.lotNumber}
                     onChange={(e) => setNewRecord({ ...newRecord, lotNumber: e.target.value })}
                     placeholder="e.g., ABC123"
@@ -504,8 +505,8 @@ export default function ImmunizationsHub() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Provider/Location (optional)</Label>
-                  <Input
+                  <Label htmlFor="immunizations-hub-provider-location-optional">Provider/Location (optional)</Label>
+                  <Input id="immunizations-hub-provider-location-optional"
                     value={newRecord.performer}
                     onChange={(e) => setNewRecord({ ...newRecord, performer: e.target.value })}
                     placeholder="e.g., CVS Pharmacy, Dr. Smith"
@@ -1204,21 +1205,21 @@ export default function ImmunizationsHub() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Push Notifications</Label>
+                    <FieldCaption>Push Notifications</FieldCaption>
                     <p className="text-sm text-muted-foreground">Get notified on your device</p>
                   </div>
                   <Checkbox defaultChecked data-testid="checkbox-push-notifications" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Email Reminders</Label>
+                    <FieldCaption>Email Reminders</FieldCaption>
                     <p className="text-sm text-muted-foreground">Receive email notifications</p>
                   </div>
                   <Checkbox data-testid="checkbox-email-reminders" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Advance Notice</Label>
+                    <FieldCaption>Advance Notice</FieldCaption>
                     <p className="text-sm text-muted-foreground">How early to remind you</p>
                   </div>
                   <Select defaultValue="7">

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   RefreshCw,
   Database,
@@ -295,7 +297,7 @@ export default function FHIRResourceManagement() {
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                             selectedSystem?.id === system.id ? "border-primary bg-accent" : ""
                           }`}
-                          onClick={() => setSelectedSystem(system)}
+                          {...clickable(() => setSelectedSystem(system))}
                           data-testid={`card-system-${system.id}`}
                         >
                           <div className="flex items-center justify-between mb-1">
@@ -332,11 +334,11 @@ export default function FHIRResourceManagement() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label>Endpoint</Label>
+                        <FieldCaption>Endpoint</FieldCaption>
                         <p className="text-sm text-muted-foreground truncate">{selectedSystem.endpoint}</p>
                       </div>
                       <div>
-                        <Label>Supported Resources</Label>
+                        <FieldCaption>Supported Resources</FieldCaption>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {selectedSystem.supportedResources.slice(0, 4).map((r) => (
                             <Badge key={r} variant="outline" className="text-xs">{r}</Badge>
@@ -351,9 +353,9 @@ export default function FHIRResourceManagement() {
                     <Separator />
 
                     <div className="space-y-2">
-                      <Label>Sync Direction</Label>
+                      <Label htmlFor="fhir-resource-management-sync-direction">Sync Direction</Label>
                       <Select value={syncDirection} onValueChange={setSyncDirection}>
-                        <SelectTrigger data-testid="select-sync-direction">
+                        <SelectTrigger id="fhir-resource-management-sync-direction" data-testid="select-sync-direction">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -377,7 +379,7 @@ export default function FHIRResourceManagement() {
                     <Separator />
 
                     <div>
-                      <Label>Recent Sync Jobs</Label>
+                      <FieldCaption>Recent Sync Jobs</FieldCaption>
                       {jobsQuery.isLoading ? (
                         <p className="text-sm text-muted-foreground mt-2">Loading jobs...</p>
                       ) : jobsQuery.isError ? (
@@ -439,7 +441,7 @@ export default function FHIRResourceManagement() {
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                             selectedResource === resource.id ? "border-primary bg-accent" : ""
                           }`}
-                          onClick={() => loadResourceDetail(resource.id)}
+                          {...clickable(() => loadResourceDetail(resource.id))}
                           data-testid={`card-resource-${resource.id}`}
                         >
                           <div className="flex items-center justify-between mb-1">
@@ -493,19 +495,19 @@ export default function FHIRResourceManagement() {
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <Label>Version</Label>
+                            <FieldCaption>Version</FieldCaption>
                             <p className="text-muted-foreground">{resourceDetail.currentVersion.versionId}</p>
                           </div>
                           <div>
-                            <Label>Last Updated</Label>
+                            <FieldCaption>Last Updated</FieldCaption>
                             <p className="text-muted-foreground">{new Date(resourceDetail.currentVersion.meta.lastUpdated).toLocaleString()}</p>
                           </div>
                           <div>
-                            <Label>Source</Label>
+                            <FieldCaption>Source</FieldCaption>
                             <p className="text-muted-foreground">{resourceDetail.currentVersion.meta.source || "Unknown"}</p>
                           </div>
                           <div>
-                            <Label>Last Change</Label>
+                            <FieldCaption>Last Change</FieldCaption>
                             <p className="text-muted-foreground">{resourceDetail.currentVersion.changeSummary}</p>
                           </div>
                         </div>
@@ -613,9 +615,9 @@ export default function FHIRResourceManagement() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Source Code System</Label>
+                  <Label htmlFor="fhir-resource-management-source-code-system">Source Code System</Label>
                   <Select value={sourceSystem} onValueChange={setSourceSystem}>
-                    <SelectTrigger data-testid="select-source-system">
+                    <SelectTrigger id="fhir-resource-management-source-code-system" data-testid="select-source-system">
                       <SelectValue placeholder="Select source system" />
                     </SelectTrigger>
                     <SelectContent>
@@ -628,8 +630,8 @@ export default function FHIRResourceManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Source Code</Label>
-                  <Input
+                  <Label htmlFor="fhir-resource-management-source-code">Source Code</Label>
+                  <Input id="fhir-resource-management-source-code"
                     placeholder="Enter code (e.g., 44054006)"
                     value={sourceCode}
                     onChange={(e) => setSourceCode(e.target.value)}
@@ -638,9 +640,9 @@ export default function FHIRResourceManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Target Code System</Label>
+                  <Label htmlFor="fhir-resource-management-target-code-system">Target Code System</Label>
                   <Select value={targetSystem} onValueChange={setTargetSystem}>
-                    <SelectTrigger data-testid="select-target-system">
+                    <SelectTrigger id="fhir-resource-management-target-code-system" data-testid="select-target-system">
                       <SelectValue placeholder="Select target system" />
                     </SelectTrigger>
                     <SelectContent>
@@ -664,7 +666,7 @@ export default function FHIRResourceManagement() {
                 {translationResult && (
                   <div className="mt-4 p-4 rounded border bg-muted/50">
                     <div className="mb-3">
-                      <Label>Source</Label>
+                      <FieldCaption>Source</FieldCaption>
                       <p className="text-sm">
                         <Badge variant="outline">{translationResult.sourceSystem}</Badge>
                         <span className="font-mono ml-2">{translationResult.sourceCode}</span>
@@ -673,7 +675,7 @@ export default function FHIRResourceManagement() {
                     </div>
                     <Separator className="my-3" />
                     <div>
-                      <Label>Mappings to {translationResult.targetSystem}</Label>
+                      <FieldCaption>Mappings to {translationResult.targetSystem}</FieldCaption>
                       {translationResult.mappings.length > 0 ? (
                         <div className="space-y-2 mt-2">
                           {translationResult.mappings.map((mapping, idx) => (

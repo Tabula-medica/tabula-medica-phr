@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -344,9 +344,9 @@ export default function BillingDashboard() {
 
                   {plan.pricePerProvider && (
                     <div className="space-y-2">
-                      <Label>Number of Providers</Label>
+                      <FieldCaption>Number of Providers</FieldCaption>
                       <div className="flex items-center gap-4">
-                        <Input
+                        <Input aria-label="Number of Providers"
                           type="number"
                           min={1}
                           max={100}
@@ -364,9 +364,9 @@ export default function BillingDashboard() {
 
                   {plan.pricePmpm && (
                     <div className="space-y-2">
-                      <Label>Covered Members</Label>
+                      <FieldCaption>Covered Members</FieldCaption>
                       <div className="flex items-center gap-4">
-                        <Input
+                        <Input aria-label="Covered Members"
                           type="number"
                           min={100}
                           max={100000}

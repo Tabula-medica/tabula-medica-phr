@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   AlertTriangle,
   Shield,
@@ -243,8 +244,8 @@ export default function IncidentDashboard() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Title</Label>
-                  <Input
+                  <Label htmlFor="incident-dashboard-title">Title</Label>
+                  <Input id="incident-dashboard-title"
                     value={newIncident.title}
                     onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
                     placeholder="Brief incident title"
@@ -252,8 +253,8 @@ export default function IncidentDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
+                  <Label htmlFor="incident-dashboard-description">Description</Label>
+                  <Textarea id="incident-dashboard-description"
                     value={newIncident.description}
                     onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
                     placeholder="Describe the incident..."
@@ -262,12 +263,12 @@ export default function IncidentDashboard() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Severity</Label>
+                    <Label htmlFor="incident-dashboard-severity">Severity</Label>
                     <Select
                       value={newIncident.severity}
                       onValueChange={(v) => setNewIncident({ ...newIncident, severity: v })}
                     >
-                      <SelectTrigger data-testid="select-severity">
+                      <SelectTrigger id="incident-dashboard-severity" data-testid="select-severity">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -279,12 +280,12 @@ export default function IncidentDashboard() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label htmlFor="incident-dashboard-category">Category</Label>
                     <Select
                       value={newIncident.category}
                       onValueChange={(v) => setNewIncident({ ...newIncident, category: v })}
                     >
-                      <SelectTrigger data-testid="select-category">
+                      <SelectTrigger id="incident-dashboard-category" data-testid="select-category">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -394,7 +395,7 @@ export default function IncidentDashboard() {
                     <div
                       key={incident.id}
                       className="p-4 border rounded-lg hover-elevate cursor-pointer"
-                      onClick={() => setSelectedIncident(incident)}
+                      {...clickable(() => setSelectedIncident(incident))}
                       data-testid={`card-incident-${incident.id}`}
                     >
                       <div className="flex items-start justify-between gap-2">

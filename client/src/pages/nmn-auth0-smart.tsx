@@ -391,16 +391,16 @@ function PayerTokensTab() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Auth0 User ID</Label>
-              <Input
+              <Label htmlFor="nmn-auth0-smart-auth0-user-id">Auth0 User ID</Label>
+              <Input id="nmn-auth0-smart-auth0-user-id"
                 data-testid="input-auth0-user-id"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Payer Source</Label>
-              <select
+              <Label htmlFor="nmn-auth0-smart-payer-source">Payer Source</Label>
+              <select id="nmn-auth0-smart-payer-source"
                 data-testid="select-payer-source"
                 className="w-full rounded-md border px-3 py-2 text-sm bg-background"
                 value={sourceType}
@@ -418,8 +418,8 @@ function PayerTokensTab() {
           </div>
 
           <div className="space-y-2">
-            <Label>FHIR Base URL</Label>
-            <Input
+            <Label htmlFor="nmn-auth0-smart-fhir-base-url">FHIR Base URL</Label>
+            <Input id="nmn-auth0-smart-fhir-base-url"
               data-testid="input-fhir-base-url"
               value={fhirBaseUrl}
               onChange={(e) => setFhirBaseUrl(e.target.value)}

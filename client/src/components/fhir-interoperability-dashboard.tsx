@@ -232,12 +232,12 @@ export function FHIRInteroperabilityDashboard() {
                 />
               </div>
               <div>
-                <Label>FHIR Version</Label>
+                <Label htmlFor="fhir-interoperability-da-fhir-version">FHIR Version</Label>
                 <Select
                   value={newServer.fhirVersion}
                   onValueChange={(v) => setNewServer({ ...newServer, fhirVersion: v as "R4" | "STU3" | "DSTU2" })}
                 >
-                  <SelectTrigger data-testid="select-fhir-version">
+                  <SelectTrigger id="fhir-interoperability-da-fhir-version" data-testid="select-fhir-version">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -248,12 +248,12 @@ export function FHIRInteroperabilityDashboard() {
                 </Select>
               </div>
               <div>
-                <Label>Authentication</Label>
+                <Label htmlFor="fhir-interoperability-da-authentication">Authentication</Label>
                 <Select
                   value={newServer.authMethod}
                   onValueChange={(v) => setNewServer({ ...newServer, authMethod: v as "none" | "basic" | "bearer" })}
                 >
-                  <SelectTrigger data-testid="select-auth-method">
+                  <SelectTrigger id="fhir-interoperability-da-authentication" data-testid="select-auth-method">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -487,29 +487,29 @@ export function FHIRInteroperabilityDashboard() {
                   <h4 className="font-medium">Register SMART App</h4>
                   <div className="space-y-3">
                     <div>
-                      <Label>Client ID</Label>
-                      <Input 
+                      <Label htmlFor="fhir-interoperability-da-client-id">Client ID</Label>
+                      <Input id="fhir-interoperability-da-client-id" 
                         placeholder="your-smart-app-client-id" 
                         data-testid="input-smart-client-id"
                       />
                     </div>
                     <div>
-                      <Label>FHIR Server Base URL</Label>
-                      <Input 
+                      <Label htmlFor="fhir-interoperability-da-fhir-server-base-url">FHIR Server Base URL</Label>
+                      <Input id="fhir-interoperability-da-fhir-server-base-url" 
                         placeholder="https://fhir.example.org/r4" 
                         data-testid="input-smart-fhir-url"
                       />
                     </div>
                     <div>
-                      <Label>Redirect URI</Label>
-                      <Input 
+                      <Label htmlFor="fhir-interoperability-da-redirect-uri">Redirect URI</Label>
+                      <Input id="fhir-interoperability-da-redirect-uri" 
                         placeholder={typeof window !== "undefined" ? `${window.location.origin}/smart/callback` : "/smart/callback"}
                         data-testid="input-smart-redirect"
                       />
                     </div>
                     <div>
-                      <Label>Scopes</Label>
-                      <Input 
+                      <Label htmlFor="fhir-interoperability-da-scopes">Scopes</Label>
+                      <Input id="fhir-interoperability-da-scopes" 
                         placeholder="openid fhirUser launch/patient patient/*.read" 
                         data-testid="input-smart-scopes"
                       />
@@ -584,9 +584,9 @@ export function FHIRInteroperabilityDashboard() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label>Server</Label>
+                  <Label htmlFor="fhir-interoperability-da-server">Server</Label>
                   <Select value={selectedServer || ""} onValueChange={setSelectedServer}>
-                    <SelectTrigger data-testid="select-search-server">
+                    <SelectTrigger id="fhir-interoperability-da-server" data-testid="select-search-server">
                       <SelectValue placeholder="Select server" />
                     </SelectTrigger>
                     <SelectContent>
@@ -597,9 +597,9 @@ export function FHIRInteroperabilityDashboard() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="fhir-interoperability-da-resource-type">Resource Type</Label>
                   <Select value={searchResourceType} onValueChange={setSearchResourceType}>
-                    <SelectTrigger data-testid="select-resource-type">
+                    <SelectTrigger id="fhir-interoperability-da-resource-type" data-testid="select-resource-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -742,9 +742,9 @@ export function FHIRInteroperabilityDashboard() {
                   <h4 className="font-medium">Push Vital Signs</h4>
                   <div className="space-y-3">
                     <div>
-                      <Label>Target Server</Label>
+                      <Label htmlFor="fhir-interoperability-da-target-server">Target Server</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-outbound-server">
+                        <SelectTrigger id="fhir-interoperability-da-target-server" data-testid="select-outbound-server">
                           <SelectValue placeholder="Select connected server" />
                         </SelectTrigger>
                         <SelectContent>
@@ -755,9 +755,9 @@ export function FHIRInteroperabilityDashboard() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Vital Type</Label>
+                      <Label htmlFor="fhir-interoperability-da-vital-type">Vital Type</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-vital-type">
+                        <SelectTrigger id="fhir-interoperability-da-vital-type" data-testid="select-vital-type">
                           <SelectValue placeholder="Select vital type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -774,12 +774,12 @@ export function FHIRInteroperabilityDashboard() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label>Value</Label>
-                        <Input type="number" placeholder="120" data-testid="input-vital-value" />
+                        <Label htmlFor="fhir-interoperability-da-value">Value</Label>
+                        <Input id="fhir-interoperability-da-value" type="number" placeholder="120" data-testid="input-vital-value" />
                       </div>
                       <div>
-                        <Label>Unit</Label>
-                        <Input placeholder="mmHg" data-testid="input-vital-unit" />
+                        <Label htmlFor="fhir-interoperability-da-unit">Unit</Label>
+                        <Input id="fhir-interoperability-da-unit" placeholder="mmHg" data-testid="input-vital-unit" />
                       </div>
                     </div>
                     <Button className="w-full" data-testid="btn-push-vital">

@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -189,23 +190,23 @@ function MedicationCard({
 
             <div className="space-y-4 py-4">
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Are you currently taking this?</Label>
+                <FieldCaption className="text-sm font-medium">Are you currently taking this?</FieldCaption>
                 <RadioGroup
                   value={status}
                   onValueChange={(v) => setStatus(v as MedicationStatus)}
                   className="space-y-2"
                 >
-                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setStatus("taking")}>
+                  <div role="presentation" className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setStatus("taking")}>
                     <RadioGroupItem value="taking" id="taking" data-testid="radio-taking" />
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
                     <Label htmlFor="taking" className="flex-1 cursor-pointer">Yes, I'm taking this</Label>
                   </div>
-                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setStatus("not_taking")}>
+                  <div role="presentation" className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setStatus("not_taking")}>
                     <RadioGroupItem value="not_taking" id="not_taking" data-testid="radio-not-taking" />
                     <XCircle className="h-4 w-4 text-red-500" />
                     <Label htmlFor="not_taking" className="flex-1 cursor-pointer">No, I'm not taking this</Label>
                   </div>
-                  <div className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setStatus("unsure")}>
+                  <div role="presentation" className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setStatus("unsure")}>
                     <RadioGroupItem value="unsure" id="unsure" data-testid="radio-unsure" />
                     <HelpCircle className="h-4 w-4 text-yellow-500" />
                     <Label htmlFor="unsure" className="flex-1 cursor-pointer">I'm not sure</Label>
@@ -214,11 +215,11 @@ function MedicationCard({
               </div>
 
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Is there a problem with this entry?</Label>
+                <FieldCaption className="text-sm font-medium">Is there a problem with this entry?</FieldCaption>
                 <div className="space-y-2">
                   {Object.entries(flagTypeLabels).map(([type, label]) => (
                     <div key={type} className="flex items-center space-x-3 p-2 rounded-lg border">
-                      <Checkbox
+                      <Checkbox aria-label="Is there a problem with this entry?"
                         id={`flag-${type}`}
                         checked={selectedFlags.includes(type)}
                         onCheckedChange={(checked) => {

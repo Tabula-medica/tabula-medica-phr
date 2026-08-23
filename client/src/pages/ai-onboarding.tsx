@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -617,8 +618,8 @@ export default function AIOnboarding() {
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
-                          <Label>Name</Label>
-                          <Input
+                          <FieldCaption>Name</FieldCaption>
+                          <Input aria-label="Name"
                             value={contact.name}
                             onChange={(e) => updateContact(index, "name", e.target.value)}
                             className="min-h-[44px]"
@@ -626,8 +627,8 @@ export default function AIOnboarding() {
                           />
                         </div>
                         <div>
-                          <Label>Relationship</Label>
-                          <Input
+                          <FieldCaption>Relationship</FieldCaption>
+                          <Input aria-label="Relationship"
                             value={contact.relationship}
                             onChange={(e) => updateContact(index, "relationship", e.target.value)}
                             placeholder="e.g., Spouse, Parent"
@@ -637,8 +638,8 @@ export default function AIOnboarding() {
                         </div>
                       </div>
                       <div>
-                        <Label>Phone</Label>
-                        <Input
+                        <FieldCaption>Phone</FieldCaption>
+                        <Input aria-label="Phone"
                           type="tel"
                           value={contact.phone}
                           onChange={(e) => updateContact(index, "phone", e.target.value)}

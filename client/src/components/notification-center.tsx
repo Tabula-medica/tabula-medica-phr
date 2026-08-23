@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface InAppNotification {
   id: string;
@@ -147,14 +148,14 @@ export function NotificationCenter() {
                     "p-3 hover-elevate cursor-pointer",
                     !notification.read && "bg-muted/50"
                   )}
-                  onClick={() => {
+                  {...clickable(() => {
                     if (!notification.read) {
                       markReadMutation.mutate(notification.id);
                     }
                     if (notification.actionUrl) {
                       window.location.href = notification.actionUrl;
                     }
-                  }}
+                  })}
                   data-testid={`notification-item-${notification.id}`}
                 >
                   <div className="flex items-start gap-3">

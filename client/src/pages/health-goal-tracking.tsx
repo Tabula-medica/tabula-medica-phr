@@ -10,9 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import { 
   Target, 
   Trophy, 
@@ -604,7 +606,7 @@ export default function HealthGoalTracking() {
                       <div 
                         key={goal.id} 
                         className="p-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 cursor-pointer hover-elevate"
-                        onClick={() => { setSelectedGoal(goal); setActiveTab("progress"); }}
+                        {...clickable(() => { setSelectedGoal(goal); setActiveTab("progress"); })}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${categoryColors[goal.category]} flex items-center justify-center`}>
@@ -931,8 +933,8 @@ export default function HealthGoalTracking() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Goal Title *</Label>
-              <Input 
+              <Label htmlFor="health-goal-tracking-goal-title">Goal Title *</Label>
+              <Input id="health-goal-tracking-goal-title" 
                 value={newGoal.title}
                 onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
                 placeholder="e.g., Daily Walking"
@@ -940,8 +942,8 @@ export default function HealthGoalTracking() {
               />
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea 
+              <Label htmlFor="health-goal-tracking-description">Description</Label>
+              <Textarea id="health-goal-tracking-description" 
                 value={newGoal.description}
                 onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
                 placeholder="Describe your goal..."
@@ -949,9 +951,9 @@ export default function HealthGoalTracking() {
               />
             </div>
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="health-goal-tracking-category">Category</Label>
               <Select value={newGoal.category} onValueChange={(v) => setNewGoal({ ...newGoal, category: v as GoalCategory })}>
-                <SelectTrigger data-testid="select-goal-category">
+                <SelectTrigger id="health-goal-tracking-category" data-testid="select-goal-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -963,8 +965,8 @@ export default function HealthGoalTracking() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Target Value *</Label>
-                <Input 
+                <Label htmlFor="health-goal-tracking-target-value">Target Value *</Label>
+                <Input id="health-goal-tracking-target-value" 
                   type="number"
                   value={newGoal.targetValue}
                   onChange={(e) => setNewGoal({ ...newGoal, targetValue: e.target.value })}
@@ -973,8 +975,8 @@ export default function HealthGoalTracking() {
                 />
               </div>
               <div>
-                <Label>Unit *</Label>
-                <Input 
+                <Label htmlFor="health-goal-tracking-unit">Unit *</Label>
+                <Input id="health-goal-tracking-unit" 
                   value={newGoal.targetUnit}
                   onChange={(e) => setNewGoal({ ...newGoal, targetUnit: e.target.value })}
                   placeholder="e.g., minutes"
@@ -984,9 +986,9 @@ export default function HealthGoalTracking() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Frequency</Label>
+                <Label htmlFor="health-goal-tracking-frequency">Frequency</Label>
                 <Select value={newGoal.frequency} onValueChange={(v) => setNewGoal({ ...newGoal, frequency: v as any })}>
-                  <SelectTrigger data-testid="select-goal-frequency">
+                  <SelectTrigger id="health-goal-tracking-frequency" data-testid="select-goal-frequency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -997,9 +999,9 @@ export default function HealthGoalTracking() {
                 </Select>
               </div>
               <div>
-                <Label>Priority</Label>
+                <Label htmlFor="health-goal-tracking-priority">Priority</Label>
                 <Select value={newGoal.priority} onValueChange={(v) => setNewGoal({ ...newGoal, priority: v as any })}>
-                  <SelectTrigger data-testid="select-goal-priority">
+                  <SelectTrigger id="health-goal-tracking-priority" data-testid="select-goal-priority">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1011,8 +1013,8 @@ export default function HealthGoalTracking() {
               </div>
             </div>
             <div>
-              <Label>Target Date</Label>
-              <Input 
+              <Label htmlFor="health-goal-tracking-target-date">Target Date</Label>
+              <Input id="health-goal-tracking-target-date" 
                 type="date"
                 value={newGoal.targetDate}
                 onChange={(e) => setNewGoal({ ...newGoal, targetDate: e.target.value })}
@@ -1053,9 +1055,9 @@ export default function HealthGoalTracking() {
                 </p>
               </div>
               <div>
-                <Label>Value *</Label>
+                <Label htmlFor="health-goal-tracking-value">Value *</Label>
                 <div className="flex gap-2">
-                  <Input 
+                  <Input id="health-goal-tracking-value" 
                     type="number"
                     value={progressValue}
                     onChange={(e) => setProgressValue(e.target.value)}
@@ -1069,7 +1071,7 @@ export default function HealthGoalTracking() {
                 </div>
               </div>
               <div>
-                <Label>How are you feeling?</Label>
+                <FieldCaption>How are you feeling?</FieldCaption>
                 <div className="flex gap-2 mt-2">
                   {["great", "good", "okay", "struggling"].map((mood) => (
                     <Button
@@ -1086,8 +1088,8 @@ export default function HealthGoalTracking() {
                 </div>
               </div>
               <div>
-                <Label>Notes (optional)</Label>
-                <Textarea 
+                <Label htmlFor="health-goal-tracking-notes-optional">Notes (optional)</Label>
+                <Textarea id="health-goal-tracking-notes-optional" 
                   value={progressNote}
                   onChange={(e) => setProgressNote(e.target.value)}
                   placeholder="How did it go? Any thoughts..."

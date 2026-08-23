@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   AlertTriangle,
   CheckCircle,
@@ -360,7 +361,7 @@ export default function FhirHarmonization() {
                         className={`p-3 rounded-lg border cursor-pointer transition-colors hover-elevate ${
                           selectedInconsistency?.id === inc.id ? "border-primary bg-primary/5" : ""
                         }`}
-                        onClick={() => setSelectedInconsistency(inc)}
+                        {...clickable(() => setSelectedInconsistency(inc))}
                         data-testid={`card-inconsistency-${inc.id}`}
                       >
                         <div className="flex items-center justify-between">

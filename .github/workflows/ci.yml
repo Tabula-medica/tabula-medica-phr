@@ -1,0 +1,57 @@
+name: CI
+
+# Baseline gate for every change: the checks a contributor runs locally, run
+# once per push and pull request. Before this workflow existed the only
+# automated check was the PHI-AI boundary guard, so a type error, a failing
+# test or a broken build could reach main unnoticed.
+#
+# `npm run lint:server` is deliberately NOT gated here. It reports the F1
+# encryption programme's open backlog (direct `db.*` writes to PHI tables and
+# string-form logger calls), which is tracked separately in
+# `.local/deliverables/f1-action-items.md`. Gating on it would fail every pull
+# request for work none of them touch. Run it locally while burning that
+# backlog down, and promote it to a job here once it reaches zero.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: ${{ matrix.task.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Every task reports independently, so one failure does not hide the rest.
+      fail-fast: false
+      matrix:
+        task:
+          - name: Accessibility lint
+            run: npm run lint:a11y
+          - name: Accessibility tests
+            run: npm run test:a11y
+          - name: Typecheck
+            run: npm run check
+          - name: Tests
+            run: npm test
+          - name: Build
+            run: npm run build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: ${{ matrix.task.name }}
+        run: ${{ matrix.task.run }}

@@ -662,16 +662,16 @@ export default function DentalIntegrations() {
                     className="space-y-3"
                   >
                     <div>
-                      <label className="text-sm font-medium">Practice Name</label>
-                      <Input data-testid="input-practice-name" name="practiceName" placeholder="e.g., Smile Dental Care" required className="mt-1" />
+                      <label htmlFor="dental-integrations-practice-name" className="text-sm font-medium">Practice Name</label>
+                      <Input id="dental-integrations-practice-name" data-testid="input-practice-name" name="practiceName" placeholder="e.g., Smile Dental Care" required className="mt-1" />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">API Key / Credentials</label>
-                      <Input data-testid="input-api-key" name="apiKey" type="password" placeholder="Enter your API key or credentials" required className="mt-1" />
+                      <label htmlFor="dental-integrations-api-key-credentials" className="text-sm font-medium">API Key / Credentials</label>
+                      <Input id="dental-integrations-api-key-credentials" data-testid="input-api-key" name="apiKey" type="password" placeholder="Enter your API key or credentials" required className="mt-1" />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Server URL <span className="text-gray-400">(optional)</span></label>
-                      <Input data-testid="input-server-url" name="serverUrl" placeholder="e.g., https://your-practice.opendental.com/api" className="mt-1" />
+                      <label htmlFor="dental-integrations-server-url-optional" className="text-sm font-medium">Server URL <span className="text-gray-400">(optional)</span></label>
+                      <Input id="dental-integrations-server-url-optional" data-testid="input-server-url" name="serverUrl" placeholder="e.g., https://your-practice.opendental.com/api" className="mt-1" />
                     </div>
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
                       <Shield className="w-4 h-4 text-blue-500 flex-shrink-0" />

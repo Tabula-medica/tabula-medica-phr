@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -404,55 +405,55 @@ function SmartNoteBuilder({ governance }: { governance?: GovernanceCheck }) {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <Label>Blood Pressure</Label>
-                  <Input value={form.bp} onChange={e => updateForm("bp", e.target.value)} placeholder="120/80" data-testid="input-bp" />
+                  <Label htmlFor="ai-automated-documentati-blood-pressure">Blood Pressure</Label>
+                  <Input id="ai-automated-documentati-blood-pressure" value={form.bp} onChange={e => updateForm("bp", e.target.value)} placeholder="120/80" data-testid="input-bp" />
                 </div>
                 <div>
-                  <Label>Heart Rate (bpm)</Label>
-                  <Input value={form.hr} onChange={e => updateForm("hr", e.target.value)} placeholder="72" data-testid="input-hr" />
+                  <Label htmlFor="ai-automated-documentati-heart-rate-bpm">Heart Rate (bpm)</Label>
+                  <Input id="ai-automated-documentati-heart-rate-bpm" value={form.hr} onChange={e => updateForm("hr", e.target.value)} placeholder="72" data-testid="input-hr" />
                 </div>
                 <div>
-                  <Label>Temperature (°F)</Label>
-                  <Input value={form.temp} onChange={e => updateForm("temp", e.target.value)} placeholder="98.6" data-testid="input-temp" />
+                  <Label htmlFor="ai-automated-documentati-temperature-f">Temperature (°F)</Label>
+                  <Input id="ai-automated-documentati-temperature-f" value={form.temp} onChange={e => updateForm("temp", e.target.value)} placeholder="98.6" data-testid="input-temp" />
                 </div>
                 <div>
-                  <Label>Resp Rate (/min)</Label>
-                  <Input value={form.rr} onChange={e => updateForm("rr", e.target.value)} placeholder="16" data-testid="input-rr" />
+                  <Label htmlFor="ai-automated-documentati-resp-rate-min">Resp Rate (/min)</Label>
+                  <Input id="ai-automated-documentati-resp-rate-min" value={form.rr} onChange={e => updateForm("rr", e.target.value)} placeholder="16" data-testid="input-rr" />
                 </div>
                 <div>
-                  <Label>SpO2 (%)</Label>
-                  <Input value={form.spo2} onChange={e => updateForm("spo2", e.target.value)} placeholder="99" data-testid="input-spo2" />
+                  <Label htmlFor="ai-automated-documentati-spo2">SpO2 (%)</Label>
+                  <Input id="ai-automated-documentati-spo2" value={form.spo2} onChange={e => updateForm("spo2", e.target.value)} placeholder="99" data-testid="input-spo2" />
                 </div>
                 <div>
-                  <Label>Weight (kg)</Label>
-                  <Input value={form.weight} onChange={e => updateForm("weight", e.target.value)} placeholder="70" data-testid="input-weight" />
+                  <Label htmlFor="ai-automated-documentati-weight-kg">Weight (kg)</Label>
+                  <Input id="ai-automated-documentati-weight-kg" value={form.weight} onChange={e => updateForm("weight", e.target.value)} placeholder="70" data-testid="input-weight" />
                 </div>
                 <div>
-                  <Label>Height (cm)</Label>
-                  <Input value={form.height} onChange={e => updateForm("height", e.target.value)} placeholder="175" data-testid="input-height" />
+                  <Label htmlFor="ai-automated-documentati-height-cm">Height (cm)</Label>
+                  <Input id="ai-automated-documentati-height-cm" value={form.height} onChange={e => updateForm("height", e.target.value)} placeholder="175" data-testid="input-height" />
                 </div>
               </div>
 
               <Separator />
 
               <div>
-                <Label>Active Conditions (comma-separated)</Label>
-                <Input value={form.conditions} onChange={e => updateForm("conditions", e.target.value)} placeholder="e.g., Hypertension, Type 2 Diabetes" data-testid="input-conditions" />
+                <Label htmlFor="ai-automated-documentati-active-conditions-comma-separated">Active Conditions (comma-separated)</Label>
+                <Input id="ai-automated-documentati-active-conditions-comma-separated" value={form.conditions} onChange={e => updateForm("conditions", e.target.value)} placeholder="e.g., Hypertension, Type 2 Diabetes" data-testid="input-conditions" />
               </div>
               <div>
-                <Label>Allergies (comma-separated)</Label>
-                <Input value={form.allergies} onChange={e => updateForm("allergies", e.target.value)} placeholder="e.g., Penicillin, Sulfa drugs" data-testid="input-allergies" />
+                <Label htmlFor="ai-automated-documentati-allergies-comma-separated">Allergies (comma-separated)</Label>
+                <Input id="ai-automated-documentati-allergies-comma-separated" value={form.allergies} onChange={e => updateForm("allergies", e.target.value)} placeholder="e.g., Penicillin, Sulfa drugs" data-testid="input-allergies" />
               </div>
               <div>
-                <Label>Reported Symptoms (comma-separated)</Label>
-                <Input value={form.symptoms} onChange={e => updateForm("symptoms", e.target.value)} placeholder="e.g., Headache, Nausea, Photophobia" data-testid="input-symptoms" />
+                <Label htmlFor="ai-automated-documentati-reported-symptoms-comma-separated">Reported Symptoms (comma-separated)</Label>
+                <Input id="ai-automated-documentati-reported-symptoms-comma-separated" value={form.symptoms} onChange={e => updateForm("symptoms", e.target.value)} placeholder="e.g., Headache, Nausea, Photophobia" data-testid="input-symptoms" />
               </div>
 
               <Separator />
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="flex items-center gap-1"><Pill className="h-4 w-4" />Medications</Label>
+                  <FieldCaption className="flex items-center gap-1"><Pill className="h-4 w-4" />Medications</FieldCaption>
                   <Button variant="outline" size="sm" onClick={() => setMeds(prev => [...prev, { name: "", dose: "", frequency: "" }])} data-testid="button-add-med"><Plus className="h-3 w-3 mr-1" />Add</Button>
                 </div>
                 {meds.map((med, i) => (
@@ -469,7 +470,7 @@ function SmartNoteBuilder({ governance }: { governance?: GovernanceCheck }) {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="flex items-center gap-1"><FlaskConical className="h-4 w-4" />Lab Results</Label>
+                  <FieldCaption className="flex items-center gap-1"><FlaskConical className="h-4 w-4" />Lab Results</FieldCaption>
                   <Button variant="outline" size="sm" onClick={() => setLabs(prev => [...prev, { test: "", value: "", unit: "", referenceRange: "", flag: "normal" }])} data-testid="button-add-lab"><Plus className="h-3 w-3 mr-1" />Add</Button>
                 </div>
                 {labs.map((lab, i) => (
@@ -494,12 +495,12 @@ function SmartNoteBuilder({ governance }: { governance?: GovernanceCheck }) {
               <Separator />
 
               <div>
-                <Label>Assessment / Clinical Notes</Label>
-                <Textarea value={form.assessmentNotes} onChange={e => updateForm("assessmentNotes", e.target.value)} placeholder="Additional clinical observations or assessment notes..." rows={3} data-testid="input-assessment-notes" />
+                <Label htmlFor="ai-automated-documentati-assessment-clinical-notes">Assessment / Clinical Notes</Label>
+                <Textarea id="ai-automated-documentati-assessment-clinical-notes" value={form.assessmentNotes} onChange={e => updateForm("assessmentNotes", e.target.value)} placeholder="Additional clinical observations or assessment notes..." rows={3} data-testid="input-assessment-notes" />
               </div>
               <div>
-                <Label>Follow-up Plan</Label>
-                <Input value={form.followUp} onChange={e => updateForm("followUp", e.target.value)} placeholder="e.g., Return in 2 weeks" data-testid="input-followup" />
+                <Label htmlFor="ai-automated-documentati-follow-up-plan">Follow-up Plan</Label>
+                <Input id="ai-automated-documentati-follow-up-plan" value={form.followUp} onChange={e => updateForm("followUp", e.target.value)} placeholder="e.g., Return in 2 weeks" data-testid="input-followup" />
               </div>
             </CardContent>
           </Card>
@@ -570,9 +571,9 @@ function SmartNoteBuilder({ governance }: { governance?: GovernanceCheck }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Note Type</Label>
+                <Label htmlFor="ai-automated-documentati-note-type">Note Type</Label>
                 <Select value={noteType} onValueChange={setNoteType}>
-                  <SelectTrigger data-testid="select-note-type"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="ai-automated-documentati-note-type" data-testid="select-note-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="soap">SOAP Note</SelectItem>
                     <SelectItem value="progress">Progress Note</SelectItem>

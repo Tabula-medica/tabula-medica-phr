@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -431,7 +431,7 @@ export function SMARTAppManagement() {
                     <CardContent className="pt-0 border-t mt-2">
                       <div className="space-y-3 pt-3">
                         <div>
-                          <Label className="text-xs text-muted-foreground">Client ID</Label>
+                          <FieldCaption className="text-xs text-muted-foreground">Client ID</FieldCaption>
                           <div className="flex items-center gap-2">
                             <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
                               {app.clientId}
@@ -450,7 +450,7 @@ export function SMARTAppManagement() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Launch URL</Label>
+                          <FieldCaption className="text-xs text-muted-foreground">Launch URL</FieldCaption>
                           <div className="flex items-center gap-2">
                             <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
                               {app.launchUrl}
@@ -466,7 +466,7 @@ export function SMARTAppManagement() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Requested Scopes</Label>
+                          <FieldCaption className="text-xs text-muted-foreground">Requested Scopes</FieldCaption>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {app.scopes.map((scope, idx) => (
                               <Badge key={idx} variant="outline" className="text-xs">
@@ -478,7 +478,7 @@ export function SMARTAppManagement() {
                         </div>
                         {app.certifications.length > 0 && (
                           <div>
-                            <Label className="text-xs text-muted-foreground">Certifications</Label>
+                            <FieldCaption className="text-xs text-muted-foreground">Certifications</FieldCaption>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {app.certifications.map((cert, idx) => (
                                 <Badge
@@ -584,7 +584,7 @@ export function SMARTAppManagement() {
                         <Separator />
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-xs text-muted-foreground">Granted Scopes</Label>
+                            <FieldCaption className="text-xs text-muted-foreground">Granted Scopes</FieldCaption>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {(installation.customScopes || app.scopes).map((scope, idx) => (
                                 <Badge key={idx} variant="outline" className="text-xs">
@@ -599,7 +599,7 @@ export function SMARTAppManagement() {
                             </div>
                           </div>
                           <div>
-                            <Label className="text-xs text-muted-foreground">Launch Context</Label>
+                            <FieldCaption className="text-xs text-muted-foreground">Launch Context</FieldCaption>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {app.launchContext.map((ctx) => (
                                 <Badge key={ctx} variant="secondary" className="text-xs">
@@ -763,7 +763,7 @@ export function SMARTAppManagement() {
                 <>
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Issuer</Label>
+                      <FieldCaption className="text-xs text-muted-foreground">Issuer</FieldCaption>
                       <div className="flex items-center gap-2 mt-1">
                         <code className="text-sm bg-muted px-3 py-2 rounded flex-1 truncate">
                           {wellKnownConfig.issuer}
@@ -779,13 +779,13 @@ export function SMARTAppManagement() {
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-xs text-muted-foreground">Authorization Endpoint</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">Authorization Endpoint</FieldCaption>
                         <code className="text-xs bg-muted px-2 py-1 rounded block mt-1 truncate">
                           {wellKnownConfig.authorization_endpoint}
                         </code>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Token Endpoint</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">Token Endpoint</FieldCaption>
                         <code className="text-xs bg-muted px-2 py-1 rounded block mt-1 truncate">
                           {wellKnownConfig.token_endpoint}
                         </code>
@@ -796,7 +796,7 @@ export function SMARTAppManagement() {
                   <Separator />
 
                   <div>
-                    <Label className="text-xs text-muted-foreground">Supported Scopes</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Supported Scopes</FieldCaption>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {wellKnownConfig.scopes_supported?.map((scope) => (
                         <Badge key={scope} variant="outline" className="text-xs">
@@ -807,7 +807,7 @@ export function SMARTAppManagement() {
                   </div>
 
                   <div>
-                    <Label className="text-xs text-muted-foreground">Capabilities</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Capabilities</FieldCaption>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {wellKnownConfig.capabilities?.map((cap) => (
                         <Badge key={cap} variant="secondary" className="text-xs">

@@ -25,6 +25,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import tseslint from "typescript-eslint";
 import noStringFormLoggerPlugin from "./eslint-rules/no-string-form-logger.js";
+import jsxA11y from "eslint-plugin-jsx-a11y";
+import reactHooks from "eslint-plugin-react-hooks";
 
 // ---------------------------------------------------------------------------
 // Single-source PHI table list — extracted from `phi-column-map.ts` at config
@@ -118,7 +120,6 @@ export default tseslint.config(
       "dist/**",
       "build/**",
       ".local/**",
-      "client/**",       // client uses its own toolchain; PHI guard is server-only
       "ios/**",
       "android/**",
       "attached_assets/**",
@@ -186,6 +187,109 @@ export default tseslint.config(
       // Test files may reasonably string-format logger output for
       // human-readable diagnostics; PHI never passes through tests.
       "tabula/no-string-form-logger": "off",
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // Client accessibility guardrail — Section 508 / WCAG 2.2 AA.
+  //
+  // The client is linted ONLY for accessibility. Every `typescript-eslint`
+  // recommended rule is switched off here on purpose: turning them on would
+  // surface tens of thousands of pre-existing style findings and bury the
+  // a11y signal, which is the one thing this block exists to protect.
+  //
+  // Ruleset is `jsx-a11y` **strict** (not `recommended`) at error severity,
+  // so a regression fails `npm run lint` and the CI accessibility job.
+  //
+  // Note: `eslint-plugin-jsx-a11y` declares a peer range topping out at
+  // ESLint 9 but runs correctly on 10 (it uses only the stable rule API).
+  // `package.json` scopes a `minimatch@^3` override to the plugin because
+  // `label-has-associated-control` needs that package's CommonJS default
+  // export, which the repo-wide `minimatch@^10` security override removes.
+  // -------------------------------------------------------------------------
+  {
+    files: ["client/src/**/*.tsx"],
+    plugins: {
+      "jsx-a11y": jsxA11y,
+      // Registered so the `react-hooks/*` disable comments already in the
+      // client resolve to a known rule. No hook rules are switched on here —
+      // this block is scoped to accessibility.
+      "react-hooks": reactHooks,
+    },
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+        sourceType: "module",
+      },
+    },
+    linterOptions: {
+      // This block switches off every non-accessibility rule, which makes any
+      // pre-existing disable comment for one of them look unused. Reporting
+      // those would be noise about rules that are not running here.
+      reportUnusedDisableDirectives: "off",
+    },
+    settings: {
+      "jsx-a11y": {
+        // Teach the linter about the design system so shadcn/Radix wrappers
+        // are checked as the DOM elements they actually render. Without this
+        // map, `<Label htmlFor>` / `<Button onClick>` are invisible to the
+        // rules and real violations slip through.
+        components: {
+          Label: "label",
+          Button: "button",
+          Input: "input",
+          Textarea: "textarea",
+          Checkbox: "input",
+          Switch: "input",
+          RadioGroupItem: "input",
+          Slider: "input",
+          // Neither `Image` nor `Link` is mapped: `lucide-react` exports icons
+          // by both names, so mapping them reports every icon as a
+          // contentless anchor or an image with no alt text. Router links come
+          // from wouter and already render a real `<a>`, which the rules see
+          // without a mapping.
+        },
+      },
+    },
+    rules: {
+      ...jsxA11y.flatConfigs.strict.rules,
+
+      // The design system nests a label's text inside a `<Button asChild>`
+      // wrapper (`<Label><Button asChild><span>Browse</span></Button></Label>`),
+      // which is three elements deep. The rule's default depth of 2 stops
+      // short of it and reports a label that does have accessible text.
+      "jsx-a11y/label-has-associated-control": ["error", { depth: 6 }],
+
+      // All TypeScript style rules off — see block comment above.
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-this-alias": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-namespace": "off",
+      "@typescript-eslint/no-unused-expressions": "off",
+      "@typescript-eslint/no-empty-function": "off",
+      "@typescript-eslint/triple-slash-reference": "off",
+      "no-empty": "off",
+      "no-useless-escape": "off",
+      "no-control-regex": "off",
+      "no-prototype-builtins": "off",
+      "no-case-declarations": "off",
+      "no-undef": "off",
+      "prefer-const": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
+
+  // The client has no PHI-database surface (all reads go through the API),
+  // so the server-only guardrails must not run against it.
+  {
+    files: ["client/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
 );

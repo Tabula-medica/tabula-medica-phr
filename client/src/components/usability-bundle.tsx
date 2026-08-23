@@ -605,6 +605,9 @@ export function SmartSearchCard() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 data-testid="input-smart-search"
+                // The dialog exists only to run this search, so opening it and
+                // landing anywhere else would cost every user an extra step.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
               />
             </div>

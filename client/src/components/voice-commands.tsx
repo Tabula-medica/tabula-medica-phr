@@ -340,19 +340,23 @@ export function VoiceCommands() {
       </div>
 
       {showHelp && (
+        // The scrim is decoration: it carries no dialog semantics and takes no
+        // tab stop. Click-to-dismiss is a mouse shortcut for the close button;
+        // the keyboard route out is Escape (handled above) and that button.
         <div
           className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="voice-help-title"
+          role="presentation"
           onClick={() => {
             setShowHelp(false);
             voiceBtnRef.current?.focus();
           }}
-          data-testid="dialog-voice-help"
         >
           <Card
             ref={helpDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="voice-help-title"
+            data-testid="dialog-voice-help"
             className="w-full max-w-md max-h-[80vh] overflow-auto animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
@@ -387,7 +391,7 @@ export function VoiceCommands() {
               {Object.entries(grouped).map(([category, cmds]) => (
                 <div key={category} className="mb-4">
                   <h3 className="text-sm font-medium mb-2 text-muted-foreground">{category}</h3>
-                  <ul className="space-y-1" role="list">
+                  <ul className="space-y-1">
                     {cmds.map((cmd, i) => (
                       <li key={i} className="flex items-start gap-2 py-1">
                         <Badge variant="secondary" className="shrink-0 text-xs">
@@ -402,7 +406,7 @@ export function VoiceCommands() {
 
               <div className="mt-4 pt-4 border-t">
                 <h3 className="text-sm font-medium mb-2">Tips for best results</h3>
-                <ul className="text-xs text-muted-foreground space-y-1" role="list">
+                <ul className="text-xs text-muted-foreground space-y-1">
                   <li>Speak clearly and at a normal pace</li>
                   <li>Use a quiet environment for best accuracy</li>
                   <li>Say "read page" to have the current page read aloud</li>

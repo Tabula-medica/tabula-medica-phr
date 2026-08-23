@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -60,6 +61,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { InlineFhirLimitBanner, UpgradeDialog, SoftUpgradePrompt } from "@/components/soft-upgrade-prompt";
 import type { EhrConnection, EhrPlatform, WearableConnection, WearablePlatform, WearableDataType } from "@shared/schema";
 import { ehrPlatforms, ehrPlatformInfo, wearablePlatforms, wearablePlatformInfo, wearableDataTypes } from "@shared/schema";
+import { clickable } from "@/lib/a11y";
 
 // Status configuration for connection states using Badge variants
 const statusConfig: Record<string, { 
@@ -544,6 +546,9 @@ function EpicHospitalSearchDialog({
               setSelectedEndpoint(null);
             }}
             className="pl-9"
+            // The provider picker opens for the sole purpose of searching, so
+            // focus starts in the search field.
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         </div>
@@ -900,11 +905,11 @@ function AddWearableDialog({ testId, onConnect }: {
 
             {selectedPlatformInfo && (
               <div className="space-y-2">
-                <Label>Data Types to Sync</Label>
+                <FieldCaption>Data Types to Sync</FieldCaption>
                 <div className="grid grid-cols-2 gap-2">
                   {(selectedPlatformInfo.dataTypes as WearableDataType[]).map((dt) => (
                     <div key={dt} className="flex items-center gap-2">
-                      <Checkbox
+                      <Checkbox aria-label="Data Types to Sync"
                         id={`dt-${dt}`}
                         checked={enabledDataTypes.includes(dt) || (enabledDataTypes.length === 0)}
                         onCheckedChange={() => toggleDataType(dt)}
@@ -964,7 +969,7 @@ function WearablePlatformCard({ platform, onConnect }: { platform: WearablePlatf
   return (
     <div 
       className="flex items-center flex-wrap gap-3 p-4 rounded-md border border-dashed hover-elevate cursor-pointer"
-      onClick={onConnect}
+      {...clickable(onConnect)}
       data-testid={`card-wearable-platform-${platform}`}
     >
       <div 

@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -310,8 +311,8 @@ export default function AccessControl() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Policy Name</Label>
-                  <Input
+                  <Label htmlFor="access-control-policy-name">Policy Name</Label>
+                  <Input id="access-control-policy-name"
                     value={newPolicyForm.name}
                     onChange={(e) => setNewPolicyForm(p => ({ ...p, name: e.target.value }))}
                     placeholder="e.g., Nurse Read-Only Lab Access"
@@ -319,8 +320,8 @@ export default function AccessControl() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
+                  <Label htmlFor="access-control-description">Description</Label>
+                  <Textarea id="access-control-description"
                     value={newPolicyForm.description}
                     onChange={(e) => setNewPolicyForm(p => ({ ...p, description: e.target.value }))}
                     placeholder="Describe the purpose of this policy..."
@@ -329,9 +330,9 @@ export default function AccessControl() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Role</Label>
+                    <Label htmlFor="access-control-role">Role</Label>
                     <Select value={newPolicyForm.roleId} onValueChange={(v) => setNewPolicyForm(p => ({ ...p, roleId: v }))}>
-                      <SelectTrigger data-testid="select-policy-role">
+                      <SelectTrigger id="access-control-role" data-testid="select-policy-role">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
@@ -342,9 +343,9 @@ export default function AccessControl() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Access Level</Label>
+                    <Label htmlFor="access-control-access-level">Access Level</Label>
                     <Select value={newPolicyForm.accessLevel} onValueChange={(v) => setNewPolicyForm(p => ({ ...p, accessLevel: v }))}>
-                      <SelectTrigger data-testid="select-access-level">
+                      <SelectTrigger id="access-control-access-level" data-testid="select-access-level">
                         <SelectValue placeholder="Select level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,9 +358,9 @@ export default function AccessControl() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="access-control-resource-type">Resource Type</Label>
                   <Select value={newPolicyForm.resourceType} onValueChange={(v) => setNewPolicyForm(p => ({ ...p, resourceType: v }))}>
-                    <SelectTrigger data-testid="select-resource-type">
+                    <SelectTrigger id="access-control-resource-type" data-testid="select-resource-type">
                       <SelectValue placeholder="Select resource" />
                     </SelectTrigger>
                     <SelectContent>
@@ -503,9 +504,9 @@ export default function AccessControl() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Select Role</Label>
+                  <Label htmlFor="access-control-select-role">Select Role</Label>
                   <Select value={selectedRole} onValueChange={setSelectedRole}>
-                    <SelectTrigger data-testid="select-suggestion-role">
+                    <SelectTrigger id="access-control-select-role" data-testid="select-suggestion-role">
                       <SelectValue placeholder="Choose a role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -516,9 +517,9 @@ export default function AccessControl() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="access-control-resource-type-2">Resource Type</Label>
                   <Select value={selectedResourceType} onValueChange={setSelectedResourceType}>
-                    <SelectTrigger data-testid="select-suggestion-resource">
+                    <SelectTrigger id="access-control-resource-type-2" data-testid="select-suggestion-resource">
                       <SelectValue placeholder="Choose resource" />
                     </SelectTrigger>
                     <SelectContent>
@@ -612,22 +613,22 @@ export default function AccessControl() {
 
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <Label className="text-muted-foreground">Role</Label>
+                        <FieldCaption className="text-muted-foreground">Role</FieldCaption>
                         <p className="font-medium">{roles.find(r => r.id === policy.roleId)?.name || policy.roleId}</p>
                       </div>
                       <div>
-                        <Label className="text-muted-foreground">Resource</Label>
+                        <FieldCaption className="text-muted-foreground">Resource</FieldCaption>
                         <p className="font-medium">{policy.resourceType}</p>
                       </div>
                       <div>
-                        <Label className="text-muted-foreground">Access Level</Label>
+                        <FieldCaption className="text-muted-foreground">Access Level</FieldCaption>
                         <Badge variant="outline">{policy.accessLevel}</Badge>
                       </div>
                     </div>
 
                     {policy.conditions.length > 0 && (
                       <div>
-                        <Label className="text-muted-foreground">Conditions</Label>
+                        <FieldCaption className="text-muted-foreground">Conditions</FieldCaption>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {policy.conditions.map(cond => (
                             <Badge key={cond.id} variant="outline" className="text-xs">
@@ -640,7 +641,7 @@ export default function AccessControl() {
 
                     {policy.dataElements.length > 0 && (
                       <div>
-                        <Label className="text-muted-foreground">Data Elements</Label>
+                        <FieldCaption className="text-muted-foreground">Data Elements</FieldCaption>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {policy.dataElements.map((elem, idx) => (
                             <Badge key={idx} variant="secondary" className="text-xs">
@@ -689,12 +690,12 @@ export default function AccessControl() {
                     </Alert>
 
                     <div>
-                      <Label className="text-muted-foreground">AI Reasoning</Label>
+                      <FieldCaption className="text-muted-foreground">AI Reasoning</FieldCaption>
                       <p className="text-sm mt-1">{suggestion.reasoning}</p>
                     </div>
 
                     <div>
-                      <Label className="text-muted-foreground">Based On</Label>
+                      <FieldCaption className="text-muted-foreground">Based On</FieldCaption>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {suggestion.basedOn.map((basis, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">{basis}</Badge>
@@ -704,7 +705,7 @@ export default function AccessControl() {
 
                     {suggestion.suggestedPolicy.accessLevel && (
                       <div>
-                        <Label className="text-muted-foreground">Suggested Access Level</Label>
+                        <FieldCaption className="text-muted-foreground">Suggested Access Level</FieldCaption>
                         <Badge variant="secondary" className="ml-2">{suggestion.suggestedPolicy.accessLevel}</Badge>
                       </div>
                     )}
@@ -824,7 +825,7 @@ export default function AccessControl() {
 
                     {analysis.findings.length > 0 && (
                       <div>
-                        <Label className="text-muted-foreground mb-2 block">Findings</Label>
+                        <FieldCaption className="text-muted-foreground mb-2 block">Findings</FieldCaption>
                         <div className="space-y-2">
                           {analysis.findings.map(finding => (
                             <div key={finding.id} className="p-3 rounded-lg border">
@@ -844,7 +845,7 @@ export default function AccessControl() {
 
                     {analysis.recommendations.length > 0 && (
                       <div>
-                        <Label className="text-muted-foreground mb-2 block">Recommendations</Label>
+                        <FieldCaption className="text-muted-foreground mb-2 block">Recommendations</FieldCaption>
                         <ul className="list-disc list-inside text-sm text-muted-foreground">
                           {analysis.recommendations.map((rec, idx) => (
                             <li key={idx}>{rec}</li>

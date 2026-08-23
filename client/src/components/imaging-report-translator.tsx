@@ -37,6 +37,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface TranslatedImagingReport {
   id: string;
@@ -181,7 +182,7 @@ function ReportCard({ report, onView }: { report: TranslatedImagingReport; onVie
   return (
     <div 
       className="p-4 rounded-lg border hover-elevate cursor-pointer"
-      onClick={onView}
+      {...clickable(onView)}
       data-testid={`card-imaging-report-${report.id}`}
     >
       <div className="flex items-center gap-3">

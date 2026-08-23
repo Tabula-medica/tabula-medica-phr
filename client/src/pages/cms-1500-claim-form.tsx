@@ -961,8 +961,8 @@ function CMS1500EditGrid({ claim, onSave, onCancel, isPending, showHelp }: {
           <EditBoxCell boxNum="31" label="Rendering Provider Signature" showHelp={showHelp}>
             <Input className={inputCls} value={form.renderingProviderName} onChange={e => updateField("renderingProviderName", e.target.value)} placeholder="Provider name" data-testid="input-rendering-name" />
             <div className="mt-0.5">
-              <Label className="text-[9px] text-muted-foreground">NPI</Label>
-              <Input className={inputCls} value={form.renderingProviderNpi} onChange={e => updateField("renderingProviderNpi", e.target.value)} placeholder="NPI" data-testid="input-rendering-npi" />
+              <Label htmlFor="cms-1500-claim-form-npi" className="text-[9px] text-muted-foreground">NPI</Label>
+              <Input id="cms-1500-claim-form-npi" className={inputCls} value={form.renderingProviderNpi} onChange={e => updateField("renderingProviderNpi", e.target.value)} placeholder="NPI" data-testid="input-rendering-npi" />
             </div>
           </EditBoxCell>
           <EditBoxCell boxNum="32" label="Service Facility" showHelp={showHelp}>

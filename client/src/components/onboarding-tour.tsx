@@ -119,7 +119,7 @@ export function OnboardingTour({ onComplete, onDismiss }: OnboardingTourProps) {
   if (!isVisible) return null;
 
   return (
-    <div 
+    <div role="presentation" 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in"
       onClick={handleDismiss}
       data-testid="tour-backdrop"

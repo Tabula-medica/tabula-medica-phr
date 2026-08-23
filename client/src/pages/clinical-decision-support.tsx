@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -635,8 +636,8 @@ export default function ClinicalDecisionSupportPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm">Patient Age</Label>
-                <Input
+                <Label htmlFor="clinical-decision-suppor-patient-age" className="text-sm">Patient Age</Label>
+                <Input id="clinical-decision-suppor-patient-age"
                   type="number"
                   value={demographics.age}
                   onChange={(e) => setDemographics({ ...demographics, age: e.target.value })}
@@ -645,12 +646,12 @@ export default function ClinicalDecisionSupportPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm">Patient Sex</Label>
+                <Label htmlFor="clinical-decision-suppor-patient-sex" className="text-sm">Patient Sex</Label>
                 <Select
                   value={demographics.sex}
                   onValueChange={(val) => setDemographics({ ...demographics, sex: val })}
                 >
-                  <SelectTrigger data-testid="select-overview-sex">
+                  <SelectTrigger id="clinical-decision-suppor-patient-sex" data-testid="select-overview-sex">
                     <SelectValue placeholder="Select sex" />
                   </SelectTrigger>
                   <SelectContent>
@@ -971,7 +972,7 @@ export default function ClinicalDecisionSupportPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <Label className="font-medium">Symptoms</Label>
+                    <FieldCaption className="font-medium">Symptoms</FieldCaption>
                     <Button size="sm" variant="outline" onClick={addSymptom} data-testid="button-add-symptom">
                       <Plus className="h-4 w-4 mr-1" /> Add Symptom
                     </Button>
@@ -986,9 +987,9 @@ export default function ClinicalDecisionSupportPage() {
                         data-testid={`input-symptom-name-${i}`}
                       />
                       <div className="flex items-center gap-1">
-                        <Label className="text-xs whitespace-nowrap">Severity</Label>
+                        <FieldCaption className="text-xs whitespace-nowrap">Severity</FieldCaption>
                         <Select value={String(symptom.severity)} onValueChange={(v) => updateSymptom(i, "severity", Number(v))}>
-                          <SelectTrigger className="w-16" data-testid={`select-symptom-severity-${i}`}>
+                          <SelectTrigger aria-label="Severity" className="w-16" data-testid={`select-symptom-severity-${i}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1018,42 +1019,42 @@ export default function ClinicalDecisionSupportPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    <Label className="font-medium flex items-center gap-1">
+                    <Label htmlFor="clinical-decision-suppor-vitals-optional" className="font-medium flex items-center gap-1">
                       <Activity className="h-4 w-4" /> Vitals (optional)
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs">Blood Pressure</Label>
-                        <Input placeholder="120/80" value={vitals.bloodPressure} onChange={(e) => setVitals({...vitals, bloodPressure: e.target.value})} data-testid="input-vital-bp" />
+                        <Label htmlFor="clinical-decision-suppor-blood-pressure" className="text-xs">Blood Pressure</Label>
+                        <Input id="clinical-decision-suppor-blood-pressure" id="clinical-decision-suppor-vitals-optional" placeholder="120/80" value={vitals.bloodPressure} onChange={(e) => setVitals({...vitals, bloodPressure: e.target.value})} data-testid="input-vital-bp" />
                       </div>
                       <div>
-                        <Label className="text-xs">Heart Rate</Label>
-                        <Input placeholder="72" value={vitals.heartRate} onChange={(e) => setVitals({...vitals, heartRate: e.target.value})} data-testid="input-vital-hr" />
+                        <Label htmlFor="clinical-decision-suppor-heart-rate" className="text-xs">Heart Rate</Label>
+                        <Input id="clinical-decision-suppor-heart-rate" placeholder="72" value={vitals.heartRate} onChange={(e) => setVitals({...vitals, heartRate: e.target.value})} data-testid="input-vital-hr" />
                       </div>
                       <div>
-                        <Label className="text-xs">Temperature</Label>
-                        <Input placeholder="98.6" value={vitals.temperature} onChange={(e) => setVitals({...vitals, temperature: e.target.value})} data-testid="input-vital-temp" />
+                        <Label htmlFor="clinical-decision-suppor-temperature" className="text-xs">Temperature</Label>
+                        <Input id="clinical-decision-suppor-temperature" placeholder="98.6" value={vitals.temperature} onChange={(e) => setVitals({...vitals, temperature: e.target.value})} data-testid="input-vital-temp" />
                       </div>
                       <div>
-                        <Label className="text-xs">SpO2 %</Label>
-                        <Input placeholder="98" value={vitals.oxygenSaturation} onChange={(e) => setVitals({...vitals, oxygenSaturation: e.target.value})} data-testid="input-vital-spo2" />
+                        <Label htmlFor="clinical-decision-suppor-spo2" className="text-xs">SpO2 %</Label>
+                        <Input id="clinical-decision-suppor-spo2" placeholder="98" value={vitals.oxygenSaturation} onChange={(e) => setVitals({...vitals, oxygenSaturation: e.target.value})} data-testid="input-vital-spo2" />
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="font-medium flex items-center gap-1">
+                    <Label htmlFor="clinical-decision-suppor-demographics-optional" className="font-medium flex items-center gap-1">
                       <Info className="h-4 w-4" /> Demographics (optional)
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs">Age</Label>
-                        <Input placeholder="45" value={demographics.age} onChange={(e) => setDemographics({...demographics, age: e.target.value})} data-testid="input-demo-age" />
+                        <Label htmlFor="clinical-decision-suppor-age" className="text-xs">Age</Label>
+                        <Input id="clinical-decision-suppor-age" id="clinical-decision-suppor-demographics-optional" placeholder="45" value={demographics.age} onChange={(e) => setDemographics({...demographics, age: e.target.value})} data-testid="input-demo-age" />
                       </div>
                       <div>
-                        <Label className="text-xs">Sex</Label>
+                        <Label htmlFor="clinical-decision-suppor-sex" className="text-xs">Sex</Label>
                         <Select value={demographics.sex} onValueChange={(v) => setDemographics({...demographics, sex: v})}>
-                          <SelectTrigger data-testid="select-patient-sex">
+                          <SelectTrigger id="clinical-decision-suppor-sex" data-testid="select-patient-sex">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1065,8 +1066,8 @@ export default function ClinicalDecisionSupportPage() {
                       </div>
                     </div>
                     <div>
-                      <Label className="text-xs">Existing Conditions (comma-separated)</Label>
-                      <Input placeholder="Type 2 Diabetes, Hypertension" value={conditions} onChange={(e) => setConditions(e.target.value)} data-testid="input-conditions" />
+                      <Label htmlFor="clinical-decision-suppor-existing-conditions-comma-separated" className="text-xs">Existing Conditions (comma-separated)</Label>
+                      <Input id="clinical-decision-suppor-existing-conditions-comma-separated" placeholder="Type 2 Diabetes, Hypertension" value={conditions} onChange={(e) => setConditions(e.target.value)} data-testid="input-conditions" />
                     </div>
                   </div>
                 </div>
@@ -1185,7 +1186,7 @@ export default function ClinicalDecisionSupportPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <Label className="font-medium">Medications (minimum 2)</Label>
+                    <FieldCaption className="font-medium">Medications (minimum 2)</FieldCaption>
                     <Button size="sm" variant="outline" onClick={addMedication} data-testid="button-add-medication">
                       <Plus className="h-4 w-4 mr-1" /> Add Medication
                     </Button>
@@ -1217,12 +1218,12 @@ export default function ClinicalDecisionSupportPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs">Known Allergies (comma-separated, optional)</Label>
-                    <Input placeholder="Penicillin, Sulfa" value={allergies} onChange={(e) => setAllergies(e.target.value)} data-testid="input-allergies" />
+                    <Label htmlFor="clinical-decision-suppor-known-allergies-comma-separated-optional" className="text-xs">Known Allergies (comma-separated, optional)</Label>
+                    <Input id="clinical-decision-suppor-known-allergies-comma-separated-optional" placeholder="Penicillin, Sulfa" value={allergies} onChange={(e) => setAllergies(e.target.value)} data-testid="input-allergies" />
                   </div>
                   <div>
-                    <Label className="text-xs">Patient Conditions (comma-separated, optional)</Label>
-                    <Input placeholder="CKD, Heart Failure" value={conditions} onChange={(e) => setConditions(e.target.value)} data-testid="input-interaction-conditions" />
+                    <Label htmlFor="clinical-decision-suppor-patient-conditions-comma-separated-optio" className="text-xs">Patient Conditions (comma-separated, optional)</Label>
+                    <Input id="clinical-decision-suppor-patient-conditions-comma-separated-optio" placeholder="CKD, Heart Failure" value={conditions} onChange={(e) => setConditions(e.target.value)} data-testid="input-interaction-conditions" />
                   </div>
                 </div>
 
@@ -1357,7 +1358,7 @@ export default function ClinicalDecisionSupportPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <Label className="font-medium">Symptoms</Label>
+                    <FieldCaption className="font-medium">Symptoms</FieldCaption>
                     <Button size="sm" variant="outline" onClick={addSymptom} data-testid="button-add-symptom-tests">
                       <Plus className="h-4 w-4 mr-1" /> Add Symptom
                     </Button>
@@ -1386,8 +1387,8 @@ export default function ClinicalDecisionSupportPage() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">Suspected Conditions (comma-separated, optional)</Label>
-                  <Input
+                  <Label htmlFor="clinical-decision-suppor-suspected-conditions-comma-separated-opt" className="text-xs">Suspected Conditions (comma-separated, optional)</Label>
+                  <Input id="clinical-decision-suppor-suspected-conditions-comma-separated-opt"
                     placeholder="Hypothyroidism, Anemia, Diabetes"
                     value={suspectedConditions}
                     onChange={(e) => setSuspectedConditions(e.target.value)}
@@ -1397,7 +1398,7 @@ export default function ClinicalDecisionSupportPage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <Label className="font-medium">Existing Lab Results (optional)</Label>
+                    <FieldCaption className="font-medium">Existing Lab Results (optional)</FieldCaption>
                     <Button size="sm" variant="outline" onClick={addLab} data-testid="button-add-lab">
                       <Plus className="h-4 w-4 mr-1" /> Add Lab
                     </Button>
@@ -1697,8 +1698,8 @@ export default function ClinicalDecisionSupportPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm">Age</Label>
-                    <Input
+                    <Label htmlFor="clinical-decision-suppor-age-2" className="text-sm">Age</Label>
+                    <Input id="clinical-decision-suppor-age-2"
                       type="number"
                       value={demographics.age}
                       onChange={(e) => setDemographics({ ...demographics, age: e.target.value })}
@@ -1707,12 +1708,12 @@ export default function ClinicalDecisionSupportPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm">Sex</Label>
+                    <Label htmlFor="clinical-decision-suppor-sex-2" className="text-sm">Sex</Label>
                     <Select
                       value={demographics.sex}
                       onValueChange={(val) => setDemographics({ ...demographics, sex: val })}
                     >
-                      <SelectTrigger data-testid="select-risk-sex">
+                      <SelectTrigger id="clinical-decision-suppor-sex-2" data-testid="select-risk-sex">
                         <SelectValue placeholder="Select sex" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1726,8 +1727,8 @@ export default function ClinicalDecisionSupportPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm">Family History (comma-separated)</Label>
-                    <Textarea
+                    <Label htmlFor="clinical-decision-suppor-family-history-comma-separated" className="text-sm">Family History (comma-separated)</Label>
+                    <Textarea id="clinical-decision-suppor-family-history-comma-separated"
                       value={familyHistory}
                       onChange={(e) => setFamilyHistory(e.target.value)}
                       placeholder="e.g., Heart disease, Diabetes, Breast cancer"
@@ -1737,8 +1738,8 @@ export default function ClinicalDecisionSupportPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm">Social Factors (comma-separated)</Label>
-                    <Textarea
+                    <Label htmlFor="clinical-decision-suppor-social-factors-comma-separated" className="text-sm">Social Factors (comma-separated)</Label>
+                    <Textarea id="clinical-decision-suppor-social-factors-comma-separated"
                       value={socialFactors}
                       onChange={(e) => setSocialFactors(e.target.value)}
                       placeholder="e.g., Smoking, Sedentary lifestyle, High stress"
@@ -1750,8 +1751,8 @@ export default function ClinicalDecisionSupportPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm">Existing Conditions (comma-separated)</Label>
-                  <Input
+                  <Label htmlFor="clinical-decision-suppor-existing-conditions-comma-separated-2" className="text-sm">Existing Conditions (comma-separated)</Label>
+                  <Input id="clinical-decision-suppor-existing-conditions-comma-separated-2"
                     value={conditions}
                     onChange={(e) => setConditions(e.target.value)}
                     placeholder="e.g., Hypertension, Prediabetes"
@@ -1913,8 +1914,8 @@ export default function ClinicalDecisionSupportPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm">Age</Label>
-                    <Input
+                    <Label htmlFor="clinical-decision-suppor-age-3" className="text-sm">Age</Label>
+                    <Input id="clinical-decision-suppor-age-3"
                       type="number"
                       value={demographics.age}
                       onChange={(e) => setDemographics({ ...demographics, age: e.target.value })}
@@ -1923,12 +1924,12 @@ export default function ClinicalDecisionSupportPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm">Sex</Label>
+                    <Label htmlFor="clinical-decision-suppor-sex-3" className="text-sm">Sex</Label>
                     <Select
                       value={demographics.sex}
                       onValueChange={(val) => setDemographics({ ...demographics, sex: val })}
                     >
-                      <SelectTrigger data-testid="select-preventive-sex">
+                      <SelectTrigger id="clinical-decision-suppor-sex-3" data-testid="select-preventive-sex">
                         <SelectValue placeholder="Select sex" />
                       </SelectTrigger>
                       <SelectContent>

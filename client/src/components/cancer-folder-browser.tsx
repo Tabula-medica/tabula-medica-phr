@@ -130,7 +130,10 @@ function FolderItem({
             onSelect(node.id);
           }
         }}
-        aria-selected={isSelected}
+        // `aria-selected` belongs to grid/listbox/tab/treeitem roles, not to
+        // `button`. `aria-current` is the supported way to announce which
+        // folder in the list is the one being viewed.
+        aria-current={isSelected ? "true" : undefined}
         aria-expanded={hasChildren ? isExpanded : undefined}
       >
         {hasChildren && (

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +33,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { clickable } from "@/lib/a11y";
 
 interface DocumentCategory {
   primaryCategory: string;
@@ -309,7 +310,10 @@ export default function SmartDocumentUpload() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+{/* Drag-and-drop is a pointer shortcut for the file input below.
+                  The zone itself is layout: no role, no tab stop. */}
               <div
+                role="presentation"
                 className={cn(
                   "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
                   isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
@@ -317,7 +321,7 @@ export default function SmartDocumentUpload() {
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleFileDrop}
-                onClick={() => document.getElementById("file-input")?.click()}
+                {...clickable(() => document.getElementById("file-input")?.click())}
                 data-testid="dropzone-upload"
               >
                 <input
@@ -419,12 +423,12 @@ export default function SmartDocumentUpload() {
 
                                   <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                      <Label className="text-xs">Category</Label>
+                                      <FieldCaption className="text-xs">Category</FieldCaption>
                                       <Select 
                                         value={file.selectedCategory} 
                                         onValueChange={(v) => updateFileCategory(file.id, v)}
                                       >
-                                        <SelectTrigger className="mt-1" data-testid={`select-category-${file.id}`}>
+                                        <SelectTrigger aria-label="Category" className="mt-1" data-testid={`select-category-${file.id}`}>
                                           <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -438,12 +442,12 @@ export default function SmartDocumentUpload() {
                                     </div>
 
                                     <div>
-                                      <Label className="text-xs">Folder</Label>
+                                      <FieldCaption className="text-xs">Folder</FieldCaption>
                                       <Select 
                                         value={file.selectedFolder}
                                         onValueChange={(v) => updateFileFolder(file.id, v)}
                                       >
-                                        <SelectTrigger className="mt-1" data-testid={`select-folder-${file.id}`}>
+                                        <SelectTrigger aria-label="Folder" className="mt-1" data-testid={`select-folder-${file.id}`}>
                                           <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -459,7 +463,7 @@ export default function SmartDocumentUpload() {
 
                                   {file.category.suggestedTags.length > 0 && (
                                     <div>
-                                      <Label className="text-xs">Suggested Tags</Label>
+                                      <FieldCaption className="text-xs">Suggested Tags</FieldCaption>
                                       <div className="flex flex-wrap gap-1 mt-1">
                                         {file.category.suggestedTags.slice(0, 5).map((tag, idx) => (
                                           <Badge key={idx} variant="outline" className="text-xs">

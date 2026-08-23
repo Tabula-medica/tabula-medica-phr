@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -291,12 +292,12 @@ export function FhirAuditViewer() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 <div>
-                  <Label className="text-xs">Action</Label>
+                  <Label htmlFor="fhir-audit-viewer-action" className="text-xs">Action</Label>
                   <Select 
                     value={filters.action} 
                     onValueChange={(v) => setFilters(p => ({ ...p, action: v === "all" ? "" : v }))}
                   >
-                    <SelectTrigger data-testid="select-filter-action">
+                    <SelectTrigger id="fhir-audit-viewer-action" data-testid="select-filter-action">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -308,12 +309,12 @@ export function FhirAuditViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Outcome</Label>
+                  <Label htmlFor="fhir-audit-viewer-outcome" className="text-xs">Outcome</Label>
                   <Select 
                     value={filters.outcome} 
                     onValueChange={(v) => setFilters(p => ({ ...p, outcome: v === "all" ? "" : v }))}
                   >
-                    <SelectTrigger data-testid="select-filter-outcome">
+                    <SelectTrigger id="fhir-audit-viewer-outcome" data-testid="select-filter-outcome">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -325,12 +326,12 @@ export function FhirAuditViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Resource Type</Label>
+                  <Label htmlFor="fhir-audit-viewer-resource-type" className="text-xs">Resource Type</Label>
                   <Select 
                     value={filters.resourceType} 
                     onValueChange={(v) => setFilters(p => ({ ...p, resourceType: v === "all" ? "" : v }))}
                   >
-                    <SelectTrigger data-testid="select-filter-resource">
+                    <SelectTrigger id="fhir-audit-viewer-resource-type" data-testid="select-filter-resource">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -342,12 +343,12 @@ export function FhirAuditViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">User Role</Label>
+                  <Label htmlFor="fhir-audit-viewer-user-role" className="text-xs">User Role</Label>
                   <Select 
                     value={filters.userRole} 
                     onValueChange={(v) => setFilters(p => ({ ...p, userRole: v === "all" ? "" : v }))}
                   >
-                    <SelectTrigger data-testid="select-filter-role">
+                    <SelectTrigger id="fhir-audit-viewer-user-role" data-testid="select-filter-role">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -359,12 +360,12 @@ export function FhirAuditViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">FHIR Version</Label>
+                  <Label htmlFor="fhir-audit-viewer-fhir-version" className="text-xs">FHIR Version</Label>
                   <Select 
                     value={filters.fhirVersion} 
                     onValueChange={(v) => setFilters(p => ({ ...p, fhirVersion: v === "all" ? "" : v }))}
                   >
-                    <SelectTrigger data-testid="select-filter-version">
+                    <SelectTrigger id="fhir-audit-viewer-fhir-version" data-testid="select-filter-version">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -375,12 +376,12 @@ export function FhirAuditViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">PHI Access</Label>
+                  <Label htmlFor="fhir-audit-viewer-phi-access" className="text-xs">PHI Access</Label>
                   <Select 
                     value={filters.phiAccessed} 
                     onValueChange={(v) => setFilters(p => ({ ...p, phiAccessed: v === "all" ? "" : v }))}
                   >
-                    <SelectTrigger data-testid="select-filter-phi">
+                    <SelectTrigger id="fhir-audit-viewer-phi-access" data-testid="select-filter-phi">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -729,23 +730,23 @@ export function FhirAuditViewer() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Entry ID</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Entry ID</FieldCaption>
                   <p className="font-mono text-sm">{selectedEntry.id}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Timestamp</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Timestamp</FieldCaption>
                   <p className="text-sm">{formatTimestamp(selectedEntry.timestamp)}</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">User</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">User</FieldCaption>
                   <p className="text-sm font-medium">{selectedEntry.userName || selectedEntry.userId}</p>
                   <Badge variant="outline" className="mt-1">{selectedEntry.userRole}</Badge>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Action & Outcome</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Action & Outcome</FieldCaption>
                   <div className="flex items-center gap-2 mt-1">
                     {getActionBadge(selectedEntry.action)}
                     {getOutcomeBadge(selectedEntry.outcome)}
@@ -755,88 +756,88 @@ export function FhirAuditViewer() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Resource</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Resource</FieldCaption>
                   <p className="text-sm font-medium">{selectedEntry.resourceType}</p>
                   {selectedEntry.resourceId && (
                     <p className="font-mono text-xs text-muted-foreground">{selectedEntry.resourceId}</p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">FHIR Version</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">FHIR Version</FieldCaption>
                   <Badge>{selectedEntry.fhirVersion}</Badge>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Request Path</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Request Path</FieldCaption>
                   <p className="font-mono text-xs">{selectedEntry.requestPath}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Method</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Method</FieldCaption>
                   <Badge variant="outline">{selectedEntry.requestMethod}</Badge>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Status Code</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Status Code</FieldCaption>
                   <p className={`text-lg font-bold ${selectedEntry.responseStatus < 400 ? "text-green-600" : "text-red-600"}`}>
                     {selectedEntry.responseStatus}
                   </p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Response Time</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Response Time</FieldCaption>
                   <p className="text-lg font-bold">{selectedEntry.responseTimeMs}ms</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">PHI Accessed</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">PHI Accessed</FieldCaption>
                   <p className="text-lg font-bold">{selectedEntry.phiAccessed ? "Yes" : "No"}</p>
                 </div>
               </div>
 
               {selectedEntry.patientId && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Patient ID</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Patient ID</FieldCaption>
                   <p className="font-mono text-sm">{selectedEntry.patientId}</p>
                 </div>
               )}
 
               {selectedEntry.accessReason && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Access Reason</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Access Reason</FieldCaption>
                   <p className="text-sm">{selectedEntry.accessReason}</p>
                 </div>
               )}
 
               {selectedEntry.errorMessage && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Error Message</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Error Message</FieldCaption>
                   <p className="text-sm text-red-600">{selectedEntry.errorMessage}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">IP Address</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">IP Address</FieldCaption>
                   <p className="font-mono text-xs">{selectedEntry.ipAddress}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">User Agent</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">User Agent</FieldCaption>
                   <p className="text-xs truncate">{selectedEntry.userAgent}</p>
                 </div>
               </div>
 
               {selectedEntry.sourceSystem && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Source System</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Source System</FieldCaption>
                   <p className="text-sm">{selectedEntry.sourceSystem}</p>
                 </div>
               )}
 
               {selectedEntry.affectedResources && selectedEntry.affectedResources.length > 0 && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Affected Resources</Label>
+                  <FieldCaption className="text-xs text-muted-foreground">Affected Resources</FieldCaption>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {selectedEntry.affectedResources.map(r => (
                       <Badge key={r} variant="outline">{r}</Badge>

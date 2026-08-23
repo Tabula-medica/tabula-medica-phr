@@ -48,6 +48,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface InboxItem {
   id: string;
@@ -136,7 +137,7 @@ function InboxItemRow({
   return (
     <div 
       className={`p-3 rounded-lg border hover-elevate cursor-pointer ${!item.isRead ? "bg-primary/5 border-primary/20" : ""}`}
-      onClick={onViewDetails}
+      {...clickable(onViewDetails)}
       data-testid={`inbox-item-${item.id}`}
     >
       <div className="flex items-start gap-3">
@@ -237,7 +238,7 @@ function InboxItemRow({
       </div>
 
       {showNoteInput && (
-        <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+        <div role="presentation" className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
           <Textarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
@@ -276,7 +277,7 @@ function EpisodeCard({ episode, items }: { episode: Episode; items: InboxItem[] 
     <div className="p-4 rounded-lg border" data-testid={`episode-card-${episode.id}`}>
       <div 
         className="flex items-center gap-3 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+        {...clickable(() => setExpanded(!expanded))}
       >
         <div className="p-2 rounded-lg bg-primary/10">
           <Layers className="h-4 w-4 text-primary" />

@@ -62,6 +62,7 @@ import {
   Minus,
 } from "lucide-react";
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, ReferenceLine } from "recharts";
+import { clickable } from "@/lib/a11y";
 
 interface ReportTemplate {
   id: string;
@@ -685,9 +686,9 @@ export default function AdvancedReporting() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Report Template</Label>
+                  <Label htmlFor="advanced-reporting-report-template">Report Template</Label>
                   <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                    <SelectTrigger data-testid="select-template">
+                    <SelectTrigger id="advanced-reporting-report-template" data-testid="select-template">
                       <SelectValue placeholder="Select a template" />
                     </SelectTrigger>
                     <SelectContent>
@@ -700,9 +701,9 @@ export default function AdvancedReporting() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Date Range</Label>
+                  <Label htmlFor="advanced-reporting-date-range">Date Range</Label>
                   <Select value={dateRangeType} onValueChange={setDateRangeType}>
-                    <SelectTrigger data-testid="select-date-range">
+                    <SelectTrigger id="advanced-reporting-date-range" data-testid="select-date-range">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -715,9 +716,9 @@ export default function AdvancedReporting() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Export Format</Label>
+                  <Label htmlFor="advanced-reporting-export-format">Export Format</Label>
                   <Select value={exportFormat} onValueChange={setExportFormat}>
-                    <SelectTrigger data-testid="select-format">
+                    <SelectTrigger id="advanced-reporting-export-format" data-testid="select-format">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1527,11 +1528,11 @@ export default function AdvancedReporting() {
                   <div
                     key={cohort.id}
                     className={`p-3 rounded-lg border cursor-pointer hover-elevate ${selectedCohorts.includes(cohort.id) ? "border-primary bg-primary/5" : ""}`}
-                    onClick={() => {
+                    {...clickable(() => {
                       setSelectedCohorts(prev =>
                         prev.includes(cohort.id) ? prev.filter(id => id !== cohort.id) : [...prev, cohort.id]
                       );
-                    }}
+                    })}
                     data-testid={`cohort-select-${cohort.id}`}
                   >
                     <div className="flex items-center justify-between">

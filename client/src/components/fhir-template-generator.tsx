@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -340,7 +341,7 @@ export function FHIRTemplateGenerator() {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>Include Extensions</Label>
+                    <FieldCaption>Include Extensions</FieldCaption>
                     <p className="text-sm text-muted-foreground">
                       Add profile-specific extensions
                     </p>
@@ -354,7 +355,7 @@ export function FHIRTemplateGenerator() {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>Include Narrative</Label>
+                    <FieldCaption>Include Narrative</FieldCaption>
                     <p className="text-sm text-muted-foreground">
                       Generate human-readable text.div
                     </p>

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -923,8 +924,8 @@ export default function CommunicationAnalytics() {
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-2">
-                  <Label>Patient ID</Label>
-                  <Input
+                  <Label htmlFor="communication-analytics-patient-id">Patient ID</Label>
+                  <Input id="communication-analytics-patient-id"
                     value={trendPatientId}
                     onChange={(e) => setTrendPatientId(e.target.value)}
                     placeholder="Enter patient ID"
@@ -933,9 +934,9 @@ export default function CommunicationAnalytics() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Time Period</Label>
+                  <Label htmlFor="communication-analytics-time-period">Time Period</Label>
                   <Select value={trendPeriod} onValueChange={(v) => setTrendPeriod(v as "7d" | "30d" | "90d")}>
-                    <SelectTrigger className="w-32" data-testid="select-trend-period">
+                    <SelectTrigger id="communication-analytics-time-period" className="w-32" data-testid="select-trend-period">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1038,8 +1039,8 @@ export default function CommunicationAnalytics() {
             <CardContent className="space-y-4">
               <div className="flex gap-4 items-end">
                 <div className="space-y-2">
-                  <Label>Patient ID</Label>
-                  <Input
+                  <Label htmlFor="communication-analytics-patient-id-2">Patient ID</Label>
+                  <Input id="communication-analytics-patient-id-2"
                     value={engagementPatientId}
                     onChange={(e) => setEngagementPatientId(e.target.value)}
                     placeholder="Enter patient ID"
@@ -1599,7 +1600,7 @@ export default function CommunicationAnalytics() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Data Preview</Label>
+                      <FieldCaption>Data Preview</FieldCaption>
                       <ScrollArea className="h-[200px] border rounded p-2">
                         <pre className="text-xs whitespace-pre-wrap">
                           {typeof exportResult.data === "string" 

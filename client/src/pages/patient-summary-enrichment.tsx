@@ -335,9 +335,9 @@ export default function PatientSummaryEnrichment() {
         <CardContent>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex flex-col gap-2 min-w-[200px]">
-              <label className="text-sm font-medium">Patient</label>
+              <label htmlFor="patient-summary-enrichme-patient" className="text-sm font-medium">Patient</label>
               <Select value={selectedPatient} onValueChange={setSelectedPatient} data-testid="select-patient">
-                <SelectTrigger className="w-[240px]" data-testid="select-trigger-patient">
+                <SelectTrigger id="patient-summary-enrichme-patient" className="w-[240px]" data-testid="select-trigger-patient">
                   <SelectValue placeholder="Select patient..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,9 +354,9 @@ export default function PatientSummaryEnrichment() {
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Timeframe (days)</label>
+              <label htmlFor="patient-summary-enrichme-timeframe-days" className="text-sm font-medium">Timeframe (days)</label>
               <Select value={timeframeDays.toString()} onValueChange={(v) => setTimeframeDays(parseInt(v))} data-testid="select-timeframe">
-                <SelectTrigger className="w-[140px]" data-testid="select-trigger-timeframe">
+                <SelectTrigger id="patient-summary-enrichme-timeframe-days" className="w-[140px]" data-testid="select-trigger-timeframe">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -369,9 +369,9 @@ export default function PatientSummaryEnrichment() {
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Comparison Period</label>
+              <label htmlFor="patient-summary-enrichme-comparison-period" className="text-sm font-medium">Comparison Period</label>
               <Select value={comparisonTimeframe} onValueChange={setComparisonTimeframe} data-testid="select-comparison">
-                <SelectTrigger className="w-[140px]" data-testid="select-trigger-comparison">
+                <SelectTrigger id="patient-summary-enrichme-comparison-period" className="w-[140px]" data-testid="select-trigger-comparison">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

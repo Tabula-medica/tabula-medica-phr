@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { clickable } from "@/lib/a11y";
 import { 
   Shield, 
   AlertTriangle, 
@@ -353,10 +354,10 @@ export default function AIAuditLogEnrichmentPage() {
                                 <div 
                                   key={alert.id} 
                                   className="p-3 rounded-lg border hover-elevate cursor-pointer"
-                                  onClick={() => {
+                                  {...clickable(() => {
                                     setSelectedLog(alert);
                                     setShowLogDetails(true);
-                                  }}
+                                  })}
                                   data-testid={`alert-item-${alert.id}`}
                                 >
                                   <div className="flex items-start justify-between gap-2">
@@ -464,10 +465,10 @@ export default function AIAuditLogEnrichmentPage() {
                           <div
                             key={log.id}
                             className="p-4 rounded-lg border hover-elevate cursor-pointer"
-                            onClick={() => {
+                            {...clickable(() => {
                               setSelectedLog(log);
                               setShowLogDetails(true);
-                            }}
+                            })}
                             data-testid={`log-item-${log.id}`}
                           >
                             <div className="flex items-start justify-between gap-4">

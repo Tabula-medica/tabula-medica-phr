@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -357,10 +358,10 @@ export default function PredictiveCompliance() {
                           <div 
                             key={deviation.id}
                             className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
-                            onClick={() => {
+                            {...clickable(() => {
                               setSelectedDeviation(deviation);
                               setActiveTab("predictions");
-                            }}
+                            })}
                             data-testid={`deviation-item-${deviation.id}`}
                           >
                             <div className="flex items-center gap-3">
@@ -529,7 +530,7 @@ export default function PredictiveCompliance() {
                         className={`p-4 rounded-lg border cursor-pointer hover-elevate ${
                           selectedDeviation?.id === deviation.id ? "ring-2 ring-primary" : ""
                         }`}
-                        onClick={() => setSelectedDeviation(deviation)}
+                        {...clickable(() => setSelectedDeviation(deviation))}
                         data-testid={`prediction-item-${deviation.id}`}
                       >
                         <div className="flex items-start justify-between">
@@ -776,7 +777,7 @@ export default function PredictiveCompliance() {
                         className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                           selectedReport?.id === report.id ? "ring-2 ring-primary" : ""
                         }`}
-                        onClick={() => setSelectedReport(report)}
+                        {...clickable(() => setSelectedReport(report))}
                         data-testid={`report-item-${report.id}`}
                       >
                         <div className="flex items-center justify-between">

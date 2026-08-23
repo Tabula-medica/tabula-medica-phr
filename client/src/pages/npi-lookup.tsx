@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -391,7 +391,7 @@ export default function NPILookupPage() {
 
                 {selectedNPI.specialties && selectedNPI.specialties.length > 0 && (
                   <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Specialties</Label>
+                    <FieldCaption className="text-xs text-muted-foreground uppercase tracking-wider">Specialties</FieldCaption>
                     <div className="mt-1.5 space-y-1.5">
                       {selectedNPI.specialties.map((s, i) => (
                         <div key={i} className="flex items-center justify-between text-sm p-2 rounded-md bg-card border border-border/50">
@@ -409,7 +409,7 @@ export default function NPILookupPage() {
 
                 {(selectedNPI.locationAddress?.line1 || selectedNPI.locationAddress?.city) && (
                   <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Practice Location</Label>
+                    <FieldCaption className="text-xs text-muted-foreground uppercase tracking-wider">Practice Location</FieldCaption>
                     <div className="mt-1.5 p-3 rounded-md bg-card border border-border/50 space-y-1.5">
                       <div className="flex items-start gap-2 text-sm">
                         <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />

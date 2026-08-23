@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Search,
   Users,
@@ -590,7 +592,7 @@ export default function CohortBuilder() {
                         <div
                           key={cohort.id}
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate transition-colors ${selectedCohort?.id === cohort.id ? "border-primary bg-primary/5" : ""}`}
-                          onClick={() => setSelectedCohort(cohort)}
+                          {...clickable(() => setSelectedCohort(cohort))}
                           data-testid={`cohort-card-${cohort.id}`}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -728,11 +730,11 @@ export default function CohortBuilder() {
                     <CardContent>
                       <div className="space-y-3">
                         <div>
-                          <Label className="text-xs text-muted-foreground">Original Query</Label>
+                          <FieldCaption className="text-xs text-muted-foreground">Original Query</FieldCaption>
                           <p className="text-sm" data-testid="text-original-query">{selectedCohort.naturalLanguageQuery || "No query specified"}</p>
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Criteria</Label>
+                          <FieldCaption className="text-xs text-muted-foreground">Criteria</FieldCaption>
                           {renderCriteria(selectedCohort.criteria)}
                         </div>
                       </div>
@@ -969,9 +971,9 @@ export default function CohortBuilder() {
                         <>
                           <div className="grid md:grid-cols-3 gap-4">
                             <div className="space-y-2">
-                              <Label>Outcome Type</Label>
+                              <Label htmlFor="cohort-builder-outcome-type">Outcome Type</Label>
                               <Select value={selectedOutcomeType} onValueChange={setSelectedOutcomeType}>
-                                <SelectTrigger data-testid="select-outcome-type">
+                                <SelectTrigger id="cohort-builder-outcome-type" data-testid="select-outcome-type">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -983,9 +985,9 @@ export default function CohortBuilder() {
                               </Select>
                             </div>
                             <div className="space-y-2">
-                              <Label>Timeframe (months)</Label>
+                              <Label htmlFor="cohort-builder-timeframe-months">Timeframe (months)</Label>
                               <Select value={String(selectedTimeframe)} onValueChange={(v) => setSelectedTimeframe(Number(v))}>
-                                <SelectTrigger data-testid="select-timeframe">
+                                <SelectTrigger id="cohort-builder-timeframe-months" data-testid="select-timeframe">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1288,8 +1290,8 @@ export default function CohortBuilder() {
                         <>
                           <div className="flex items-end gap-4">
                             <div className="space-y-2">
-                              <Label>Number of Synthetic Patients</Label>
-                              <Input
+                              <Label htmlFor="cohort-builder-number-of-synthetic-patients">Number of Synthetic Patients</Label>
+                              <Input id="cohort-builder-number-of-synthetic-patients"
                                 type="number"
                                 min={10}
                                 max={500}
@@ -1432,9 +1434,9 @@ export default function CohortBuilder() {
                         <>
                           <div className="grid md:grid-cols-4 gap-4">
                             <div className="space-y-2">
-                              <Label>Treatment Variable</Label>
+                              <Label htmlFor="cohort-builder-treatment-variable">Treatment Variable</Label>
                               <Select value={treatmentVariable} onValueChange={setTreatmentVariable}>
-                                <SelectTrigger data-testid="select-treatment-variable">
+                                <SelectTrigger id="cohort-builder-treatment-variable" data-testid="select-treatment-variable">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1446,9 +1448,9 @@ export default function CohortBuilder() {
                               </Select>
                             </div>
                             <div className="space-y-2">
-                              <Label>Outcome Variable</Label>
+                              <Label htmlFor="cohort-builder-outcome-variable">Outcome Variable</Label>
                               <Select value={outcomeVariable} onValueChange={setOutcomeVariable}>
-                                <SelectTrigger data-testid="select-outcome-variable">
+                                <SelectTrigger id="cohort-builder-outcome-variable" data-testid="select-outcome-variable">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1460,9 +1462,9 @@ export default function CohortBuilder() {
                               </Select>
                             </div>
                             <div className="space-y-2">
-                              <Label>Analysis Type</Label>
+                              <Label htmlFor="cohort-builder-analysis-type">Analysis Type</Label>
                               <Select value={causalAnalysisType} onValueChange={(v) => setCausalAnalysisType(v as CausalInferenceResult["analysisType"])}>
-                                <SelectTrigger data-testid="select-analysis-type">
+                                <SelectTrigger id="cohort-builder-analysis-type" data-testid="select-analysis-type">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1630,9 +1632,9 @@ export default function CohortBuilder() {
                       <>
                         <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Benchmark Source</Label>
+                            <Label htmlFor="cohort-builder-benchmark-source">Benchmark Source</Label>
                             <Select value={selectedBenchmark} onValueChange={setSelectedBenchmark}>
-                              <SelectTrigger data-testid="select-benchmark">
+                              <SelectTrigger id="cohort-builder-benchmark-source" data-testid="select-benchmark">
                                 <SelectValue placeholder="Select benchmark" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1789,7 +1791,7 @@ export default function CohortBuilder() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Include Fields</Label>
+                          <FieldCaption>Include Fields</FieldCaption>
                           <div className="flex flex-wrap gap-2">
                             {["patientId", "patientName", "age", "gender", "location", "conditions", "medications", "procedures", "matchScore"].map((field) => (
                               <Badge

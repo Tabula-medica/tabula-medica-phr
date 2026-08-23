@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -299,12 +300,12 @@ export default function SurgeriesProceduresPage() {
                               {isSelected && (
                                 <div className="mt-3 pl-7 grid grid-cols-1 md:grid-cols-3 gap-3">
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Year *</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Year *</FieldCaption>
                                     <Select
                                       value={String(details?.year || currentYear)}
                                       onValueChange={(v) => handleProcedureDetailChange(procedure.id, "year", parseInt(v))}
                                     >
-                                      <SelectTrigger data-testid={`select-year-${procedure.id}`}>
+                                      <SelectTrigger aria-label="Year *" data-testid={`select-year-${procedure.id}`}>
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -315,12 +316,12 @@ export default function SurgeriesProceduresPage() {
                                     </Select>
                                   </div>
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Month (optional)</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Month (optional)</FieldCaption>
                                     <Select
                                       value={details?.month ? String(details.month) : ""}
                                       onValueChange={(v) => handleProcedureDetailChange(procedure.id, "month", parseInt(v))}
                                     >
-                                      <SelectTrigger data-testid={`select-month-${procedure.id}`}>
+                                      <SelectTrigger aria-label="Month (optional)" data-testid={`select-month-${procedure.id}`}>
                                         <SelectValue placeholder="Select month" />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -331,8 +332,8 @@ export default function SurgeriesProceduresPage() {
                                     </Select>
                                   </div>
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Hospital/Clinic (optional)</Label>
-                                    <Input
+                                    <FieldCaption className="text-xs text-muted-foreground">Hospital/Clinic (optional)</FieldCaption>
+                                    <Input aria-label="Hospital/Clinic (optional)"
                                       placeholder="Enter facility name"
                                       value={details?.facility || ""}
                                       onChange={(e) => handleProcedureDetailChange(procedure.id, "facility", e.target.value)}
@@ -365,8 +366,8 @@ export default function SurgeriesProceduresPage() {
                     </DialogHeader>
                     <div className="space-y-4 mt-4">
                       <div>
-                        <Label>Procedure Name *</Label>
-                        <Input
+                        <Label htmlFor="surgeries-procedures-procedure-name">Procedure Name *</Label>
+                        <Input id="surgeries-procedures-procedure-name"
                           placeholder="e.g., Knee Arthroscopy"
                           value={customProcedure.name}
                           onChange={(e) => setCustomProcedure({ ...customProcedure, name: e.target.value })}
@@ -374,12 +375,12 @@ export default function SurgeriesProceduresPage() {
                         />
                       </div>
                       <div>
-                        <Label>Year *</Label>
+                        <Label htmlFor="surgeries-procedures-year">Year *</Label>
                         <Select
                           value={String(customProcedure.year)}
                           onValueChange={(v) => setCustomProcedure({ ...customProcedure, year: parseInt(v) })}
                         >
-                          <SelectTrigger data-testid="select-custom-year">
+                          <SelectTrigger id="surgeries-procedures-year" data-testid="select-custom-year">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -390,8 +391,8 @@ export default function SurgeriesProceduresPage() {
                         </Select>
                       </div>
                       <div>
-                        <Label>Hospital/Clinic (optional)</Label>
-                        <Input
+                        <Label htmlFor="surgeries-procedures-hospital-clinic-optional">Hospital/Clinic (optional)</Label>
+                        <Input id="surgeries-procedures-hospital-clinic-optional"
                           placeholder="Enter facility name"
                           value={customProcedure.facility}
                           onChange={(e) => setCustomProcedure({ ...customProcedure, facility: e.target.value })}
@@ -399,8 +400,8 @@ export default function SurgeriesProceduresPage() {
                         />
                       </div>
                       <div>
-                        <Label>Notes (optional)</Label>
-                        <Textarea
+                        <Label htmlFor="surgeries-procedures-notes-optional">Notes (optional)</Label>
+                        <Textarea id="surgeries-procedures-notes-optional"
                           placeholder="Any additional details..."
                           value={customProcedure.notes}
                           onChange={(e) => setCustomProcedure({ ...customProcedure, notes: e.target.value })}

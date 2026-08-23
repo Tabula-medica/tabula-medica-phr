@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -137,8 +138,8 @@ function ConstraintEditor({
     <div className="space-y-4 p-4 border rounded-lg">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Field Path</Label>
-          <Input
+          <Label htmlFor="fhir-profile-editor-field-path">Field Path</Label>
+          <Input id="fhir-profile-editor-field-path"
             value={constraint.field}
             onChange={(e) => onChange({ ...constraint, field: e.target.value })}
             placeholder="e.g., identifier, name.family"
@@ -146,12 +147,12 @@ function ConstraintEditor({
           />
         </div>
         <div>
-          <Label>Constraint Type</Label>
+          <Label htmlFor="fhir-profile-editor-constraint-type">Constraint Type</Label>
           <Select
             value={constraint.type}
             onValueChange={(v) => onChange({ ...constraint, type: v as any })}
           >
-            <SelectTrigger data-testid="select-constraint-type">
+            <SelectTrigger id="fhir-profile-editor-constraint-type" data-testid="select-constraint-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -171,8 +172,8 @@ function ConstraintEditor({
       {constraint.type === "cardinality" && (
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Minimum</Label>
-            <Input
+            <Label htmlFor="fhir-profile-editor-minimum">Minimum</Label>
+            <Input id="fhir-profile-editor-minimum"
               type="number"
               min={0}
               value={constraint.value?.min ?? 0}
@@ -184,8 +185,8 @@ function ConstraintEditor({
             />
           </div>
           <div>
-            <Label>Maximum (empty = unlimited)</Label>
-            <Input
+            <Label htmlFor="fhir-profile-editor-maximum-empty-unlimited">Maximum (empty = unlimited)</Label>
+            <Input id="fhir-profile-editor-maximum-empty-unlimited"
               type="number"
               min={0}
               value={constraint.value?.max ?? ""}
@@ -202,8 +203,8 @@ function ConstraintEditor({
 
       {constraint.type === "binding" && (
         <div>
-          <Label>Value Set URL</Label>
-          <Input
+          <Label htmlFor="fhir-profile-editor-value-set-url">Value Set URL</Label>
+          <Input id="fhir-profile-editor-value-set-url"
             value={constraint.value?.valueSet || ""}
             onChange={(e) => onChange({
               ...constraint,
@@ -217,8 +218,8 @@ function ConstraintEditor({
 
       {constraint.type === "pattern" && (
         <div>
-          <Label>Pattern (Regex)</Label>
-          <Input
+          <Label htmlFor="fhir-profile-editor-pattern-regex">Pattern (Regex)</Label>
+          <Input id="fhir-profile-editor-pattern-regex"
             value={constraint.value?.pattern || ""}
             onChange={(e) => onChange({
               ...constraint,
@@ -232,8 +233,8 @@ function ConstraintEditor({
 
       {constraint.type === "fixed" && (
         <div>
-          <Label>Fixed Value (JSON)</Label>
-          <Textarea
+          <Label htmlFor="fhir-profile-editor-fixed-value-json">Fixed Value (JSON)</Label>
+          <Textarea id="fhir-profile-editor-fixed-value-json"
             value={typeof constraint.value === "object" ? JSON.stringify(constraint.value, null, 2) : constraint.value}
             onChange={(e) => {
               try {
@@ -252,12 +253,12 @@ function ConstraintEditor({
       )}
 
       <div>
-        <Label>Severity</Label>
+        <Label htmlFor="fhir-profile-editor-severity">Severity</Label>
         <Select
           value={constraint.severity}
           onValueChange={(v) => onChange({ ...constraint, severity: v as any })}
         >
-          <SelectTrigger data-testid="select-severity">
+          <SelectTrigger id="fhir-profile-editor-severity" data-testid="select-severity">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -678,8 +679,8 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Extension URL</Label>
-              <Input
+              <Label htmlFor="fhir-profile-editor-extension-url">Extension URL</Label>
+              <Input id="fhir-profile-editor-extension-url"
                 value={newExtension.url}
                 onChange={(e) => setNewExtension({ ...newExtension, url: e.target.value })}
                 placeholder="http://example.org/fhir/StructureDefinition/..."
@@ -687,8 +688,8 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
               />
             </div>
             <div>
-              <Label>Name</Label>
-              <Input
+              <Label htmlFor="fhir-profile-editor-name">Name</Label>
+              <Input id="fhir-profile-editor-name"
                 value={newExtension.name}
                 onChange={(e) => setNewExtension({ ...newExtension, name: e.target.value })}
                 placeholder="Extension name"
@@ -696,8 +697,8 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
               />
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea
+              <Label htmlFor="fhir-profile-editor-description">Description</Label>
+              <Textarea id="fhir-profile-editor-description"
                 value={newExtension.description}
                 onChange={(e) => setNewExtension({ ...newExtension, description: e.target.value })}
                 placeholder="Describe what this extension represents"
@@ -706,12 +707,12 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
               />
             </div>
             <div>
-              <Label>Value Type</Label>
+              <Label htmlFor="fhir-profile-editor-value-type">Value Type</Label>
               <Select
                 value={newExtension.valueType}
                 onValueChange={(v) => setNewExtension({ ...newExtension, valueType: v })}
               >
-                <SelectTrigger data-testid="select-new-ext-type">
+                <SelectTrigger id="fhir-profile-editor-value-type" data-testid="select-new-ext-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -727,7 +728,7 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
                 onCheckedChange={(v) => setNewExtension({ ...newExtension, isRequired: v })}
                 data-testid="switch-ext-required"
               />
-              <Label>Required extension</Label>
+              <FieldCaption>Required extension</FieldCaption>
             </div>
           </div>
           <DialogFooter>
@@ -751,8 +752,8 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Field Path</Label>
-              <Input
+              <Label htmlFor="fhir-profile-editor-field-path-2">Field Path</Label>
+              <Input id="fhir-profile-editor-field-path-2"
                 value={newMustSupportField}
                 onChange={(e) => setNewMustSupportField(e.target.value)}
                 placeholder="e.g., identifier, name.family"
@@ -761,7 +762,7 @@ export function FHIRProfileEditor({ profile, onSave, onClose }: ProfileEditorPro
             </div>
             {availableFields.length > 0 && (
               <div>
-                <Label className="text-xs text-muted-foreground">Quick select:</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Quick select:</FieldCaption>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {availableFields.slice(0, 10).map(field => (
                     <Badge

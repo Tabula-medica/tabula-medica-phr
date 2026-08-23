@@ -663,13 +663,13 @@ export default function ConflictResolution() {
                 <div className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Rule Name</Label>
-                      <Input placeholder="e.g., Prefer EHR for Medications" data-testid="input-rule-name" />
+                      <Label htmlFor="conflict-resolution-rule-name">Rule Name</Label>
+                      <Input id="conflict-resolution-rule-name" placeholder="e.g., Prefer EHR for Medications" data-testid="input-rule-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Rule Type</Label>
+                      <Label htmlFor="conflict-resolution-rule-type">Rule Type</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-rule-type">
+                        <SelectTrigger id="conflict-resolution-rule-type" data-testid="select-rule-type">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -683,12 +683,12 @@ export default function ConflictResolution() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Input placeholder="Describe what this rule does" data-testid="input-rule-desc" />
+                    <Label htmlFor="conflict-resolution-description">Description</Label>
+                    <Input id="conflict-resolution-description" placeholder="Describe what this rule does" data-testid="input-rule-desc" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Priority (lower = higher priority)</Label>
-                    <Input type="number" defaultValue={10} data-testid="input-rule-priority" />
+                    <Label htmlFor="conflict-resolution-priority-lower-higher-priority">Priority (lower = higher priority)</Label>
+                    <Input id="conflict-resolution-priority-lower-higher-priority" type="number" defaultValue={10} data-testid="input-rule-priority" />
                   </div>
                 </div>
                 <DialogFooter>

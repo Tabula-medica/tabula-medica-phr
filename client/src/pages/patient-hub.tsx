@@ -75,6 +75,7 @@ import {
   FileDown,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 const SAMPLE_PATIENT_ID = "patient-default";
 
@@ -772,7 +773,7 @@ function MessagingSection() {
                   <div
                     key={thread.id}
                     className={`p-4 border-b cursor-pointer hover-elevate ${selectedThread === thread.id ? "bg-muted" : ""}`}
-                    onClick={() => setSelectedThread(thread.id)}
+                    {...clickable(() => setSelectedThread(thread.id))}
                     data-testid={`thread-${thread.id}`}
                   >
                     <div className="flex items-start gap-3">
@@ -949,7 +950,7 @@ function ExportDataSection() {
                     ? "border-blue-500 bg-blue-500/10"
                     : "border-border hover:border-blue-500/50"
                 }`}
-                onClick={() => setSelectedFormat(fmt.id)}
+                {...clickable(() => setSelectedFormat(fmt.id))}
                 data-testid={`format-${fmt.id}`}
               >
                 <div className="flex items-center gap-3">
@@ -988,7 +989,7 @@ function ExportDataSection() {
                     ? "border-green-500 bg-green-500/10"
                     : "border-border hover:border-green-500/50"
                 }`}
-                onClick={() => toggleDataType(dt.id)}
+                {...clickable(() => toggleDataType(dt.id))}
                 data-testid={`datatype-${dt.id}`}
               >
                 <div className="flex items-center justify-between gap-3">

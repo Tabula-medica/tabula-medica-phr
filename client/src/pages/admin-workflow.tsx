@@ -746,9 +746,9 @@ ${referralResults.draft.requestedServices.join(", ")}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <label className="text-sm font-medium mb-2 block">Target Specialty</label>
+            <label htmlFor="admin-workflow-target-specialty" className="text-sm font-medium mb-2 block">Target Specialty</label>
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
-              <SelectTrigger data-testid="select-specialty">
+              <SelectTrigger id="admin-workflow-target-specialty" data-testid="select-specialty">
                 <SelectValue placeholder="Select specialty" />
               </SelectTrigger>
               <SelectContent>

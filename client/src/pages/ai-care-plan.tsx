@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -435,8 +436,8 @@ export default function AICarePlanPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Primary Condition</Label>
-                  <Input
+                  <Label htmlFor="ai-care-plan-primary-condition">Primary Condition</Label>
+                  <Input id="ai-care-plan-primary-condition"
                     value={primaryCondition}
                     onChange={(e) => setPrimaryCondition(e.target.value)}
                     placeholder="e.g., Type 2 Diabetes"
@@ -444,7 +445,7 @@ export default function AICarePlanPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Treatment Goals</Label>
+                  <FieldCaption>Treatment Goals</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {treatmentGoals.map((goal, i) => (
                       <Badge key={i} variant="secondary">{goal}</Badge>
@@ -452,7 +453,7 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Current Conditions</Label>
+                  <FieldCaption>Current Conditions</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {patientContext.conditions.map((c, i) => (
                       <Badge key={i} variant="outline">{c}</Badge>
@@ -460,7 +461,7 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Medications</Label>
+                  <FieldCaption>Medications</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {patientContext.medications.map((m, i) => (
                       <Badge key={i} variant="outline" className="text-xs">{m}</Badge>
@@ -468,7 +469,7 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Allergies</Label>
+                  <FieldCaption>Allergies</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {patientContext.allergies.map((a, i) => (
                       <Badge key={i} variant="destructive" className="bg-red-100 text-red-700 text-xs">{a}</Badge>
@@ -476,8 +477,8 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Additional Notes</Label>
-                  <Textarea
+                  <Label htmlFor="ai-care-plan-additional-notes">Additional Notes</Label>
+                  <Textarea id="ai-care-plan-additional-notes"
                     value={additionalNotes}
                     onChange={(e) => setAdditionalNotes(e.target.value)}
                     placeholder="Any additional context..."
@@ -769,8 +770,8 @@ export default function AICarePlanPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Primary Condition</Label>
-                  <Input
+                  <Label htmlFor="ai-care-plan-primary-condition-2">Primary Condition</Label>
+                  <Input id="ai-care-plan-primary-condition-2"
                     value={primaryCondition}
                     onChange={(e) => setPrimaryCondition(e.target.value)}
                     placeholder="e.g., Type 2 Diabetes"
@@ -778,7 +779,7 @@ export default function AICarePlanPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Current Conditions</Label>
+                  <FieldCaption>Current Conditions</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {patientContext.conditions.map((c, i) => (
                       <Badge key={i} variant="secondary">{c}</Badge>
@@ -786,7 +787,7 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Medications</Label>
+                  <FieldCaption>Medications</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {patientContext.medications.map((m, i) => (
                       <Badge key={i} variant="outline">{m}</Badge>
@@ -794,7 +795,7 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Allergies</Label>
+                  <FieldCaption>Allergies</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {patientContext.allergies.map((a, i) => (
                       <Badge key={i} variant="destructive" className="bg-red-100 text-red-700">{a}</Badge>
@@ -802,8 +803,8 @@ export default function AICarePlanPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Additional Notes</Label>
-                  <Textarea
+                  <Label htmlFor="ai-care-plan-additional-notes-2">Additional Notes</Label>
+                  <Textarea id="ai-care-plan-additional-notes-2"
                     value={additionalNotes}
                     onChange={(e) => setAdditionalNotes(e.target.value)}
                     placeholder="Any additional context for the care plan..."

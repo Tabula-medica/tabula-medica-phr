@@ -621,26 +621,26 @@ export default function InsuranceCardUpload() {
                     <p className="text-sm font-medium">Copay Information</p>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">PCP Copay</Label>
-                        <Input value={copayPrimary} onChange={e => setCopayPrimary(e.target.value)} placeholder="$25" data-testid="input-copay-pcp" />
+                        <Label htmlFor="insurance-card-upload-pcp-copay" className="text-xs">PCP Copay</Label>
+                        <Input id="insurance-card-upload-pcp-copay" value={copayPrimary} onChange={e => setCopayPrimary(e.target.value)} placeholder="$25" data-testid="input-copay-pcp" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Specialist</Label>
-                        <Input value={copaySpecialist} onChange={e => setCopaySpecialist(e.target.value)} placeholder="$50" data-testid="input-copay-specialist" />
+                        <Label htmlFor="insurance-card-upload-specialist" className="text-xs">Specialist</Label>
+                        <Input id="insurance-card-upload-specialist" value={copaySpecialist} onChange={e => setCopaySpecialist(e.target.value)} placeholder="$50" data-testid="input-copay-specialist" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">ER</Label>
-                        <Input value={copayER} onChange={e => setCopayER(e.target.value)} placeholder="$250" data-testid="input-copay-er" />
+                        <Label htmlFor="insurance-card-upload-er" className="text-xs">ER</Label>
+                        <Input id="insurance-card-upload-er" value={copayER} onChange={e => setCopayER(e.target.value)} placeholder="$250" data-testid="input-copay-er" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">Deductible</Label>
-                        <Input value={deductible} onChange={e => setDeductible(e.target.value)} placeholder="$1,500" data-testid="input-deductible" />
+                        <Label htmlFor="insurance-card-upload-deductible" className="text-xs">Deductible</Label>
+                        <Input id="insurance-card-upload-deductible" value={deductible} onChange={e => setDeductible(e.target.value)} placeholder="$1,500" data-testid="input-deductible" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Customer Service</Label>
-                        <Input value={phoneCS} onChange={e => setPhoneCS(e.target.value)} placeholder="1-800-xxx-xxxx" data-testid="input-phone-cs" />
+                        <Label htmlFor="insurance-card-upload-customer-service" className="text-xs">Customer Service</Label>
+                        <Input id="insurance-card-upload-customer-service" value={phoneCS} onChange={e => setPhoneCS(e.target.value)} placeholder="1-800-xxx-xxxx" data-testid="input-phone-cs" />
                       </div>
                     </div>
                     <div className="flex gap-2 pt-2">

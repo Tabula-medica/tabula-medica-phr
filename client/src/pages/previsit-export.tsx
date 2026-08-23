@@ -473,7 +473,7 @@ export default function PrevisitExport() {
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               {getCategoryDocs("core").map((doc) => (
-                <div 
+                <div role="presentation" 
                   key={doc.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                     doc.included ? "bg-primary/5 border-primary/30" : "hover:bg-muted/50"
@@ -523,7 +523,7 @@ export default function PrevisitExport() {
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               {getCategoryDocs("labs").map((doc) => (
-                <div 
+                <div role="presentation" 
                   key={doc.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                     doc.included ? "bg-primary/5 border-primary/30" : "hover:bg-muted/50"
@@ -573,7 +573,7 @@ export default function PrevisitExport() {
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               {getCategoryDocs("imaging").map((doc) => (
-                <div 
+                <div role="presentation" 
                   key={doc.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                     doc.included ? "bg-primary/5 border-primary/30" : "hover:bg-muted/50"
@@ -623,7 +623,7 @@ export default function PrevisitExport() {
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               {getCategoryDocs("other").map((doc) => (
-                <div 
+                <div role="presentation" 
                   key={doc.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                     doc.included ? "bg-primary/5 border-primary/30" : "hover:bg-muted/50"

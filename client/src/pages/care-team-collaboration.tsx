@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +51,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSEO } from "@/hooks/use-seo";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 const priorityColors: Record<string, string> = {
   urgent: "bg-red-500/10 text-red-500 border-red-500/30",
@@ -522,7 +524,7 @@ export default function CareTeamCollaboration() {
                       <div
                         key={conv.id}
                         className={`p-4 cursor-pointer hover-elevate border-b ${selectedConversation === conv.id ? "bg-accent/50" : ""}`}
-                        onClick={() => setSelectedConversation(conv.id)}
+                        {...clickable(() => setSelectedConversation(conv.id))}
                         data-testid={`conversation-${conv.id}`}
                       >
                         <div className="flex items-start gap-3">
@@ -904,14 +906,14 @@ export default function CareTeamCollaboration() {
                 <Separator />
 
                 <div className="flex items-center gap-2">
-                  <Label>Update Status:</Label>
+                  <Label htmlFor="care-team-collaboration-update-status">Update Status:</Label>
                   <Select
                     value={selectedTask.status}
                     onValueChange={(value) => {
                       updateTaskStatusMutation.mutate({ taskId: selectedTask.id, status: value });
                     }}
                   >
-                    <SelectTrigger className="w-40" data-testid="select-task-status">
+                    <SelectTrigger id="care-team-collaboration-update-status" className="w-40" data-testid="select-task-status">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1211,9 +1213,9 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Select Conversation</Label>
+              <Label htmlFor="care-team-collaboration-select-conversation">Select Conversation</Label>
               <Select value={selectedConversation} onValueChange={setSelectedConversation}>
-                <SelectTrigger data-testid="select-conversation-summarize">
+                <SelectTrigger id="care-team-collaboration-select-conversation" data-testid="select-conversation-summarize">
                   <SelectValue placeholder="Choose a conversation..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1248,9 +1250,9 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Select Patient</Label>
+              <Label htmlFor="care-team-collaboration-select-patient">Select Patient</Label>
               <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
-                <SelectTrigger data-testid="select-patient-suggestions">
+                <SelectTrigger id="care-team-collaboration-select-patient" data-testid="select-patient-suggestions">
                   <SelectValue placeholder="Choose a patient..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1285,9 +1287,9 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Select Patient</Label>
+              <Label htmlFor="care-team-collaboration-select-patient-2">Select Patient</Label>
               <Select value={draftPatientId} onValueChange={setDraftPatientId}>
-                <SelectTrigger data-testid="select-patient-draft">
+                <SelectTrigger id="care-team-collaboration-select-patient-2" data-testid="select-patient-draft">
                   <SelectValue placeholder="Choose a patient..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1298,9 +1300,9 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Draft Type</Label>
+              <Label htmlFor="care-team-collaboration-draft-type">Draft Type</Label>
               <Select value={draftType} onValueChange={(v) => setDraftType(v as "message" | "task")}>
-                <SelectTrigger data-testid="select-draft-type">
+                <SelectTrigger id="care-team-collaboration-draft-type" data-testid="select-draft-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1310,8 +1312,8 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Context (optional)</Label>
-              <Input
+              <Label htmlFor="care-team-collaboration-context-optional">Context (optional)</Label>
+              <Input id="care-team-collaboration-context-optional"
                 value={draftContext}
                 onChange={(e) => setDraftContext(e.target.value)}
                 placeholder="Recent event or reason..."
@@ -1492,13 +1494,13 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
 
             {draftMutation.data.draft.suggestedTitle && (
               <div data-testid="section-draft-title">
-                <Label className="text-sm text-muted-foreground">Suggested Title</Label>
+                <FieldCaption className="text-sm text-muted-foreground">Suggested Title</FieldCaption>
                 <p className="font-medium" data-testid="text-draft-title">{draftMutation.data.draft.suggestedTitle}</p>
               </div>
             )}
 
             <div data-testid="section-draft-content">
-              <Label className="text-sm text-muted-foreground">Suggested Content</Label>
+              <FieldCaption className="text-sm text-muted-foreground">Suggested Content</FieldCaption>
               <div className="p-3 rounded border bg-muted/50 mt-1">
                 <p className="text-sm" data-testid="text-draft-content">{draftMutation.data.draft.suggestedContent}</p>
               </div>
@@ -1510,7 +1512,7 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
 
             {draftMutation.data.draft.suggestedAssignees?.length > 0 && (
               <div className="flex items-center gap-2" data-testid="section-draft-assignees">
-                <Label className="text-sm text-muted-foreground">Suggested Assignees:</Label>
+                <FieldCaption className="text-sm text-muted-foreground">Suggested Assignees:</FieldCaption>
                 {draftMutation.data.draft.suggestedAssignees.map((a: string, i: number) => (
                   <Badge key={i} variant="outline" data-testid={`badge-assignee-${i}`}>{a}</Badge>
                 ))}
@@ -1519,7 +1521,7 @@ function AICareTeamAssistant({ conversations }: { conversations: CareTeamConvers
 
             {draftMutation.data.draft.alternatives?.length > 0 && (
               <div data-testid="section-draft-alternatives">
-                <Label className="text-sm text-muted-foreground">Alternatives</Label>
+                <FieldCaption className="text-sm text-muted-foreground">Alternatives</FieldCaption>
                 <div className="space-y-2 mt-1">
                   {draftMutation.data.draft.alternatives.map((alt: { content: string; reason: string }, i: number) => (
                     <div key={i} className="p-2 rounded border text-sm" data-testid={`item-alternative-${i}`}>

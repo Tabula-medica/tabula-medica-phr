@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   FileText, 
   Code, 
@@ -424,9 +426,9 @@ export default function AIClinicalDocumentation() {
               
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <Label>Note Type</Label>
+                  <Label htmlFor="ai-clinical-documentatio-note-type">Note Type</Label>
                   <Select value={noteType} onValueChange={(v: any) => setNoteType(v)}>
-                    <SelectTrigger className="w-48" data-testid="select-note-type">
+                    <SelectTrigger id="ai-clinical-documentatio-note-type" className="w-48" data-testid="select-note-type">
                       <SelectValue placeholder="Select note type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -479,7 +481,7 @@ export default function AIClinicalDocumentation() {
                       className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                         selectedNote?.id === note.id ? "border-primary bg-accent" : ""
                       }`}
-                      onClick={() => setSelectedNote(note)}
+                      {...clickable(() => setSelectedNote(note))}
                       data-testid={`note-item-${note.id}`}
                     >
                       <div className="flex items-center justify-between">
@@ -522,7 +524,7 @@ export default function AIClinicalDocumentation() {
                     
                     {selectedNote.content.subjective && (
                       <div className="space-y-1">
-                        <Label className="font-semibold">Subjective</Label>
+                        <FieldCaption className="font-semibold">Subjective</FieldCaption>
                         <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
                           {selectedNote.content.subjective}
                         </div>
@@ -531,7 +533,7 @@ export default function AIClinicalDocumentation() {
                     
                     {selectedNote.content.objective && (
                       <div className="space-y-1">
-                        <Label className="font-semibold">Objective</Label>
+                        <FieldCaption className="font-semibold">Objective</FieldCaption>
                         <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
                           {selectedNote.content.objective}
                         </div>
@@ -540,7 +542,7 @@ export default function AIClinicalDocumentation() {
                     
                     {selectedNote.content.assessment && (
                       <div className="space-y-1">
-                        <Label className="font-semibold">Assessment</Label>
+                        <FieldCaption className="font-semibold">Assessment</FieldCaption>
                         <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
                           {selectedNote.content.assessment}
                         </div>
@@ -549,7 +551,7 @@ export default function AIClinicalDocumentation() {
                     
                     {selectedNote.content.plan && (
                       <div className="space-y-1">
-                        <Label className="font-semibold">Plan</Label>
+                        <FieldCaption className="font-semibold">Plan</FieldCaption>
                         <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
                           {selectedNote.content.plan}
                         </div>
@@ -558,7 +560,7 @@ export default function AIClinicalDocumentation() {
                     
                     {selectedNote.content.fullNote && (
                       <div className="space-y-1">
-                        <Label className="font-semibold">Full Note</Label>
+                        <FieldCaption className="font-semibold">Full Note</FieldCaption>
                         <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
                           {selectedNote.content.fullNote}
                         </div>
@@ -567,7 +569,7 @@ export default function AIClinicalDocumentation() {
                     
                     {selectedNote.suggestedCodes.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="font-semibold">Suggested Codes</Label>
+                        <FieldCaption className="font-semibold">Suggested Codes</FieldCaption>
                         <div className="space-y-2">
                           {selectedNote.suggestedCodes.map((code, idx) => (
                             <div key={idx} className="p-3 border rounded-md">

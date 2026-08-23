@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -523,12 +524,12 @@ function Step2Customize({
       </Card>
 
       <div className="space-y-2">
-        <Label>Time Range</Label>
+        <Label htmlFor="packet-export-time-range">Time Range</Label>
         <Select 
           value={config.timeRange} 
           onValueChange={(value: TimeRange) => setConfig(prev => ({ ...prev, timeRange: value }))}
         >
-          <SelectTrigger className="min-h-[44px]" data-testid="select-time-range">
+          <SelectTrigger id="packet-export-time-range" className="min-h-[44px]" data-testid="select-time-range">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -639,7 +640,7 @@ function Step3Preview({
         {!generatedLink ? (
           <>
             <div className="space-y-2">
-              <Label>Link Expiration</Label>
+              <FieldCaption>Link Expiration</FieldCaption>
               <RadioGroup 
                 value={expiration} 
                 onValueChange={(v) => setExpiration(v as ExpirationOption)}
@@ -669,7 +670,7 @@ function Step3Preview({
             </div>
 
             <div className="space-y-2">
-              <Label>Access Control</Label>
+              <FieldCaption>Access Control</FieldCaption>
               <RadioGroup 
                 value={accessControl} 
                 onValueChange={(v) => setAccessControl(v as AccessControl)}

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Shield, Eye, EyeOff, AlertTriangle, CheckCircle, FileText, Sparkles, Lock, Unlock, Download, Copy } from "lucide-react";
@@ -360,9 +361,9 @@ export default function PHIAnonymizationDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>De-identification Strategy</Label>
+                  <Label htmlFor="phi-anonymization-dashbo-de-identification-strategy">De-identification Strategy</Label>
                   <Select value={strategy} onValueChange={(v) => setStrategy(v as DeidentificationStrategy)}>
-                    <SelectTrigger data-testid="select-strategy">
+                    <SelectTrigger id="phi-anonymization-dashbo-de-identification-strategy" data-testid="select-strategy">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -401,7 +402,7 @@ export default function PHIAnonymizationDashboard() {
                   {anonymizationResult && (
                     <div className="flex items-center gap-2">
                       <Switch checked={showOriginal} onCheckedChange={setShowOriginal} data-testid="switch-show-original" />
-                      <Label className="text-sm font-normal">{showOriginal ? "Original" : "Anonymized"}</Label>
+                      <FieldCaption className="text-sm font-normal">{showOriginal ? "Original" : "Anonymized"}</FieldCaption>
                     </div>
                   )}
                 </CardTitle>
@@ -512,8 +513,8 @@ export default function PHIAnonymizationDashboard() {
                   data-testid="textarea-ai-json"
                 />
                 <div className="space-y-2">
-                  <Label>Fields to Preserve (comma-separated)</Label>
-                  <Input
+                  <Label htmlFor="phi-anonymization-dashbo-fields-to-preserve-comma-separated">Fields to Preserve (comma-separated)</Label>
+                  <Input id="phi-anonymization-dashbo-fields-to-preserve-comma-separated"
                     placeholder="e.g., gender, maritalStatus, code"
                     value={preserveFields}
                     onChange={(e) => setPreserveFields(e.target.value)}

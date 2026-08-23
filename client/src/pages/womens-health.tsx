@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -316,9 +317,9 @@ export default function WomensHealth() {
           <p className="text-muted-foreground text-sm">Track your cycle, pregnancy, menopause, and preventive care</p>
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-sm font-medium whitespace-nowrap">Life Stage:</Label>
+          <Label htmlFor="womens-health-life-stage" className="text-sm font-medium whitespace-nowrap">Life Stage:</Label>
           <Select value={lifeStage} onValueChange={(v) => setLifeStageMutation.mutate(v as LifeStage)}>
-            <SelectTrigger className="w-[180px]" data-testid="select-life-stage">
+            <SelectTrigger id="womens-health-life-stage" className="w-[180px]" data-testid="select-life-stage">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -408,9 +409,9 @@ export default function WomensHealth() {
             <DialogDescription>Enter your pregnancy details to start tracking.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><Label>Due Date *</Label><Input type="date" value={pregnancyForm.dueDate} onChange={e => setPregnancyForm(p => ({ ...p, dueDate: e.target.value }))} data-testid="input-due-date" /></div>
-            <div><Label>Last Menstrual Period</Label><Input type="date" value={pregnancyForm.lastMenstrualPeriod} onChange={e => setPregnancyForm(p => ({ ...p, lastMenstrualPeriod: e.target.value }))} data-testid="input-lmp" /></div>
-            <div><Label>Provider</Label><Input value={pregnancyForm.provider} onChange={e => setPregnancyForm(p => ({ ...p, provider: e.target.value }))} placeholder="OB/GYN name" data-testid="input-provider" /></div>
+            <div><Label htmlFor="womens-health-due-date">Due Date *</Label><Input id="womens-health-due-date" type="date" value={pregnancyForm.dueDate} onChange={e => setPregnancyForm(p => ({ ...p, dueDate: e.target.value }))} data-testid="input-due-date" /></div>
+            <div><Label htmlFor="womens-health-last-menstrual-period">Last Menstrual Period</Label><Input id="womens-health-last-menstrual-period" type="date" value={pregnancyForm.lastMenstrualPeriod} onChange={e => setPregnancyForm(p => ({ ...p, lastMenstrualPeriod: e.target.value }))} data-testid="input-lmp" /></div>
+            <div><Label htmlFor="womens-health-provider">Provider</Label><Input id="womens-health-provider" value={pregnancyForm.provider} onChange={e => setPregnancyForm(p => ({ ...p, provider: e.target.value }))} placeholder="OB/GYN name" data-testid="input-provider" /></div>
           </div>
           <DialogFooter>
             <Button onClick={() => createPregnancyMutation.mutate(pregnancyForm)} disabled={!pregnancyForm.dueDate || createPregnancyMutation.isPending} data-testid="button-create-pregnancy">
@@ -428,9 +429,9 @@ export default function WomensHealth() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Stage</Label>
+              <Label htmlFor="womens-health-stage">Stage</Label>
               <Select value={menopauseForm.stage} onValueChange={v => setMenopauseForm(p => ({ ...p, stage: v }))}>
-                <SelectTrigger data-testid="select-menopause-stage"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="womens-health-stage" data-testid="select-menopause-stage"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="perimenopause">Perimenopause</SelectItem>
                   <SelectItem value="menopause">Menopause</SelectItem>
@@ -438,7 +439,7 @@ export default function WomensHealth() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Date of Last Period (if known)</Label><Input type="date" value={menopauseForm.lastPeriodDate} onChange={e => setMenopauseForm(p => ({ ...p, lastPeriodDate: e.target.value }))} data-testid="input-last-period" /></div>
+            <div><Label htmlFor="womens-health-date-of-last-period-if-known">Date of Last Period (if known)</Label><Input id="womens-health-date-of-last-period-if-known" type="date" value={menopauseForm.lastPeriodDate} onChange={e => setMenopauseForm(p => ({ ...p, lastPeriodDate: e.target.value }))} data-testid="input-last-period" /></div>
           </div>
           <DialogFooter>
             <Button onClick={() => createMenopauseMutation.mutate(menopauseForm)} disabled={createMenopauseMutation.isPending} data-testid="button-create-menopause">
@@ -455,16 +456,16 @@ export default function WomensHealth() {
             <DialogDescription>Record your symptoms and their severity today.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><Label>Date</Label><Input type="date" value={symptomForm.date} onChange={e => setSymptomForm(p => ({ ...p, date: e.target.value }))} data-testid="input-symptom-date" /></div>
+            <div><Label htmlFor="womens-health-date">Date</Label><Input id="womens-health-date" type="date" value={symptomForm.date} onChange={e => setSymptomForm(p => ({ ...p, date: e.target.value }))} data-testid="input-symptom-date" /></div>
             <div className="space-y-2">
-              <Label>Symptoms & Severity (1-5)</Label>
+              <Label htmlFor="womens-health-symptoms-severity-1-5">Symptoms & Severity (1-5)</Label>
               <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
                 {MENOPAUSE_SYMPTOMS.map(s => {
                   const existing = symptomForm.symptoms.find(x => x.symptom === s.value);
                   return (
                     <div key={s.value} className="flex items-center justify-between gap-2 p-2 rounded border">
                       <div className="flex items-center gap-2">
-                        <Checkbox
+                        <Checkbox id="womens-health-symptoms-severity-1-5"
                           checked={!!existing}
                           onCheckedChange={(checked) => {
                             if (checked) {
@@ -500,7 +501,7 @@ export default function WomensHealth() {
                 })}
               </div>
             </div>
-            <div><Label>Notes</Label><Textarea value={symptomForm.notes} onChange={e => setSymptomForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." data-testid="input-symptom-notes" /></div>
+            <div><Label htmlFor="womens-health-notes">Notes</Label><Textarea id="womens-health-notes" value={symptomForm.notes} onChange={e => setSymptomForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." data-testid="input-symptom-notes" /></div>
           </div>
           <DialogFooter>
             <Button onClick={() => addSymptomsMutation.mutate(symptomForm)} disabled={symptomForm.symptoms.length === 0 || addSymptomsMutation.isPending} data-testid="button-save-symptoms">
@@ -517,12 +518,12 @@ export default function WomensHealth() {
             <DialogDescription>Track your weight during pregnancy.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><Label>Date</Label><Input type="date" value={weightForm.date} onChange={e => setWeightForm(p => ({ ...p, date: e.target.value }))} data-testid="input-weight-date" /></div>
-            <div><Label>Weight</Label><Input type="number" value={weightForm.weight} onChange={e => setWeightForm(p => ({ ...p, weight: e.target.value }))} placeholder="Enter weight" data-testid="input-weight-value" /></div>
+            <div><Label htmlFor="womens-health-date-2">Date</Label><Input id="womens-health-date-2" type="date" value={weightForm.date} onChange={e => setWeightForm(p => ({ ...p, date: e.target.value }))} data-testid="input-weight-date" /></div>
+            <div><Label htmlFor="womens-health-weight">Weight</Label><Input id="womens-health-weight" type="number" value={weightForm.weight} onChange={e => setWeightForm(p => ({ ...p, weight: e.target.value }))} placeholder="Enter weight" data-testid="input-weight-value" /></div>
             <div>
-              <Label>Unit</Label>
+              <Label htmlFor="womens-health-unit">Unit</Label>
               <Select value={weightForm.unit} onValueChange={v => setWeightForm(p => ({ ...p, unit: v }))}>
-                <SelectTrigger data-testid="select-weight-unit"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="womens-health-unit" data-testid="select-weight-unit"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="lbs">lbs</SelectItem>
                   <SelectItem value="kg">kg</SelectItem>
@@ -545,11 +546,11 @@ export default function WomensHealth() {
             <DialogDescription>Schedule a prenatal appointment.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><Label>Date *</Label><Input type="date" value={appointmentForm.date} onChange={e => setAppointmentForm(p => ({ ...p, date: e.target.value }))} data-testid="input-appt-date" /></div>
+            <div><Label htmlFor="womens-health-date-3">Date *</Label><Input id="womens-health-date-3" type="date" value={appointmentForm.date} onChange={e => setAppointmentForm(p => ({ ...p, date: e.target.value }))} data-testid="input-appt-date" /></div>
             <div>
-              <Label>Type *</Label>
+              <Label htmlFor="womens-health-type">Type *</Label>
               <Select value={appointmentForm.type} onValueChange={v => setAppointmentForm(p => ({ ...p, type: v }))}>
-                <SelectTrigger data-testid="select-appt-type"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectTrigger id="womens-health-type" data-testid="select-appt-type"><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
                   <SelectItem value="ultrasound">Ultrasound</SelectItem>
@@ -560,8 +561,8 @@ export default function WomensHealth() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Provider</Label><Input value={appointmentForm.provider} onChange={e => setAppointmentForm(p => ({ ...p, provider: e.target.value }))} placeholder="Provider name" data-testid="input-appt-provider" /></div>
-            <div><Label>Notes</Label><Textarea value={appointmentForm.notes} onChange={e => setAppointmentForm(p => ({ ...p, notes: e.target.value }))} placeholder="Appointment notes..." data-testid="input-appt-notes" /></div>
+            <div><Label htmlFor="womens-health-provider-2">Provider</Label><Input id="womens-health-provider-2" value={appointmentForm.provider} onChange={e => setAppointmentForm(p => ({ ...p, provider: e.target.value }))} placeholder="Provider name" data-testid="input-appt-provider" /></div>
+            <div><Label htmlFor="womens-health-notes-2">Notes</Label><Textarea id="womens-health-notes-2" value={appointmentForm.notes} onChange={e => setAppointmentForm(p => ({ ...p, notes: e.target.value }))} placeholder="Appointment notes..." data-testid="input-appt-notes" /></div>
           </div>
           <DialogFooter>
             <Button onClick={() => addAppointmentMutation.mutate(appointmentForm)} disabled={!appointmentForm.date || !appointmentForm.type || addAppointmentMutation.isPending} data-testid="button-save-appointment">
@@ -578,9 +579,9 @@ export default function WomensHealth() {
             <DialogDescription>Record a hormone replacement therapy medication.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><Label>Medication Name *</Label><Input value={hrtForm.name} onChange={e => setHrtForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g., Estradiol patch" data-testid="input-hrt-name" /></div>
-            <div><Label>Dosage *</Label><Input value={hrtForm.dosage} onChange={e => setHrtForm(p => ({ ...p, dosage: e.target.value }))} placeholder="e.g., 0.05 mg/day" data-testid="input-hrt-dosage" /></div>
-            <div><Label>Start Date *</Label><Input type="date" value={hrtForm.startDate} onChange={e => setHrtForm(p => ({ ...p, startDate: e.target.value }))} data-testid="input-hrt-start" /></div>
+            <div><Label htmlFor="womens-health-medication-name">Medication Name *</Label><Input id="womens-health-medication-name" value={hrtForm.name} onChange={e => setHrtForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g., Estradiol patch" data-testid="input-hrt-name" /></div>
+            <div><Label htmlFor="womens-health-dosage">Dosage *</Label><Input id="womens-health-dosage" value={hrtForm.dosage} onChange={e => setHrtForm(p => ({ ...p, dosage: e.target.value }))} placeholder="e.g., 0.05 mg/day" data-testid="input-hrt-dosage" /></div>
+            <div><Label htmlFor="womens-health-start-date">Start Date *</Label><Input id="womens-health-start-date" type="date" value={hrtForm.startDate} onChange={e => setHrtForm(p => ({ ...p, startDate: e.target.value }))} data-testid="input-hrt-start" /></div>
           </div>
           <DialogFooter>
             <Button onClick={() => addHrtMutation.mutate(hrtForm)} disabled={!hrtForm.name || !hrtForm.dosage || !hrtForm.startDate || addHrtMutation.isPending} data-testid="button-save-hrt">
@@ -598,22 +599,22 @@ export default function WomensHealth() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="womens-health-category">Category</Label>
               <Select value={screeningForm.screeningCategory} onValueChange={v => setScreeningForm(p => ({ ...p, screeningCategory: v as "bone" | "cardio" }))}>
-                <SelectTrigger data-testid="select-screening-category"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="womens-health-category" data-testid="select-screening-category"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bone">Bone Health</SelectItem>
                   <SelectItem value="cardio">Cardiovascular</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Date *</Label><Input type="date" value={screeningForm.date} onChange={e => setScreeningForm(p => ({ ...p, date: e.target.value }))} data-testid="input-screening-date" /></div>
-            <div><Label>Type *</Label><Input value={screeningForm.type} onChange={e => setScreeningForm(p => ({ ...p, type: e.target.value }))} placeholder="e.g., DEXA Scan, Lipid Panel" data-testid="input-screening-type" /></div>
-            <div><Label>Result</Label><Input value={screeningForm.result} onChange={e => setScreeningForm(p => ({ ...p, result: e.target.value }))} placeholder="Test result" data-testid="input-screening-result" /></div>
+            <div><Label htmlFor="womens-health-date-4">Date *</Label><Input id="womens-health-date-4" type="date" value={screeningForm.date} onChange={e => setScreeningForm(p => ({ ...p, date: e.target.value }))} data-testid="input-screening-date" /></div>
+            <div><Label htmlFor="womens-health-type-2">Type *</Label><Input id="womens-health-type-2" value={screeningForm.type} onChange={e => setScreeningForm(p => ({ ...p, type: e.target.value }))} placeholder="e.g., DEXA Scan, Lipid Panel" data-testid="input-screening-type" /></div>
+            <div><Label htmlFor="womens-health-result">Result</Label><Input id="womens-health-result" value={screeningForm.result} onChange={e => setScreeningForm(p => ({ ...p, result: e.target.value }))} placeholder="Test result" data-testid="input-screening-result" /></div>
             {screeningForm.screeningCategory === "bone" && (
-              <div><Label>T-Score</Label><Input type="number" step="0.1" value={screeningForm.tScore} onChange={e => setScreeningForm(p => ({ ...p, tScore: e.target.value }))} placeholder="-1.0" data-testid="input-screening-tscore" /></div>
+              <div><Label htmlFor="womens-health-t-score">T-Score</Label><Input id="womens-health-t-score" type="number" step="0.1" value={screeningForm.tScore} onChange={e => setScreeningForm(p => ({ ...p, tScore: e.target.value }))} placeholder="-1.0" data-testid="input-screening-tscore" /></div>
             )}
-            <div><Label>Notes</Label><Textarea value={screeningForm.notes} onChange={e => setScreeningForm(p => ({ ...p, notes: e.target.value }))} data-testid="input-screening-notes" /></div>
+            <div><Label htmlFor="womens-health-notes-3">Notes</Label><Textarea id="womens-health-notes-3" value={screeningForm.notes} onChange={e => setScreeningForm(p => ({ ...p, notes: e.target.value }))} data-testid="input-screening-notes" /></div>
           </div>
           <DialogFooter>
             <Button
@@ -1195,12 +1196,12 @@ function LogPeriodDialog({ open, onClose, form, setForm, onSubmit, isPending }: 
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div><Label>Start Date *</Label><Input type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} data-testid="input-period-start" /></div>
-            <div><Label>End Date</Label><Input type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} data-testid="input-period-end" /></div>
+            <div><Label htmlFor="womens-health-start-date-2">Start Date *</Label><Input id="womens-health-start-date-2" type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} data-testid="input-period-start" /></div>
+            <div><Label htmlFor="womens-health-end-date">End Date</Label><Input id="womens-health-end-date" type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} data-testid="input-period-end" /></div>
           </div>
 
           <div>
-            <Label>Flow Intensity</Label>
+            <FieldCaption>Flow Intensity</FieldCaption>
             <div className="flex gap-2 mt-1">
               {FLOW_OPTIONS.map(opt => (
                 <Button
@@ -1219,11 +1220,11 @@ function LogPeriodDialog({ open, onClose, form, setForm, onSubmit, isPending }: 
           </div>
 
           <div>
-            <Label>Symptoms</Label>
+            <Label htmlFor="womens-health-symptoms">Symptoms</Label>
             <div className="grid grid-cols-2 gap-2 mt-1">
               {MENSTRUAL_SYMPTOMS.map(s => (
                 <div key={s.value} className="flex items-center gap-2">
-                  <Checkbox
+                  <Checkbox id="womens-health-symptoms"
                     checked={form.symptoms.includes(s.value)}
                     onCheckedChange={(checked) => {
                       setForm(p => ({
@@ -1239,7 +1240,7 @@ function LogPeriodDialog({ open, onClose, form, setForm, onSubmit, isPending }: 
             </div>
           </div>
 
-          <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." data-testid="input-period-notes" /></div>
+          <div><Label htmlFor="womens-health-notes-4">Notes</Label><Textarea id="womens-health-notes-4" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." data-testid="input-period-notes" /></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} data-testid="button-cancel-period">Cancel</Button>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -580,7 +580,7 @@ function PEGScaleTab({ pegScore }: { pegScore: any }) {
             const val = pegScore?.[item.key] ?? 0;
             return (
               <div key={item.key} className="space-y-2">
-                <Label className="text-sm">{item.label}</Label>
+                <FieldCaption className="text-sm">{item.label}</FieldCaption>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-muted-foreground w-16">{item.low}</span>
                   <div className="flex-1 flex items-center gap-1">

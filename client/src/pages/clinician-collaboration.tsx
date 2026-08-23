@@ -552,8 +552,8 @@ export default function ClinicianCollaboration() {
                 </h4>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="text-sm font-medium">Condition</label>
-                    <Input
+                    <label htmlFor="clinician-collaboration-condition" className="text-sm font-medium">Condition</label>
+                    <Input id="clinician-collaboration-condition"
                       placeholder="Enter condition name"
                       value={newCondition}
                       onChange={(e) => setNewCondition(e.target.value)}
@@ -561,9 +561,9 @@ export default function ClinicianCollaboration() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Likelihood</label>
+                    <label htmlFor="clinician-collaboration-likelihood" className="text-sm font-medium">Likelihood</label>
                     <Select value={likelihood} onValueChange={setLikelihood}>
-                      <SelectTrigger data-testid="select-likelihood">
+                      <SelectTrigger id="clinician-collaboration-likelihood" data-testid="select-likelihood">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -576,8 +576,8 @@ export default function ClinicianCollaboration() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Supporting Evidence (comma-separated)</label>
-                  <Input
+                  <label htmlFor="clinician-collaboration-supporting-evidence-comma-separated" className="text-sm font-medium">Supporting Evidence (comma-separated)</label>
+                  <Input id="clinician-collaboration-supporting-evidence-comma-separated"
                     placeholder="E.g., Elevated HbA1c, Polyuria, Family history"
                     value={supportingEvidence}
                     onChange={(e) => setSupportingEvidence(e.target.value)}
@@ -585,8 +585,8 @@ export default function ClinicianCollaboration() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Against Evidence (comma-separated)</label>
-                  <Input
+                  <label htmlFor="clinician-collaboration-against-evidence-comma-separated" className="text-sm font-medium">Against Evidence (comma-separated)</label>
+                  <Input id="clinician-collaboration-against-evidence-comma-separated"
                     placeholder="E.g., Normal fasting glucose, No ketones"
                     value={againstEvidence}
                     onChange={(e) => setAgainstEvidence(e.target.value)}

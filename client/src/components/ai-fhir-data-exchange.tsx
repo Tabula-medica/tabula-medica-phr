@@ -352,9 +352,9 @@ export default function AIFHIRDataExchange() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div className="space-y-2">
-                  <Label>Source Version</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-source-version">Source Version</Label>
                   <Select value={sourceVersion} onValueChange={(v) => setSourceVersion(v as FHIRVersion)}>
-                    <SelectTrigger data-testid="select-source-version">
+                    <SelectTrigger id="ai-fhir-data-exchange-source-version" data-testid="select-source-version">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -370,9 +370,9 @@ export default function AIFHIRDataExchange() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Target Version</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-target-version">Target Version</Label>
                   <Select value={targetVersion} onValueChange={(v) => setTargetVersion(v as FHIRVersion)}>
-                    <SelectTrigger data-testid="select-target-version">
+                    <SelectTrigger id="ai-fhir-data-exchange-target-version" data-testid="select-target-version">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -384,9 +384,9 @@ export default function AIFHIRDataExchange() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-resource-type">Resource Type</Label>
                   <Select value={resourceType} onValueChange={setResourceType}>
-                    <SelectTrigger data-testid="select-resource-type">
+                    <SelectTrigger id="ai-fhir-data-exchange-resource-type" data-testid="select-resource-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -447,9 +447,9 @@ export default function AIFHIRDataExchange() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div className="space-y-2">
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-resource-type-2">Resource Type</Label>
                   <Select value={resourceType} onValueChange={setResourceType}>
-                    <SelectTrigger data-testid="select-rec-resource-type">
+                    <SelectTrigger id="ai-fhir-data-exchange-resource-type-2" data-testid="select-rec-resource-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -461,9 +461,9 @@ export default function AIFHIRDataExchange() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>From Version</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-from-version">From Version</Label>
                   <Select value={sourceVersion} onValueChange={(v) => setSourceVersion(v as FHIRVersion)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="ai-fhir-data-exchange-from-version">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -475,9 +475,9 @@ export default function AIFHIRDataExchange() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>To Version</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-to-version">To Version</Label>
                   <Select value={targetVersion} onValueChange={(v) => setTargetVersion(v as FHIRVersion)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="ai-fhir-data-exchange-to-version">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -532,9 +532,9 @@ export default function AIFHIRDataExchange() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Profile</Label>
+                  <Label htmlFor="ai-fhir-data-exchange-profile">Profile</Label>
                   <Select value={validationProfile} onValueChange={setValidationProfile}>
-                    <SelectTrigger data-testid="select-validation-profile">
+                    <SelectTrigger id="ai-fhir-data-exchange-profile" data-testid="select-validation-profile">
                       <SelectValue placeholder="Select a profile..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -546,8 +546,8 @@ export default function AIFHIRDataExchange() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Resource JSON</Label>
-                  <Textarea
+                  <Label htmlFor="ai-fhir-data-exchange-resource-json">Resource JSON</Label>
+                  <Textarea id="ai-fhir-data-exchange-resource-json"
                     placeholder='{"resourceType": "Patient", "id": "example", ...}'
                     value={validationResource}
                     onChange={(e) => setValidationResource(e.target.value)}
