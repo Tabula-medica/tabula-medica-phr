@@ -35,7 +35,17 @@ import {
 } from "@/lib/gcip";
 import type { TotpSecret } from "firebase/auth";
 
-type MfaStatus = { enrolled: boolean; recoveryCodesRemaining: number };
+type MfaStatus = {
+  enrolled: boolean;
+  recoveryCodesRemaining: number;
+  securityEmailConfigured?: boolean;
+};
+
+// Server response shape shared by the MFA lifecycle endpoints. Each one
+// reports whether the out-of-band confirmation email actually went out so
+// we can tell the user instead of silently promising a mail that never
+// arrives.
+type MfaMutationResult = { recoveryCodes?: string[]; securityEmailSent?: boolean };
 
 export default function SecuritySettings() {
   const [, setLocation] = useLocation();
@@ -43,6 +53,7 @@ export default function SecuritySettings() {
   const gcipReady = isGcipConfigured();
 
   const [step, setStep] = useState<"idle" | "qr" | "verify" | "codes">("idle");
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
   const [secret, setSecret] = useState<TotpSecret | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [secretKey, setSecretKey] = useState<string>("");
@@ -116,8 +127,9 @@ export default function SecuritySettings() {
     try {
       await finalizeTotpEnrollment(secret, code);
       const res = await apiRequest("POST", "/api/auth/mfa/enrolled");
-      const body = (await res.json()) as { recoveryCodes: string[] };
+      const body = (await res.json()) as MfaMutationResult & { recoveryCodes: string[] };
       setRecoveryCodes(body.recoveryCodes);
+      setEmailConfirmationSent(body.securityEmailSent === true);
       setStep("codes");
       setCode("");
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/mfa/status"] });
@@ -142,17 +154,21 @@ export default function SecuritySettings() {
     setCopied(false);
     toast({
       title: "Multi-factor authentication enabled",
-      description: "You'll be prompted for a 6-digit code on next sign-in.",
+      description: emailConfirmationSent
+        ? "You'll be prompted for a 6-digit code on next sign-in. A confirmation email is on its way."
+        : "You'll be prompted for a 6-digit code on next sign-in.",
     });
+    setEmailConfirmationSent(false);
   };
 
   const regenerateMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/auth/mfa/recovery-codes/regenerate");
-      return (await res.json()) as { recoveryCodes: string[] };
+      return (await res.json()) as MfaMutationResult & { recoveryCodes: string[] };
     },
     onSuccess: (data) => {
       setRecoveryCodes(data.recoveryCodes);
+      setEmailConfirmationSent(data.securityEmailSent === true);
       setStep("codes");
       setAcknowledged(false);
       setCopied(false);
@@ -178,13 +194,17 @@ export default function SecuritySettings() {
         }
         throw e;
       }
-      await apiRequest("POST", "/api/auth/mfa/disabled");
+      const res = await apiRequest("POST", "/api/auth/mfa/disabled");
+      return (await res.json()) as MfaMutationResult;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/mfa/status"] });
       toast({
         title: "Multi-factor authentication disabled",
-        description: "You can re-enable it from this page at any time.",
+        description:
+          data?.securityEmailSent === true
+            ? "You can re-enable it from this page at any time. We emailed you a confirmation."
+            : "You can re-enable it from this page at any time.",
       });
     },
     onError: (e: any) => {
