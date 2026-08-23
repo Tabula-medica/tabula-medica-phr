@@ -260,7 +260,22 @@ phiLogger.info("HIPAA audit compliance", getAuditCompliance());
 logPhiKeyFingerprints();
 
 async function initializeApp() {
-  // Serve static SPA FIRST so the frontend works even if later startup steps
+  // SEO routes must be mounted BEFORE serveStatic. `serveStatic` ends with an
+  // `app.use("*")` catch-all that answers every non-API path with the SPA
+  // shell, so anything registered after it is unreachable. Mounted here, the
+  // server-rendered marketing pages (/providers, /learn/:slug, /conditions/:slug,
+  // /free-care/:slug, /drug-savings/:slug) and the generated /sitemap.xml and
+  // /robots.txt are delivered as real HTML to crawlers and answer engines
+  // instead of an empty shell. Everything they do not match still falls
+  // through to the SPA.
+  try {
+    const { registerSeoRoutes } = await import("./seo/routes");
+    registerSeoRoutes(app);
+  } catch (e) {
+    console.error("[Startup] SEO routes failed:", e instanceof Error ? e.message : e);
+  }
+
+  // Serve static SPA next so the frontend works even if later startup steps
   // log warnings about missing optional config.
   if (isProduction) {
     try {
@@ -278,7 +293,6 @@ async function initializeApp() {
       try { const { registerRecordLinkageRoutes } = await import("./record-linkage-routes"); registerRecordLinkageRoutes(app); } catch (e) {}
       try { const { registerMonitoringRoutes } = await import("./monitoring-routes"); registerMonitoringRoutes(app); } catch (e) {}
       app.get("/api/compliance-status", complianceStatusEndpoint);
-      try { const { registerSeoRoutes } = await import("./seo/routes"); registerSeoRoutes(app); } catch (e) { console.error("[Startup] SEO routes failed:", e instanceof Error ? e.message : e); }
       app.use(productionErrorHandler);
       markApiRoutesReady();
       log("All API routes registered", "Startup");

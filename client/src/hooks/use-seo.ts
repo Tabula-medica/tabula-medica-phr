@@ -3,75 +3,88 @@ import { useEffect } from "react";
 interface SEOProps {
   title: string;
   description?: string;
+  /**
+   * Canonical path for this page. Defaults to the current `location.pathname`,
+   * so a page never inherits the previous route's canonical URL.
+   */
   canonicalPath?: string;
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
+  /**
+   * Set `false` on pages that must never be indexed — anything behind auth, or
+   * a surface whose content belongs to one patient. Emits
+   * `noindex, nofollow` and drops the canonical link.
+   */
+  indexable?: boolean;
+}
+
+/** Create the tag if it is missing, then set its content. */
+function setMeta(selector: string, attr: "name" | "property", key: string, content: string) {
+  let el = document.querySelector(selector);
+  if (!el) {
+    el = document.createElement("meta");
+    el.setAttribute(attr, key);
+    document.head.appendChild(el);
+  }
+  el.setAttribute("content", content);
 }
 
 const SITE_NAME = "Tabula Medica";
 const SITE_URL = "https://tabulamedica.health";
 
-export function useSEO({ title, description, canonicalPath, structuredData }: SEOProps) {
+export function useSEO({
+  title,
+  description,
+  canonicalPath,
+  structuredData,
+  indexable = true,
+}: SEOProps) {
   useEffect(() => {
     const fullTitle = `${title} - ${SITE_NAME}`;
     document.title = fullTitle;
 
-    let metaDesc = document.querySelector('meta[name="description"]');
+    // Fall back to the live path so single-page navigations cannot leave a
+    // stale canonical or og:url pointing at whichever page ran last.
+    const path =
+      canonicalPath ?? (typeof window !== "undefined" ? window.location.pathname : "/");
+    const pageUrl = `${SITE_URL}${path}`;
+
     if (description) {
-      if (metaDesc) {
-        metaDesc.setAttribute("content", description);
-      }
+      setMeta('meta[name="description"]', "name", "description", description);
     }
 
-    let ogTitle = document.querySelector('meta[property="og:title"]');
-    if (!ogTitle) {
-      ogTitle = document.createElement("meta");
-      ogTitle.setAttribute("property", "og:title");
-      document.head.appendChild(ogTitle);
-    }
-    ogTitle.setAttribute("content", fullTitle);
-
-    let ogDesc = document.querySelector('meta[property="og:description"]');
-    if (!ogDesc) {
-      ogDesc = document.createElement("meta");
-      ogDesc.setAttribute("property", "og:description");
-      document.head.appendChild(ogDesc);
-    }
+    setMeta('meta[property="og:title"]', "property", "og:title", fullTitle);
+    setMeta('meta[property="og:type"]', "property", "og:type", "website");
+    setMeta('meta[property="og:site_name"]', "property", "og:site_name", SITE_NAME);
+    setMeta('meta[property="og:url"]', "property", "og:url", pageUrl);
+    setMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+    setMeta('meta[name="twitter:title"]', "name", "twitter:title", fullTitle);
     if (description) {
-      ogDesc.setAttribute("content", description);
+      setMeta('meta[property="og:description"]', "property", "og:description", description);
+      setMeta('meta[name="twitter:description"]', "name", "twitter:description", description);
     }
 
-    let ogType = document.querySelector('meta[property="og:type"]');
-    if (!ogType) {
-      ogType = document.createElement("meta");
-      ogType.setAttribute("property", "og:type");
-      document.head.appendChild(ogType);
-    }
-    ogType.setAttribute("content", "website");
+    // Search and answer engines are told, per page, whether it may be indexed.
+    // Patient-facing surfaces carry PHI and must stay out of every index even
+    // if a link to one escapes.
+    setMeta(
+      'meta[name="robots"]',
+      "name",
+      "robots",
+      indexable
+        ? "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
+        : "noindex, nofollow, noarchive",
+    );
 
-    let ogSiteName = document.querySelector('meta[property="og:site_name"]');
-    if (!ogSiteName) {
-      ogSiteName = document.createElement("meta");
-      ogSiteName.setAttribute("property", "og:site_name");
-      document.head.appendChild(ogSiteName);
-    }
-    ogSiteName.setAttribute("content", SITE_NAME);
-
-    let twitterCard = document.querySelector('meta[name="twitter:card"]');
-    if (!twitterCard) {
-      twitterCard = document.createElement("meta");
-      twitterCard.setAttribute("name", "twitter:card");
-      document.head.appendChild(twitterCard);
-    }
-    twitterCard.setAttribute("content", "summary_large_image");
-
-    if (canonicalPath) {
-      let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (indexable) {
       if (!canonical) {
         canonical = document.createElement("link");
         canonical.setAttribute("rel", "canonical");
         document.head.appendChild(canonical);
       }
-      canonical.setAttribute("href", `${SITE_URL}${canonicalPath}`);
+      canonical.setAttribute("href", pageUrl);
+    } else if (canonical) {
+      canonical.remove();
     }
 
     const scriptId = "structured-data-seo";
@@ -94,7 +107,7 @@ export function useSEO({ title, description, canonicalPath, structuredData }: SE
       const scriptEl = document.getElementById(scriptId);
       if (scriptEl) scriptEl.remove();
     };
-  }, [title, description, canonicalPath, structuredData]);
+  }, [title, description, canonicalPath, structuredData, indexable]);
 }
 
 export function buildOrganizationSchema() {

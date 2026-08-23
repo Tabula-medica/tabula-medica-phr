@@ -9,7 +9,12 @@ try {
   LOGO_BASE64 = "/logo.png";
 }
 
-const SITE_URL = "https://app.tabulamedica.health";
+// Canonical public origin. Must match the canonical link in
+// `client/index.html`, the URLs in `client/public/llms.txt`, and `SITE_URL`
+// in `client/src/hooks/use-seo.ts`. Pointing server-rendered pages at a
+// different host than the sitemap declares splits ranking signals between two
+// origins and makes each page look like a duplicate of the other.
+const SITE_URL = "https://tabulamedica.health";
 const BRAND_NAME = "Tabula Medica";
 
 interface SsrPageOptions {
