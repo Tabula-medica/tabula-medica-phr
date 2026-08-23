@@ -1,4 +1,5 @@
 import { LegalDocument } from "@/components/legal-document";
+import AccessibilityStatement from "@/pages/accessibility-statement";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Mail } from "lucide-react";
 
@@ -25,7 +26,6 @@ const LEGAL_PLACEHOLDERS: Record<string, LegalPageContent> = {
   terms: { title: "Terms of Service", lastUpdated: "Pending publication" },
   cookie: { title: "Cookie Policy", lastUpdated: "Pending publication" },
   disclaimer: { title: "Disclaimer", lastUpdated: "Pending publication" },
-  accessibility: { title: "Accessibility Statement", lastUpdated: "Pending publication" },
   "hipaa-notice": { title: "HIPAA Notice of Privacy Practices", lastUpdated: "Pending publication" },
   // Care Access Privacy Notice — hand-written, surfaced conditionally by
   // LegalFooter on /care/* routes but must render directly when a signed-out
@@ -40,6 +40,14 @@ interface LegalPageProps {
 }
 
 export function LegalPage({ slug }: LegalPageProps) {
+  // The accessibility statement is not Termly-managed policy text waiting on
+  // legal review — it states what the product does and does not support, which
+  // only the engineering record can supply. It is published, so it renders its
+  // own page rather than the pending-review placeholder.
+  if (slug === "accessibility") {
+    return <AccessibilityStatement />;
+  }
+
   const content = LEGAL_PLACEHOLDERS[slug];
 
   if (!content) {

@@ -310,10 +310,12 @@ export default function SmartDocumentUpload() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-{/* Drag-and-drop is a pointer shortcut for the file input below.
-                  The zone itself is layout: no role, no tab stop. */}
+{/* The zone itself opens the file picker, so it is the only route to
+                  it and `clickable` gives it a role, a tab stop and Enter/Space.
+                  The linter cannot see a role supplied through a spread, hence
+                  the exception for the drag handlers below. */}
+              {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
               <div
-                role="presentation"
                 className={cn(
                   "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
                   isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"

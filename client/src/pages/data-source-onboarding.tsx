@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -681,11 +682,11 @@ export default function DataSourceOnboarding() {
           <>
             <Separator />
             <div className="space-y-4">
-              <Label htmlFor="data-source-onboarding-alert-thresholds" className="text-base">Alert Thresholds</Label>
+              <FieldCaption className="text-base">Alert Thresholds</FieldCaption>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="data-source-onboarding-quality-drop" className="text-sm">Quality Drop (%)</Label>
-                  <Input id="data-source-onboarding-quality-drop" id="data-source-onboarding-alert-thresholds"
+                  <Input id="data-source-onboarding-quality-drop"
                     type="number"
                     value={anomalyConfig.thresholds.qualityDropPercent}
                     onChange={(e) =>

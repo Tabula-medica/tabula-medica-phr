@@ -26,6 +26,7 @@ import { dirname, resolve } from "node:path";
 import tseslint from "typescript-eslint";
 import noStringFormLoggerPlugin from "./eslint-rules/no-string-form-logger.js";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 // ---------------------------------------------------------------------------
@@ -215,6 +216,7 @@ export default tseslint.config(
       // client resolve to a known rule. No hook rules are switched on here —
       // this block is scoped to accessibility.
       "react-hooks": reactHooks,
+      react: reactPlugin,
     },
     languageOptions: {
       parser: tseslint.parser,
@@ -254,6 +256,13 @@ export default tseslint.config(
     },
     rules: {
       ...jsxA11y.flatConfigs.strict.rules,
+
+      // A duplicated JSX attribute silently discards one of the two values.
+      // When the discarded one is `id` or `role`, a control loses the
+      // association or the semantics an accessibility fix just gave it, and
+      // nothing else in the pipeline reports it — `tsc` does, but the client's
+      // pre-existing type errors mean typecheck is not a gate yet.
+      "react/jsx-no-duplicate-props": "error",
 
       // The design system nests a label's text inside a `<Button asChild>`
       // wrapper (`<Label><Button asChild><span>Browse</span></Button></Label>`),
