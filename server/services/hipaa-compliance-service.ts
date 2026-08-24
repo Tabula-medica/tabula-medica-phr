@@ -420,16 +420,20 @@ class HIPAAComplianceService {
       phiAccessEvents: number;
       uniqueUsers: number;
     };
+    // `null` means "not measured yet" and must render as such. It is
+    // deliberately not `0` or `"compliant"` — a reader cannot tell a real zero
+    // from a missing measurement, and cannot tell a real attestation from a
+    // placeholder.
     securityMetrics: {
-      mfaAdoptionRate: number;
-      averageSessionDuration: number;
-      failedLoginAttempts: number;
-      suspiciousActivities: number;
+      mfaAdoptionRate: number | null;
+      averageSessionDuration: number | null;
+      failedLoginAttempts: number | null;
+      suspiciousActivities: number | null;
     };
     complianceStatus: {
-      hipaa: { status: string; lastAudit: string; controls: number; compliant: number };
-      soc2: { status: string; lastAudit: string; controls: number; compliant: number };
-      hitrust: { status: string; lastAudit: string; controls: number; compliant: number };
+      hipaa: { status: string; lastAudit: string | null; controls: number | null; compliant: number | null };
+      soc2: { status: string; lastAudit: string | null; controls: number | null; compliant: number | null };
+      hitrust: { status: string; lastAudit: string | null; controls: number | null; compliant: number | null };
     };
     encryptionStatus: {
       atRest: { algorithm: string; keySize: number; status: string };
@@ -460,16 +464,25 @@ class HIPAAComplianceService {
         phiAccessEvents: phiEvents,
         uniqueUsers,
       },
+      // `auditStats` above is measured from real audit logs. Everything below
+      // was hardcoded: an invented MFA adoption rate, invented login-failure
+      // counts, and framework statuses reading "compliant" against audit dates
+      // and control counts that correspond to no audit anyone performed.
+      //
+      // A compliance dashboard that reports fabricated attestations is worse
+      // than one that reports nothing: it is the artefact people cite when
+      // asked whether controls are met. Until each value is wired to its real
+      // source, it reports "not measured" rather than a comfortable number.
       securityMetrics: {
-        mfaAdoptionRate: 78.5,
-        averageSessionDuration: 45,
-        failedLoginAttempts: 12,
-        suspiciousActivities: 2,
+        mfaAdoptionRate: null,
+        averageSessionDuration: null,
+        failedLoginAttempts: null,
+        suspiciousActivities: null,
       },
       complianceStatus: {
-        hipaa: { status: "compliant", lastAudit: "2026-01-15", controls: 45, compliant: 45 },
-        soc2: { status: "compliant", lastAudit: "2026-01-20", controls: 64, compliant: 62 },
-        hitrust: { status: "in_progress", lastAudit: "2025-12-01", controls: 75, compliant: 68 },
+        hipaa: { status: "not_assessed", lastAudit: null, controls: null, compliant: null },
+        soc2: { status: "not_assessed", lastAudit: null, controls: null, compliant: null },
+        hitrust: { status: "not_assessed", lastAudit: null, controls: null, compliant: null },
       },
       encryptionStatus: {
         atRest: { algorithm: "AES-256-GCM", keySize: 256, status: "active" },

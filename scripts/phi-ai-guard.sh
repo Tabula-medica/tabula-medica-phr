@@ -10,9 +10,12 @@
 # URLs, so it does NOT flag:
 #   - bare-hostname denylist strings (e.g. "openai.com" in a vendor_guard), or
 #   - the Vertex endpoint (aiplatform.googleapis.com), which is allowed.
-# It intentionally does NOT try to catch SDK-default leaks (`new OpenAI()` /
-# `new Anthropic()`), which are guarded architecturally in code (shims/denylists)
-# and are legitimate for non-PHI use — flagging them would be too noisy.
+# SDK-default leaks (`new OpenAI()`) are NOT caught by the URL scan — the SDK
+# bakes api.openai.com in, so no URL ever appears in source. That gap was not
+# theoretical: the Vertex shim meant to close it was never wired up, and ~280
+# files sent PHI to OpenAI while this guard reported OK. The URL scan is kept,
+# and the alias that actually routes those files to Vertex is now verified
+# below.
 #
 # Usage: bash scripts/phi-ai-guard.sh   (exit 1 on a hit)
 set -euo pipefail
@@ -38,4 +41,23 @@ if [ -n "$hits" ]; then
   echo "If this is genuinely NON-PHI, route it through a reviewed non-PHI path and add a scoped exception; do not send PHI here."
   exit 1
 fi
-echo "PHI-AI guard: OK — no non-BAA AI endpoint URLs in source."
+
+# --- The alias is the whole boundary; verify it exists ----------------------
+# ~280 server files do `import OpenAI from "openai"`. The esbuild alias in
+# script/build.ts is what redirects that to the Vertex shim. Without it the shim
+# is unreachable and every one of those files reaches OpenAI directly.
+if ! grep -qE 'alias:[[:space:]]*\{' script/build.ts 2>/dev/null ||
+   ! grep -q 'server/lib/vertex-openai.ts' script/build.ts 2>/dev/null; then
+  echo "::error::PHI-AI GUARD FAILED — script/build.ts no longer aliases \`openai\` to server/lib/vertex-openai.ts."
+  echo "Without that alias the Vertex shim is dead code and PHI-bearing AI goes to OpenAI (no BAA)."
+  exit 1
+fi
+
+# The shim must not import the aliased specifier, or it recurses into itself.
+if grep -qE '^import[[:space:]]+[A-Za-z]+[[:space:]]+from[[:space:]]+"openai"' server/lib/vertex-openai.ts 2>/dev/null; then
+  echo "::error::PHI-AI GUARD FAILED — server/lib/vertex-openai.ts imports the bare \`openai\` specifier."
+  echo "With the alias active that resolves back to the shim itself. Import the real SDK by relative path."
+  exit 1
+fi
+
+echo "PHI-AI guard: OK — no non-BAA endpoint URLs, and the openai->Vertex alias is in place."
