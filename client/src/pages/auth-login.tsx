@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, HeartPulse } from "lucide-react";
+import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, MailCheck, HeartPulse } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,11 @@ import {
   completeGcipRedirectSignIn,
   signInGcipWithEmail,
   sendGcipPasswordReset,
+  sendGcipVerificationEmail,
+  refreshGcipEmailVerified,
+  needsEmailVerification,
+  getGcipCurrentEmail,
+  signOutGcip,
   startPhoneSignIn,
   confirmPhoneCode,
   normalizePhoneE164,
@@ -28,6 +33,9 @@ import {
   type ConfirmationResult,
 } from "@/lib/gcip";
 
+/** Seconds to wait between "resend verification email" presses. */
+const RESEND_COOLDOWN_SECONDS = 30;
+
 export default function AuthLogin() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
@@ -37,6 +45,12 @@ export default function AuthLogin() {
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  // Email-verification step: an email/password account whose address hasn't
+  // been confirmed yet. We never require MFA here — the confirmation link is
+  // the only extra step, and only until it's clicked once.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
   // Phone (SMS) sign-in — the default, HealthEx-style passwordless path.
   const [method, setMethod] = useState<"phone" | "email">("phone");
   const [phone, setPhone] = useState("");
@@ -63,6 +77,13 @@ export default function AuthLogin() {
     });
     if (!exchangeRes.ok) {
       const body = await exchangeRes.json().catch(() => ({}));
+      // The server refuses to provision an email/password account whose
+      // address hasn't been confirmed (anti-bot gate). Show the "check your
+      // inbox" panel rather than a red error the user can't act on.
+      if (exchangeRes.status === 403 && body?.code === "email_not_verified") {
+        await startEmailVerification(getGcipCurrentEmail());
+        return;
+      }
       throw new Error(body?.message || "Failed to complete sign-in.");
     }
     const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
@@ -105,7 +126,14 @@ export default function AuthLogin() {
     setError(null);
     setBusy(true);
     try {
-      await signInGcipWithEmail(email.trim(), password);
+      const user = await signInGcipWithEmail(email.trim(), password);
+      // Anti-bot gate: an email/password account is only usable once its
+      // address has been confirmed. Mail the link (again) and switch to the
+      // confirmation panel instead of signing in.
+      if (needsEmailVerification(user)) {
+        await startEmailVerification(user.email ?? email.trim());
+        return;
+      }
       await completeSession();
     } catch (e: unknown) {
       handleSignInError(e, "Sign-in failed. Please try again.");
@@ -171,6 +199,102 @@ export default function AuthLogin() {
     setSmsCode("");
     setError(null);
   };
+
+  // Switch the page into the "confirm your email" state and mail the link.
+  // Sending is best-effort: if GCIP throttles us the panel still renders with
+  // a Resend button, so the person is never stuck on a dead end.
+  const startEmailVerification = async (address: string | null) => {
+    setError(null);
+    setPendingEmail(address);
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("We sent you a confirmation link. Open it, then press “I've confirmed my email.”");
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    } catch (e: unknown) {
+      const err = e as { code?: string } | null;
+      setNotice(
+        err?.code === "auth/too-many-requests"
+          ? "We've already sent several emails to this address — check your inbox and spam folder."
+          : "Open the confirmation link we emailed you, then press “I've confirmed my email.”",
+      );
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (resendIn > 0) return;
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("Verification email sent. It can take a minute to arrive — check your spam folder too.");
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string } | null;
+      setError(
+        err?.code === "auth/too-many-requests"
+          ? "Too many attempts. Please wait a few minutes before requesting another email."
+          : err?.message || "Could not send the verification email. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerificationDone = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const verified = await refreshGcipEmailVerified();
+      if (!verified) {
+        setError(
+          "That email hasn't been confirmed yet. Open the link we sent you, then press this again.",
+        );
+        return;
+      }
+      await completeSession();
+    } catch (e: unknown) {
+      const err = e as { message?: string } | null;
+      setError(err?.message || "Could not complete sign-in. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelEmailVerification = async () => {
+    setError(null);
+    setNotice(null);
+    try {
+      await signOutGcip();
+    } catch {
+      /* best-effort: the form works either way */
+    }
+    setPendingEmail(null);
+    setResendIn(0);
+    setPassword("");
+  };
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  // Landing back from the confirmation link (?verified=1) — tell the person
+  // the address is confirmed and they can just sign in normally now.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (new URLSearchParams(window.location.search).get("verified") === "1") {
+        setNotice("Your email is confirmed. Sign in below to finish setting up your account.");
+      }
+    } catch {
+      /* malformed query string — nothing to announce */
+    }
+  }, []);
 
   const handlePasswordReset = async () => {
     if (!emailValid) {
@@ -333,6 +457,88 @@ export default function AuthLogin() {
             <div className="lg:hidden mb-8 text-center">
               <img src="/logo.png" alt="Tabula Medica" className="h-10 mx-auto mb-4" />
             </div>
+            {pendingEmail ? (
+              <Card
+                className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm"
+                data-testid="card-verify-email"
+              >
+                <CardHeader className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <MailCheck className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-2xl font-normal">Confirm your email</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Open the confirmation link we sent to{" "}
+                    <strong className="text-foreground" data-testid="text-pending-email">
+                      {pendingEmail ?? "your email address"}
+                    </strong>
+                    , then come back here.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive" data-testid="alert-verify-error">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {notice && (
+                    <Alert data-testid="alert-verify-notice">
+                      <MailCheck className="h-4 w-4" />
+                      <AlertDescription>{notice}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This one-time check keeps automated sign-ups out of Tabula Medica. It is
+                    not two-factor authentication — no authenticator app, and no code to enter
+                    on future sign-ins.
+                  </p>
+
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => void handleVerificationDone()}
+                      disabled={busy}
+                      data-testid="button-verification-done"
+                    >
+                      {busy ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        "I've confirmed my email"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void handleResendVerification()}
+                      disabled={busy || resendIn > 0}
+                      data-testid="button-resend-verification"
+                    >
+                      {resendIn > 0 ? `Resend email (${resendIn}s)` : "Resend email"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => void cancelEmailVerification()}
+                      disabled={busy}
+                      data-testid="button-cancel-verification"
+                    >
+                      Back to sign in
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground text-center pt-1 flex items-center justify-center gap-1.5">
+                    <Shield className="h-3 w-3" />
+                    Protected by Google Cloud Identity Platform
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
             <Card className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm">
               <CardHeader className="space-y-2">
                 <CardTitle className="text-2xl font-normal">Welcome back</CardTitle>
@@ -351,6 +557,12 @@ export default function AuthLogin() {
                   <Alert variant="destructive" data-testid="alert-signin-error">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                {notice && (
+                  <Alert data-testid="alert-signin-notice">
+                    <MailCheck className="h-4 w-4" />
+                    <AlertDescription>{notice}</AlertDescription>
                   </Alert>
                 )}
                 {resetSent && (
@@ -606,6 +818,7 @@ export default function AuthLogin() {
                 </p>
               </CardContent>
             </Card>
+            )}
             <div className="mt-6 space-y-3">
               <Link href="/auth/get-started" data-testid="link-get-started">
                 <Button variant="outline" className="w-full" size="lg">
