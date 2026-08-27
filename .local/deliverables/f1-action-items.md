@@ -2504,3 +2504,164 @@ The app is already functionally accessible to most assistive-tech users — the 
 
 - **Independent of F1 / Y / AB / AC / AD / AE / AF / AF-2.**
 - **Enables federal procurement** (VA, HHS, HRSA grants): mid-stage prerequisite, not Day-1.
+
+---
+
+## Action Item AH — Detection & response gap remediation (SIEM checklist)  🔴 PRE-ENTERPRISE-CUSTOMER
+
+**Status:** OPEN (filed 2026-08-27).
+**Spec:** `.local/deliverables/netwitness-siem-gap-analysis.md`.
+**Estimate:** ~1.5 sessions total across AH-1 … AH-7.
+**Trigger for filing:** NetWitness "Protect Patient Care From Cyberattacks" SIEM
+checklist (Demand Gen campaign LP) evaluated against TM's actual logging and
+detection posture.
+
+### Background
+
+TM has the collection half of a SIEM story genuinely built — `gcpAuditMiddleware`
+is globally mounted and writes risk-classified, PHI-redacted entries to three
+Cloud Logging streams. It has effectively none of the detection half, and one
+wiring defect voids the retention control we believe we have.
+
+Two findings carry real exposure and are not merely incomplete work:
+
+1. **The 6-year HIPAA audit sink cannot match our audit logs.**
+   `server/security/gcp-audit-logger.ts:118` writes every entry with an explicit
+   `resource: { type: "global" }`. The sink filter at `terraform/main.tf:400`
+   matches `cloud_run_revision` / `healthcare_dataset` / `gce_instance` /
+   `protoPayload.@type=AuditLog` — none of which is `global`. Our §164.312(b)
+   audit trail is falling to `_Default` (30-day retention) instead of the
+   2190-day bucket. The override is what breaks it: omitting `resource` lets
+   `@google-cloud/logging` auto-detect `cloud_run_revision`, which matches.
+
+2. **Compliance-facing services render fabricated detection telemetry.**
+   `ai-security-posture.ts` and peers hold state in per-instance `Map`s seeded
+   with invented operating statistics (`truePositives: 89`,
+   `effectivenessScore: 0.94`). Per `hipaa-audit-dashboard-gap-analysis.md` the
+   pages rendering them are mounted. An auditor or hospital counterparty in a
+   demo would read these as measurements.
+
+Separately: zero `google_monitoring_*` resources exist anywhere in `terraform/`.
+No condition in the system — break-glass PHI access included — currently notifies
+a human. That is the §164.308(a)(1)(ii)(D) gap, not merely a nice-to-have.
+
+### Scope
+
+**AH-1: Fix the audit-sink resource mismatch** (~0.25 session, gated on AH-6)
+- Delete `resource: { type: "global" }` from the metadata object in
+  `server/security/gcp-audit-logger.ts:118`; let auto-detection supply
+  `cloud_run_revision`
+- Also widen `terraform/main.tf:400` with
+  `OR logName=~"tabula-medica-(audit|phi-access|security)"` so retention pins to
+  log name, not to a resource type that shifts on platform migration
+- Do both: fix 1 alone re-breaks off Cloud Run; fix 2 alone leaves line 118
+  looking load-bearing to the next reader
+- Acceptance: `gcloud logging read` against the `hipaa-audit-logs` bucket returns
+  entries from all three streams
+
+**AH-2: Log-based metrics + alert policies** (~0.5 session) — *the item that closes
+the actual gap*
+- `google_logging_metric` over the `risk_level` and `phi_access` labels the app
+  already emits from `classifyRiskLevel()`
+- `google_monitoring_alert_policy` for: any `critical` (break-glass /
+  emergency-access), bulk export volume, 401/403 rate spike, PHI-access volume
+  anomaly per actor
+- One `google_monitoring_notification_channel` (email to start; PagerDuty when
+  there is a rotation to page)
+- Acceptance: a synthetic break-glass request in staging produces a notification
+
+**AH-3: Label or unmount seeded telemetry** (~0.25 session) — **DO FIRST**
+- Every surface backed by seeded in-memory state gets an unmistakable
+  non-production banner, or comes off the production router
+- Covers `ai-security-posture.ts`, `automated-alerting.ts`,
+  `comprehensive-audit-trail-service.ts`, `security-posture-engine.ts`,
+  `audit-events.ts`, and the pages listed in `hipaa-audit-dashboard-gap-analysis.md`
+- Acceptance: no mounted page displays an invented metric without a banner
+
+**AH-4: Rate-limit store + trust-proxy hardening** (~0.25 session)
+- `express-rate-limit` uses default MemoryStore across `min 1 / max 10` Cloud Run
+  instances (`deploy.sh:63–66`) — effective ceiling is ~10× configured
+- `app.set("trust proxy", 1)` lives only in `replitAuth.ts:204` inside
+  `setupAuth()`, invoked under a `Promise.race` timeout from `routes.ts:813`; if
+  that path is skipped every user shares one bucket (self-DoS, not bypass)
+- Move `trust proxy` to `server/index.ts` unconditionally; add a shared store or
+  document the multiplier as accepted risk
+- Delete or comment the never-mounted `authRateLimiter` / `mfaRateLimiter`
+- Footnote `compliance-validator.ts:319` — the "pass" is accurate about config and
+  silent about multi-instance enforceability
+
+**AH-5: Extend audit-of-audit coverage** (~0.25 session)
+- `auditAccessLogger` is mounted on `my-audit-trail-routes.ts:27` only — the
+  patient-facing view. The admin surfaces where insider misuse would occur are
+  unwrapped
+- Add `router.use(auditAccessLogger("<surface>"))` to the admin audit/export
+  route modules
+- Closes the remaining half of the `audit_access_log` gap recorded in
+  `hipaa-audit-dashboard-gap-analysis.md`
+
+**AH-6: Verify Terraform is actually applied** (~0.25 session) — **gates AH-1**
+- No deploy path references `terraform/` (`cloudbuild.yaml`, `deploy.sh`,
+  `deploy-world.sh` all call `gcloud run deploy` directly); no state backend
+  configured, no state committed
+- Every infrastructure claim citing `terraform/main.tf` — audit sink, VPC-SC
+  perimeter, KMS keyring, healthcare dataset — is currently unsupported by this
+  repo
+- Run `terraform plan` against the live project; record what exists, what drifted,
+  what was never applied
+- Verification task, not a coding task. No point fixing a filter on a sink that
+  does not exist
+
+**AH-7: Run osv-scanner in CI** (~0.1 session)
+- `osv-scanner.toml` is configured; nothing invokes it. `.github/workflows/`
+  holds only `phi-ai-guard.yml`
+- Hang the job on the pipeline delivered by Action Item S (RESOLVED)
+- Smaller gap than it looks — Dependabot covers per-manifest CVEs — but the config
+  is already written
+
+### Sequencing
+
+```
+AH-3  →  AH-6  →  AH-1  →  AH-2  →  AH-4 / AH-5 / AH-7 (independent)
+```
+
+AH-3 leads: cheapest, highest third-party exposure, depends on no infrastructure
+fact we have not established. AH-6 gates AH-1. AH-2 is what actually satisfies
+§164.308(a)(1)(ii)(D).
+
+### Why filed and not done now
+
+AH-1 and AH-6 change production log routing and cannot be validated from this
+repository — the correct edit depends on what is actually applied in the live
+project and what is currently landing in each bucket. Making that change blind is
+precisely the class of edit that wants a `gcloud logging read` in the other window.
+AH-2 is straightforward Terraform but is worth nothing until AH-6 confirms the
+sink exists. AH-3 could have been done immediately and was left with the bundle so
+the banner treatment is decided once, consistently, rather than per-page.
+
+### Purchasing note
+
+Do **not** buy NetWitness or any SIEM off this checklist. Every 🔴 closes with
+GCP-native configuration at ~$0 incremental. Revisit only when a hospital
+counterparty's BAA or a HITRUST r2 path names a monitored SIEM — at which point
+the streams are already structured, labelled, and centrally collected, which is
+the expensive part of any SIEM onboarding.
+
+### Cross-project applicability
+
+Per `three-site-compliance-matrix.md`: **AH-2, AH-4, AH-7 are policy items** that
+should be standardised across TM / UI / SAWD rather than fixed per-repo. AH-1,
+AH-3, AH-5, AH-6 are TM-specific findings whose equivalent question must be asked
+independently of UI (`uninsurance.care`) — that repo was not in scope for this
+session and was not inspected. Check UI for ported copies of `ai-security-posture`
+/ `automated-alerting` before it faces a customer.
+
+### Connection to other action items
+
+- **Extends `hipaa-audit-dashboard-gap-analysis.md`** — that doc found the
+  `audit_access_log` audit-of-audit gap; the middleware has since been built, and
+  AH-5 mounts it. Its "seeded/sample data" warning is AH-3's scope.
+- **Depends on Action Item S** (CI pipeline scaffold, RESOLVED) for AH-7.
+- **Independent of F1** — no overlap with the encryption program. AH-1's pino
+  redaction path is F1-derived (`phi-column-map.ts`) and is working correctly.
+- **Aligns with `threat_model.md`** — its "Seeded/sample data warning" names the
+  same class of surface AH-3 addresses.

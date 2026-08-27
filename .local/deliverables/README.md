@@ -56,6 +56,11 @@ Other working documents in this directory:
 - `accessibility-audit-session-6.md` — WCAG audit findings (Action Item U)
 - `audit-methodology-notes.md` — audit approach + conventions
 - `key-management-audit.md` — key rotation + escrow analysis
+- `netwitness-siem-gap-analysis.md` — detection & response gap analysis
+  (Action Item AH). Maps a healthcare SIEM checklist against TM's real
+  logging/alerting posture: audit-sink retention defect, absent alert
+  policies, seeded demo telemetry on compliance surfaces. Includes
+  TM/UI/SAWD applicability and a do-not-buy recommendation.
 - `vitest-runner-health-check.md` — Action Item V findings
 - `object-form-conversion-template.md` — logger conversion reference
   (Action Item K / T methodology)
