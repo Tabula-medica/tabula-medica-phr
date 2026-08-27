@@ -13,4 +13,14 @@ export const abdmConfig = {
   clientSecret: process.env.ABDM_CLIENT_SECRET ?? "",
   cmId: process.env.ABDM_CM_ID ?? "sbx", // X-CM-ID: "sbx" sandbox
   httpsProxy: process.env.ABDM_HTTPS_PROXY ?? "", // India egress proxy
+
+  // --- HIU identity, for consent + health-information data flow (consent.ts, data-flow.ts) ---
+  // The id ABDM issued to this PHR as a Health Information User. Consent artefacts name the HIU
+  // they were granted to, and an artefact naming a different HIU is refused — so a wrong value
+  // here does not silently widen access, it stops the data flow.
+  hiuId: process.env.ABDM_HIU_ID ?? "",
+  hiuName: process.env.ABDM_HIU_NAME ?? "Tabula Medica PHR",
+  // Where HIPs push encrypted health information. Must be the public HTTPS URL of this
+  // deployment's /api/abdm/hi/transfer route, and must match what is registered with ABDM.
+  dataPushUrl: process.env.ABDM_DATA_PUSH_URL ?? "",
 };
