@@ -36,6 +36,7 @@ import {
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
+import { registerAbdmRoutes } from "./abdm-routes";
 import { registerComplianceRoutes } from "./compliance/compliance-routes";
 import { registerCompAiRoutes } from "./compai-routes";
 import { registerPhiAuditRoutes } from "./phi-audit-routes";
@@ -884,6 +885,9 @@ export async function registerRoutes(
   
   // Register consent management routes (GDPR/HIPAA)
   registerConsentRoutes(app);
+
+  // Register ABDM (India) routes — connection ops + ABHA enrollment (stub until ABDM_ENABLED + creds)
+  registerAbdmRoutes(app);
   
   // Compliance routes already registered earlier for CDS blocking
   
