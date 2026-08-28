@@ -44,6 +44,8 @@ import { policyFor } from "./services/engagement/jurisdictions";
 import {
   isAllowedPortalUrl,
   isClinicStaff,
+  parseInboundWebhook,
+  twimlReply,
   verifyTwilioSignature,
 } from "./services/engagement/inbound-auth";
 import {
@@ -320,19 +322,24 @@ export function registerEngagementRoutes(app: Express): void {
       return res.status(403).json({ error: "Webhook signature verification failed", detail: signature.detail });
     }
 
-    const parsed = z
-      .object({
-        phone: z.string().min(7).max(20),
-        body: z.string().max(1600),
-        practiceName: z.string().min(1).max(80).default("Your clinic"),
-      })
-      .safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid inbound payload", details: parsed.error.issues });
+    // Twilio posts form-encoded From/Body, not JSON phone/body. Parsing the
+    // real carrier shape rather than a convenient one is the difference
+    // between a STOP that revokes and a STOP that 400s after the signature
+    // check and leaves consent granted.
+    const payload = parseInboundWebhook(req.body);
+    if (!payload.ok) {
+      return res.status(400).json({ error: "Invalid inbound payload", detail: payload.detail });
     }
 
-    const result = handleInbound(parsed.data);
-    res.json(result);
+    const result = handleInbound({
+      phone: payload.phone,
+      body: payload.body,
+      practiceName: process.env.PRACTICE_DISPLAY_NAME ?? "Your clinic",
+    });
+
+    // Reply in TwiML — Twilio does not read a JSON body, so a confirmation
+    // returned as JSON is a confirmation the patient never receives.
+    res.set("Content-Type", "text/xml").send(twimlReply(result.autoReply));
   });
 
   app.post("/api/engagement/preview", requireEngagementStaff, (req: Request, res: Response) => {

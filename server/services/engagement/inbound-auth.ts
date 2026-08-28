@@ -56,6 +56,84 @@ export function verifyTwilioSignature(
     : { ok: false, detail: "Signature did not validate for this request." };
 }
 
+// ── Webhook payload shape ────────────────────────────────────────────────────
+
+export type InboundPayload =
+  | { ok: true; phone: string; body: string; channel: "sms" | "whatsapp"; messageId?: string }
+  | { ok: false; detail: string };
+
+/**
+ * Normalise a carrier webhook into the shape the consent engine expects.
+ *
+ * This exists because of a bug worth remembering. The handler validated a
+ * JSON body of `{ phone, body }`, which is the shape a test harness sends.
+ * Twilio posts `application/x-www-form-urlencoded` with `From` and `Body`. So
+ * once signature verification was added, the endpoint looked secured and was
+ * inert: a real STOP passed the signature check, failed schema validation, and
+ * never reached `handleInbound`. Consent stayed granted, staff could keep
+ * sending, and a statutory opt-out was silently ignored — the failure the
+ * whole module exists to prevent, reintroduced by the fix for a different one.
+ *
+ * The mapping is now explicit and tested rather than implicit in a schema.
+ *
+ * WhatsApp arrives through the same webhook with `whatsapp:` prefixed onto the
+ * addresses, which is stripped here so downstream code sees an E.164 number
+ * and does not have to know which channel it came from.
+ */
+export function parseInboundWebhook(payload: unknown): InboundPayload {
+  if (!payload || typeof payload !== "object") {
+    return { ok: false, detail: "Webhook body was not an object." };
+  }
+  const form = payload as Record<string, unknown>;
+
+  const rawFrom = typeof form.From === "string" ? form.From : undefined;
+  const rawBody = typeof form.Body === "string" ? form.Body : undefined;
+
+  if (!rawFrom) {
+    return {
+      ok: false,
+      detail:
+        "No `From` field. Twilio posts form-encoded `From`/`Body`; a payload without them " +
+        "is not a carrier webhook.",
+    };
+  }
+
+  const channel = rawFrom.startsWith("whatsapp:") ? "whatsapp" : "sms";
+  const phone = rawFrom.replace(/^whatsapp:/, "").trim();
+
+  if (!phone) {
+    return { ok: false, detail: "`From` was present but empty." };
+  }
+
+  return {
+    ok: true,
+    phone,
+    // An empty body is legitimate — a media-only message — and must not be
+    // treated as a parse failure. It simply matches no keyword.
+    body: rawBody ?? "",
+    channel,
+    messageId: typeof form.MessageSid === "string" ? form.MessageSid : undefined,
+  };
+}
+
+/**
+ * TwiML for a reply, or an empty response.
+ *
+ * Twilio does not read a JSON body. Returning `{ autoReply: "..." }` meant the
+ * STOP confirmation was computed and then discarded — carriers auto-confirm
+ * the standard keywords, but the free-text revoke path ("please stop texting
+ * me") produced a reply nobody ever received.
+ */
+export function twimlReply(message: string | null): string {
+  if (!message) return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
+  const escaped = message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escaped}</Message></Response>`;
+}
+
 // ── Outbound link safety ─────────────────────────────────────────────────────
 
 export function portalOriginAllowList(raw = process.env.PATIENT_PORTAL_ORIGINS): string[] {

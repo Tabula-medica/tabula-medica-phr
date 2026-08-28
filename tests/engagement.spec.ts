@@ -32,7 +32,9 @@ import {
 import {
   isAllowedPortalUrl,
   isClinicStaff,
+  parseInboundWebhook,
   portalOriginAllowList,
+  twimlReply,
   verifyTwilioSignature,
 } from "../server/services/engagement/inbound-auth";
 import type { EngagementMessage, EngagementRecipient } from "@shared/engagement";
@@ -711,5 +713,83 @@ describe("who may send", () => {
     expect(isClinicStaff({ userId: "u", role: "provider" })).toBe(true);
     expect(isClinicStaff({ userId: "u", role: "staff" })).toBe(true);
     expect(isClinicStaff({ userId: "u", role: "admin" })).toBe(true);
+  });
+});
+
+
+describe("carrier webhook payload", () => {
+  /** What Twilio actually posts: form-encoded, capitalised field names. */
+  const twilioSms = {
+    ToCountry: "US",
+    From: "+14155550100",
+    Body: "STOP",
+    MessageSid: "SM0123456789abcdef",
+    AccountSid: "AC0123456789abcdef",
+    To: "+14155559999",
+  };
+
+  it("reads Twilio's From/Body, which is what a real carrier sends", () => {
+    // The bug this pins: the handler validated JSON {phone, body} — the shape
+    // a test harness sends — so once the signature check was added, a real
+    // STOP passed verification, failed schema validation, and never reached
+    // the consent engine. Secured and inert.
+    const parsed = parseInboundWebhook(twilioSms);
+    expect(parsed).toMatchObject({ ok: true, phone: "+14155550100", body: "STOP", channel: "sms" });
+  });
+
+  it("strips the whatsapp: prefix so downstream sees an E.164 number", () => {
+    const parsed = parseInboundWebhook({
+      From: "whatsapp:+919876543210",
+      Body: "START",
+    });
+    expect(parsed).toMatchObject({
+      ok: true,
+      phone: "+919876543210",
+      channel: "whatsapp",
+    });
+  });
+
+  it("refuses a payload with no From — that is not a carrier webhook", () => {
+    expect(parseInboundWebhook({ phone: "+14155550100", body: "STOP" })).toMatchObject({
+      ok: false,
+    });
+    expect(parseInboundWebhook({}).ok).toBe(false);
+    expect(parseInboundWebhook(null).ok).toBe(false);
+  });
+
+  it("accepts an empty body rather than treating it as a parse failure", () => {
+    // A media-only message is legitimate; it simply matches no keyword.
+    expect(parseInboundWebhook({ From: "+14155550100" })).toMatchObject({ ok: true, body: "" });
+  });
+
+  it("carries a real STOP all the way through to revocation", () => {
+    // End to end, the path the finding said was broken.
+    grantConsent({ phone: PHONE, purposes: ["appointment-reminder"], capturedVia: "intake-form" });
+    const parsed = parseInboundWebhook(twilioSms);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      handleInbound({ phone: parsed.phone, body: parsed.body, practiceName: "Clinic" });
+      expect(getConsent(PHONE).state).toBe("revoked");
+    }
+  });
+});
+
+describe("TwiML reply", () => {
+  it("wraps a reply so the patient actually receives it", () => {
+    // Returning { autoReply } as JSON meant the confirmation was computed and
+    // discarded — Twilio does not read a JSON body.
+    const xml = twimlReply("You are unsubscribed.");
+    expect(xml).toContain("<Response><Message>You are unsubscribed.</Message></Response>");
+  });
+
+  it("emits an empty Response when there is nothing to say", () => {
+    expect(twimlReply(null)).toContain("<Response></Response>");
+  });
+
+  it("escapes XML metacharacters", () => {
+    const xml = twimlReply('Call us at "1 & 2" <now>');
+    expect(xml).toContain("&amp;");
+    expect(xml).toContain("&lt;now&gt;");
+    expect(xml).not.toMatch(/<now>/);
   });
 });
