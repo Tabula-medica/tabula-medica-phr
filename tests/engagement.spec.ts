@@ -29,6 +29,12 @@ import {
   isRtl,
   isValidNoticeLanguageIN,
 } from "../server/services/engagement/languages";
+import {
+  isAllowedPortalUrl,
+  isClinicStaff,
+  portalOriginAllowList,
+  verifyTwilioSignature,
+} from "../server/services/engagement/inbound-auth";
 import type { EngagementMessage, EngagementRecipient } from "@shared/engagement";
 
 const PHONE = "+14155550100";
@@ -623,5 +629,87 @@ describe("Indian-language rendering", () => {
     // worded. Classifying it honestly keeps it inside the promotional rules.
     const recall = TEMPLATES.find((t) => t.id === "recall-reactivation");
     expect(recall?.whatsappCategory).toBe("marketing");
+  });
+});
+
+
+describe("inbound webhook authenticity", () => {
+  const request = {
+    signature: "abc123",
+    url: "https://clinic.example/api/engagement/inbound",
+    params: { From: "+14155550100", Body: "STOP" },
+  };
+
+  it("refuses when no auth token is configured, rather than accepting everything", () => {
+    // The failure this prevents: a staging deployment with no credentials
+    // silently becomes an open consent-mutation endpoint.
+    const verdict = verifyTwilioSignature(request, undefined);
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.detail).toContain("not configured");
+  });
+
+  it("refuses a request with no signature header", () => {
+    const verdict = verifyTwilioSignature({ ...request, signature: undefined }, "token");
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.detail).toContain("Missing");
+  });
+
+  it("refuses a forged signature", () => {
+    // Anyone could POST {phone, body:"START"} and manufacture an opt-in that
+    // later lets the clinic text somebody who never agreed.
+    expect(verifyTwilioSignature({ ...request, signature: "not-a-real-sig" }, "token").ok).toBe(
+      false,
+    );
+  });
+});
+
+describe("outbound link safety", () => {
+  const allow = ["https://portal.clinic.example"];
+
+  it("refuses every URL when no allow-list is configured", () => {
+    // "Not configured yet" must not read as "anything goes" on a channel that
+    // carries the practice's own sender identity.
+    expect(portalOriginAllowList("")).toEqual([]);
+    expect(isAllowedPortalUrl("https://portal.clinic.example/x", [])).toBe(false);
+  });
+
+  it("accepts a URL on an allowed origin", () => {
+    expect(isAllowedPortalUrl("https://portal.clinic.example/prep/123", allow)).toBe(true);
+  });
+
+  it("refuses a lookalike origin", () => {
+    // Clinic-branded copy, practice sender id, attacker's link — patients are
+    // trained to trust exactly this message.
+    expect(isAllowedPortalUrl("https://portal.clinic.example.evil.test/x", allow)).toBe(false);
+    expect(isAllowedPortalUrl("https://portal-clinic.example/x", allow)).toBe(false);
+  });
+
+  it("refuses plaintext http even on an allowed host", () => {
+    expect(isAllowedPortalUrl("http://portal.clinic.example/x", allow)).toBe(false);
+  });
+
+  it("treats an absent URL as fine — the render step catches what it needs", () => {
+    expect(isAllowedPortalUrl(undefined, allow)).toBe(true);
+  });
+});
+
+describe("who may send", () => {
+  it("refuses an ordinary signed-in patient account", () => {
+    // isAuthenticated alone let a patient enrol a stranger's number and send
+    // clinic-branded SMS from the practice number.
+    expect(isClinicStaff({ userId: "patient-1" })).toBe(false);
+    expect(isClinicStaff({ userId: "patient-1", role: "patient" })).toBe(false);
+  });
+
+  it("refuses an unauthenticated caller", () => {
+    expect(isClinicStaff({})).toBe(false);
+    expect(isClinicStaff({ role: "admin" })).toBe(false);
+  });
+
+  it("admits provider, staff and admin roles", () => {
+    expect(isClinicStaff({ userId: "u", isProvider: true })).toBe(true);
+    expect(isClinicStaff({ userId: "u", role: "provider" })).toBe(true);
+    expect(isClinicStaff({ userId: "u", role: "staff" })).toBe(true);
+    expect(isClinicStaff({ userId: "u", role: "admin" })).toBe(true);
   });
 });

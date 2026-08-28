@@ -225,6 +225,9 @@ export TWILIO_PHONE_NUMBER=+1...
 # India SMS — TRAI DLT template ids, internalId=dltId
 export DLT_TEMPLATE_IDS="appointment-reminder=1107xxxxxxxxxxxxx,..."
 
+# Template links — https origins that may appear in a message
+export PATIENT_PORTAL_ORIGINS="https://portal.clinic.example"
+
 # WhatsApp — Meta approved template names, internalId=approved_name
 export WHATSAPP_PHONE_NUMBER_ID=...
 export WHATSAPP_ACCESS_TOKEN=...

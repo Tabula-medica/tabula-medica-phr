@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createHash, createPublicKey } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, sign } from "node:crypto";
 import {
   canonicalize,
   deriveProvenance,
@@ -276,6 +276,80 @@ describe("issuePassport / verifyPassport", () => {
     expect(verifyPassport(downgraded)).toMatchObject({
       valid: false,
       reason: "superseded-format",
+    });
+  });
+
+  it("reports the fingerprint of the key that verified, not the envelope's claim", () => {
+    const { keys, passport } = issue();
+    const pinned = verifyPassport(passport, publicKeyDer(keys.publicKeyPem));
+    expect(pinned.valid).toBe(true);
+    if (pinned.valid) {
+      expect(pinned.keyId).toBe(keyFingerprint(keys.publicKeyPem));
+    }
+  });
+
+  it("refuses a peer impersonating another trusted issuer on a multi-issuer host", () => {
+    // The attack the envelope binding alone does not stop. `keyId` is inside
+    // the signed attributes, so a holder of ANY trusted private key can sign a
+    // well-formed envelope carrying their own publicKey (it must be, or the
+    // signature fails) while advertising a different trusted issuer's
+    // fingerprint. The signature verifies and the key is trusted — a verifier
+    // that echoed the envelope's keyId would call it issuer-verified under the
+    // spoofed identity.
+    //
+    // Signed here the way an attacker would: the spoofed keyId is part of the
+    // signed attributes, not edited in afterwards.
+    const victim = generatePassportKeyPair();
+    const peer = generatePassportKeyPair();
+
+    const document = buildIpsBundle(sampleInput());
+    const canonical = Buffer.from(canonicalize(document), "utf8");
+    const documentHash = createHash("sha256").update(canonical).digest().toString("base64url");
+    const provenance = deriveProvenance(0, 3);
+
+    const peerPublicDer = publicKeyDer(peer.publicKeyPem);
+    const unsigned = {
+      format: "tabula-medica.health-passport.v2",
+      issuer: "Tabula Medica",
+      documentHash,
+      provenance,
+      signature: {
+        algorithm: "Ed25519" as const,
+        publicKey: peerPublicDer.toString("base64url"),
+        // The spoof: advertise the victim's fingerprint.
+        keyId: keyFingerprint(victim.publicKeyPem),
+        signedAt: SIGNED_AT,
+      },
+    };
+
+    const attributes = Buffer.from(canonicalize(unsigned), "utf8");
+    const signature = sign(null, attributes, createPrivateKey(peer.privateKeyPem));
+
+    const impersonating = {
+      ...unsigned,
+      signature: { ...unsigned.signature, value: signature.toString("base64url") },
+      document,
+    } as unknown as HealthPassport;
+
+    // A host that trusts both peers — exactly what a trusted-key list is for.
+    const trusted = [publicKeyDer(victim.publicKeyPem), peerPublicDer];
+    expect(verifyPassport(impersonating, trusted)).toMatchObject({
+      valid: false,
+      reason: "key-id-mismatch",
+    });
+
+    // And the honest version of the same envelope still verifies.
+    const honest = { ...unsigned, signature: { ...unsigned.signature, keyId: keyFingerprint(peer.publicKeyPem) } };
+    const honestSig = sign(null, Buffer.from(canonicalize(honest), "utf8"), createPrivateKey(peer.privateKeyPem));
+    const honestPassport = {
+      ...honest,
+      signature: { ...honest.signature, value: honestSig.toString("base64url") },
+      document,
+    } as unknown as HealthPassport;
+    expect(verifyPassport(honestPassport, trusted)).toMatchObject({
+      valid: true,
+      issuerVerified: true,
+      keyId: keyFingerprint(peer.publicKeyPem),
     });
   });
 

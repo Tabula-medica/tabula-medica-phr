@@ -22,8 +22,9 @@
  *   POST /send                  run the gate and dispatch over sms or whatsapp
  */
 
-import type { Express, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import { z } from "zod";
+import twilio from "twilio";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { logPhiAccess } from "./security/hipaa-audit";
@@ -39,11 +40,51 @@ import { JOURNEYS, planJourney } from "./services/engagement/journeys";
 import { TEMPLATES, renderTemplate } from "./services/engagement/templates";
 import { dispatchSms, smsConfigured } from "./services/engagement/sms-channel";
 import { dispatchWhatsApp, whatsAppConfigured } from "./services/engagement/whatsapp-channel";
-import { JURISDICTIONS, policyFor } from "./services/engagement/jurisdictions";
+import { policyFor } from "./services/engagement/jurisdictions";
+import {
+  isAllowedPortalUrl,
+  isClinicStaff,
+  verifyTwilioSignature,
+} from "./services/engagement/inbound-auth";
 import {
   EIGHTH_SCHEDULE_LANGUAGES,
   isValidNoticeLanguageIN,
 } from "./services/engagement/languages";
+
+/**
+ * Clinic-staff guard. The predicate itself lives in `inbound-auth.ts` so it
+ * can be tested; this is the express wrapper around it.
+ */
+function requireEngagementStaff(req: Request, res: Response, next: NextFunction) {
+  const session = req.session as any;
+  const caller = {
+    userId: session?.userId || (req.user as any)?.id || (req.user as any)?.claims?.sub,
+    role: session?.role,
+    isProvider: session?.isProvider,
+  };
+
+  if (!caller.userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  if (!isClinicStaff(caller)) {
+    return res.status(403).json({
+      error: "Clinic staff role required",
+      detail:
+        "Engagement messaging acts on a patient rather than for the caller, so it is " +
+        "restricted to clinic staff. A signed-in patient account cannot enrol a number, " +
+        "read another patient's consent, or send from the practice number.",
+    });
+  }
+
+  next();
+}
+
+/** Rebuild the exact URL Twilio signed, honouring the proxy-facing host. */
+function signedRequestUrl(req: Request): string {
+  const proto = req.header("X-Forwarded-Proto") ?? req.protocol;
+  const host = req.header("X-Forwarded-Host") ?? req.get("host") ?? "";
+  return `${proto}://${host}${req.originalUrl}`;
+}
 
 function sessionUserId(req: Request): string {
   return (
@@ -189,7 +230,7 @@ export function registerEngagementRoutes(app: Express): void {
     res.json({ journeys: JOURNEYS });
   });
 
-  app.post("/api/engagement/journeys/plan", isAuthenticated, (req: Request, res: Response) => {
+  app.post("/api/engagement/journeys/plan", requireEngagementStaff, (req: Request, res: Response) => {
     const parsed = z
       .object({ journeyId: z.string().min(1), anchorInstant: z.string().min(1) })
       .safeParse(req.body);
@@ -203,7 +244,7 @@ export function registerEngagementRoutes(app: Express): void {
     });
   });
 
-  app.get("/api/engagement/consent/:phone", isAuthenticated, (req: Request, res: Response) => {
+  app.get("/api/engagement/consent/:phone", requireEngagementStaff, (req: Request, res: Response) => {
     const normalized = normalizePhone(req.params.phone);
     if (!normalized) {
       return res.status(400).json({ error: "Not a usable phone number" });
@@ -211,7 +252,7 @@ export function registerEngagementRoutes(app: Express): void {
     res.json({ consent: getConsent(normalized) });
   });
 
-  app.post("/api/engagement/consent", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/engagement/consent", requireEngagementStaff, async (req: Request, res: Response) => {
     const parsed = consentSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid consent request", details: parsed.error.issues });
@@ -270,6 +311,15 @@ export function registerEngagementRoutes(app: Express): void {
    * violation. Verify the Twilio signature at the edge in production.
    */
   app.post("/api/engagement/inbound", (req: Request, res: Response) => {
+    const signature = verifyTwilioSignature({
+      signature: req.header("X-Twilio-Signature"),
+      url: signedRequestUrl(req),
+      params: (req.body ?? {}) as Record<string, unknown>,
+    });
+    if (!signature.ok) {
+      return res.status(403).json({ error: "Webhook signature verification failed", detail: signature.detail });
+    }
+
     const parsed = z
       .object({
         phone: z.string().min(7).max(20),
@@ -285,7 +335,7 @@ export function registerEngagementRoutes(app: Express): void {
     res.json(result);
   });
 
-  app.post("/api/engagement/preview", isAuthenticated, (req: Request, res: Response) => {
+  app.post("/api/engagement/preview", requireEngagementStaff, (req: Request, res: Response) => {
     const parsed = z
       .object({
         templateId: z.string().min(1),
@@ -296,10 +346,20 @@ export function registerEngagementRoutes(app: Express): void {
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid preview request", details: parsed.error.issues });
     }
+    if (!isAllowedPortalUrl(parsed.data.variables.portalUrl)) {
+      return res.status(400).json({
+        error: "portalUrl not allowed",
+        detail:
+          "Template links must point at an https origin listed in PATIENT_PORTAL_ORIGINS. " +
+          "An arbitrary URL in a clinic-branded message from the practice number is an " +
+          "SMS phishing primitive, so an unset allow-list refuses rather than permits.",
+      });
+    }
+
     res.json(renderTemplate(parsed.data.templateId, parsed.data.languageCode, parsed.data.variables));
   });
 
-  app.post("/api/engagement/send", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/engagement/send", requireEngagementStaff, async (req: Request, res: Response) => {
     const parsed = z
       .object({
         recipient: recipientSchema,
@@ -311,6 +371,16 @@ export function registerEngagementRoutes(app: Express): void {
       .safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid send request", details: parsed.error.issues });
+    }
+
+    if (!isAllowedPortalUrl(parsed.data.variables.portalUrl)) {
+      return res.status(400).json({
+        error: "portalUrl not allowed",
+        detail:
+          "Template links must point at an https origin listed in PATIENT_PORTAL_ORIGINS. " +
+          "An arbitrary URL in a clinic-branded message from the practice number is an " +
+          "SMS phishing primitive, so an unset allow-list refuses rather than permits.",
+      });
     }
 
     await logPhiAccess({

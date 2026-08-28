@@ -122,6 +122,7 @@ export type PassportFailure =
   | "unsupported-format"
   | "superseded-format"
   | "unsupported-algorithm"
+  | "key-id-mismatch"
   | "document-too-complex"
   | "malformed-key"
   | "hash-mismatch"
@@ -258,6 +259,17 @@ export function keyFingerprint(publicKeyPem: string): string {
     type: "spki",
     format: "der",
   });
+  return b64url(sha256(der)).slice(0, 16);
+}
+
+/**
+ * The same fingerprint computed straight from SPKI DER bytes.
+ *
+ * Verification works in DER, and the fingerprint a verifier reports must be
+ * derived from the key that actually verified rather than copied out of the
+ * envelope — see `verifyPassport` for why that distinction has teeth.
+ */
+export function fingerprintDer(der: Buffer): string {
   return b64url(sha256(der)).slice(0, 16);
 }
 
@@ -546,6 +558,8 @@ export function verifyPassport(
 
   let parsedAny = false;
   let verified = false;
+  /** The key the signature actually verified under — not the envelope's claim. */
+  let verifyingKeyDer: Buffer | null = null;
   for (const keyDer of candidates) {
     let publicKey;
     try {
@@ -556,6 +570,7 @@ export function verifyPassport(
     parsedAny = true;
     if (cryptoVerify(null, signed, publicKey, signatureBytes)) {
       verified = true;
+      verifyingKeyDer = keyDer;
       break;
     }
   }
@@ -582,11 +597,40 @@ export function verifyPassport(
     };
   }
 
+  // ── Bind the reported identity to the key that actually verified ─────────
+  //
+  // `keyId` sits inside the signed attributes, so binding the envelope was not
+  // enough on its own. A holder of ANY trusted private key can sign a
+  // well-formed v2 envelope in which `publicKey` is their own key (it must be,
+  // or the signature fails) while `keyId` advertises a different trusted
+  // issuer's fingerprint. The signature verifies, the key is trusted, and a
+  // verifier that echoed the envelope's `keyId` would report the passport as
+  // issuer-verified under the spoofed identity.
+  //
+  // On a single-issuer host this is inert. On a multi-issuer host — exactly
+  // what PASSPORT_TRUSTED_PUBLIC_KEYS exists to support — one peer can
+  // impersonate another. So the fingerprint is recomputed from the verifying
+  // key, and an envelope whose declared keyId disagrees is refused outright
+  // rather than reported with a corrected id: honest issuers never produce
+  // that mismatch, so it is a forgery signal, not a formatting quirk.
+  const actualKeyId = fingerprintDer(verifyingKeyDer as Buffer);
+  if (passport.signature.keyId !== actualKeyId) {
+    return {
+      valid: false,
+      reason: "key-id-mismatch",
+      detail:
+        `The envelope advertises keyId "${passport.signature.keyId}" but the signature ` +
+        `verified under a key whose fingerprint is "${actualKeyId}". An issuer never signs ` +
+        "a mismatched fingerprint; a peer impersonating another trusted issuer does.",
+    };
+  }
+
   return {
     valid: true,
     keyTrust,
     issuerVerified: keyTrust === "pinned",
-    keyId: passport.signature.keyId,
+    /** Derived from the verifying key, never copied from the envelope. */
+    keyId: actualKeyId,
     signedAt: passport.signature.signedAt,
     assurance: passport.provenance.assurance,
     statement: passport.provenance.statement,
