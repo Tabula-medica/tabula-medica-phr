@@ -8,8 +8,10 @@ import {
   date,
   integer,
   serial,
+  real,
   jsonb,
   inet,
+  index,
   primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -22405,3 +22407,73 @@ export const insertAccountPrivacyPrefsSchema = createInsertSchema(accountPrivacy
 });
 export type InsertAccountPrivacyPrefs = z.infer<typeof insertAccountPrivacyPrefsSchema>;
 export type AccountPrivacyPrefs = typeof accountPrivacyPrefs.$inferSelect;
+
+// ============================================
+// PROVIDER DIRECTORY — PERSISTENCE
+// Postgres-backed store for the zip + specialty provider search.
+// Mirrors the HealthcareProvider / ProviderLocation interfaces above;
+// the in-memory providerDirectoryService remains as a dev/seed fallback.
+// ============================================
+export const healthcareProvidersTable = pgTable("healthcare_providers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  npi: text("npi").notNull().unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  credentials: jsonb("credentials").$type<string[]>().notNull().default([]),
+  providerType: text("provider_type").notNull(),
+  specialties: jsonb("specialties").$type<string[]>().notNull().default([]),
+  primarySpecialty: text("primary_specialty").notNull(),
+  status: text("status").notNull().default("active"),
+  bio: text("bio"),
+  photoUrl: text("photo_url"),
+  languages: jsonb("languages").$type<string[]>().notNull().default(["English"]),
+  acceptingNewPatients: boolean("accepting_new_patients").notNull().default(true),
+  appointmentModes: jsonb("appointment_modes").$type<string[]>().notNull().default(["in_person"]),
+  averageRating: real("average_rating"),
+  reviewCount: integer("review_count").notNull().default(0),
+  yearsExperience: integer("years_experience"),
+  boardCertifications: jsonb("board_certifications").$type<string[]>().notNull().default([]),
+  hospitalAffiliations: jsonb("hospital_affiliations").$type<string[]>().notNull().default([]),
+  groupPractice: text("group_practice"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  primarySpecialtyIdx: index("hcp_primary_specialty_idx").on(t.primarySpecialty),
+  statusIdx: index("hcp_status_idx").on(t.status),
+}));
+
+export const providerLocationsTable = pgTable("provider_locations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  providerId: uuid("provider_id").notNull().references(() => healthcareProvidersTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  country: text("country").notNull().default("USA"),
+  phone: text("phone").notNull(),
+  fax: text("fax"),
+  email: text("email"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  appointmentModes: jsonb("appointment_modes").$type<string[]>().notNull().default(["in_person"]),
+  officeHours: jsonb("office_hours").$type<unknown[]>().notNull().default([]),
+  handicapAccessible: boolean("handicap_accessible").notNull().default(false),
+  parkingAvailable: boolean("parking_available").notNull().default(false),
+  publicTransitAccess: boolean("public_transit_access").notNull().default(false),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  zipIdx: index("provider_loc_zip_idx").on(t.zipCode),
+  providerIdx: index("provider_loc_provider_idx").on(t.providerId),
+}));
+
+export const insertHealthcareProviderDBSchema = createInsertSchema(healthcareProvidersTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertHealthcareProviderDB = z.infer<typeof insertHealthcareProviderDBSchema>;
+export type HealthcareProviderDB = typeof healthcareProvidersTable.$inferSelect;
+
+export const insertProviderLocationDBSchema = createInsertSchema(providerLocationsTable).omit({ id: true, createdAt: true });
+export type InsertProviderLocationDB = z.infer<typeof insertProviderLocationDBSchema>;
+export type ProviderLocationDB = typeof providerLocationsTable.$inferSelect;

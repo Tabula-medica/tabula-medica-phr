@@ -24182,6 +24182,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   console.log("[Routes] Provider Integration Hub routes registered at /api/provider-integration");
 
   const providerIntegration = await import("./services/providerIntegration");
+  const providerDirectoryStore = await import("./services/providerDirectoryStore");
   const {
     providerSearchFiltersSchema,
     insertFhirEhrConnectionSchema,
@@ -24489,8 +24490,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const validationResult = providerSearchFiltersSchema.safeParse(req.query);
       const filters = validationResult.success ? validationResult.data : {};
-      
-      const result = providerIntegration.providerDirectoryService.searchProviders(filters as any);
+
+      // Prefer the persisted directory (zip + specialty search over Postgres);
+      // fall back to the in-memory directory when no providers are seeded.
+      const persisted = await providerDirectoryStore.searchProvidersDb(filters as any);
+      const result = persisted ?? providerIntegration.providerDirectoryService.searchProviders(filters as any);
       res.json(result);
     } catch (error) {
       console.error("[Provider Integration] Error searching providers:", error);
