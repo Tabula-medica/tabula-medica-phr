@@ -493,6 +493,14 @@ Page rendering lives in `summary-page.ts` rather than inline in the route, so
 what a preview fetch is allowed to see is unit-tested rather than asserted in a
 comment.
 
+> **Deployment caveat this does not fix.** Moving the token off the `/api` path
+> keeps it out of *this process's* logs. A reverse proxy, load balancer or CDN
+> in front of the app will still record the `/s/<token>` request line, and for a
+> grant with no PIN that token is the only secret. Whoever operates the edge
+> has to suppress or redact the path for `/s/*`, or accept that anyone who can
+> read those logs can replay an outstanding link until it expires, hits its view
+> cap, or is revoked. This cannot be closed in application code.
+
 ## Configuration
 
 ```bash
