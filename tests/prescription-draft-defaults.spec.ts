@@ -139,3 +139,33 @@ describe("generatePrescriptionDraft", () => {
     expect(draft.disclaimer).toContain("Requires clinician review");
   });
 });
+
+describe("the unclassified cap binds refills, not just days", () => {
+  it("refuses requested refills on a medication it cannot classify", async () => {
+    // The unclassified branch used to read `customizations?.refills ??
+    // unknownDefaults.refills`, which put the raw request back after the
+    // policy had already capped it. daysSupply never had that bug, which is
+    // exactly why it survived review: the line above it looked right.
+    const draft = await generatePrescriptionDraft(context, "Zzyxadrine", {
+      refills: 3,
+      daysSupply: 100,
+    });
+
+    expect(draft.refills).toBe(0);
+    expect(draft.daysSupply).toBe(30);
+    // And the draft says why, rather than silently handing back different
+    // numbers than were asked for.
+    expect(
+      draft.warnings.some((w) => /unclassified/i.test(w)),
+      "an unclassified draft must explain the withheld supply",
+    ).toBe(true);
+  });
+
+  it("still honours refills on a medication the catalogue knows", async () => {
+    // The cap is not a blanket refusal — a classified chronic medication
+    // keeps the extended supply the policy is built around.
+    const draft = await generatePrescriptionDraft(context, "Metformin", {});
+    expect(draft.daysSupply).toBe(100);
+    expect(draft.refills).toBe(1);
+  });
+});

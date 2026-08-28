@@ -214,6 +214,60 @@ missing-consent and missing-timezone rows while they are still fixable.
 
 ---
 
+## Clinic-initiated sharing is refused, and why
+
+`POST /api/engagement/share` with `initiator: "clinic"` returns **501**. That
+is deliberate and it closes a real hole rather than deferring a feature.
+
+The path took a caller-supplied `profileId` and minted a **bearer link** to
+that person's medications, diagnoses and allergies — redeemable with no
+authentication at all — behind nothing but a clinic-staff role check. A role
+check answers *"does this caller work here"*. It cannot answer *"does this
+caller have any business with this patient"*, and only the second question
+bounds that disclosure.
+
+The reasoning that put it there was carried across from a place it was true:
+on engagement `/send` I argued that staff legitimately message patients other
+than themselves, so the role is the right boundary rather than ownership. That
+holds for texting a number the practice already has. It does not hold for
+opening an arbitrary profile UUID's chart to whoever holds a URL.
+
+The check it needs is a treatment relationship, and this codebase cannot
+answer it. `storage.isProviderAuthorizedForPatient` exists but is a
+process-local `Map` — on ten Cloud Run instances it returns false on nine,
+which denies legitimate access rather than granting illegitimate access. That
+is a different bug, not a control. There is no durable provider-patient table.
+
+So: refuse. `GET /api/engagement/share/list` ignores `?profileId=` and always
+uses the caller's own profile, and `POST /s/:id/revoke` accepts only the
+caller's own grants — both had the same staff bypass built on the same missing
+check. The patient-initiated path, which is what the feature is built around,
+is unaffected.
+
+The 45 CFR 164.524(c)(3)(ii) signed-directive rule still lives in
+`SHARE_POLICIES` and is still reported by `/api/engagement/share/policy`.
+Whoever restores the clinic path restores that check with it — and must not
+collapse it into the recipient's consent to be messaged, which is a different
+permission from a different person.
+
+## One staff guard, not one per route
+
+`requireClinicStaff` in `server/lib/middleware/require-clinic-staff.ts` is now
+the single definition, applied to the HCC, RVU, provider-directory and
+referral routes as well as engagement.
+
+Those routes were on `isAuthenticated`, which admits any signed-in patient
+account — the same defect fixed on engagement `/send` and `/consent` two
+rounds earlier. It recurred because that fix was applied to the routes that
+were reported rather than to the class of route they belong to. Sharing the
+wrapper is what stops the next clinician tool from being written with the
+wrong question.
+
+The middleware's own docstring says what it is not: a role is not a treatment
+relationship. It is the right boundary for a route that takes clinical content
+in the request body, and it is *not* sufficient for a route that loads a
+patient by id.
+
 ## Storage, and why it is not a Map
 
 Share grants and consent both live in Postgres (`health_summary_shares`,
@@ -496,7 +550,7 @@ the decision it was meant to inform.
 
 ```
 GET  /api/engagement/share/policy       per-jurisdiction rules + the instrument behind each
-POST /api/engagement/share              mint a link                          [auth]
+POST /api/engagement/share              mint a link — patient-initiated only  [auth]
 GET  /api/engagement/share/list         live and dead links for a profile    [auth]
 POST /api/engagement/share/:id/revoke   kill a link                          [auth]
 POST /api/engagement/share/view         the summary as JSON, token in body   [token]

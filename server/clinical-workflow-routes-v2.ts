@@ -28,6 +28,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { isAuthenticated } from "./replit_integrations/auth";
+import { requireClinicStaff } from "./lib/middleware/require-clinic-staff";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { logPhiAccess } from "./security/hipaa-audit";
 import {
@@ -145,6 +146,7 @@ export function registerClinicalWorkflowRoutes(app: Express): void {
   app.get(
     "/api/clinical-workflow/providers",
     isAuthenticated,
+    requireClinicStaff("Provider directory search"),
     requireUs,
     async (req: Request, res: Response) => {
       const parsed = providerSearchSchema.safeParse(req.query);
@@ -171,6 +173,7 @@ export function registerClinicalWorkflowRoutes(app: Express): void {
   app.post(
     "/api/clinical-workflow/providers/voice-list",
     isAuthenticated,
+    requireClinicStaff("Provider directory search"),
     requireUs,
     (req: Request, res: Response) => {
       const providers = z.array(providerResultSchema).safeParse(req.body?.providers);
@@ -190,6 +193,7 @@ export function registerClinicalWorkflowRoutes(app: Express): void {
   app.post(
     "/api/clinical-workflow/providers/voice-select",
     isAuthenticated,
+    requireClinicStaff("Provider directory search"),
     requireUs,
     (req: Request, res: Response) => {
       const providers = z.array(providerResultSchema).safeParse(req.body?.providers);
@@ -224,6 +228,7 @@ export function registerClinicalWorkflowRoutes(app: Express): void {
   app.post(
     "/api/clinical-workflow/referral",
     isAuthenticated,
+    requireClinicStaff("Referral drafting"),
     requireUs,
     async (req: Request, res: Response) => {
       const parsed = referralSchema.safeParse(req.body);

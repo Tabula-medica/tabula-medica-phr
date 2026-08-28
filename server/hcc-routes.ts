@@ -36,6 +36,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { isAuthenticated } from "./replit_integrations/auth";
+import { requireClinicStaff } from "./lib/middleware/require-clinic-staff";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { HCC_V28, type HccCondition, type HccModelSegment } from "@shared/hcc-v28";
@@ -171,7 +172,7 @@ export function registerHccRoutes(app: Express): void {
   });
 
   // ── Suspect detection ────────────────────────────────────────────────────
-  app.post("/api/hcc/suspects", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/hcc/suspects", isAuthenticated, requireClinicStaff("HCC documentation support"), async (req: Request, res: Response) => {
     const parsed = evidenceSnapshotSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid evidence snapshot", details: parsed.error.issues });
@@ -204,7 +205,7 @@ export function registerHccRoutes(app: Express): void {
   });
 
   // ── Annual recapture gaps ────────────────────────────────────────────────
-  app.post("/api/hcc/recapture", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/hcc/recapture", isAuthenticated, requireClinicStaff("HCC documentation support"), async (req: Request, res: Response) => {
     const parsed = recaptureSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid recapture input", details: parsed.error.issues });
@@ -220,7 +221,7 @@ export function registerHccRoutes(app: Express): void {
   });
 
   // ── MEAT adequacy ────────────────────────────────────────────────────────
-  app.post("/api/hcc/meat", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/hcc/meat", isAuthenticated, requireClinicStaff("HCC documentation support"), async (req: Request, res: Response) => {
     const parsed = meatSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid MEAT request", details: parsed.error.issues });
@@ -236,7 +237,7 @@ export function registerHccRoutes(app: Express): void {
   });
 
   // ── Combined, AI-ranked worklist ─────────────────────────────────────────
-  app.post("/api/hcc/review", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/hcc/review", isAuthenticated, requireClinicStaff("HCC documentation support"), async (req: Request, res: Response) => {
     const parsed = reviewSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid review request", details: parsed.error.issues });
@@ -290,7 +291,7 @@ export function registerHccRoutes(app: Express): void {
     });
   });
 
-  app.post("/api/hcc/raf", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/hcc/raf", isAuthenticated, requireClinicStaff("HCC documentation support"), async (req: Request, res: Response) => {
     const parsed = rafSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid RAF request", details: parsed.error.issues });

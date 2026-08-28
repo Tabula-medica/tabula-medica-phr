@@ -136,9 +136,28 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       const caller = callerRole(req);
       const staff = isClinicStaff(caller);
 
-      // A clinic-initiated share names a patient and is a staff action. A
-      // patient-initiated one can only ever be the caller's own record.
-      let profileId: string | null;
+      // A clinic-initiated share names a patient by id and mints a **bearer
+      // link** to their medications, diagnoses and allergies — redeemable with
+      // no authentication at all. A role check cannot carry that.
+      //
+      // I had reasoned, on the engagement `/send` route, that "staff
+      // legitimately message patients other than themselves, so the role check
+      // is the right boundary, not ownership". That is true for messaging a
+      // number the practice already holds. It is not true here, and carrying
+      // the reasoning across was the mistake: this path takes an arbitrary
+      // profile UUID and opens that person's chart to whoever holds the URL.
+      //
+      // The check it needs is a treatment relationship, and this codebase
+      // cannot answer that. `storage.isProviderAuthorizedForPatient` exists but
+      // is itself a process-local Map — on ten Cloud Run instances it would
+      // return false on nine of them, denying legitimate access rather than
+      // granting illegitimate access, which is a different bug rather than a
+      // control. There is no durable provider-patient table.
+      //
+      // So it refuses. An unauthenticated link to any profile in the database
+      // is not a flow worth keeping while the control that would bound it does
+      // not exist. The patient-initiated path is unaffected and is the one the
+      // feature is built around.
       if (input.initiator === "clinic") {
         if (!staff) {
           return res.status(403).json({
@@ -148,15 +167,18 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
               "authority. A signed-in patient account is not that authority.",
           });
         }
-        profileId = input.profileId ?? null;
-        if (!profileId) {
-          return res
-            .status(400)
-            .json({ error: "profileId is required for a clinic-initiated share" });
-        }
-      } else {
-        profileId = await resolveOwnProfileId(req);
+        return res.status(501).json({
+          error: "Clinic-initiated sharing is not available",
+          detail:
+            "This would mint a link that renders a named patient's medications, diagnoses " +
+            "and allergies to anyone holding the URL, with no authentication. Clinic staff " +
+            "role is not sufficient authority for that — it proves the caller works here, " +
+            "not that they have any business with this patient. A treatment-relationship " +
+            "check is required and this deployment has no durable source for one. Until it " +
+            "does, the patient shares their own record from their own account.",
+        });
       }
+      const profileId = await resolveOwnProfileId(req);
 
       if (!profileId) {
         return res.status(404).json({ error: "No profile found for this account" });
@@ -165,25 +187,19 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       const jurisdiction = input.jurisdiction as Jurisdiction;
       const policy = SHARE_POLICIES[jurisdiction];
 
-      // India has no portability right and no duty to transmit: sharing to a
-      // third party is a fresh purpose under DPDP s.4/s.6, not the discharge
-      // of an access right. The US signed-writing requirement under
-      // 164.524(c)(3)(ii) does not exist there and must not be demanded.
-      if (
-        input.initiator === "clinic" &&
-        policy.requiresSignedDirective &&
-        !input.directive
-      ) {
-        return res.status(400).json({
-          error: "A written, signed direction is required",
-          detail:
-            "45 CFR 164.524(c)(3)(ii) requires the individual's request to be in writing, " +
-            "signed, and to identify both the designated person and where to send the copy. " +
-            "Record it and pass a reference to it. Note this is a separate permission from " +
-            "the recipient's consent to be messaged — the patient cannot supply that one.",
-          legalBasis: policy.legalBasis,
-        });
-      }
+      // The 164.524(c)(3)(ii) signed-directive requirement used to be enforced
+      // here. It only ever applied to clinic-initiated shares, which now
+      // refuse above, so the check would be unreachable — TypeScript said so,
+      // which is the right way to find out.
+      //
+      // The rule itself is unchanged and still lives in `SHARE_POLICIES`,
+      // reported by `GET /api/engagement/share/policy`: a US third-party
+      // directive must be in writing, signed, and name both the person and the
+      // destination, while India has no portability right at all and treats
+      // the same disclosure as a fresh DPDP s.6 purpose. Whoever restores the
+      // clinic path restores this check with it — and must not collapse it
+      // into the recipient's consent to be messaged, which is a different
+      // permission from a different person.
 
       const result = await mintShare({
         profileId,
@@ -256,11 +272,11 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     isAuthenticated,
     noStorePhi,
     async (req: Request, res: Response) => {
-      const caller = callerRole(req);
-      const staff = isClinicStaff(caller);
-      const requested = typeof req.query.profileId === "string" ? req.query.profileId : undefined;
-
-      const profileId = staff && requested ? requested : await resolveOwnProfileId(req);
+      // Always the caller's own profile. `?profileId=` used to be honoured for
+      // staff, which let anyone past the role check enumerate another account's
+      // grants — the same missing treatment-relationship check as the mint
+      // path, so it fails the same way.
+      const profileId = await resolveOwnProfileId(req);
       if (!profileId) return res.status(404).json({ error: "No profile found for this account" });
 
       res.json({ shares: await listShares(profileId) });
@@ -274,16 +290,19 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     noStorePhi,
     async (req: Request, res: Response) => {
       const caller = callerRole(req);
-      const staff = isClinicStaff(caller);
       const ownProfileId = await resolveOwnProfileId(req);
 
-      // Only the record's owner or clinic staff may revoke. Checked against
-      // the caller's own listing rather than by trusting the id, so a guessed
-      // grant id belonging to someone else revokes nothing.
+      // Own grants only. The staff bypass that used to be here meant any
+      // caller passing the role check could revoke any grant id in the
+      // database — a denial-of-service on other practices' links rather than a
+      // disclosure, but built on the same missing check.
+      //
+      // Membership is tested against the caller's own listing rather than by
+      // trusting the id, so a guessed grant id revokes nothing.
       const mine = ownProfileId
         ? (await listShares(ownProfileId)).some((g) => g.id === req.params.id)
         : false;
-      if (!mine && !staff) {
+      if (!mine) {
         return res.status(403).json({ error: "Not permitted to revoke this share" });
       }
 

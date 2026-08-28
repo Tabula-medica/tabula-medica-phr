@@ -15,7 +15,7 @@
  *   GET  /templates             catalogue with tiers, languages and registration state
  *   GET  /journeys              cadences with the reasoning for each
  *   POST /journeys/plan         expand a journey against an anchor instant
- *   GET  /consent/:phone        consent state for one number
+ *   POST /consent/lookup        consent state for one number (phone in the body)
  *   POST /consent               record or revoke consent
  *   POST /inbound               process an inbound SMS (STOP/START/HELP)
  *   POST /preview               render a template without sending
@@ -246,13 +246,32 @@ export function registerEngagementRoutes(app: Express): void {
     });
   });
 
-  app.get("/api/engagement/consent/:phone", requireEngagementStaff, async (req: Request, res: Response) => {
-    const normalized = normalizePhone(req.params.phone);
-    if (!normalized) {
-      return res.status(400).json({ error: "Not a usable phone number" });
-    }
-    res.json({ consent: await getConsent(normalized) });
-  });
+  /**
+   * Consent lookup. POST, with the number in the body.
+   *
+   * `server/index.ts` logs `{ method, path, status }` to stdout for every
+   * `/api` request, with the path verbatim. A phone number in the path
+   * therefore became a patient-list identifier on the application log — a
+   * wider audience than `logPhiAccess`, which deliberately does not even
+   * record the number.
+   *
+   * The share JSON route was moved to a static POST path for exactly this
+   * reason a commit earlier. This sibling was not, because the fix was applied
+   * to the route that was reported rather than to the pattern. Same class,
+   * same treatment.
+   */
+  app.post(
+    "/api/engagement/consent/lookup",
+    requireEngagementStaff,
+    async (req: Request, res: Response) => {
+      const phone = typeof req.body?.phone === "string" ? req.body.phone : "";
+      const normalized = normalizePhone(phone);
+      if (!normalized) {
+        return res.status(400).json({ error: "Not a usable phone number" });
+      }
+      res.json({ consent: await getConsent(normalized) });
+    },
+  );
 
   app.post("/api/engagement/consent", requireEngagementStaff, async (req: Request, res: Response) => {
     const parsed = consentSchema.safeParse(req.body);

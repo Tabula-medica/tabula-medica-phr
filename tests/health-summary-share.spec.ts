@@ -29,6 +29,7 @@ import {
   createMemoryShareStore,
 } from "../server/services/engagement/share-store";
 import { SHARE_LIMITS, SUMMARY_SECTIONS } from "@shared/health-summary";
+import { isClinicStaff } from "../server/services/engagement/inbound-auth";
 import {
   GENERIC_TITLE,
   errorPage,
@@ -667,5 +668,32 @@ describe("the page a GET returns", () => {
     expect(page).toContain('action="/s/tok_xyz"');
     expect(page).toContain('method="post"');
     expect(page).toContain("That PIN is not correct.");
+  });
+});
+
+// ── Authority: a role is not a relationship ─────────────────────────────────
+
+describe("the staff predicate is not a treatment-relationship check", () => {
+  it("is the only thing standing between a role and any profile UUID", () => {
+    // `isClinicStaff` answers "does this caller work at the clinic". It cannot
+    // answer "does this caller have any business with THIS patient", because
+    // nothing in this codebase records that: `isProviderAuthorizedForPatient`
+    // is a process-local Map, which on ten instances denies legitimate access
+    // on nine of them rather than granting illegitimate access on one.
+    //
+    // Minting a bearer link that renders a named patient's medications,
+    // diagnoses and allergies to whoever holds the URL needs the second
+    // question answered, so the clinic-initiated path refuses. This test pins
+    // the predicate's actual scope so nobody mistakes it for more.
+    expect(isClinicStaff({ userId: "u1", role: "provider" })).toBe(true);
+    expect(isClinicStaff({ userId: "u1", role: "staff" })).toBe(true);
+    expect(isClinicStaff({ userId: "u1", role: "admin" })).toBe(true);
+    expect(isClinicStaff({ userId: "u1", isProvider: true })).toBe(true);
+
+    // A patient account never passes, which is the round-2 fix holding.
+    expect(isClinicStaff({ userId: "u1", role: "patient" })).toBe(false);
+    expect(isClinicStaff({ userId: "u1" })).toBe(false);
+    // And it is not an authentication check either — no caller, no pass.
+    expect(isClinicStaff({ role: "provider" })).toBe(false);
   });
 });

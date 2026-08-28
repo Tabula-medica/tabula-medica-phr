@@ -19,6 +19,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { isAuthenticated } from "./replit_integrations/auth";
+import { requireClinicStaff } from "./lib/middleware/require-clinic-staff";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { PFS_MODEL } from "@shared/rvu";
@@ -113,7 +114,7 @@ export function registerRvuRoutes(app: Express): void {
     });
   });
 
-  app.post("/api/rvu/price", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/rvu/price", isAuthenticated, requireClinicStaff("RVU pricing and productivity"), async (req: Request, res: Response) => {
     const parsed = priceSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid pricing request", details: parsed.error.issues });
@@ -129,7 +130,7 @@ export function registerRvuRoutes(app: Express): void {
     res.json({ ...result, tablesLoaded: pfsTablesLoaded() });
   });
 
-  app.post("/api/rvu/productivity", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/rvu/productivity", isAuthenticated, requireClinicStaff("RVU pricing and productivity"), async (req: Request, res: Response) => {
     const parsed = productivitySchema.safeParse(req.body);
     if (!parsed.success) {
       return res
@@ -154,7 +155,7 @@ export function registerRvuRoutes(app: Express): void {
     res.json({ ...report, tablesLoaded: pfsTablesLoaded() });
   });
 
-  app.post("/api/rvu/productivity/compare", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/rvu/productivity/compare", isAuthenticated, requireClinicStaff("RVU pricing and productivity"), async (req: Request, res: Response) => {
     const parsed = productivitySchema.safeParse(req.body);
     if (!parsed.success) {
       return res

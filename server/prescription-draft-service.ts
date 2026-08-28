@@ -348,7 +348,12 @@ export async function generatePrescriptionDraft(
       duration: customizations?.duration || unknownDefaults.duration,
       daysSupply: unknownDefaults.daysSupply,
       quantity: customizations?.quantity ?? unknownDefaults.quantity,
-      refills: customizations?.refills ?? unknownDefaults.refills,
+      // The policy result, not the request. `requestedRefills` is already
+      // passed into resolveDispenseDefaults above, so unknownDefaults.refills
+      // IS the caller's number capped — re-reading customizations here put the
+      // raw request back and walked straight through the cap. daysSupply on
+      // the line above never had this bug, which is what made it easy to miss.
+      refills: unknownDefaults.refills,
       careSetting: unknownDefaults.careSetting,
       dispensePolicy: unknownDefaults.appliedPolicy,
       dispensePolicyReason: unknownDefaults.capReason,
