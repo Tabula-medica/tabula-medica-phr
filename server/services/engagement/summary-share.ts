@@ -33,21 +33,15 @@
  *
  * ## Storage
  *
- * In memory, matching the rest of this module. Two consequences that must be
- * closed before this carries real patient data, and are stated here rather
- * than discovered later:
- *
- *   - A restart drops every outstanding grant. Links stop working. That fails
- *     in the safe direction — a dead link discloses nothing — but it is not
- *     acceptable behaviour for a patient who handed the link to their doctor.
- *   - **Revocation does not propagate across instances.** With more than one
- *     process serving traffic, a revoke on one does not stop a read on
- *     another. This one fails *unsafely* and is the reason the module must
- *     move to shared storage before a multi-instance deployment.
+ * Postgres. Every counter that bounds disclosure — the view cap, the PIN
+ * attempt cap — is incremented with a single conditional UPDATE rather than a
+ * read, a decision and a write, because with ten instances serving the same
+ * link a read-modify-write is a race that hands out extra views.
  */
 
-import { createHash, randomBytes, randomInt, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import { shareStore, type StoredGrant } from "./share-store";
 import {
   SHARE_LIMITS,
   SUMMARY_SECTIONS,
@@ -136,26 +130,7 @@ export function sharePolicyFor(jurisdiction: Jurisdiction): SharePolicy {
   return SHARE_POLICIES[jurisdiction];
 }
 
-// ── Registry ────────────────────────────────────────────────────────────────
-
-interface StoredGrant extends ShareGrant {
-  /** SHA-256 of the token, hex. The token itself is never stored. */
-  tokenHash: string;
-  /** scrypt(pin, salt) when a PIN is set. */
-  pinHash?: Buffer;
-  pinSalt?: Buffer;
-  directive?: ThirdPartyDirective;
-}
-
-const grants = new Map<string, StoredGrant>();
-/** tokenHash -> grant id. */
-const byTokenHash = new Map<string, string>();
-
-/** Test seam. Never called from request paths. */
-export function __resetShares(): void {
-  grants.clear();
-  byTokenHash.clear();
-}
+// ── Hashing ─────────────────────────────────────────────────────────────────
 
 function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -166,7 +141,7 @@ function sha256Hex(value: string): string {
  *
  * `scryptSync` blocks the event loop for tens of milliseconds by design — the
  * cost is the point. On an authenticated route that is fine; on
- * `GET /s/:token`, which is unauthenticated and takes an attacker-supplied
+ * `POST /s/:token`, which is unauthenticated and takes an attacker-supplied
  * PIN, it hands anyone a way to stall the same process that serves clinical
  * routes. The work still happens, it just stops happening on the main thread.
  */
@@ -181,10 +156,20 @@ function hashPin(pin: string, salt: Buffer): Promise<Buffer> {
 }
 
 function toView(grant: StoredGrant): ShareGrantView {
-  const { profileId: _p, createdByAccountId: _c, tokenHash: _t, pinHash: _ph, pinSalt: _ps, directive: _d, ...view } =
-    grant as StoredGrant & Record<string, unknown>;
+  const {
+    profileId: _p,
+    createdByAccountId: _c,
+    tokenHash: _t,
+    pinHash: _ph,
+    pinSalt: _ps,
+    directive: _d,
+    attestations: _a,
+    ...view
+  } = grant as StoredGrant & Record<string, unknown>;
   return view as ShareGrantView;
 }
+
+export type { StoredGrant } from "./share-store";
 
 // ── Minting ─────────────────────────────────────────────────────────────────
 
@@ -202,6 +187,11 @@ export interface MintShareParams {
   withPin?: boolean;
   label?: string;
   directive?: ThirdPartyDirective;
+  /**
+   * Stored with the grant rather than in a side map, so a redemption on any
+   * instance renders the same "no known allergies" the minting instance meant.
+   */
+  attestations?: Record<string, boolean>;
   /** ISO 8601, injected for testability. */
   now?: Date;
 }
@@ -315,36 +305,25 @@ export async function mintShare(params: MintShareParams): Promise<MintShareResul
     pinHash = await hashPin(pin, pinSalt);
   }
 
-  const grant: StoredGrant = {
-    id: randomUUID(),
+  const grant = await shareStore().insert({
     profileId: params.profileId,
     createdByAccountId: params.createdByAccountId,
+    tokenHash,
     sections,
     initiator: params.initiator,
-    createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + ttlHours * 3_600_000).toISOString(),
+    createdAt: now,
+    expiresAt: new Date(now.getTime() + ttlHours * 3_600_000),
     maxViews,
-    viewCount: 0,
-    pinAttempts: 0,
     language: params.language,
     pinRequired: Boolean(params.withPin),
-    label: params.label,
-    tokenHash,
     pinHash,
     pinSalt,
-    directive: params.directive,
-  };
+    label: params.label,
+    attestations: params.attestations,
+    directive: params.directive as unknown as Record<string, string> | undefined,
+  });
 
-  grants.set(grant.id, grant);
-  byTokenHash.set(tokenHash, grant.id);
-
-  return {
-    ok: true,
-    grant: toView(grant),
-    token,
-    url: `${base}/s/${token}`,
-    pin,
-  };
+  return { ok: true, grant: toView(grant), token, url: `${base}/s/${token}`, pin };
 }
 
 // ── Redemption ──────────────────────────────────────────────────────────────
@@ -373,13 +352,13 @@ export async function redeemShare(
   opts: { pin?: string; now?: Date } = {},
 ): Promise<RedeemResult> {
   const now = opts.now ?? new Date();
+  const store = shareStore();
 
   if (!token || typeof token !== "string") {
     return { ok: false, failure: "token-not-found", detail: "No share token supplied." };
   }
 
-  const id = byTokenHash.get(sha256Hex(token));
-  const grant = id ? grants.get(id) : undefined;
+  const grant = await store.findByTokenHash(sha256Hex(token));
   if (!grant) {
     return { ok: false, failure: "token-not-found", detail: "This link is not valid." };
   }
@@ -403,14 +382,6 @@ export async function redeemShare(
     return { ok: false, failure: "token-expired", detail: "This link has expired." };
   }
 
-  if (grant.viewCount >= grant.maxViews) {
-    return {
-      ok: false,
-      failure: "view-cap-reached",
-      detail: "This link has already been opened the maximum number of times.",
-    };
-  }
-
   if (grant.pinRequired) {
     if (!opts.pin) {
       return { ok: false, failure: "pin-required", detail: "This link needs its PIN." };
@@ -426,9 +397,12 @@ export async function redeemShare(
       candidate.length !== grant.pinHash.length ||
       !timingSafeEqual(candidate, grant.pinHash)
     ) {
-      grant.pinAttempts += 1;
-      if (grant.pinAttempts >= SHARE_LIMITS.MAX_PIN_ATTEMPTS) {
-        grant.lockedAt = now.toISOString();
+      const outcome = await store.recordPinFailure(
+        grant.id,
+        SHARE_LIMITS.MAX_PIN_ATTEMPTS,
+        now,
+      );
+      if (outcome.locked) {
         return {
           ok: false,
           failure: "pin-locked",
@@ -439,42 +413,47 @@ export async function redeemShare(
         ok: false,
         failure: "pin-incorrect",
         detail: `That PIN is not correct. ${
-          SHARE_LIMITS.MAX_PIN_ATTEMPTS - grant.pinAttempts
+          SHARE_LIMITS.MAX_PIN_ATTEMPTS - outcome.pinAttempts
         } attempts left before this link closes.`,
       };
     }
     // A correct PIN clears the count: the cap is there to stop a walk of the
     // keyspace, not to punish somebody who fat-fingered it twice last week.
-    grant.pinAttempts = 0;
+    if (grant.pinAttempts > 0) await store.clearPinAttempts(grant.id);
   }
 
-  grant.viewCount += 1;
-  return { ok: true, grant };
+  // The view is claimed and the cap is checked by one operation. Everything
+  // read above could have changed on another instance in the meantime, so the
+  // claim is what decides — not the read.
+  const claimed = await store.claimView(grant.id, now);
+  if (!claimed) {
+    return {
+      ok: false,
+      failure: "view-cap-reached",
+      detail: "This link has already been opened the maximum number of times.",
+    };
+  }
+
+  return { ok: true, grant: claimed };
 }
 
-export function revokeShare(id: string, reason: string, now: Date = new Date()): ShareGrantView | null {
-  const grant = grants.get(id);
-  if (!grant) return null;
-  if (!grant.revokedAt) {
-    grant.revokedAt = now.toISOString();
-    grant.revokedReason = reason;
-    // The token hash stays mapped so a later attempt returns "revoked" rather
-    // than "not found". The distinction matters to the person holding the
-    // link, who otherwise cannot tell a revocation from a typo.
-  }
-  return toView(grant);
+export async function revokeShare(
+  id: string,
+  reason: string,
+  now: Date = new Date(),
+): Promise<ShareGrantView | null> {
+  const grant = await shareStore().revoke(id, reason, now);
+  return grant ? toView(grant) : null;
 }
 
 /** Every grant minted for a profile, newest first. Excludes tokens. */
-export function listShares(profileId: string): ShareGrantView[] {
-  return Array.from(grants.values())
-    .filter((g) => g.profileId === profileId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map(toView);
+export async function listShares(profileId: string): Promise<ShareGrantView[]> {
+  const grants = await shareStore().listByProfile(profileId);
+  return grants.map(toView);
 }
 
-export function getShare(id: string): StoredGrant | undefined {
-  return grants.get(id);
+export async function getShare(id: string): Promise<StoredGrant | null> {
+  return shareStore().findById(id);
 }
 
 // ── Handoff intents ─────────────────────────────────────────────────────────

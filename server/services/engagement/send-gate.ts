@@ -27,9 +27,10 @@ import {
   type EngagementChannel,
   type EngagementMessage,
   type EngagementRecipient,
+  type ConsentRecord,
   type SendDecision,
 } from "@shared/engagement";
-import { getConsent, normalizePhone } from "./consent";
+import { normalizePhone } from "./consent";
 import { checkQuietHours } from "./quiet-hours";
 import { channelPolicy, policyFor } from "./jurisdictions";
 import { isValidNoticeLanguageIN } from "./languages";
@@ -79,6 +80,16 @@ export interface GateContext {
    * the worst failure mode available.
    */
   registeredTemplateId?: string;
+  /**
+   * Consent for this number, fetched by the caller.
+   *
+   * Passed in rather than looked up here so the gate stays a pure function of
+   * its inputs. That matters beyond tidiness: consent now lives in Postgres
+   * because a process-local copy meant a STOP reached one instance out of ten,
+   * and a synchronous lookup inside a synchronous gate is exactly what made
+   * the in-memory version look reasonable.
+   */
+  consent: ConsentRecord;
   now?: Date;
 }
 
@@ -119,7 +130,7 @@ export function evaluateSend(
   }
 
   // ── Consent ──────────────────────────────────────────────────────────────
-  const consent = getConsent(phone);
+  const consent = context.consent;
   if (consent.state === "unknown") {
     return {
       status: "refused",

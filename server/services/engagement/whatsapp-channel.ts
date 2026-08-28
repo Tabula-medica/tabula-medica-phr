@@ -37,6 +37,7 @@ import type {
   SendDecision,
 } from "@shared/engagement";
 import { evaluateSend } from "./send-gate";
+import { getConsent } from "./consent";
 import { channelPolicy } from "./jurisdictions";
 import { findTemplate, renderTemplate, type TemplateVariables } from "./templates";
 
@@ -82,12 +83,12 @@ export type WhatsAppDispatch =
  * Returns `would-send` rather than `sent` because no BSP transport is wired.
  * Naming it honestly keeps a caller from believing a message went out.
  */
-export function dispatchWhatsApp(params: {
+export async function dispatchWhatsApp(params: {
   recipient: EngagementRecipient;
   templateId: string;
   variables: TemplateVariables;
   now?: Date;
-}): WhatsAppDispatch {
+}): Promise<WhatsAppDispatch> {
   const template = findTemplate(params.templateId);
   if (!template) {
     return { status: "refused", reason: "unknown-template", detail: `No template "${params.templateId}".` };
@@ -108,7 +109,13 @@ export function dispatchWhatsApp(params: {
     body: rendered.body,
   };
 
+  // Consent is read here rather than inside the gate so the gate stays a
+  // pure function of its inputs. It lives in Postgres now: a process-local
+  // copy meant a STOP landed on one instance out of ten.
+  const consent = await getConsent(params.recipient.phone);
+
   const decision: SendDecision = evaluateSend(params.recipient, message, {
+    consent,
     channel: "whatsapp",
     channelConfigured: whatsAppConfigured(),
     registeredTemplateId: registeredName,

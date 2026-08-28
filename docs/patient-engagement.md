@@ -214,6 +214,55 @@ missing-consent and missing-timezone rows while they are still fixable.
 
 ---
 
+## Storage, and why it is not a Map
+
+Share grants and consent both live in Postgres (`health_summary_shares`,
+`engagement_consents`). They used to be process-local `Map`s carrying comments
+saying a production deployment would persist them.
+
+That framing was wrong, not merely incomplete. **Every deploy path in this repo
+already runs ten instances**: `deploy.sh`, `deploy-world.sh`,
+`deploy/gcp-deploy.sh` and `cloudbuild.yaml` all pass `--max-instances=10` to
+Cloud Run with no session affinity. So the comments were describing a live
+defect as a future one.
+
+What was actually broken:
+
+| | Consequence |
+|---|---|
+| **Consent** | A patient texts STOP. The webhook lands on instance 3. The other nine have never heard of it and keep passing the send gate — a statutory opt-out honoured on a tenth of the traffic |
+| **Share revoke** | Staff revoke on instance A; instances B–J keep serving medications, diagnoses and allergies to whoever holds the link. `/s/:token` needs no authentication |
+| **View cap** | Per-process, so ten instances gave ten times the views |
+| **PIN lockout** | Same — the 5-attempt cap added a round earlier was really 50 |
+| **Restart** | Every outstanding link died on deploy |
+
+Every counter that bounds disclosure is now claimed in a **single conditional
+UPDATE** rather than a read, a decision and a write. With ten instances serving
+the same link, read-modify-write is a race that hands out extra views.
+
+Phone numbers are stored encrypted and looked up by HMAC (`hashPhone`), so the
+consent check still runs without decrypting anything. The earlier claim that a
+phone number plus a consent flag was "contact-preference metadata" outside the
+PHI path was wrong: a number a covered entity holds because that person is a
+patient is individually identifiable health information, and a table of them is
+a patient list.
+
+> **What the tests do not cover.** The suite has no database, so storage runs
+> against an in-memory double that is faithful to the contract and *cannot*
+> exercise the concurrency guarantee — under a single-threaded double, an
+> atomic UPDATE and a read-modify-write are indistinguishable. The rules are
+> tested; the races are not. That needs an integration test against a real
+> Postgres, which this repo has no harness for. Stated here rather than left to
+> be inferred from a green suite.
+
+> **Still per-instance: the weekly frequency cap.** `recordSend` keeps its
+> count in process, so the 5-messages-per-week cap is really up to 5 per
+> instance. Unlike consent this is not a legal control — neither TCPA nor
+> TCCCPR sets a frequency limit, and the cap is a judgement about when a
+> reminder system becomes the thing people mute. It still wants the same
+> treatment; the gate already takes the count as an input so a durable counter
+> drops in without touching the rules.
+
 ## Configuration
 
 ```bash
@@ -510,12 +559,8 @@ PRACTICE_DISPLAY_NAME="Ltfm Health"                 # appears in the notificatio
 
 ## Not built
 
-- **Share grants live in memory**, like the rest of this module. A restart
-  drops every outstanding link — that fails safe, but it is not acceptable for
-  a patient who handed the link to their doctor. Worse: **revocation does not
-  propagate across instances**, so with more than one process a revoke on one
-  does not stop a read on another. That one fails *unsafely* and must be
-  closed before a multi-instance deployment.
+- ~~**Share grants live in memory.**~~ **Fixed.** They are in Postgres, and so
+  is consent — see below.
 - No attestation column on `phr_allergies`, so "no known allergies" cannot yet
   be recorded durably against the record — only against a share.
 - No caregiver or proxy access path; the mint is the account holder's own

@@ -31,6 +31,11 @@ import type {
   ConsentState,
   EngagementPurpose,
 } from "@shared/engagement";
+import {
+  __setConsentStore,
+  consentStore,
+  createMemoryConsentStore,
+} from "./consent-store";
 
 /**
  * Keywords that revoke on sight.
@@ -96,15 +101,10 @@ export function classifyInbound(rawBody: string): InboundIntent {
   return "other";
 }
 
-/**
- * In-memory consent registry.
- *
- * Deliberately not a PHI table: a phone number plus a consent flag is
- * contact-preference metadata, and keeping it out of the encrypted PHI path
- * means the consent check can run before any PHI is loaded. A production
- * deployment persists this; the interface is what matters here.
- */
-const registry = new Map<string, ConsentRecord>();
+// Storage lives in `consent-store.ts`. It used to be a process-local Map with
+// a comment saying a production deployment would persist it — but production
+// already ran ten instances, so a STOP reached one of them and nine kept
+// sending. See that file's header.
 
 /** E.164 normalisation. Returns null when the input cannot be one. */
 export function normalizePhone(raw: string): string | null {
@@ -119,15 +119,16 @@ export function normalizePhone(raw: string): string | null {
   return null;
 }
 
-export function getConsent(phone: string): ConsentRecord {
+export async function getConsent(phone: string): Promise<ConsentRecord> {
   const key = normalizePhone(phone);
   if (!key) {
     return { phone, state: "unknown", purposes: [] };
   }
-  return registry.get(key) ?? { phone: key, state: "unknown", purposes: [] };
+  const found = await consentStore().find(key);
+  return found ?? { phone: key, state: "unknown", purposes: [] };
 }
 
-export function grantConsent(params: {
+export async function grantConsent(params: {
   phone: string;
   purposes: readonly EngagementPurpose[];
   capturedVia: NonNullable<ConsentRecord["capturedVia"]>;
@@ -140,7 +141,7 @@ export function grantConsent(params: {
    */
   noticeLanguage?: string;
   noticeVersion?: string;
-}): ConsentRecord {
+}): Promise<ConsentRecord> {
   const key = normalizePhone(params.phone);
   if (!key) {
     throw new Error(`"${params.phone}" is not a usable phone number.`);
@@ -154,18 +155,17 @@ export function grantConsent(params: {
     noticeLanguage: params.noticeLanguage,
     noticeVersion: params.noticeVersion,
   };
-  registry.set(key, record);
-  return record;
+  return consentStore().put(record);
 }
 
 /**
  * Revoke. Global across purposes — see the module header for why.
  */
-export function revokeConsent(params: {
+export async function revokeConsent(params: {
   phone: string;
   keyword?: string;
   at?: string;
-}): ConsentRecord {
+}): Promise<ConsentRecord> {
   const key = normalizePhone(params.phone);
   if (!key) {
     throw new Error(`"${params.phone}" is not a usable phone number.`);
@@ -177,8 +177,7 @@ export function revokeConsent(params: {
     revokedAt: params.at ?? new Date().toISOString(),
     revokedByKeyword: params.keyword,
   };
-  registry.set(key, record);
-  return record;
+  return consentStore().put(record);
 }
 
 export interface InboundResult {
@@ -197,19 +196,19 @@ export interface InboundResult {
  * regardless of consent state — a confirmation of revocation is not itself a
  * marketing message.
  */
-export function handleInbound(params: {
+export async function handleInbound(params: {
   phone: string;
   body: string;
   practiceName: string;
   at?: string;
-}): InboundResult {
+}): Promise<InboundResult> {
   const intent = classifyInbound(params.body);
 
   switch (intent) {
     case "revoke":
       return {
         intent,
-        consent: revokeConsent({
+        consent: await revokeConsent({
           phone: params.phone,
           keyword: params.body.trim().toLowerCase(),
           at: params.at,
@@ -226,7 +225,7 @@ export function handleInbound(params: {
       // reminder; erring the other way is the violation.
       return {
         intent,
-        consent: revokeConsent({ phone: params.phone, at: params.at }),
+        consent: await revokeConsent({ phone: params.phone, at: params.at }),
         autoReply:
           `${params.practiceName}: We have stopped texting you. Reply START to resume. ` +
           `Call the office for anything you need.`,
@@ -238,7 +237,7 @@ export function handleInbound(params: {
       // only. Anything broader has to be captured deliberately elsewhere.
       return {
         intent,
-        consent: grantConsent({
+        consent: await grantConsent({
           phone: params.phone,
           purposes: [
             "appointment-reminder",
@@ -258,7 +257,7 @@ export function handleInbound(params: {
     case "help":
       return {
         intent,
-        consent: getConsent(params.phone),
+        consent: await getConsent(params.phone),
         autoReply:
           `${params.practiceName} appointment messages. Reply STOP to unsubscribe. ` +
           `Msg & data rates may apply. For medical questions call the office; ` +
@@ -271,14 +270,14 @@ export function handleInbound(params: {
       // SMS — route it to a human.
       return {
         intent,
-        consent: getConsent(params.phone),
+        consent: await getConsent(params.phone),
         autoReply: null,
         needsStaffReview: true,
       };
   }
 }
 
-/** Test/ops helper. Not exposed over HTTP. */
+/** Test helper: swap in a fresh in-memory store. Not exposed over HTTP. */
 export function resetConsentRegistry(): void {
-  registry.clear();
+  __setConsentStore(createMemoryConsentStore());
 }

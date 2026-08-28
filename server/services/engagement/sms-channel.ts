@@ -15,6 +15,7 @@ import type {
 import type { SmsCategory } from "@shared/schema";
 import { sendSms } from "../../sms-service";
 import { evaluateSend, recordSend } from "./send-gate";
+import { getConsent } from "./consent";
 import { findTemplate, renderTemplate, type TemplateVariables } from "./templates";
 
 /**
@@ -106,7 +107,13 @@ export async function dispatchSms(params: {
   // unconditionally lets the jurisdiction policy decide whether it matters.
   const dltId = template.dltTemplateId ?? dltRegistry().get(template.id);
 
+  // Consent is read here rather than inside the gate so the gate stays a
+  // pure function of its inputs. It lives in Postgres now: a process-local
+  // copy meant a STOP landed on one instance out of ten.
+  const consent = await getConsent(params.recipient.phone);
+
   const decision: SendDecision = evaluateSend(params.recipient, message, {
+    consent,
     channel: "sms",
     registeredTemplateId: dltId,
     // A dry run must not be blocked by missing credentials — the whole point

@@ -5,7 +5,6 @@ import {
 } from "../server/services/engagement/summary-render";
 import {
   SHARE_POLICIES,
-  __resetShares,
   buildShareIntents,
   listShares,
   mintShare,
@@ -20,7 +19,15 @@ import {
 } from "../server/services/engagement/summary-strings";
 import { TEMPLATES, findTemplate, renderTemplate } from "../server/services/engagement/templates";
 import { evaluateSend, resetSendHistory } from "../server/services/engagement/send-gate";
-import { grantConsent, resetConsentRegistry } from "../server/services/engagement/consent";
+import {
+  getConsent,
+  grantConsent,
+  resetConsentRegistry,
+} from "../server/services/engagement/consent";
+import {
+  __setShareStore,
+  createMemoryShareStore,
+} from "../server/services/engagement/share-store";
 import { SHARE_LIMITS, SUMMARY_SECTIONS } from "@shared/health-summary";
 import {
   GENERIC_TITLE,
@@ -85,7 +92,9 @@ let previousBaseUrl: string | undefined;
 beforeEach(() => {
   previousBaseUrl = process.env.HEALTH_SHARE_BASE_URL;
   process.env.HEALTH_SHARE_BASE_URL = BASE;
-  __resetShares();
+  // A fresh store per test. The double is faithful to the contract and says
+  // nothing about concurrency — see the header of share-store.ts.
+  __setShareStore(createMemoryShareStore());
   resetConsentRegistry();
   resetSendHistory();
 });
@@ -263,7 +272,7 @@ describe("minting a share", () => {
     expect(a.url).toBe(`${BASE}/s/${a.token}`);
 
     // The listing never carries the token, the profile, or the PIN material.
-    const listed = listShares("profile-1");
+    const listed = await listShares("profile-1");
     for (const grant of listed) {
       expect(Object.keys(grant)).not.toContain("tokenHash");
       expect(Object.keys(grant)).not.toContain("profileId");
@@ -312,7 +321,7 @@ describe("redeeming a share", () => {
     const minted = await mint();
     if (!minted.ok) throw new Error("mint failed");
 
-    revokeShare(minted.grant.id, "patient changed their mind", NOW);
+    await revokeShare(minted.grant.id, "patient changed their mind", NOW);
     const result = await redeemShare(minted.token, { now: NOW });
 
     expect(result.ok).toBe(false);
@@ -516,13 +525,14 @@ describe("the notification never carries clinical detail", () => {
   });
 
   it("refuses the share notification over WhatsApp in the US", async () => {
-    grantConsent({
+    await grantConsent({
       phone: "+14155550100",
       purposes: ["record-share"],
       capturedVia: "patient-portal",
     });
 
     const decision = evaluateSend(recipient(), shareMessage, {
+      consent: await getConsent("+14155550100"),
       channel: "whatsapp",
       channelConfigured: true,
       registeredTemplateId: "record_share_v1",
@@ -536,7 +546,7 @@ describe("the notification never carries clinical detail", () => {
   });
 
   it("allows the same notification over WhatsApp in India", async () => {
-    grantConsent({
+    await grantConsent({
       phone: "+919876543210",
       purposes: ["record-share"],
       capturedVia: "whatsapp-optin",
@@ -554,6 +564,7 @@ describe("the notification never carries clinical detail", () => {
       }),
       shareMessage,
       {
+        consent: await getConsent("+919876543210"),
         channel: "whatsapp",
         channelConfigured: true,
         registeredTemplateId: "record_share_v1",
@@ -565,13 +576,14 @@ describe("the notification never carries clinical detail", () => {
   });
 
   it("allows it over SMS in the US", async () => {
-    grantConsent({
+    await grantConsent({
       phone: "+14155550100",
       purposes: ["record-share"],
       capturedVia: "patient-portal",
     });
 
     const decision = evaluateSend(recipient(), shareMessage, {
+      consent: await getConsent("+14155550100"),
       channel: "sms",
       channelConfigured: true,
       now: new Date("2026-09-01T21:00:00Z"),

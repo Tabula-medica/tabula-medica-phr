@@ -246,12 +246,12 @@ export function registerEngagementRoutes(app: Express): void {
     });
   });
 
-  app.get("/api/engagement/consent/:phone", requireEngagementStaff, (req: Request, res: Response) => {
+  app.get("/api/engagement/consent/:phone", requireEngagementStaff, async (req: Request, res: Response) => {
     const normalized = normalizePhone(req.params.phone);
     if (!normalized) {
       return res.status(400).json({ error: "Not a usable phone number" });
     }
-    res.json({ consent: getConsent(normalized) });
+    res.json({ consent: await getConsent(normalized) });
   });
 
   app.post("/api/engagement/consent", requireEngagementStaff, async (req: Request, res: Response) => {
@@ -285,8 +285,8 @@ export function registerEngagementRoutes(app: Express): void {
 
       const consent =
         parsed.data.action === "revoke"
-          ? revokeConsent({ phone: parsed.data.phone })
-          : grantConsent({
+          ? await revokeConsent({ phone: parsed.data.phone })
+          : await grantConsent({
               phone: parsed.data.phone,
               purposes: parsed.data.purposes ?? [],
               capturedVia: parsed.data.capturedVia ?? "intake-form",
@@ -312,7 +312,7 @@ export function registerEngagementRoutes(app: Express): void {
    * and a STOP that fails because a signature check was misconfigured is a
    * violation. Verify the Twilio signature at the edge in production.
    */
-  app.post("/api/engagement/inbound", (req: Request, res: Response) => {
+  app.post("/api/engagement/inbound", async (req: Request, res: Response) => {
     const signature = verifyTwilioSignature({
       signature: req.header("X-Twilio-Signature"),
       url: signedRequestUrl(req),
@@ -331,7 +331,7 @@ export function registerEngagementRoutes(app: Express): void {
       return res.status(400).json({ error: "Invalid inbound payload", detail: payload.detail });
     }
 
-    const result = handleInbound({
+    const result = await handleInbound({
       phone: payload.phone,
       body: payload.body,
       practiceName: process.env.PRACTICE_DISPLAY_NAME ?? "Your clinic",

@@ -107,9 +107,6 @@ const mintSchema = z.object({
     .optional(),
 });
 
-/** Attestations live with the grant so the page renders what was minted. */
-const attestationsByGrant = new Map<string, Record<string, boolean | undefined>>();
-
 export function registerHealthSummaryShareRoutes(app: Express): void {
   // ── Policy ───────────────────────────────────────────────────────────────
   app.get("/api/engagement/share/policy", (_req: Request, res: Response) => {
@@ -201,14 +198,14 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
         withPin: input.withPin,
         label: input.label,
         directive: input.directive,
+        // Stored on the grant rather than in a process-local map, so a
+        // redemption served by any instance renders the same "no known
+        // allergies" the minting instance meant.
+        attestations: input.attestations as Record<string, boolean> | undefined,
       });
 
       if (!result.ok) {
         return res.status(422).json({ error: result.reason, detail: result.detail });
-      }
-
-      if (input.attestations) {
-        attestationsByGrant.set(result.grant.id, input.attestations);
       }
 
       await logPhiAccess({
@@ -266,7 +263,7 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       const profileId = staff && requested ? requested : await resolveOwnProfileId(req);
       if (!profileId) return res.status(404).json({ error: "No profile found for this account" });
 
-      res.json({ shares: listShares(profileId) });
+      res.json({ shares: await listShares(profileId) });
     },
   );
 
@@ -283,13 +280,15 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       // Only the record's owner or clinic staff may revoke. Checked against
       // the caller's own listing rather than by trusting the id, so a guessed
       // grant id belonging to someone else revokes nothing.
-      const mine = ownProfileId ? listShares(ownProfileId).some((g) => g.id === req.params.id) : false;
+      const mine = ownProfileId
+        ? (await listShares(ownProfileId)).some((g) => g.id === req.params.id)
+        : false;
       if (!mine && !staff) {
         return res.status(403).json({ error: "Not permitted to revoke this share" });
       }
 
       const reason = typeof req.body?.reason === "string" ? req.body.reason : "revoked by user";
-      const grant = revokeShare(req.params.id, reason);
+      const grant = await revokeShare(req.params.id, reason);
       if (!grant) return res.status(404).json({ error: "No such share" });
 
       await logPhiAccess({
@@ -354,7 +353,14 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     return undefined;
   }
 
-  async function loadSummaryFor(grant: { id: string; profileId: string; sections: readonly SummarySection[]; language: string; expiresAt: string }) {
+  async function loadSummaryFor(grant: {
+    id: string;
+    profileId: string;
+    sections: readonly SummarySection[];
+    language: string;
+    expiresAt: string;
+    attestations?: Record<string, boolean>;
+  }) {
     const ips = await collectIpsInput(grant.profileId, {
       timestamp: new Date().toISOString(),
       documentId: grant.id,
@@ -365,7 +371,7 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       medications: ips.medications,
       problems: ips.problems,
       allergies: ips.allergies,
-      attestations: attestationsByGrant.get(grant.id) ?? {},
+      attestations: grant.attestations ?? {},
       sections: grant.sections,
       generatedAt: new Date().toISOString(),
       expiresAt: grant.expiresAt,

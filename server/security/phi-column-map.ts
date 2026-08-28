@@ -214,6 +214,15 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
 
   // --- Packets, dedup, AI audit ---
   packetExports: { text: [], jsonb: ["optionsJson"] },
+
+  // --- Engagement consent + health-summary shares ---
+  // `phone` is the contact point itself; lookup goes through the HMAC in
+  // `phoneHash`, so the plaintext never needs to be queryable.
+  engagementConsentsTable: { text: ["phone"], jsonb: [] },
+  // `label` is patient-chosen and names people ("Dr Rao", "Mum"); `directive`
+  // carries the designated person and destination from a 164.524(c)(3)(ii)
+  // written direction. `tokenHash` and `pinHash` are already one-way.
+  healthSummarySharesTable: { text: ["label"], jsonb: ["directive"] },
   matchCandidatesTable: { text: ["reviewNotes"], jsonb: ["matchDetails"] },
   mergeHistoryTable: {
     text: ["mergeReason"],
