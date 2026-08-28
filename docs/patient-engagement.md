@@ -564,6 +564,28 @@ is 256 bits, short-lived, view-capped and revocable. The page is
 self-contained: inline CSS, no scripts, no external resources, `default-src
 'none'`.
 
+### Reachability: the SPA catch-all has to be told about `/s/`
+
+`serveStatic` mounts **before** the API routes in production and its
+`app.use("*")` answers everything it does not recognise with the SPA's
+`index.html`. `isServerRoutePath` in `server/static.ts` is therefore not a
+convenience list — it is the reachability contract for every server-rendered
+route outside `/api`.
+
+`/s/` was missing from it, and the effect was worse than a 404. The share link
+served the marketing SPA, which is `robots: index, follow` and loads a Google
+Fonts stylesheet. So the 256-bit bearer token sat in the URL of an indexable
+document with a cross-origin subresource, meaning it went out in a `Referer` —
+while the page's own CSP, `Referrer-Policy: no-referrer`, `noindex` and
+inert-GET interstitial, all written specifically to prevent that, never
+executed. `POST /api/engagement/share/view` stayed reachable under `/api`, so a
+token recovered that way still redeemed a summary.
+
+Adding a server-rendered route outside `/api` means adding it here too.
+`tests/static-route-reachability.spec.ts` pins it, including that `/s` must not
+match by bare prefix — otherwise `/settings` and `/summary` would be swallowed
+by the server instead of reaching the SPA.
+
 ### A GET renders nothing, and that is the point
 
 WhatsApp, iMessage, Slack and mail scanners **fetch a shared link** to build a
