@@ -22,10 +22,17 @@ import {
   WEEKLY_MESSAGE_CAP,
 } from "../server/services/engagement/send-gate";
 import { JOURNEYS, planJourney } from "../server/services/engagement/journeys";
-import { CHANNEL_PHI_CEILING } from "@shared/engagement";
+import { dispatchWhatsApp } from "../server/services/engagement/whatsapp-channel";
+import { channelPolicy, policyFor } from "../server/services/engagement/jurisdictions";
+import {
+  EIGHTH_SCHEDULE_LANGUAGES,
+  isRtl,
+  isValidNoticeLanguageIN,
+} from "../server/services/engagement/languages";
 import type { EngagementMessage, EngagementRecipient } from "@shared/engagement";
 
 const PHONE = "+14155550100";
+const US_WINDOW = { startHour: QUIET_HOURS_START_HOUR, endHour: QUIET_HOURS_END_HOUR };
 
 function recipient(overrides: Partial<EngagementRecipient> = {}): EngagementRecipient {
   return {
@@ -33,8 +40,31 @@ function recipient(overrides: Partial<EngagementRecipient> = {}): EngagementReci
     phone: PHONE,
     languageCode: "en",
     timeZone: "America/Los_Angeles",
+    jurisdiction: "US",
     ...overrides,
   };
+}
+
+function indianRecipient(overrides: Partial<EngagementRecipient> = {}): EngagementRecipient {
+  return {
+    patientId: "p-in",
+    phone: "+919876543210",
+    languageCode: "hi",
+    timeZone: "Asia/Kolkata",
+    jurisdiction: "IN",
+    ...overrides,
+  };
+}
+
+/** Grant with a DPDP notice recorded — the shape India requires. */
+function grantIN(purposes: EngagementMessage["purpose"][], noticeLanguage = "hi") {
+  return grantConsent({
+    phone: "+919876543210",
+    purposes,
+    capturedVia: "whatsapp-optin",
+    noticeLanguage,
+    noticeVersion: "v1",
+  });
 }
 
 function message(overrides: Partial<EngagementMessage> = {}): EngagementMessage {
@@ -47,8 +77,14 @@ function message(overrides: Partial<EngagementMessage> = {}): EngagementMessage 
   };
 }
 
-/** 14:00 Pacific — comfortably inside the quiet-hours window. */
+/** 14:00 Pacific — comfortably inside the US window. */
 const MIDDAY_PT = new Date("2026-09-01T21:00:00.000Z");
+/**
+ * 12:00 in Kolkata. A separate instant on purpose: 21:00 UTC is midday in
+ * Los Angeles and 02:30 the next morning in India, which is exactly the
+ * mistake the per-recipient timezone check exists to catch.
+ */
+const MIDDAY_IST = new Date("2026-09-01T06:30:00.000Z");
 
 beforeEach(() => {
   resetConsentRegistry();
@@ -152,13 +188,15 @@ describe("quiet hours", () => {
   });
 
   it("allows a send inside the window", () => {
-    expect(checkQuietHours("America/Los_Angeles", MIDDAY_PT)).toMatchObject({ status: "allowed" });
+    expect(checkQuietHours("America/Los_Angeles", US_WINDOW, MIDDAY_PT)).toMatchObject({
+      status: "allowed",
+    });
   });
 
   it("defers rather than refusing when it is merely too early", () => {
     // 06:00 Pacific — before the window opens.
     const early = new Date("2026-09-01T13:00:00.000Z");
-    const verdict = checkQuietHours("America/Los_Angeles", early);
+    const verdict = checkQuietHours("America/Los_Angeles", US_WINDOW, early);
     expect(verdict.status).toBe("deferred");
     if (verdict.status === "deferred") {
       expect(localHourIn("America/Los_Angeles", new Date(verdict.sendAfter))).toBeGreaterThanOrEqual(
@@ -171,8 +209,10 @@ describe("quiet hours", () => {
   });
 
   it("reports an unknown timezone rather than substituting one", () => {
-    expect(checkQuietHours(undefined, MIDDAY_PT)).toEqual({ status: "unknown-timezone" });
-    expect(checkQuietHours("Mars/Olympus_Mons", MIDDAY_PT)).toEqual({ status: "unknown-timezone" });
+    expect(checkQuietHours(undefined, US_WINDOW, MIDDAY_PT)).toEqual({ status: "unknown-timezone" });
+    expect(checkQuietHours("Mars/Olympus_Mons", US_WINDOW, MIDDAY_PT)).toEqual({
+      status: "unknown-timezone",
+    });
   });
 });
 
@@ -264,7 +304,7 @@ describe("send gate", () => {
       context,
     );
     expect(result).toMatchObject({ status: "refused", reason: "phi-tier-exceeds-channel" });
-    expect(CHANNEL_PHI_CEILING.sms).toBe("appointment-logistics");
+    expect(channelPolicy("US", "sms").phiCeiling).toBe("appointment-logistics");
   });
 
   it("refuses when the timezone is unknown instead of assuming the practice's", () => {
@@ -337,5 +377,251 @@ describe("journeys", () => {
 
   it("returns nothing for an unknown journey rather than throwing", () => {
     expect(planJourney("no-such-journey", "2026-12-01T17:00:00.000Z")).toEqual([]);
+  });
+});
+
+
+describe("jurisdiction policy", () => {
+  it("refuses any patient-specific content over WhatsApp in the US", () => {
+    // Meta signs no BAA, so in a HIPAA jurisdiction even "you have an
+    // appointment on Tuesday" is a disclosure that cannot cross the channel.
+    expect(channelPolicy("US", "whatsapp").phiCeiling).toBe("none");
+  });
+
+  it("permits appointment logistics over WhatsApp in India", () => {
+    // No BAA construct exists under DPDP; the duty runs to the Data Fiduciary
+    // directly, so the same template is sendable here and refused in the US.
+    expect(channelPolicy("IN", "whatsapp").phiCeiling).toBe("appointment-logistics");
+  });
+
+  it("requires a registered template for India SMS but not US SMS", () => {
+    expect(channelPolicy("IN", "sms").requiresRegisteredTemplate).toBe(true);
+    expect(channelPolicy("US", "sms").requiresRegisteredTemplate).toBe(false);
+  });
+
+  it("applies a tighter clock to promotional traffic in India", () => {
+    const india = policyFor("IN");
+    expect(india.windows.promotional).toEqual({ startHour: 9, endHour: 21 });
+    expect(india.windows.transactional.startHour).toBeLessThan(
+      india.windows.promotional.startHour,
+    );
+  });
+
+  it("requires a consent notice in India and not in the US", () => {
+    expect(policyFor("IN").requiresConsentNotice).toBe(true);
+    expect(policyFor("US").requiresConsentNotice).toBe(false);
+  });
+});
+
+describe("Eighth Schedule languages", () => {
+  it("carries all 22 constitutional languages", () => {
+    expect(EIGHTH_SCHEDULE_LANGUAGES).toHaveLength(22);
+  });
+
+  it("accepts English and Eighth Schedule codes for a DPDP notice", () => {
+    expect(isValidNoticeLanguageIN("en")).toBe(true);
+    expect(isValidNoticeLanguageIN("ta")).toBe(true);
+    expect(isValidNoticeLanguageIN("sat")).toBe(true); // Santali, no 639-1 code
+    expect(isValidNoticeLanguageIN("hi-IN")).toBe(true);
+  });
+
+  it("rejects a language the DPDP Rules do not permit for a notice", () => {
+    expect(isValidNoticeLanguageIN("fr")).toBe(false);
+    expect(isValidNoticeLanguageIN("zh")).toBe(false);
+  });
+
+  it("flags the right-to-left scripts among them", () => {
+    expect(isRtl("ur")).toBe(true);
+    expect(isRtl("ta")).toBe(false);
+  });
+});
+
+describe("India consent and DPDP notice", () => {
+  const context = { channel: "sms" as const, channelConfigured: true, now: MIDDAY_IST };
+
+  it("refuses a send when consent carries no recorded notice", () => {
+    // s.5 makes the notice constitutive: consent nobody can evidence the
+    // content of is not informed consent.
+    grantConsent({
+      phone: "+919876543210",
+      purposes: ["appointment-reminder"],
+      capturedVia: "intake-form",
+    });
+    expect(
+      evaluateSend(indianRecipient(), message(), { ...context, registeredTemplateId: "DLT-1" }),
+    ).toMatchObject({ status: "refused", reason: "consent-notice-missing" });
+  });
+
+  it("refuses a notice served in a language outside English and the Eighth Schedule", () => {
+    grantIN(["appointment-reminder"], "fr");
+    expect(
+      evaluateSend(indianRecipient(), message(), { ...context, registeredTemplateId: "DLT-1" }),
+    ).toMatchObject({ status: "refused", reason: "consent-notice-missing" });
+  });
+
+  it("sends when the notice is recorded in an Eighth Schedule language", () => {
+    grantIN(["appointment-reminder"], "ta");
+    expect(
+      evaluateSend(indianRecipient(), message(), { ...context, registeredTemplateId: "DLT-1" }),
+    ).toMatchObject({ status: "send" });
+  });
+});
+
+describe("India SMS and TRAI DLT", () => {
+  it("refuses India SMS with no registered DLT template id", () => {
+    // Indian operators discard unregistered traffic. Refusing locally is the
+    // difference between a visible failure and a message that reports success
+    // and never arrives.
+    grantIN(["appointment-reminder"]);
+    expect(
+      evaluateSend(indianRecipient(), message(), {
+        channel: "sms",
+        channelConfigured: true,
+        now: MIDDAY_IST,
+      }),
+    ).toMatchObject({ status: "refused", reason: "dlt-registration-missing" });
+  });
+
+  it("does not demand a DLT id for the same send in the US", () => {
+    grantConsent({ phone: PHONE, purposes: ["appointment-reminder"], capturedVia: "intake-form" });
+    expect(
+      evaluateSend(recipient(), message(), {
+        channel: "sms",
+        channelConfigured: true,
+        now: MIDDAY_PT,
+      }),
+    ).toMatchObject({ status: "send" });
+  });
+});
+
+describe("WhatsApp", () => {
+  it("refuses patient-specific content in the US even with consent", () => {
+    grantConsent({ phone: PHONE, purposes: ["appointment-reminder"], capturedVia: "intake-form" });
+    const result = evaluateSend(recipient(), message(), {
+      channel: "whatsapp",
+      channelConfigured: true,
+      registeredTemplateId: "appt_reminder_v1",
+      now: MIDDAY_PT,
+    });
+    expect(result).toMatchObject({ status: "refused", reason: "phi-tier-exceeds-channel" });
+    if (result.status === "refused") {
+      expect(result.detail).toContain("No BAA");
+    }
+  });
+
+  it("allows the same message in India", () => {
+    grantIN(["appointment-reminder"]);
+    expect(
+      evaluateSend(indianRecipient(), message(), {
+        channel: "whatsapp",
+        channelConfigured: true,
+        registeredTemplateId: "appt_reminder_v1",
+        now: MIDDAY_IST,
+      }),
+    ).toMatchObject({ status: "send" });
+  });
+
+  it("refuses free-form outside the 24-hour service window", () => {
+    grantIN(["appointment-reminder"]);
+    const stale = new Date(MIDDAY_IST.getTime() - 30 * 3_600_000).toISOString();
+    expect(
+      evaluateSend(indianRecipient({ lastInboundAt: stale }), message(), {
+        channel: "whatsapp",
+        channelConfigured: true,
+        now: MIDDAY_IST,
+      }),
+    ).toMatchObject({ status: "refused", reason: "outside-service-window" });
+  });
+
+  it("allows free-form inside the service window", () => {
+    grantIN(["appointment-reminder"]);
+    const fresh = new Date(MIDDAY_IST.getTime() - 2 * 3_600_000).toISOString();
+    expect(
+      evaluateSend(indianRecipient({ lastInboundAt: fresh }), message(), {
+        channel: "whatsapp",
+        channelConfigured: true,
+        now: MIDDAY_IST,
+      }),
+    ).toMatchObject({ status: "send" });
+  });
+
+  it("reports would-send rather than sent, since no BSP transport is wired", () => {
+    grantIN(["appointment-reminder"]);
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "test";
+    process.env.WHATSAPP_ACCESS_TOKEN = "test";
+    process.env.WHATSAPP_APPROVED_TEMPLATES = "appointment-reminder=appt_reminder_v1";
+
+    const result = dispatchWhatsApp({
+      recipient: indianRecipient(),
+      templateId: "appointment-reminder",
+      variables: { practiceName: "Clinic", appointmentTime: "3 Sept, 10:00" },
+      now: MIDDAY_IST,
+    });
+
+    expect(result.status).toBe("would-send");
+    if (result.status === "would-send") {
+      expect(result.templateName).toBe("appt_reminder_v1");
+      expect(result.category).toBe("utility");
+    }
+
+    delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_ACCESS_TOKEN;
+    delete process.env.WHATSAPP_APPROVED_TEMPLATES;
+  });
+});
+
+describe("cross-timezone correctness", () => {
+  it("treats the same instant differently for a US and an Indian patient", () => {
+    // 21:00 UTC is 14:00 in Los Angeles and 02:30 the next morning in
+    // Kolkata. A system that checked the practice's clock instead of the
+    // patient's would text an Indian patient at half past two.
+    grantConsent({ phone: PHONE, purposes: ["appointment-reminder"], capturedVia: "intake-form" });
+    grantIN(["appointment-reminder"]);
+
+    const us = evaluateSend(recipient(), message(), {
+      channel: "sms",
+      channelConfigured: true,
+      now: MIDDAY_PT,
+    });
+    const india = evaluateSend(indianRecipient(), message(), {
+      channel: "sms",
+      channelConfigured: true,
+      registeredTemplateId: "DLT-1",
+      now: MIDDAY_PT,
+    });
+
+    expect(us.status).toBe("send");
+    expect(india.status).toBe("deferred");
+  });
+});
+
+describe("Indian-language rendering", () => {
+  it("renders every template in the major Indian languages", () => {
+    const required = ["hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "ur"];
+    for (const template of TEMPLATES) {
+      for (const code of required) {
+        expect(Object.keys(template.bodies)).toContain(code);
+      }
+    }
+  });
+
+  it("localises the STOP notice to match the body", () => {
+    const result = renderTemplate("appointment-reminder", "ta", {
+      practiceName: "மருத்துவமனை",
+      appointmentTime: "செப் 3, காலை 10",
+    });
+    expect(result.status).toBe("rendered");
+    if (result.status === "rendered") {
+      expect(result.body).toContain("STOP");
+      expect(result.languageUsed).toBe("ta");
+      expect(result.fellBackToEnglish).toBe(false);
+    }
+  });
+
+  it("classifies recall as marketing, not utility", () => {
+    // Reaching a patient not seen in a year is marketing however warmly it is
+    // worded. Classifying it honestly keeps it inside the promotional rules.
+    const recall = TEMPLATES.find((t) => t.id === "recall-reactivation");
+    expect(recall?.whatsappCategory).toBe("marketing");
   });
 });

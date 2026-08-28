@@ -14,10 +14,26 @@
  * than sending on a guess.
  */
 
-/** Inclusive lower bound, local time. */
+/**
+ * The US TCPA window, exported for callers that want the default.
+ * Every check takes its window as a parameter — India applies 09:00–21:00 to
+ * promotional traffic and a wider civil window to service messages, and
+ * hardcoding one country's hours is how the wrong law gets enforced abroad.
+ */
 export const QUIET_HOURS_START_HOUR = 8;
-/** Exclusive upper bound, local time — 21:00 is the first minute that is too late. */
 export const QUIET_HOURS_END_HOUR = 21;
+
+export interface HourWindow {
+  /** Inclusive lower bound, local time. */
+  startHour: number;
+  /** Exclusive upper bound — this hour is already too late. */
+  endHour: number;
+}
+
+export const US_TCPA_WINDOW: HourWindow = {
+  startHour: QUIET_HOURS_START_HOUR,
+  endHour: QUIET_HOURS_END_HOUR,
+};
 
 export type QuietHoursVerdict =
   | { status: "allowed"; localHour: number }
@@ -56,12 +72,12 @@ export function localHourIn(timeZone: string, instant: Date): number | null {
  * real boundary in either case. Capped at 48 steps, which covers any
  * transition with room to spare.
  */
-function nextOpenWindow(timeZone: string, from: Date): string | null {
+function nextOpenWindow(timeZone: string, window: HourWindow, from: Date): string | null {
   for (let step = 1; step <= 48; step++) {
     const candidate = new Date(from.getTime() + step * 3_600_000);
     const hour = localHourIn(timeZone, candidate);
     if (hour === null) return null;
-    if (hour >= QUIET_HOURS_START_HOUR && hour < QUIET_HOURS_END_HOUR) {
+    if (hour >= window.startHour && hour < window.endHour) {
       // Land on the top of the hour so batched sends cluster predictably.
       const aligned = new Date(candidate);
       aligned.setUTCMinutes(0, 0, 0);
@@ -73,6 +89,7 @@ function nextOpenWindow(timeZone: string, from: Date): string | null {
 
 export function checkQuietHours(
   timeZone: string | undefined,
+  window: HourWindow = US_TCPA_WINDOW,
   instant: Date = new Date(),
 ): QuietHoursVerdict {
   if (!timeZone) return { status: "unknown-timezone" };
@@ -80,11 +97,11 @@ export function checkQuietHours(
   const localHour = localHourIn(timeZone, instant);
   if (localHour === null) return { status: "unknown-timezone" };
 
-  if (localHour >= QUIET_HOURS_START_HOUR && localHour < QUIET_HOURS_END_HOUR) {
+  if (localHour >= window.startHour && localHour < window.endHour) {
     return { status: "allowed", localHour };
   }
 
-  const sendAfter = nextOpenWindow(timeZone, instant);
+  const sendAfter = nextOpenWindow(timeZone, window, instant);
   if (!sendAfter) return { status: "unknown-timezone" };
 
   return { status: "deferred", localHour, sendAfter };

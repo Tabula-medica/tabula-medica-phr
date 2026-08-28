@@ -132,6 +132,14 @@ export function grantConsent(params: {
   purposes: readonly EngagementPurpose[];
   capturedVia: NonNullable<ConsentRecord["capturedVia"]>;
   at?: string;
+  /**
+   * Language the DPDP notice was shown in, and which notice it was.
+   * India requires both: s.5 makes the notice constitutive of valid consent,
+   * so a consent record that cannot say what the patient was told is not
+   * evidence of informed consent.
+   */
+  noticeLanguage?: string;
+  noticeVersion?: string;
 }): ConsentRecord {
   const key = normalizePhone(params.phone);
   if (!key) {
@@ -143,6 +151,8 @@ export function grantConsent(params: {
     purposes: [...params.purposes],
     capturedVia: params.capturedVia,
     capturedAt: params.at ?? new Date().toISOString(),
+    noticeLanguage: params.noticeLanguage,
+    noticeVersion: params.noticeVersion,
   };
   registry.set(key, record);
   return record;

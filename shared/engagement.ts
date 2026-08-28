@@ -1,48 +1,50 @@
 /**
  * Patient engagement — shared types.
  *
- * The engine is channel-agnostic on purpose. What a channel is *allowed to
- * carry* is the part that differs, and it is not a matter of taste: SMS
- * traverses carrier infrastructure that no BAA covers end to end, so the
- * content ceiling is a compliance boundary, not a style preference.
+ * The engine is jurisdiction-aware, not US-shaped with an international
+ * escape hatch. What is lawful to send, to whom, at what hour, over which
+ * channel, and in what language differs by country in ways that do not
+ * reduce to a feature flag:
  *
- * Two separate bodies of law apply to an outbound patient text and they do
- * not overlap:
+ *   **United States.** TCPA governs the act of sending to a mobile number —
+ *   prior express consent, immediate revocation, 08:00–21:00 in the
+ *   recipient's local time, $500–$1,500 per message. HIPAA separately governs
+ *   the content. Both gates, independently.
  *
- *   - **HIPAA** permits appointment reminders and treatment communications
- *     without separate authorisation. It does not make SMS a safe place to
- *     put clinical detail.
- *   - **TCPA** governs the act of sending to a mobile number at all. Prior
- *     express consent is required, revocation must be honoured immediately
- *     and by any reasonable means, and calls/texts are confined to
- *     8:00–21:00 in the *recipient's* local time.
+ *   **India.** The DPDP Act 2023 and the DPDP Rules 2025 (notified November
+ *   2025) govern the data: consent must be free, specific, informed,
+ *   unconditional and unambiguous, given by clear affirmative action, and
+ *   withdrawable as easily as it was given. The notice must be available in
+ *   English or any of the 22 languages in the Eighth Schedule. Separately,
+ *   TRAI's TCCCPR governs SMS as a telecom resource — registered DLT header,
+ *   pre-registered template, 09:00–21:00 for promotional traffic. WhatsApp is
+ *   **outside** DLT (it is data-channel, not telecom signalling) and is
+ *   governed instead by Meta's Business Messaging Policy: prior opt-in,
+ *   pre-approved templates, and a 24-hour service window.
  *
- * A message can be perfectly fine under HIPAA and still be a TCPA violation.
- * Both gates are enforced separately below.
+ * Getting this wrong in the safe-looking direction — applying TCPA quiet
+ * hours in India, or DLT rules to WhatsApp — produces a system that looks
+ * compliant while enforcing the wrong law, which is worse than enforcing
+ * nothing because it stops anyone from asking.
  */
 
-/** Delivery channels. Voice is declared here; only SMS is wired today. */
-export type EngagementChannel = "sms" | "voice" | "email" | "push";
+export type Jurisdiction = "US" | "IN";
+
+export type EngagementChannel = "sms" | "whatsapp" | "voice" | "email" | "push";
 
 /**
  * How much a channel may carry.
  *
- * Ordered least to most sensitive. A channel declares its ceiling; a template
- * declares its tier; the send refuses when tier exceeds ceiling.
+ * Ordered least to most sensitive. A channel+jurisdiction declares its
+ * ceiling; a template declares its tier; the send refuses when tier exceeds
+ * ceiling.
  */
 export type PhiTier =
-  /** No patient-specific content at all. "Your clinic has an update for you." */
+  /** Nothing patient-specific. "Your clinic has an update for you." */
   | "none"
-  /**
-   * Logistics only: that an appointment exists, when, where, with whom.
-   * The fact of a visit is PHI, but it is the minimum necessary for the
-   * reminder to work, and HIPAA contemplates exactly this use.
-   */
+  /** That a visit exists, when, where, with whom. */
   | "appointment-logistics"
-  /**
-   * Names a condition, medication, result, or clinical instruction.
-   * Never permitted on SMS by this system.
-   */
+  /** A condition, medication, result, or clinical instruction. */
   | "clinical-detail";
 
 export const PHI_TIER_ORDER: readonly PhiTier[] = [
@@ -51,22 +53,7 @@ export const PHI_TIER_ORDER: readonly PhiTier[] = [
   "clinical-detail",
 ] as const;
 
-/**
- * The content ceiling for each channel.
- *
- * SMS stops at appointment logistics. Carrier networks, device lock screens,
- * and shared family handsets are all outside any agreement this deployment
- * holds, so a lab result or a medication name does not go out over one —
- * the message says a result is ready and sends the patient to the portal.
- */
-export const CHANNEL_PHI_CEILING: Record<EngagementChannel, PhiTier> = {
-  sms: "appointment-logistics",
-  voice: "appointment-logistics",
-  email: "none",
-  push: "none",
-};
-
-/** Why the engine reached out. Drives frequency caps and consent scope. */
+/** Why the engine reached out. Drives consent scope, caps, and time windows. */
 export type EngagementPurpose =
   | "appointment-reminder"
   | "appointment-confirmation"
@@ -77,64 +64,96 @@ export type EngagementPurpose =
   | "consent-management";
 
 /**
- * TCPA consent state for one phone number.
+ * Transactional or promotional.
  *
- * `unknown` is a distinct state from `revoked` and both block sending. A
- * number with no consent record is not an implied yes.
+ * The distinction is load-bearing in India: TCCCPR's 09:00–21:00 restriction
+ * attaches to promotional traffic, while service messages a patient is
+ * expecting are treated differently. Recall of a lapsed patient is
+ * promotional however warmly it is worded; an appointment reminder is not.
  */
+export type PurposeClass = "transactional" | "promotional";
+
+export const PURPOSE_CLASS: Record<EngagementPurpose, PurposeClass> = {
+  "appointment-reminder": "transactional",
+  "appointment-confirmation": "transactional",
+  "pre-visit-preparation": "transactional",
+  "post-visit-followup": "transactional",
+  "care-plan-checkin": "transactional",
+  // Reaching out to someone who has not been seen in a year is marketing,
+  // whatever the copy says. Classifying it honestly is what keeps it inside
+  // the promotional rules instead of quietly outside them.
+  "recall-reactivation": "promotional",
+  "consent-management": "transactional",
+};
+
+/**
+ * Meta's WhatsApp template categories.
+ *
+ * Not cosmetic: category determines pricing, whether a template survives
+ * review, and what may be sent outside the 24-hour service window.
+ */
+export type WhatsAppCategory = "utility" | "marketing" | "authentication" | "service";
+
+/** DPDP / TCPA consent state for one contact point. */
 export type ConsentState = "granted" | "revoked" | "unknown";
 
 export interface ConsentRecord {
   /** E.164. */
   phone: string;
   state: ConsentState;
-  /** Purposes the patient agreed to. Empty on revoke. */
   purposes: readonly EngagementPurpose[];
-  /** How consent was captured — needed if the practice is ever challenged. */
-  capturedVia?: "patient-portal" | "intake-form" | "verbal-documented" | "sms-double-optin";
+  capturedVia?:
+    | "patient-portal"
+    | "intake-form"
+    | "verbal-documented"
+    | "sms-double-optin"
+    | "whatsapp-optin";
   capturedAt?: string;
   revokedAt?: string;
-  /** The inbound keyword that revoked, when revocation came by text. */
   revokedByKeyword?: string;
+  /**
+   * DPDP Act s.5: the notice shown when consent was taken, and the language
+   * it was shown in. A consent with no recorded notice is not informed
+   * consent, and India requires the notice itself to be retrievable.
+   */
+  noticeLanguage?: string;
+  noticeVersion?: string;
 }
 
 export interface EngagementRecipient {
   patientId: string;
   /** E.164. */
   phone: string;
-  /** BCP-47 / ISO 639-1 code from the supported-language registry. */
+  /** BCP-47 / ISO 639-1. */
   languageCode: string;
-  /**
-   * IANA timezone, e.g. "America/Chicago". Required for quiet hours.
-   * Absent is handled as absent — never as the practice's own timezone.
-   */
+  /** IANA timezone. Absent is handled as absent, never as the practice's. */
   timeZone?: string;
+  /** Which country's rules govern this patient. */
+  jurisdiction: Jurisdiction;
+  /**
+   * Last inbound message from this patient, ISO-8601. Opens WhatsApp's
+   * 24-hour service window, inside which free-form replies are permitted.
+   */
+  lastInboundAt?: string;
 }
 
 export interface EngagementMessage {
   templateId: string;
   purpose: EngagementPurpose;
   tier: PhiTier;
-  /** Rendered, localised body. */
   body: string;
 }
 
-/** The outcome of asking to send. Refusals are typed and explain themselves. */
 export type SendDecision =
   | { status: "send"; channel: EngagementChannel; body: string; scheduledFor: "now" }
   | {
       status: "deferred";
       channel: EngagementChannel;
-      /** ISO-8601 instant when the quiet-hours window next opens. */
       sendAfter: string;
       reason: "quiet-hours";
       detail: string;
     }
-  | {
-      status: "refused";
-      reason: SendRefusal;
-      detail: string;
-    };
+  | { status: "refused"; reason: SendRefusal; detail: string };
 
 export type SendRefusal =
   | "no-consent"
@@ -144,4 +163,12 @@ export type SendRefusal =
   | "frequency-cap"
   | "unknown-timezone"
   | "invalid-phone"
-  | "channel-not-configured";
+  | "channel-not-configured"
+  | "channel-not-permitted-in-jurisdiction"
+  /** India SMS: no registered DLT header / pre-registered template id. */
+  | "dlt-registration-missing"
+  /** WhatsApp: template not approved by Meta, or free-form outside the window. */
+  | "whatsapp-template-not-approved"
+  | "outside-service-window"
+  /** DPDP: consent taken without a recorded notice, or in no valid language. */
+  | "consent-notice-missing";

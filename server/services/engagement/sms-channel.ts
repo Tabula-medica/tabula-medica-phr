@@ -34,6 +34,24 @@ const PURPOSE_CATEGORY: Record<EngagementMessage["purpose"], SmsCategory> = {
   "consent-management": "general",
 };
 
+/**
+ * TRAI DLT template ids, from `DLT_TEMPLATE_IDS` as `internalId=dltId` pairs.
+ *
+ * Empty is correct for a deployment that has not registered on a DLT
+ * platform. What is not correct is sending anyway: Indian operators discard
+ * unregistered traffic, so the message would report success and never arrive.
+ */
+function dltRegistry(): Map<string, string> {
+  const raw = process.env.DLT_TEMPLATE_IDS;
+  const map = new Map<string, string>();
+  if (!raw) return map;
+  for (const pair of raw.split(",")) {
+    const [id, dlt] = pair.split("=").map((p) => p.trim());
+    if (id && dlt) map.set(id, dlt);
+  }
+  return map;
+}
+
 export function smsConfigured(): boolean {
   return Boolean(
     process.env.TWILIO_ACCOUNT_SID &&
@@ -81,8 +99,13 @@ export async function dispatchSms(params: {
     body: rendered.body,
   };
 
+  // India SMS needs a registered DLT template id; the US does not. Passing it
+  // unconditionally lets the jurisdiction policy decide whether it matters.
+  const dltId = template.dltTemplateId ?? dltRegistry().get(template.id);
+
   const decision: SendDecision = evaluateSend(params.recipient, message, {
     channel: "sms",
+    registeredTemplateId: dltId,
     // A dry run must not be blocked by missing credentials — the whole point
     // is to check consent and timing before the account is wired up.
     channelConfigured: params.dryRun ? true : smsConfigured(),

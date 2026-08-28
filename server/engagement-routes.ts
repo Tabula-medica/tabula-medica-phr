@@ -1,21 +1,25 @@
 /**
  * Patient engagement API — mounted at /api/engagement.
  *
- * US only, gated on TEFCA_ENABLED. Not because engagement is a US idea, but
- * because everything enforced here is US law: TCPA consent and quiet hours,
- * and a HIPAA minimum-necessary content ceiling. Shipping these rules to a
- * jurisdiction they do not apply to would be worse than shipping nothing —
- * it would look like compliance while enforcing the wrong statute.
+ * Runs in every deployment. Jurisdiction is a property of the *patient*, not
+ * of the build: the rules that govern a message follow the person receiving
+ * it, so a `.world` deployment serving Indian patients and a US deployment
+ * serving American ones run the same code and reach different answers.
  *
- *   GET  /policy                what this system will and will not send, and why
- *   GET  /templates             the template catalogue with tiers and languages
+ * This is why the module is no longer gated on TEFCA_ENABLED. An earlier cut
+ * disabled itself on the international build, which had the effect of
+ * shipping nothing to the market that needs it most.
+ *
+ *   GET  /policy                per-jurisdiction rules, and the instrument behind each
+ *   GET  /languages             Eighth Schedule list vs what is actually translated
+ *   GET  /templates             catalogue with tiers, languages and registration state
  *   GET  /journeys              cadences with the reasoning for each
  *   POST /journeys/plan         expand a journey against an anchor instant
  *   GET  /consent/:phone        consent state for one number
  *   POST /consent               record or revoke consent
  *   POST /inbound               process an inbound SMS (STOP/START/HELP)
  *   POST /preview               render a template without sending
- *   POST /send                  run the gate and dispatch (dryRun supported)
+ *   POST /send                  run the gate and dispatch over sms or whatsapp
  */
 
 import type { Express, Request, Response } from "express";
@@ -23,7 +27,7 @@ import { z } from "zod";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { logPhiAccess } from "./security/hipaa-audit";
-import { CHANNEL_PHI_CEILING, PHI_TIER_ORDER } from "@shared/engagement";
+import { PHI_TIER_ORDER, PURPOSE_CLASS, type Jurisdiction } from "@shared/engagement";
 import {
   getConsent,
   grantConsent,
@@ -33,9 +37,13 @@ import {
 } from "./services/engagement/consent";
 import { JOURNEYS, planJourney } from "./services/engagement/journeys";
 import { TEMPLATES, renderTemplate } from "./services/engagement/templates";
-import { WEEKLY_MESSAGE_CAP } from "./services/engagement/send-gate";
-import { QUIET_HOURS_END_HOUR, QUIET_HOURS_START_HOUR } from "./services/engagement/quiet-hours";
 import { dispatchSms, smsConfigured } from "./services/engagement/sms-channel";
+import { dispatchWhatsApp, whatsAppConfigured } from "./services/engagement/whatsapp-channel";
+import { JURISDICTIONS, policyFor } from "./services/engagement/jurisdictions";
+import {
+  EIGHTH_SCHEDULE_LANGUAGES,
+  isValidNoticeLanguageIN,
+} from "./services/engagement/languages";
 
 function sessionUserId(req: Request): string {
   return (
@@ -61,6 +69,8 @@ const recipientSchema = z.object({
   phone: z.string().min(7).max(20),
   languageCode: z.string().min(2).max(8).default("en"),
   timeZone: z.string().min(1).max(64).optional(),
+  jurisdiction: z.enum(["US", "IN"]),
+  lastInboundAt: z.string().optional(),
 });
 
 const variablesSchema = z.object({
@@ -75,43 +85,79 @@ const consentSchema = z.object({
   phone: z.string().min(7).max(20),
   action: z.enum(["grant", "revoke"]),
   purposes: z.array(z.enum(PURPOSES)).optional(),
-  capturedVia: z.enum(["patient-portal", "intake-form", "verbal-documented", "sms-double-optin"]).optional(),
+  capturedVia: z
+    .enum(["patient-portal", "intake-form", "verbal-documented", "sms-double-optin", "whatsapp-optin"])
+    .optional(),
+  /** DPDP: which notice was shown, in which language. */
+  noticeLanguage: z.string().min(2).max(8).optional(),
+  noticeVersion: z.string().max(40).optional(),
+  jurisdiction: z.enum(["US", "IN"]).default("US"),
 });
 
 export function registerEngagementRoutes(app: Express): void {
-  const usOnly = process.env.TEFCA_ENABLED !== "false";
-  if (!usOnly) {
-    console.log(
-      "[Engagement] TEFCA_ENABLED=false — patient engagement endpoints disabled. " +
-        "The consent and quiet-hours rules enforced here are US statute (TCPA/HIPAA) " +
-        "and must not be presented as compliance in another jurisdiction.",
-    );
-    return;
-  }
-
   app.use("/api/engagement", noStorePhi);
 
-  app.get("/api/engagement/policy", (_req: Request, res: Response) => {
+  /**
+   * The whole policy surface, per jurisdiction — what will and will not be
+   * sent, over which channel, and which instrument says so. Published rather
+   * than buried so a practice can audit the rules without reading the code.
+   */
+  app.get("/api/engagement/policy", (req: Request, res: Response) => {
+    const requested = String(req.query.jurisdiction ?? "").toUpperCase();
+    const scope: Jurisdiction[] =
+      requested === "US" || requested === "IN" ? [requested as Jurisdiction] : ["US", "IN"];
+
     res.json({
-      jurisdiction: "US",
-      channels: {
-        sms: { configured: smsConfigured(), phiCeiling: CHANNEL_PHI_CEILING.sms },
-        voice: { configured: false, phiCeiling: CHANNEL_PHI_CEILING.voice, note: "Declared, not yet wired." },
-      },
+      jurisdictions: scope.map((code) => {
+        const policy = policyFor(code);
+        return {
+          jurisdiction: code,
+          displayName: policy.displayName,
+          legalBasis: policy.legalBasis,
+          windows: policy.windows,
+          purposeClasses: PURPOSE_CLASS,
+          weeklyCap: policy.weeklyCap,
+          requiresConsentNotice: policy.requiresConsentNotice,
+          noticeLanguagePolicy: policy.noticeLanguagePolicy,
+          channels: {
+            sms: { ...policy.channels.sms, configured: smsConfigured() },
+            whatsapp: { ...policy.channels.whatsapp, configured: whatsAppConfigured() },
+            voice: { ...policy.channels.voice, configured: false },
+          },
+        };
+      }),
       phiTiers: PHI_TIER_ORDER,
-      quietHours: {
-        startHour: QUIET_HOURS_START_HOUR,
-        endHour: QUIET_HOURS_END_HOUR,
-        basis: "recipient local time",
-        unknownTimezone: "refused, never assumed from the practice's own timezone",
-      },
-      frequencyCap: { messagesPerRollingWeek: WEEKLY_MESSAGE_CAP },
       refusals: [
         "A number with no consent record is refused — having the number is not consent.",
         "Revocation is global across purposes and permanent until a fresh opt-in.",
         "A template above the channel's PHI ceiling is refused, not truncated or redacted.",
-        "No clinical content over SMS: results, diagnoses and medications live behind the portal login.",
+        "India SMS without a registered DLT template id is refused — operators discard unregistered traffic, so a 'successful' send would never arrive.",
+        "WhatsApp without an approved template is refused outside the 24-hour service window.",
+        "In the US, WhatsApp carries no patient-specific content at all: Meta signs no BAA.",
+        "In India, consent with no recorded notice is refused — the DPDP Act makes the notice part of what consent is.",
       ],
+    });
+  });
+
+  /** The 22 Eighth Schedule languages, and what has actually been translated. */
+  app.get("/api/engagement/languages", (_req: Request, res: Response) => {
+    const translated = new Set<string>();
+    for (const template of TEMPLATES) {
+      for (const code of Object.keys(template.bodies)) translated.add(code);
+    }
+
+    res.json({
+      eighthSchedule: EIGHTH_SCHEDULE_LANGUAGES.map((lang) => ({
+        ...lang,
+        validForNotice: true,
+        templatesTranslated: translated.has(lang.code),
+      })),
+      translated: Array.from(translated).sort(),
+      note:
+        "Two different lists on purpose. The Eighth Schedule is what the DPDP Rules 2025 " +
+        "permit a consent notice to be served in; the translated list is what this system " +
+        "actually has copy for. A dropdown offering 22 languages that silently serves " +
+        "English for most of them has not met the notice requirement.",
     });
   });
 
@@ -123,7 +169,15 @@ export function registerEngagementRoutes(app: Express): void {
         tier: t.tier,
         requires: t.requires,
         languages: Object.keys(t.bodies),
+        whatsappCategory: t.whatsappCategory,
+        whatsappTemplateName: t.whatsappTemplateName ?? null,
+        dltTemplateId: t.dltTemplateId ?? null,
       })),
+      registration:
+        "whatsappTemplateName and dltTemplateId are null until the deployment registers " +
+        "with Meta and a TRAI DLT platform. Sends over a channel that requires one are " +
+        "refused while it is null, rather than being discarded downstream where the " +
+        "practice never sees the failure.",
       localisation:
         "Translations are hand-written, not machine-produced at send time. A language " +
         "without a translation falls back to English and the response says so — a " +
@@ -164,6 +218,28 @@ export function registerEngagementRoutes(app: Express): void {
     }
 
     try {
+      if (
+        parsed.data.action === "grant" &&
+        policyFor(parsed.data.jurisdiction).requiresConsentNotice
+      ) {
+        if (!parsed.data.noticeLanguage) {
+          return res.status(400).json({
+            error: "Consent notice required",
+            detail:
+              "Under the DPDP Act the notice is part of what makes consent valid. Record " +
+              "which notice was shown and in which language.",
+          });
+        }
+        if (parsed.data.jurisdiction === "IN" && !isValidNoticeLanguageIN(parsed.data.noticeLanguage)) {
+          return res.status(400).json({
+            error: "Notice language not permitted",
+            detail:
+              `"${parsed.data.noticeLanguage}" is neither English nor one of the 22 Eighth ` +
+              "Schedule languages the DPDP Rules 2025 permit for a consent notice.",
+          });
+        }
+      }
+
       const consent =
         parsed.data.action === "revoke"
           ? revokeConsent({ phone: parsed.data.phone })
@@ -171,6 +247,8 @@ export function registerEngagementRoutes(app: Express): void {
               phone: parsed.data.phone,
               purposes: parsed.data.purposes ?? [],
               capturedVia: parsed.data.capturedVia ?? "intake-form",
+              noticeLanguage: parsed.data.noticeLanguage,
+              noticeVersion: parsed.data.noticeVersion,
             });
 
       await logPhiAccess({
@@ -227,6 +305,7 @@ export function registerEngagementRoutes(app: Express): void {
         recipient: recipientSchema,
         templateId: z.string().min(1),
         variables: variablesSchema,
+        channel: z.enum(["sms", "whatsapp"]).default("sms"),
         dryRun: z.boolean().default(false),
       })
       .safeParse(req.body);
@@ -239,16 +318,26 @@ export function registerEngagementRoutes(app: Express): void {
       patientId: parsed.data.recipient.patientId,
       resourceType: "engagement-message",
       action: "read",
-      details: `Engagement send evaluated: template=${parsed.data.templateId} dryRun=${parsed.data.dryRun}`,
+      details:
+        `Engagement send evaluated: template=${parsed.data.templateId} ` +
+        `channel=${parsed.data.channel} jurisdiction=${parsed.data.recipient.jurisdiction} ` +
+        `dryRun=${parsed.data.dryRun}`,
     }).catch(() => {});
 
-    const result = await dispatchSms({
-      recipient: parsed.data.recipient,
-      templateId: parsed.data.templateId,
-      variables: parsed.data.variables,
-      sentBy: sessionUserId(req),
-      dryRun: parsed.data.dryRun,
-    });
+    const result =
+      parsed.data.channel === "whatsapp"
+        ? dispatchWhatsApp({
+            recipient: parsed.data.recipient,
+            templateId: parsed.data.templateId,
+            variables: parsed.data.variables,
+          })
+        : await dispatchSms({
+            recipient: parsed.data.recipient,
+            templateId: parsed.data.templateId,
+            variables: parsed.data.variables,
+            sentBy: sessionUserId(req),
+            dryRun: parsed.data.dryRun,
+          });
 
     res.json(result);
   });

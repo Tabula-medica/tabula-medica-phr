@@ -1,31 +1,48 @@
-# Patient engagement — SMS
+# Patient engagement — SMS and WhatsApp, India and US
 
-An engagement layer in the shape of 2care.ai's receptionist product, built to
-US law rather than to their India-first WhatsApp model.
+An engagement layer in the shape of 2care.ai's product: reminders, pre-visit
+prep, post-visit follow-up, care-plan check-ins, recall.
 
-US only, gated on `TEFCA_ENABLED`. Not because engagement is a US idea — every
-rule enforced here is US statute, and shipping TCPA quiet hours to a
-jurisdiction they do not govern would look like compliance while enforcing the
-wrong law.
+**Jurisdiction is a property of the patient, not of the build.** The rules
+governing a message follow the person receiving it, so a `.world` deployment
+serving Indian patients and a US deployment serving American ones run the same
+code and reach different answers. An earlier cut gated the whole module on
+`TEFCA_ENABLED`, which disabled it on the international build — shipping
+nothing to the market that needs it most. That gate is gone.
 
 ---
 
-## The two statutes, and why both gates exist
+## Two countries, four bodies of rules
 
-They do not overlap, and passing one says nothing about the other.
+| | United States | India |
+|---|---|---|
+| **Data** | HIPAA — minimum necessary | DPDP Act 2023 + DPDP Rules 2025 (notified Nov 2025) |
+| **Channel** | TCPA — consent, revocation, 08:00–21:00 local | TRAI TCCCPR — DLT header + registered template; 09:00–21:00 promotional |
+| **WhatsApp** | Meta Business Policy. **No BAA available** | Meta Business Policy. **Outside TRAI DLT** |
+| **Notice** | No statutory language rule | English or one of the 22 Eighth Schedule languages |
 
-**HIPAA** permits appointment reminders and treatment communications without
-separate authorisation. It does not make SMS a safe place to put clinical
-detail — carrier networks, lock screens and shared family handsets are all
-outside any agreement this deployment holds.
+Three corrections worth stating plainly, because each is commonly assumed the
+other way:
 
-**TCPA** governs sending to a mobile number at all: prior express consent,
-revocation honoured immediately by any reasonable means, and an 08:00–21:00
-window in the **recipient's** local time. Statutory damages run $500–$1,500
-per message with no de-minimis exception, so a reminder blast to an
-unconsented list is a five-figure mistake before anyone notices.
+**WhatsApp is not under TRAI DLT.** DLT attaches to telecom resources —
+numbering, SMS routes, voice. WhatsApp Business API traffic is data-channel on
+Meta's platform. Registering it is harmless; *assuming DLT covers it* is not,
+because it leaves Meta's actual requirements unimplemented.
 
-A message can be perfectly fine under HIPAA and still be a TCPA violation.
+**Meta signs no BAA.** So in the US, WhatsApp carries a ceiling of `none` —
+not even that an appointment exists. In India there is no BAA construct; the
+DPDP duty runs to the Data Fiduciary directly, so appointment logistics are
+permissible with consent. **The same template is sendable in Mumbai and
+refused in Chicago.** That is correct behaviour, and a test pins it.
+
+**In India the consent notice is constitutive, not paperwork.** DPDP s.5 makes
+the notice part of what valid consent *is*. Consent with no recorded notice, or
+a notice served in a language outside English and the Eighth Schedule, is
+refused at send time.
+
+A message can be perfectly fine under HIPAA and still be a TCPA violation, and
+fine under both and still be dropped by an Indian operator for want of a DLT
+template id. Each gate is checked separately.
 
 ---
 
@@ -39,8 +56,19 @@ because fixing the timezone would not make the send legal.
 |---|---|---|
 | 1 | Phone is E.164-able | `invalid-phone` |
 | 2 | TCPA consent, and consent covers this purpose | `no-consent`, `consent-revoked`, `purpose-not-consented` |
-| 3 | Template tier ≤ channel ceiling | `phi-tier-exceeds-channel` |
-| 4 | Quiet hours, frequency cap | `frequency-cap`, `unknown-timezone`, deferral |
+| 3 | Registered template / service window | `dlt-registration-missing`, `whatsapp-template-not-approved`, `outside-service-window` |
+| 4 | Template tier ≤ channel ceiling | `phi-tier-exceeds-channel` |
+| 5 | Quiet hours (by purpose class), frequency cap | `frequency-cap`, `unknown-timezone`, deferral |
+
+India adds a check before all of these: `consent-notice-missing` when consent
+carries no recorded DPDP notice.
+
+**Template registration and the service window interact, and the order
+matters.** On WhatsApp an approved template may be sent at any time, and
+free-form text is permitted *instead* while the 24-hour window the patient
+opened is still open. Checking registration first makes free-form unreachable —
+that was a real bug during the build, caught by a test. On India SMS, where
+there is no window, DLT registration is unconditional.
 
 Quiet hours produce **`deferred`**, not a refusal — the message is legitimate,
 just early or late, and the caller gets the instant the window opens so it can
@@ -54,6 +82,9 @@ be queued rather than dropped.
 | Any stop keyword | Revoked **globally across purposes**, permanently |
 | Template above channel ceiling | Refused — not truncated, not redacted, not "sent with a warning" |
 | Unknown timezone | Refused — **not** the practice's own timezone |
+| India SMS, no DLT template id | Refused — operators *discard* unregistered traffic, so a "successful" send would never arrive |
+| US WhatsApp, any patient-specific content | Refused — Meta signs no BAA |
+| India consent with no recorded notice | Refused — DPDP s.5 |
 | Missing template variable | Refused — an unfilled `{{placeholder}}` is worse than no message |
 | Missing language | English, and the response says `fellBackToEnglish` |
 
@@ -64,13 +95,16 @@ one — the ones who moved. A clinic in New York sending at 07:30 Eastern reache
 
 ---
 
-## PHI tiers
+## PHI tiers, per channel per country
 
-| Tier | Contains | Allowed on SMS |
-|---|---|---|
-| `none` | Nothing patient-specific | yes |
-| `appointment-logistics` | That a visit exists, when, where, with whom | yes |
-| `clinical-detail` | A condition, medication, result, or instruction | **no** |
+| Tier | Contains | US SMS | US WhatsApp | IN SMS | IN WhatsApp |
+|---|---|---|---|---|---|
+| `none` | Nothing patient-specific | ✓ | ✓ | ✓ | ✓ |
+| `appointment-logistics` | That a visit exists, when, where, with whom | ✓ | ✗ | ✓ | ✓ |
+| `clinical-detail` | A condition, medication, result, or instruction | ✗ | ✗ | ✗ | ✗ |
+
+The one asymmetric cell is US WhatsApp, and it is the whole reason the tier
+system exists rather than a boolean.
 
 The tier is declared **per template**, next to the copy, rather than inferred
 per message — inference is exactly what fails quietly when someone helpfully
@@ -130,28 +164,45 @@ starting in 20 minutes, delivered because a job backed up, is worse than silence
 
 ## Languages
 
-Eight hand-written translations (en, es, zh, vi, ko, ar, hi, ru) across all
-templates, with the STOP notice localised to match the body.
+**Two lists, deliberately kept apart.** `GET /api/engagement/languages`
+returns both:
 
-Translations are hand-written, **not machine-produced at send time**. A
-language without one falls back to English and the response says so. A
-mistranslated appointment time is a missed appointment.
+- **The Eighth Schedule** — the 22 constitutional languages a DPDP consent
+  notice may lawfully be served in, plus English. Fixed by statute, not by
+  what happens to be translated here. Includes Santali (`sat`) and Bodo
+  (`brx`), which have no ISO 639-1 two-letter code, and four RTL scripts.
+- **What is actually translated** — 18 languages: en, es, zh, vi, ko, ar, ru,
+  plus hi, bn, ta, te, mr, gu, kn, ml, pa, or, as, ur.
+
+Conflating them is the failure this guards against. A dropdown offering 22
+choices that silently serves English for fourteen of them has produced a
+dropdown, not a notice. Every render reports `languageUsed` and
+`fellBackToEnglish`.
+
+Translations are hand-written, **not machine-produced at send time** — a
+mistranslated appointment time is a missed appointment, and machine
+translation turns one bad string into a systematic one.
 
 ---
 
 ## Endpoints
 
 ```
-GET  /api/engagement/policy           what this system will and will not send, and why
-GET  /api/engagement/templates        catalogue with tiers and languages
+GET  /api/engagement/policy           per-jurisdiction rules + the instrument behind each
+GET  /api/engagement/languages        Eighth Schedule vs what is actually translated
+GET  /api/engagement/templates        catalogue with tiers, languages, registration state
 GET  /api/engagement/journeys         cadences with the reasoning for each
 POST /api/engagement/journeys/plan    expand a journey against an anchor
 GET  /api/engagement/consent/:phone   consent state for one number
 POST /api/engagement/consent          record or revoke
 POST /api/engagement/inbound          process inbound SMS (STOP/START/HELP)
 POST /api/engagement/preview          render without sending
-POST /api/engagement/send             gate + dispatch (supports dryRun)
+POST /api/engagement/send             gate + dispatch over `sms` or `whatsapp`
 ```
+
+`/policy` takes `?jurisdiction=US|IN`, and returns the legal instrument behind
+every rule — published rather than buried so a practice can audit the policy
+without reading the code.
 
 `/inbound` is unauthenticated by necessity — it is the carrier webhook, and a
 STOP that fails because a signature check was misconfigured is a violation.
@@ -166,14 +217,25 @@ missing-consent and missing-timezone rows while they are still fixable.
 ## Configuration
 
 ```bash
+# SMS (both countries)
 export TWILIO_ACCOUNT_SID=...
 export TWILIO_AUTH_TOKEN=...
 export TWILIO_PHONE_NUMBER=+1...
+
+# India SMS — TRAI DLT template ids, internalId=dltId
+export DLT_TEMPLATE_IDS="appointment-reminder=1107xxxxxxxxxxxxx,..."
+
+# WhatsApp — Meta approved template names, internalId=approved_name
+export WHATSAPP_PHONE_NUMBER_ID=...
+export WHATSAPP_ACCESS_TOKEN=...
+export WHATSAPP_APPROVED_TEMPLATES="appointment-reminder=appt_reminder_v1,..."
 ```
 
 Twilio is BAA-eligible and already carries a third-party governance record in
-this repo. Without credentials the gate still evaluates — sends refuse with
-`channel-not-configured` rather than failing silently.
+this repo. Empty registration maps are the correct state before a deployment
+has been through DLT registration or Meta review — the gate refuses, rather
+than letting the failure surface at the operator's drop counter or at Meta,
+where the practice never sees it.
 
 ---
 
@@ -187,11 +249,21 @@ this repo. Without credentials the gate still evaluates — sends refuse with
   them yet. Wire it to the existing `sync-scheduler` or a job runner.
 - **No EHR binding.** Appointment times come from the caller. Reading them from
   a live schedule needs the FHIR/SMART path in `server/fhir/`.
-- **Voice is declared, not wired.** `CHANNEL_PHI_CEILING.voice` is set and the
+- **No WhatsApp transport.** Every WhatsApp gate is implemented and tested,
+  but there is no BSP client, so `dispatchWhatsApp` returns `would-send`
+  rather than `sent`. Named honestly so nobody believes a message went out.
+- **Voice is declared, not wired.** The ceiling is set per jurisdiction and the
   gate handles the channel; there is no telephony adapter.
 - **No inbound booking agent.** 2care.ai's receptionist transacts against a
   calendar — checks availability, books, reschedules. That needs the EHR
   binding first; this layer is outbound plus inbound consent handling.
-- **WhatsApp is deliberately absent.** Meta does not sign a BAA for the
-  WhatsApp Business API. It could carry `none`-tier content in the US, or
-  anything in the `.world` build under DPDP/GDPR, but it is not built here.
+- **Only 10 of 22 Eighth Schedule languages have template copy.** The notice
+  requirement is met for any of them by supplying a notice; the *templates*
+  cover the ten largest. The endpoint reports exactly which, rather than
+  implying full coverage.
+- **The DPDP Consent Manager framework is not implemented.** It becomes
+  operative 13 November 2026, with full compliance by 13 May 2027. Consent is
+  recorded locally with its notice; registering with a Consent Manager is a
+  separate piece of work.
+- **Only US and India.** GDPR/EU is not modelled. Adding a jurisdiction is one
+  entry in `jurisdictions.ts`, which is why that table exists.
