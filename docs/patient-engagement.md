@@ -270,3 +270,194 @@ where the practice never sees it.
   separate piece of work.
 - **Only US and India.** GDPR/EU is not modelled. Adding a jurisdiction is one
   entry in `jurisdictions.ts`, which is why that table exists.
+
+---
+
+# Sharing a medication, diagnosis and allergy list
+
+The three lists someone actually needs when a patient turns up somewhere new.
+They are also the three *required* sections of the International Patient
+Summary, so the share reuses the data `ips-generator.ts` already collects
+rather than inventing a second shape for the same facts.
+
+## The message carries a link, never the list
+
+Medications, diagnoses and allergies are classified `clinical-detail` — the
+top PHI tier. Every messaging channel in both jurisdictions sits below that
+ceiling, so the send gate refuses to put any of it in a message body. That is
+the correct behaviour and it was not relaxed for this feature.
+
+An SMS is stored in plaintext on the handset, in the carrier's logs, and in
+whatever backup the handset syncs to; it renders on a lock screen to whoever
+is holding the phone. A medication list is a diagnosis list by inference —
+metformin says diabetes, and a short list of antiretrovirals says something a
+patient may not have told their family.
+
+So the notification is `appointment-logistics`: it says a clinic has a summary
+for you and gives a link. That is the same disclosure an appointment reminder
+already makes. The clinical content renders over TLS on a page that is
+`noindex`, `no-store`, and `Referrer-Policy: no-referrer` — the last because
+the token is in the URL path, and any external resource on that page would
+leak it in a `Referer` header.
+
+## Three flows, three different laws
+
+| Flow | Sender | What governs it |
+|---|---|---|
+| **Clinic → its own patient** | the practice | Full gate: consent, quiet hours, cap, channel ceiling |
+| **Patient → anyone, from their own handset** | the patient | Nothing — the practice is not the sender |
+| **Clinic → a third party at the patient's request** | the practice | Full gate run against the **third party's** number |
+
+Flow 2 is the default for "text my med list to my daughter", and it is not a
+workaround. The server mints the link and returns a pre-filled `sms:` or
+`wa.me` intent; the patient's own device sends it, from the patient's own
+number, to a contact the patient picked. Neither the HIPAA disclosure rules
+nor TCPA's consent requirement attaches to the practice for that send.
+
+Flow 3 is the one people reach for and should not. Under TCPA the consent that
+matters belongs to the **recipient**, and a patient cannot give it on their
+daughter's behalf — the FCC reads "called party" as the current subscriber or
+customary user, not the intended recipient. `mintShare` refuses
+`initiator: "patient"` combined with a `server-*` delivery for exactly this
+reason. If a practice genuinely must send directly, the third party needs
+their own prior express consent captured first, and that is a **separate
+record** from the patient's written direction. The operator UI must not let
+the two collapse into one form.
+
+## The US and India disagree about what this feature is
+
+| | United States | India |
+|---|---|---|
+| Transmission at the patient's direction | **A duty** | **Discretionary** |
+| Basis | 45 CFR 164.524(c)(2)(i)-(ii); OCR right of access guidance | DPDP Act 2023 s.4, s.6 — a new purpose needing fresh consent |
+| Third party | (c)(3)(ii): written, signed, names the person and destination | No equivalent |
+| Portability right | Yes, via right of access | **None** — dropped from the 2019 Bill; ss.11-14 give no transmission duty |
+
+Two things worth stating for whoever reads the code next:
+
+**45 CFR 164.524 never mentions email, SMS, or encryption.** The duty to
+transmit by an unsecured channel is built from the general form-and-format
+rule plus OCR's reading of "readily producible", together with the guidance
+that a covered entity is not responsible for interception in transit once the
+individual has been warned and accepted the risk. Someone who greps the
+regulation for "unencrypted", finds nothing, and concludes the duty is
+imaginary has not found a gap.
+
+**The third-party directive is narrower than it reads.** *Ciox Health, LLC v.
+Azar*, 435 F. Supp. 3d 30 (D.D.C. 2020) vacated it insofar as it reached
+beyond electronic PHI held in an EHR and requested in electronic form, and
+held the (c)(4) fee cap inapplicable to third-party transmittals. An
+electronic medication, problem and allergy list is inside what survives.
+
+`GET /api/engagement/share/policy` returns this table with the instrument
+behind each row, the same way `/policy` does for messaging.
+
+> **Verify before relying on this in a filing.** These citations were compiled
+> from secondary sources; the section numbers and the case are solid, the
+> paraphrases are not quotations. The Indian position in particular has a live
+> commencement question — most operative DPDP Rules 2025 provisions phase in
+> at 13 May 2027, and which *Act* sections are in force before then was not
+> established. Put an India launch to local counsel.
+
+## The empty allergy list
+
+The single most safety-critical behaviour in the module.
+
+An empty allergy section reads to every human being as "no allergies", and a
+reader acting on that can kill someone with a drug that was known to cause
+anaphylaxis but was never typed in. An empty table means nobody recorded
+anything; it does not mean anybody asked.
+
+So an empty section renders one of two ways, in words, in the reader's own
+language:
+
+- **`not-recorded`** — "No allergies recorded. This does not mean there are
+  none — nothing has been entered." Plus a warning banner at the top of the
+  page, because a reader who never scrolls to the allergy section is exactly
+  the reader it protects.
+- **`attested-none`** — "No known allergies. Confirmed by the patient." Only
+  when somebody affirmatively said so.
+
+There is no attestation column on `phr_allergies` today, so the attestation
+arrives with the mint request. Until a patient or clinician actually asserts
+it, every empty allergy list is `not-recorded`, which is the honest reading.
+
+A related note on the IPS generator: `buildIpsBundle` currently emits
+`no-known-allergies` for an empty list. By its own documentation that code
+means "we asked, and the answer was none", which the data does not support.
+That is not changed here — it would alter signed passport output — but it is
+the same defect this module refuses to repeat, and it should be revisited.
+
+**Inactive entries are shown, not dropped.** A stopped medication is
+clinically live information: warfarin discontinued last week still governs
+what is safe to give today. Filtering to `active` would produce a shorter,
+cleaner, more dangerous list. Non-active rows sort after the active ones and
+carry their status.
+
+**Allergies render first** regardless of the order the caller asked for. Every
+clinical handover format leads with allergies, because an allergy is the thing
+that stops a prescription and a reader who scrolls past it has already made
+the decision it was meant to inform.
+
+## The link
+
+| Property | Default | Cap |
+|---|---|---|
+| Lifetime | 24 h | 7 days |
+| Views | 10 | 50 |
+| Token | 256 bits, base64url | — |
+| PIN | off | 6 digits |
+
+- The token is stored as a SHA-256 hash. It is returned exactly once.
+- A **wrong PIN does not burn a view**, or guessing would be a way to exhaust
+  somebody else's link. PINs are hashed with scrypt and compared in constant
+  time.
+- A revoked link reports `token-revoked`, not `token-not-found`. The person
+  holding it otherwise cannot tell a revocation from a typo and will keep
+  retrying something that will never work again.
+- An over-long lifetime is **refused, not clamped**, so the caller knows what
+  it got.
+- `HEALTH_SHARE_BASE_URL` must be an https origin. It is never derived from
+  the request `Host` header: that is attacker-controlled, and a link built
+  from it would be a phishing target sent under the clinic's own name.
+
+## Endpoints
+
+```
+GET  /api/engagement/share/policy       per-jurisdiction rules + the instrument behind each
+POST /api/engagement/share              mint a link                          [auth]
+GET  /api/engagement/share/list         live and dead links for a profile    [auth]
+POST /api/engagement/share/:id/revoke   kill a link                          [auth]
+GET  /api/engagement/share/view/:token  the summary as JSON                  [token]
+GET  /s/:token                          the page the link opens              [token]
+```
+
+`/s/:token` is unauthenticated by design — the recipient is a pharmacist or a
+relative, not an account holder. The token is the credential, which is why it
+is 256 bits, short-lived, view-capped and revocable. The page is
+self-contained: inline CSS, no scripts, no external resources, `default-src
+'none'`.
+
+## Configuration
+
+```bash
+HEALTH_SHARE_BASE_URL=https://records.example.org   # required; https only
+PRACTICE_DISPLAY_NAME="Ltfm Health"                 # appears in the notification
+```
+
+## Not built
+
+- **Share grants live in memory**, like the rest of this module. A restart
+  drops every outstanding link — that fails safe, but it is not acceptable for
+  a patient who handed the link to their doctor. Worse: **revocation does not
+  propagate across instances**, so with more than one process a revoke on one
+  does not stop a read on another. That one fails *unsafely* and must be
+  closed before a multi-instance deployment.
+- No attestation column on `phr_allergies`, so "no known allergies" cannot yet
+  be recorded durably against the record — only against a share.
+- No caregiver or proxy access path; the mint is the account holder's own
+  profile or a staff action.
+- Only the 19 languages with a full string set are translated. `GET
+  /api/engagement/languages` reports that list against the 22 Eighth Schedule
+  languages a DPDP notice may lawfully be served in.
+- No PDF. The page is the artefact.

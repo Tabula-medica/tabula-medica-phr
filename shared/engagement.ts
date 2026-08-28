@@ -61,7 +61,14 @@ export type EngagementPurpose =
   | "post-visit-followup"
   | "care-plan-checkin"
   | "recall-reactivation"
-  | "consent-management";
+  | "consent-management"
+  /**
+   * Notifying someone that a health summary has been shared with them. The
+   * message carries a link and nothing else — the medication, diagnosis and
+   * allergy lists it points at are `clinical-detail` and may not travel in a
+   * message body on any channel. See `shared/health-summary.ts`.
+   */
+  | "record-share";
 
 /**
  * Transactional or promotional.
@@ -84,6 +91,9 @@ export const PURPOSE_CLASS: Record<EngagementPurpose, PurposeClass> = {
   // the promotional rules instead of quietly outside them.
   "recall-reactivation": "promotional",
   "consent-management": "transactional",
+  // A summary the patient asked for, or that their clinician is sending
+  // them. Nothing is being marketed, so the promotional windows do not apply.
+  "record-share": "transactional",
 };
 
 /**

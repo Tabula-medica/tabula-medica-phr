@@ -41,6 +41,7 @@
  */
 
 import type { EngagementPurpose, PhiTier, WhatsAppCategory } from "@shared/engagement";
+import { SUMMARY_STRINGS } from "./summary-strings";
 
 export interface TemplateVariables {
   practiceName: string;
@@ -49,6 +50,12 @@ export interface TemplateVariables {
   appointmentTime?: string;
   location?: string;
   portalUrl?: string;
+  /**
+   * Link to a shared health summary. The summary itself never travels in a
+   * message body — medications, diagnoses and allergies are `clinical-detail`
+   * and exceed every channel ceiling. See `shared/health-summary.ts`.
+   */
+  shareUrl?: string;
 }
 
 export interface MessageTemplate {
@@ -102,6 +109,20 @@ const STOP_NOTICE: Record<string, string> = {
   as: "বন্ধ কৰিবলৈ STOP পঠিয়াওক।",
   ur: "بند کرنے کے لیے STOP بھیجیں۔",
 };
+
+/**
+ * Bodies for the record-share notification, lifted from the summary string
+ * table rather than retyped here. One copy of each sentence: a notification
+ * that promises something different from the page it opens is a support call
+ * in every language it is wrong in.
+ */
+function shareBodies(): Record<string, string> {
+  const bodies: Record<string, string> = {};
+  for (const [language, strings] of Object.entries(SUMMARY_STRINGS)) {
+    bodies[language] = strings.shareMessage;
+  }
+  return bodies;
+}
 
 export const TEMPLATES: readonly MessageTemplate[] = [
   {
@@ -269,6 +290,19 @@ export const TEMPLATES: readonly MessageTemplate[] = [
     // it honestly is what keeps it inside the promotional rules rather than
     // quietly outside them.
     whatsappCategory: "marketing",
+  },
+  {
+    id: "record-share",
+    purpose: "record-share",
+    // The link discloses that a clinic has something for this person — the
+    // same disclosure an appointment reminder makes, and no more. The lists
+    // behind it are clinical-detail and stay off the wire entirely.
+    tier: "appointment-logistics",
+    requires: ["practiceName", "shareUrl"],
+    // Sourced from SUMMARY_STRINGS so the notification and the page it opens
+    // cannot drift into saying different things in different languages.
+    bodies: shareBodies(),
+    whatsappCategory: "utility",
   },
 ];
 

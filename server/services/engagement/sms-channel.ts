@@ -32,6 +32,9 @@ const PURPOSE_CATEGORY: Record<EngagementMessage["purpose"], SmsCategory> = {
   "care-plan-checkin": "care_follow_up",
   "recall-reactivation": "care_follow_up",
   "consent-management": "general",
+  // Not "lab_result": the message carries a link, and the summary behind it
+  // is a record the patient already holds, not a new clinical finding.
+  "record-share": "general",
 };
 
 /**
