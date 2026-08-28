@@ -22,6 +22,13 @@ import { TEMPLATES, findTemplate, renderTemplate } from "../server/services/enga
 import { evaluateSend, resetSendHistory } from "../server/services/engagement/send-gate";
 import { grantConsent, resetConsentRegistry } from "../server/services/engagement/consent";
 import { SHARE_LIMITS, SUMMARY_SECTIONS } from "@shared/health-summary";
+import {
+  GENERIC_TITLE,
+  errorPage,
+  interstitialPage,
+  pinPage,
+  summaryPage,
+} from "../server/services/engagement/summary-page";
 import type { EngagementMessage, EngagementRecipient } from "@shared/engagement";
 import type {
   IpsAllergyInput,
@@ -571,5 +578,82 @@ describe("the notification never carries clinical detail", () => {
     });
 
     expect(decision.status).toBe("send");
+  });
+});
+
+// ── What a link preview is allowed to see ───────────────────────────────────
+
+describe("the page a GET returns", () => {
+  const summary = () =>
+    buildHealthSummary({
+      patientName: "Asha Rao",
+      medications: MEDS,
+      problems: PROBLEMS,
+      allergies: ALLERGIES,
+      sections: SUMMARY_SECTIONS,
+      generatedAt: NOW.toISOString(),
+      language: "en",
+    });
+
+  it("holds no PHI, because the fetcher is usually a messaging platform", () => {
+    // WhatsApp, iMessage, Slack and mail scanners fetch a shared link to build
+    // a preview. The first GET is the platform's crawler, not the recipient —
+    // so this page is delivered to Meta, and the whole reason the list travels
+    // as a link rather than in the message body is that Meta signs no BAA.
+    const page = interstitialPage("tok_abc123");
+
+    for (const leak of ["Asha", "Rao", "Metformin", "Warfarin", "Penicillin", "diabetes"]) {
+      expect(page, `interstitial must not contain "${leak}"`).not.toContain(leak);
+    }
+  });
+
+  it("makes the reader POST, because a crawler will not", () => {
+    const page = interstitialPage("tok_abc123");
+    expect(page).toContain('method="post"');
+    expect(page).toContain('action="/s/tok_abc123"');
+  });
+
+  it("gives every page the same generic title", () => {
+    // The title is what an unfurl displays and what a browser writes into
+    // history. The patient's name must reach neither.
+    for (const page of [
+      interstitialPage("tok"),
+      pinPage("tok", null),
+      errorPage("token-expired", "This link has expired."),
+      summaryPage(summary(), NOW.toISOString(), "en"),
+    ]) {
+      expect(page).toContain(`<title>${GENERIC_TITLE}</title>`);
+      expect(page).not.toContain("<title>Asha Rao</title>");
+    }
+  });
+
+  it("escapes patient-entered text on the page that does render it", () => {
+    const hostile = buildHealthSummary({
+      patientName: "Asha <script>alert(1)</script> Rao",
+      medications: [],
+      problems: [],
+      allergies: [
+        { id: "a", allergen: '"><img src=x onerror=alert(1)>', reaction: "rash", status: "active" },
+      ],
+      sections: SUMMARY_SECTIONS,
+      generatedAt: NOW.toISOString(),
+      language: "en",
+    });
+    const page = summaryPage(hostile, NOW.toISOString(), "en");
+
+    // What matters is that no user-supplied text became markup. The literal
+    // string "onerror=" may well appear — as inert escaped display text — and
+    // asserting on its absence would be testing the wrong thing.
+    expect(page).not.toContain("<script>");
+    expect(page).not.toContain("<img");
+    expect(page).toContain("&lt;script&gt;");
+    expect(page).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+
+  it("puts the token in the PIN form action but never in a title", () => {
+    const page = pinPage("tok_xyz", "That PIN is not correct.");
+    expect(page).toContain('action="/s/tok_xyz"');
+    expect(page).toContain('method="post"');
+    expect(page).toContain("That PIN is not correct.");
   });
 });

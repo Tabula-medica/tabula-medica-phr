@@ -24,7 +24,7 @@ import { noStorePhi } from "./lib/middleware/no-store-phi";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { SHARE_LIMITS, SUMMARY_SECTIONS, type SummarySection } from "@shared/health-summary";
 import type { Jurisdiction } from "@shared/engagement";
-import { collectIpsInput, escapeXhtml } from "./services/world/ips-generator";
+import { collectIpsInput } from "./services/world/ips-generator";
 import { buildHealthSummary, summaryToPlainText } from "./services/engagement/summary-render";
 import {
   SHARE_POLICIES,
@@ -35,7 +35,13 @@ import {
   revokeShare,
   shareBaseUrl,
 } from "./services/engagement/summary-share";
-import { renderShareMessage, summaryStrings } from "./services/engagement/summary-strings";
+import { renderShareMessage } from "./services/engagement/summary-strings";
+import {
+  errorPage,
+  interstitialPage,
+  pinPage,
+  summaryPage,
+} from "./services/engagement/summary-page";
 import { isClinicStaff } from "./services/engagement/inbound-auth";
 
 function getSessionUserId(req: Request): string | undefined {
@@ -367,6 +373,29 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     });
   }
 
+  /**
+   * GET renders an interstitial and touches nothing.
+   *
+   * This is the fix for the hole that ran straight through the feature's
+   * central claim. The whole design rests on "the message carries a link, not
+   * the list", justified by Meta signing no BAA — and then WhatsApp, iMessage,
+   * Slack and mail scanners *fetch the link* to build a preview. The first GET
+   * is the platform's crawler, not the recipient. Rendering PHI on GET meant
+   * the medication and allergy list went to Meta anyway, burned a view before
+   * the human ever opened it, and put the patient's name in a cached preview
+   * snippet via the page title. The `handoff-whatsapp` intent handed the link
+   * to the exact platform the architecture existed to keep it away from.
+   *
+   * So GET is inert: a generic page, no patient name, no registry lookup at
+   * all. It does not even reveal whether the token is real — an unfurler
+   * learns nothing. Redemption happens on POST, which crawlers do not issue
+   * and preview generators do not click.
+   */
+  const shareInterstitial = (req: Request, res: Response) => {
+    setShareHeaders(res);
+    res.type("html").send(interstitialPage(req.params.token));
+  };
+
   const renderShare = async (req: Request, res: Response) => {
     const token = req.params.token;
     const redemption = await redeemShare(token, { pin: pinFromRequest(req) });
@@ -403,155 +432,61 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     res.type("html").send(summaryPage(summary, grant.expiresAt, grant.language));
   };
 
-  app.get("/s/:token", shareViewRateLimiter, renderShare);
+  app.get("/s/:token", shareViewRateLimiter, shareInterstitial);
   app.post("/s/:token", shareViewRateLimiter, renderShare);
 
-  // JSON twin, for the mobile app and for a receiving system that wants the
-  // data rather than the page. Takes the PIN from a header or a POST body for
-  // the same reason the HTML route does.
-  const renderShareJson = async (req: Request, res: Response) => {
-    const redemption = await redeemShare(req.params.token, { pin: pinFromRequest(req) });
-    res.set("Cache-Control", "no-store");
-    res.set("Referrer-Policy", "no-referrer");
+  /**
+   * JSON twin. The token travels in the **body**, not the path.
+   *
+   * `server/index.ts` logs `{ method, path, status }` as JSON to stdout for
+   * every request whose path starts with `/api`. A token in the path is
+   * therefore written to the application log — and for a default grant with no
+   * PIN, that token is the only secret. Anyone who can read stdout or the log
+   * aggregator could replay outstanding links, which is a strictly wider
+   * audience than the HIPAA audit table this module writes to deliberately.
+   *
+   * POST-only for the same reason as the HTML route: a GET is what a crawler
+   * issues.
+   */
+  const viewBodySchema = z.object({
+    token: z.string().min(20).max(200),
+    pin: z.string().min(1).max(32).optional(),
+  });
 
-    if (!redemption.ok) {
-      const status =
-        redemption.failure === "pin-required" || redemption.failure === "pin-incorrect" ? 401 : 410;
-      return res.status(status).json({ error: redemption.failure, detail: redemption.detail });
-    }
+  app.post(
+    "/api/engagement/share/view",
+    shareViewRateLimiter,
+    async (req: Request, res: Response) => {
+      res.set("Cache-Control", "no-store");
+      res.set("Referrer-Policy", "no-referrer");
 
-    const grant = redemption.grant;
-    const summary = await loadSummaryFor(grant);
-    if (!summary) return res.status(410).json({ error: "token-not-found" });
+      const parsed = viewBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "token is required in the request body" });
+      }
 
-    await logPhiAccess({
-      userId: `share:${grant.id}`,
-      patientId: grant.profileId,
-      resourceType: "health-summary-share",
-      action: "read",
-      details: `share viewed as JSON (${grant.viewCount}/${grant.maxViews})`,
-    });
+      const redemption = await redeemShare(parsed.data.token, { pin: parsed.data.pin });
+      if (!redemption.ok) {
+        const status =
+          redemption.failure === "pin-required" || redemption.failure === "pin-incorrect"
+            ? 401
+            : 410;
+        return res.status(status).json({ error: redemption.failure, detail: redemption.detail });
+      }
 
-    res.json({ summary, plainText: summaryToPlainText(summary), expiresAt: grant.expiresAt });
-  };
+      const grant = redemption.grant;
+      const summary = await loadSummaryFor(grant);
+      if (!summary) return res.status(410).json({ error: "token-not-found" });
 
-  app.get("/api/engagement/share/view/:token", shareViewRateLimiter, renderShareJson);
-  app.post("/api/engagement/share/view/:token", shareViewRateLimiter, renderShareJson);
-}
+      await logPhiAccess({
+        userId: `share:${grant.id}`,
+        patientId: grant.profileId,
+        resourceType: "health-summary-share",
+        action: "read",
+        details: `share viewed as JSON (${grant.viewCount}/${grant.maxViews})`,
+      });
 
-// ── HTML ────────────────────────────────────────────────────────────────────
-
-const PAGE_CSS = `
-:root{color-scheme:light dark;--bg:#fff;--fg:#111;--muted:#555;--line:#e3e3e3;--warn-bg:#fff4e5;--warn-fg:#7a4100;--warn-line:#f0b357}
-@media(prefers-color-scheme:dark){:root{--bg:#151719;--fg:#f2f2f2;--muted:#a8a8a8;--line:#31353a;--warn-bg:#3a2a10;--warn-fg:#ffcf8f;--warn-line:#8a5f1d}}
-*{box-sizing:border-box}
-body{margin:0;padding:1.5rem 1rem 3rem;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:38rem;margin:0 auto}
-h1{font-size:1.35rem;margin:0 0 .25rem}
-h2{font-size:1.05rem;margin:2rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
-.meta{color:var(--muted);font-size:.85rem;margin:0 0 1.25rem}
-.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-line);border-radius:8px;padding:.7rem .85rem;margin:.5rem 0;font-weight:600}
-ul{list-style:none;margin:0;padding:0}
-li{padding:.55rem 0;border-bottom:1px solid var(--line)}
-li:last-child{border-bottom:0}
-.primary{font-weight:600}
-.secondary{color:var(--muted);font-size:.9rem}
-.status{display:inline-block;margin-left:.4rem;padding:.05rem .4rem;border:1px solid var(--line);border-radius:4px;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-.empty{color:var(--muted);font-style:italic}
-footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
-form{margin-top:1rem;display:flex;flex-direction:column;gap:.5rem;max-width:14rem}
-label{font-size:.85rem}
-input{padding:.6rem .7rem;font-size:1.25rem;letter-spacing:.25em;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
-button{padding:.6rem .9rem;font-size:1rem;border:1px solid var(--line);border-radius:8px;background:var(--fg);color:var(--bg);cursor:pointer}
-`;
-
-function shell(title: string, bodyHtml: string, lang: string, dir: "ltr" | "rtl"): string {
-  return `<!doctype html><html lang="${escapeXhtml(lang)}" dir="${dir}"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow,noarchive">
-<meta name="referrer" content="no-referrer">
-<title>${escapeXhtml(title)}</title><style>${PAGE_CSS}</style></head><body><main>${bodyHtml}</main></body></html>`;
-}
-
-/** Scripts from `languages.ts`' RTL set. Getting this wrong makes Urdu unreadable. */
-const RTL = new Set(["ar", "ur", "fa", "he"]);
-
-function errorPage(failure: string, detail: string): string {
-  const heading =
-    failure === "pin-locked"
-      ? "This link is closed"
-      : "This link is no longer available";
-  return shell(
-    heading,
-    `<h1>${escapeXhtml(heading)}</h1><p class="meta">${escapeXhtml(detail)}</p>` +
-      `<p class="meta">Ask the person who sent it for a new one.</p>`,
-    "en",
-    "ltr",
+      res.json({ summary, plainText: summaryToPlainText(summary), expiresAt: grant.expiresAt });
+    },
   );
-}
-
-/**
- * PIN entry. The form POSTs to the same path, so the PIN travels in a request
- * body rather than a URL — access logs, proxy logs and browser history all
- * record the request line, and a PIN sitting in any of them is a PIN that no
- * longer protects anything.
- *
- * `autocomplete="off"` and `inputmode="numeric"` because this is a one-time
- * code read off a message, not a credential a password manager should keep.
- */
-function pinPage(token: string, error: string | null): string {
-  const action = `/s/${encodeURIComponent(token)}`;
-  const body =
-    `<h1>Enter the PIN</h1>` +
-    `<p class="meta">The person who shared this summary was given a 6-digit PIN.</p>` +
-    (error ? `<p class="warn">${escapeXhtml(error)}</p>` : "") +
-    `<form method="post" action="${escapeXhtml(action)}">` +
-    `<label class="secondary" for="pin">PIN</label>` +
-    `<input id="pin" name="pin" type="text" inputmode="numeric" pattern="[0-9]*" ` +
-    `maxlength="6" autocomplete="off" autofocus>` +
-    `<button type="submit">Open summary</button>` +
-    `</form>`;
-  return shell("Enter the PIN", body, "en", "ltr");
-}
-
-function summaryPage(
-  summary: ReturnType<typeof buildHealthSummary>,
-  expiresAt: string,
-  language: string,
-): string {
-  const { strings } = summaryStrings(language);
-  const dir = RTL.has(summary.language) ? "rtl" : "ltr";
-
-  const warnings = summary.warnings
-    .map((w) => `<p class="warn">${escapeXhtml(w)}</p>`)
-    .join("");
-
-  const sections = summary.sections
-    .map((section) => {
-      const body = section.emptyState
-        ? `<p class="empty">${escapeXhtml(section.emptyState.text)}</p>`
-        : `<ul>${section.lines
-            .map((line) => {
-              const secondary = line.secondary
-                ? `<div class="secondary">${escapeXhtml(line.secondary)}</div>`
-                : "";
-              const status = line.status
-                ? `<span class="status">${escapeXhtml(line.status)}</span>`
-                : "";
-              return `<li><div class="primary">${escapeXhtml(line.primary)}${status}</div>${secondary}</li>`;
-            })
-            .join("")}</ul>`;
-      return `<h2>${escapeXhtml(section.heading)}</h2>${body}`;
-    })
-    .join("");
-
-  const body =
-    `<h1>${escapeXhtml(summary.patientName)}</h1>` +
-    `<p class="meta">${escapeXhtml(strings.generatedLabel)}: ${escapeXhtml(summary.generatedAt)}` +
-    ` &middot; ${escapeXhtml(strings.expiresLabel)}: ${escapeXhtml(expiresAt)}</p>` +
-    warnings +
-    sections +
-    `<footer>${escapeXhtml(summary.disclaimer)}</footer>`;
-
-  return shell(summary.patientName, body, summary.language, dir);
 }

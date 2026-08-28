@@ -450,8 +450,9 @@ GET  /api/engagement/share/policy       per-jurisdiction rules + the instrument 
 POST /api/engagement/share              mint a link                          [auth]
 GET  /api/engagement/share/list         live and dead links for a profile    [auth]
 POST /api/engagement/share/:id/revoke   kill a link                          [auth]
-GET  /api/engagement/share/view/:token  the summary as JSON                  [token]
-GET  /s/:token                          the page the link opens              [token]
+POST /api/engagement/share/view         the summary as JSON, token in body   [token]
+GET  /s/:token                          inert interstitial — no PHI, no redeem
+POST /s/:token                          redeem and render the summary        [token]
 ```
 
 `/s/:token` is unauthenticated by design — the recipient is a pharmacist or a
@@ -459,6 +460,38 @@ relative, not an account holder. The token is the credential, which is why it
 is 256 bits, short-lived, view-capped and revocable. The page is
 self-contained: inline CSS, no scripts, no external resources, `default-src
 'none'`.
+
+### A GET renders nothing, and that is the point
+
+WhatsApp, iMessage, Slack and mail scanners **fetch a shared link** to build a
+preview. The first GET is the platform's crawler, not the recipient.
+
+That runs straight through this feature's central claim. The list travels as a
+link rather than in the message body because Meta signs no BAA — and then
+handing Meta the link means Meta fetches it. Rendering the summary on GET would
+have delivered the medication and allergy list to the platform anyway, burned a
+view before the human opened it, and put the patient's name into a cached
+preview snippet via the page title. The `handoff-whatsapp` intent handed the
+link to the exact platform the architecture existed to keep it away from.
+
+So **a GET is inert**. It returns a generic interstitial with a button, holds no
+patient name and no clinical content, and does not touch the share registry at
+all — an unfurler cannot even learn whether the token is real. **Redemption
+happens on POST**, which crawlers do not issue and preview generators do not
+click. Every page carries the same generic `<title>`, since a title is what an
+unfurl displays and what a browser writes into history.
+
+The JSON twin is `POST /api/engagement/share/view` with the token **in the
+body**. `server/index.ts` logs `{ method, path, status }` to stdout for every
+`/api` request, so a token in the path would be written to the application log
+— and for a default grant with no PIN that token is the only secret. Anyone
+able to read stdout or the log aggregator could otherwise replay outstanding
+links, a strictly wider audience than the HIPAA audit table this module writes
+to deliberately.
+
+Page rendering lives in `summary-page.ts` rather than inline in the route, so
+what a preview fetch is allowed to see is unit-tested rather than asserted in a
+comment.
 
 ## Configuration
 
