@@ -14,6 +14,14 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
   const devConnectSrc = isDev
     ? " ws://localhost:* wss://localhost:* ws://127.0.0.1:* wss://*.replit.dev wss://*.picard.replit.dev"
     : "";
+  // GCIP/Firebase auth domain, env-driven. Falls back to the Google-owned
+  // *.firebaseapp.com wildcard so the CSP never hardcodes a single project
+  // (previously pinned to an unmanaged project). Set GCIP_AUTH_DOMAIN, or it is
+  // derived from the configured project id.
+  const gcipProject = process.env.GCIP_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const gcipAuthDomain =
+    process.env.GCIP_AUTH_DOMAIN ||
+    (gcipProject ? `${gcipProject}.firebaseapp.com` : "*.firebaseapp.com");
   res.setHeader("Content-Security-Policy", 
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.fastenhealth.com; " +
@@ -29,15 +37,15 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     "https://identitytoolkit.googleapis.com " +
     "https://securetoken.googleapis.com " +
     "https://www.googleapis.com " +
-    "https://united-planet-485003-n7-9f345.firebaseapp.com " +
+    `https://${gcipAuthDomain} ` +
     "https://rxnav.nlm.nih.gov " +
     "https://clinicaltables.nlm.nih.gov " +
     "wss://api.tabulamedica.health" + devConnectSrc + "; " +
     // frame-src: allow the Firebase auth-domain + Google/Apple sign-in popups.
-    "frame-src 'self' https://*.fastenhealth.com https://fastenhealth.com https://united-planet-485003-n7-9f345.firebaseapp.com https://accounts.google.com https://appleid.apple.com; " +
+    `frame-src 'self' https://*.fastenhealth.com https://fastenhealth.com https://${gcipAuthDomain} https://accounts.google.com https://appleid.apple.com; ` +
     "frame-ancestors 'self' *.tabulamedica.health tabulamedica.health *.replit.dev *.replit.app *.picard.replit.dev; " +
     "base-uri 'self'; " +
-    "form-action 'self' https://*.fastenhealth.com https://united-planet-485003-n7-9f345.firebaseapp.com https://accounts.google.com https://appleid.apple.com;"
+    `form-action 'self' https://*.fastenhealth.com https://${gcipAuthDomain} https://accounts.google.com https://appleid.apple.com;`
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
