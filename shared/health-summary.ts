@@ -157,6 +157,15 @@ export interface ShareGrant {
   /** Views allowed before the link dies. Re-reads are legitimate; scraping is not. */
   maxViews: number;
   viewCount: number;
+  /**
+   * Wrong PINs so far. Deliberately separate from `viewCount`: a failed
+   * attempt must not consume a view (or guessing becomes a way to exhaust
+   * somebody else's link) but it must still cost something, or guessing is
+   * free. Two counters, two different things to protect.
+   */
+  pinAttempts: number;
+  /** Set when `pinAttempts` hit the cap. The grant is finished. */
+  lockedAt?: string;
   revokedAt?: string;
   revokedReason?: string;
   language: string;
@@ -192,7 +201,17 @@ export type ShareLookupFailure =
   | "token-revoked"
   | "view-cap-reached"
   | "pin-required"
-  | "pin-incorrect";
+  | "pin-incorrect"
+  /**
+   * Too many wrong PINs. The grant is dead and a new link must be minted.
+   *
+   * A 6-digit PIN is a million-wide space, which is nothing to a machine and
+   * everything to a person typing it once. Capping attempts is what makes the
+   * PIN a control rather than a speed bump: without it, anyone holding a live
+   * link — a forwarded message, an intercepted SMS — walks the space at
+   * leisure inside the link's own lifetime.
+   */
+  | "pin-locked";
 
 /** Hard caps. Requests above these are refused, not silently clamped. */
 export const SHARE_LIMITS = {
@@ -207,6 +226,15 @@ export const SHARE_LIMITS = {
   MAX_TTL_HOURS: 24 * 7,
   DEFAULT_MAX_VIEWS: 10,
   MAX_MAX_VIEWS: 50,
+  /**
+   * Wrong PINs before the grant locks. Five is generous for someone reading a
+   * number off a message and stingy for someone walking 10^6.
+   *
+   * The cost of the cap is that whoever holds the link can lock it. That is
+   * the right trade: a locked link is recoverable by minting another, and a
+   * disclosed medication and allergy list is not recoverable at all.
+   */
+  MAX_PIN_ATTEMPTS: 5,
   /** Token entropy in bytes, before base64url encoding. */
   TOKEN_BYTES: 32,
   PIN_LENGTH: 6,

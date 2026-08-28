@@ -407,11 +407,33 @@ the decision it was meant to inform.
 | Views | 10 | 50 |
 | Token | 256 bits, base64url | — |
 | PIN | off | 6 digits |
+| Wrong PINs before the link closes | — | 5 |
 
 - The token is stored as a SHA-256 hash. It is returned exactly once.
-- A **wrong PIN does not burn a view**, or guessing would be a way to exhaust
-  somebody else's link. PINs are hashed with scrypt and compared in constant
-  time.
+- **Two counters, deliberately.** A wrong PIN does not burn a *view* — or
+  guessing would be a way to exhaust somebody else's link. But it cannot be
+  free either: a 6-digit PIN is a million-wide space, which is nothing to a
+  machine and everything to a person typing it once, so failures increment a
+  separate attempt counter and the grant **locks at 5**. A correct PIN clears
+  the count. The cost is that whoever holds a link can lock it by guessing
+  badly; that is the right side to fail on, because a locked link is recovered
+  by minting another and a disclosed medication and allergy list is not
+  recovered at all.
+- A locked grant keeps saying **locked** for the rest of its life rather than
+  changing its story to "expired" — "expired" invites asking for the same link
+  again.
+- PINs are hashed with **scrypt off the main thread** and compared in constant
+  time. `scryptSync` blocks for tens of milliseconds by design; on an
+  unauthenticated route taking an attacker-supplied PIN, that hands anyone a
+  way to stall the process serving clinical routes.
+- **The PIN never travels in a query string.** A GET on a PIN-gated link
+  renders a form; the form POSTs. `?pin=` is ignored rather than honoured, so
+  a link built the old way fails closed to the form. Access logs, proxy logs
+  and browser history all record the request line, and a PIN sitting in any of
+  them protects nothing.
+- `/s/:token` and the JSON twin carry a **dedicated 30 req/min limiter**. The
+  global `apiRateLimiter` skips every path that does not start with `/api`, so
+  the HTML route would otherwise have no application rate limit at all.
 - A revoked link reports `token-revoked`, not `token-not-found`. The person
   holding it otherwise cannot tell a revocation from a typo and will keep
   retrying something that will never work again.

@@ -14,6 +14,7 @@
  */
 
 import type { Express, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { profiles } from "@shared/schema";
@@ -181,7 +182,7 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
         });
       }
 
-      const result = mintShare({
+      const result = await mintShare({
         profileId,
         createdByAccountId: caller.userId ?? "unknown",
         sections: input.sections as SummarySection[],
@@ -304,11 +305,22 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
   // 256 bits, short-lived, view-capped and revocable, and why this handler
   // sets `Referrer-Policy: no-referrer` — a page that loaded any external
   // resource would leak the token in the Referer header to whoever served it.
-  const renderShare = async (req: Request, res: Response) => {
-    const token = req.params.token;
-    const pin = typeof req.query.pin === "string" ? req.query.pin : undefined;
-    const redemption = redeemShare(token, { pin });
+  //
+  // The global `apiRateLimiter` skips every path that does not start with
+  // `/api`, so these routes would otherwise have no application rate limit at
+  // all. This one is deliberately tighter than the API limiter: a human
+  // opening a link they were sent needs a handful of requests, not 200 a
+  // minute, and everything above that is either a scraper or a PIN walk.
+  const shareViewRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { error: "SHARE_RATE_LIMITED", message: "Too many requests. Please slow down." },
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+  });
 
+  function setShareHeaders(res: Response): void {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.set("Pragma", "no-cache");
     res.set("X-Robots-Tag", "noindex, nofollow, noarchive");
@@ -317,25 +329,32 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       "Content-Security-Policy",
       "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     );
+  }
 
-    if (!redemption.ok) {
-      const status = redemption.failure === "pin-required" ? 401 : 410;
-      return res
-        .status(status)
-        .type("html")
-        .send(errorPage(redemption.failure, redemption.detail));
-    }
+  /**
+   * The PIN never travels in the query string.
+   *
+   * `?pin=` would be written to access logs, proxy logs, browser history, and
+   * anything that records request lines — which is precisely the set of places
+   * the PIN exists to be absent from. A GET on a PIN-gated link renders a form
+   * instead, and the form POSTs. A `?pin=` on the URL is ignored rather than
+   * honoured, so a stale link built the old way fails closed to the form.
+   */
+  function pinFromRequest(req: Request): string | undefined {
+    const fromBody = (req.body as Record<string, unknown> | undefined)?.pin;
+    if (typeof fromBody === "string" && fromBody.trim() !== "") return fromBody.trim();
+    const header = req.get("x-share-pin");
+    if (typeof header === "string" && header.trim() !== "") return header.trim();
+    return undefined;
+  }
 
-    const grant = redemption.grant;
+  async function loadSummaryFor(grant: { id: string; profileId: string; sections: readonly SummarySection[]; language: string; expiresAt: string }) {
     const ips = await collectIpsInput(grant.profileId, {
       timestamp: new Date().toISOString(),
       documentId: grant.id,
     });
-    if (!ips) {
-      return res.status(410).type("html").send(errorPage("token-not-found", "This link is not valid."));
-    }
-
-    const summary = buildHealthSummary({
+    if (!ips) return null;
+    return buildHealthSummary({
       patientName: ips.patient.fullName,
       medications: ips.medications,
       problems: ips.problems,
@@ -346,6 +365,32 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
       expiresAt: grant.expiresAt,
       language: grant.language,
     });
+  }
+
+  const renderShare = async (req: Request, res: Response) => {
+    const token = req.params.token;
+    const redemption = await redeemShare(token, { pin: pinFromRequest(req) });
+
+    setShareHeaders(res);
+
+    if (!redemption.ok) {
+      if (redemption.failure === "pin-required" || redemption.failure === "pin-incorrect") {
+        return res
+          .status(401)
+          .type("html")
+          .send(pinPage(token, redemption.failure === "pin-incorrect" ? redemption.detail : null));
+      }
+      return res.status(410).type("html").send(errorPage(redemption.failure, redemption.detail));
+    }
+
+    const grant = redemption.grant;
+    const summary = await loadSummaryFor(grant);
+    if (!summary) {
+      return res
+        .status(410)
+        .type("html")
+        .send(errorPage("token-not-found", "This link is not valid."));
+    }
 
     await logPhiAccess({
       userId: `share:${grant.id}`,
@@ -358,38 +403,26 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     res.type("html").send(summaryPage(summary, grant.expiresAt, grant.language));
   };
 
-  app.get("/s/:token", renderShare);
+  app.get("/s/:token", shareViewRateLimiter, renderShare);
+  app.post("/s/:token", shareViewRateLimiter, renderShare);
+
   // JSON twin, for the mobile app and for a receiving system that wants the
-  // data rather than the page.
-  app.get("/api/engagement/share/view/:token", async (req: Request, res: Response) => {
-    const redemption = redeemShare(req.params.token, {
-      pin: typeof req.query.pin === "string" ? req.query.pin : undefined,
-    });
+  // data rather than the page. Takes the PIN from a header or a POST body for
+  // the same reason the HTML route does.
+  const renderShareJson = async (req: Request, res: Response) => {
+    const redemption = await redeemShare(req.params.token, { pin: pinFromRequest(req) });
     res.set("Cache-Control", "no-store");
     res.set("Referrer-Policy", "no-referrer");
-    if (!redemption.ok) {
-      return res
-        .status(redemption.failure === "pin-required" ? 401 : 410)
-        .json({ error: redemption.failure, detail: redemption.detail });
-    }
-    const grant = redemption.grant;
-    const ips = await collectIpsInput(grant.profileId, {
-      timestamp: new Date().toISOString(),
-      documentId: grant.id,
-    });
-    if (!ips) return res.status(410).json({ error: "token-not-found" });
 
-    const summary = buildHealthSummary({
-      patientName: ips.patient.fullName,
-      medications: ips.medications,
-      problems: ips.problems,
-      allergies: ips.allergies,
-      attestations: attestationsByGrant.get(grant.id) ?? {},
-      sections: grant.sections,
-      generatedAt: new Date().toISOString(),
-      expiresAt: grant.expiresAt,
-      language: grant.language,
-    });
+    if (!redemption.ok) {
+      const status =
+        redemption.failure === "pin-required" || redemption.failure === "pin-incorrect" ? 401 : 410;
+      return res.status(status).json({ error: redemption.failure, detail: redemption.detail });
+    }
+
+    const grant = redemption.grant;
+    const summary = await loadSummaryFor(grant);
+    if (!summary) return res.status(410).json({ error: "token-not-found" });
 
     await logPhiAccess({
       userId: `share:${grant.id}`,
@@ -400,7 +433,10 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
     });
 
     res.json({ summary, plainText: summaryToPlainText(summary), expiresAt: grant.expiresAt });
-  });
+  };
+
+  app.get("/api/engagement/share/view/:token", shareViewRateLimiter, renderShareJson);
+  app.post("/api/engagement/share/view/:token", shareViewRateLimiter, renderShareJson);
 }
 
 // ── HTML ────────────────────────────────────────────────────────────────────
@@ -423,6 +459,10 @@ li:last-child{border-bottom:0}
 .status{display:inline-block;margin-left:.4rem;padding:.05rem .4rem;border:1px solid var(--line);border-radius:4px;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 .empty{color:var(--muted);font-style:italic}
 footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+form{margin-top:1rem;display:flex;flex-direction:column;gap:.5rem;max-width:14rem}
+label{font-size:.85rem}
+input{padding:.6rem .7rem;font-size:1.25rem;letter-spacing:.25em;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+button{padding:.6rem .9rem;font-size:1rem;border:1px solid var(--line);border-radius:8px;background:var(--fg);color:var(--bg);cursor:pointer}
 `;
 
 function shell(title: string, bodyHtml: string, lang: string, dir: "ltr" | "rtl"): string {
@@ -438,7 +478,9 @@ const RTL = new Set(["ar", "ur", "fa", "he"]);
 
 function errorPage(failure: string, detail: string): string {
   const heading =
-    failure === "pin-required" ? "This link needs its PIN" : "This link is no longer available";
+    failure === "pin-locked"
+      ? "This link is closed"
+      : "This link is no longer available";
   return shell(
     heading,
     `<h1>${escapeXhtml(heading)}</h1><p class="meta">${escapeXhtml(detail)}</p>` +
@@ -446,6 +488,30 @@ function errorPage(failure: string, detail: string): string {
     "en",
     "ltr",
   );
+}
+
+/**
+ * PIN entry. The form POSTs to the same path, so the PIN travels in a request
+ * body rather than a URL — access logs, proxy logs and browser history all
+ * record the request line, and a PIN sitting in any of them is a PIN that no
+ * longer protects anything.
+ *
+ * `autocomplete="off"` and `inputmode="numeric"` because this is a one-time
+ * code read off a message, not a credential a password manager should keep.
+ */
+function pinPage(token: string, error: string | null): string {
+  const action = `/s/${encodeURIComponent(token)}`;
+  const body =
+    `<h1>Enter the PIN</h1>` +
+    `<p class="meta">The person who shared this summary was given a 6-digit PIN.</p>` +
+    (error ? `<p class="warn">${escapeXhtml(error)}</p>` : "") +
+    `<form method="post" action="${escapeXhtml(action)}">` +
+    `<label class="secondary" for="pin">PIN</label>` +
+    `<input id="pin" name="pin" type="text" inputmode="numeric" pattern="[0-9]*" ` +
+    `maxlength="6" autocomplete="off" autofocus>` +
+    `<button type="submit">Open summary</button>` +
+    `</form>`;
+  return shell("Enter the PIN", body, "en", "ltr");
 }
 
 function summaryPage(

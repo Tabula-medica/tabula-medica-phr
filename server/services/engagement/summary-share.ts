@@ -46,7 +46,8 @@
  *     move to shared storage before a multi-instance deployment.
  */
 
-import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import {
   SHARE_LIMITS,
   SUMMARY_SECTIONS,
@@ -160,8 +161,23 @@ function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function hashPin(pin: string, salt: Buffer): Buffer {
-  return scryptSync(pin, salt, 32);
+/**
+ * scrypt, asynchronously.
+ *
+ * `scryptSync` blocks the event loop for tens of milliseconds by design — the
+ * cost is the point. On an authenticated route that is fine; on
+ * `GET /s/:token`, which is unauthenticated and takes an attacker-supplied
+ * PIN, it hands anyone a way to stall the same process that serves clinical
+ * routes. The work still happens, it just stops happening on the main thread.
+ */
+const scryptAsync = promisify(scrypt) as (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+) => Promise<Buffer>;
+
+function hashPin(pin: string, salt: Buffer): Promise<Buffer> {
+  return scryptAsync(pin, salt, 32);
 }
 
 function toView(grant: StoredGrant): ShareGrantView {
@@ -222,7 +238,7 @@ export function shareBaseUrl(raw = process.env.HEALTH_SHARE_BASE_URL): string | 
   }
 }
 
-export function mintShare(params: MintShareParams): MintShareResult {
+export async function mintShare(params: MintShareParams): Promise<MintShareResult> {
   const now = params.now ?? new Date();
 
   const sections = SUMMARY_SECTIONS.filter((s) => params.sections.includes(s));
@@ -296,7 +312,7 @@ export function mintShare(params: MintShareParams): MintShareResult {
     // from Math.random would be predictable enough to walk.
     pin = Array.from({ length: SHARE_LIMITS.PIN_LENGTH }, () => randomInt(0, 10)).join("");
     pinSalt = randomBytes(16);
-    pinHash = hashPin(pin, pinSalt);
+    pinHash = await hashPin(pin, pinSalt);
   }
 
   const grant: StoredGrant = {
@@ -309,6 +325,7 @@ export function mintShare(params: MintShareParams): MintShareResult {
     expiresAt: new Date(now.getTime() + ttlHours * 3_600_000).toISOString(),
     maxViews,
     viewCount: 0,
+    pinAttempts: 0,
     language: params.language,
     pinRequired: Boolean(params.withPin),
     label: params.label,
@@ -337,19 +354,24 @@ export type RedeemResult =
   | { ok: false; failure: ShareLookupFailure; detail: string };
 
 /**
- * Resolve a token to its grant, enforcing expiry, revocation, the view cap and
- * the PIN. Every failure path returns without disclosing whether the token
- * existed, beyond the coarse reason — a caller probing tokens learns nothing
- * about which random strings are real.
+ * Resolve a token to its grant, enforcing expiry, revocation, the view cap,
+ * the PIN, and the attempt cap.
  *
- * The view counter increments only on a fully successful redemption. A wrong
- * PIN must not burn a view, or an attacker could exhaust a legitimate link by
- * guessing at it.
+ * **Two counters, deliberately.** The view counter increments only on a fully
+ * successful redemption: a wrong PIN must not burn a view, or guessing becomes
+ * a way to exhaust somebody else's link. But a wrong PIN cannot be free
+ * either, or a 6-digit space falls in minutes to anyone holding the link. So
+ * failures increment `pinAttempts` instead, and the grant locks at
+ * `MAX_PIN_ATTEMPTS`.
+ *
+ * The cost is that whoever holds a link can lock it by guessing badly. That is
+ * the right side to fail on: a locked link is recovered by minting another,
+ * and a disclosed medication and allergy list is not recovered at all.
  */
-export function redeemShare(
+export async function redeemShare(
   token: string,
   opts: { pin?: string; now?: Date } = {},
-): RedeemResult {
+): Promise<RedeemResult> {
   const now = opts.now ?? new Date();
 
   if (!token || typeof token !== "string") {
@@ -364,6 +386,17 @@ export function redeemShare(
 
   if (grant.revokedAt) {
     return { ok: false, failure: "token-revoked", detail: "This link was revoked." };
+  }
+
+  // Checked before expiry and the view cap so a locked grant keeps saying
+  // "locked" for its whole remaining life, rather than changing its story to
+  // "expired" and inviting someone to ask for the same link again.
+  if (grant.lockedAt) {
+    return {
+      ok: false,
+      failure: "pin-locked",
+      detail: "Too many incorrect PINs. This link is closed — ask for a new one.",
+    };
   }
 
   if (Date.parse(grant.expiresAt) <= now.getTime()) {
@@ -388,13 +421,31 @@ export function redeemShare(
       // record as an absent requirement.
       return { ok: false, failure: "pin-incorrect", detail: "This link's PIN cannot be checked." };
     }
-    const candidate = hashPin(opts.pin, grant.pinSalt);
+    const candidate = await hashPin(opts.pin, grant.pinSalt);
     if (
       candidate.length !== grant.pinHash.length ||
       !timingSafeEqual(candidate, grant.pinHash)
     ) {
-      return { ok: false, failure: "pin-incorrect", detail: "That PIN is not correct." };
+      grant.pinAttempts += 1;
+      if (grant.pinAttempts >= SHARE_LIMITS.MAX_PIN_ATTEMPTS) {
+        grant.lockedAt = now.toISOString();
+        return {
+          ok: false,
+          failure: "pin-locked",
+          detail: "Too many incorrect PINs. This link is closed — ask for a new one.",
+        };
+      }
+      return {
+        ok: false,
+        failure: "pin-incorrect",
+        detail: `That PIN is not correct. ${
+          SHARE_LIMITS.MAX_PIN_ATTEMPTS - grant.pinAttempts
+        } attempts left before this link closes.`,
+      };
     }
+    // A correct PIN clears the count: the cap is there to stop a walk of the
+    // keyspace, not to punish somebody who fat-fingered it twice last week.
+    grant.pinAttempts = 0;
   }
 
   grant.viewCount += 1;
