@@ -147,13 +147,21 @@ function FastenConnectPage() {
   }, [configData?.publicId, configData?.redirectUri, widgetLoaded, connectionStatus]);
 
   const handleRetry = () => {
-    setWidgetError(null);
-    widgetLoadedRef.current = false;
-    setWidgetLoaded(false);
-    setConnectionStatus(null);
+    // Remove any previously-injected (possibly failed) Fasten CDN assets so the
+    // effect re-injects them fresh. Without this, a failed first load leaves the
+    // <script> in the DOM, the effect's "already present" guard skips re-adding
+    // it, and customElements.whenDefined never resolves — so retry would just
+    // time out again.
+    document
+      .querySelectorAll('script[src*="fastenhealth.com/connect"], link[href*="fastenhealth.com/connect"]')
+      .forEach((n) => n.remove());
     if (containerRef.current) {
       containerRef.current.innerHTML = "";
     }
+    widgetLoadedRef.current = false;
+    setWidgetLoaded(false);
+    setConnectionStatus(null);
+    setWidgetError(null);
   };
 
   const isConnected = connectionStatus === "authorized" || connectionStatus === "complete";

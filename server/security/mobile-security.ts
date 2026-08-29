@@ -38,6 +38,12 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     "https://securetoken.googleapis.com " +
     "https://www.googleapis.com " +
     `https://${gcipAuthDomain} ` +
+    // Fasten Health "connect" widget loads its script from cdn.fastenhealth.com
+    // (script-src) but ALSO makes XHR/fetch calls to api.fastenhealth.com to
+    // initialize. Without this in connect-src the widget hangs and reports
+    // "took too long to load". This CSP is set LAST in the chain and overwrites
+    // helmet's, so the allowance must live here too.
+    "https://*.fastenhealth.com " +
     "https://rxnav.nlm.nih.gov " +
     "https://clinicaltables.nlm.nih.gov " +
     "wss://api.tabulamedica.health" + devConnectSrc + "; " +
