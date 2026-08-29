@@ -627,9 +627,9 @@ export function registerMobileApiRoutes(app: Express) {
     {
       id: "fastenhealth",
       name: "Fasten Health",
-      fhirBaseUrl: "https://api.fastenhealth.com/fhir/R4",
-      authorizationEndpoint: "https://api.fastenhealth.com/oauth/authorize",
-      tokenEndpoint: "https://api.fastenhealth.com/oauth/token",
+      fhirBaseUrl: "https://api.connect.fastenhealth.com/fhir/R4",
+      authorizationEndpoint: "https://api.connect.fastenhealth.com/oauth/authorize",
+      tokenEndpoint: "https://api.connect.fastenhealth.com/oauth/token",
       clientId: process.env.FASTEN_HEALTH_CLIENT_ID || "tabula-medica-app",
       scopes: SMART_FHIR_SCOPES,
       icon: "hospital",

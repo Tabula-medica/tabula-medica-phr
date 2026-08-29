@@ -426,9 +426,9 @@ import dualModeRoutes from "./routes/dual-mode-routes";
 import type { SyncScheduleInterval, EhrPlatform } from "@shared/schema";
 
 const FASTEN_HEALTH_CONFIG = {
-  baseUrl: "https://api.fastenhealth.com/fhir/R4",
-  authorizationEndpoint: "https://api.fastenhealth.com/oauth/authorize",
-  tokenEndpoint: "https://api.fastenhealth.com/oauth/token",
+  baseUrl: "https://api.connect.fastenhealth.com/fhir/R4",
+  authorizationEndpoint: "https://api.connect.fastenhealth.com/oauth/authorize",
+  tokenEndpoint: "https://api.connect.fastenhealth.com/oauth/token",
   scopes: ["launch/patient", "patient/Patient.read", "patient/Condition.read", "patient/Observation.read", "patient/MedicationRequest.read", "patient/DiagnosticReport.read", "patient/AllergyIntolerance.read", "patient/Immunization.read", "patient/Procedure.read", "openid", "fhirUser"],
   clientId: process.env.FASTEN_HEALTH_CLIENT_ID || "",
   usePkce: true,

@@ -228,7 +228,7 @@ const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
 ];
 
 const PORTAL_DATABASE: RecommendedPortal[] = [
-  { portalId: "fastenhealth", portalName: "Fasten Health", portalType: "aggregator", ehrSystem: "Fasten Health", matchConfidence: 0, matchReason: "", connectionUrl: "https://api.fastenhealth.com", estimatedRecords: "Comprehensive", supported: true },
+  { portalId: "fastenhealth", portalName: "Fasten Health", portalType: "aggregator", ehrSystem: "Fasten Health", matchConfidence: 0, matchReason: "", connectionUrl: "https://api.connect.fastenhealth.com", estimatedRecords: "Comprehensive", supported: true },
   { portalId: "quest_myquest", portalName: "MyQuest (Quest Diagnostics)", portalType: "lab", ehrSystem: "Quest", matchConfidence: 0, matchReason: "", connectionUrl: "https://myquest.questdiagnostics.com", estimatedRecords: "Lab results", supported: true },
   { portalId: "labcorp_patient", portalName: "Labcorp Patient Portal", portalType: "lab", ehrSystem: "Labcorp", matchConfidence: 0, matchReason: "", connectionUrl: "https://patient.labcorp.com", estimatedRecords: "Lab results", supported: true },
   { portalId: "cvs_pharmacy", portalName: "CVS Pharmacy", portalType: "pharmacy", ehrSystem: "CVS", matchConfidence: 0, matchReason: "", connectionUrl: "https://www.cvs.com/account/", estimatedRecords: "Prescriptions", supported: true },
