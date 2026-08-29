@@ -7288,6 +7288,22 @@ STRICT NO-CDS CONSTRAINTS:
     }
   });
 
+  // Typeahead: search pharmacies by name + city via the public NPPES registry.
+  // Registered BEFORE /:id so "search" isn't captured as an id.
+  app.get("/api/pharmacies/search", requirePermission("records:read"), async (req, res) => {
+    try {
+      const { searchPharmacies } = await import("./services/pharmacy-lookup");
+      const name = typeof req.query.name === "string" ? req.query.name : "";
+      const city = typeof req.query.city === "string" ? req.query.city : undefined;
+      const state = typeof req.query.state === "string" ? req.query.state : undefined;
+      const results = await searchPharmacies(name, city, state);
+      res.json({ results });
+    } catch (error) {
+      console.error("Error searching pharmacies:", error);
+      res.status(500).json({ error: "Failed to search pharmacies" });
+    }
+  });
+
   app.get("/api/pharmacies/:id", requirePermission("records:read"), async (req, res) => {
     try {
       const pharmacy = await storage.getPharmacy(req.params.id);
