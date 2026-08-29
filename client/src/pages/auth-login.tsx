@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, HeartPulse } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   signInGcipWithGoogleRedirect,
@@ -549,9 +550,8 @@ export default function AuthLogin() {
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="login-password" className="text-sm">Password</Label>
-                        <Input
+                        <PasswordInput
                           id="login-password"
-                          type="password"
                           autoComplete="current-password"
                           placeholder="Your password"
                           value={password}
