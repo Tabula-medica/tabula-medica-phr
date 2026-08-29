@@ -18,11 +18,96 @@ import { sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   healthcareProvidersTable,
+  providerLocationsTable,
   type ProviderSearchFilters,
   type ProviderSearchResult,
   type HealthcareProvider,
   type ProviderLocation,
 } from "@shared/schema";
+
+export interface CreateProviderInput {
+  npi: string;
+  firstName: string;
+  lastName: string;
+  credentials?: string[];
+  providerType: string;
+  specialties: string[];
+  primarySpecialty: string;
+  languages?: string[];
+  acceptingNewPatients?: boolean;
+  appointmentModes?: string[];
+  bio?: string;
+  status?: string; // "active" | "pending" | ...
+  location: {
+    name: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    phone: string;
+    latitude?: number;
+    longitude?: number;
+    appointmentModes?: string[];
+  };
+}
+
+/**
+ * Insert (or upsert on NPI) a provider + its primary location into the
+ * persistent directory. Returns the new provider id. `status` defaults to
+ * "pending" so self-onboarded providers are held for admin approval before
+ * they surface in search (search filters on status = 'active').
+ */
+export async function createProvider(input: CreateProviderInput): Promise<string> {
+  const [provider] = await db
+    .insert(healthcareProvidersTable)
+    .values({
+      npi: input.npi,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      credentials: input.credentials ?? [],
+      providerType: input.providerType,
+      specialties: input.specialties,
+      primarySpecialty: input.primarySpecialty,
+      status: input.status ?? "pending",
+      bio: input.bio,
+      languages: input.languages ?? ["English"],
+      acceptingNewPatients: input.acceptingNewPatients ?? true,
+      appointmentModes: input.appointmentModes ?? ["in_person"],
+      metadata: { selfOnboarded: true },
+    })
+    .onConflictDoUpdate({
+      target: healthcareProvidersTable.npi,
+      set: { updatedAt: sql`now()`, firstName: input.firstName, lastName: input.lastName },
+    })
+    .returning();
+
+  await db.delete(providerLocationsTable).where(sql`provider_id = ${provider.id}`);
+  await db.insert(providerLocationsTable).values({
+    providerId: provider.id,
+    name: input.location.name,
+    addressLine1: input.location.addressLine1,
+    addressLine2: input.location.addressLine2,
+    city: input.location.city,
+    state: input.location.state,
+    zipCode: input.location.zipCode,
+    phone: input.location.phone,
+    isPrimary: true,
+    appointmentModes: input.location.appointmentModes ?? ["in_person"],
+    latitude: input.location.latitude,
+    longitude: input.location.longitude,
+  });
+
+  return provider.id;
+}
+
+/** Approve (activate) or set status on a provider. */
+export async function setProviderStatus(providerId: string, status: string): Promise<void> {
+  await db
+    .update(healthcareProvidersTable)
+    .set({ status, updatedAt: sql`now()` })
+    .where(sql`id = ${providerId}`);
+}
 
 const EARTH_RADIUS_MILES = 3959;
 

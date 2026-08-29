@@ -24501,6 +24501,63 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
+  // Provider self-onboarding: add a provider (+ primary location) to the
+  // persisted directory. Held as status "pending" until an admin approves,
+  // so it doesn't surface in search (which filters status = 'active') yet.
+  app.post("/api/provider-integration/providers/apply", requireRole("provider", "admin"), async (req, res) => {
+    try {
+      const b = req.body ?? {};
+      const loc = b.location ?? {};
+      if (!b.npi || !b.firstName || !b.lastName || !b.primarySpecialty || !loc.zipCode || !loc.city) {
+        return res.status(400).json({ error: "Missing required fields (npi, firstName, lastName, primarySpecialty, location.city, location.zipCode)" });
+      }
+      const { createProvider } = await import("./services/providerDirectoryStore");
+      const user = req.user as any;
+      const isAdmin = user?.claims?.role === "admin";
+      const providerId = await createProvider({
+        npi: String(b.npi),
+        firstName: b.firstName,
+        lastName: b.lastName,
+        credentials: b.credentials,
+        providerType: b.providerType || "physician",
+        specialties: Array.isArray(b.specialties) && b.specialties.length ? b.specialties : [b.primarySpecialty],
+        primarySpecialty: b.primarySpecialty,
+        languages: b.languages,
+        acceptingNewPatients: b.acceptingNewPatients,
+        bio: b.bio,
+        // Admins adding a provider can publish immediately; self-serve is pending.
+        status: isAdmin ? "active" : "pending",
+        location: {
+          name: loc.name || `${b.firstName} ${b.lastName}`,
+          addressLine1: loc.addressLine1 || "",
+          addressLine2: loc.addressLine2,
+          city: loc.city,
+          state: loc.state || "",
+          zipCode: loc.zipCode,
+          phone: loc.phone || "",
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        },
+      });
+      res.status(201).json({ providerId, status: isAdmin ? "active" : "pending" });
+    } catch (error: any) {
+      console.error("[Provider Integration] Error onboarding provider:", error);
+      res.status(500).json({ error: error?.message || "Failed to onboard provider" });
+    }
+  });
+
+  // Admin: approve (activate) a pending provider so it appears in search.
+  app.post("/api/provider-integration/providers/:providerId/approve", requireRole("admin"), async (req, res) => {
+    try {
+      const { setProviderStatus } = await import("./services/providerDirectoryStore");
+      await setProviderStatus(req.params.providerId, "active");
+      res.json({ ok: true, providerId: req.params.providerId, status: "active" });
+    } catch (error: any) {
+      console.error("[Provider Integration] Error approving provider:", error);
+      res.status(500).json({ error: error?.message || "Failed to approve provider" });
+    }
+  });
+
   // Provider Directory Routes
   app.get("/api/provider-integration/providers", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
@@ -32544,7 +32601,8 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       const profiles = await storage.getProfiles(userId);
-      res.json(profiles);
+      const { formatMrn } = await import("@shared/mrn");
+      res.json(profiles.map((p) => ({ ...p, mrn: formatMrn(p.id) })));
     } catch (error) {
       console.error("[ProfileManagement] Get profiles error:", error);
       res.status(500).json({ error: "Failed to get profiles" });
@@ -32617,8 +32675,9 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         action: "read",
         details: `Accessed active profile: ${activeProfile.firstName} ${activeProfile.lastName}`,
       });
-      
-      res.json(activeProfile);
+
+      const { formatMrn } = await import("@shared/mrn");
+      res.json({ ...activeProfile, mrn: formatMrn(activeProfile.id) });
     } catch (error) {
       console.error("[ProfileManagement] Get active profile error:", error);
       res.status(500).json({ error: "Failed to get active profile" });
@@ -32647,7 +32706,8 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         details: `Accessed profile: ${profile.firstName} ${profile.lastName} (${profile.relationship})`,
       });
 
-      res.json(profile);
+      const { formatMrn } = await import("@shared/mrn");
+      res.json({ ...profile, mrn: formatMrn(profile.id) });
     } catch (error) {
       console.error("[ProfileManagement] Get profile error:", error);
       res.status(500).json({ error: "Failed to get profile" });
