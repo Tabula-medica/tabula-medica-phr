@@ -24501,6 +24501,28 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
+  // Underinsured "Sesame" cash-pay marketplace — proxied server-to-server
+  // (public, non-PHI provider + cash-price data) and served same-origin so the
+  // PHR can show a "pay-cash, find-a-price" tab without CORS.
+  app.get("/api/marketplace/specialties", requireRole("patient", "provider", "admin", "caregiver"), async (_req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace("/marketplace/specialties");
+    res.json(r.data);
+  });
+  app.get("/api/marketplace/specialties/:id/providers", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace(`/marketplace/specialties/${encodeURIComponent(req.params.id)}/providers`, {
+      zip: typeof req.query.zip === "string" ? req.query.zip : undefined,
+      radius: typeof req.query.radius === "string" ? req.query.radius : undefined,
+    });
+    res.json(r.data);
+  });
+  app.get("/api/marketplace/providers/:id", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace(`/marketplace/providers/${encodeURIComponent(req.params.id)}`);
+    res.json(r.data);
+  });
+
   // Provider self-onboarding: add a provider (+ primary location) to the
   // persisted directory. Held as status "pending" until an admin approves,
   // so it doesn't surface in search (which filters status = 'active') yet.

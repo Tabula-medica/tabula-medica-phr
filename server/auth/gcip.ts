@@ -221,7 +221,17 @@ export async function verifyAndResolveGcip(token: string): Promise<User | null> 
   if (!claims) return null;
   const existing = await resolveGcipUser(claims);
   if (existing) return existing;
-  return createUserFromGcipClaims(claims);
+  const created = await createUserFromGcipClaims(claims);
+  if (created?.email) {
+    // Fire-and-forget transactional welcome email on first provisioning.
+    // No-op when Resend isn't configured; never blocks or fails the sign-in.
+    import("../services/email-service")
+      .then(({ sendWelcomeEmail }) =>
+        sendWelcomeEmail(created.email!, [created.firstName, created.lastName].filter(Boolean).join(" ")),
+      )
+      .catch(() => {});
+  }
+  return created;
 }
 
 export { GCIP_PROJECT_ID, GCIP_ISSUER, GCIP_AUDIENCE };
