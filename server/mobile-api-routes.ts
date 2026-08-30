@@ -17,7 +17,12 @@ import {
   vitalSignsTable,
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
-import { verifyAndResolveGcip } from "./auth/gcip";
+import { verifyAndResolveGcip, verifyGcipToken } from "./auth/gcip";
+import {
+  requiresEmailVerification,
+  EMAIL_NOT_VERIFIED_CODE,
+  EMAIL_NOT_VERIFIED_MESSAGE,
+} from "./auth/email-verification";
 import { recordLoginAndNotify } from "./replit_integrations/auth/replitAuth";
 
 const JWT_ISSUER = "tabula-medica";
@@ -231,6 +236,18 @@ export function registerMobileApiRoutes(app: Express) {
     try {
       const internalUser = await verifyAndResolveGcip(token);
       if (!internalUser) {
+        // Same anti-bot gate as the web exchange: a brand-new email/password
+        // account only exists once the verification link is clicked. Report it
+        // as its own 403 + code so the app can say "check your inbox" rather
+        // than "invalid token".
+        const claims = await verifyGcipToken(token);
+        if (requiresEmailVerification(claims)) {
+          return res.status(403).json({
+            error: "Forbidden",
+            code: EMAIL_NOT_VERIFIED_CODE,
+            message: EMAIL_NOT_VERIFIED_MESSAGE,
+          });
+        }
         return res.status(401).json({ error: "Unauthorized", message: "Invalid token" });
       }
 

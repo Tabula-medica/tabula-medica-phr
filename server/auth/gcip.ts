@@ -4,6 +4,7 @@ import { db } from "../db";
 import { externalIdentities, users, type User } from "@shared/models/auth";
 import { and, eq } from "drizzle-orm";
 import { logger } from "../utils/logger";
+import { requiresEmailVerification } from "./email-verification";
 
 const GCIP_PROJECT_ID =
   process.env.GCIP_PROJECT_ID ||
@@ -200,12 +201,26 @@ export async function createUserFromGcipClaims(claims: GcipClaims): Promise<User
  * Full dual-validation entry point: verify GCIP token, resolve to existing
  * internal user, or atomically provision a new one. Returns null if the token
  * is invalid or the resolve+create both fail.
+ *
+ * ANTI-BOT: provisioning a *new* account from an email/password token requires
+ * a confirmed address (see ./email-verification). We do not require MFA to
+ * sign up — the email round-trip is the humanity check, and TOTP stays opt-in.
+ * The gate is applied only on the create path, so people who already have an
+ * account (resolved above, by external-identity link) are never locked out by
+ * turning this on.
  */
 export async function verifyAndResolveGcip(token: string): Promise<User | null> {
   const claims = await verifyGcipToken(token);
   if (!claims) return null;
   const existing = await resolveGcipUser(claims);
   if (existing) return existing;
+  if (requiresEmailVerification(claims)) {
+    logger.info(
+      { externalSub: claims.sub, signInProvider: claims.firebase?.sign_in_provider },
+      "[GCIP] refusing to provision unverified email sign-up (verification link not clicked yet)"
+    );
+    return null;
+  }
   return createUserFromGcipClaims(claims);
 }
 
