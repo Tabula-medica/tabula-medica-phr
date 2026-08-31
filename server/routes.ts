@@ -24629,7 +24629,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   // AI-Powered Provider Search Routes
   console.log("[Routes] AI Provider Search routes registered at /api/provider-integration/ai-search");
 
-  app.get("/api/provider-integration/ai-search/suggestions", async (req, res) => {
+  app.get("/api/provider-integration/ai-search/suggestions", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== "string") {
@@ -24645,7 +24645,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/provider-integration/ai-search/autocomplete", async (req, res) => {
+  app.get("/api/provider-integration/ai-search/autocomplete", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== "string") {
@@ -24661,7 +24661,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/provider-integration/ai-search/semantic", async (req, res) => {
+  app.post("/api/provider-integration/ai-search/semantic", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { query } = req.body;
       if (!query || typeof query !== "string") {
