@@ -23,6 +23,7 @@ if (gcpKeyJson && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerMobileApiRoutes } from "./mobile-api-routes";
+import { registerAbdmTransferRoute } from "./abdm-routes";
 import { adminVhostMiddleware, vhostDiag } from "./middleware/admin-vhost";
 
 import { serveStatic, markApiRoutesReady } from "./static";
@@ -189,6 +190,11 @@ app.use(apiRateLimiter);
 applyAuthRateLimiting(app);
 
 app.use(unifiedComplianceMiddleware());
+
+// ABDM (India) HIP data-push endpoint. Mounted here, ahead of the global JSON parser and CSRF,
+// because it is a machine-to-machine callback: it needs its own smaller body limit (body-parser
+// skips an already-parsed body) and cannot carry a CSRF token. No-op unless ABDM_ENABLED.
+registerAbdmTransferRoute(app);
 
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "10mb";
 const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "10mb";
