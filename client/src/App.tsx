@@ -63,6 +63,7 @@ const Dashboard = lazy(() => import("@/pages/dashboard"));
 const MyHealthRecord = lazy(() => import("@/pages/my-health-record"));
 const FastenConnect = lazy(() => import("@/pages/fasten-connect"));
 const ProviderOnboarding = lazy(() => import("@/pages/provider-onboarding"));
+const CashPrices = lazy(() => import("@/pages/cash-prices"));
 const EHRCallback = lazy(() => import("@/pages/ehr-callback"));
 const PetHealthRecords = lazy(() => import("@/pages/pet-health-records"));
 const Timeline = lazy(() => import("@/pages/timeline"));
@@ -210,6 +211,8 @@ function Router() {
       {tefcaEnabled && <Route path="/fasten-connect" component={FastenConnect} />}
       <Route path="/provider-onboarding" component={ProviderOnboarding} />
       <Route path="/join-directory" component={ProviderOnboarding} />
+      <Route path="/cash-prices" component={CashPrices} />
+      <Route path="/find-care" component={CashPrices} />
       <Route path="/ehr-callback" component={EHRCallback} />
       <Route path="/pet-health-records" component={PetHealthRecords} />
       <Route path="/timeline" component={Timeline} />

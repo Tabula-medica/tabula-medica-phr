@@ -24504,16 +24504,18 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   // Underinsured "Sesame" cash-pay marketplace — proxied server-to-server
   // (public, non-PHI provider + cash-price data) and served same-origin so the
   // PHR can show a "pay-cash, find-a-price" tab without CORS.
-  app.get("/api/marketplace/specialties", requireRole("patient", "provider", "admin", "caregiver"), async (_req, res) => {
+  app.get("/api/marketplace/categories", requireRole("patient", "provider", "admin", "caregiver"), async (_req, res) => {
     const { proxyMarketplace } = await import("./services/marketplace-proxy");
-    const r = await proxyMarketplace("/marketplace/specialties");
+    const r = await proxyMarketplace("/marketplace/categories");
     res.json(r.data);
   });
-  app.get("/api/marketplace/specialties/:id/providers", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+  // Cash-price lookup: category=LAB|IMAGING|RX, q=service, zip. Returns quotes low→high.
+  app.get("/api/marketplace/price-lookup", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     const { proxyMarketplace } = await import("./services/marketplace-proxy");
-    const r = await proxyMarketplace(`/marketplace/specialties/${encodeURIComponent(req.params.id)}/providers`, {
+    const r = await proxyMarketplace("/marketplace/price-lookup", {
+      category: typeof req.query.category === "string" ? req.query.category : undefined,
+      q: typeof req.query.q === "string" ? req.query.q : undefined,
       zip: typeof req.query.zip === "string" ? req.query.zip : undefined,
-      radius: typeof req.query.radius === "string" ? req.query.radius : undefined,
     });
     res.json(r.data);
   });

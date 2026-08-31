@@ -44,7 +44,8 @@ export async function proxyMarketplace(
 
 /** Shape-appropriate empty payloads so the client renders a clean empty state. */
 function emptyFor(rel: string): unknown {
+  if (rel.includes("/price-lookup") || rel.includes("/unified-search")) return { quotes: [], results: [] };
+  if (rel.includes("/categories")) return { categories: [] };
   if (rel.includes("/providers")) return { providers: [] };
-  if (rel.includes("/specialties")) return { specialties: [] };
   return {};
 }
