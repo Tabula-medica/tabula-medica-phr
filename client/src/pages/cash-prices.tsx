@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/use-seo";
-import { Loader2, Search, Tag, MapPin } from "lucide-react";
+import { Loader2, Search, Tag, MapPin, Scan, ExternalLink } from "lucide-react";
 
 type Category = "LAB" | "IMAGING" | "RX";
 const CATEGORIES: { id: Category; label: string; placeholder: string }[] = [
@@ -102,6 +102,31 @@ export default function CashPrices() {
           </Button>
         </CardContent>
       </Card>
+
+      {category === "IMAGING" && (
+        <a
+          href="https://radiologyassist.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-xl border border-primary/20 bg-primary/5 p-4 hover:bg-primary/10 transition-colors group"
+          data-testid="link-radiologyassist"
+        >
+          <div className="flex items-center gap-4">
+            <div className="h-11 w-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Scan className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold">RadiologyAssist</div>
+              <p className="text-sm text-muted-foreground">
+                Expert imaging guidance, scan comparisons, and support every step of the way.
+              </p>
+            </div>
+            <span className="flex items-center gap-1 text-sm text-primary font-semibold shrink-0 group-hover:gap-2 transition-all">
+              Visit <ExternalLink className="h-4 w-4" />
+            </span>
+          </div>
+        </a>
+      )}
 
       {searched && (
         quotes.length > 0 ? (
