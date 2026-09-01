@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import type { AssistantConversation, AssistantMessage, SuggestedQuestion } from "@shared/schema";
+import { clickable } from "@/lib/a11y";
 
 interface ConversationWithMessages {
   conversation: AssistantConversation;
@@ -277,7 +278,7 @@ export default function Assistant() {
                     className={`group flex items-center justify-between p-2 rounded-md cursor-pointer hover-elevate ${
                       selectedConversationId === conv.id ? "bg-primary/10" : ""
                     }`}
-                    onClick={() => setSelectedConversationId(conv.id)}
+                    {...clickable(() => setSelectedConversationId(conv.id))}
                     data-testid={`conversation-${conv.id}`}
                   >
                     <div className="flex-1 min-w-0">

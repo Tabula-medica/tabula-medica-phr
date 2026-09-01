@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
@@ -801,12 +802,12 @@ export default function AdvancedPatientRecords() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Symptom</Label>
+              <Label htmlFor="advanced-patient-records-symptom">Symptom</Label>
               <Select 
                 value={newOutcome.symptomName} 
                 onValueChange={(v) => setNewOutcome(prev => ({ ...prev, symptomName: v }))}
               >
-                <SelectTrigger data-testid="select-symptom">
+                <SelectTrigger id="advanced-patient-records-symptom" data-testid="select-symptom">
                   <SelectValue placeholder="Select a symptom" />
                 </SelectTrigger>
                 <SelectContent>
@@ -817,8 +818,8 @@ export default function AdvancedPatientRecords() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Severity: {newOutcome.severity}/10</Label>
-              <Slider
+              <Label htmlFor="advanced-patient-records-severity-10">Severity: {newOutcome.severity}/10</Label>
+              <Slider id="advanced-patient-records-severity-10"
                 value={[newOutcome.severity]}
                 onValueChange={([v]) => setNewOutcome(prev => ({ ...prev, severity: v }))}
                 max={10}
@@ -833,7 +834,7 @@ export default function AdvancedPatientRecords() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Possible Triggers</Label>
+              <FieldCaption>Possible Triggers</FieldCaption>
               <ToggleGroup
                 type="multiple"
                 value={newOutcome.triggers}
@@ -848,8 +849,8 @@ export default function AdvancedPatientRecords() {
               </ToggleGroup>
             </div>
             <div className="space-y-2">
-              <Label>Additional Notes (optional)</Label>
-              <Textarea
+              <Label htmlFor="advanced-patient-records-additional-notes-optional">Additional Notes (optional)</Label>
+              <Textarea id="advanced-patient-records-additional-notes-optional"
                 placeholder="Describe how you're feeling..."
                 value={newOutcome.notes}
                 onChange={(e) => setNewOutcome(prev => ({ ...prev, notes: e.target.value }))}

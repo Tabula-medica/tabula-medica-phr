@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   Share2, MessageSquare, Bell, BellRing, Users, FileText, Clock, 
   CheckCircle, AlertTriangle, AlertCircle, RefreshCw, Plus, Send,
@@ -509,7 +510,7 @@ export default function ProviderCollaboration() {
                     <div 
                       key={notif.id} 
                       className="flex items-center gap-3 p-3 border rounded-lg hover-elevate cursor-pointer"
-                      onClick={() => markReadMutation.mutate(notif.id)}
+                      {...clickable(() => markReadMutation.mutate(notif.id))}
                       data-testid={`notification-${notif.id}`}
                     >
                       <div className={`w-2 h-2 rounded-full ${getPriorityColor(notif.priority)}`} />

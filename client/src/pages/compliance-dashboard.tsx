@@ -51,6 +51,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { clickable } from "@/lib/a11y";
 
 interface DashboardOverview {
   evidenceStats: {
@@ -641,7 +642,7 @@ function ReportCard({ report, onApprove }: { report: WeeklyReport; onApprove: ()
 
   return (
     <div className="border rounded-lg overflow-hidden" data-testid={`report-card-${report.id}`}>
-      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setExpanded(!expanded)}>
+      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors" {...clickable(() => setExpanded(!expanded))}>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Calendar className="h-5 w-5 text-primary" />
@@ -770,18 +771,18 @@ function AddEvidenceForm({ onSubmit, isPending }: { onSubmit: (data: Record<stri
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Category</Label>
+          <Label htmlFor="compliance-dashboard-category">Category</Label>
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger data-testid="select-evidence-category"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="compliance-dashboard-category" data-testid="select-evidence-category"><SelectValue /></SelectTrigger>
             <SelectContent>
               {evidenceCategories.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Trust Service Criteria</Label>
+          <Label htmlFor="compliance-dashboard-trust-service-criteria">Trust Service Criteria</Label>
           <Select value={soc2Category} onValueChange={setSoc2Category}>
-            <SelectTrigger data-testid="select-evidence-soc2"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="compliance-dashboard-trust-service-criteria" data-testid="select-evidence-soc2"><SelectValue /></SelectTrigger>
             <SelectContent>
               {soc2Categories.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
             </SelectContent>
@@ -794,9 +795,9 @@ function AddEvidenceForm({ onSubmit, isPending }: { onSubmit: (data: Record<stri
           <Input id="evidence-control-id" value={controlId} onChange={e => setControlId(e.target.value)} placeholder="e.g., CC6.1" data-testid="input-evidence-control-id" />
         </div>
         <div className="space-y-2">
-          <Label>Severity</Label>
+          <Label htmlFor="compliance-dashboard-severity">Severity</Label>
           <Select value={severity} onValueChange={setSeverity}>
-            <SelectTrigger data-testid="select-evidence-severity"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="compliance-dashboard-severity" data-testid="select-evidence-severity"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="critical">Critical</SelectItem>
               <SelectItem value="high">High</SelectItem>
@@ -1236,9 +1237,9 @@ function TriggerRemediationForm({ triggerTypes, onSubmit, isPending }: {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Trigger Type</Label>
+          <Label htmlFor="compliance-dashboard-trigger-type">Trigger Type</Label>
           <Select value={triggerType} onValueChange={setTriggerType}>
-            <SelectTrigger data-testid="select-trigger-type"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="compliance-dashboard-trigger-type" data-testid="select-trigger-type"><SelectValue /></SelectTrigger>
             <SelectContent>
               {triggerTypes.map(t => (
                 <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -1252,9 +1253,9 @@ function TriggerRemediationForm({ triggerTypes, onSubmit, isPending }: {
           )}
         </div>
         <div className="space-y-2">
-          <Label>Severity</Label>
+          <Label htmlFor="compliance-dashboard-severity-2">Severity</Label>
           <Select value={severity} onValueChange={setSeverity}>
-            <SelectTrigger data-testid="select-trigger-severity"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="compliance-dashboard-severity-2" data-testid="select-trigger-severity"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="critical">Critical</SelectItem>
               <SelectItem value="high">High</SelectItem>
@@ -1281,9 +1282,9 @@ function TriggerRemediationForm({ triggerTypes, onSubmit, isPending }: {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Alert Channel</Label>
+          <Label htmlFor="compliance-dashboard-alert-channel">Alert Channel</Label>
           <Select value={alertChannel} onValueChange={setAlertChannel}>
-            <SelectTrigger data-testid="select-alert-channel"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="compliance-dashboard-alert-channel" data-testid="select-alert-channel"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="email">Email</SelectItem>
               <SelectItem value="slack">Slack</SelectItem>
@@ -1319,7 +1320,7 @@ function RemediationWorkflowCard({ workflow, onAcknowledge, onResolve }: {
     <div className={`border rounded-lg overflow-hidden ${isActive ? "border-l-4 border-l-red-500" : ""}`}
       data-testid={`remediation-card-${workflow.id}`}>
       <div className="p-4 flex items-start justify-between cursor-pointer hover:bg-accent/50 transition-colors"
-        onClick={() => setExpanded(!expanded)}>
+        {...clickable(() => setExpanded(!expanded))}>
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className={`p-2 rounded-lg shrink-0 ${
             workflow.severity === "critical" ? "bg-red-100 dark:bg-red-900/30" :

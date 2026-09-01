@@ -54,6 +54,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 interface PatientRecord {
   id: string;
@@ -764,8 +765,8 @@ function AppointmentsTab() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium">Patient ID</label>
-              <Input
+              <label htmlFor="provider-admin-portal-patient-id" className="text-sm font-medium">Patient ID</label>
+              <Input id="provider-admin-portal-patient-id"
                 data-testid="input-appointment-patient-id"
                 value={formData.patientId}
                 onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
@@ -773,8 +774,8 @@ function AppointmentsTab() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Provider ID</label>
-              <Input
+              <label htmlFor="provider-admin-portal-provider-id" className="text-sm font-medium">Provider ID</label>
+              <Input id="provider-admin-portal-provider-id"
                 data-testid="input-appointment-provider-id"
                 value={formData.providerId}
                 onChange={(e) => setFormData({ ...formData, providerId: e.target.value })}
@@ -782,9 +783,9 @@ function AppointmentsTab() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Type</label>
+              <label htmlFor="provider-admin-portal-type" className="text-sm font-medium">Type</label>
               <Select value={formData.type} onValueChange={(val) => setFormData({ ...formData, type: val })}>
-                <SelectTrigger data-testid="input-appointment-type">
+                <SelectTrigger id="provider-admin-portal-type" data-testid="input-appointment-type">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -799,8 +800,8 @@ function AppointmentsTab() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium">Date</label>
-                <Input
+                <label htmlFor="provider-admin-portal-date" className="text-sm font-medium">Date</label>
+                <Input id="provider-admin-portal-date"
                   data-testid="input-appointment-date"
                   type="date"
                   value={formData.date}
@@ -808,8 +809,8 @@ function AppointmentsTab() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Time</label>
-                <Input
+                <label htmlFor="provider-admin-portal-time" className="text-sm font-medium">Time</label>
+                <Input id="provider-admin-portal-time"
                   data-testid="input-appointment-time"
                   type="time"
                   value={formData.time}
@@ -818,8 +819,8 @@ function AppointmentsTab() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Location</label>
-              <Input
+              <label htmlFor="provider-admin-portal-location" className="text-sm font-medium">Location</label>
+              <Input id="provider-admin-portal-location"
                 data-testid="input-appointment-location"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
@@ -827,8 +828,8 @@ function AppointmentsTab() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Notes</label>
-              <Input
+              <label htmlFor="provider-admin-portal-notes" className="text-sm font-medium">Notes</label>
+              <Input id="provider-admin-portal-notes"
                 data-testid="input-appointment-notes"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1184,8 +1185,8 @@ function UserManagementTab() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium">Name</label>
-              <Input
+              <label htmlFor="provider-admin-portal-name" className="text-sm font-medium">Name</label>
+              <Input id="provider-admin-portal-name"
                 data-testid="input-new-user-name"
                 value={newUserForm.name}
                 onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
@@ -1193,8 +1194,8 @@ function UserManagementTab() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Email</label>
-              <Input
+              <label htmlFor="provider-admin-portal-email" className="text-sm font-medium">Email</label>
+              <Input id="provider-admin-portal-email"
                 data-testid="input-new-user-email"
                 type="email"
                 value={newUserForm.email}
@@ -1203,9 +1204,9 @@ function UserManagementTab() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Role</label>
+              <label htmlFor="provider-admin-portal-role" className="text-sm font-medium">Role</label>
               <Select value={newUserForm.role} onValueChange={(val) => setNewUserForm({ ...newUserForm, role: val })}>
-                <SelectTrigger data-testid="input-new-user-role">
+                <SelectTrigger id="provider-admin-portal-role" data-testid="input-new-user-role">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1219,8 +1220,8 @@ function UserManagementTab() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Department</label>
-              <Input
+              <label htmlFor="provider-admin-portal-department" className="text-sm font-medium">Department</label>
+              <Input id="provider-admin-portal-department"
                 data-testid="input-new-user-department"
                 value={newUserForm.department}
                 onChange={(e) => setNewUserForm({ ...newUserForm, department: e.target.value })}
@@ -1228,11 +1229,11 @@ function UserManagementTab() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Permissions</label>
+              <label htmlFor="provider-admin-portal-permissions" className="text-sm font-medium mb-2 block">Permissions</label>
               <div className="grid grid-cols-2 gap-2">
                 {ALL_PERMISSIONS.map((perm) => (
                   <div key={perm} className="flex items-center gap-2">
-                    <Checkbox
+                    <Checkbox id="provider-admin-portal-permissions"
                       data-testid={`checkbox-perm-${perm}`}
                       checked={newUserForm.permissions.includes(perm)}
                       onCheckedChange={() => togglePermission(perm, "new")}
@@ -1265,9 +1266,9 @@ function UserManagementTab() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium">Role</label>
+              <label htmlFor="provider-admin-portal-role-2" className="text-sm font-medium">Role</label>
               <Select value={editForm.role} onValueChange={(val) => setEditForm({ ...editForm, role: val })}>
-                <SelectTrigger data-testid="input-edit-role">
+                <SelectTrigger id="provider-admin-portal-role-2" data-testid="input-edit-role">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1281,11 +1282,11 @@ function UserManagementTab() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Permissions</label>
+              <label htmlFor="provider-admin-portal-permissions-2" className="text-sm font-medium mb-2 block">Permissions</label>
               <div className="grid grid-cols-2 gap-2">
                 {ALL_PERMISSIONS.map((perm) => (
                   <div key={perm} className="flex items-center gap-2">
-                    <Checkbox
+                    <Checkbox id="provider-admin-portal-permissions-2"
                       data-testid={`checkbox-edit-perm-${perm}`}
                       checked={editForm.permissions.includes(perm)}
                       onCheckedChange={() => togglePermission(perm, "edit")}
@@ -1612,10 +1613,10 @@ function AdherenceTab() {
                   className={`p-3 rounded-md border cursor-pointer transition-colors hover-elevate ${
                     selectedPatient === summary.patientId ? "border-primary bg-accent/50" : ""
                   }`}
-                  onClick={() => {
+                  {...clickable(() => {
                     setSelectedPatient(summary.patientId);
                     setAiInsight(null);
-                  }}
+                  })}
                   data-testid={`card-adherence-patient-${summary.patientId}`}
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">

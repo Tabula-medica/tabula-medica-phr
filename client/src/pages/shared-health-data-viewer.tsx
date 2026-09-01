@@ -201,6 +201,10 @@ export default function SharedHealthDataViewer() {
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="text-center text-2xl tracking-widest"
                   maxLength={6}
+                  // This gate renders nothing but the PIN prompt; the heading
+                  // and instructions sit in the same labelled group, so a
+                  // screen reader still hears them before the field.
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                   data-testid="input-access-pin"
                 />

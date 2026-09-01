@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -518,10 +519,10 @@ export default function AuditTrailDashboard() {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
-                  <Label>Search</Label>
+                  <Label htmlFor="audit-trail-dashboard-search">Search</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
+                    <Input id="audit-trail-dashboard-search"
                       placeholder="Search logs..."
                       value={filters.searchText}
                       onChange={(e) => handleFilterChange("searchText", e.target.value)}
@@ -531,12 +532,12 @@ export default function AuditTrailDashboard() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label htmlFor="audit-trail-dashboard-category">Category</Label>
                   <Select 
                     value={filters.category} 
                     onValueChange={(v) => handleFilterChange("category", v)}
                   >
-                    <SelectTrigger data-testid="select-category">
+                    <SelectTrigger id="audit-trail-dashboard-category" data-testid="select-category">
                       <SelectValue placeholder="All categories" />
                     </SelectTrigger>
                     <SelectContent>
@@ -555,12 +556,12 @@ export default function AuditTrailDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Severity</Label>
+                  <Label htmlFor="audit-trail-dashboard-severity">Severity</Label>
                   <Select 
                     value={filters.severity} 
                     onValueChange={(v) => handleFilterChange("severity", v)}
                   >
-                    <SelectTrigger data-testid="select-severity">
+                    <SelectTrigger id="audit-trail-dashboard-severity" data-testid="select-severity">
                       <SelectValue placeholder="All severities" />
                     </SelectTrigger>
                     <SelectContent>
@@ -573,12 +574,12 @@ export default function AuditTrailDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Action</Label>
+                  <Label htmlFor="audit-trail-dashboard-action">Action</Label>
                   <Select 
                     value={filters.action} 
                     onValueChange={(v) => handleFilterChange("action", v)}
                   >
-                    <SelectTrigger data-testid="select-action">
+                    <SelectTrigger id="audit-trail-dashboard-action" data-testid="select-action">
                       <SelectValue placeholder="All actions" />
                     </SelectTrigger>
                     <SelectContent>
@@ -882,11 +883,11 @@ export default function AuditTrailDashboard() {
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label className="text-muted-foreground">Timestamp</Label>
+                  <FieldCaption className="text-muted-foreground">Timestamp</FieldCaption>
                   <p className="font-medium">{formatTimestamp(selectedLog.timestamp)}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Severity</Label>
+                  <FieldCaption className="text-muted-foreground">Severity</FieldCaption>
                   <div className="mt-1">
                     <Badge className={severityColors[selectedLog.severity]}>
                       {selectedLog.severity}

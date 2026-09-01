@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -88,6 +89,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import html2canvas from "html2canvas";
 import { Link } from "wouter";
 import { PatientPopulationManagementCard } from "@/components/patient-population-management-card";
+import { clickable } from "@/lib/a11y";
 import type { 
   Prescription, 
   InsertPrescription, 
@@ -873,8 +875,8 @@ function AlertRulesTab() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Rule Name</Label>
-                <Input
+                <Label htmlFor="provider-portal-rule-name">Rule Name</Label>
+                <Input id="provider-portal-rule-name"
                   className="min-h-[44px]"
                   value={newRule.name}
                   onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
@@ -883,8 +885,8 @@ function AlertRulesTab() {
                 />
               </div>
               <div>
-                <Label>Description</Label>
-                <Textarea
+                <Label htmlFor="provider-portal-description">Description</Label>
+                <Textarea id="provider-portal-description"
                   value={newRule.description}
                   onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
                   placeholder="Describe when this alert should trigger"
@@ -893,12 +895,12 @@ function AlertRulesTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Metric Type</Label>
+                  <Label htmlFor="provider-portal-metric-type">Metric Type</Label>
                   <Select
                     value={newRule.metricType}
                     onValueChange={(v) => setNewRule({ ...newRule, metricType: v })}
                   >
-                    <SelectTrigger className="min-h-[44px]" data-testid="select-metric-type">
+                    <SelectTrigger id="provider-portal-metric-type" className="min-h-[44px]" data-testid="select-metric-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -910,8 +912,8 @@ function AlertRulesTab() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Metric Name</Label>
-                  <Input
+                  <Label htmlFor="provider-portal-metric-name">Metric Name</Label>
+                  <Input id="provider-portal-metric-name"
                     className="min-h-[44px]"
                     value={newRule.metricName}
                     onChange={(e) => setNewRule({ ...newRule, metricName: e.target.value })}
@@ -922,12 +924,12 @@ function AlertRulesTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Operator</Label>
+                  <Label htmlFor="provider-portal-operator">Operator</Label>
                   <Select
                     value={newRule.operator}
                     onValueChange={(v) => setNewRule({ ...newRule, operator: v })}
                   >
-                    <SelectTrigger className="min-h-[44px]" data-testid="select-operator">
+                    <SelectTrigger id="provider-portal-operator" className="min-h-[44px]" data-testid="select-operator">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -940,8 +942,8 @@ function AlertRulesTab() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Threshold Value</Label>
-                  <Input
+                  <Label htmlFor="provider-portal-threshold-value">Threshold Value</Label>
+                  <Input id="provider-portal-threshold-value"
                     className="min-h-[44px]"
                     type="number"
                     value={newRule.thresholdValue}
@@ -951,12 +953,12 @@ function AlertRulesTab() {
                 </div>
               </div>
               <div>
-                <Label>Severity</Label>
+                <Label htmlFor="provider-portal-severity">Severity</Label>
                 <Select
                   value={newRule.severity}
                   onValueChange={(v) => setNewRule({ ...newRule, severity: v })}
                 >
-                  <SelectTrigger className="min-h-[44px]" data-testid="select-severity">
+                  <SelectTrigger id="provider-portal-severity" className="min-h-[44px]" data-testid="select-severity">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1615,9 +1617,9 @@ function MessagingTab() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Select Patient</Label>
+                    <Label htmlFor="provider-portal-select-patient">Select Patient</Label>
                     <Select value={newConvPatientId} onValueChange={setNewConvPatientId}>
-                      <SelectTrigger className="min-h-[44px]" data-testid="select-new-conv-patient">
+                      <SelectTrigger id="provider-portal-select-patient" className="min-h-[44px]" data-testid="select-new-conv-patient">
                         <SelectValue placeholder="Choose a patient" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1630,8 +1632,8 @@ function MessagingTab() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Subject</Label>
-                    <Input 
+                    <Label htmlFor="provider-portal-subject">Subject</Label>
+                    <Input id="provider-portal-subject" 
                       value={newConvSubject} 
                       onChange={(e) => setNewConvSubject(e.target.value)}
                       placeholder="e.g., Lab Results Follow-up"
@@ -1640,8 +1642,8 @@ function MessagingTab() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Message</Label>
-                    <Textarea 
+                    <Label htmlFor="provider-portal-message">Message</Label>
+                    <Textarea id="provider-portal-message" 
                       value={newConvMessage}
                       onChange={(e) => setNewConvMessage(e.target.value)}
                       placeholder="Type your secure message..."
@@ -1879,9 +1881,9 @@ function TreatmentPlansTab() {
           </div>
           
           <div className="mb-4">
-            <Label>Select Patient</Label>
+            <Label htmlFor="provider-portal-select-patient-2">Select Patient</Label>
             <Select value={selectedPatientId || ""} onValueChange={setSelectedPatientId}>
-              <SelectTrigger className="min-h-[44px]" data-testid="select-patient-treatment">
+              <SelectTrigger id="provider-portal-select-patient-2" className="min-h-[44px]" data-testid="select-patient-treatment">
                 <SelectValue placeholder="Select a patient" />
               </SelectTrigger>
               <SelectContent>
@@ -1912,8 +1914,8 @@ function TreatmentPlansTab() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label>Plan Title</Label>
-                        <Input
+                        <Label htmlFor="provider-portal-plan-title">Plan Title</Label>
+                        <Input id="provider-portal-plan-title"
                           value={newPlan.title}
                           onChange={(e) => setNewPlan({ ...newPlan, title: e.target.value })}
                           placeholder="e.g., Diabetes Management Plan"
@@ -1922,8 +1924,8 @@ function TreatmentPlansTab() {
                         />
                       </div>
                       <div>
-                        <Label>Goals (comma-separated)</Label>
-                        <Textarea
+                        <Label htmlFor="provider-portal-goals-comma-separated">Goals (comma-separated)</Label>
+                        <Textarea id="provider-portal-goals-comma-separated"
                           value={newPlan.goals}
                           onChange={(e) => setNewPlan({ ...newPlan, goals: e.target.value })}
                           placeholder="e.g., Reduce HbA1c to 7%, Increase daily activity"
@@ -1932,8 +1934,8 @@ function TreatmentPlansTab() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Start Date</Label>
-                          <Input
+                          <Label htmlFor="provider-portal-start-date">Start Date</Label>
+                          <Input id="provider-portal-start-date"
                             type="date"
                             value={newPlan.startDate}
                             onChange={(e) => setNewPlan({ ...newPlan, startDate: e.target.value })}
@@ -1942,8 +1944,8 @@ function TreatmentPlansTab() {
                           />
                         </div>
                         <div>
-                          <Label>End Date</Label>
-                          <Input
+                          <Label htmlFor="provider-portal-end-date">End Date</Label>
+                          <Input id="provider-portal-end-date"
                             type="date"
                             value={newPlan.endDate}
                             onChange={(e) => setNewPlan({ ...newPlan, endDate: e.target.value })}
@@ -2168,8 +2170,8 @@ function ResearchDataTab() {
                 <CardContent>
                   <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <div>
-                      <Label>Conditions (comma-separated)</Label>
-                      <Input
+                      <Label htmlFor="provider-portal-conditions-comma-separated">Conditions (comma-separated)</Label>
+                      <Input id="provider-portal-conditions-comma-separated"
                         value={cohortCriteria.conditions}
                         onChange={(e) => setCohortCriteria({ ...cohortCriteria, conditions: e.target.value })}
                         placeholder="e.g., diabetes, hypertension"
@@ -2178,9 +2180,9 @@ function ResearchDataTab() {
                       />
                     </div>
                     <div>
-                      <Label>Age Range</Label>
+                      <Label htmlFor="provider-portal-age-range">Age Range</Label>
                       <Select value={cohortCriteria.ageRange} onValueChange={(v) => setCohortCriteria({ ...cohortCriteria, ageRange: v })}>
-                        <SelectTrigger className="min-h-[44px]" data-testid="select-cohort-age">
+                        <SelectTrigger id="provider-portal-age-range" className="min-h-[44px]" data-testid="select-cohort-age">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2193,8 +2195,8 @@ function ResearchDataTab() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Medications (comma-separated)</Label>
-                      <Input
+                      <Label htmlFor="provider-portal-medications-comma-separated">Medications (comma-separated)</Label>
+                      <Input id="provider-portal-medications-comma-separated"
                         value={cohortCriteria.medications}
                         onChange={(e) => setCohortCriteria({ ...cohortCriteria, medications: e.target.value })}
                         placeholder="e.g., metformin, lisinopril"
@@ -2298,7 +2300,7 @@ function EducationTab() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Patient</Label>
+                <Label htmlFor="provider-portal-patient">Patient</Label>
                 <Select
                   value={prescription.patientId}
                   onValueChange={(v) => {
@@ -2310,7 +2312,7 @@ function EducationTab() {
                     });
                   }}
                 >
-                  <SelectTrigger className="min-h-[44px]" data-testid="select-patient">
+                  <SelectTrigger id="provider-portal-patient" className="min-h-[44px]" data-testid="select-patient">
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2323,7 +2325,7 @@ function EducationTab() {
                 </Select>
               </div>
               <div>
-                <Label>Quick Topics</Label>
+                <FieldCaption>Quick Topics</FieldCaption>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {topicSuggestions.map((topic, idx) => (
                     <Badge
@@ -2345,8 +2347,8 @@ function EducationTab() {
                 </div>
               </div>
               <div>
-                <Label>Module Title</Label>
-                <Input
+                <Label htmlFor="provider-portal-module-title">Module Title</Label>
+                <Input id="provider-portal-module-title"
                   value={prescription.moduleTitle}
                   onChange={(e) => setPrescription({ ...prescription, moduleTitle: e.target.value })}
                   placeholder="e.g., Understanding Heart Failure"
@@ -2354,8 +2356,8 @@ function EducationTab() {
                 />
               </div>
               <div>
-                <Label>Topic Description</Label>
-                <Textarea
+                <Label htmlFor="provider-portal-topic-description">Topic Description</Label>
+                <Textarea id="provider-portal-topic-description"
                   value={prescription.moduleTopic}
                   onChange={(e) => setPrescription({ ...prescription, moduleTopic: e.target.value })}
                   placeholder="Describe what the module should cover"
@@ -2363,8 +2365,8 @@ function EducationTab() {
                 />
               </div>
               <div>
-                <Label>Reason for Prescribing</Label>
-                <Textarea
+                <Label htmlFor="provider-portal-reason-for-prescribing">Reason for Prescribing</Label>
+                <Textarea id="provider-portal-reason-for-prescribing"
                   value={prescription.reason}
                   onChange={(e) => setPrescription({ ...prescription, reason: e.target.value })}
                   placeholder="Why is this education important for this patient?"
@@ -2373,12 +2375,12 @@ function EducationTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Priority</Label>
+                  <Label htmlFor="provider-portal-priority">Priority</Label>
                   <Select
                     value={prescription.priority}
                     onValueChange={(v) => setPrescription({ ...prescription, priority: v })}
                   >
-                    <SelectTrigger className="min-h-[44px]" data-testid="select-priority">
+                    <SelectTrigger id="provider-portal-priority" className="min-h-[44px]" data-testid="select-priority">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2389,8 +2391,8 @@ function EducationTab() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Due Date (Optional)</Label>
-                  <Input
+                  <Label htmlFor="provider-portal-due-date-optional">Due Date (Optional)</Label>
+                  <Input id="provider-portal-due-date-optional"
                     type="date"
                     value={prescription.dueDate}
                     onChange={(e) => setPrescription({ ...prescription, dueDate: e.target.value })}
@@ -2966,9 +2968,9 @@ function PatientTrendsTab() {
         <CardContent className="space-y-4">
           <div className="flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[200px]">
-              <Label>Select Patient</Label>
+              <Label htmlFor="provider-portal-select-patient-3">Select Patient</Label>
               <Select value={selectedPatientId || ""} onValueChange={setSelectedPatientId}>
-                <SelectTrigger className="min-h-[44px]" data-testid="select-trends-patient">
+                <SelectTrigger id="provider-portal-select-patient-3" className="min-h-[44px]" data-testid="select-trends-patient">
                   <SelectValue placeholder="Choose a patient" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2981,9 +2983,9 @@ function PatientTrendsTab() {
               </Select>
             </div>
             <div className="w-[150px]">
-              <Label>Time Range</Label>
+              <Label htmlFor="provider-portal-time-range">Time Range</Label>
               <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="min-h-[44px]" data-testid="select-time-range">
+                <SelectTrigger id="provider-portal-time-range" className="min-h-[44px]" data-testid="select-time-range">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2998,7 +3000,7 @@ function PatientTrendsTab() {
             {timeRange === "custom" && (
               <>
                 <div>
-                  <Label>Start Date</Label>
+                  <FieldCaption>Start Date</FieldCaption>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -3021,7 +3023,7 @@ function PatientTrendsTab() {
                   </Popover>
                 </div>
                 <div>
-                  <Label>End Date</Label>
+                  <FieldCaption>End Date</FieldCaption>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -3854,10 +3856,10 @@ function ProviderAuditTab() {
         <CardContent className="space-y-4">
           <div className="flex gap-4 flex-wrap items-end">
             <div className="flex-1 min-w-[200px]">
-              <Label>Search</Label>
+              <Label htmlFor="provider-portal-search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Input id="provider-portal-search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by user, patient, resource..."
@@ -3867,9 +3869,9 @@ function ProviderAuditTab() {
               </div>
             </div>
             <div className="w-[140px]">
-              <Label>User Role</Label>
+              <Label htmlFor="provider-portal-user-role">User Role</Label>
               <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
-                <SelectTrigger className="min-h-[44px]" data-testid="select-role-filter">
+                <SelectTrigger id="provider-portal-user-role" className="min-h-[44px]" data-testid="select-role-filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -3881,9 +3883,9 @@ function ProviderAuditTab() {
               </Select>
             </div>
             <div className="w-[140px]">
-              <Label>Action</Label>
+              <Label htmlFor="provider-portal-action">Action</Label>
               <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="min-h-[44px]" data-testid="select-action-filter">
+                <SelectTrigger id="provider-portal-action" className="min-h-[44px]" data-testid="select-action-filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -3895,9 +3897,9 @@ function ProviderAuditTab() {
               </Select>
             </div>
             <div className="w-[140px]">
-              <Label>Resource</Label>
+              <Label htmlFor="provider-portal-resource">Resource</Label>
               <Select value={resourceTypeFilter} onValueChange={setResourceTypeFilter}>
-                <SelectTrigger className="min-h-[44px]" data-testid="select-resource-filter">
+                <SelectTrigger id="provider-portal-resource" className="min-h-[44px]" data-testid="select-resource-filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -3921,8 +3923,8 @@ function ProviderAuditTab() {
           {showAdvancedFilters && (
             <div className="flex gap-4 flex-wrap items-end p-4 bg-muted/50 rounded-lg">
               <div className="w-[180px]">
-                <Label>Start Date</Label>
-                <Input
+                <Label htmlFor="provider-portal-start-date-2">Start Date</Label>
+                <Input id="provider-portal-start-date-2"
                   type="date"
                   value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
                   onChange={(e) => setStartDate(e.target.value ? new Date(e.target.value) : undefined)}
@@ -3931,8 +3933,8 @@ function ProviderAuditTab() {
                 />
               </div>
               <div className="w-[180px]">
-                <Label>End Date</Label>
-                <Input
+                <Label htmlFor="provider-portal-end-date-2">End Date</Label>
+                <Input id="provider-portal-end-date-2"
                   type="date"
                   value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
                   onChange={(e) => setEndDate(e.target.value ? new Date(e.target.value) : undefined)}
@@ -3976,7 +3978,7 @@ function ProviderAuditTab() {
                   <div 
                     key={log.id} 
                     className="p-4 hover:bg-muted/50 cursor-pointer" 
-                    onClick={() => setSelectedLogId(log.id)}
+                    {...clickable(() => setSelectedLogId(log.id))}
                     data-testid={`audit-entry-${log.id}`}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -4039,59 +4041,59 @@ function ProviderAuditTab() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground">Timestamp</Label>
+                    <FieldCaption className="text-muted-foreground">Timestamp</FieldCaption>
                     <p className="font-medium">{format(new Date(selectedLogDetail.timestamp), "PPpp")}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">User ID</Label>
+                    <FieldCaption className="text-muted-foreground">User ID</FieldCaption>
                     <p className="font-medium text-sm break-all">{selectedLogDetail.userId}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">User Role</Label>
+                    <FieldCaption className="text-muted-foreground">User Role</FieldCaption>
                     <Badge className={getRoleBadgeColor(selectedLogDetail.userRole)}>{selectedLogDetail.userRole}</Badge>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">Event Type</Label>
+                    <FieldCaption className="text-muted-foreground">Event Type</FieldCaption>
                     <p className="font-medium">{selectedLogDetail.eventType}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">Action</Label>
+                    <FieldCaption className="text-muted-foreground">Action</FieldCaption>
                     <p className="font-medium">{selectedLogDetail.action}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">Resource Type</Label>
+                    <FieldCaption className="text-muted-foreground">Resource Type</FieldCaption>
                     <Badge variant="secondary">{selectedLogDetail.resourceType}</Badge>
                   </div>
                   {selectedLogDetail.resourceId && (
                     <div>
-                      <Label className="text-muted-foreground">Resource ID</Label>
+                      <FieldCaption className="text-muted-foreground">Resource ID</FieldCaption>
                       <p className="font-medium text-sm">{selectedLogDetail.resourceId}</p>
                     </div>
                   )}
                   {selectedLogDetail.patientId && (
                     <div>
-                      <Label className="text-muted-foreground">Patient ID</Label>
+                      <FieldCaption className="text-muted-foreground">Patient ID</FieldCaption>
                       <p className="font-medium text-sm">{selectedLogDetail.patientId}</p>
                     </div>
                   )}
                   <div>
-                    <Label className="text-muted-foreground">IP Address</Label>
+                    <FieldCaption className="text-muted-foreground">IP Address</FieldCaption>
                     <p className="font-medium">{selectedLogDetail.ipAddress}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">Platform</Label>
+                    <FieldCaption className="text-muted-foreground">Platform</FieldCaption>
                     <p className="font-medium">{selectedLogDetail.platform}</p>
                   </div>
                 </div>
                 
                 <div>
-                  <Label className="text-muted-foreground">Description</Label>
+                  <FieldCaption className="text-muted-foreground">Description</FieldCaption>
                   <p className="mt-1 p-3 bg-muted rounded-lg text-sm">{selectedLogDetail.description}</p>
                 </div>
 
                 {selectedLogDetail.requestPath && (
                   <div>
-                    <Label className="text-muted-foreground">Request Details</Label>
+                    <FieldCaption className="text-muted-foreground">Request Details</FieldCaption>
                     <div className="mt-1 p-3 bg-muted rounded-lg text-sm font-mono">
                       <p>{selectedLogDetail.requestMethod} {selectedLogDetail.requestPath}</p>
                       {selectedLogDetail.responseStatus && <p>Status: {selectedLogDetail.responseStatus}</p>}
@@ -4100,7 +4102,7 @@ function ProviderAuditTab() {
                 )}
 
                 <div>
-                  <Label className="text-muted-foreground">User Agent</Label>
+                  <FieldCaption className="text-muted-foreground">User Agent</FieldCaption>
                   <p className="mt-1 p-3 bg-muted rounded-lg text-xs break-all">{selectedLogDetail.userAgent}</p>
                 </div>
               </div>
@@ -6103,9 +6105,9 @@ function ReportsTab() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Report Type</Label>
+                    <Label htmlFor="provider-portal-report-type">Report Type</Label>
                     <Select value={exportReportType} onValueChange={setExportReportType}>
-                      <SelectTrigger className="min-h-[44px]" data-testid="select-export-type">
+                      <SelectTrigger id="provider-portal-report-type" className="min-h-[44px]" data-testid="select-export-type">
                         <SelectValue placeholder="Select report type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -6117,9 +6119,9 @@ function ReportsTab() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Format</Label>
+                    <Label htmlFor="provider-portal-format">Format</Label>
                     <Select value={exportFormat} onValueChange={setExportFormat}>
-                      <SelectTrigger className="min-h-[44px]" data-testid="select-export-format">
+                      <SelectTrigger id="provider-portal-format" className="min-h-[44px]" data-testid="select-export-format">
                         <SelectValue placeholder="Select format" />
                       </SelectTrigger>
                       <SelectContent>
@@ -6131,8 +6133,8 @@ function ReportsTab() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Start Date</Label>
-                    <Input
+                    <Label htmlFor="provider-portal-start-date-3">Start Date</Label>
+                    <Input id="provider-portal-start-date-3"
                       type="date"
                       value={exportDateRange.start}
                       onChange={(e) => setExportDateRange({ ...exportDateRange, start: e.target.value })}
@@ -6141,8 +6143,8 @@ function ReportsTab() {
                     />
                   </div>
                   <div>
-                    <Label>End Date</Label>
-                    <Input
+                    <Label htmlFor="provider-portal-end-date-3">End Date</Label>
+                    <Input id="provider-portal-end-date-3"
                       type="date"
                       value={exportDateRange.end}
                       onChange={(e) => setExportDateRange({ ...exportDateRange, end: e.target.value })}
@@ -6674,9 +6676,9 @@ function TelehealthTab() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Patient</Label>
+                <Label htmlFor="provider-portal-patient-2">Patient</Label>
                 <Select value={newSession.patientId} onValueChange={(v) => setNewSession({ ...newSession, patientId: v })}>
-                  <SelectTrigger className="min-h-[44px]" data-testid="select-patient">
+                  <SelectTrigger id="provider-portal-patient-2" className="min-h-[44px]" data-testid="select-patient">
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
                   <SelectContent>
@@ -6688,8 +6690,8 @@ function TelehealthTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Date</Label>
-                  <Input
+                  <Label htmlFor="provider-portal-date">Date</Label>
+                  <Input id="provider-portal-date"
                     type="date"
                     value={newSession.scheduledAt}
                     onChange={(e) => setNewSession({ ...newSession, scheduledAt: e.target.value })}
@@ -6698,8 +6700,8 @@ function TelehealthTab() {
                   />
                 </div>
                 <div>
-                  <Label>Time</Label>
-                  <Input
+                  <Label htmlFor="provider-portal-time">Time</Label>
+                  <Input id="provider-portal-time"
                     type="time"
                     value={newSession.scheduledTime}
                     onChange={(e) => setNewSession({ ...newSession, scheduledTime: e.target.value })}
@@ -6710,9 +6712,9 @@ function TelehealthTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Duration</Label>
+                  <Label htmlFor="provider-portal-duration">Duration</Label>
                   <Select value={String(newSession.duration)} onValueChange={(v) => setNewSession({ ...newSession, duration: Number(v) })}>
-                    <SelectTrigger className="min-h-[44px]" data-testid="select-duration">
+                    <SelectTrigger id="provider-portal-duration" className="min-h-[44px]" data-testid="select-duration">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -6724,9 +6726,9 @@ function TelehealthTab() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Session Type</Label>
+                  <Label htmlFor="provider-portal-session-type">Session Type</Label>
                   <Select value={newSession.sessionType} onValueChange={(v) => setNewSession({ ...newSession, sessionType: v as typeof newSession.sessionType })}>
-                    <SelectTrigger className="min-h-[44px]" data-testid="select-session-type">
+                    <SelectTrigger id="provider-portal-session-type" className="min-h-[44px]" data-testid="select-session-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -6738,8 +6740,8 @@ function TelehealthTab() {
                 </div>
               </div>
               <div>
-                <Label>Notes</Label>
-                <Textarea
+                <Label htmlFor="provider-portal-notes">Notes</Label>
+                <Textarea id="provider-portal-notes"
                   value={newSession.notes}
                   onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
                   placeholder="Optional notes for this session..."
@@ -7504,9 +7506,9 @@ function TasksTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label htmlFor="provider-portal-category">Category</Label>
                   <Select value={newTask.category} onValueChange={(v) => setNewTask({ ...newTask, category: v })}>
-                    <SelectTrigger data-testid="select-task-category">
+                    <SelectTrigger id="provider-portal-category" data-testid="select-task-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -7517,9 +7519,9 @@ function TasksTab() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label htmlFor="provider-portal-priority-2">Priority</Label>
                   <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
-                    <SelectTrigger data-testid="select-task-priority">
+                    <SelectTrigger id="provider-portal-priority-2" data-testid="select-task-priority">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

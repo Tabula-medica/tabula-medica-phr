@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -519,9 +520,9 @@ export default function ClinicalAutoFillDashboard() {
               <h3 className="text-sm font-semibold mb-3">Custom Clinical Event</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Trigger Type</Label>
+                  <Label htmlFor="clinical-autofill-dashbo-trigger-type" className="text-xs">Trigger Type</Label>
                   <Select value={customTriggerType} onValueChange={setCustomTriggerType}>
-                    <SelectTrigger data-testid="select-trigger-type">
+                    <SelectTrigger id="clinical-autofill-dashbo-trigger-type" data-testid="select-trigger-type">
                       <SelectValue placeholder="Select trigger..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -535,8 +536,8 @@ export default function ClinicalAutoFillDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Patient ID (optional)</Label>
-                  <Input
+                  <Label htmlFor="clinical-autofill-dashbo-patient-id-optional" className="text-xs">Patient ID (optional)</Label>
+                  <Input id="clinical-autofill-dashbo-patient-id-optional"
                     value={customPatientId}
                     onChange={e => setCustomPatientId(e.target.value)}
                     placeholder="PT-2001"
@@ -544,8 +545,8 @@ export default function ClinicalAutoFillDashboard() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Event Data (JSON)</Label>
-                  <Input
+                  <Label htmlFor="clinical-autofill-dashbo-event-data-json" className="text-xs">Event Data (JSON)</Label>
+                  <Input id="clinical-autofill-dashbo-event-data-json"
                     value={customData}
                     onChange={e => setCustomData(e.target.value)}
                     placeholder='{"diagnosis":"...","diagnosisCode":"..."}'
@@ -690,7 +691,7 @@ export default function ClinicalAutoFillDashboard() {
                           return (
                             <div key={key} className="space-y-1.5" data-testid={`editor-field-${key}`}>
                               <div className="flex items-center gap-2">
-                                <Label className="text-sm font-medium">{label}</Label>
+                                <FieldCaption className="text-sm font-medium">{label}</FieldCaption>
                                 {isAutoFilled && (
                                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
                                     <Zap className="h-2.5 w-2.5 mr-0.5" /> Auto-filled

@@ -800,9 +800,9 @@ export default function FamilyAccounts() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>For Which Family Member?</Label>
+                    <Label htmlFor="family-accounts-for-which-family-member">For Which Family Member?</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-dependent-for-proxy">
+                      <SelectTrigger id="family-accounts-for-which-family-member" data-testid="select-dependent-for-proxy">
                         <SelectValue placeholder="Select dependent..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -816,18 +816,18 @@ export default function FamilyAccounts() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Proxy Name</Label>
-                      <Input placeholder="Full name" data-testid="input-proxy-name" />
+                      <Label htmlFor="family-accounts-proxy-name">Proxy Name</Label>
+                      <Input id="family-accounts-proxy-name" placeholder="Full name" data-testid="input-proxy-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Email</Label>
-                      <Input type="email" placeholder="email@example.com" data-testid="input-proxy-email" />
+                      <Label htmlFor="family-accounts-email">Email</Label>
+                      <Input id="family-accounts-email" type="email" placeholder="email@example.com" data-testid="input-proxy-email" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Access Level</Label>
+                    <Label htmlFor="family-accounts-access-level">Access Level</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-access-level">
+                      <SelectTrigger id="family-accounts-access-level" data-testid="select-access-level">
                         <SelectValue placeholder="Select level..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -839,9 +839,9 @@ export default function FamilyAccounts() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Authorization Method</Label>
+                    <Label htmlFor="family-accounts-authorization-method">Authorization Method</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-auth-method">
+                      <SelectTrigger id="family-accounts-authorization-method" data-testid="select-auth-method">
                         <SelectValue placeholder="Select method..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -854,8 +854,8 @@ export default function FamilyAccounts() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Access Expiration (Optional)</Label>
-                    <Input type="date" data-testid="input-expiry-date" />
+                    <Label htmlFor="family-accounts-access-expiration-optional">Access Expiration (Optional)</Label>
+                    <Input id="family-accounts-access-expiration-optional" type="date" data-testid="input-expiry-date" />
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch id="notify" defaultChecked />

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -386,9 +387,9 @@ export default function AIFHIRGovernanceQualityControlPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Resource Type</Label>
+                  <Label htmlFor="ai-fhir-governance-quali-resource-type">Resource Type</Label>
                   <Select value={selectedResourceType} onValueChange={setSelectedResourceType}>
-                    <SelectTrigger data-testid="select-resource-type">
+                    <SelectTrigger id="ai-fhir-governance-quali-resource-type" data-testid="select-resource-type">
                       <SelectValue placeholder="Select resource type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -399,9 +400,9 @@ export default function AIFHIRGovernanceQualityControlPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Profile</Label>
+                  <Label htmlFor="ai-fhir-governance-quali-profile">Profile</Label>
                   <Select value={selectedProfile} onValueChange={setSelectedProfile}>
-                    <SelectTrigger data-testid="select-profile">
+                    <SelectTrigger id="ai-fhir-governance-quali-profile" data-testid="select-profile">
                       <SelectValue placeholder="Select profile" />
                     </SelectTrigger>
                     <SelectContent>
@@ -516,7 +517,7 @@ export default function AIFHIRGovernanceQualityControlPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Resource Types to Analyze</Label>
+                <FieldCaption>Resource Types to Analyze</FieldCaption>
                 <div className="flex flex-wrap gap-2">
                   {RESOURCE_TYPES.slice(0, 5).map(type => (
                     <Badge key={type} className="bg-muted text-muted-foreground">{type}</Badge>
@@ -657,7 +658,7 @@ export default function AIFHIRGovernanceQualityControlPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Resource Types to Analyze</Label>
+                <FieldCaption>Resource Types to Analyze</FieldCaption>
                 <div className="flex flex-wrap gap-2">
                   {RESOURCE_TYPES.slice(0, 5).map(type => (
                     <Badge key={type} className="bg-muted text-muted-foreground">{type}</Badge>

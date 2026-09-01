@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   ArrowLeft, Bell, BellRing, Clock, Mail,
   MessageSquare, Check, CheckCheck, Settings,
@@ -269,11 +270,11 @@ export default function TelehealthRemindersPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Reminder Timing</Label>
+                <Label htmlFor="telehealth-reminders-reminder-timing" className="text-sm font-medium">Reminder Timing</Label>
                 <p className="text-xs text-muted-foreground">Select when you want to receive reminders before your appointment</p>
                 <div className="space-y-2">
                   {TIMING_OPTIONS.map((option) => (
-                    <div
+                    <div role="presentation"
                       key={option.value}
                       className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
                       onClick={() => toggleTiming(option.value)}
@@ -283,7 +284,7 @@ export default function TelehealthRemindersPage() {
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{option.label}</span>
                       </div>
-                      <Switch
+                      <Switch id="telehealth-reminders-reminder-timing"
                         checked={selectedTimings.includes(option.value)}
                         onCheckedChange={() => toggleTiming(option.value)}
                         data-testid={`switch-timing-${option.value}`}
@@ -296,13 +297,13 @@ export default function TelehealthRemindersPage() {
               <Separator />
 
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Notification Channels</Label>
+                <Label htmlFor="telehealth-reminders-notification-channels" className="text-sm font-medium">Notification Channels</Label>
                 <p className="text-xs text-muted-foreground">Choose how you want to receive your reminders</p>
                 <div className="space-y-2">
                   {CHANNEL_OPTIONS.map((option) => {
                     const Icon = option.icon;
                     return (
-                      <div
+                      <div role="presentation"
                         key={option.value}
                         className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
                         onClick={() => toggleChannel(option.value)}
@@ -312,7 +313,7 @@ export default function TelehealthRemindersPage() {
                           <Icon className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">{option.label}</span>
                         </div>
-                        <Switch
+                        <Switch id="telehealth-reminders-notification-channels"
                           checked={selectedChannels.includes(option.value)}
                           onCheckedChange={() => toggleChannel(option.value)}
                           data-testid={`switch-channel-${option.value}`}
@@ -459,10 +460,10 @@ export default function TelehealthRemindersPage() {
                         className={`flex items-start justify-between gap-3 p-3 rounded-lg border cursor-pointer hover-elevate ${
                           !notification.read ? "bg-primary/5 border-primary/20" : ""
                         }`}
-                        onClick={() => {
+                        {...clickable(() => {
                           if (!notification.read) markReadMutation.mutate(notification.id);
                           if (notification.actionUrl) navigate(notification.actionUrl);
-                        }}
+                        })}
                         data-testid={`notification-item-${notification.id}`}
                       >
                         <div className="flex items-start gap-3">

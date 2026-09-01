@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -740,8 +741,8 @@ export default function FHIRServerConnections() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Connection Name *</Label>
-              <Input 
+              <Label htmlFor="fhir-server-connections-connection-name">Connection Name *</Label>
+              <Input id="fhir-server-connections-connection-name" 
                 value={newConnection.name}
                 onChange={(e) => setNewConnection({ ...newConnection, name: e.target.value })}
                 placeholder="e.g., Production Server"
@@ -749,8 +750,8 @@ export default function FHIRServerConnections() {
               />
             </div>
             <div>
-              <Label>FHIR Server URL *</Label>
-              <Input 
+              <Label htmlFor="fhir-server-connections-fhir-server-url">FHIR Server URL *</Label>
+              <Input id="fhir-server-connections-fhir-server-url" 
                 value={newConnection.baseUrl}
                 onChange={(e) => setNewConnection({ ...newConnection, baseUrl: e.target.value })}
                 placeholder="https://fhir.example.com/r4"
@@ -758,12 +759,12 @@ export default function FHIRServerConnections() {
               />
             </div>
             <div>
-              <Label>FHIR Version</Label>
+              <Label htmlFor="fhir-server-connections-fhir-version">FHIR Version</Label>
               <Select 
                 value={newConnection.fhirVersion} 
                 onValueChange={(v) => setNewConnection({ ...newConnection, fhirVersion: v as any })}
               >
-                <SelectTrigger data-testid="select-fhir-version">
+                <SelectTrigger id="fhir-server-connections-fhir-version" data-testid="select-fhir-version">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -774,12 +775,12 @@ export default function FHIRServerConnections() {
               </Select>
             </div>
             <div>
-              <Label>Authentication Type</Label>
+              <Label htmlFor="fhir-server-connections-authentication-type">Authentication Type</Label>
               <Select 
                 value={newConnection.authType} 
                 onValueChange={(v) => setNewConnection({ ...newConnection, authType: v })}
               >
-                <SelectTrigger data-testid="select-auth-type">
+                <SelectTrigger id="fhir-server-connections-authentication-type" data-testid="select-auth-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -812,11 +813,11 @@ export default function FHIRServerConnections() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label className="mb-2 block">Resource Types</Label>
+              <FieldCaption className="mb-2 block">Resource Types</FieldCaption>
               <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
                 {(selectedConnection?.metadata.supportedResources || ALL_RESOURCE_TYPES).map((rt) => (
                   <div key={rt} className="flex items-center space-x-2">
-                    <Checkbox 
+                    <Checkbox aria-label="Resource Types" 
                       id={`sync-${rt}`}
                       checked={selectedResources.includes(rt)}
                       onCheckedChange={() => toggleResourceSelection(rt)}
@@ -862,11 +863,11 @@ export default function FHIRServerConnections() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label className="mb-2 block">Resource Types</Label>
+              <FieldCaption className="mb-2 block">Resource Types</FieldCaption>
               <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
                 {(selectedConnection?.metadata.supportedResources || ALL_RESOURCE_TYPES).map((rt) => (
                   <div key={rt} className="flex items-center space-x-2">
-                    <Checkbox 
+                    <Checkbox aria-label="Resource Types" 
                       id={`ie-${rt}`}
                       checked={selectedResources.includes(rt)}
                       onCheckedChange={() => toggleResourceSelection(rt)}

@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -186,9 +187,9 @@ function AddVitalDialog({ onSuccess }: { onSuccess: () => void }) {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Vital Type</Label>
+            <Label htmlFor="patient-health-tracking-vital-type">Vital Type</Label>
             <Select value={vitalType} onValueChange={setVitalType}>
-              <SelectTrigger data-testid="select-vital-type">
+              <SelectTrigger id="patient-health-tracking-vital-type" data-testid="select-vital-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -221,8 +222,8 @@ function AddVitalDialog({ onSuccess }: { onSuccess: () => void }) {
             </div>
             {vitalType === "blood_pressure" && (
               <div className="space-y-2">
-                <Label>Diastolic</Label>
-                <Input
+                <Label htmlFor="patient-health-tracking-diastolic">Diastolic</Label>
+                <Input id="patient-health-tracking-diastolic"
                   type="number"
                   placeholder="Enter value"
                   value={secondaryValue}
@@ -307,8 +308,8 @@ function LogSymptomDialog({ onSuccess }: { onSuccess: () => void }) {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>What symptom are you experiencing?</Label>
-            <Input
+            <Label htmlFor="patient-health-tracking-what-symptom-are-you-experiencing">What symptom are you experiencing?</Label>
+            <Input id="patient-health-tracking-what-symptom-are-you-experiencing"
               placeholder="e.g., Headache, Fatigue, Nausea"
               value={symptom}
               onChange={(e) => setSymptom(e.target.value)}
@@ -316,7 +317,7 @@ function LogSymptomDialog({ onSuccess }: { onSuccess: () => void }) {
             />
           </div>
           <div className="space-y-2">
-            <Label>Severity</Label>
+            <FieldCaption>Severity</FieldCaption>
             <div className="flex gap-2 flex-wrap">
               {SEVERITY_LEVELS.map(level => (
                 <Button
@@ -334,8 +335,8 @@ function LogSymptomDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Duration</Label>
-              <Input
+              <Label htmlFor="patient-health-tracking-duration">Duration</Label>
+              <Input id="patient-health-tracking-duration"
                 placeholder="e.g., 2 hours"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
@@ -343,8 +344,8 @@ function LogSymptomDialog({ onSuccess }: { onSuccess: () => void }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>Location (if applicable)</Label>
-              <Input
+              <Label htmlFor="patient-health-tracking-location-if-applicable">Location (if applicable)</Label>
+              <Input id="patient-health-tracking-location-if-applicable"
                 placeholder="e.g., temples, lower back"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -353,8 +354,8 @@ function LogSymptomDialog({ onSuccess }: { onSuccess: () => void }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Possible triggers (comma-separated)</Label>
-            <Input
+            <Label htmlFor="patient-health-tracking-possible-triggers-comma-separated">Possible triggers (comma-separated)</Label>
+            <Input id="patient-health-tracking-possible-triggers-comma-separated"
               placeholder="e.g., stress, lack of sleep, weather"
               value={triggers}
               onChange={(e) => setTriggers(e.target.value)}

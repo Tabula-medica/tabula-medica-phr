@@ -153,9 +153,9 @@ export function ReferralLetterCard({ patientId, patientName, patientData, differ
             {!generatedLetter ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Specialty Type</Label>
+                  <Label htmlFor="clinician-automation-specialty-type">Specialty Type</Label>
                   <Select value={specialty} onValueChange={setSpecialty}>
-                    <SelectTrigger data-testid="select-specialty">
+                    <SelectTrigger id="clinician-automation-specialty-type" data-testid="select-specialty">
                       <SelectValue placeholder="Select specialty" />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
@@ -167,8 +167,8 @@ export function ReferralLetterCard({ patientId, patientName, patientData, differ
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Reason for Referral</Label>
-                  <Textarea
+                  <Label htmlFor="clinician-automation-reason-for-referral">Reason for Referral</Label>
+                  <Textarea id="clinician-automation-reason-for-referral"
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="Describe the reason for this referral..."
@@ -178,9 +178,9 @@ export function ReferralLetterCard({ patientId, patientName, patientData, differ
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Urgency</Label>
+                  <Label htmlFor="clinician-automation-urgency">Urgency</Label>
                   <Select value={urgency} onValueChange={(v: "routine" | "urgent" | "emergent") => setUrgency(v)}>
-                    <SelectTrigger data-testid="select-urgency">
+                    <SelectTrigger id="clinician-automation-urgency" data-testid="select-urgency">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
@@ -192,8 +192,8 @@ export function ReferralLetterCard({ patientId, patientName, patientData, differ
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Additional Notes (Optional)</Label>
-                  <Textarea
+                  <Label htmlFor="clinician-automation-additional-notes-optional">Additional Notes (Optional)</Label>
+                  <Textarea id="clinician-automation-additional-notes-optional"
                     value={additionalNotes}
                     onChange={(e) => setAdditionalNotes(e.target.value)}
                     placeholder="Any additional context..."
@@ -389,9 +389,9 @@ export function PrescriptionDraftCard({ patientId, patientAllergies = [], curren
             {!generatedDraft ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Medication</Label>
+                  <Label htmlFor="clinician-automation-medication">Medication</Label>
                   <Select value={selectedMed} onValueChange={setSelectedMed}>
-                    <SelectTrigger data-testid="select-medication">
+                    <SelectTrigger id="clinician-automation-medication" data-testid="select-medication">
                       <SelectValue placeholder="Select medication" />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
@@ -419,8 +419,8 @@ export function PrescriptionDraftCard({ patientId, patientAllergies = [], curren
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Custom Dosage</Label>
-                    <Input
+                    <Label htmlFor="clinician-automation-custom-dosage">Custom Dosage</Label>
+                    <Input id="clinician-automation-custom-dosage"
                       value={customDosage}
                       onChange={(e) => setCustomDosage(e.target.value)}
                       placeholder={selectedMedData?.defaultDosage || "e.g., 10mg"}
@@ -428,8 +428,8 @@ export function PrescriptionDraftCard({ patientId, patientAllergies = [], curren
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Custom Frequency</Label>
-                    <Input
+                    <Label htmlFor="clinician-automation-custom-frequency">Custom Frequency</Label>
+                    <Input id="clinician-automation-custom-frequency"
                       value={customFrequency}
                       onChange={(e) => setCustomFrequency(e.target.value)}
                       placeholder={selectedMedData?.defaultFrequency || "e.g., once daily"}
@@ -437,8 +437,8 @@ export function PrescriptionDraftCard({ patientId, patientAllergies = [], curren
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Duration</Label>
-                    <Input
+                    <Label htmlFor="clinician-automation-duration">Duration</Label>
+                    <Input id="clinician-automation-duration"
                       value={customDuration}
                       onChange={(e) => setCustomDuration(e.target.value)}
                       placeholder={selectedMedData?.defaultDuration || "e.g., 30 days"}
@@ -446,8 +446,8 @@ export function PrescriptionDraftCard({ patientId, patientAllergies = [], curren
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Quantity</Label>
-                    <Input
+                    <Label htmlFor="clinician-automation-quantity">Quantity</Label>
+                    <Input id="clinician-automation-quantity"
                       type="number"
                       value={customQuantity}
                       onChange={(e) => setCustomQuantity(e.target.value)}
@@ -458,9 +458,9 @@ export function PrescriptionDraftCard({ patientId, patientAllergies = [], curren
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Refills</Label>
+                  <Label htmlFor="clinician-automation-refills">Refills</Label>
                   <Select value={refills} onValueChange={setRefills}>
-                    <SelectTrigger data-testid="select-refills">
+                    <SelectTrigger id="clinician-automation-refills" data-testid="select-refills">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">

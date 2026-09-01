@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -771,9 +772,9 @@ export default function AutomatedPatientOnboarding() {
                 <div className="space-y-6">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-base font-medium flex items-center gap-2">
+                      <FieldCaption className="text-base font-medium flex items-center gap-2">
                         <Stethoscope className="h-4 w-4" /> Conditions
-                      </Label>
+                      </FieldCaption>
                       <Button size="sm" variant="outline" onClick={addCondition}>
                         <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
@@ -834,9 +835,9 @@ export default function AutomatedPatientOnboarding() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-base font-medium flex items-center gap-2">
+                      <FieldCaption className="text-base font-medium flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4" /> Allergies
-                      </Label>
+                      </FieldCaption>
                       <Button size="sm" variant="outline" onClick={addAllergy}>
                         <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
@@ -897,9 +898,9 @@ export default function AutomatedPatientOnboarding() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-base font-medium flex items-center gap-2">
+                      <FieldCaption className="text-base font-medium flex items-center gap-2">
                         <Pill className="h-4 w-4" /> Medications
-                      </Label>
+                      </FieldCaption>
                       <Button size="sm" variant="outline" onClick={addMedication}>
                         <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
@@ -982,7 +983,7 @@ export default function AutomatedPatientOnboarding() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <Label className="text-base font-medium mb-2 block">Appointment Type</Label>
+                  <FieldCaption className="text-base font-medium mb-2 block">Appointment Type</FieldCaption>
                   <RadioGroup
                     value={appointmentType}
                     onValueChange={setAppointmentType}
@@ -1006,7 +1007,7 @@ export default function AutomatedPatientOnboarding() {
                 <Separator />
 
                 <div>
-                  <Label className="text-base font-medium mb-2 block">Select Provider</Label>
+                  <FieldCaption className="text-base font-medium mb-2 block">Select Provider</FieldCaption>
                   <div className="grid gap-3">
                     {providers?.providers.map((provider) => (
                       <Card
@@ -1055,7 +1056,7 @@ export default function AutomatedPatientOnboarding() {
                   <>
                     <Separator />
                     <div>
-                      <Label className="text-base font-medium mb-2 block">Available Times</Label>
+                      <FieldCaption className="text-base font-medium mb-2 block">Available Times</FieldCaption>
                       <ScrollArea className="h-[200px]">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {timeSlots.slots.slice(0, 12).map((slot) => (

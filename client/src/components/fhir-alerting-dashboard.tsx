@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Bell,
   Plus,
@@ -428,7 +430,7 @@ export function FHIRAlertingDashboard() {
                         <div
                           key={alert.id}
                           className="flex items-start gap-3 p-3 rounded-lg hover-elevate cursor-pointer"
-                          onClick={() => setSelectedNotification(alert)}
+                          {...clickable(() => setSelectedNotification(alert))}
                           data-testid={`alert-${alert.id}`}
                         >
                           <SeverityBadge severity={alert.severity} />
@@ -805,8 +807,8 @@ export function FHIRAlertingDashboard() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Rule Name</Label>
-                <Input
+                <Label htmlFor="fhir-alerting-dashboard-rule-name">Rule Name</Label>
+                <Input id="fhir-alerting-dashboard-rule-name"
                   value={newRule.name}
                   onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
                   placeholder="e.g., Critical Blood Pressure"
@@ -814,12 +816,12 @@ export function FHIRAlertingDashboard() {
                 />
               </div>
               <div>
-                <Label>Rule Type</Label>
+                <Label htmlFor="fhir-alerting-dashboard-rule-type">Rule Type</Label>
                 <Select
                   value={newRule.type}
                   onValueChange={(v) => setNewRule({ ...newRule, type: v })}
                 >
-                  <SelectTrigger data-testid="select-rule-type">
+                  <SelectTrigger id="fhir-alerting-dashboard-rule-type" data-testid="select-rule-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -837,8 +839,8 @@ export function FHIRAlertingDashboard() {
             </div>
 
             <div>
-              <Label>Description</Label>
-              <Textarea
+              <Label htmlFor="fhir-alerting-dashboard-description">Description</Label>
+              <Textarea id="fhir-alerting-dashboard-description"
                 value={newRule.description}
                 onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
                 placeholder="Describe when this rule should trigger..."
@@ -848,12 +850,12 @@ export function FHIRAlertingDashboard() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Resource Type</Label>
+                <Label htmlFor="fhir-alerting-dashboard-resource-type">Resource Type</Label>
                 <Select
                   value={newRule.resourceType}
                   onValueChange={(v) => setNewRule({ ...newRule, resourceType: v })}
                 >
-                  <SelectTrigger data-testid="select-resource-type">
+                  <SelectTrigger id="fhir-alerting-dashboard-resource-type" data-testid="select-resource-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -865,12 +867,12 @@ export function FHIRAlertingDashboard() {
                 </Select>
               </div>
               <div>
-                <Label>Severity</Label>
+                <Label htmlFor="fhir-alerting-dashboard-severity">Severity</Label>
                 <Select
                   value={newRule.severity}
                   onValueChange={(v: any) => setNewRule({ ...newRule, severity: v })}
                 >
-                  <SelectTrigger data-testid="select-severity">
+                  <SelectTrigger id="fhir-alerting-dashboard-severity" data-testid="select-severity">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -885,8 +887,8 @@ export function FHIRAlertingDashboard() {
             </div>
 
             <div>
-              <Label>LOINC Code (for Observations)</Label>
-              <Input
+              <Label htmlFor="fhir-alerting-dashboard-loinc-code-for-observations">LOINC Code (for Observations)</Label>
+              <Input id="fhir-alerting-dashboard-loinc-code-for-observations"
                 value={newRule.loincCode}
                 onChange={(e) => setNewRule({ ...newRule, loincCode: e.target.value })}
                 placeholder="e.g., 8867-4 (Heart Rate)"
@@ -898,13 +900,13 @@ export function FHIRAlertingDashboard() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label>Conditions</Label>
+                <Label htmlFor="fhir-alerting-dashboard-conditions">Conditions</Label>
                 <div className="flex items-center gap-2">
                   <Select
                     value={newRule.conditionLogic}
                     onValueChange={(v: "AND" | "OR") => setNewRule({ ...newRule, conditionLogic: v })}
                   >
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger id="fhir-alerting-dashboard-conditions" className="w-24">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -992,7 +994,7 @@ export function FHIRAlertingDashboard() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Notification Channels</Label>
+                <FieldCaption>Notification Channels</FieldCaption>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {CHANNELS.map(ch => (
                     <Badge
@@ -1016,8 +1018,8 @@ export function FHIRAlertingDashboard() {
                 </div>
               </div>
               <div>
-                <Label>Cooldown (minutes)</Label>
-                <Input
+                <Label htmlFor="fhir-alerting-dashboard-cooldown-minutes">Cooldown (minutes)</Label>
+                <Input id="fhir-alerting-dashboard-cooldown-minutes"
                   type="number"
                   value={newRule.cooldownMinutes}
                   onChange={(e) => setNewRule({ ...newRule, cooldownMinutes: parseInt(e.target.value) || 0 })}

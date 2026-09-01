@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -203,14 +204,14 @@ export default function PatientSummaryGenerator() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Select Patient</Label>
+              <Label htmlFor="patient-summary-generato-select-patient">Select Patient</Label>
               {patientsQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading patients...</p>
               ) : patientsQuery.isError ? (
                 <p className="text-sm text-red-500">Failed to load patients</p>
               ) : (
                 <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                  <SelectTrigger data-testid="select-patient">
+                  <SelectTrigger id="patient-summary-generato-select-patient" data-testid="select-patient">
                     <SelectValue placeholder="Choose a patient" />
                   </SelectTrigger>
                   <SelectContent>
@@ -225,14 +226,14 @@ export default function PatientSummaryGenerator() {
             </div>
 
             <div className="space-y-2">
-              <Label>Your Role</Label>
+              <Label htmlFor="patient-summary-generato-your-role">Your Role</Label>
               {rolesQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading roles...</p>
               ) : rolesQuery.isError ? (
                 <p className="text-sm text-red-500">Failed to load roles</p>
               ) : (
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger data-testid="select-role">
+                  <SelectTrigger id="patient-summary-generato-your-role" data-testid="select-role">
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -255,11 +256,11 @@ export default function PatientSummaryGenerator() {
             <Separator />
 
             <div className="space-y-2">
-              <Label>Focus Areas (Optional)</Label>
+              <FieldCaption>Focus Areas (Optional)</FieldCaption>
               <div className="space-y-2">
                 {FOCUS_AREAS.map((area) => (
                   <div key={area.id} className="flex items-center space-x-2">
-                    <Checkbox
+                    <Checkbox aria-label="Focus Areas (Optional)"
                       id={area.id}
                       checked={selectedFocusAreas.includes(area.id)}
                       onCheckedChange={() => toggleFocusArea(area.id)}

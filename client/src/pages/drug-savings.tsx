@@ -163,8 +163,8 @@ function AIComparePanel() {
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-sm font-medium mb-1 block">Medication Name</label>
-            <Input
+            <label htmlFor="drug-savings-medication-name" className="text-sm font-medium mb-1 block">Medication Name</label>
+            <Input id="drug-savings-medication-name"
               value={medication}
               onChange={(e) => setMedication(e.target.value)}
               placeholder="e.g., Lipitor, Ozempic, Humira"
@@ -172,10 +172,10 @@ function AIComparePanel() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Current Monthly Cost (optional)</label>
+            <label htmlFor="drug-savings-current-monthly-cost-optional" className="text-sm font-medium mb-1 block">Current Monthly Cost (optional)</label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+              <Input id="drug-savings-current-monthly-cost-optional"
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
                 placeholder="e.g., 150"
@@ -301,8 +301,8 @@ function GoodRxPricePanel() {
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
-              <label className="text-sm font-medium mb-1 block">Drug Name</label>
-              <Input
+              <label htmlFor="drug-savings-drug-name" className="text-sm font-medium mb-1 block">Drug Name</label>
+              <Input id="drug-savings-drug-name"
                 value={drugName}
                 onChange={(e) => setDrugName(e.target.value)}
                 placeholder="e.g., Metformin, Lisinopril, Ozempic"
@@ -311,8 +311,8 @@ function GoodRxPricePanel() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Quantity</label>
-              <Input
+              <label htmlFor="drug-savings-quantity" className="text-sm font-medium mb-1 block">Quantity</label>
+              <Input id="drug-savings-quantity"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="30"

@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { MedicalDisclaimer, VerifyWithClinicianBanner } from "@/components/translation/MedicalDisclaimer";
 import { SourceGroundedSummary } from "@/components/translation/SourceGroundedSummary";
+import { clickable } from "@/lib/a11y";
 
 interface Language {
   code: string;
@@ -450,7 +451,7 @@ export default function DocumentTranslationPage() {
             <TabsContent value="input" className="space-y-4 mt-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Document Content</Label>
+                  <FieldCaption>Document Content</FieldCaption>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -756,7 +757,7 @@ export default function DocumentTranslationPage() {
                     ? "border-primary bg-primary/5"
                     : "hover:bg-muted/50"
                 }`}
-                onClick={() => setDocumentType(type.value)}
+                {...clickable(() => setDocumentType(type.value))}
                 data-testid={`doctype-${type.value}`}
               >
                 <p className="font-medium text-sm">{type.label}</p>

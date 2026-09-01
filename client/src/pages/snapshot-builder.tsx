@@ -161,7 +161,7 @@ export default function SnapshotBuilder() {
             <CardContent>
               <div className="grid sm:grid-cols-2 gap-3">
                 {sections.map((section) => (
-                  <div
+                  <div role="presentation"
                     key={section.id}
                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedSections.includes(section.id)

@@ -305,9 +305,9 @@ export default function EducationLibrary() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Content Type</Label>
+                  <Label htmlFor="education-library-content-type">Content Type</Label>
                   <Select value={generateType} onValueChange={(v) => setGenerateType(v as "article" | "faq")}>
-                    <SelectTrigger data-testid="select-content-type">
+                    <SelectTrigger id="education-library-content-type" data-testid="select-content-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -317,8 +317,8 @@ export default function EducationLibrary() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Topic</Label>
-                  <Input
+                  <Label htmlFor="education-library-topic">Topic</Label>
+                  <Input id="education-library-topic"
                     placeholder="e.g., Managing diabetes through diet"
                     value={generateForm.topic}
                     onChange={(e) => setGenerateForm({ ...generateForm, topic: e.target.value })}
@@ -327,12 +327,12 @@ export default function EducationLibrary() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label htmlFor="education-library-category">Category</Label>
                     <Select
                       value={generateForm.category}
                       onValueChange={(v) => setGenerateForm({ ...generateForm, category: v as EducationCategory })}
                     >
-                      <SelectTrigger data-testid="select-category">
+                      <SelectTrigger id="education-library-category" data-testid="select-category">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -343,12 +343,12 @@ export default function EducationLibrary() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Reading Level</Label>
+                    <Label htmlFor="education-library-reading-level">Reading Level</Label>
                     <Select
                       value={generateForm.readingLevel}
                       onValueChange={(v) => setGenerateForm({ ...generateForm, readingLevel: v as ReadingLevel })}
                     >
-                      <SelectTrigger data-testid="select-reading-level">
+                      <SelectTrigger id="education-library-reading-level" data-testid="select-reading-level">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -360,8 +360,8 @@ export default function EducationLibrary() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Keywords (comma-separated, optional)</Label>
-                  <Input
+                  <Label htmlFor="education-library-keywords-comma-separated-optional">Keywords (comma-separated, optional)</Label>
+                  <Input id="education-library-keywords-comma-separated-optional"
                     placeholder="e.g., blood sugar, insulin, diet"
                     value={generateForm.keywords}
                     onChange={(e) => setGenerateForm({ ...generateForm, keywords: e.target.value })}
@@ -369,8 +369,8 @@ export default function EducationLibrary() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Additional Context (optional)</Label>
-                  <Textarea
+                  <Label htmlFor="education-library-additional-context-optional">Additional Context (optional)</Label>
+                  <Textarea id="education-library-additional-context-optional"
                     placeholder="Any specific focus areas or requirements..."
                     value={generateForm.additionalContext}
                     onChange={(e) => setGenerateForm({ ...generateForm, additionalContext: e.target.value })}

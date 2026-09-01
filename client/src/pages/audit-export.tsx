@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -428,19 +429,19 @@ export default function AuditExport() {
                               <div className="p-4 space-y-3">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Full User Agent</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Full User Agent</FieldCaption>
                                     <p className="text-sm font-mono break-all">
                                       {log.userAgent || "Unknown"}
                                     </p>
                                   </div>
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Log ID</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Log ID</FieldCaption>
                                     <p className="text-sm font-mono">{log.id}</p>
                                   </div>
                                 </div>
                                 {log.metadata && Object.keys(log.metadata).length > 0 && (
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Metadata</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Metadata</FieldCaption>
                                     <pre className="text-sm font-mono bg-background p-2 rounded-md mt-1 overflow-x-auto">
                                       {JSON.stringify(log.metadata, null, 2)}
                                     </pre>

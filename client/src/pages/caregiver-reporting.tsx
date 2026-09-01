@@ -634,8 +634,8 @@ export default function CaregiverReporting() {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label>Report Name</Label>
-                        <Input
+                        <Label htmlFor="caregiver-reporting-report-name">Report Name</Label>
+                        <Input id="caregiver-reporting-report-name"
                           value={reportName}
                           onChange={(e) => setReportName(e.target.value)}
                           placeholder="Enter report name"

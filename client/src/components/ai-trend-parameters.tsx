@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -151,10 +152,10 @@ export function AITrendParameters({
           <CardContent className="pt-0 px-4 pb-4 space-y-5">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm flex items-center gap-2">
+                <FieldCaption className="text-sm flex items-center gap-2">
                   <Gauge className="h-4 w-4" />
                   Sensitivity
-                </Label>
+                </FieldCaption>
                 <span className="text-xs text-muted-foreground capitalize">
                   {localParams.sensitivity}
                 </span>
@@ -179,10 +180,10 @@ export function AITrendParameters({
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm flex items-center gap-2">
+                <FieldCaption className="text-sm flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   Timeframe
-                </Label>
+                </FieldCaption>
                 <span className="text-xs text-muted-foreground">
                   {timeframeLabel(localParams.timeframeDays)}
                 </span>
@@ -204,10 +205,10 @@ export function AITrendParameters({
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm flex items-center gap-2">
+                <FieldCaption className="text-sm flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
                   Smoothing
-                </Label>
+                </FieldCaption>
                 <span className="text-xs text-muted-foreground capitalize">
                   {localParams.smoothingLevel}
                 </span>
@@ -229,12 +230,12 @@ export function AITrendParameters({
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm">Comparison Mode</Label>
+              <Label htmlFor="ai-trend-parameters-comparison-mode" className="text-sm">Comparison Mode</Label>
               <Select
                 value={localParams.comparisonMode}
                 onValueChange={(v) => handleChange("comparisonMode", v as TrendParameters["comparisonMode"])}
               >
-                <SelectTrigger data-testid="select-comparison-mode">
+                <SelectTrigger id="ai-trend-parameters-comparison-mode" data-testid="select-comparison-mode">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -247,7 +248,7 @@ export function AITrendParameters({
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm">Include Outliers</Label>
+                <FieldCaption className="text-sm">Include Outliers</FieldCaption>
                 <p className="text-xs text-muted-foreground">
                   Show data points outside normal ranges
                 </p>

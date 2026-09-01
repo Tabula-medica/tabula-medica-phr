@@ -1377,17 +1377,17 @@ export default function PatientHealthRecord() {
                           className="grid md:grid-cols-2 gap-4"
                         >
                           <div>
-                            <label className="text-sm font-medium">Date</label>
-                            <Input type="date" name="date" required data-testid="input-appointment-date" />
+                            <label htmlFor="patient-health-record-date" className="text-sm font-medium">Date</label>
+                            <Input id="patient-health-record-date" type="date" name="date" required data-testid="input-appointment-date" />
                           </div>
                           <div>
-                            <label className="text-sm font-medium">Time</label>
-                            <Input type="time" name="time" required data-testid="input-appointment-time" />
+                            <label htmlFor="patient-health-record-time" className="text-sm font-medium">Time</label>
+                            <Input id="patient-health-record-time" type="time" name="time" required data-testid="input-appointment-time" />
                           </div>
                           <div>
-                            <label className="text-sm font-medium">Type</label>
+                            <label htmlFor="patient-health-record-type" className="text-sm font-medium">Type</label>
                             <Select name="type" defaultValue="follow-up">
-                              <SelectTrigger data-testid="select-appointment-type">
+                              <SelectTrigger id="patient-health-record-type" data-testid="select-appointment-type">
                                 <SelectValue placeholder="Select type" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1399,8 +1399,8 @@ export default function PatientHealthRecord() {
                             </Select>
                           </div>
                           <div>
-                            <label className="text-sm font-medium">Reason</label>
-                            <Input name="reason" placeholder="Reason for visit" data-testid="input-appointment-reason" />
+                            <label htmlFor="patient-health-record-reason" className="text-sm font-medium">Reason</label>
+                            <Input id="patient-health-record-reason" name="reason" placeholder="Reason for visit" data-testid="input-appointment-reason" />
                           </div>
                           <div className="md:col-span-2 flex gap-2">
                             <Button type="submit" disabled={scheduleAppointmentMutation.isPending} data-testid="button-schedule-appointment">

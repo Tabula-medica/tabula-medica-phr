@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Search, Plus, Trash2, Play, Brain, Save, Clock, Filter,
   ChevronRight, Database, Sparkles, X, Copy, RefreshCw
@@ -389,7 +390,7 @@ export default function FHIRAdvancedSearch() {
                           <div
                             key={suggestion.id}
                             className="p-3 rounded-lg border hover-elevate cursor-pointer"
-                            onClick={() => applySuggestion(suggestion)}
+                            {...clickable(() => applySuggestion(suggestion))}
                             data-testid={`suggestion-${suggestion.id}`}
                           >
                             <div className="flex items-center justify-between mb-1">
@@ -424,7 +425,7 @@ export default function FHIRAdvancedSearch() {
                         <div
                           key={param.id}
                           className="flex items-center justify-between p-2 rounded hover-elevate cursor-pointer text-sm"
-                          onClick={() => {
+                          {...clickable(() => {
                             const newCond: SearchCondition = {
                               id: `cond-${Date.now()}`,
                               parameter: param.name,
@@ -432,7 +433,7 @@ export default function FHIRAdvancedSearch() {
                               value: ""
                             };
                             setConditions([...conditions, newCond]);
-                          }}
+                          })}
                           data-testid={`param-${param.name}`}
                         >
                           <span className="font-medium">{param.name}</span>

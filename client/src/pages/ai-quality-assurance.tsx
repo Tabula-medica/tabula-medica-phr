@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   AlertTriangle,
   CheckCircle,
@@ -326,10 +327,10 @@ export default function AIQualityAssurance() {
                         <div
                           key={issue.id}
                           className="p-4 border rounded-lg hover-elevate cursor-pointer"
-                          onClick={() => {
+                          {...clickable(() => {
                             setSelectedIssue(issue);
                             setFeedbackDialogOpen(true);
-                          }}
+                          })}
                           data-testid={`card-issue-${issue.id}`}
                         >
                           <div className="flex items-start justify-between gap-4">
@@ -671,8 +672,8 @@ export default function AIQualityAssurance() {
 
                 {(feedbackOutcome === "modified" || feedbackOutcome === "rejected") && (
                   <div className="space-y-2">
-                    <Label>Notes (optional)</Label>
-                    <Textarea
+                    <Label htmlFor="ai-quality-assurance-notes-optional">Notes (optional)</Label>
+                    <Textarea id="ai-quality-assurance-notes-optional"
                       value={feedbackNotes}
                       onChange={(e) => setFeedbackNotes(e.target.value)}
                       placeholder="Describe why you modified or rejected the suggestion..."

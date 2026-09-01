@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   UserPlus,
   ClipboardList,
@@ -216,7 +217,7 @@ export default function OnboardingWorkflow() {
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                             selectedWorkflow?.id === workflow.id ? "border-primary bg-accent" : ""
                           }`}
-                          onClick={() => setSelectedWorkflow(workflow)}
+                          {...clickable(() => setSelectedWorkflow(workflow))}
                           data-testid={`card-workflow-${workflow.id}`}
                         >
                           <div className="flex items-center justify-between mb-2">

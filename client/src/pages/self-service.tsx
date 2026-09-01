@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Download,
   Share2,
@@ -252,9 +254,9 @@ function MemberToolsTab() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Format</Label>
+              <Label htmlFor="self-service-format">Format</Label>
               <Select value={downloadFormat} onValueChange={setDownloadFormat}>
-                <SelectTrigger data-testid="select-download-format">
+                <SelectTrigger id="self-service-format" data-testid="select-download-format">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -453,9 +455,9 @@ function MemberToolsTab() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Link Expiration</Label>
+              <Label htmlFor="self-service-link-expiration">Link Expiration</Label>
               <Select value={shareExpiry} onValueChange={setShareExpiry}>
-                <SelectTrigger data-testid="select-share-expiry">
+                <SelectTrigger id="self-service-link-expiration" data-testid="select-share-expiry">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -548,7 +550,7 @@ function CSRToolsTab() {
             <div 
               key={script.id}
               className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
-              onClick={() => handleViewScript(script)}
+              {...clickable(() => handleViewScript(script))}
               data-testid={`card-script-${script.id}`}
             >
               <div className="flex items-center gap-4">
@@ -657,7 +659,7 @@ function CSRToolsTab() {
             </div>
             <div className="p-4 bg-muted rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-xs text-muted-foreground">SCRIPT</Label>
+                <FieldCaption className="text-xs text-muted-foreground">SCRIPT</FieldCaption>
                 <Button variant="ghost" size="sm" onClick={handleCopyScript}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>

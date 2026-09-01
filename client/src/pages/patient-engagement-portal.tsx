@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, parseISO, differenceInDays, differenceInHours } from "date-fns";
+import { clickable } from "@/lib/a11y";
 import {
   MessageSquare,
   Send,
@@ -299,7 +300,7 @@ export default function PatientEngagementPortal() {
                     <div
                       key={thread.id}
                       className={`p-4 border-b cursor-pointer hover-elevate ${selectedThread === thread.id ? "bg-muted" : ""}`}
-                      onClick={() => setSelectedThread(thread.id)}
+                      {...clickable(() => setSelectedThread(thread.id))}
                       data-testid={`thread-${thread.id}`}
                     >
                       <div className="flex items-start justify-between gap-2">

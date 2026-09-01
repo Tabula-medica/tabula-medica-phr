@@ -813,12 +813,12 @@ function CreateConfigDialog({ endpoints, onClose }: { endpoints: SyncEndpoint[];
 
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Direction</Label>
+            <Label htmlFor="fhir-sync-scheduler-dash-direction">Direction</Label>
             <Select
               value={formData.direction}
               onValueChange={(value: "bidirectional" | "push" | "pull") => setFormData({ ...formData, direction: value })}
             >
-              <SelectTrigger data-testid="select-direction">
+              <SelectTrigger id="fhir-sync-scheduler-dash-direction" data-testid="select-direction">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -829,12 +829,12 @@ function CreateConfigDialog({ endpoints, onClose }: { endpoints: SyncEndpoint[];
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Frequency</Label>
+            <Label htmlFor="fhir-sync-scheduler-dash-frequency">Frequency</Label>
             <Select
               value={formData.frequency}
               onValueChange={(value: "realtime" | "hourly" | "daily" | "weekly" | "custom") => setFormData({ ...formData, frequency: value })}
             >
-              <SelectTrigger data-testid="select-frequency">
+              <SelectTrigger id="fhir-sync-scheduler-dash-frequency" data-testid="select-frequency">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -845,12 +845,12 @@ function CreateConfigDialog({ endpoints, onClose }: { endpoints: SyncEndpoint[];
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Conflict Resolution</Label>
+            <Label htmlFor="fhir-sync-scheduler-dash-conflict-resolution">Conflict Resolution</Label>
             <Select
               value={formData.conflictResolution}
               onValueChange={(value) => setFormData({ ...formData, conflictResolution: value })}
             >
-              <SelectTrigger data-testid="select-conflict">
+              <SelectTrigger id="fhir-sync-scheduler-dash-conflict-resolution" data-testid="select-conflict">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -319,9 +319,9 @@ function AddCareNoteDialog({ patientId, caregiverId, onSuccess }: { patientId: s
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Note Type</Label>
+            <Label htmlFor="caregiver-portal-note-type">Note Type</Label>
             <Select value={noteType} onValueChange={setNoteType}>
-              <SelectTrigger data-testid="select-note-type">
+              <SelectTrigger id="caregiver-portal-note-type" data-testid="select-note-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -332,9 +332,9 @@ function AddCareNoteDialog({ patientId, caregiverId, onSuccess }: { patientId: s
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Severity</Label>
+            <Label htmlFor="caregiver-portal-severity">Severity</Label>
             <Select value={severity} onValueChange={setSeverity}>
-              <SelectTrigger data-testid="select-severity">
+              <SelectTrigger id="caregiver-portal-severity" data-testid="select-severity">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -345,8 +345,8 @@ function AddCareNoteDialog({ patientId, caregiverId, onSuccess }: { patientId: s
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Note Content</Label>
-            <Textarea
+            <Label htmlFor="caregiver-portal-note-content">Note Content</Label>
+            <Textarea id="caregiver-portal-note-content"
               placeholder="Describe what you observed..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -444,9 +444,9 @@ function LogVitalDialog({ patientId, onSuccess }: { patientId: string; onSuccess
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Vital Type</Label>
+            <Label htmlFor="caregiver-portal-vital-type">Vital Type</Label>
             <Select value={vitalType} onValueChange={setVitalType}>
-              <SelectTrigger data-testid="select-vital-type">
+              <SelectTrigger id="caregiver-portal-vital-type" data-testid="select-vital-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -477,8 +477,8 @@ function LogVitalDialog({ patientId, onSuccess }: { patientId: string; onSuccess
             </div>
             {vitalType === "blood_pressure" && (
               <div className="flex-1 space-y-2">
-                <Label>Diastolic</Label>
-                <Input
+                <Label htmlFor="caregiver-portal-diastolic">Diastolic</Label>
+                <Input id="caregiver-portal-diastolic"
                   type="number"
                   placeholder="Enter value"
                   value={secondaryValue}
@@ -1621,8 +1621,8 @@ function TasksTab({ patientId, caregiverId }: { patientId: string; caregiverId: 
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Task Title</Label>
-                <Input
+                <Label htmlFor="caregiver-portal-task-title">Task Title</Label>
+                <Input id="caregiver-portal-task-title"
                   placeholder="e.g., Administer morning medication"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
@@ -1630,8 +1630,8 @@ function TasksTab({ patientId, caregiverId }: { patientId: string; caregiverId: 
                 />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
+                <Label htmlFor="caregiver-portal-description">Description</Label>
+                <Textarea id="caregiver-portal-description"
                   placeholder="Additional details..."
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
@@ -1640,9 +1640,9 @@ function TasksTab({ patientId, caregiverId }: { patientId: string; caregiverId: 
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label htmlFor="caregiver-portal-category">Category</Label>
                   <Select value={newTask.category} onValueChange={(v) => setNewTask({ ...newTask, category: v })}>
-                    <SelectTrigger data-testid="select-task-category"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="caregiver-portal-category" data-testid="select-task-category"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="medication">Medication</SelectItem>
                       <SelectItem value="appointment">Appointment</SelectItem>
@@ -1655,9 +1655,9 @@ function TasksTab({ patientId, caregiverId }: { patientId: string; caregiverId: 
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label htmlFor="caregiver-portal-priority">Priority</Label>
                   <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
-                    <SelectTrigger data-testid="select-task-priority"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="caregiver-portal-priority" data-testid="select-task-priority"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
@@ -1668,8 +1668,8 @@ function TasksTab({ patientId, caregiverId }: { patientId: string; caregiverId: 
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Input
+                <Label htmlFor="caregiver-portal-due-date">Due Date</Label>
+                <Input id="caregiver-portal-due-date"
                   type="date"
                   value={newTask.dueDate}
                   onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
@@ -1820,8 +1820,8 @@ function TeamNotesTab({ patientId, caregiverId }: { patientId: string; caregiver
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
+                <Label htmlFor="caregiver-portal-title">Title</Label>
+                <Input id="caregiver-portal-title"
                   placeholder="Note title..."
                   value={newNote.title}
                   onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
@@ -1829,8 +1829,8 @@ function TeamNotesTab({ patientId, caregiverId }: { patientId: string; caregiver
                 />
               </div>
               <div className="space-y-2">
-                <Label>Content</Label>
-                <Textarea
+                <Label htmlFor="caregiver-portal-content">Content</Label>
+                <Textarea id="caregiver-portal-content"
                   placeholder="Share important information..."
                   value={newNote.content}
                   onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
@@ -1839,9 +1839,9 @@ function TeamNotesTab({ patientId, caregiverId }: { patientId: string; caregiver
                 />
               </div>
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label htmlFor="caregiver-portal-category-2">Category</Label>
                 <Select value={newNote.category} onValueChange={(v) => setNewNote({ ...newNote, category: v })}>
-                  <SelectTrigger data-testid="select-note-category"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="caregiver-portal-category-2" data-testid="select-note-category"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="general">General</SelectItem>
                     <SelectItem value="medical">Medical</SelectItem>
@@ -2004,8 +2004,8 @@ function SharedCalendarTab({ patientId, caregiverId }: { patientId: string; care
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Event Title</Label>
-                <Input
+                <Label htmlFor="caregiver-portal-event-title">Event Title</Label>
+                <Input id="caregiver-portal-event-title"
                   placeholder="e.g., Doctor appointment"
                   value={newEvent.title}
                   onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
@@ -2014,9 +2014,9 @@ function SharedCalendarTab({ patientId, caregiverId }: { patientId: string; care
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Event Type</Label>
+                  <Label htmlFor="caregiver-portal-event-type">Event Type</Label>
                   <Select value={newEvent.eventType} onValueChange={(v) => setNewEvent({ ...newEvent, eventType: v })}>
-                    <SelectTrigger data-testid="select-event-type"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="caregiver-portal-event-type" data-testid="select-event-type"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="appointment">Appointment</SelectItem>
                       <SelectItem value="medication">Medication</SelectItem>
@@ -2028,8 +2028,8 @@ function SharedCalendarTab({ patientId, caregiverId }: { patientId: string; care
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Date & Time</Label>
-                  <Input
+                  <Label htmlFor="caregiver-portal-date-time">Date & Time</Label>
+                  <Input id="caregiver-portal-date-time"
                     type="datetime-local"
                     value={newEvent.startTime}
                     onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
@@ -2038,8 +2038,8 @@ function SharedCalendarTab({ patientId, caregiverId }: { patientId: string; care
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Location (optional)</Label>
-                <Input
+                <Label htmlFor="caregiver-portal-location-optional">Location (optional)</Label>
+                <Input id="caregiver-portal-location-optional"
                   placeholder="e.g., Main Clinic"
                   value={newEvent.location}
                   onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
@@ -2047,8 +2047,8 @@ function SharedCalendarTab({ patientId, caregiverId }: { patientId: string; care
                 />
               </div>
               <div className="space-y-2">
-                <Label>Description (optional)</Label>
-                <Textarea
+                <Label htmlFor="caregiver-portal-description-optional">Description (optional)</Label>
+                <Textarea id="caregiver-portal-description-optional"
                   placeholder="Additional details..."
                   value={newEvent.description}
                   onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}

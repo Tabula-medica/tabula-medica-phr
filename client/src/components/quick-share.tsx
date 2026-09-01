@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -190,7 +191,7 @@ export function QuickShare({
           <div className="space-y-6 py-4">
             {/* What's being shared */}
             <div className="space-y-2">
-              <Label>Sharing</Label>
+              <FieldCaption>Sharing</FieldCaption>
               <Card>
                 <CardContent className="p-3 flex items-center justify-between">
                   <span className="font-medium">{resourceTypeLabels[resourceType]}</span>
@@ -271,9 +272,9 @@ export function QuickShare({
 
             {/* Link */}
             <div className="space-y-2">
-              <Label>Share Link</Label>
+              <Label htmlFor="quick-share-share-link">Share Link</Label>
               <div className="flex gap-2">
-                <Input
+                <Input id="quick-share-share-link"
                   value={createdLink.url}
                   readOnly
                   className="font-mono text-sm"
@@ -293,9 +294,9 @@ export function QuickShare({
             {/* PIN Display */}
             {createdLink.pin && (
               <div className="space-y-2">
-                <Label>PIN Code (show to recipient)</Label>
+                <Label htmlFor="quick-share-pin-code-show-to-recipient">PIN Code (show to recipient)</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <Input id="quick-share-pin-code-show-to-recipient"
                     value={createdLink.pin}
                     readOnly
                     className="font-mono text-2xl text-center tracking-[0.5em]"

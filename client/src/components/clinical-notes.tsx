@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -330,9 +331,9 @@ export function ClinicalNotesCard({ patientId }: ClinicalNotesCardProps) {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Note Type</Label>
+                  <Label htmlFor="clinical-notes-note-type">Note Type</Label>
                   <Select value={noteType} onValueChange={(v) => setNoteType(v as NoteType)}>
-                    <SelectTrigger data-testid="select-note-type">
+                    <SelectTrigger id="clinical-notes-note-type" data-testid="select-note-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -350,7 +351,7 @@ export function ClinicalNotesCard({ patientId }: ClinicalNotesCardProps) {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Content</Label>
+                    <FieldCaption>Content</FieldCaption>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -371,8 +372,8 @@ export function ClinicalNotesCard({ patientId }: ClinicalNotesCardProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Tags (comma separated)</Label>
-                  <Input
+                  <Label htmlFor="clinical-notes-tags-comma-separated">Tags (comma separated)</Label>
+                  <Input id="clinical-notes-tags-comma-separated"
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
                     placeholder="e.g., follow-up, urgent, labs"
@@ -474,8 +475,8 @@ export function ClinicalNotesCard({ patientId }: ClinicalNotesCardProps) {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Content</Label>
-              <Textarea
+              <Label htmlFor="clinical-notes-content">Content</Label>
+              <Textarea id="clinical-notes-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={8}
@@ -484,8 +485,8 @@ export function ClinicalNotesCard({ patientId }: ClinicalNotesCardProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Tags (comma separated)</Label>
-              <Input
+              <Label htmlFor="clinical-notes-tags-comma-separated-2">Tags (comma separated)</Label>
+              <Input id="clinical-notes-tags-comma-separated-2"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 data-testid="input-edit-tags"

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Activity,
   AlertCircle,
@@ -447,7 +449,7 @@ export default function DiabetesManagement() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {dashboard?.keyLabsSnapshot.a1c && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted hover-elevate cursor-pointer" onClick={() => setActiveTab("labs")} data-testid="lab-a1c">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted hover-elevate cursor-pointer" {...clickable(() => setActiveTab("labs"))} data-testid="lab-a1c">
                     <div>
                       <p className="font-medium">A1c</p>
                       <p className="text-xs text-muted-foreground">{formatDate(dashboard.keyLabsSnapshot.a1c.date)}</p>
@@ -458,7 +460,7 @@ export default function DiabetesManagement() {
                   </div>
                 )}
                 {dashboard?.keyLabsSnapshot.egfr && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted hover-elevate cursor-pointer" onClick={() => setActiveTab("labs")} data-testid="lab-egfr">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted hover-elevate cursor-pointer" {...clickable(() => setActiveTab("labs"))} data-testid="lab-egfr">
                     <div>
                       <p className="font-medium">eGFR (Kidney)</p>
                       <p className="text-xs text-muted-foreground">{formatDate(dashboard.keyLabsSnapshot.egfr.date)}</p>
@@ -469,7 +471,7 @@ export default function DiabetesManagement() {
                   </div>
                 )}
                 {dashboard?.keyLabsSnapshot.ldl && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted hover-elevate cursor-pointer" onClick={() => setActiveTab("labs")} data-testid="lab-ldl">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted hover-elevate cursor-pointer" {...clickable(() => setActiveTab("labs"))} data-testid="lab-ldl">
                     <div>
                       <p className="font-medium">LDL</p>
                       <p className="text-xs text-muted-foreground">{formatDate(dashboard.keyLabsSnapshot.ldl.date)}</p>
@@ -1003,9 +1005,9 @@ export default function DiabetesManagement() {
             });
           }} className="space-y-4">
             <div className="space-y-2">
-              <Label>Packet Type</Label>
+              <Label htmlFor="diabetes-management-packet-type">Packet Type</Label>
               <Select name="packetType" defaultValue="quick_summary">
-                <SelectTrigger data-testid="select-packet-type">
+                <SelectTrigger id="diabetes-management-packet-type" data-testid="select-packet-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1016,9 +1018,9 @@ export default function DiabetesManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Time Period</Label>
+              <Label htmlFor="diabetes-management-time-period">Time Period</Label>
               <Select name="timeframe" defaultValue="3">
-                <SelectTrigger data-testid="select-timeframe">
+                <SelectTrigger id="diabetes-management-time-period" data-testid="select-timeframe">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1030,7 +1032,7 @@ export default function DiabetesManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Include Sections</Label>
+              <FieldCaption>Include Sections</FieldCaption>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: "glucose", label: "Glucose Logs" },
@@ -1040,7 +1042,7 @@ export default function DiabetesManagement() {
                   { id: "complications", label: "Complications" },
                 ].map((section) => (
                   <div key={section.id} className="flex items-center space-x-2">
-                    <Checkbox id={section.id} name={section.id} defaultChecked data-testid={`checkbox-${section.id}`} />
+                    <Checkbox aria-label="Include Sections" id={section.id} name={section.id} defaultChecked data-testid={`checkbox-${section.id}`} />
                     <Label htmlFor={section.id} className="text-sm">{section.label}</Label>
                   </div>
                 ))}

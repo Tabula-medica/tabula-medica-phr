@@ -540,9 +540,9 @@ export default function AIProactivePatientEngagementChatbotPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="text-sm font-medium">Condition</label>
+                  <label htmlFor="ai-proactive-patient-eng-condition" className="text-sm font-medium">Condition</label>
                   <Select defaultValue="diabetes">
-                    <SelectTrigger data-testid="select-condition">
+                    <SelectTrigger id="ai-proactive-patient-eng-condition" data-testid="select-condition">
                       <SelectValue placeholder="Select condition" />
                     </SelectTrigger>
                     <SelectContent>
@@ -555,9 +555,9 @@ export default function AIProactivePatientEngagementChatbotPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Reading Level</label>
+                  <label htmlFor="ai-proactive-patient-eng-reading-level" className="text-sm font-medium">Reading Level</label>
                   <Select defaultValue="intermediate">
-                    <SelectTrigger data-testid="select-reading-level">
+                    <SelectTrigger id="ai-proactive-patient-eng-reading-level" data-testid="select-reading-level">
                       <SelectValue placeholder="Select level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -655,9 +655,9 @@ export default function AIProactivePatientEngagementChatbotPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="text-sm font-medium">Follow-up Type</label>
+                  <label htmlFor="ai-proactive-patient-eng-follow-up-type" className="text-sm font-medium">Follow-up Type</label>
                   <Select defaultValue="appointment_followup">
-                    <SelectTrigger data-testid="select-followup-type">
+                    <SelectTrigger id="ai-proactive-patient-eng-follow-up-type" data-testid="select-followup-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -670,8 +670,8 @@ export default function AIProactivePatientEngagementChatbotPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Patient Name</label>
-                  <Input defaultValue="John Smith" data-testid="input-patient-name" />
+                  <label htmlFor="ai-proactive-patient-eng-patient-name" className="text-sm font-medium">Patient Name</label>
+                  <Input id="ai-proactive-patient-eng-patient-name" defaultValue="John Smith" data-testid="input-patient-name" />
                 </div>
                 <div className="flex items-end">
                   <Button
@@ -772,9 +772,9 @@ export default function AIProactivePatientEngagementChatbotPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="text-sm font-medium">Feedback Type</label>
+                  <label htmlFor="ai-proactive-patient-eng-feedback-type" className="text-sm font-medium">Feedback Type</label>
                   <Select defaultValue="satisfaction_survey">
-                    <SelectTrigger data-testid="select-feedback-type">
+                    <SelectTrigger id="ai-proactive-patient-eng-feedback-type" data-testid="select-feedback-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -786,8 +786,8 @@ export default function AIProactivePatientEngagementChatbotPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Patient Name</label>
-                  <Input defaultValue="John Smith" data-testid="input-feedback-patient-name" />
+                  <label htmlFor="ai-proactive-patient-eng-patient-name-2" className="text-sm font-medium">Patient Name</label>
+                  <Input id="ai-proactive-patient-eng-patient-name-2" defaultValue="John Smith" data-testid="input-feedback-patient-name" />
                 </div>
                 <div className="flex items-end">
                   <Button

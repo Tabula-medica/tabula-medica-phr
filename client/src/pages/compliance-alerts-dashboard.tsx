@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
@@ -596,7 +597,7 @@ export default function ComplianceAlertsDashboard() {
             <CardContent>
               <div className="flex flex-wrap gap-4">
                 <div>
-                  <Label className="text-xs mb-2 block">Status</Label>
+                  <FieldCaption className="text-xs mb-2 block">Status</FieldCaption>
                   <div className="flex flex-wrap gap-1">
                     {(["active", "acknowledged", "resolved", "dismissed"] as AlertStatus[]).map(status => (
                       <Button
@@ -612,7 +613,7 @@ export default function ComplianceAlertsDashboard() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs mb-2 block">Severity</Label>
+                  <FieldCaption className="text-xs mb-2 block">Severity</FieldCaption>
                   <div className="flex flex-wrap gap-1">
                     {(["critical", "high", "medium", "low", "info"] as AlertSeverity[]).map(severity => (
                       <Button

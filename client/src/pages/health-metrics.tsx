@@ -48,6 +48,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays, parseISO } from "date-fns";
 import { Link } from "wouter";
+import { clickable } from "@/lib/a11y";
 
 interface HealthMetric {
   id: string;
@@ -809,7 +810,7 @@ export default function HealthMetricsPage() {
                   <div
                     key={type}
                     className="flex items-center justify-between p-4 hover-elevate cursor-pointer"
-                    onClick={() => setSelectedMetric(type)}
+                    {...clickable(() => setSelectedMetric(type))}
                     data-testid={`row-metric-${type}`}
                   >
                     <div className="flex items-center gap-3">

@@ -9,12 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   Users, Trophy, Target, MessageCircle, Heart, ThumbsUp, 
   TrendingUp, Brain, Sparkles, Crown, Medal, Star, 
@@ -543,7 +545,7 @@ export default function EnhancedHealthJourney() {
                         className={`p-3 rounded-lg cursor-pointer transition-colors ${
                           selectedGroup?.id === group.id ? 'bg-primary/10 border border-primary' : 'bg-muted hover-elevate'
                         }`}
-                        onClick={() => setSelectedGroup(group)}
+                        {...clickable(() => setSelectedGroup(group))}
                         data-testid={`group-${group.id}`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -671,7 +673,7 @@ export default function EnhancedHealthJourney() {
                         className={`p-3 rounded-lg cursor-pointer transition-colors ${
                           selectedChallenge?.id === challenge.id ? 'bg-primary/10 border border-primary' : 'bg-muted hover-elevate'
                         }`}
-                        onClick={() => setSelectedChallenge(challenge)}
+                        {...clickable(() => setSelectedChallenge(challenge))}
                         data-testid={`challenge-${challenge.id}`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -867,7 +869,7 @@ export default function EnhancedHealthJourney() {
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <Label>Stay Anonymous</Label>
+                <FieldCaption>Stay Anonymous</FieldCaption>
                 <p className="text-sm text-muted-foreground">Your name will be hidden from other members</p>
               </div>
               <Switch checked={isAnonymous} onCheckedChange={setIsAnonymous} data-testid="switch-anonymous" />

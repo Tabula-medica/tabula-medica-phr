@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -203,8 +204,8 @@ function TranscriptionTab() {
           )}
 
           <div>
-            <Label>Or paste conversation text:</Label>
-            <Textarea
+            <Label htmlFor="ai-clinical-documentatio-or-paste-conversation-text">Or paste conversation text:</Label>
+            <Textarea id="ai-clinical-documentatio-or-paste-conversation-text"
               placeholder="Paste patient-provider conversation text here..."
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
@@ -232,7 +233,7 @@ function TranscriptionTab() {
           <CardContent className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label>Raw Transcription</Label>
+                <FieldCaption>Raw Transcription</FieldCaption>
                 <Button variant="ghost" size="sm" onClick={() => copyToClipboard(transcriptionResult.text)}>
                   <Copy className="w-4 h-4" />
                 </Button>
@@ -245,7 +246,7 @@ function TranscriptionTab() {
             <Separator />
 
             <div>
-              <Label className="text-base font-semibold">Structured Clinical Notes</Label>
+              <FieldCaption className="text-base font-semibold">Structured Clinical Notes</FieldCaption>
               <Accordion type="multiple" className="mt-3">
                 <AccordionItem value="chief-complaint">
                   <AccordionTrigger>Chief Complaint</AccordionTrigger>
@@ -923,18 +924,18 @@ DRAFT - REQUIRES PHYSICIAN REVIEW AND SIGNATURE BEFORE SUBMISSION`,
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="flex items-center gap-1">
+              <Label htmlFor="ai-clinical-documentatio-patient-id" className="flex items-center gap-1">
                 <User className="w-4 h-4" /> Patient ID
               </Label>
-              <Input
+              <Input id="ai-clinical-documentatio-patient-id"
                 placeholder="e.g., PT-2024-001"
                 value={formData.patientId}
                 onChange={(e) => updateField("patientId", e.target.value)}
               />
             </div>
             <div>
-              <Label>Patient Name</Label>
-              <Input
+              <Label htmlFor="ai-clinical-documentatio-patient-name">Patient Name</Label>
+              <Input id="ai-clinical-documentatio-patient-name"
                 placeholder="Full name"
                 value={formData.patientName}
                 onChange={(e) => updateField("patientName", e.target.value)}
@@ -946,20 +947,20 @@ DRAFT - REQUIRES PHYSICIAN REVIEW AND SIGNATURE BEFORE SUBMISSION`,
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="flex items-center gap-1">
+              <Label htmlFor="ai-clinical-documentatio-payer-name" className="flex items-center gap-1">
                 <Building2 className="w-4 h-4" /> Payer Name
               </Label>
-              <Input
+              <Input id="ai-clinical-documentatio-payer-name"
                 placeholder="e.g., Blue Cross Blue Shield"
                 value={formData.payerName}
                 onChange={(e) => updateField("payerName", e.target.value)}
               />
             </div>
             <div>
-              <Label className="flex items-center gap-1">
+              <Label htmlFor="ai-clinical-documentatio-member-id" className="flex items-center gap-1">
                 <CreditCard className="w-4 h-4" /> Member ID
               </Label>
-              <Input
+              <Input id="ai-clinical-documentatio-member-id"
                 placeholder="Insurance member ID"
                 value={formData.memberId}
                 onChange={(e) => updateField("memberId", e.target.value)}
@@ -970,8 +971,8 @@ DRAFT - REQUIRES PHYSICIAN REVIEW AND SIGNATURE BEFORE SUBMISSION`,
           <Separator />
 
           <div>
-            <Label>Requested Service Description</Label>
-            <Input
+            <Label htmlFor="ai-clinical-documentatio-requested-service-description">Requested Service Description</Label>
+            <Input id="ai-clinical-documentatio-requested-service-description"
               placeholder="e.g., MRI of lumbar spine without contrast"
               value={formData.serviceDescription}
               onChange={(e) => updateField("serviceDescription", e.target.value)}
@@ -980,16 +981,16 @@ DRAFT - REQUIRES PHYSICIAN REVIEW AND SIGNATURE BEFORE SUBMISSION`,
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>CPT Codes (comma-separated)</Label>
-              <Input
+              <Label htmlFor="ai-clinical-documentatio-cpt-codes-comma-separated">CPT Codes (comma-separated)</Label>
+              <Input id="ai-clinical-documentatio-cpt-codes-comma-separated"
                 placeholder="e.g., 72148, 72149"
                 value={formData.cptCodes}
                 onChange={(e) => updateField("cptCodes", e.target.value)}
               />
             </div>
             <div>
-              <Label>ICD-10 Codes (comma-separated)</Label>
-              <Input
+              <Label htmlFor="ai-clinical-documentatio-icd-10-codes-comma-separated">ICD-10 Codes (comma-separated)</Label>
+              <Input id="ai-clinical-documentatio-icd-10-codes-comma-separated"
                 placeholder="e.g., M54.5, M51.16"
                 value={formData.icd10Codes}
                 onChange={(e) => updateField("icd10Codes", e.target.value)}
@@ -998,8 +999,8 @@ DRAFT - REQUIRES PHYSICIAN REVIEW AND SIGNATURE BEFORE SUBMISSION`,
           </div>
 
           <div>
-            <Label>Clinical Justification</Label>
-            <Textarea
+            <Label htmlFor="ai-clinical-documentatio-clinical-justification">Clinical Justification</Label>
+            <Textarea id="ai-clinical-documentatio-clinical-justification"
               placeholder="Describe the medical necessity and clinical rationale..."
               value={formData.clinicalJustification}
               onChange={(e) => updateField("clinicalJustification", e.target.value)}

@@ -11,7 +11,10 @@
     "db:push": "drizzle-kit push",
     "seed:reviewer-account": "tsx scripts/seed-reviewer-account.ts",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:a11y": "eslint \"client/src/**/*.tsx\" --max-warnings=0",
+    "lint:server": "eslint server --max-warnings=0",
+    "test:a11y": "vitest run tests/a11y-clickable.spec.tsx tests/a11y-axe.spec.tsx"
   },
   "dependencies": {
     "@aidbox/node-server-sdk": "^2.1.2",
@@ -142,6 +145,9 @@
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.18",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.6",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "4.17.21",
     "@types/express-session": "^1.18.2",
@@ -153,8 +159,13 @@
     "@types/ws": "^8.5.13",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
+    "axe-core": "^4.13.0",
     "drizzle-kit": "^0.31.10",
     "esbuild": "^0.28.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "jsdom": "^26.1.0",
     "postcss": "^8.5.23",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.10",
@@ -201,7 +212,10 @@
     "morgan": "^1.11.0",
     "re2": "^1.25.2",
     "@opentelemetry/core": "^2.8.0",
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "eslint-plugin-jsx-a11y": {
+      "minimatch": "^3.1.2"
+    }
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

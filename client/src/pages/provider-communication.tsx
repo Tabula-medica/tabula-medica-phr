@@ -32,6 +32,7 @@ import {
   Stethoscope
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface Provider {
   id: string;
@@ -306,8 +307,8 @@ export default function ProviderCommunicationPage() {
                       </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <div>
-                          <label className="text-sm font-medium">Subject</label>
-                          <Input
+                          <label htmlFor="provider-communication-subject" className="text-sm font-medium">Subject</label>
+                          <Input id="provider-communication-subject"
                             value={newThreadForm.subject}
                             onChange={(e) => setNewThreadForm(f => ({ ...f, subject: e.target.value }))}
                             placeholder="Brief description of the concern"
@@ -315,12 +316,12 @@ export default function ProviderCommunicationPage() {
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Category</label>
+                          <label htmlFor="provider-communication-category" className="text-sm font-medium">Category</label>
                           <Select
                             value={newThreadForm.category}
                             onValueChange={(v) => setNewThreadForm(f => ({ ...f, category: v as any }))}
                           >
-                            <SelectTrigger data-testid="select-thread-category">
+                            <SelectTrigger id="provider-communication-category" data-testid="select-thread-category">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -331,12 +332,12 @@ export default function ProviderCommunicationPage() {
                           </Select>
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Recipients</label>
+                          <label htmlFor="provider-communication-recipients" className="text-sm font-medium">Recipients</label>
                           <Select
                             value={newThreadForm.recipientIds[0] || ""}
                             onValueChange={(v) => setNewThreadForm(f => ({ ...f, recipientIds: [v] }))}
                           >
-                            <SelectTrigger data-testid="select-recipients">
+                            <SelectTrigger id="provider-communication-recipients" data-testid="select-recipients">
                               <SelectValue placeholder="Select provider" />
                             </SelectTrigger>
                             <SelectContent>
@@ -349,12 +350,12 @@ export default function ProviderCommunicationPage() {
                           </Select>
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Priority</label>
+                          <label htmlFor="provider-communication-priority" className="text-sm font-medium">Priority</label>
                           <Select
                             value={newThreadForm.priority}
                             onValueChange={(v) => setNewThreadForm(f => ({ ...f, priority: v as any }))}
                           >
-                            <SelectTrigger data-testid="select-thread-priority">
+                            <SelectTrigger id="provider-communication-priority" data-testid="select-thread-priority">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -365,8 +366,8 @@ export default function ProviderCommunicationPage() {
                           </Select>
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Message</label>
-                          <Textarea
+                          <label htmlFor="provider-communication-message" className="text-sm font-medium">Message</label>
+                          <Textarea id="provider-communication-message"
                             value={newThreadForm.message}
                             onChange={(e) => setNewThreadForm(f => ({ ...f, message: e.target.value }))}
                             placeholder="Describe the patient concern or request..."
@@ -407,7 +408,7 @@ export default function ProviderCommunicationPage() {
                       {threads.map(thread => (
                         <div
                           key={thread.id}
-                          onClick={() => setSelectedThread(thread.id)}
+                          {...clickable(() => setSelectedThread(thread.id))}
                           className={`p-3 cursor-pointer hover-elevate ${selectedThread === thread.id ? "bg-muted" : ""}`}
                           data-testid={`thread-item-${thread.id}`}
                         >

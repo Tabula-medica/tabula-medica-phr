@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   Network, 
   Database, 
@@ -349,7 +350,7 @@ export default function DataLineagePage() {
                           className={`p-3 border rounded-lg hover-elevate cursor-pointer ${
                             selectedNode?.id === node.id ? "ring-2 ring-primary" : ""
                           }`}
-                          onClick={() => handleNodeClick(node)}
+                          {...clickable(() => handleNodeClick(node))}
                           data-testid={`node-${node.id}`}
                         >
                           <div className="flex items-center justify-between">

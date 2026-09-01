@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Upload,
   FileText,
@@ -377,7 +378,10 @@ export default function DocumentIntake() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+{/* Drag-and-drop is a pointer shortcut for the file input below.
+                  The zone itself is layout: no role, no tab stop. */}
               <div
+                role="presentation"
                 className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
                   dragOver 
                     ? "border-primary bg-primary/5" 
@@ -493,7 +497,7 @@ export default function DocumentIntake() {
                     <div 
                       key={doc.id}
                       className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
-                      onClick={() => handleViewDocument(doc)}
+                      {...clickable(() => handleViewDocument(doc))}
                       data-testid={`card-pending-${doc.id}`}
                     >
                       <div className="flex items-center gap-4">
@@ -670,9 +674,9 @@ export default function DocumentIntake() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Document Type</Label>
+                  <Label htmlFor="document-intake-document-type">Document Type</Label>
                   <Select value={manualType} onValueChange={setManualType}>
-                    <SelectTrigger data-testid="select-doc-type">
+                    <SelectTrigger id="document-intake-document-type" data-testid="select-doc-type">
                       <SelectValue placeholder="Select document type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -686,8 +690,8 @@ export default function DocumentIntake() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Tags</Label>
-                  <Input
+                  <Label htmlFor="document-intake-tags">Tags</Label>
+                  <Input id="document-intake-tags"
                     placeholder="Enter tags separated by commas"
                     value={manualTags}
                     onChange={(e) => setManualTags(e.target.value)}

@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -429,9 +430,9 @@ export default function DataQualityDashboard() {
         <TabsContent value="issues" className="space-y-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Label>Status:</Label>
+              <Label htmlFor="data-quality-dashboard-status">Status:</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32" data-testid="select-status-filter">
+                <SelectTrigger id="data-quality-dashboard-status" className="w-32" data-testid="select-status-filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -444,9 +445,9 @@ export default function DataQualityDashboard() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label>Severity:</Label>
+              <Label htmlFor="data-quality-dashboard-severity">Severity:</Label>
               <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-32" data-testid="select-severity-filter">
+                <SelectTrigger id="data-quality-dashboard-severity" className="w-32" data-testid="select-severity-filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -526,7 +527,7 @@ export default function DataQualityDashboard() {
                   <CardContent>
                     {issue.details && (issue.details as any).records && (
                       <div className="mt-2 space-y-2">
-                        <Label className="text-xs text-muted-foreground">Affected Records:</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">Affected Records:</FieldCaption>
                         <div className="grid gap-2">
                           {((issue.details as any).records as any[]).slice(0, 3).map((record: any, idx: number) => (
                             <div
@@ -626,9 +627,9 @@ export default function DataQualityDashboard() {
 
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Label>Patient:</Label>
+              <Label htmlFor="data-quality-dashboard-patient">Patient:</Label>
               <Select value={validationPatientFilter} onValueChange={setValidationPatientFilter}>
-                <SelectTrigger className="w-40" data-testid="select-validation-patient">
+                <SelectTrigger id="data-quality-dashboard-patient" className="w-40" data-testid="select-validation-patient">
                   <SelectValue placeholder="All Patients" />
                 </SelectTrigger>
                 <SelectContent>
@@ -640,9 +641,9 @@ export default function DataQualityDashboard() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label>Resource:</Label>
+              <Label htmlFor="data-quality-dashboard-resource">Resource:</Label>
               <Select value={validationResourceFilter} onValueChange={setValidationResourceFilter}>
-                <SelectTrigger className="w-40" data-testid="select-validation-resource">
+                <SelectTrigger id="data-quality-dashboard-resource" className="w-40" data-testid="select-validation-resource">
                   <SelectValue placeholder="All Resources" />
                 </SelectTrigger>
                 <SelectContent>
@@ -654,9 +655,9 @@ export default function DataQualityDashboard() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label>Severity:</Label>
+              <Label htmlFor="data-quality-dashboard-severity-2">Severity:</Label>
               <Select value={validationSeverityFilter} onValueChange={setValidationSeverityFilter}>
-                <SelectTrigger className="w-32" data-testid="select-validation-severity">
+                <SelectTrigger id="data-quality-dashboard-severity-2" className="w-32" data-testid="select-validation-severity">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -668,9 +669,9 @@ export default function DataQualityDashboard() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label>Status:</Label>
+              <Label htmlFor="data-quality-dashboard-status-2">Status:</Label>
               <Select value={validationStatusFilter} onValueChange={setValidationStatusFilter}>
-                <SelectTrigger className="w-36" data-testid="select-validation-status">
+                <SelectTrigger id="data-quality-dashboard-status-2" className="w-36" data-testid="select-validation-status">
                   <SelectValue placeholder="Open" />
                 </SelectTrigger>
                 <SelectContent>
@@ -855,7 +856,7 @@ export default function DataQualityDashboard() {
             </div>
             {selectedIssue && (
               <div className="p-3 bg-muted rounded-md">
-                <Label className="text-xs">Affected Records:</Label>
+                <FieldCaption className="text-xs">Affected Records:</FieldCaption>
                 <p className="text-sm mt-1">{selectedIssue.description}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {selectedIssue.affectedRecordIds.length} records will be affected

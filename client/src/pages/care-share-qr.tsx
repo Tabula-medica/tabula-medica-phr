@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -285,16 +286,16 @@ export default function CareShareQrPage() {
                 />
               )}
               <div className="w-full">
-                <Label className="text-xs text-muted-foreground">Share URL</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Share URL</FieldCaption>
                 <div className="mt-1 rounded-md border bg-muted/40 p-2 text-xs break-all font-mono">
                   <span data-testid="text-share-url">{link.shareUrl}</span>
                 </div>
               </div>
               {link.passcode && (
                 <div className="w-full text-start">
-                  <Label className="text-xs text-muted-foreground">
+                  <FieldCaption className="text-xs text-muted-foreground">
                     Passcode (share separately)
-                  </Label>
+                  </FieldCaption>
                   <div className="mt-1 rounded-md border bg-muted/40 p-2 text-sm font-mono tracking-widest text-center">
                     {link.passcode}
                   </div>

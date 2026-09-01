@@ -552,9 +552,9 @@ export default function PatientEngagementHub() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Vital Type</Label>
+                    <Label htmlFor="patient-engagement-hub-vital-type">Vital Type</Label>
                     <Select value={newVitalType} onValueChange={setNewVitalType}>
-                      <SelectTrigger data-testid="select-vital-type">
+                      <SelectTrigger id="patient-engagement-hub-vital-type" data-testid="select-vital-type">
                         <SelectValue placeholder="Select vital type..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -565,8 +565,8 @@ export default function PatientEngagementHub() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Value {newVitalType && `(${VITAL_TYPE_LABELS[newVitalType]?.unit})`}</Label>
-                    <Input 
+                    <Label htmlFor="patient-engagement-hub-value">Value {newVitalType && `(${VITAL_TYPE_LABELS[newVitalType]?.unit})`}</Label>
+                    <Input id="patient-engagement-hub-value" 
                       type="number" 
                       value={newVitalValue}
                       onChange={(e) => setNewVitalValue(e.target.value)}
@@ -575,8 +575,8 @@ export default function PatientEngagementHub() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Notes (optional)</Label>
-                    <Textarea 
+                    <Label htmlFor="patient-engagement-hub-notes-optional">Notes (optional)</Label>
+                    <Textarea id="patient-engagement-hub-notes-optional" 
                       value={newVitalNotes}
                       onChange={(e) => setNewVitalNotes(e.target.value)}
                       placeholder="Any additional notes..."
@@ -728,9 +728,9 @@ export default function PatientEngagementHub() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Update Type</Label>
+                    <Label htmlFor="patient-engagement-hub-update-type">Update Type</Label>
                     <Select value={statusType} onValueChange={setStatusType}>
-                      <SelectTrigger data-testid="select-status-type">
+                      <SelectTrigger id="patient-engagement-hub-update-type" data-testid="select-status-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -742,8 +742,8 @@ export default function PatientEngagementHub() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input 
+                    <Label htmlFor="patient-engagement-hub-title">Title</Label>
+                    <Input id="patient-engagement-hub-title" 
                       value={statusTitle}
                       onChange={(e) => setStatusTitle(e.target.value)}
                       placeholder="Brief title for your update..."
@@ -751,8 +751,8 @@ export default function PatientEngagementHub() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>How are you feeling overall? ({overallFeeling[0]}/10)</Label>
-                    <Slider
+                    <Label htmlFor="patient-engagement-hub-how-are-you-feeling-overall-10">How are you feeling overall? ({overallFeeling[0]}/10)</Label>
+                    <Slider id="patient-engagement-hub-how-are-you-feeling-overall-10"
                       value={overallFeeling}
                       onValueChange={setOverallFeeling}
                       max={10}
@@ -767,8 +767,8 @@ export default function PatientEngagementHub() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea 
+                    <Label htmlFor="patient-engagement-hub-description">Description</Label>
+                    <Textarea id="patient-engagement-hub-description" 
                       value={statusDescription}
                       onChange={(e) => setStatusDescription(e.target.value)}
                       placeholder="Describe how you're feeling, any symptoms, or other updates..."

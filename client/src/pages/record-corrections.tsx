@@ -472,9 +472,9 @@ export default function RecordCorrections() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Issue Category</Label>
+              <Label htmlFor="record-corrections-issue-category">Issue Category</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger data-testid="select-category">
+                <SelectTrigger id="record-corrections-issue-category" data-testid="select-category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -495,9 +495,9 @@ export default function RecordCorrections() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Record Type</Label>
+              <Label htmlFor="record-corrections-record-type">Record Type</Label>
               <Select value={newRequest.recordType} onValueChange={(v) => setNewRequest({ ...newRequest, recordType: v })}>
-                <SelectTrigger data-testid="select-record-type">
+                <SelectTrigger id="record-corrections-record-type" data-testid="select-record-type">
                   <SelectValue placeholder="Select record type" />
                 </SelectTrigger>
                 <SelectContent>

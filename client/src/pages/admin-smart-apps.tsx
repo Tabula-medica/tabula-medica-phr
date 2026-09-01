@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -754,25 +755,25 @@ export default function AdminSmartApps() {
           {selectedApp && (
             <div className="space-y-4">
               <div>
-                <Label className="text-xs text-muted-foreground">Client ID</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Client ID</FieldCaption>
                 <p className="font-mono text-sm break-all">{selectedApp.credentials.clientId}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Authentication Method</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Authentication Method</FieldCaption>
                 <p className="text-sm">{selectedApp.credentials.authMethod}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Launch URL</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Launch URL</FieldCaption>
                 <p className="text-sm break-all">{selectedApp.launchConfig.launchUrl}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Redirect URLs</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Redirect URLs</FieldCaption>
                 {selectedApp.launchConfig.redirectUrls.map((url, i) => (
                   <p key={i} className="text-sm break-all">{url}</p>
                 ))}
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Approved Scopes</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Approved Scopes</FieldCaption>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedApp.scopeConfig.approvedScopes.map(scope => (
                     <Badge key={scope} variant="outline" className="text-xs">{scope}</Badge>

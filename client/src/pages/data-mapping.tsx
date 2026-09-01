@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Brain,
   ArrowRight,
@@ -429,7 +430,7 @@ export default function DataMapping() {
                   <div
                     key={config.id}
                     className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
-                    onClick={() => setSelectedConfig(config)}
+                    {...clickable(() => setSelectedConfig(config))}
                     data-testid={`config-${config.id}`}
                   >
                     <div className="flex items-center gap-4">
@@ -484,9 +485,9 @@ export default function DataMapping() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Source Format</Label>
+                    <Label htmlFor="data-mapping-source-format">Source Format</Label>
                     <Select value={sourceFormat} onValueChange={setSourceFormat}>
-                      <SelectTrigger data-testid="select-source-format">
+                      <SelectTrigger id="data-mapping-source-format" data-testid="select-source-format">
                         <SelectValue placeholder="Select source format" />
                       </SelectTrigger>
                       <SelectContent>
@@ -500,8 +501,8 @@ export default function DataMapping() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Sample Data (optional)</Label>
-                    <Textarea
+                    <Label htmlFor="data-mapping-sample-data-optional">Sample Data (optional)</Label>
+                    <Textarea id="data-mapping-sample-data-optional"
                       placeholder="Paste sample source data for better analysis..."
                       className="h-40 font-mono text-sm"
                       value={sourceSample}
@@ -512,9 +513,9 @@ export default function DataMapping() {
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Target Format</Label>
+                    <Label htmlFor="data-mapping-target-format">Target Format</Label>
                     <Select value={targetFormat} onValueChange={setTargetFormat}>
-                      <SelectTrigger data-testid="select-target-format">
+                      <SelectTrigger id="data-mapping-target-format" data-testid="select-target-format">
                         <SelectValue placeholder="Select target format" />
                       </SelectTrigger>
                       <SelectContent>

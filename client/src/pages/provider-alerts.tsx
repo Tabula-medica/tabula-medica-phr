@@ -195,7 +195,7 @@ export default function ProviderAlertsPage() {
         <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
         
         {showActions && alert.status === "new" && (
-          <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+          <div role="presentation" className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
             <Button
               size="sm"
               onClick={() => acknowledgeMutation.mutate(alert.id)}

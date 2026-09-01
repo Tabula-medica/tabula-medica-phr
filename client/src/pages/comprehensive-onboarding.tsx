@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ import { COUNTRY_CODES, CONDITIONS_ICD10, SURGERIES_CPT, COMMON_ALLERGENS, COMMO
 import { VoiceInput } from "@/components/voice-input";
 import { OcrScanner } from "@/components/ocr-scanner";
 import { Mic } from "lucide-react";
+import { clickable } from "@/lib/a11y";
 
 
 const COMMON_CONDITIONS_KEYS = [
@@ -767,7 +769,7 @@ function DemographicsStep({ demographics: d, setDemographics: setD, lang }: {
         <CardContent className="p-4">
           <div className="flex items-center gap-3 mb-2">
             <Globe className="w-5 h-5 text-blue-500" aria-hidden="true" />
-            <Label className="font-medium text-base">{t(lang, "preferredLanguage")}</Label>
+            <FieldCaption className="font-medium text-base">{t(lang, "preferredLanguage")}</FieldCaption>
           </div>
           <p className="text-xs text-muted-foreground mb-3">{t(lang, "selectLanguageFirst")}</p>
           <Select value={d.preferredLanguage} onValueChange={v => update("preferredLanguage", v)}>
@@ -960,7 +962,7 @@ function DemographicsStep({ demographics: d, setDemographics: setD, lang }: {
       </div>
 
       <div className="space-y-2">
-        <Label>{t(lang, "race")} ({t(lang, "selectAllApply")})</Label>
+        <FieldCaption>{t(lang, "race")} ({t(lang, "selectAllApply")})</FieldCaption>
         <div className="flex flex-wrap gap-2">
           {[
             "American Indian or Alaska Native",
@@ -1275,7 +1277,7 @@ function ContactsStep({ emergencyContacts, setEmergencyContacts, insurance, setI
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <Checkbox checked={c.canMakeMedicalDecisions} onCheckedChange={v => updateContact(c.id, "canMakeMedicalDecisions", v)} data-testid={`checkbox-medical-decisions-${idx}`} />
-                <Label className="text-sm">{t(lang, "canMakeMedicalDecisions")}</Label>
+                <FieldCaption className="text-sm">{t(lang, "canMakeMedicalDecisions")}</FieldCaption>
               </div>
             </div>
           </CardContent>
@@ -1368,7 +1370,7 @@ function ContactsStep({ emergencyContacts, setEmergencyContacts, insurance, setI
 
       <div className="flex items-center gap-2">
         <Checkbox checked={insurance.hasSecondary} onCheckedChange={v => updateIns("hasSecondary", v)} data-testid="checkbox-secondary-insurance" />
-        <Label className="text-sm">{t(lang, "secondaryInsurance")}</Label>
+        <FieldCaption className="text-sm">{t(lang, "secondaryInsurance")}</FieldCaption>
       </div>
 
       {insurance.hasSecondary && (
@@ -1396,7 +1398,7 @@ function ContactsStep({ emergencyContacts, setEmergencyContacts, insurance, setI
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Checkbox checked={pharmacy.useMailOrder} onCheckedChange={v => setPharmacy({ ...pharmacy, useMailOrder: !!v })} data-testid="checkbox-mail-order" />
-            <Label className="text-sm font-medium">{t(lang, "useMailOrder")}</Label>
+            <FieldCaption className="text-sm font-medium">{t(lang, "useMailOrder")}</FieldCaption>
           </div>
           {pharmacy.useMailOrder && (
             <div className="space-y-2 pl-6 border-l-2 border-muted">
@@ -1432,7 +1434,7 @@ function ContactsStep({ emergencyContacts, setEmergencyContacts, insurance, setI
                   data-testid={`checkbox-savings-${opt.key}`}
                 />
                 <div className="flex-1">
-                  <Label className="text-sm font-medium cursor-pointer">{opt.label}</Label>
+                  <FieldCaption className="text-sm font-medium cursor-pointer">{opt.label}</FieldCaption>
                 </div>
                 <a href={opt.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -1524,7 +1526,7 @@ function ProviderSearch({ pcp, setPcp, lang }: { pcp: PrimaryCareProvider; setPc
                   const a = r.addresses?.[0] || {};
                   const name = `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.organization_name || "";
                   return (
-                    <div key={i} className="p-2 bg-background rounded border hover:border-primary/50 cursor-pointer text-sm" onClick={() => selectProvider(r)} data-testid={`provider-result-${i}`}>
+                    <div key={i} className="p-2 bg-background rounded border hover:border-primary/50 cursor-pointer text-sm" {...clickable(() => selectProvider(r))} data-testid={`provider-result-${i}`}>
                       <div className="font-medium">{name} <span className="text-xs text-muted-foreground ml-1">NPI: {r.number}</span></div>
                       <div className="text-xs text-muted-foreground">{r.taxonomies?.[0]?.desc || ""} — {[a.city, a.state].filter(Boolean).join(", ")}</div>
                     </div>
@@ -1537,8 +1539,8 @@ function ProviderSearch({ pcp, setPcp, lang }: { pcp: PrimaryCareProvider; setPc
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>{t(lang, "pcpName")} *</Label>
-            <Input value={pcp.name} onChange={e => setPcp({ ...pcp, name: e.target.value })} placeholder="e.g., Dr. Jane Smith" data-testid="input-pcp-name" />
+            <Label htmlFor="comprehensive-onboarding-field">{t(lang, "pcpName")} *</Label>
+            <Input id="comprehensive-onboarding-field" value={pcp.name} onChange={e => setPcp({ ...pcp, name: e.target.value })} placeholder="e.g., Dr. Jane Smith" data-testid="input-pcp-name" />
           </div>
           <div className="space-y-2">
             <Label>{t(lang, "pcpSpecialty")}</Label>
@@ -1639,7 +1641,7 @@ function PharmacySearch({ pharmacy, setPharmacy, lang }: { pharmacy: PharmacyPre
                   const b = r.basic || {};
                   const a = r.addresses?.[0] || {};
                   return (
-                    <div key={i} className="p-2 bg-background rounded border hover:border-primary/50 cursor-pointer text-sm" onClick={() => selectPharmacy(r)} data-testid={`pharmacy-result-${i}`}>
+                    <div key={i} className="p-2 bg-background rounded border hover:border-primary/50 cursor-pointer text-sm" {...clickable(() => selectPharmacy(r))} data-testid={`pharmacy-result-${i}`}>
                       <div className="font-medium">{b.organization_name}</div>
                       <div className="text-xs text-muted-foreground">{[a.address_1, a.city, a.state, a.postal_code].filter(Boolean).join(", ")} — {a.telephone_number || ""}</div>
                     </div>
@@ -1784,8 +1786,8 @@ function ConditionsStep({ conditions, setConditions, surgeries, setSurgeries, fa
                 <Input value={c.name} onChange={e => updateCondition(c.id, "name", e.target.value)} placeholder="e.g., Type 2 Diabetes" data-testid={`input-condition-name-${idx}`} />
               </div>
               <div className="space-y-1">
-                <Label>ICD-10 Code</Label>
-                <Input value={c.icdCode} onChange={e => updateCondition(c.id, "icdCode", e.target.value)} placeholder="e.g., E11.9" data-testid={`input-condition-icd-${idx}`} className="font-mono text-sm" />
+                <FieldCaption>ICD-10 Code</FieldCaption>
+                <Input aria-label="ICD-10 Code" value={c.icdCode} onChange={e => updateCondition(c.id, "icdCode", e.target.value)} placeholder="e.g., E11.9" data-testid={`input-condition-icd-${idx}`} className="font-mono text-sm" />
               </div>
               <div className="space-y-1">
                 <Label>{t(lang, "status")}</Label>
@@ -1859,8 +1861,8 @@ function ConditionsStep({ conditions, setConditions, surgeries, setSurgeries, fa
                 <Input value={s.procedureName} onChange={e => updateSurgery(s.id, "procedureName", e.target.value)} placeholder="e.g., Appendectomy" data-testid={`input-surgery-name-${idx}`} />
               </div>
               <div className="space-y-1">
-                <Label>CPT Code</Label>
-                <Input value={s.cptCode} onChange={e => updateSurgery(s.id, "cptCode", e.target.value)} placeholder="e.g., 44970" data-testid={`input-surgery-cpt-${idx}`} className="font-mono text-sm" />
+                <FieldCaption>CPT Code</FieldCaption>
+                <Input aria-label="CPT Code" value={s.cptCode} onChange={e => updateSurgery(s.id, "cptCode", e.target.value)} placeholder="e.g., 44970" data-testid={`input-surgery-cpt-${idx}`} className="font-mono text-sm" />
               </div>
               <div className="space-y-1">
                 <Label>{t(lang, "date")}</Label>
@@ -2149,7 +2151,7 @@ function MedicationsStep({ medications, setMedications, vaccinations, setVaccina
           {filteredMeds.length > 0 && (
             <div className="max-h-48 overflow-y-auto space-y-1">
               {filteredMeds.slice(0, 10).map(med => (
-                <div key={med.name} className="flex items-center justify-between p-2 bg-background rounded border hover:border-primary/50 cursor-pointer" onClick={() => addFromCommon(med)}>
+                <div key={med.name} className="flex items-center justify-between p-2 bg-background rounded border hover:border-primary/50 cursor-pointer" {...clickable(() => addFromCommon(med))}>
                   <div>
                     <span className="font-medium text-sm">{med.name}</span>
                     <span className="text-xs text-muted-foreground ml-2">for {med.forCondition}</span>

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -547,10 +548,10 @@ function DocumentForm({
     return (
       <div key={field} className="space-y-1.5">
         <div className="flex items-center gap-2">
-          <Label className="text-sm">
+          <FieldCaption className="text-sm">
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
-          </Label>
+          </FieldCaption>
           {isAutoFilled && (
             <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800" data-testid={`badge-autofill-${field}`}>
               <Zap className="h-2.5 w-2.5 mr-0.5" />
@@ -696,8 +697,8 @@ function DocumentForm({
         )}
 
         <div className="space-y-1.5">
-          <Label className="text-sm">Additional Instructions (Optional)</Label>
-          <Textarea
+          <Label htmlFor="ai-document-generation-additional-instructions-optional" className="text-sm">Additional Instructions (Optional)</Label>
+          <Textarea id="ai-document-generation-additional-instructions-optional"
             value={additionalInstructions}
             onChange={(e) => setAdditionalInstructions(e.target.value)}
             placeholder="Any specific formatting preferences, tone adjustments, or additional context for the AI..."
@@ -1011,8 +1012,8 @@ function CreateRuleForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label className="text-sm">Rule Name <span className="text-red-500">*</span></Label>
-          <Input
+          <Label htmlFor="ai-document-generation-rule-name" className="text-sm">Rule Name <span className="text-red-500">*</span></Label>
+          <Input id="ai-document-generation-rule-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Oncology Referral on Cancer Diagnosis"
@@ -1020,9 +1021,9 @@ function CreateRuleForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm">Priority</Label>
+          <Label htmlFor="ai-document-generation-priority" className="text-sm">Priority</Label>
           <Select value={priority} onValueChange={setPriority}>
-            <SelectTrigger data-testid="select-rule-priority">
+            <SelectTrigger id="ai-document-generation-priority" data-testid="select-rule-priority">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1036,8 +1037,8 @@ function CreateRuleForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-sm">Description</Label>
-        <Textarea
+        <Label htmlFor="ai-document-generation-description" className="text-sm">Description</Label>
+        <Textarea id="ai-document-generation-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
@@ -1048,9 +1049,9 @@ function CreateRuleForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label className="text-sm">Trigger Event <span className="text-red-500">*</span></Label>
+          <Label htmlFor="ai-document-generation-trigger-event" className="text-sm">Trigger Event <span className="text-red-500">*</span></Label>
           <Select value={eventType} onValueChange={setEventType}>
-            <SelectTrigger data-testid="select-rule-event-type">
+            <SelectTrigger id="ai-document-generation-trigger-event" data-testid="select-rule-event-type">
               <SelectValue placeholder="Select event type..." />
             </SelectTrigger>
             <SelectContent>
@@ -1061,9 +1062,9 @@ function CreateRuleForm({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm">Target Document <span className="text-red-500">*</span></Label>
+          <Label htmlFor="ai-document-generation-target-document" className="text-sm">Target Document <span className="text-red-500">*</span></Label>
           <Select value={targetDocType} onValueChange={setTargetDocType}>
-            <SelectTrigger data-testid="select-rule-doc-type">
+            <SelectTrigger id="ai-document-generation-target-document" data-testid="select-rule-doc-type">
               <SelectValue placeholder="Select document type..." />
             </SelectTrigger>
             <SelectContent>
@@ -1076,9 +1077,9 @@ function CreateRuleForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-sm">Event Filter (Optional)</Label>
+        <Label htmlFor="ai-document-generation-event-filter-optional" className="text-sm">Event Filter (Optional)</Label>
         <div className="flex gap-2">
-          <Input
+          <Input id="ai-document-generation-event-filter-optional"
             value={filterKey}
             onChange={(e) => setFilterKey(e.target.value)}
             placeholder="Filter key (e.g., diagnosisPattern)"
@@ -1626,9 +1627,9 @@ export default function AIDocumentGeneration() {
               <CardContent>
                 <div className="flex items-end gap-3">
                   <div className="flex-1 space-y-1.5">
-                    <Label className="text-sm">Event Type</Label>
+                    <Label htmlFor="ai-document-generation-event-type" className="text-sm">Event Type</Label>
                     <Select value={simulatorEventType} onValueChange={setSimulatorEventType}>
-                      <SelectTrigger data-testid="select-event-type">
+                      <SelectTrigger id="ai-document-generation-event-type" data-testid="select-event-type">
                         <SelectValue placeholder="Select a clinical event..." />
                       </SelectTrigger>
                       <SelectContent>

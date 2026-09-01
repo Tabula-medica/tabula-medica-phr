@@ -238,7 +238,7 @@ function AllergyCard({
 
 function ExplanationModal({ term, onClose }: { term: string; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div role="presentation" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <Card className="max-w-md w-full animate-in fade-in zoom-in" onClick={(e) => e.stopPropagation()}>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap pb-2">
           <CardTitle className="text-lg flex items-center gap-2 flex-wrap">

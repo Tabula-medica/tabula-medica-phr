@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { clickable } from "@/lib/a11y";
 import {
   Sparkles,
   Clock,
@@ -150,7 +151,7 @@ function TimelineEventCard({
       className={`relative flex gap-4 p-4 rounded-lg border transition-all cursor-pointer hover-elevate ${
         isHighlighted ? "ring-2 ring-primary bg-primary/5" : "bg-card"
       }`}
-      onClick={onSelect}
+      {...clickable(onSelect)}
       data-testid={`timeline-event-${event.id}`}
     >
       <div className="flex flex-col items-center gap-2">

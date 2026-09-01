@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -34,6 +35,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 type DedupRecordType = "medication" | "lab_result" | "document" | "condition" | "allergy";
 type ConflictStatus = "pending" | "resolved" | "dismissed";
@@ -414,14 +416,14 @@ export default function DeduplicatedRecordsPage() {
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                               <div>
-                                <Label className="text-sm font-medium">Field: {conflict.fieldName}</Label>
+                                <FieldCaption className="text-sm font-medium">Field: {conflict.fieldName}</FieldCaption>
                                 <p className="text-sm text-muted-foreground mt-1">
                                   Type: {conflict.conflictType.replace("_", " ")}
                                 </p>
                               </div>
                               <Separator />
                               <div>
-                                <Label className="text-sm font-medium mb-3 block">Conflicting Values</Label>
+                                <FieldCaption className="text-sm font-medium mb-3 block">Conflicting Values</FieldCaption>
                                 <RadioGroup value={resolveValue} onValueChange={setResolveValue}>
                                   {conflict.values.map((cv, idx) => (
                                     <div key={idx} className="flex items-center space-x-3 p-3 rounded-lg border hover-elevate">
@@ -524,7 +526,7 @@ export default function DeduplicatedRecordsPage() {
                             className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                               selectedGroup?.id === group.id ? "border-primary bg-primary/5" : ""
                             }`}
-                            onClick={() => setSelectedGroup(group)}
+                            {...clickable(() => setSelectedGroup(group))}
                             data-testid={`card-group-${group.id}`}
                           >
                             <div className="flex items-center gap-2">

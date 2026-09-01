@@ -525,9 +525,9 @@ function SecureMessaging() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1.5 block">To:</label>
+            <label htmlFor="patient-assistant-to" className="text-sm font-medium mb-1.5 block">To:</label>
             <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
-              <SelectTrigger data-testid="select-recipient">
+              <SelectTrigger id="patient-assistant-to" data-testid="select-recipient">
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
               <SelectContent>
@@ -541,8 +541,8 @@ function SecureMessaging() {
           </div>
           
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Subject (optional):</label>
-            <Input
+            <label htmlFor="patient-assistant-subject-optional" className="text-sm font-medium mb-1.5 block">Subject (optional):</label>
+            <Input id="patient-assistant-subject-optional"
               placeholder="e.g., Question about my medication"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -551,8 +551,8 @@ function SecureMessaging() {
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Message:</label>
-            <Textarea
+            <label htmlFor="patient-assistant-message" className="text-sm font-medium mb-1.5 block">Message:</label>
+            <Textarea id="patient-assistant-message"
               placeholder="Type your message here..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}

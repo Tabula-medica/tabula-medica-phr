@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -569,9 +570,9 @@ function MedicalHistoryStep({ data, onChange }: { data: any; onChange: (d: any) 
   return (
     <div className="space-y-6" data-testid="medical-history-step">
       <div className="space-y-4">
-        <Label>Current Health Conditions</Label>
+        <Label htmlFor="patient-onboarding-current-health-conditions">Current Health Conditions</Label>
         <div className="flex gap-2">
-          <Input value={newCondition} onChange={(e) => setNewCondition(e.target.value)} placeholder="Add a condition..." onKeyDown={(e) => e.key === "Enter" && addCondition()} data-testid="input-new-condition" />
+          <Input id="patient-onboarding-current-health-conditions" value={newCondition} onChange={(e) => setNewCondition(e.target.value)} placeholder="Add a condition..." onKeyDown={(e) => e.key === "Enter" && addCondition()} data-testid="input-new-condition" />
           <Button type="button" onClick={addCondition} data-testid="button-add-condition">
             <Plus className="w-4 h-4" />
           </Button>
@@ -639,16 +640,16 @@ function MedicationsStep({ data, onChange }: { data: any; onChange: (d: any) => 
     <div className="space-y-6" data-testid="medications-step">
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <Label>Medication Name</Label>
-          <Input value={newMed.name} onChange={(e) => setNewMed({ ...newMed, name: e.target.value })} placeholder="e.g., Lisinopril" data-testid="input-med-name" />
+          <Label htmlFor="patient-onboarding-medication-name">Medication Name</Label>
+          <Input id="patient-onboarding-medication-name" value={newMed.name} onChange={(e) => setNewMed({ ...newMed, name: e.target.value })} placeholder="e.g., Lisinopril" data-testid="input-med-name" />
         </div>
         <div className="space-y-2">
-          <Label>Dosage</Label>
-          <Input value={newMed.dosage} onChange={(e) => setNewMed({ ...newMed, dosage: e.target.value })} placeholder="e.g., 10mg" data-testid="input-med-dosage" />
+          <Label htmlFor="patient-onboarding-dosage">Dosage</Label>
+          <Input id="patient-onboarding-dosage" value={newMed.dosage} onChange={(e) => setNewMed({ ...newMed, dosage: e.target.value })} placeholder="e.g., 10mg" data-testid="input-med-dosage" />
         </div>
         <div className="space-y-2">
-          <Label>Frequency</Label>
-          <Input value={newMed.frequency} onChange={(e) => setNewMed({ ...newMed, frequency: e.target.value })} placeholder="e.g., Once daily" data-testid="input-med-frequency" />
+          <Label htmlFor="patient-onboarding-frequency">Frequency</Label>
+          <Input id="patient-onboarding-frequency" value={newMed.frequency} onChange={(e) => setNewMed({ ...newMed, frequency: e.target.value })} placeholder="e.g., Once daily" data-testid="input-med-frequency" />
         </div>
       </div>
       <Button onClick={addMedication} disabled={!newMed.name.trim()} data-testid="button-add-medication">
@@ -700,17 +701,17 @@ function AllergiesStep({ data, onChange }: { data: any; onChange: (d: any) => vo
     <div className="space-y-6" data-testid="allergies-step">
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <Label>Allergen</Label>
-          <Input value={newAllergy.allergen} onChange={(e) => setNewAllergy({ ...newAllergy, allergen: e.target.value })} placeholder="e.g., Penicillin" data-testid="input-allergen" />
+          <Label htmlFor="patient-onboarding-allergen">Allergen</Label>
+          <Input id="patient-onboarding-allergen" value={newAllergy.allergen} onChange={(e) => setNewAllergy({ ...newAllergy, allergen: e.target.value })} placeholder="e.g., Penicillin" data-testid="input-allergen" />
         </div>
         <div className="space-y-2">
-          <Label>Reaction</Label>
-          <Input value={newAllergy.reaction} onChange={(e) => setNewAllergy({ ...newAllergy, reaction: e.target.value })} placeholder="e.g., Hives" data-testid="input-reaction" />
+          <Label htmlFor="patient-onboarding-reaction">Reaction</Label>
+          <Input id="patient-onboarding-reaction" value={newAllergy.reaction} onChange={(e) => setNewAllergy({ ...newAllergy, reaction: e.target.value })} placeholder="e.g., Hives" data-testid="input-reaction" />
         </div>
         <div className="space-y-2">
-          <Label>Severity</Label>
+          <Label htmlFor="patient-onboarding-severity">Severity</Label>
           <Select value={newAllergy.severity} onValueChange={(v) => setNewAllergy({ ...newAllergy, severity: v })}>
-            <SelectTrigger data-testid="select-severity">
+            <SelectTrigger id="patient-onboarding-severity" data-testid="select-severity">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -774,21 +775,21 @@ function EmergencyContactsStep({ data, onChange }: { data: any; onChange: (d: an
     <div className="space-y-6" data-testid="emergency-contacts-step">
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <Label>Contact Name</Label>
-          <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="Jane Doe" data-testid="input-contact-name" />
+          <Label htmlFor="patient-onboarding-contact-name">Contact Name</Label>
+          <Input id="patient-onboarding-contact-name" value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="Jane Doe" data-testid="input-contact-name" />
         </div>
         <div className="space-y-2">
-          <Label>Relationship</Label>
-          <Input value={newContact.relationship} onChange={(e) => setNewContact({ ...newContact, relationship: e.target.value })} placeholder="Spouse" data-testid="input-relationship" />
+          <Label htmlFor="patient-onboarding-relationship">Relationship</Label>
+          <Input id="patient-onboarding-relationship" value={newContact.relationship} onChange={(e) => setNewContact({ ...newContact, relationship: e.target.value })} placeholder="Spouse" data-testid="input-relationship" />
         </div>
         <div className="space-y-2">
-          <Label>Phone</Label>
-          <Input value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} placeholder="(555) 123-4567" data-testid="input-contact-phone" />
+          <Label htmlFor="patient-onboarding-phone">Phone</Label>
+          <Input id="patient-onboarding-phone" value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} placeholder="(555) 123-4567" data-testid="input-contact-phone" />
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Checkbox checked={newContact.isPrimaryContact} onCheckedChange={(c) => setNewContact({ ...newContact, isPrimaryContact: !!c })} data-testid="checkbox-primary-contact" />
-        <Label>Primary contact</Label>
+        <FieldCaption>Primary contact</FieldCaption>
       </div>
       <Button onClick={addContact} disabled={!newContact.name.trim() || !newContact.phone.trim()} data-testid="button-add-contact">
         <Plus className="w-4 h-4 mr-2" /> Add Contact
@@ -1057,7 +1058,7 @@ function HealthAssessmentStep({ questions, sessionId, isLoading, isError }: { qu
                     handleResponse(q.id, checked ? [...current, opt] : current.filter((o: string) => o !== opt));
                   }}
                 />
-                <Label>{opt}</Label>
+                <FieldCaption>{opt}</FieldCaption>
               </div>
             ))}
           </div>
@@ -1183,7 +1184,7 @@ function ConsentStep({ data, onChange }: { data: any; onChange: (d: any) => void
           <div className="flex items-start gap-3">
             <Checkbox checked={consent.termsAccepted} onCheckedChange={(c) => handleChange("termsAccepted", !!c)} data-testid="checkbox-terms" />
             <div>
-              <Label className="font-medium">Terms of Service</Label>
+              <FieldCaption className="font-medium">Terms of Service</FieldCaption>
               <p className="text-sm text-muted-foreground">I agree to the Terms of Service and understand my rights and responsibilities as a user.</p>
             </div>
           </div>
@@ -1195,7 +1196,7 @@ function ConsentStep({ data, onChange }: { data: any; onChange: (d: any) => void
           <div className="flex items-start gap-3">
             <Checkbox checked={consent.privacyPolicyAccepted} onCheckedChange={(c) => handleChange("privacyPolicyAccepted", !!c)} data-testid="checkbox-privacy" />
             <div>
-              <Label className="font-medium">Privacy Policy</Label>
+              <FieldCaption className="font-medium">Privacy Policy</FieldCaption>
               <p className="text-sm text-muted-foreground">I have read and understand how my health data will be collected, used, and protected.</p>
             </div>
           </div>
@@ -1207,7 +1208,7 @@ function ConsentStep({ data, onChange }: { data: any; onChange: (d: any) => void
           <div className="flex items-start gap-3">
             <Checkbox checked={consent.dataProcessingConsent} onCheckedChange={(c) => handleChange("dataProcessingConsent", !!c)} data-testid="checkbox-data-processing" />
             <div>
-              <Label className="font-medium">Data Processing Consent</Label>
+              <FieldCaption className="font-medium">Data Processing Consent</FieldCaption>
               <p className="text-sm text-muted-foreground">I consent to the processing of my health information to provide personalized care recommendations and insights.</p>
             </div>
           </div>
@@ -1219,7 +1220,7 @@ function ConsentStep({ data, onChange }: { data: any; onChange: (d: any) => void
           <div className="flex items-start gap-3">
             <Checkbox checked={consent.hipaaAiDisclosure} onCheckedChange={(c) => handleChange("hipaaAiDisclosure", !!c)} data-testid="checkbox-hipaa-ai-disclosure" />
             <div>
-              <Label className="font-medium">HIPAA AI Disclosure <Badge variant="secondary" className="ml-1">Required</Badge></Label>
+              <FieldCaption className="font-medium">HIPAA AI Disclosure <Badge variant="secondary" className="ml-1">Required</Badge></FieldCaption>
               <p className="text-sm text-muted-foreground">I authorize Tabula Medica to use AI to summarize my records. AI-generated summaries are for informational purposes only and do not replace professional medical advice. Your data is processed in compliance with HIPAA regulations.</p>
             </div>
           </div>
@@ -1231,7 +1232,7 @@ function ConsentStep({ data, onChange }: { data: any; onChange: (d: any) => void
           <div className="flex items-start gap-3">
             <Checkbox checked={consent.fastenHealthAuthorization} onCheckedChange={(c) => handleChange("fastenHealthAuthorization", !!c)} data-testid="checkbox-fasten-health" />
             <div>
-              <Label className="font-medium">Fasten Health Record Retrieval <Badge variant="secondary" className="ml-1">Required</Badge></Label>
+              <FieldCaption className="font-medium">Fasten Health Record Retrieval <Badge variant="secondary" className="ml-1">Required</Badge></FieldCaption>
               <p className="text-sm text-muted-foreground">I authorize Fasten Health to retrieve my records from my selected hospitals. This allows Tabula Medica to securely import your health records from participating healthcare providers on your behalf.</p>
             </div>
           </div>

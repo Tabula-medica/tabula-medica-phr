@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -468,12 +469,12 @@ export function InteroperabilityHub() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Source Type</Label>
+                <Label htmlFor="interoperability-hub-source-type">Source Type</Label>
                 <Select
                   value={newConnection.sourceType}
                   onValueChange={(value) => setNewConnection({ ...newConnection, sourceType: value as DataSourceConnection['sourceType'] })}
                 >
-                  <SelectTrigger data-testid="select-source-type">
+                  <SelectTrigger id="interoperability-hub-source-type" data-testid="select-source-type">
                     <SelectValue placeholder="Select source type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -494,8 +495,8 @@ export function InteroperabilityHub() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Source Name</Label>
-                  <Input
+                  <Label htmlFor="interoperability-hub-source-name">Source Name</Label>
+                  <Input id="interoperability-hub-source-name"
                     placeholder="e.g., City General Hospital"
                     value={newConnection.sourceName}
                     onChange={(e) => setNewConnection({ ...newConnection, sourceName: e.target.value })}
@@ -503,8 +504,8 @@ export function InteroperabilityHub() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Organization</Label>
-                  <Input
+                  <Label htmlFor="interoperability-hub-organization">Organization</Label>
+                  <Input id="interoperability-hub-organization"
                     placeholder="e.g., ABC Health System"
                     value={newConnection.sourceOrganization}
                     onChange={(e) => setNewConnection({ ...newConnection, sourceOrganization: e.target.value })}
@@ -515,12 +516,12 @@ export function InteroperabilityHub() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Protocol</Label>
+                  <Label htmlFor="interoperability-hub-protocol">Protocol</Label>
                   <Select
                     value={newConnection.protocol}
                     onValueChange={(value) => setNewConnection({ ...newConnection, protocol: value as DataSourceConnection['protocol'] })}
                   >
-                    <SelectTrigger data-testid="select-protocol">
+                    <SelectTrigger id="interoperability-hub-protocol" data-testid="select-protocol">
                       <SelectValue placeholder="Select protocol" />
                     </SelectTrigger>
                     <SelectContent>
@@ -535,12 +536,12 @@ export function InteroperabilityHub() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Sync Frequency</Label>
+                  <Label htmlFor="interoperability-hub-sync-frequency">Sync Frequency</Label>
                   <Select
                     value={newConnection.syncFrequency}
                     onValueChange={(value) => setNewConnection({ ...newConnection, syncFrequency: value as DataSourceConnection['syncFrequency'] })}
                   >
-                    <SelectTrigger data-testid="select-sync-frequency">
+                    <SelectTrigger id="interoperability-hub-sync-frequency" data-testid="select-sync-frequency">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -555,8 +556,8 @@ export function InteroperabilityHub() {
               </div>
 
               <div className="space-y-2">
-                <Label>Endpoint URL (optional)</Label>
-                <Input
+                <Label htmlFor="interoperability-hub-endpoint-url-optional">Endpoint URL (optional)</Label>
+                <Input id="interoperability-hub-endpoint-url-optional"
                   placeholder="https://api.hospital.com/fhir/r4"
                   value={newConnection.endpoint}
                   onChange={(e) => setNewConnection({ ...newConnection, endpoint: e.target.value })}
@@ -567,13 +568,13 @@ export function InteroperabilityHub() {
               <Separator />
 
               <div className="space-y-2">
-                <Label>Data Types to Import</Label>
+                <FieldCaption>Data Types to Import</FieldCaption>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                   {dataTypes.map((dt) => {
                     const isSelected = newConnection.dataPermissions.some(p => p.dataType === dt.id);
                     return (
                       <div key={dt.id} className="flex items-center gap-2">
-                        <Checkbox
+                        <Checkbox aria-label="Data Types to Import"
                           id={`dt-${dt.id}`}
                           checked={isSelected}
                           onCheckedChange={(checked) => {

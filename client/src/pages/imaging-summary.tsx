@@ -174,9 +174,9 @@ export default function ImagingSummaryPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Modality *</Label>
+                    <Label htmlFor="imaging-summary-modality">Modality *</Label>
                     <Select value={modality} onValueChange={setModality}>
-                      <SelectTrigger data-testid="select-modality">
+                      <SelectTrigger id="imaging-summary-modality" data-testid="select-modality">
                         <SelectValue placeholder="Select modality..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -190,9 +190,9 @@ export default function ImagingSummaryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Body Part *</Label>
+                    <Label htmlFor="imaging-summary-body-part">Body Part *</Label>
                     <Select value={bodyPart} onValueChange={setBodyPart}>
-                      <SelectTrigger data-testid="select-body-part">
+                      <SelectTrigger id="imaging-summary-body-part" data-testid="select-body-part">
                         <SelectValue placeholder="Select body part..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -207,8 +207,8 @@ export default function ImagingSummaryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Report Text *</Label>
-                  <Textarea
+                  <Label htmlFor="imaging-summary-report-text">Report Text *</Label>
+                  <Textarea id="imaging-summary-report-text"
                     placeholder="Paste the full imaging report text here..."
                     value={reportText}
                     onChange={(e) => setReportText(e.target.value)}
@@ -219,8 +219,8 @@ export default function ImagingSummaryPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Source System *</Label>
-                    <Input
+                    <Label htmlFor="imaging-summary-source-system">Source System *</Label>
+                    <Input id="imaging-summary-source-system"
                       placeholder="e.g., RadNet"
                       value={sourceSystem}
                       onChange={(e) => setSourceSystem(e.target.value)}
@@ -229,8 +229,8 @@ export default function ImagingSummaryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Report Date</Label>
-                    <Input
+                    <Label htmlFor="imaging-summary-report-date">Report Date</Label>
+                    <Input id="imaging-summary-report-date"
                       type="date"
                       value={reportDate}
                       onChange={(e) => setReportDate(e.target.value)}
@@ -240,8 +240,8 @@ export default function ImagingSummaryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Record ID *</Label>
-                  <Input
+                  <Label htmlFor="imaging-summary-record-id">Record ID *</Label>
+                  <Input id="imaging-summary-record-id"
                     placeholder="e.g., IMG-2024-001"
                     value={recordId}
                     onChange={(e) => setRecordId(e.target.value)}

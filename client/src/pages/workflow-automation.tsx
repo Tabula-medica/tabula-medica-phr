@@ -29,6 +29,7 @@ import {
   Eye
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface DataQualityIssue {
   id: string;
@@ -563,7 +564,7 @@ export default function WorkflowAutomation() {
                         className={`p-3 rounded-lg border cursor-pointer transition-colors hover-elevate ${
                           selectedTask?.id === task.id ? "border-primary bg-primary/5" : ""
                         }`}
-                        onClick={() => setSelectedTask(task)}
+                        {...clickable(() => setSelectedTask(task))}
                         data-testid={`card-task-${task.id}`}
                       >
                         <div className="flex items-center justify-between mb-1">

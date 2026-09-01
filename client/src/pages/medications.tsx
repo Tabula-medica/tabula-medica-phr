@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -316,10 +317,10 @@ function StructuredDoseInput({
   return (
     <div className="space-y-4" data-testid="structured-dose-input">
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Dose Amount</Label>
+        <Label htmlFor="medications-dose-amount" className="text-sm font-medium">Dose Amount</Label>
         <div className="flex gap-2 flex-wrap">
           <div className="flex-1 min-w-0">
-            <Input
+            <Input id="medications-dose-amount"
               type="number"
               min="0"
               step="0.5"
@@ -345,7 +346,7 @@ function StructuredDoseInput({
       </div>
       
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Quick Select</Label>
+        <FieldCaption className="text-xs text-muted-foreground">Quick Select</FieldCaption>
         <div className="flex flex-wrap gap-1.5">
           {presets.slice(0, 8).map((preset) => (
             <Button
@@ -363,9 +364,9 @@ function StructuredDoseInput({
       
       {showFrequency && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium">How Often</Label>
+          <Label htmlFor="medications-how-often" className="text-sm font-medium">How Often</Label>
           <Select value={frequency} onValueChange={onFrequencyChange}>
-            <SelectTrigger data-testid="select-dose-frequency">
+            <SelectTrigger id="medications-how-often" data-testid="select-dose-frequency">
               <SelectValue placeholder="Select frequency" />
             </SelectTrigger>
             <SelectContent>
@@ -698,7 +699,7 @@ function MedicationCard({
             </div>
             
             <div className="flex flex-col items-end gap-1">
-              <Label className="text-xs text-muted-foreground mb-1">Taking?</Label>
+              <FieldCaption className="text-xs text-muted-foreground mb-1">Taking?</FieldCaption>
               <ToggleGroup 
                 type="single" 
                 size="sm"
@@ -1841,7 +1842,7 @@ export default function Medications() {
           {selectedMedForReminder && (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">Medication</Label>
+                <FieldCaption className="text-sm font-medium">Medication</FieldCaption>
                 <p className="text-lg font-semibold">{selectedMedForReminder.name}</p>
                 <p className="text-sm text-muted-foreground">{selectedMedForReminder.dosage}</p>
               </div>
@@ -1913,13 +1914,13 @@ export default function Medications() {
           ) : selectedMedForLog ? (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">Medication</Label>
+                <FieldCaption className="text-sm font-medium">Medication</FieldCaption>
                 <p className="text-lg font-semibold">{selectedMedForLog.name}</p>
                 <p className="text-sm text-muted-foreground">{selectedMedForLog.dosage}</p>
               </div>
               
               <div>
-                <Label className="text-sm font-medium mb-2 block">Did you take this dose?</Label>
+                <FieldCaption className="text-sm font-medium mb-2 block">Did you take this dose?</FieldCaption>
                 <div className="flex gap-2 flex-wrap">
                   <Button
                     variant={logDoseAction === "taken" ? "default" : "outline"}
@@ -1954,12 +1955,12 @@ export default function Medications() {
               {(logDoseAction === "skipped" || logDoseAction === "missed") && (
                 <div className="space-y-4 animate-in fade-in">
                   <div>
-                    <Label className="text-sm font-medium mb-2 block">Why did you miss this dose?</Label>
+                    <Label htmlFor="medications-why-did-you-miss-this-dose" className="text-sm font-medium mb-2 block">Why did you miss this dose?</Label>
                     <p className="text-xs text-muted-foreground mb-3">
                       This helps our AI provide personalized coaching to help you stay on track
                     </p>
                     <Select value={missedReason} onValueChange={(v) => setMissedReason(v as MissedDoseReason)}>
-                      <SelectTrigger data-testid="select-missed-reason">
+                      <SelectTrigger id="medications-why-did-you-miss-this-dose" data-testid="select-missed-reason">
                         <SelectValue placeholder="Select a reason..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1974,8 +1975,8 @@ export default function Medications() {
 
                   {missedReason && (
                     <div>
-                      <Label className="text-sm font-medium mb-2 block">Any additional details? (optional)</Label>
-                      <Textarea
+                      <Label htmlFor="medications-any-additional-details-optional" className="text-sm font-medium mb-2 block">Any additional details? (optional)</Label>
+                      <Textarea id="medications-any-additional-details-optional"
                         placeholder="Tell us more about what happened..."
                         value={missedReasonDetails}
                         onChange={(e) => setMissedReasonDetails(e.target.value)}
@@ -2067,7 +2068,7 @@ export default function Medications() {
       </Dialog>
 
       {explainTerm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setExplainTerm(null)}>
+        <div role="presentation" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setExplainTerm(null)}>
           <Card className="max-w-md w-full animate-in fade-in zoom-in" onClick={(e) => e.stopPropagation()}>
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap pb-2">
               <CardTitle className="text-lg flex items-center gap-2 flex-wrap">

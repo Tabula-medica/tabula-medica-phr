@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import { 
   Sparkles, FileJson, Link2, Lightbulb, AlertCircle, 
   Loader2, RefreshCw, Plus, Trash2, ArrowRight, 
@@ -338,9 +339,9 @@ export default function AIFHIRResourceManagement() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Resource Type (Optional)</Label>
+                    <Label htmlFor="ai-fhir-resource-managem-resource-type-optional">Resource Type (Optional)</Label>
                     <Select value={selectedResourceType} onValueChange={setSelectedResourceType}>
-                      <SelectTrigger data-testid="select-resource-type">
+                      <SelectTrigger id="ai-fhir-resource-managem-resource-type-optional" data-testid="select-resource-type">
                         <SelectValue placeholder="Auto-detect from description" />
                       </SelectTrigger>
                       <SelectContent>
@@ -462,9 +463,9 @@ export default function AIFHIRResourceManagement() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Source Resource</Label>
+                    <Label htmlFor="ai-fhir-resource-managem-source-resource">Source Resource</Label>
                     <Select value={sourceResourceId} onValueChange={setSourceResourceId}>
-                      <SelectTrigger data-testid="select-source-resource">
+                      <SelectTrigger id="ai-fhir-resource-managem-source-resource" data-testid="select-source-resource">
                         <SelectValue placeholder="Select source" />
                       </SelectTrigger>
                       <SelectContent>
@@ -477,9 +478,9 @@ export default function AIFHIRResourceManagement() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Link Type</Label>
+                    <Label htmlFor="ai-fhir-resource-managem-link-type">Link Type</Label>
                     <Select value={linkType} onValueChange={setLinkType}>
-                      <SelectTrigger data-testid="select-link-type">
+                      <SelectTrigger id="ai-fhir-resource-managem-link-type" data-testid="select-link-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -494,9 +495,9 @@ export default function AIFHIRResourceManagement() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Target Resource</Label>
+                    <Label htmlFor="ai-fhir-resource-managem-target-resource">Target Resource</Label>
                     <Select value={targetResourceId} onValueChange={setTargetResourceId}>
-                      <SelectTrigger data-testid="select-target-resource">
+                      <SelectTrigger id="ai-fhir-resource-managem-target-resource" data-testid="select-target-resource">
                         <SelectValue placeholder="Select target" />
                       </SelectTrigger>
                       <SelectContent>
@@ -585,9 +586,9 @@ export default function AIFHIRResourceManagement() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Resource Type</Label>
+                    <Label htmlFor="ai-fhir-resource-managem-resource-type">Resource Type</Label>
                     <Select value={structureResourceType} onValueChange={setStructureResourceType}>
-                      <SelectTrigger data-testid="select-structure-type">
+                      <SelectTrigger id="ai-fhir-resource-managem-resource-type" data-testid="select-structure-type">
                         <SelectValue placeholder="Select resource type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -598,8 +599,8 @@ export default function AIFHIRResourceManagement() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Use Case</Label>
-                    <Input
+                    <Label htmlFor="ai-fhir-resource-managem-use-case">Use Case</Label>
+                    <Input id="ai-fhir-resource-managem-use-case"
                       placeholder="e.g., Recording vital signs, Lab results entry"
                       value={useCaseInput}
                       onChange={(e) => setUseCaseInput(e.target.value)}
@@ -706,7 +707,7 @@ export default function AIFHIRResourceManagement() {
                       <div 
                         key={s.id} 
                         className="p-3 bg-muted rounded-md cursor-pointer"
-                        onClick={() => setGeneratedSuggestion(s)}
+                        {...clickable(() => setGeneratedSuggestion(s))}
                         data-testid={`suggestion-${s.id}`}
                       >
                         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -744,7 +745,7 @@ export default function AIFHIRResourceManagement() {
                       <div 
                         key={r.id} 
                         className="p-4 bg-muted rounded-md cursor-pointer"
-                        onClick={() => setSelectedGeneratedResource(r)}
+                        {...clickable(() => setSelectedGeneratedResource(r))}
                         data-testid={`resource-${r.id}`}
                       >
                         <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">

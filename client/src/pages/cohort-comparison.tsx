@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Users,
   BarChart3,
@@ -333,7 +334,7 @@ export default function CohortComparison() {
                           className={`p-3 border rounded-lg cursor-pointer hover-elevate ${
                             activeComparison?.id === comp.id ? "border-primary bg-primary/5" : ""
                           }`}
-                          onClick={() => setActiveComparison(comp)}
+                          {...clickable(() => setActiveComparison(comp))}
                           data-testid={`comparison-${comp.id}`}
                         >
                           <div className="flex items-center justify-between gap-2">

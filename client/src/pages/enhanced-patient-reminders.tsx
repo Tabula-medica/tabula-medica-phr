@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -547,7 +548,7 @@ export default function EnhancedPatientReminders() {
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>AI Personalization</Label>
+                    <FieldCaption>AI Personalization</FieldCaption>
                     <p className="text-sm text-muted-foreground">Use AI to personalize reminder messages</p>
                   </div>
                   <Switch defaultChecked data-testid="switch-ai-personalization" />
@@ -555,14 +556,14 @@ export default function EnhancedPatientReminders() {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Smart Timing</Label>
+                    <FieldCaption>Smart Timing</FieldCaption>
                     <p className="text-sm text-muted-foreground">Optimize delivery times based on your response patterns</p>
                   </div>
                   <Switch defaultChecked data-testid="switch-smart-timing" />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Preferred Channels</Label>
+                  <FieldCaption>Preferred Channels</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {["email", "sms", "push", "in_app"].map((channel) => (
                       <Badge 
@@ -579,12 +580,12 @@ export default function EnhancedPatientReminders() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Quiet Hours Start</Label>
-                    <Input type="time" defaultValue="22:00" data-testid="input-quiet-start" />
+                    <Label htmlFor="enhanced-patient-reminde-quiet-hours-start">Quiet Hours Start</Label>
+                    <Input id="enhanced-patient-reminde-quiet-hours-start" type="time" defaultValue="22:00" data-testid="input-quiet-start" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Quiet Hours End</Label>
-                    <Input type="time" defaultValue="07:00" data-testid="input-quiet-end" />
+                    <Label htmlFor="enhanced-patient-reminde-quiet-hours-end">Quiet Hours End</Label>
+                    <Input id="enhanced-patient-reminde-quiet-hours-end" type="time" defaultValue="07:00" data-testid="input-quiet-end" />
                   </div>
                 </div>
 

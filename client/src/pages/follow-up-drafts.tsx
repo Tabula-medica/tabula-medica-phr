@@ -502,8 +502,8 @@ export default function FollowUpDrafts() {
                 </CardHeader>
                 <CardContent className="flex-1 space-y-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Message Content</label>
-                    <Textarea
+                    <label htmlFor="follow-up-drafts-message-content" className="text-sm font-medium mb-2 block">Message Content</label>
+                    <Textarea id="follow-up-drafts-message-content"
                       value={editedContent}
                       onChange={(e) => setEditedContent(e.target.value)}
                       className="min-h-[200px] resize-none"
@@ -514,7 +514,7 @@ export default function FollowUpDrafts() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Tone</label>
+                      <span className="text-sm font-medium mb-2 block">Tone</span>
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                         {(() => {
                           const ToneIcon = toneConfig[selectedDraft.tone].icon;
@@ -528,7 +528,7 @@ export default function FollowUpDrafts() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Generated</label>
+                      <span className="text-sm font-medium mb-2 block">Generated</span>
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                         <Clock className="h-5 w-5 text-muted-foreground" />
                         <span>{format(new Date(selectedDraft.generatedAt), "MMM d, yyyy h:mm a")}</span>
@@ -538,7 +538,7 @@ export default function FollowUpDrafts() {
 
                   {selectedDraft.personalizedElements.length > 0 && (
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Personalized Elements</label>
+                      <span className="text-sm font-medium mb-2 block">Personalized Elements</span>
                       <div className="flex flex-wrap gap-2">
                         {selectedDraft.personalizedElements.map((element, i) => (
                           <Badge key={i} variant="secondary" className="text-xs">
@@ -552,7 +552,7 @@ export default function FollowUpDrafts() {
 
                   {selectedDraft.actionItems.length > 0 && (
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Action Items for Patient</label>
+                      <span className="text-sm font-medium mb-2 block">Action Items for Patient</span>
                       <ul className="space-y-1">
                         {selectedDraft.actionItems.map((item, i) => (
                           <li key={i} className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50">

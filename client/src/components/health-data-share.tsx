@@ -491,9 +491,9 @@ function CreateShareForm({
         </div>
 
         <div className="space-y-2">
-          <Label>Recipient Type *</Label>
+          <Label htmlFor="health-data-share-recipient-type">Recipient Type *</Label>
           <Select value={recipientType} onValueChange={setRecipientType}>
-            <SelectTrigger data-testid="select-recipient-type">
+            <SelectTrigger id="health-data-share-recipient-type" data-testid="select-recipient-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -508,11 +508,11 @@ function CreateShareForm({
         <Separator />
 
         <div className="space-y-2">
-          <Label>Data Sections to Share *</Label>
+          <Label htmlFor="health-data-share-data-sections-to-share">Data Sections to Share *</Label>
           <p className="text-xs text-muted-foreground">Select which parts of your health record to share</p>
           <div className="grid grid-cols-2 gap-2 mt-2">
             {sections.map(section => (
-              <div
+              <div role="presentation"
                 key={section.id}
                 className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                   selectedSections.includes(section.id) 
@@ -523,7 +523,7 @@ function CreateShareForm({
                 data-testid={`section-${section.id}`}
               >
                 <div className="flex items-center gap-2">
-                  <Checkbox 
+                  <Checkbox id="health-data-share-data-sections-to-share" 
                     checked={selectedSections.includes(section.id)}
                     onCheckedChange={() => toggleSection(section.id)}
                   />
@@ -540,9 +540,9 @@ function CreateShareForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Expires After *</Label>
+            <Label htmlFor="health-data-share-expires-after">Expires After *</Label>
             <Select value={expiresInHours} onValueChange={setExpiresInHours}>
-              <SelectTrigger data-testid="select-expiry">
+              <SelectTrigger id="health-data-share-expires-after" data-testid="select-expiry">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -557,8 +557,8 @@ function CreateShareForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Max Accesses (optional)</Label>
-            <Input
+            <Label htmlFor="health-data-share-max-accesses-optional">Max Accesses (optional)</Label>
+            <Input id="health-data-share-max-accesses-optional"
               type="number"
               placeholder="Unlimited"
               min={1}

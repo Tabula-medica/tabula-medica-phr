@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -1546,7 +1547,7 @@ function AddWellnessDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Physical Well-being</Label>
+              <FieldCaption>Physical Well-being</FieldCaption>
               <span className="font-medium">{physicalScore}</span>
             </div>
             <Input
@@ -1561,7 +1562,7 @@ function AddWellnessDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Emotional Well-being</Label>
+              <FieldCaption>Emotional Well-being</FieldCaption>
               <span className="font-medium">{emotionalScore}</span>
             </div>
             <Input
@@ -1576,7 +1577,7 @@ function AddWellnessDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Social Connection</Label>
+              <FieldCaption>Social Connection</FieldCaption>
               <span className="font-medium">{socialScore}</span>
             </div>
             <Input
@@ -1591,7 +1592,7 @@ function AddWellnessDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Sleep Quality</Label>
+              <FieldCaption>Sleep Quality</FieldCaption>
               <span className="font-medium">{sleepQuality}</span>
             </div>
             <Input
@@ -1606,7 +1607,7 @@ function AddWellnessDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Energy Level</Label>
+              <FieldCaption>Energy Level</FieldCaption>
               <span className="font-medium">{energyLevel}</span>
             </div>
             <Input
@@ -1621,7 +1622,7 @@ function AddWellnessDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Pain Level (1=none, 10=severe)</Label>
+              <FieldCaption>Pain Level (1=none, 10=severe)</FieldCaption>
               <span className="font-medium">{painLevel}</span>
             </div>
             <Input
@@ -1636,7 +1637,7 @@ function AddWellnessDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Anxiety Level (1=none, 10=severe)</Label>
+              <FieldCaption>Anxiety Level (1=none, 10=severe)</FieldCaption>
               <span className="font-medium">{anxietyLevel}</span>
             </div>
             <Input
@@ -1650,8 +1651,8 @@ function AddWellnessDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Notes (optional)</Label>
-            <Textarea
+            <Label htmlFor="survivorship-notes-optional">Notes (optional)</Label>
+            <Textarea id="survivorship-notes-optional"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="How are you feeling today?"
@@ -1715,7 +1716,7 @@ function QoLAssessmentDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Physical Function</Label>
+              <FieldCaption>Physical Function</FieldCaption>
               <span className="font-medium">{physical}%</span>
             </div>
             <Input
@@ -1731,7 +1732,7 @@ function QoLAssessmentDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Emotional Well-being</Label>
+              <FieldCaption>Emotional Well-being</FieldCaption>
               <span className="font-medium">{emotional}%</span>
             </div>
             <Input
@@ -1747,7 +1748,7 @@ function QoLAssessmentDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Social Function</Label>
+              <FieldCaption>Social Function</FieldCaption>
               <span className="font-medium">{social}%</span>
             </div>
             <Input
@@ -1763,7 +1764,7 @@ function QoLAssessmentDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Functional Well-being</Label>
+              <FieldCaption>Functional Well-being</FieldCaption>
               <span className="font-medium">{functional}%</span>
             </div>
             <Input
@@ -1779,7 +1780,7 @@ function QoLAssessmentDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Cognitive Function</Label>
+              <FieldCaption>Cognitive Function</FieldCaption>
               <span className="font-medium">{cognitive}%</span>
             </div>
             <Input
@@ -1795,7 +1796,7 @@ function QoLAssessmentDialog({
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Spiritual Well-being</Label>
+              <FieldCaption>Spiritual Well-being</FieldCaption>
               <span className="font-medium">{spiritual}%</span>
             </div>
             <Input
@@ -2536,7 +2537,7 @@ function AddDailyWellnessDialog({
           ].map(({ label, value, setValue, hint }) => (
             <div key={label} className="space-y-1">
               <div className="flex justify-between text-sm">
-                <Label>{label}</Label>
+                <FieldCaption>{label}</FieldCaption>
                 <span className="font-medium">{value}</span>
               </div>
               <Input type="range" min="0" max="10" value={value} onChange={(e) => setValue(Number(e.target.value))} className="w-full" />
@@ -2544,8 +2545,8 @@ function AddDailyWellnessDialog({
             </div>
           ))}
           <div className="space-y-1">
-            <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="How are you feeling today?" rows={2} />
+            <Label htmlFor="survivorship-notes-optional-2">Notes (optional)</Label>
+            <Textarea id="survivorship-notes-optional-2" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="How are you feeling today?" rows={2} />
           </div>
         </div>
         <DialogFooter>
@@ -2842,9 +2843,9 @@ function AddSymptomDialog({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Symptom Type</Label>
+            <Label htmlFor="survivorship-symptom-type">Symptom Type</Label>
             <Select value={symptomType} onValueChange={setSymptomType}>
-              <SelectTrigger data-testid="select-symptom-type"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="survivorship-symptom-type" data-testid="select-symptom-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {symptomTypes.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
               </SelectContent>
@@ -2852,36 +2853,36 @@ function AddSymptomDialog({
           </div>
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
-              <Label>Severity</Label>
+              <FieldCaption>Severity</FieldCaption>
               <span className="font-medium">{severity}/10</span>
             </div>
             <Input type="range" min="1" max="10" value={severity} onChange={(e) => setSeverity(Number(e.target.value))} className="w-full" />
           </div>
           <div className="space-y-2">
-            <Label>Duration</Label>
+            <Label htmlFor="survivorship-duration">Duration</Label>
             <Select value={duration} onValueChange={setDuration}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="survivorship-duration"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {durations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Location (optional)</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., fingertips, knees, head" />
+            <Label htmlFor="survivorship-location-optional">Location (optional)</Label>
+            <Input id="survivorship-location-optional" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., fingertips, knees, head" />
           </div>
           <div className="space-y-2">
-            <Label>Triggers (comma-separated)</Label>
-            <Input value={triggers} onChange={(e) => setTriggers(e.target.value)} placeholder="e.g., stress, cold weather, exercise" />
+            <Label htmlFor="survivorship-triggers-comma-separated">Triggers (comma-separated)</Label>
+            <Input id="survivorship-triggers-comma-separated" value={triggers} onChange={(e) => setTriggers(e.target.value)} placeholder="e.g., stress, cold weather, exercise" />
           </div>
           <div className="space-y-2">
-            <Label>Relief Methods (comma-separated)</Label>
-            <Input value={reliefMethods} onChange={(e) => setReliefMethods(e.target.value)} placeholder="e.g., rest, medication, heat" />
+            <Label htmlFor="survivorship-relief-methods-comma-separated">Relief Methods (comma-separated)</Label>
+            <Input id="survivorship-relief-methods-comma-separated" value={reliefMethods} onChange={(e) => setReliefMethods(e.target.value)} placeholder="e.g., rest, medication, heat" />
           </div>
           {reliefMethods && (
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <Label>Relief Effectiveness</Label>
+                <FieldCaption>Relief Effectiveness</FieldCaption>
                 <span className="font-medium">{reliefEffectiveness}/10</span>
               </div>
               <Input type="range" min="0" max="10" value={reliefEffectiveness} onChange={(e) => setReliefEffectiveness(Number(e.target.value))} className="w-full" />
@@ -2892,8 +2893,8 @@ function AddSymptomDialog({
             <Label htmlFor="affected" className="text-sm">Affected daily activities</Label>
           </div>
           <div className="space-y-2">
-            <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional details..." rows={2} />
+            <Label htmlFor="survivorship-notes-optional-3">Notes (optional)</Label>
+            <Textarea id="survivorship-notes-optional-3" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional details..." rows={2} />
           </div>
         </div>
         <DialogFooter>

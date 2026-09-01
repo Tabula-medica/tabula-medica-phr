@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -233,7 +234,7 @@ export default function FHIRExportPage() {
                         <h4 className="font-medium text-sm mb-2">{category}</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {resources.map((r) => (
-                            <div
+                            <div role="presentation"
                               key={r.type}
                               className={`flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover-elevate ${
                                 selectedResources.includes(r.type) ? "border-primary bg-primary/5" : ""
@@ -262,8 +263,8 @@ export default function FHIRExportPage() {
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Export Name</Label>
-                      <Input
+                      <Label htmlFor="fhir-export-export-name">Export Name</Label>
+                      <Input id="fhir-export-export-name"
                         value={exportName}
                         onChange={(e) => setExportName(e.target.value)}
                         placeholder="My Health Records"
@@ -271,9 +272,9 @@ export default function FHIRExportPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Export Format</Label>
+                      <Label htmlFor="fhir-export-export-format">Export Format</Label>
                       <Select value={selectedFormat} onValueChange={setSelectedFormat} data-testid="select-format">
-                        <SelectTrigger>
+                        <SelectTrigger id="fhir-export-export-format">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -291,8 +292,8 @@ export default function FHIRExportPage() {
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Date Range Start</Label>
-                      <Input
+                      <Label htmlFor="fhir-export-date-range-start">Date Range Start</Label>
+                      <Input id="fhir-export-date-range-start"
                         type="date"
                         value={dateStart}
                         onChange={(e) => setDateStart(e.target.value)}
@@ -300,8 +301,8 @@ export default function FHIRExportPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Date Range End</Label>
-                      <Input
+                      <Label htmlFor="fhir-export-date-range-end">Date Range End</Label>
+                      <Input id="fhir-export-date-range-end"
                         type="date"
                         value={dateEnd}
                         onChange={(e) => setDateEnd(e.target.value)}
@@ -313,11 +314,11 @@ export default function FHIRExportPage() {
                   <div className="flex flex-wrap gap-6">
                     <div className="flex items-center gap-2">
                       <Switch checked={includeRelated} onCheckedChange={setIncludeRelated} data-testid="switch-related" />
-                      <Label>Include related resources</Label>
+                      <FieldCaption>Include related resources</FieldCaption>
                     </div>
                     <div className="flex items-center gap-2">
                       <Switch checked={deidentify} onCheckedChange={setDeidentify} data-testid="switch-deidentify" />
-                      <Label>De-identify data (for research)</Label>
+                      <FieldCaption>De-identify data (for research)</FieldCaption>
                     </div>
                   </div>
                 </CardContent>

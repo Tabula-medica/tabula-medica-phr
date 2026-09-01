@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
+import { clickable } from "@/lib/a11y";
 import {
   ScrollText,
   Image,
@@ -286,7 +288,7 @@ export default function ExtractionPipeline() {
         <TabsContent value="overview" className="mt-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium">Filter:</Label>
+              <FieldCaption className="text-sm font-medium">Filter:</FieldCaption>
               {["all", "pending-review", "auto-approved", "reviewed"].map(f => (
                 <Button key={f} variant={queueFilter === f ? "default" : "outline"} size="sm" onClick={() => setQueueFilter(f)} data-testid={`filter-${f}`}>
                   {f === "all" ? "All" : f === "pending-review" ? "Pending" : f === "auto-approved" ? "Approved" : "Reviewed"}
@@ -300,7 +302,7 @@ export default function ExtractionPipeline() {
               <div className="space-y-3">
                 {queueData?.items?.map((doc: any) => (
                   <Card key={doc.id} className="overflow-hidden" data-testid={`doc-card-${doc.id}`}>
-                    <div className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" onClick={() => setExpandedDoc(expandedDoc === doc.id ? null : doc.id)} data-testid={`doc-toggle-${doc.id}`}>
+                    <div className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" {...clickable(() => setExpandedDoc(expandedDoc === doc.id ? null : doc.id))} data-testid={`doc-toggle-${doc.id}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {expandedDoc === doc.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

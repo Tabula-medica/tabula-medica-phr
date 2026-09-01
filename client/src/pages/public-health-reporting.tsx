@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -226,11 +227,11 @@ export default function PublicHealthReporting() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Vaccine Types</Label>
+                  <FieldCaption className="text-sm font-medium">Vaccine Types</FieldCaption>
                   <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
                     {filters.vaccineTypes.map((vt) => (
                       <div key={vt} className="flex items-center gap-2">
-                        <Checkbox
+                        <Checkbox aria-label="Vaccine Types"
                           id={`vt-${vt}`}
                           checked={selectedVaccineTypes.includes(vt)}
                           onCheckedChange={(checked) => {
@@ -248,11 +249,11 @@ export default function PublicHealthReporting() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Age Groups</Label>
+                  <FieldCaption className="text-sm font-medium">Age Groups</FieldCaption>
                   <div className="mt-2 space-y-2">
                     {filters.ageGroups.map((ag) => (
                       <div key={ag} className="flex items-center gap-2">
-                        <Checkbox
+                        <Checkbox aria-label="Age Groups"
                           id={`ag-${ag}`}
                           checked={selectedAgeGroups.includes(ag)}
                           onCheckedChange={(checked) => {
@@ -270,11 +271,11 @@ export default function PublicHealthReporting() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">States</Label>
+                  <FieldCaption className="text-sm font-medium">States</FieldCaption>
                   <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
                     {filters.states.slice(0, 10).map((st) => (
                       <div key={st} className="flex items-center gap-2">
-                        <Checkbox
+                        <Checkbox aria-label="States"
                           id={`st-${st}`}
                           checked={selectedStates.includes(st)}
                           onCheckedChange={(checked) => {
@@ -292,9 +293,9 @@ export default function PublicHealthReporting() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Date Range</Label>
+                  <Label htmlFor="public-health-reporting-date-range" className="text-sm font-medium">Date Range</Label>
                   <div className="mt-2 space-y-2">
-                    <Input
+                    <Input id="public-health-reporting-date-range"
                       type="date"
                       value={dateRangeStart}
                       onChange={(e) => setDateRangeStart(e.target.value)}
@@ -596,9 +597,9 @@ export default function PublicHealthReporting() {
                               </DialogHeader>
                               <div className="space-y-4">
                                 <div>
-                                  <Label>Export Format</Label>
+                                  <FieldCaption>Export Format</FieldCaption>
                                   <Select value={exportFormat} onValueChange={setExportFormat}>
-                                    <SelectTrigger data-testid="trigger-export-format">
+                                    <SelectTrigger aria-label="Export Format" data-testid="trigger-export-format">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -665,9 +666,9 @@ export default function PublicHealthReporting() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Report Type</Label>
+                    <Label htmlFor="public-health-reporting-report-type">Report Type</Label>
                     <Select value={reportType} onValueChange={setReportType}>
-                      <SelectTrigger data-testid="trigger-report-type">
+                      <SelectTrigger id="public-health-reporting-report-type" data-testid="trigger-report-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -680,8 +681,8 @@ export default function PublicHealthReporting() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Report Title (Optional)</Label>
-                    <Input 
+                    <Label htmlFor="public-health-reporting-report-title-optional">Report Title (Optional)</Label>
+                    <Input id="public-health-reporting-report-title-optional" 
                       value={reportTitle}
                       onChange={(e) => setReportTitle(e.target.value)}
                       placeholder="Enter custom title..."

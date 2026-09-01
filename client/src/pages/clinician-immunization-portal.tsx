@@ -927,9 +927,9 @@ export default function ClinicianImmunizationPortal() {
                           </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                              <Label>Report Type</Label>
+                              <Label htmlFor="clinician-immunization-p-report-type">Report Type</Label>
                               <Select value={selectedReportType} onValueChange={setSelectedReportType}>
-                                <SelectTrigger>
+                                <SelectTrigger id="clinician-immunization-p-report-type">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -995,9 +995,9 @@ export default function ClinicianImmunizationPortal() {
                           </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                              <Label>State Registry</Label>
+                              <Label htmlFor="clinician-immunization-p-state-registry">State Registry</Label>
                               <Select value={newConsentState} onValueChange={setNewConsentState}>
-                                <SelectTrigger>
+                                <SelectTrigger id="clinician-immunization-p-state-registry">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1204,7 +1204,7 @@ export default function ClinicianImmunizationPortal() {
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                          <Label>Use Template</Label>
+                          <Label htmlFor="clinician-immunization-p-use-template">Use Template</Label>
                           <Select
                             onValueChange={(templateId) => {
                               const template = templatesData?.templates.find(t => t.id === templateId);
@@ -1218,7 +1218,7 @@ export default function ClinicianImmunizationPortal() {
                               }
                             }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger id="clinician-immunization-p-use-template">
                               <SelectValue placeholder="Select a template (optional)" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1242,12 +1242,12 @@ export default function ClinicianImmunizationPortal() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="grid gap-2">
-                            <Label>Message Type</Label>
+                            <Label htmlFor="clinician-immunization-p-message-type">Message Type</Label>
                             <Select
                               value={newMessage.messageType}
                               onValueChange={(v) => setNewMessage({ ...newMessage, messageType: v })}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id="clinician-immunization-p-message-type">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1259,12 +1259,12 @@ export default function ClinicianImmunizationPortal() {
                             </Select>
                           </div>
                           <div className="grid gap-2">
-                            <Label>Priority</Label>
+                            <Label htmlFor="clinician-immunization-p-priority">Priority</Label>
                             <Select
                               value={newMessage.priority}
                               onValueChange={(v) => setNewMessage({ ...newMessage, priority: v })}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id="clinician-immunization-p-priority">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>

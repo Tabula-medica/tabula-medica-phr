@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -634,7 +635,7 @@ function SmartHealthCardsTab() {
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label>QR Payload</Label>
+                <FieldCaption>QR Payload</FieldCaption>
                 <Button size="icon" variant="ghost" onClick={copyQR} data-testid="button-copy-qr">
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -645,7 +646,7 @@ function SmartHealthCardsTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>FHIR Bundle Contents</Label>
+              <FieldCaption>FHIR Bundle Contents</FieldCaption>
               <div className="space-y-1">
                 {generatedCard.payload.vc.credentialSubject.fhirBundle.entry.map((entry: any, i: number) => (
                   <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md border" data-testid={`text-shc-entry-${i}`}>

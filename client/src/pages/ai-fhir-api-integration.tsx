@@ -965,13 +965,13 @@ export default function AIFHIRAPIIntegration() {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Mapping Name</Label>
-                      <Input placeholder="Patient Sync - Provider to Local" data-testid="input-mapping-name" />
+                      <Label htmlFor="ai-fhir-api-integration-mapping-name">Mapping Name</Label>
+                      <Input id="ai-fhir-api-integration-mapping-name" placeholder="Patient Sync - Provider to Local" data-testid="input-mapping-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Source Server</Label>
+                      <Label htmlFor="ai-fhir-api-integration-source-server">Source Server</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-source-server">
+                        <SelectTrigger id="ai-fhir-api-integration-source-server" data-testid="select-source-server">
                           <SelectValue placeholder="Select source server" />
                         </SelectTrigger>
                         <SelectContent>
@@ -982,9 +982,9 @@ export default function AIFHIRAPIIntegration() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Resource Type</Label>
+                      <Label htmlFor="ai-fhir-api-integration-resource-type">Resource Type</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-resource-type">
+                        <SelectTrigger id="ai-fhir-api-integration-resource-type" data-testid="select-resource-type">
                           <SelectValue placeholder="Select resource type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1072,9 +1072,9 @@ export default function AIFHIRAPIIntegration() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Source Server</Label>
+                    <Label htmlFor="ai-fhir-api-integration-source-server-2">Source Server</Label>
                     <Select onValueChange={(v) => setSelectedDiscovery(discoveries.find(d => d.id === v) || null)}>
-                      <SelectTrigger data-testid="select-suggestion-server">
+                      <SelectTrigger id="ai-fhir-api-integration-source-server-2" data-testid="select-suggestion-server">
                         <SelectValue placeholder="Select server" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1085,9 +1085,9 @@ export default function AIFHIRAPIIntegration() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Resource Type</Label>
+                    <Label htmlFor="ai-fhir-api-integration-resource-type-2">Resource Type</Label>
                     <Select value={suggestionResourceType} onValueChange={setSuggestionResourceType}>
-                      <SelectTrigger data-testid="select-suggestion-resource">
+                      <SelectTrigger id="ai-fhir-api-integration-resource-type-2" data-testid="select-suggestion-resource">
                         <SelectValue placeholder="Select resource" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1179,9 +1179,9 @@ export default function AIFHIRAPIIntegration() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Mapping Configuration</Label>
+                    <Label htmlFor="ai-fhir-api-integration-mapping-configuration">Mapping Configuration</Label>
                     <Select onValueChange={(v) => setSelectedMapping(mappings.find(m => m.id === v) || null)}>
-                      <SelectTrigger data-testid="select-code-mapping">
+                      <SelectTrigger id="ai-fhir-api-integration-mapping-configuration" data-testid="select-code-mapping">
                         <SelectValue placeholder="Select mapping" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1192,9 +1192,9 @@ export default function AIFHIRAPIIntegration() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Language</Label>
+                    <Label htmlFor="ai-fhir-api-integration-language">Language</Label>
                     <Select value={codeLanguage} onValueChange={(v) => setCodeLanguage(v as typeof codeLanguage)}>
-                      <SelectTrigger data-testid="select-code-language">
+                      <SelectTrigger id="ai-fhir-api-integration-language" data-testid="select-code-language">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1545,9 +1545,9 @@ export default function AIFHIRAPIIntegration() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Resource Type</Label>
+                    <Label htmlFor="ai-fhir-api-integration-resource-type-3">Resource Type</Label>
                     <Select value={validationResourceType} onValueChange={setValidationResourceType}>
-                      <SelectTrigger data-testid="select-validation-resource">
+                      <SelectTrigger id="ai-fhir-api-integration-resource-type-3" data-testid="select-validation-resource">
                         <SelectValue placeholder="Select resource type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1560,9 +1560,9 @@ export default function AIFHIRAPIIntegration() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Strictness Level</Label>
+                    <Label htmlFor="ai-fhir-api-integration-strictness-level">Strictness Level</Label>
                     <Select value={validationStrictness} onValueChange={setValidationStrictness}>
-                      <SelectTrigger data-testid="select-validation-strictness">
+                      <SelectTrigger id="ai-fhir-api-integration-strictness-level" data-testid="select-validation-strictness">
                         <SelectValue placeholder="Select strictness" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1616,9 +1616,9 @@ export default function AIFHIRAPIIntegration() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Source Resource Type</Label>
+                    <Label htmlFor="ai-fhir-api-integration-source-resource-type">Source Resource Type</Label>
                     <Select value={transformResourceType} onValueChange={setTransformResourceType}>
-                      <SelectTrigger data-testid="select-transform-resource">
+                      <SelectTrigger id="ai-fhir-api-integration-source-resource-type" data-testid="select-transform-resource">
                         <SelectValue placeholder="Select resource type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1629,9 +1629,9 @@ export default function AIFHIRAPIIntegration() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Target Format</Label>
+                    <Label htmlFor="ai-fhir-api-integration-target-format">Target Format</Label>
                     <Select value={transformTargetFormat} onValueChange={setTransformTargetFormat}>
-                      <SelectTrigger data-testid="select-target-format">
+                      <SelectTrigger id="ai-fhir-api-integration-target-format" data-testid="select-target-format">
                         <SelectValue placeholder="Select target format" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1688,9 +1688,9 @@ export default function AIFHIRAPIIntegration() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>First Server</Label>
+                    <Label htmlFor="ai-fhir-api-integration-first-server">First Server</Label>
                     <Select value={compatServer1} onValueChange={setCompatServer1}>
-                      <SelectTrigger data-testid="select-server-1">
+                      <SelectTrigger id="ai-fhir-api-integration-first-server" data-testid="select-server-1">
                         <SelectValue placeholder="Select first server" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1701,9 +1701,9 @@ export default function AIFHIRAPIIntegration() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Second Server</Label>
+                    <Label htmlFor="ai-fhir-api-integration-second-server">Second Server</Label>
                     <Select value={compatServer2} onValueChange={setCompatServer2}>
-                      <SelectTrigger data-testid="select-server-2">
+                      <SelectTrigger id="ai-fhir-api-integration-second-server" data-testid="select-server-2">
                         <SelectValue placeholder="Select second server" />
                       </SelectTrigger>
                       <SelectContent>

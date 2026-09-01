@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -302,7 +303,7 @@ function PreferencesTab({
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Allow Research Data Sharing</Label>
+              <FieldCaption>Allow Research Data Sharing</FieldCaption>
               <p className="text-sm text-muted-foreground">
                 Enable sharing of de-identified health data for medical research
               </p>
@@ -319,7 +320,7 @@ function PreferencesTab({
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Allow Monetization</Label>
+              <FieldCaption>Allow Monetization</FieldCaption>
               <p className="text-sm text-muted-foreground">
                 If enabled, your de-identified data may be used in paid research studies
               </p>
@@ -336,7 +337,7 @@ function PreferencesTab({
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Require Notification</Label>
+              <FieldCaption>Require Notification</FieldCaption>
               <p className="text-sm text-muted-foreground">
                 Get notified when your data is used in a research study
               </p>
@@ -614,9 +615,9 @@ function GenerateTab({ preferences }: { preferences?: ResearchPreferences }) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label>De-identification Method</Label>
+            <Label htmlFor="research-de-identification-method">De-identification Method</Label>
             <Select value={method} onValueChange={(v) => setMethod(v as DeidentificationMethod)}>
-              <SelectTrigger data-testid="select-method">
+              <SelectTrigger id="research-de-identification-method" data-testid="select-method">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -631,9 +632,9 @@ function GenerateTab({ preferences }: { preferences?: ResearchPreferences }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Research Purpose</Label>
+            <Label htmlFor="research-research-purpose">Research Purpose</Label>
             <Select value={purpose} onValueChange={(v) => setPurpose(v as ResearchPurpose)}>
-              <SelectTrigger data-testid="select-purpose">
+              <SelectTrigger id="research-research-purpose" data-testid="select-purpose">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -645,11 +646,11 @@ function GenerateTab({ preferences }: { preferences?: ResearchPreferences }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Data Categories to Include</Label>
+            <FieldCaption>Data Categories to Include</FieldCaption>
             <div className="grid gap-3 md:grid-cols-3">
               {(Object.entries(categoryLabels) as [DataCategory, { label: string; description: string }][]).map(([cat, { label }]) => (
                 <div key={cat} className="flex items-center gap-2">
-                  <Checkbox
+                  <Checkbox aria-label="Data Categories to Include"
                     id={`gen-cat-${cat}`}
                     checked={categories.includes(cat)}
                     onCheckedChange={() => toggleCategory(cat)}
@@ -664,7 +665,7 @@ function GenerateTab({ preferences }: { preferences?: ResearchPreferences }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Date Shift (Days)</Label>
+            <Label htmlFor="research-date-shift-days">Date Shift (Days)</Label>
             <p className="text-sm text-muted-foreground mb-2">
               All dates will be shifted by this many days to prevent re-identification
             </p>
@@ -672,7 +673,7 @@ function GenerateTab({ preferences }: { preferences?: ResearchPreferences }) {
               value={dateShiftDays.toString()} 
               onValueChange={(v) => setDateShiftDays(parseInt(v))}
             >
-              <SelectTrigger className="w-[200px]" data-testid="select-date-shift">
+              <SelectTrigger id="research-date-shift-days" className="w-[200px]" data-testid="select-date-shift">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

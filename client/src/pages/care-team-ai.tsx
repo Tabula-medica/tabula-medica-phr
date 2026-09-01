@@ -45,6 +45,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 interface PatientAlert {
   id: string;
@@ -169,9 +170,9 @@ function MeetingAgendaCard() {
             {!agenda ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Meeting Type</Label>
+                  <Label htmlFor="care-team-ai-meeting-type">Meeting Type</Label>
                   <Select value={meetingType} onValueChange={setMeetingType}>
-                    <SelectTrigger data-testid="select-meeting-type">
+                    <SelectTrigger id="care-team-ai-meeting-type" data-testid="select-meeting-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
@@ -336,7 +337,7 @@ function GroupMessagingCard() {
                 {channels?.map((channel) => (
                   <div
                     key={channel.id}
-                    onClick={() => { setSelectedChannel(channel.id); setSummary(null); }}
+                    {...clickable(() => { setSelectedChannel(channel.id); setSummary(null); })}
                     className={`p-2 rounded cursor-pointer transition-colors ${
                       selectedChannel === channel.id ? "bg-primary/10 border-primary border" : "hover-elevate"
                     }`}

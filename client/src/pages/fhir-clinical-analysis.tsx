@@ -29,6 +29,7 @@ import {
   Stethoscope
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface DashboardSummary {
   patientCount: number;
@@ -447,7 +448,7 @@ export default function FhirClinicalAnalysis() {
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted hover-elevate"
                       }`}
-                      onClick={() => setSelectedPatientId(patient.patientId)}
+                      {...clickable(() => setSelectedPatientId(patient.patientId))}
                       data-testid={`patient-${patient.patientId}`}
                     >
                       <div className="flex items-center gap-3">

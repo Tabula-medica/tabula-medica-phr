@@ -473,9 +473,9 @@ export default function AdvanceDirectives() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label>Do you have a living will?</Label>
+                  <Label htmlFor="advance-directives-do-you-have-a-living-will">Do you have a living will?</Label>
                   <Select value={directive.hasLivingWill} onValueChange={v => updateDirective("hasLivingWill", v)}>
-                    <SelectTrigger data-testid="select-has-living-will"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="advance-directives-do-you-have-a-living-will" data-testid="select-has-living-will"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="yes">Yes</SelectItem>
                       <SelectItem value="no">No</SelectItem>
@@ -486,8 +486,8 @@ export default function AdvanceDirectives() {
                 {directive.hasLivingWill === "yes" && (
                   <>
                     <div>
-                      <Label>Date Completed</Label>
-                      <Input
+                      <Label htmlFor="advance-directives-date-completed">Date Completed</Label>
+                      <Input id="advance-directives-date-completed"
                         type="date"
                         value={directive.livingWillDate}
                         onChange={e => updateDirective("livingWillDate", e.target.value)}
@@ -495,8 +495,8 @@ export default function AdvanceDirectives() {
                       />
                     </div>
                     <div>
-                      <Label>Where is it stored?</Label>
-                      <Input
+                      <Label htmlFor="advance-directives-where-is-it-stored">Where is it stored?</Label>
+                      <Input id="advance-directives-where-is-it-stored"
                         value={directive.livingWillLocation}
                         onChange={e => updateDirective("livingWillLocation", e.target.value)}
                         placeholder="e.g., Safe deposit box, attorney's office"
@@ -515,9 +515,9 @@ export default function AdvanceDirectives() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Do you have a healthcare POA?</Label>
+                <Label htmlFor="advance-directives-do-you-have-a-healthcare-poa">Do you have a healthcare POA?</Label>
                 <Select value={directive.hasHealthcarePOA} onValueChange={v => updateDirective("hasHealthcarePOA", v)}>
-                  <SelectTrigger data-testid="select-has-poa"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger id="advance-directives-do-you-have-a-healthcare-poa" data-testid="select-has-poa"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="yes">Yes</SelectItem>
                     <SelectItem value="no">No</SelectItem>
@@ -531,8 +531,8 @@ export default function AdvanceDirectives() {
                   <h4 className="text-sm font-medium">Primary Healthcare Agent</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Agent's Full Name</Label>
-                      <Input
+                      <Label htmlFor="advance-directives-agent-s-full-name">Agent's Full Name</Label>
+                      <Input id="advance-directives-agent-s-full-name"
                         value={directive.poaAgentName}
                         onChange={e => updateDirective("poaAgentName", e.target.value)}
                         placeholder="Full legal name"
@@ -540,8 +540,8 @@ export default function AdvanceDirectives() {
                       />
                     </div>
                     <div>
-                      <Label>Phone</Label>
-                      <Input
+                      <Label htmlFor="advance-directives-phone">Phone</Label>
+                      <Input id="advance-directives-phone"
                         value={directive.poaAgentPhone}
                         onChange={e => updateDirective("poaAgentPhone", e.target.value)}
                         placeholder="Phone number"
@@ -549,9 +549,9 @@ export default function AdvanceDirectives() {
                       />
                     </div>
                     <div>
-                      <Label>Relationship</Label>
+                      <Label htmlFor="advance-directives-relationship">Relationship</Label>
                       <Select value={directive.poaAgentRelationship} onValueChange={v => updateDirective("poaAgentRelationship", v)}>
-                        <SelectTrigger data-testid="select-poa-relationship"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectTrigger id="advance-directives-relationship" data-testid="select-poa-relationship"><SelectValue placeholder="Select" /></SelectTrigger>
                         <SelectContent>
                           {["Spouse/Partner", "Parent", "Child", "Sibling", "Friend", "Attorney", "Other"].map(r => (
                             <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -563,8 +563,8 @@ export default function AdvanceDirectives() {
                   <h4 className="text-sm font-medium">Alternate Agent</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>Alternate Agent's Name</Label>
-                      <Input
+                      <Label htmlFor="advance-directives-alternate-agent-s-name">Alternate Agent's Name</Label>
+                      <Input id="advance-directives-alternate-agent-s-name"
                         value={directive.poaAlternateName}
                         onChange={e => updateDirective("poaAlternateName", e.target.value)}
                         placeholder="Full legal name"
@@ -572,8 +572,8 @@ export default function AdvanceDirectives() {
                       />
                     </div>
                     <div>
-                      <Label>Alternate Phone</Label>
-                      <Input
+                      <Label htmlFor="advance-directives-alternate-phone">Alternate Phone</Label>
+                      <Input id="advance-directives-alternate-phone"
                         value={directive.poaAlternatePhone}
                         onChange={e => updateDirective("poaAlternatePhone", e.target.value)}
                         placeholder="Phone number"
@@ -593,9 +593,9 @@ export default function AdvanceDirectives() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Do you have a DNR order?</Label>
+                  <Label htmlFor="advance-directives-do-you-have-a-dnr-order">Do you have a DNR order?</Label>
                   <Select value={directive.hasDNR} onValueChange={v => updateDirective("hasDNR", v)}>
-                    <SelectTrigger data-testid="select-has-dnr"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="advance-directives-do-you-have-a-dnr-order" data-testid="select-has-dnr"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="yes">Yes</SelectItem>
                       <SelectItem value="no">No</SelectItem>
@@ -605,9 +605,9 @@ export default function AdvanceDirectives() {
                 </div>
                 {directive.hasDNR === "yes" && (
                   <div>
-                    <Label>Type</Label>
+                    <Label htmlFor="advance-directives-type">Type</Label>
                     <Select value={directive.dnrType} onValueChange={v => updateDirective("dnrType", v)}>
-                      <SelectTrigger data-testid="select-dnr-type"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger id="advance-directives-type" data-testid="select-dnr-type"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="dnr-only">DNR Only</SelectItem>
                         <SelectItem value="dnr-dni">DNR + DNI</SelectItem>
@@ -628,9 +628,9 @@ export default function AdvanceDirectives() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Are you registered as an organ donor?</Label>
+                  <Label htmlFor="advance-directives-are-you-registered-as-an-organ-donor">Are you registered as an organ donor?</Label>
                   <Select value={directive.organDonor} onValueChange={v => updateDirective("organDonor", v)}>
-                    <SelectTrigger data-testid="select-organ-donor"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="advance-directives-are-you-registered-as-an-organ-donor" data-testid="select-organ-donor"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="yes">Yes — All organs and tissues</SelectItem>
                       <SelectItem value="limited">Yes — Specific organs only</SelectItem>
@@ -641,8 +641,8 @@ export default function AdvanceDirectives() {
                 </div>
                 {directive.organDonor === "limited" && (
                   <div>
-                    <Label>Specify limitations</Label>
-                    <Input
+                    <Label htmlFor="advance-directives-specify-limitations">Specify limitations</Label>
+                    <Input id="advance-directives-specify-limitations"
                       value={directive.organDonorDetails}
                       onChange={e => updateDirective("organDonorDetails", e.target.value)}
                       placeholder="Which organs or tissues"
@@ -665,8 +665,8 @@ export default function AdvanceDirectives() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Religious / Spiritual Preferences for Care</Label>
-                <Textarea
+                <Label htmlFor="advance-directives-religious-spiritual-preferences-for-care">Religious / Spiritual Preferences for Care</Label>
+                <Textarea id="advance-directives-religious-spiritual-preferences-for-care"
                   value={directive.religiousPreferences}
                   onChange={e => updateDirective("religiousPreferences", e.target.value)}
                   placeholder="Any religious, spiritual, or cultural considerations for your care..."
@@ -675,8 +675,8 @@ export default function AdvanceDirectives() {
                 />
               </div>
               <div>
-                <Label>End-of-Life Wishes</Label>
-                <Textarea
+                <Label htmlFor="advance-directives-end-of-life-wishes">End-of-Life Wishes</Label>
+                <Textarea id="advance-directives-end-of-life-wishes"
                   value={directive.endOfLifeWishes}
                   onChange={e => updateDirective("endOfLifeWishes", e.target.value)}
                   placeholder="Wishes regarding pain management, hospice, home vs hospital, visitors, music, etc..."
@@ -685,9 +685,9 @@ export default function AdvanceDirectives() {
                 />
               </div>
               <div>
-                <Label>Mental Health Advance Directive</Label>
+                <Label htmlFor="advance-directives-mental-health-advance-directive">Mental Health Advance Directive</Label>
                 <Select value={directive.mentalHealthDirective} onValueChange={v => updateDirective("mentalHealthDirective", v)}>
-                  <SelectTrigger data-testid="select-mental-health-directive"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger id="advance-directives-mental-health-advance-directive" data-testid="select-mental-health-directive"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="yes">Yes, I have one</SelectItem>
                     <SelectItem value="no">No</SelectItem>
@@ -699,8 +699,8 @@ export default function AdvanceDirectives() {
                 </p>
               </div>
               <div>
-                <Label>Additional Notes</Label>
-                <Textarea
+                <Label htmlFor="advance-directives-additional-notes">Additional Notes</Label>
+                <Textarea id="advance-directives-additional-notes"
                   value={directive.notes}
                   onChange={e => updateDirective("notes", e.target.value)}
                   placeholder="Any other wishes, instructions, or important information..."
@@ -718,9 +718,9 @@ export default function AdvanceDirectives() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Your State</Label>
+                  <Label htmlFor="advance-directives-your-state">Your State</Label>
                   <Select value={directive.state} onValueChange={v => updateDirective("state", v)}>
-                    <SelectTrigger data-testid="select-directive-state"><SelectValue placeholder="Select your state" /></SelectTrigger>
+                    <SelectTrigger id="advance-directives-your-state" data-testid="select-directive-state"><SelectValue placeholder="Select your state" /></SelectTrigger>
                     <SelectContent>
                       {Object.entries(STATE_DIRECTIVE_RESOURCES).map(([abbr, st]) => (
                         <SelectItem key={abbr} value={abbr}>{st.name}</SelectItem>
@@ -729,9 +729,9 @@ export default function AdvanceDirectives() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Notarized?</Label>
+                  <Label htmlFor="advance-directives-notarized">Notarized?</Label>
                   <Select value={directive.notarized} onValueChange={v => updateDirective("notarized", v)}>
-                    <SelectTrigger data-testid="select-notarized"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger id="advance-directives-notarized" data-testid="select-notarized"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="yes">Yes</SelectItem>
                       <SelectItem value="no">No</SelectItem>
@@ -742,8 +742,8 @@ export default function AdvanceDirectives() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Physician Name</Label>
-                  <Input
+                  <Label htmlFor="advance-directives-physician-name">Physician Name</Label>
+                  <Input id="advance-directives-physician-name"
                     value={directive.physicianName}
                     onChange={e => updateDirective("physicianName", e.target.value)}
                     placeholder="Your primary physician"
@@ -751,8 +751,8 @@ export default function AdvanceDirectives() {
                   />
                 </div>
                 <div>
-                  <Label>Physician Phone</Label>
-                  <Input
+                  <Label htmlFor="advance-directives-physician-phone">Physician Phone</Label>
+                  <Input id="advance-directives-physician-phone"
                     value={directive.physicianPhone}
                     onChange={e => updateDirective("physicianPhone", e.target.value)}
                     placeholder="Phone number"
@@ -762,8 +762,8 @@ export default function AdvanceDirectives() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Witness 1 Name</Label>
-                  <Input
+                  <Label htmlFor="advance-directives-witness-1-name">Witness 1 Name</Label>
+                  <Input id="advance-directives-witness-1-name"
                     value={directive.witnessName1}
                     onChange={e => updateDirective("witnessName1", e.target.value)}
                     placeholder="First witness full name"
@@ -771,8 +771,8 @@ export default function AdvanceDirectives() {
                   />
                 </div>
                 <div>
-                  <Label>Witness 2 Name</Label>
-                  <Input
+                  <Label htmlFor="advance-directives-witness-2-name">Witness 2 Name</Label>
+                  <Input id="advance-directives-witness-2-name"
                     value={directive.witnessName2}
                     onChange={e => updateDirective("witnessName2", e.target.value)}
                     placeholder="Second witness full name"
@@ -813,8 +813,8 @@ export default function AdvanceDirectives() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Family's Primary Goal of Care</Label>
-                <Input
+                <Label htmlFor="advance-directives-family-s-primary-goal-of-care">Family's Primary Goal of Care</Label>
+                <Input id="advance-directives-family-s-primary-goal-of-care"
                   value={goals.familyPrimaryGoalOfCare}
                   onChange={e => setGoals(prev => ({ ...prev, familyPrimaryGoalOfCare: e.target.value }))}
                   placeholder="e.g., Unknown"
@@ -822,8 +822,8 @@ export default function AdvanceDirectives() {
                 />
               </div>
               <div>
-                <Label>Goals of Care</Label>
-                <Textarea
+                <Label htmlFor="advance-directives-goals-of-care">Goals of Care</Label>
+                <Textarea id="advance-directives-goals-of-care"
                   value={goals.goalsOfCare}
                   onChange={e => setGoals(prev => ({ ...prev, goalsOfCare: e.target.value }))}
                   placeholder="e.g., goal of care is function"
@@ -832,11 +832,11 @@ export default function AdvanceDirectives() {
                 />
               </div>
               <div>
-                <Label>Code Status</Label>
+                <Label htmlFor="advance-directives-code-status">Code Status</Label>
                 <div className="flex flex-wrap gap-4 mt-2">
                   {CODE_STATUS_OPTIONS.map(opt => (
                     <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox
+                      <Checkbox id="advance-directives-code-status"
                         checked={goals.codeStatus.includes(opt)}
                         onCheckedChange={(c) => toggleCodeStatus(opt, c === true)}
                         data-testid={`checkbox-code-status-${opt.replace(/\s/g, "-").toLowerCase()}`}

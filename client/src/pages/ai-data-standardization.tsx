@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -261,9 +262,9 @@ Patient to follow up with PCP in 2 weeks.`;
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label>Source Format</Label>
+                    <Label htmlFor="ai-data-standardization-source-format">Source Format</Label>
                     <Select value={sourceFormat} onValueChange={setSourceFormat}>
-                      <SelectTrigger className="w-40" data-testid="select-source-format">
+                      <SelectTrigger id="ai-data-standardization-source-format" className="w-40" data-testid="select-source-format">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -302,7 +303,7 @@ Patient to follow up with PCP in 2 weeks.`;
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Harmonize Code Systems</Label>
+                        <FieldCaption>Harmonize Code Systems</FieldCaption>
                         <p className="text-sm text-muted-foreground">Map to SNOMED-CT, LOINC, RxNorm</p>
                       </div>
                       <Switch
@@ -314,7 +315,7 @@ Patient to follow up with PCP in 2 weeks.`;
                     <Separator />
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Normalize Units</Label>
+                        <FieldCaption>Normalize Units</FieldCaption>
                         <p className="text-sm text-muted-foreground">Convert to UCUM standard units</p>
                       </div>
                       <Switch
@@ -326,7 +327,7 @@ Patient to follow up with PCP in 2 weeks.`;
                     <Separator />
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Standardize Dates</Label>
+                        <FieldCaption>Standardize Dates</FieldCaption>
                         <p className="text-sm text-muted-foreground">Convert to ISO 8601 format</p>
                       </div>
                       <Switch
@@ -338,7 +339,7 @@ Patient to follow up with PCP in 2 weeks.`;
                     <Separator />
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Deduplicate Resources</Label>
+                        <FieldCaption>Deduplicate Resources</FieldCaption>
                         <p className="text-sm text-muted-foreground">Remove duplicate entries</p>
                       </div>
                       <Switch
@@ -350,7 +351,7 @@ Patient to follow up with PCP in 2 weeks.`;
                     <Separator />
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>AI Infer Missing Fields</Label>
+                        <FieldCaption>AI Infer Missing Fields</FieldCaption>
                         <p className="text-sm text-muted-foreground">Use AI to suggest missing values</p>
                       </div>
                       <Switch
@@ -407,7 +408,7 @@ Patient to follow up with PCP in 2 weeks.`;
                       </div>
                       {standardizeMutation.data.data.result.recommendations?.length > 0 && (
                         <div className="space-y-2">
-                          <Label>AI Recommendations</Label>
+                          <FieldCaption>AI Recommendations</FieldCaption>
                           <ul className="text-sm space-y-1">
                             {standardizeMutation.data.data.result.recommendations.slice(0, 3).map((rec: string, i: number) => (
                               <li key={i} className="flex items-start gap-2">
@@ -437,9 +438,9 @@ Patient to follow up with PCP in 2 weeks.`;
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label>Document Type</Label>
+                    <Label htmlFor="ai-data-standardization-document-type">Document Type</Label>
                     <Select value={documentType} onValueChange={setDocumentType}>
-                      <SelectTrigger className="w-48" data-testid="select-document-type">
+                      <SelectTrigger id="ai-data-standardization-document-type" className="w-48" data-testid="select-document-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

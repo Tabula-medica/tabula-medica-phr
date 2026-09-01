@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -290,10 +291,10 @@ export default function Settings() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <User className="h-5 w-5 shrink-0 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
-                      <Label>Display Name</Label>
+                      <Label htmlFor="settings-display-name">Display Name</Label>
                       {editingField === "displayName" ? (
                         <div className="flex items-center gap-2 mt-1">
-                          <Input
+                          <Input id="settings-display-name"
                             value={editValues.displayName || ""}
                             onChange={(e) => setEditValues({ ...editValues, displayName: e.target.value })}
                             data-testid="input-display-name"
@@ -321,10 +322,10 @@ export default function Settings() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Mail className="h-5 w-5 shrink-0 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
-                      <Label>Email</Label>
+                      <Label htmlFor="settings-email">Email</Label>
                       {editingField === "email" ? (
                         <div className="flex items-center gap-2 mt-1">
-                          <Input
+                          <Input id="settings-email"
                             type="email"
                             value={editValues.email || ""}
                             onChange={(e) => setEditValues({ ...editValues, email: e.target.value })}
@@ -353,10 +354,10 @@ export default function Settings() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Phone className="h-5 w-5 shrink-0 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
-                      <Label>Phone Number</Label>
+                      <Label htmlFor="settings-phone-number">Phone Number</Label>
                       {editingField === "phone" ? (
                         <div className="flex items-center gap-2 mt-1">
-                          <Input
+                          <Input id="settings-phone-number"
                             type="tel"
                             value={editValues.phone || ""}
                             onChange={(e) => setEditValues({ ...editValues, phone: e.target.value })}
@@ -480,7 +481,7 @@ export default function Settings() {
             <div className="flex items-center gap-3 mb-3">
               <MapPin className="h-5 w-5 text-muted-foreground" />
               <div>
-                <Label>Current Region</Label>
+                <FieldCaption>Current Region</FieldCaption>
                 <p className="text-sm text-muted-foreground">
                   {isUS ? "United States — Full feature access including EHR connections, USCDI compliance, and data backup" : "International — Core health record features optimized for global use"}
                 </p>
@@ -607,7 +608,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Shield className="h-5 w-5" />
                 <div>
-                  <Label>Multi-factor authentication</Label>
+                  <FieldCaption>Multi-factor authentication</FieldCaption>
                   <p className="text-sm text-muted-foreground">
                     Add a 6-digit code from an authenticator app at sign-in.
                   </p>
@@ -637,7 +638,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Download className="h-5 w-5" />
                 <div>
-                  <Label>Export Data</Label>
+                  <FieldCaption>Export Data</FieldCaption>
                   <p className="text-sm text-muted-foreground">
                     Download a copy of all your health data
                   </p>
@@ -667,7 +668,7 @@ export default function Settings() {
                 <div className="flex items-center gap-3">
                   <Database className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
-                    <Label>Connected Platforms</Label>
+                    <FieldCaption>Connected Platforms</FieldCaption>
                     <p className="text-sm text-muted-foreground">
                       {ehrConnections?.length ?? 0} platform{(ehrConnections?.length ?? 0) !== 1 ? "s" : ""} connected
                     </p>
@@ -719,7 +720,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Globe className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label>FHIR Endpoint</Label>
+                  <FieldCaption>FHIR Endpoint</FieldCaption>
                   <p className="text-sm text-muted-foreground font-mono" data-testid="text-fhir-endpoint">
                     {window.location.origin}/api/fhir/r4
                   </p>
@@ -731,7 +732,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Shield className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label>TEFCA Participation</Label>
+                  <FieldCaption>TEFCA Participation</FieldCaption>
                   <p className="text-sm text-muted-foreground">
                     Trusted Exchange Framework and Common Agreement
                   </p>

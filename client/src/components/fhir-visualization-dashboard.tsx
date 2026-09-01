@@ -439,9 +439,9 @@ export function FHIRVisualizationDashboard() {
                       <CardDescription data-testid="text-dashboard-description">{dashboard.description}</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label className="text-sm" data-testid="label-chart-filter">Filter:</Label>
+                      <Label htmlFor="fhir-visualization-dashb-filter" className="text-sm" data-testid="label-chart-filter">Filter:</Label>
                       <Select value={chartFilter} onValueChange={setChartFilter}>
-                        <SelectTrigger className="w-[180px]" data-testid="select-chart-filter">
+                        <SelectTrigger id="fhir-visualization-dashb-filter" className="w-[180px]" data-testid="select-chart-filter">
                           <SelectValue placeholder="All categories" />
                         </SelectTrigger>
                         <SelectContent>

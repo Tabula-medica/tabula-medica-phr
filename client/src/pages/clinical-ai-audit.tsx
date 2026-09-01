@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,21 +113,40 @@ function VerificationBadge({ status }: { status: string }) {
 
 function ExplainabilityTooltip({ factors, children }: { factors: ExplainabilityFactor[]; children: React.ReactNode }) {
   const [isVisible, setIsVisible] = useState(false);
+  const tooltipId = useId();
   const insights = factors.slice(0, 3).map((f) => {
     const arrow = f.direction === "positive" ? "↑" : f.direction === "negative" ? "↓" : "→";
     return `${arrow} ${f.factor} (${Math.round(f.weight * 100)}% weight)`;
   });
 
+  // A hover-only trigger hides the model's reasoning from anyone not using a
+  // mouse. A real button reveals it on focus as well as hover, announces the
+  // panel through aria-describedby, and dismisses on Escape without moving
+  // focus — WCAG 2.2 AA 1.4.13 (Content on Hover or Focus) and 2.1.1.
   return (
-    <div
-      className="relative inline-block"
-      onMouseEnter={() => setIsVisible(true)}
-      onMouseLeave={() => setIsVisible(false)}
-      data-testid="explainability-tooltip-wrapper"
-    >
-      {children}
+    <div className="relative inline-block" data-testid="explainability-tooltip-wrapper">
+      <button
+        type="button"
+        className="text-left"
+        aria-describedby={isVisible ? tooltipId : undefined}
+        aria-expanded={isVisible}
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+        onFocus={() => setIsVisible(true)}
+        onBlur={() => setIsVisible(false)}
+        onClick={() => setIsVisible((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && isVisible) {
+            e.stopPropagation();
+            setIsVisible(false);
+          }
+        }}
+        data-testid="button-explainability-tooltip"
+      >
+        {children}
+      </button>
       {isVisible && (
-        <div className="absolute z-50 bottom-full mb-3 left-0 w-72 p-4 bg-slate-900 text-white rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in duration-150" data-testid="tooltip-explainability">
+        <div id={tooltipId} role="tooltip" className="absolute z-50 bottom-full mb-3 left-0 w-72 p-4 bg-slate-900 text-white rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in duration-150" data-testid="tooltip-explainability">
           <div className="flex items-center gap-2 mb-2 border-b border-slate-700 pb-2">
             <Brain className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             <span className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest">
@@ -606,14 +625,14 @@ export default function ClinicalAiAudit() {
               </div>
             )}
             <div className="space-y-2">
-              <Label className="text-foreground">Your Name & Title</Label>
-              <Input value={clinicianName} onChange={(e) => setClinicianName(e.target.value)}
+              <Label htmlFor="clinical-ai-audit-your-name-title" className="text-foreground">Your Name & Title</Label>
+              <Input id="clinical-ai-audit-your-name-title" value={clinicianName} onChange={(e) => setClinicianName(e.target.value)}
                 placeholder="e.g. Dr. Sarah Chen, MD — Endocrinology" data-testid="input-clinician-name" className="min-h-[44px]" />
             </div>
             {verifyAction === "flagged" && (
               <div className="space-y-2">
-                <Label className="text-foreground">Feedback (Required for RLHF)</Label>
-                <Textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)}
+                <Label htmlFor="clinical-ai-audit-feedback-required-for-rlhf" className="text-foreground">Feedback (Required for RLHF)</Label>
+                <Textarea id="clinical-ai-audit-feedback-required-for-rlhf" value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Describe what's inaccurate and what the correct interpretation should be..."
                   data-testid="input-feedback" className="min-h-[100px]" />
                 <p className="text-[10px] text-muted-foreground">This feedback will be used to fine-tune the Med-Gemini model through reinforcement learning from human feedback (RLHF).</p>

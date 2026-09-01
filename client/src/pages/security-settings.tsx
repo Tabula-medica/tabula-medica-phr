@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -358,7 +359,7 @@ export default function SecuritySettings() {
                     )}
                   </div>
                   <div className="w-full">
-                    <Label className="text-xs text-muted-foreground">Secret key (manual entry)</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Secret key (manual entry)</FieldCaption>
                     <code
                       className="block text-sm font-mono bg-muted/50 rounded px-3 py-2 mt-1 break-all"
                       data-testid="text-secret-key"

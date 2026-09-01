@@ -574,26 +574,35 @@ export default function PersonalizedHealthContent() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Understanding blood pressure readings")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Understanding blood pressure
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Understanding blood pressure readings")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Understanding blood pressure
+                    </button>
                   </li>
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Heart-healthy diet tips")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Heart-healthy diet
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Heart-healthy diet tips")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Heart-healthy diet
+                    </button>
                   </li>
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Exercise for heart health")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Exercise for heart health
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Exercise for heart health")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Exercise for heart health
+                    </button>
                   </li>
                 </ul>
               </CardContent>
@@ -608,26 +617,35 @@ export default function PersonalizedHealthContent() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Tips for medication adherence")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Remembering your meds
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Tips for medication adherence")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Remembering your meds
+                    </button>
                   </li>
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Understanding medication side effects")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Managing side effects
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Understanding medication side effects")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Managing side effects
+                    </button>
                   </li>
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Safe medication storage")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Safe storage tips
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Safe medication storage")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Safe storage tips
+                    </button>
                   </li>
                 </ul>
               </CardContent>
@@ -642,26 +660,35 @@ export default function PersonalizedHealthContent() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Stress management techniques")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Stress management
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Stress management techniques")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Stress management
+                    </button>
                   </li>
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Improving sleep quality")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Better sleep habits
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Improving sleep quality")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Better sleep habits
+                    </button>
                   </li>
-                  <li 
-                    className="cursor-pointer hover:text-primary flex items-center gap-2"
-                    onClick={() => generateMutation.mutate("Mindfulness for beginners")}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                    Mindfulness basics
+                  <li>
+                    <button
+                      type="button"
+                      className="cursor-pointer hover:text-primary flex items-center gap-2 text-left w-full"
+                      onClick={() => generateMutation.mutate("Mindfulness for beginners")}
+                    >
+                      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                      Mindfulness basics
+                    </button>
                   </li>
                 </ul>
               </CardContent>

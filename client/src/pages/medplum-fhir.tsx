@@ -53,6 +53,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface MedplumStatus {
   connected: boolean;
@@ -577,7 +578,7 @@ function PatientSearch() {
                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedPatient?.id === patient.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"
                     }`}
-                    onClick={() => setSelectedPatient(patient)}
+                    {...clickable(() => setSelectedPatient(patient))}
                     data-testid={`card-patient-${patient.id || idx}`}
                   >
                     <div className="flex items-center gap-3">

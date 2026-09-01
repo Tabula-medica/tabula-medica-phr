@@ -327,9 +327,9 @@ export function AIProviderAutomationPanel({ patientId, patientData }: AIProvider
           <TabsContent value="documentation" className="space-y-4 mt-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Document Type</label>
+                <label htmlFor="ai-provider-automation-p-document-type" className="text-sm font-medium">Document Type</label>
                 <Select value={docType} onValueChange={setDocType}>
-                  <SelectTrigger data-testid="select-doc-type">
+                  <SelectTrigger id="ai-provider-automation-p-document-type" data-testid="select-doc-type">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -342,8 +342,8 @@ export function AIProviderAutomationPanel({ patientId, patientData }: AIProvider
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Visit Reason (Optional)</label>
-                <Input
+                <label htmlFor="ai-provider-automation-p-visit-reason-optional" className="text-sm font-medium">Visit Reason (Optional)</label>
+                <Input id="ai-provider-automation-p-visit-reason-optional"
                   placeholder="e.g., Follow-up visit"
                   value={visitReason}
                   onChange={(e) => setVisitReason(e.target.value)}
@@ -352,8 +352,8 @@ export function AIProviderAutomationPanel({ patientId, patientData }: AIProvider
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Chief Complaint (Optional)</label>
-              <Textarea
+              <label htmlFor="ai-provider-automation-p-chief-complaint-optional" className="text-sm font-medium">Chief Complaint (Optional)</label>
+              <Textarea id="ai-provider-automation-p-chief-complaint-optional"
                 placeholder="Enter chief complaint if applicable..."
                 value={chiefComplaint}
                 onChange={(e) => setChiefComplaint(e.target.value)}
@@ -462,9 +462,9 @@ export function AIProviderAutomationPanel({ patientId, patientData }: AIProvider
           <TabsContent value="referral" className="space-y-4 mt-4">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Referral Type</label>
+                <label htmlFor="ai-provider-automation-p-referral-type" className="text-sm font-medium">Referral Type</label>
                 <Select value={referralType} onValueChange={setReferralType}>
-                  <SelectTrigger data-testid="select-referral-type">
+                  <SelectTrigger id="ai-provider-automation-p-referral-type" data-testid="select-referral-type">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -477,9 +477,9 @@ export function AIProviderAutomationPanel({ patientId, patientData }: AIProvider
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Urgency</label>
+                <label htmlFor="ai-provider-automation-p-urgency" className="text-sm font-medium">Urgency</label>
                 <Select value={urgency} onValueChange={setUrgency}>
-                  <SelectTrigger data-testid="select-urgency">
+                  <SelectTrigger id="ai-provider-automation-p-urgency" data-testid="select-urgency">
                     <SelectValue placeholder="Select urgency" />
                   </SelectTrigger>
                   <SelectContent>
@@ -490,9 +490,9 @@ export function AIProviderAutomationPanel({ patientId, patientData }: AIProvider
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Target Condition</label>
+                <label htmlFor="ai-provider-automation-p-target-condition" className="text-sm font-medium">Target Condition</label>
                 <Select value={targetCondition} onValueChange={setTargetCondition}>
-                  <SelectTrigger data-testid="select-condition">
+                  <SelectTrigger id="ai-provider-automation-p-target-condition" data-testid="select-condition">
                     <SelectValue placeholder="Select condition" />
                   </SelectTrigger>
                   <SelectContent>

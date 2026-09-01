@@ -608,8 +608,8 @@ export default function PatientAIAssistant() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Reason for Visit (optional)</label>
-                    <Input
+                    <label htmlFor="patient-ai-assistant-reason-for-visit-optional" className="text-sm text-muted-foreground">Reason for Visit (optional)</label>
+                    <Input id="patient-ai-assistant-reason-for-visit-optional"
                       placeholder="e.g., Annual checkup, Follow-up visit"
                       value={appointmentReason}
                       onChange={(e) => setAppointmentReason(e.target.value)}
@@ -725,7 +725,7 @@ export default function PatientAIAssistant() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {visitGuidanceData.guidance.checklist.map((item) => (
-                      <div
+                      <div role="presentation"
                         key={item.id}
                         className="flex items-start gap-3 p-3 rounded-lg border hover-elevate"
                         onClick={() => toggleCheckItem(item.id)}
@@ -829,7 +829,7 @@ export default function PatientAIAssistant() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {visitGuidanceData.guidance.checklist.map((item) => (
-                      <div
+                      <div role="presentation"
                         key={item.id}
                         className="flex items-start gap-3 p-3 rounded-lg border hover-elevate"
                         onClick={() => toggleCheckItem(item.id)}

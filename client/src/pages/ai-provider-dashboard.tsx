@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
+import { clickable } from "@/lib/a11y";
 
 interface DashboardOverview {
   totalPatients: number;
@@ -403,10 +404,10 @@ export default function AIProviderDashboard() {
                         <div
                           key={idx}
                           className="flex items-start justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
-                          onClick={() => {
+                          {...clickable(() => {
                             setSelectedPatientId(alert.patientId);
                             setActiveTab("trends");
-                          }}
+                          })}
                           data-testid={`alert-item-${idx}`}
                         >
                           <div className="flex items-start gap-3">
@@ -938,9 +939,9 @@ export default function AIProviderDashboard() {
             <CardContent className="space-y-4">
               <div className="flex gap-4 items-end flex-wrap">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="text-sm font-medium mb-2 block">Select Patient</label>
+                  <label htmlFor="ai-provider-dashboard-select-patient" className="text-sm font-medium mb-2 block">Select Patient</label>
                   <Select value={selectedPatientId || ""} onValueChange={setSelectedPatientId}>
-                    <SelectTrigger className="min-h-[44px]" data-testid="select-patient-notes">
+                    <SelectTrigger id="ai-provider-dashboard-select-patient" className="min-h-[44px]" data-testid="select-patient-notes">
                       <SelectValue placeholder="Select a patient" />
                     </SelectTrigger>
                     <SelectContent>

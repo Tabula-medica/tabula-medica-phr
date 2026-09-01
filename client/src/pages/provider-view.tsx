@@ -492,9 +492,9 @@ export default function ProviderView() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Link Expiration</Label>
+              <Label htmlFor="provider-view-link-expiration">Link Expiration</Label>
               <Select value={shareExpiry} onValueChange={setShareExpiry}>
-                <SelectTrigger data-testid="select-expiry">
+                <SelectTrigger id="provider-view-link-expiration" data-testid="select-expiry">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
