@@ -122,7 +122,7 @@ class EHRPatientPortalService {
       expiresAt: null,
       dataCategories: [],
       recordCount: 0,
-      endpoint: 'https://api.fastenhealth.com/fhir/R4'
+      endpoint: 'https://api.connect.fastenhealth.com/fhir/R4'
     };
 
     this.connections.set(connection.id, connection);

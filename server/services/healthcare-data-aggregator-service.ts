@@ -88,7 +88,7 @@ const VENDOR_CONFIGS: Record<string, DataAggregatorConfig> = {
   fastenhealth: {
     vendorId: "fastenhealth",
     vendorName: "Fasten Health",
-    apiBaseUrl: "https://api.fastenhealth.com/fhir/R4",
+    apiBaseUrl: "https://api.connect.fastenhealth.com/fhir/R4",
     apiVersion: "R4",
     authType: "smart_on_fhir",
     scopes: ["patient/*.read", "observation/*.read", "condition/*.read", "medicationrequest/*.read", "allergyintolerance/*.read", "immunization/*.read", "procedure/*.read", "diagnosticreport/*.read"],

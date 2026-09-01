@@ -9115,6 +9115,7 @@ export interface UploadedDocument {
   onboardingSessionId?: string;
   patientId: string;
   documentType: UploadedDocumentType;
+  subcategory?: string;
   title: string;
   documentDate?: string;
   tags: string[];
@@ -9175,6 +9176,7 @@ export const insertUploadedDocumentSchema = z.object({
   onboardingSessionId: z.string().optional(),
   patientId: z.string().min(1),
   documentType: z.enum(uploadedDocumentTypes),
+  subcategory: z.string().optional(),
   title: z.string().min(1).max(255),
   documentDate: z.string().optional(),
   tags: z.array(z.string()).default([]),
@@ -9389,16 +9391,75 @@ export const autoTagCategories = [
 ] as const;
 export type AutoTagCategory = (typeof autoTagCategories)[number];
 
+// Second-level classification applied at record intake: each primary category
+// carries its own set of subcategories (an empty list means the category has none).
+export const autoTagSubcategories = {
+  discharge_summary: ["inpatient", "emergency", "surgical", "rehabilitation"],
+  lab: ["blood_work", "urinalysis", "microbiology", "pathology", "genetic_testing"],
+  imaging: ["xray", "ct_scan", "mri", "ultrasound", "mammogram", "pet_scan"],
+  insurance: ["eob", "claim", "prior_authorization", "coverage", "denial_appeal"],
+  referral: ["specialist", "imaging_referral", "therapy", "second_opinion"],
+  other: [],
+} as const satisfies Record<AutoTagCategory, readonly string[]>;
+
+export type AutoTagSubcategory = (typeof autoTagSubcategories)[AutoTagCategory][number];
+
+export const autoTagSubcategoryLabels: Record<AutoTagSubcategory, string> = {
+  inpatient: "Inpatient Stay",
+  emergency: "Emergency Visit",
+  surgical: "Surgical Discharge",
+  rehabilitation: "Rehabilitation",
+  blood_work: "Blood Work",
+  urinalysis: "Urinalysis",
+  microbiology: "Microbiology & Cultures",
+  pathology: "Pathology",
+  genetic_testing: "Genetic Testing",
+  xray: "X-Ray",
+  ct_scan: "CT Scan",
+  mri: "MRI",
+  ultrasound: "Ultrasound",
+  mammogram: "Mammogram",
+  pet_scan: "PET Scan",
+  eob: "Explanation of Benefits",
+  claim: "Claim",
+  prior_authorization: "Prior Authorization",
+  coverage: "Coverage Document",
+  denial_appeal: "Denial / Appeal",
+  specialist: "Specialist Referral",
+  imaging_referral: "Imaging Referral",
+  therapy: "Therapy Referral",
+  second_opinion: "Second Opinion",
+};
+
+export function isValidSubcategory(
+  category: AutoTagCategory,
+  subcategory: string
+): subcategory is AutoTagSubcategory {
+  return (autoTagSubcategories[category] as readonly string[]).includes(subcategory);
+}
+
+// Maps the manual intake form's document types onto the auto-tag taxonomy so the
+// upload form can offer the same subcategory choices the AI classifier uses.
+export const uploadedDocumentTypeToAutoTagCategory: Partial<Record<UploadedDocumentType, AutoTagCategory>> = {
+  lab_result: "lab",
+  imaging: "imaging",
+  discharge_summary: "discharge_summary",
+  insurance_card: "insurance",
+  referral: "referral",
+};
+
 // Auto-tag result with explainability
 export interface DocumentAutoTag {
   id: string;
   documentId: string;
   category: AutoTagCategory;
+  subcategory?: AutoTagSubcategory | null;
   confidence: number;
   explanation: string; // Why the document was tagged this way
   suggestedTags: string[];
   isOverridden: boolean;
   overriddenCategory?: AutoTagCategory;
+  overriddenSubcategory?: AutoTagSubcategory | null;
   overriddenAt?: string;
   overriddenBy?: string;
   overrideReason?: string;
@@ -9409,6 +9470,7 @@ export interface DocumentAutoTag {
 // Schema for auto-tag API response
 export const documentAutoTagResultSchema = z.object({
   category: z.enum(autoTagCategories),
+  subcategory: z.string().nullable().optional(),
   confidence: z.number().min(0).max(100),
   explanation: z.string(),
   suggestedTags: z.array(z.string()),
@@ -9422,12 +9484,23 @@ export const documentAutoTagResultSchema = z.object({
 export type DocumentAutoTagResult = z.infer<typeof documentAutoTagResultSchema>;
 
 // Schema for overriding auto-tags
-export const documentTagOverrideSchema = z.object({
-  documentId: z.string().min(1),
-  newCategory: z.enum(autoTagCategories),
-  newTags: z.array(z.string()).optional(),
-  reason: z.string().optional(),
-});
+export const documentTagOverrideSchema = z
+  .object({
+    documentId: z.string().min(1),
+    newCategory: z.enum(autoTagCategories),
+    newSubcategory: z.string().nullable().optional(),
+    newTags: z.array(z.string()).optional(),
+    reason: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newSubcategory && !isValidSubcategory(data.newCategory, data.newSubcategory)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["newSubcategory"],
+        message: `"${data.newSubcategory}" is not a valid subcategory of "${data.newCategory}"`,
+      });
+    }
+  });
 export type DocumentTagOverride = z.infer<typeof documentTagOverrideSchema>;
 
 // Auto-tag analytics events

@@ -102,7 +102,7 @@ class FHIRBundleImportService {
         capabilities: ['clinical_data_aggregation', 'lab_results', 'radiology', 'hospital_records', 'ADT_feeds'],
         supportedResourceTypes: ['Patient', 'Condition', 'Observation', 'DiagnosticReport', 'DocumentReference', 'Encounter', 'Procedure', 'MedicationRequest', 'AllergyIntolerance', 'Immunization'],
         fhirVersion: 'R4',
-        endpoint: 'https://api.fastenhealth.com/fhir/R4',
+        endpoint: 'https://api.connect.fastenhealth.com/fhir/R4',
         authMethod: 'oauth2',
         lastSync: '2026-02-05T14:30:00Z',
         recordCount: 4250

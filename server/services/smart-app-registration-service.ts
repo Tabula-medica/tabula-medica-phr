@@ -183,8 +183,8 @@ function initializeSampleApps(): void {
       createdAt: now
     },
     launchConfig: {
-      launchUrl: "https://api.fastenhealth.com/fhir/launch",
-      redirectUrls: ["https://api.fastenhealth.com/callback"],
+      launchUrl: "https://api.connect.fastenhealth.com/fhir/launch",
+      redirectUrls: ["https://api.connect.fastenhealth.com/callback"],
       launchContext: ["patient", "practitioner", "standalone"],
       supportedResponseTypes: ["code"],
       pkceRequired: true,
