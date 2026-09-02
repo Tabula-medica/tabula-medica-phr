@@ -22489,3 +22489,91 @@ export const insertAccountPrivacyPrefsSchema = createInsertSchema(accountPrivacy
 });
 export type InsertAccountPrivacyPrefs = z.infer<typeof insertAccountPrivacyPrefsSchema>;
 export type AccountPrivacyPrefs = typeof accountPrivacyPrefs.$inferSelect;
+
+/**
+ * Ambient scribe: consent to record a consultation.
+ *
+ * Deliberately not folded into `engagement_consents`. That table answers "may
+ * we text this number"; this one answers "may we capture this room". A patient
+ * who agreed to appointment reminders has agreed to nothing here, and one
+ * table with a widened purpose list would let the first answer satisfy a
+ * question about the second.
+ *
+ * `noticeElements` records which DPDP s.5 elements the delivered notice
+ * covered. Section 5 makes the notice constitutive rather than procedural, so
+ * this is part of whether consent exists at all — not an audit nicety.
+ */
+export const scribeConsentsTable = pgTable(
+  "scribe_consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    jurisdiction: text("jurisdiction").notNull(),
+    purpose: text("purpose").notNull(),
+    state: text("state").notNull(),
+    method: text("method").notNull(),
+    noticeLanguage: text("notice_language").notNull(),
+    noticeVersion: text("notice_version").notNull(),
+    noticeElements: jsonb("notice_elements").$type<string[]>().notNull().default([]),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The clinician who attests to having asked. Names a person — encrypted. */
+    capturedBy: text("captured_by"),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("scribe_consents_profile_idx").on(t.profileId),
+  }),
+);
+
+/**
+ * Ambient scribe sessions.
+ *
+ * `transcript` and `draft` are the most identifying payloads this application
+ * stores: a verbatim record of what a patient said about their own body, in
+ * their own words, plus whatever a relative in the room volunteered. Both are
+ * encrypted jsonb.
+ *
+ * The audio itself is **not** stored here and no column references it. It is
+ * working material with a 24-hour life (`SCRIBE_LIMITS.AUDIO_RETENTION_HOURS`);
+ * keeping it alongside the note would build a voice-biometric corpus nobody
+ * consented to, one consultation at a time.
+ *
+ * `attestation` being null is the difference between a draft and a clinical
+ * record. Nothing downstream may exchange a row whose attestation is null.
+ */
+export const scribeSessionsTable = pgTable(
+  "scribe_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    clinicianAccountId: text("clinician_account_id").notNull(),
+    jurisdiction: text("jurisdiction").notNull(),
+    status: text("status").notNull(),
+    language: text("language").notNull(),
+    mixedWith: jsonb("mixed_with").$type<string[]>().notNull().default([]),
+    engine: text("engine"),
+    /** Region inference actually ran in, recorded at start for the audit trail. */
+    processedInRegion: text("processed_in_region"),
+    rolesEstablished: boolean("roles_established").notNull().default(false),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** When the working audio was destroyed. Null means it has not been yet. */
+    audioDeletedAt: timestamp("audio_deleted_at", { withTimezone: true }),
+    /** Unattested drafts expire; an abandoned session must not linger as a shadow record. */
+    draftExpiresAt: timestamp("draft_expires_at", { withTimezone: true }),
+    /** Verbatim diarised turns. The most identifying payload here — encrypted. */
+    transcript: jsonb("transcript").$type<Record<string, unknown>>(),
+    /** Structured note items with their evidence spans — encrypted. */
+    draft: jsonb("draft").$type<Record<string, unknown>>(),
+    /** Null until a named clinician signs. Null means "not a clinical record". */
+    attestation: jsonb("attestation").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("scribe_sessions_profile_idx").on(t.profileId),
+    clinicianIdx: index("scribe_sessions_clinician_idx").on(t.clinicianAccountId),
+  }),
+);

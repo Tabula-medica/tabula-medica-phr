@@ -512,10 +512,182 @@ export const SUMMARY_STRINGS: Record<string, SummaryStrings> = {
     shareMessage:
       "{{practiceName}}: آپ کے ساتھ ایک صحت کا خلاصہ شیئر کیا گیا ہے۔ اسے یہاں کھولیں: {{shareUrl}}",
   },
+
+  // ---------------------------------------------------------------------
+  // Eighth Schedule additions. See INDIA_COPY_COVERAGE below for what is
+  // still missing and why those five were not written rather than guessed.
+  // ---------------------------------------------------------------------
+
+  ne: {
+    headingMedications: "औषधिहरू",
+    headingDiagnoses: "निदानहरू",
+    headingAllergies: "एलर्जीहरू",
+    notRecordedMedications:
+      "कुनै औषधि अभिलिखित छैन। यसको अर्थ कुनै औषधि छैन भन्ने होइन — केही पनि प्रविष्ट गरिएको छैन।",
+    notRecordedDiagnoses:
+      "कुनै निदान अभिलिखित छैन। यसको अर्थ कुनै निदान छैन भन्ने होइन — केही पनि प्रविष्ट गरिएको छैन।",
+    notRecordedAllergies:
+      "कुनै एलर्जी अभिलिखित छैन। यसको अर्थ कुनै एलर्जी छैन भन्ने होइन — केही पनि प्रविष्ट गरिएको छैन।",
+    attestedNoneMedications: "कुनै ज्ञात औषधि छैन। बिरामीद्वारा पुष्टि गरिएको।",
+    attestedNoneDiagnoses: "कुनै ज्ञात निदान छैन। बिरामीद्वारा पुष्टि गरिएको।",
+    attestedNoneAllergies: "कुनै ज्ञात एलर्जी छैन। बिरामीद्वारा पुष्टि गरिएको।",
+    warningAllergiesUnknown:
+      "एलर्जीको जानकारी हराइरहेको छ, खाली होइन। औषधि लेख्नुअघि बिरामीलाई सोध्नुहोस्।",
+    warningPartialShare:
+      "बिरामीले आफ्नो अभिलेखको केही भाग मात्र साझा गर्न रोज्नुभयो। नदेखाइएका खण्डहरू रोकिएका हुन्, खाली होइनन्।",
+    generatedLabel: "सिर्जना गरिएको",
+    expiresLabel: "यो लिंक समाप्त हुनेछ",
+    disclaimer:
+      "यो बिरामीसँग रहेको सारांश हो, पूर्ण चिकित्सा अभिलेख होइन। जुनसुकै कुरामा कारबाही गर्नुअघि पुष्टि गर्नुहोस्।",
+    shareMessage:
+      "{{practiceName}}: तपाईंसँग एक स्वास्थ्य सारांश साझा गरिएको छ। यहाँ खोल्नुहोस्: {{shareUrl}}",
+  },
+
+  mai: {
+    headingMedications: "दवाइ",
+    headingDiagnoses: "निदान",
+    headingAllergies: "एलर्जी",
+    notRecordedMedications:
+      "कोनो दवाइ दर्ज नहि अछि। एकर मतलब ई नहि जे कोनो दवाइ नहि अछि — किछु दर्ज नहि कएल गेल।",
+    notRecordedDiagnoses:
+      "कोनो निदान दर्ज नहि अछि। एकर मतलब ई नहि जे कोनो निदान नहि अछि — किछु दर्ज नहि कएल गेल।",
+    notRecordedAllergies:
+      "कोनो एलर्जी दर्ज नहि अछि। एकर मतलब ई नहि जे कोनो एलर्जी नहि अछि — किछु दर्ज नहि कएल गेल।",
+    attestedNoneMedications: "कोनो ज्ञात दवाइ नहि। रोगी द्वारा पुष्ट।",
+    attestedNoneDiagnoses: "कोनो ज्ञात निदान नहि। रोगी द्वारा पुष्ट।",
+    attestedNoneAllergies: "कोनो ज्ञात एलर्जी नहि। रोगी द्वारा पुष्ट।",
+    warningAllergiesUnknown:
+      "एलर्जीक जानकारी नहि अछि, खाली नहि। दवाइ लिखबा सँ पहिने रोगी सँ पूछू।",
+    warningPartialShare:
+      "रोगी अपन अभिलेखक मात्र किछु भाग साझा करबाक चुनल। जे भाग नहि देखाओल गेल से रोकल गेल अछि, खाली नहि।",
+    generatedLabel: "बनाओल गेल",
+    expiresLabel: "ई लिंक समाप्त हएत",
+    disclaimer:
+      "ई रोगीक लग रहनिहार सारांश थिक, पूर्ण चिकित्सा अभिलेख नहि। जकरा पर काज करी ताहि केँ पुष्ट करू।",
+    shareMessage:
+      "{{practiceName}}: अहाँक संग एकटा स्वास्थ्य सारांश साझा कएल गेल अछि। एतय खोलू: {{shareUrl}}",
+  },
+
+  doi: {
+    headingMedications: "दवाइयां",
+    headingDiagnoses: "निदान",
+    headingAllergies: "एलर्जी",
+    notRecordedMedications:
+      "कोई दवाई दर्ज नेईं ऐ। इसदा मतलब एह् नेईं जे कोई दवाई नेईं ऐ — कुछ बी दर्ज नेईं कीता गेआ।",
+    notRecordedDiagnoses:
+      "कोई निदान दर्ज नेईं ऐ। इसदा मतलब एह् नेईं जे कोई निदान नेईं ऐ — कुछ बी दर्ज नेईं कीता गेआ।",
+    notRecordedAllergies:
+      "कोई एलर्जी दर्ज नेईं ऐ। इसदा मतलब एह् नेईं जे कोई एलर्जी नेईं ऐ — कुछ बी दर्ज नेईं कीता गेआ।",
+    attestedNoneMedications: "कोई ज्ञात दवाई नेईं। रोगी आसेआ पुष्ट।",
+    attestedNoneDiagnoses: "कोई ज्ञात निदान नेईं। रोगी आसेआ पुष्ट।",
+    attestedNoneAllergies: "कोई ज्ञात एलर्जी नेईं। रोगी आसेआ पुष्ट।",
+    warningAllergiesUnknown:
+      "एलर्जी दी जानकारी गायब ऐ, खाली नेईं। दवाई लिखने थमां पैह्लें रोगी कोला पुच्छो।",
+    warningPartialShare:
+      "रोगी ने अपने रिकार्ड दा सिर्फ कुछ हिस्सा सांझा करने दा चुनाव कीता। जेह्ड़े हिस्से नेईं दस्से गे, ओह् रोके गे न, खाली नेईं।",
+    generatedLabel: "बनाया गेआ",
+    expiresLabel: "एह् लिंक खतम होग",
+    disclaimer:
+      "एह् रोगी कोल रौह्ने आला सारांश ऐ, पूरा चिकित्सा रिकार्ड नेईं। जिस पर बी अमल करो, उसदी पुष्टि करो।",
+    shareMessage:
+      "{{practiceName}}: तुंदे कन्नै इक सेह्त सारांश सांझा कीता गेआ ऐ। इत्थें खोह्लो: {{shareUrl}}",
+  },
+
+  kok: {
+    headingMedications: "वखदां",
+    headingDiagnoses: "निदान",
+    headingAllergies: "एलर्जी",
+    notRecordedMedications:
+      "खंयचेंच वखद नोंद केल्लें ना. ताचो अर्थ वखदां नात अशें न्हय — कांयच भरून घाल्लें ना.",
+    notRecordedDiagnoses:
+      "खंयचेंच निदान नोंद केल्लें ना. ताचो अर्थ निदान ना अशें न्हय — कांयच भरून घाल्लें ना.",
+    notRecordedAllergies:
+      "खंयचीच एलर्जी नोंद केल्ली ना. ताचो अर्थ एलर्जी ना अशें न्हय — कांयच भरून घाल्लें ना.",
+    attestedNoneMedications: "कोणतेंच वळखीचें वखद ना. रोग्यान खात्री केल्या.",
+    attestedNoneDiagnoses: "कोणतेंच वळखीचें निदान ना. रोग्यान खात्री केल्या.",
+    attestedNoneAllergies: "कोणतीच वळखीची एलर्जी ना. रोग्यान खात्री केल्या.",
+    warningAllergiesUnknown:
+      "एलर्जीची म्हायती ना, पूण ती रिकामी न्हय. वखद बरोवचे आदीं रोग्याक विचारात.",
+    warningPartialShare:
+      "रोग्यान आपल्या नोंदीचो फकत कांय वांटो वांटुंक निवडलो. दाखयल्ले नात ते वांटे आडायल्यात, रिकामे न्हय.",
+    generatedLabel: "तयार केल्लें",
+    expiresLabel: "हो दुवो सोंपतलो",
+    disclaimer:
+      "हो रोग्याकडेन आशिल्लो सारांश, पुराय वैजकी नोंद न्हय. जाचेर कार्य करतात ताची खात्री करात.",
+    shareMessage:
+      "{{practiceName}}: तुमचे कडेन भलायकेचो सारांश वांटला. हांगा उगडात: {{shareUrl}}",
+  },
+
+  sa: {
+    headingMedications: "औषधानि",
+    headingDiagnoses: "निदानानि",
+    headingAllergies: "अतिसंवेदनताः",
+    notRecordedMedications:
+      "किमपि औषधं न अभिलिखितम्। अस्य अर्थः न यत् औषधं नास्ति — किमपि न प्रविष्टम्।",
+    notRecordedDiagnoses:
+      "किमपि निदानं न अभिलिखितम्। अस्य अर्थः न यत् निदानं नास्ति — किमपि न प्रविष्टम्।",
+    notRecordedAllergies:
+      "काचित् अतिसंवेदनता न अभिलिखिता। अस्य अर्थः न यत् सा नास्ति — किमपि न प्रविष्टम्।",
+    attestedNoneMedications: "किमपि ज्ञातम् औषधं नास्ति। रोगिणा पुष्टम्।",
+    attestedNoneDiagnoses: "किमपि ज्ञातं निदानं नास्ति। रोगिणा पुष्टम्।",
+    attestedNoneAllergies: "काचित् ज्ञाता अतिसंवेदनता नास्ति। रोगिणा पुष्टम्।",
+    warningAllergiesUnknown:
+      "अतिसंवेदनताविषये सूचना लुप्ता, न तु रिक्ता। औषधलेखनात् पूर्वं रोगिणं पृच्छतु।",
+    warningPartialShare:
+      "रोगी स्वस्य अभिलेखस्य अंशमात्रं वितरितुम् अवृणोत्। अदर्शिताः भागाः निवारिताः, न रिक्ताः।",
+    generatedLabel: "निर्मितम्",
+    expiresLabel: "अयं सम्पर्कसूत्रः समाप्स्यते",
+    disclaimer:
+      "एषः रोगिधृतः संक्षेपः, न पूर्णः चिकित्साभिलेखः। यस्मिन् कस्मिन्नपि कार्यं करोति तत् पुष्णातु।",
+    shareMessage:
+      "{{practiceName}}: भवता सह स्वास्थ्यसंक्षेपः वितरितः। अत्र उद्घाटयतु: {{shareUrl}}",
+  },
 };
 
 /** Languages with a complete string set. */
 export const SUMMARY_LANGUAGES: readonly string[] = Object.keys(SUMMARY_STRINGS);
+
+/**
+ * Which of the 22 Eighth Schedule languages have copy, and which do not.
+ *
+ * Derived from `SUMMARY_STRINGS` rather than hand-maintained, so it cannot
+ * drift from what is actually in the file: adding a language block is the only
+ * way to change this answer.
+ *
+ * ## Why five are absent rather than approximated
+ *
+ * Bodo, Kashmiri, Manipuri, Santali and Sindhi are not here. Writing them was
+ * possible; writing them *correctly* was not, and this is the wrong file to
+ * be approximately right in.
+ *
+ * Every string above is safety-critical in the same specific way: the empty
+ * states have to say "nothing was recorded", and the failure mode is that a
+ * clinician reads them as "there are none". A translation that drifts by one
+ * word inverts the sentence — a Santali reader seeing what looks like "no
+ * allergies" prescribes into an unrecorded anaphylaxis. The three that use
+ * scripts outside the Devanagari and Perso-Arabic families this repo already
+ * carries (Ol Chiki for Santali, Meitei Mayek for Manipuri) add a rendering
+ * failure on top of a semantic one: text that does not shape correctly is not
+ * a degraded warning, it is no warning.
+ *
+ * So the gap is recorded as a gap. `summaryStrings()` already falls back to
+ * English and *reports* the fallback, which leaves the reader with a warning
+ * they may not read but which does not lie to them. Closing these five is
+ * native clinical-linguist authoring plus review — scoped work, not a
+ * translation-API call, and named as such in the ABDM EOI response.
+ */
+export const INDIA_COPY_COVERAGE: {
+  readonly present: readonly string[];
+  readonly absent: readonly string[];
+} = (() => {
+  const eighthSchedule = [
+    "as", "bn", "brx", "doi", "gu", "hi", "kn", "ks", "kok", "mai", "ml",
+    "mni", "mr", "ne", "or", "pa", "sa", "sat", "sd", "ta", "te", "ur",
+  ];
+  const present = eighthSchedule.filter((c) => c in SUMMARY_STRINGS);
+  const absent = eighthSchedule.filter((c) => !(c in SUMMARY_STRINGS));
+  return { present, absent };
+})();
 
 /**
  * Resolve a language to its strings, reporting whether English was
