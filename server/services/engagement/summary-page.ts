@@ -85,12 +85,15 @@ export function errorPage(failure: string, detail: string): string {
  * code read off a message, not a credential a password manager should keep.
  */
 export function pinPage(token: string, error: string | null): string {
-  const action = `/s/${encodeURIComponent(token)}`;
   const body =
     `<h1>Enter the PIN</h1>` +
     `<p class="meta">The person who shared this summary was given a 6-digit PIN.</p>` +
     (error ? `<p class="warn">${escapeXhtml(error)}</p>` : "") +
-    `<form method="post" action="${escapeXhtml(action)}">` +
+    `<form method="post" action="${SHARE_REDEEM_PATH}">` +
+    // The token rides in the body, never in the URL of a mutating
+    // request. A POST path reaches the global SOC2 change tracker,
+    // which logs it to stdout regardless of any /api filter.
+    `<input type="hidden" name="token" value="${escapeXhtml(token)}">` +
     `<label class="secondary" for="pin">PIN</label>` +
     `<input id="pin" name="pin" type="text" inputmode="numeric" pattern="[0-9]*" ` +
     `maxlength="6" autocomplete="off" autofocus>` +
@@ -108,12 +111,15 @@ export function pinPage(token: string, error: string | null): string {
  * already said in plain text. The button POSTs, and only a POST redeems.
  */
 export function interstitialPage(token: string): string {
-  const action = `/s/${encodeURIComponent(token)}`;
   const body =
     `<h1>Shared health summary</h1>` +
     `<p class="meta">Someone has shared a health summary with you. It opens once you ` +
     `continue, and the link may expire or be revoked by the person who sent it.</p>` +
-    `<form method="post" action="${escapeXhtml(action)}">` +
+    `<form method="post" action="${SHARE_REDEEM_PATH}">` +
+    // The token rides in the body, never in the URL of a mutating
+    // request. A POST path reaches the global SOC2 change tracker,
+    // which logs it to stdout regardless of any /api filter.
+    `<input type="hidden" name="token" value="${escapeXhtml(token)}">` +
     `<button type="submit">Open summary</button>` +
     `</form>`;
   return shell(GENERIC_TITLE, body, "en", "ltr");
@@ -126,6 +132,17 @@ export function interstitialPage(token: string): string {
  * history. Putting the patient's name there disclosed it to any unfurler that
  * fetched the page and to anyone who later scrolled that history.
  */
+/**
+ * Where both share forms POST.
+ *
+ * Fixed rather than token-bearing. `POST /s/<token>` put a 256-bit bearer
+ * capability into `req.path`, and the globally mounted SOC2 change tracker
+ * logs the path of every non-GET request to stdout — so the token landed in
+ * the application log, where a default no-PIN grant is redeemable by anyone
+ * who can read it.
+ */
+export const SHARE_REDEEM_PATH = "/s/redeem";
+
 export const GENERIC_TITLE = "Shared health summary";
 
 export function summaryPage(

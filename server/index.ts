@@ -177,6 +177,7 @@ app.use(gcpAuditMiddleware);
 // override via AI_BLOCKED_COUNTRIES env var).
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
+import { redactPath } from "./security/redact-path";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
 
@@ -264,7 +265,10 @@ app.use((req, res, next) => {
         timestamp: new Date().toISOString(),
         request_id: getRequestId(req),
         method: req.method,
-        path: path,
+        // Gated on /api today; redacted anyway so this line stays safe if the
+        // gate ever widens. Relying on a filter elsewhere is what produced
+        // rounds 5 and 11.
+        path: redactPath(path),
         status: res.statusCode,
         duration_ms: duration,
         actor_id: user?.claims?.sub,

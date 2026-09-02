@@ -645,3 +645,60 @@ PRACTICE_DISPLAY_NAME="Ltfm Health"                 # appears in the notificatio
   /api/engagement/languages` reports that list against the 22 Eighth Schedule
   languages a DPDP notice may lawfully be served in.
 - No PDF. The page is the artefact.
+
+## Round 11 — the token in stdout, again, by a different door
+
+Round 5 found the share token in the application log because
+`server/index.ts` writes `{ method, path, status }` as JSON for every request
+whose path starts with `/api`. The JSON redemption route was moved to take the
+token in the **body**, and the round was closed.
+
+That fix was scoped to the logger that was reported.
+
+`server/security/compliance-middleware.ts` mounts `unifiedComplianceMiddleware()`
+globally at `server/index.ts:191` — before `serveStatic` and before
+`registerRoutes`, so it sees every request in the process. Its SOC2 change
+tracker is enabled by default (`DEFAULT_COMPLIANCE_CONFIG.soc2Enabled = true`),
+and it logs a record containing `path: req.path` for **every** non-GET request,
+with no `/api` restriction of any kind.
+
+`POST /s/<token>` walked straight into it. A default share grant has no PIN, so
+that one log line is sufficient to redeem the medications, diagnoses and
+allergies until the TTL or the view cap runs out.
+
+### Two fixes, and only one of them is about the share route
+
+**The class fix.** `server/security/redact-path.ts` is a single function that
+every globally mounted path logger now calls — the SOC2 tracker, the HIPAA
+audit detail string, the two TEFCA log lines, the GCP audit entry, the CSRF
+failure warnings, the TLS warnings, the production logger, and the `/api` HTTP
+logger that started all this. Route structure survives (`/s/[redacted-token]`
+still tells an auditor what was hit); the replayable part does not.
+
+It works two ways, because either alone fails: a prefix registry that is
+authoritative regardless of entropy, and an entropy heuristic that covers the
+capability route nobody remembered to register. **UUIDs are deliberately left
+intact** — `/api/patients/<uuid>` names a resource that still requires
+authentication, and redacting it would destroy audit correlation while buying
+no real secrecy. A test pins that.
+
+**The instance fix.** Redemption moved from `POST /s/:token` to
+`POST /s/redeem`, with the token in a hidden form field. `POST /s/:token` was
+removed rather than left as a redirect: a shim would keep writing the token to
+the change log on every stale form submission, which is the leak itself.
+`redactPath` covers the stale requests that still arrive.
+
+> **The pattern this is the fourth instance of.** Round 7 fixed the
+> `isAuthenticated` guard on engagement and left it on HCC, RVU and referral.
+> Round 7 again fixed a path-embedded identifier on the share JSON route and
+> left it on its sibling one commit later. Round 9 wrote a bare insert for
+> scribe consent while the store one directory over had done the upsert
+> correctly since it was written. Round 11 fixed one path logger and left seven.
+> The defect is never the interesting part; that knowing the class did not
+> produce a sweep is.
+
+> **What is still not fixed.** A proxy, CDN or load balancer in front of this
+> application still records `GET /s/<token>` in its own access log, because the
+> token has to be in the URL for a share link to be a link. That is an edge
+> configuration problem and cannot be closed in application code — stated here
+> rather than left to be discovered.

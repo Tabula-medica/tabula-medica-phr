@@ -422,7 +422,19 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
   };
 
   const renderShare = async (req: Request, res: Response) => {
-    const token = req.params.token;
+    // Body, never `req.params`. `POST /s/<token>` put the capability into
+    // `req.path`, and the globally mounted SOC2 change tracker
+    // (`compliance-middleware.ts`, on by default, no `/api` filter) writes the
+    // path of every non-GET request to stdout. Round 5 moved the JSON twin off
+    // a path token for the *other* logger and stopped there; this is the same
+    // leak through a door that was never swept.
+    const token = typeof req.body?.token === "string" ? req.body.token : "";
+    if (!token) {
+      return res
+        .status(400)
+        .type("html")
+        .send(errorPage("token-not-found", "This link is not valid."));
+    }
     const redemption = await redeemShare(token, { pin: pinFromRequest(req) });
 
     setShareHeaders(res);
@@ -458,7 +470,17 @@ export function registerHealthSummaryShareRoutes(app: Express): void {
   };
 
   app.get("/s/:token", shareViewRateLimiter, shareInterstitial);
-  app.post("/s/:token", shareViewRateLimiter, renderShare);
+
+  /**
+   * Redemption, on a fixed path with the token in the body.
+   *
+   * Mounted before `/s/:token` so it is never captured by that parameter.
+   * There is deliberately no `POST /s/:token` any more: leaving it as a
+   * redirect or a deprecation shim would keep writing the token to the SOC2
+   * change log on every stale form submission, which is the leak itself.
+   * `redactPath` covers the stale requests that still arrive.
+   */
+  app.post("/s/redeem", shareViewRateLimiter, renderShare);
 
   /**
    * JSON twin. The token travels in the **body**, not the path.

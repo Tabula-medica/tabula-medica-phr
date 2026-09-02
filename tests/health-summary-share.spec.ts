@@ -623,7 +623,11 @@ describe("the page a GET returns", () => {
   it("makes the reader POST, because a crawler will not", () => {
     const page = interstitialPage("tok_abc123");
     expect(page).toContain('method="post"');
-    expect(page).toContain('action="/s/tok_abc123"');
+    // Round 11: the token must not be in the action of a POST. A mutating
+    // request path reaches the global SOC2 change tracker and lands in stdout.
+    expect(page).toContain('action="/s/redeem"');
+    expect(page).not.toContain('action="/s/tok_abc123"');
+    expect(page).toContain('name="token" value="tok_abc123"');
   });
 
   it("gives every page the same generic title", () => {
@@ -663,9 +667,11 @@ describe("the page a GET returns", () => {
     expect(page).toContain("&lt;img src=x onerror=alert(1)&gt;");
   });
 
-  it("puts the token in the PIN form action but never in a title", () => {
+  it("carries the token in the PIN form body but never in a URL or a title", () => {
     const page = pinPage("tok_xyz", "That PIN is not correct.");
-    expect(page).toContain('action="/s/tok_xyz"');
+    expect(page).toContain('action="/s/redeem"');
+    expect(page).not.toContain('action="/s/tok_xyz"');
+    expect(page).toContain('name="token" value="tok_xyz"');
     expect(page).toContain('method="post"');
     expect(page).toContain("That PIN is not correct.");
   });
@@ -695,5 +701,34 @@ describe("the staff predicate is not a treatment-relationship check", () => {
     expect(isClinicStaff({ userId: "u1" })).toBe(false);
     // And it is not an authentication check either — no caller, no pass.
     expect(isClinicStaff({ role: "provider" })).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Round 11 — the token in stdout, again, through a different logger.
+ *
+ * Round 5 moved the JSON route's token into the body because
+ * `server/index.ts` logs `{ method, path }` for `/api` requests. That fix was
+ * scoped to the logger that was reported. The globally mounted SOC2 change
+ * tracker logs the path of every non-GET request with no `/api` filter at all,
+ * so `POST /s/<token>` wrote the capability to stdout — and a default grant
+ * has no PIN, so the log line alone redeems the summary.
+ */
+describe("round 11: no capability token in a mutating URL", () => {
+  it("puts the token in a hidden field, never the form action", () => {
+    for (const page of [interstitialPage("tok_secret_123"), pinPage("tok_secret_123", null)]) {
+      expect(page).toContain('action="/s/redeem"');
+      expect(page).toContain('name="token" value="tok_secret_123"');
+      // The token appears exactly once, as field content — not in any URL.
+      expect(page).not.toMatch(/action="[^"]*tok_secret_123/);
+    }
+  });
+
+  it("escapes the token in the hidden field rather than trusting it", () => {
+    const page = interstitialPage('tok"><script>alert(1)</script>');
+    expect(page).not.toContain("<script>");
+    expect(page).toContain("&lt;script&gt;");
   });
 });

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction, RequestHandler } from "express";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { redactPath } from "./redact-path";
 
 export interface StructuredLogEntry {
   timestamp: string;
@@ -161,7 +162,7 @@ class ProductionLogger {
     
     if (req) {
       entry.method = req.method;
-      entry.path = req.path;
+      entry.path = redactPath(req.path);
       
       const user = req.user as { claims?: { sub?: string } } | undefined;
       if (user?.claims?.sub) {
