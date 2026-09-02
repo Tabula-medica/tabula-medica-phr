@@ -307,6 +307,7 @@ import { registerRvuRoutes } from "./rvu-routes";
 import { registerEngagementRoutes } from "./engagement-routes";
 import { registerHealthSummaryShareRoutes } from "./health-summary-share-routes";
 import { registerAmbientScribeRoutes } from "./ambient-scribe-routes";
+import { registerCareManagementRoutes } from "./care-management-routes";
 import healthQuestionnaireRoutes from "./health-questionnaire-routes";
 import healthReportRoutes from "./health-report-routes";
 import providerCommunicationRoutes from "./provider-communication-routes";
@@ -1645,6 +1646,7 @@ export async function registerRoutes(
   registerEngagementRoutes(app);
   registerHealthSummaryShareRoutes(app);
   registerAmbientScribeRoutes(app);
+  registerCareManagementRoutes(app);
 
   app.use("/api/health-questionnaire", healthQuestionnaireRoutes);
   console.log("[Routes] Health Questionnaire routes registered at /api/health-questionnaire/*");
