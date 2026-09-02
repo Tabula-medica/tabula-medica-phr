@@ -122,6 +122,25 @@ const bundleSchema = z.object({
     .optional(),
 });
 
+/**
+ * Consent, re-checked on a session that already exists.
+ *
+ * Round 10 found that only session start and draft-building asked. Reading a
+ * draft back, attesting it, and exporting it as an ABDM document all skipped
+ * the question, so a transcript captured before a withdrawal could still be
+ * signed into a clinical record and exchanged afterwards.
+ *
+ * Withdrawal now purges unattested content the moment it is recorded, so in
+ * practice these handlers find nothing to serve. This guard is the second
+ * line: a draft written in the window between the withdrawal landing and this
+ * request arriving would otherwise slip through, and "the other check already
+ * handles it" is how the first gap got here.
+ */
+async function consentStillStands(profileId: string) {
+  const onFile = await scribeStore().findConsent(profileId, "ambient-documentation");
+  return evaluateRecordingConsent(onFile, "ambient-documentation");
+}
+
 export function registerAmbientScribeRoutes(app: Express): void {
   /**
    * What this deployment can actually do, before anyone tries.
@@ -198,10 +217,37 @@ export function registerAmbientScribeRoutes(app: Express): void {
         details: `recording consent ${body.state} via ${body.method}`,
       });
 
-      // Withdrawal is not just a flag: it decides what has to be destroyed,
-      // and the answer differs on either side of attestation.
-      const effect = body.state === "withdrawn" ? withdrawalEffect(false) : null;
-      res.json({ ok: true, state: body.state, withdrawalEffect: effect });
+      // Withdrawal is not a flag, and it is not a policy statement either.
+      // This used to return `withdrawalEffect(false)` — an object asserting
+      // `deleteDraft: true` — while destroying nothing, so an unattested
+      // transcript survived and could still be attested and exported. The
+      // destruction now happens here, and the response reports what was
+      // actually done rather than what the policy says should be.
+      if (body.state !== "withdrawn") {
+        return res.json({ ok: true, state: body.state });
+      }
+
+      const applied = await scribeStore().applyWithdrawal(body.profileId);
+
+      await logPhiAccess({
+        userId: caller.userId!,
+        patientId: body.profileId,
+        resourceType: "scribe-session",
+        action: "delete",
+        details:
+          `withdrawal purged ${applied.purgedDrafts} unattested session(s); ` +
+          `${applied.attestedRetained} attested note(s) retained with transcript destroyed`,
+      });
+
+      res.json({
+        ok: true,
+        state: body.state,
+        applied,
+        policy: {
+          unattested: withdrawalEffect(false),
+          attested: withdrawalEffect(true),
+        },
+      });
     },
   );
 
@@ -395,6 +441,27 @@ export function registerAmbientScribeRoutes(app: Express): void {
         action: "read",
       });
 
+      // After a withdrawal the attested note survives — it is a record of care
+      // that was delivered — but the transcript and any unsigned draft do not,
+      // and neither does the evidence trail built from them. Reported rather
+      // than returned as silently empty, so the clinician knows why the
+      // provenance links stopped resolving.
+      const stands = await consentStillStands(session.profileId);
+      if (!stands.ok) {
+        return res.json({
+          id: session.id,
+          status: session.status,
+          language: session.language,
+          rolesEstablished: session.rolesEstablished,
+          draft: session.attestation ? (session.draft ?? null) : null,
+          evidence: {},
+          evidenceUnavailable: stands.reason,
+          attestation: session.attestation ?? null,
+          isClinicalRecord: Boolean(session.attestation),
+          consent: { ok: false, reason: stands.reason, detail: stands.detail },
+        });
+      }
+
       const evidence =
         session.draft && session.transcript
           ? Object.fromEntries(
@@ -437,6 +504,17 @@ export function registerAmbientScribeRoutes(app: Express): void {
           error: "transcript-empty",
           detail: "There is no draft to attest. Build one from a transcript first.",
         });
+      }
+
+      // Signing is the step that turns a machine's reading of a conversation
+      // into a clinical record. Doing it after the patient withdrew would
+      // manufacture exactly the artefact withdrawal exists to prevent — and
+      // it is not a new rule, only the documented one enforced at the point
+      // it would otherwise be crossed.
+      const stands = await consentStillStands(session.profileId);
+      if (!stands.ok) {
+        await scribeStore().purgeDraft(session.id);
+        return res.status(403).json({ error: stands.reason, detail: stands.detail, purged: true });
       }
 
       const attested = await scribeStore().attest(session.id, {
@@ -502,6 +580,13 @@ export function registerAmbientScribeRoutes(app: Express): void {
             "downstream reads Composition.author as the clinician responsible for the " +
             "content, so that name has to belong to someone who reviewed it.",
         });
+      }
+
+      // Exporting is disclosure to a national exchange. A withdrawal that
+      // stops capture but not export stops nothing that matters.
+      const stands = await consentStillStands(session.profileId);
+      if (!stands.ok) {
+        return res.status(403).json({ error: stands.reason, detail: stands.detail });
       }
 
       try {

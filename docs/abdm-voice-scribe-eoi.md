@@ -288,9 +288,28 @@ under medical-records retention rather than on consent. Deleting it would
 destroy the treating clinician's record of a consultation that happened, which
 serves nobody — least of all the patient, whose next clinician needs it.
 
-Consent is re-checked when the transcript arrives, not only at session start. A
-patient can withdraw mid-consultation, and a transcript landing after that is
-purged rather than turned into a note.
+The **transcript** goes in both cases. It is the verbatim capture of the room,
+the same category as the audio, and "we kept a recording of everything you said
+because you had already signed the note" is not a reading of withdrawal anyone
+would accept. The cost is real and is reported rather than hidden: the retained
+note's evidence links no longer resolve, and `GET /session/:id` says so instead
+of returning silently empty provenance.
+
+**Withdrawal acts at the moment it is recorded.** `POST /api/scribe/consent`
+with `state=withdrawn` destroys the patient's unattested transcripts and drafts
+across every session in two set-based updates, and returns the counts of what
+was actually destroyed. An earlier version returned a `withdrawalEffect` object
+asserting `deleteDraft: true` and destroyed nothing, leaving the content to be
+purged only if some later request happened to re-check — during which window it
+could be attested and exported. A response that asserts a destruction which did
+not happen is worse than one that says nothing, because it closes the question.
+
+**Every handler that reads or finalises a session re-checks consent** — reading
+the draft back, attesting it, and exporting it as an ABDM document, not only
+session start and transcript submission. Withdrawal purges the content anyway,
+so in practice these find nothing to serve; they are the second line for a
+draft written in the window between a withdrawal landing and the request
+arriving. "The other check already handles it" is how the first gap got there.
 
 ### Residency: a BAA does not answer this question
 
@@ -341,13 +360,17 @@ limiter, because each call carries a consultation transcript.
 
 ```
 GET  /api/scribe/capabilities        what this deployment can actually do
-POST /api/scribe/consent             capture or withdraw permission to record
+POST /api/scribe/consent             capture, or withdraw and destroy
 POST /api/scribe/session             start — three gates, all refusing
 POST /api/scribe/session/:id/draft   transcript in, evidence-linked draft out
 GET  /api/scribe/session/:id         draft plus the words behind each item
 POST /api/scribe/session/:id/attest  a named clinician signs
 POST /api/scribe/session/:id/bundle  attested note → ABDM OP Consultation Record
 ```
+
+All five session routes re-check consent. The two that build content refuse
+outright; the three that read or finalise it serve the attested note and
+nothing else.
 
 `/capabilities` exists so a client can grey out languages that will refuse,
 rather than letting a clinician start a consultation and discover mid-visit that
@@ -394,7 +417,7 @@ the difference between a draft and a clinical record.
 
 ---
 
-## 7 · Test coverage: 78 tests
+## 7 · Test coverage: 87 tests
 
 Weighted towards refusals, because every defect this module is designed against
 produces output that *looks correct*.
@@ -408,7 +431,10 @@ effects on both sides of attestation; post-positional negation; brand-name and
 code-mixed matching; a patient's diagnosis never becoming an assessment; no
 assessment or plan without established roles; denial recorded as denial;
 `not-discussed` distinguished from `explicitly-negative`; unattested bundle
-build throwing; section codes omitted without a validated IG map; note text
+build throwing; withdrawal destroying unattested content at the moment it is
+recorded, retaining an attested note while destroying its transcript, and
+leaving another patient's sessions untouched; a stale grant never overwriting
+a newer withdrawal, with the unique index asserted at the schema level; section codes omitted without a validated IG map; note text
 escaped rather than becoming markup; one attestation winning and the second
 conflicting; purge refusing behind an attestation.
 

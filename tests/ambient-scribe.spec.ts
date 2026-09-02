@@ -970,6 +970,87 @@ describe("consent supersession", () => {
     expect(found?.state).toBe("granted");
   });
 
+  it("destroys unattested drafts when the withdrawal is recorded, not later", async () => {
+    // Round 10: the consent route returned withdrawalEffect(false) — an object
+    // saying deleteDraft: true — and purged nothing. The draft survived until
+    // some *later* request happened to re-check consent, and could be attested
+    // and exported in the meantime.
+    const s = await scribeStore().createSession({
+      profileId: "p1",
+      clinicianAccountId: "dr-1",
+      jurisdiction: "IN",
+      language: "hi",
+      mixedWith: [],
+      processedInRegion: "asia-south1",
+      draftExpiresAt: new Date(Date.now() + 3600_000),
+    });
+    const t = transcriptOf([
+      turn({ text: "bukhar hai", role: "patient" }),
+      turn({ text: "crocin", index: 1, role: "clinician" }),
+    ]);
+    await scribeStore().saveDraft({ id: s.id, transcript: t, draft: draftFor(), rolesEstablished: true, engine: "test" });
+
+    const applied = await scribeStore().applyWithdrawal("p1");
+    expect(applied.purgedDrafts).toBe(1);
+    expect(applied.attestedRetained).toBe(0);
+
+    const after = await scribeStore().getSession(s.id);
+    expect(after?.draft).toBeUndefined();
+    expect(after?.transcript).toBeUndefined();
+    expect(after?.status).toBe("abandoned");
+    expect(after?.audioDeletedAt).toBeTruthy();
+  });
+
+  it("keeps an attested note on withdrawal but destroys its transcript", async () => {
+    const s = await scribeStore().createSession({
+      profileId: "p1",
+      clinicianAccountId: "dr-1",
+      jurisdiction: "IN",
+      language: "hi",
+      mixedWith: [],
+      processedInRegion: "asia-south1",
+      draftExpiresAt: new Date(Date.now() + 3600_000),
+    });
+    const t = transcriptOf([
+      turn({ text: "bukhar hai", role: "patient" }),
+      turn({ text: "crocin", index: 1, role: "clinician" }),
+    ]);
+    await scribeStore().saveDraft({ id: s.id, transcript: t, draft: draftFor(), rolesEstablished: true, engine: "test" });
+    await scribeStore().attest(s.id, attestation);
+
+    const applied = await scribeStore().applyWithdrawal("p1");
+    expect(applied.attestedRetained).toBe(1);
+    expect(applied.purgedDrafts).toBe(0);
+
+    const after = await scribeStore().getSession(s.id);
+    // The record of care survives; the verbatim capture of the room does not.
+    expect(after?.draft).toBeDefined();
+    expect(after?.attestation).toBeDefined();
+    expect(after?.transcript).toBeUndefined();
+  });
+
+  it("leaves another patient's sessions untouched", async () => {
+    const mine = await scribeStore().createSession({
+      profileId: "p1", clinicianAccountId: "dr-1", jurisdiction: "IN", language: "hi",
+      mixedWith: [], processedInRegion: "asia-south1", draftExpiresAt: new Date(Date.now() + 3600_000),
+    });
+    const theirs = await scribeStore().createSession({
+      profileId: "p2", clinicianAccountId: "dr-1", jurisdiction: "IN", language: "hi",
+      mixedWith: [], processedInRegion: "asia-south1", draftExpiresAt: new Date(Date.now() + 3600_000),
+    });
+    const t = transcriptOf([
+      turn({ text: "bukhar hai", role: "patient" }),
+      turn({ text: "crocin", index: 1, role: "clinician" }),
+    ]);
+    await scribeStore().saveDraft({ id: mine.id, transcript: t, draft: draftFor(), rolesEstablished: true, engine: "test" });
+    await scribeStore().saveDraft({ id: theirs.id, transcript: t, draft: draftFor(), rolesEstablished: true, engine: "test" });
+
+    await scribeStore().applyWithdrawal("p1");
+
+    expect((await scribeStore().getSession(mine.id))?.draft).toBeUndefined();
+    expect((await scribeStore().getSession(theirs.id))?.draft).toBeDefined();
+  });
+
   it("keeps one row per patient and purpose, enforced in the schema", () => {
     // The half no in-memory double can catch. Without this index the postgres
     // store appends, and every behavioural test above still passes.

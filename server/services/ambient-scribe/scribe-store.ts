@@ -25,7 +25,7 @@
  * > a green suite.
  */
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { scribeConsentsTable, scribeSessionsTable } from "@shared/schema";
 import { phiDb, encryptPhiRow, decryptPhiRow } from "../../storage/phi-storage";
 import type { Attestation, ScribeNoteDraft, ScribeSessionStatus, Transcript } from "@shared/ambient-scribe";
@@ -84,6 +84,28 @@ export interface ScribeStore {
 
   /** Withdrawal before attestation: the draft and transcript are destroyed. */
   purgeDraft(id: string): Promise<void>;
+
+  /**
+   * Carry out a withdrawal across every session this patient has.
+   *
+   * The route used to *describe* this and not do it: it returned
+   * `withdrawalEffect(false)` — an object saying `deleteDraft: true` — while
+   * purging nothing, so an unattested transcript survived and could still be
+   * attested and exported. A response that asserts a destruction which did not
+   * happen is worse than one that says nothing, because it closes the question.
+   *
+   * Returns what was actually done, so the route reports facts rather than
+   * policy. Two set-based updates rather than a list-then-loop: the loop has a
+   * window between reading the session list and purging each one, and a draft
+   * saved inside that window would survive the withdrawal that was supposed to
+   * destroy it.
+   */
+  applyWithdrawal(profileId: string): Promise<{
+    /** Unattested sessions whose transcript and draft were destroyed. */
+    purgedDrafts: number;
+    /** Attested sessions: the note is retained, the transcript is not. */
+    attestedRetained: number;
+  }>;
 
   findConsent(profileId: string, purpose: RecordingPurpose): Promise<RecordingConsent | null>;
   putConsent(consent: RecordingConsent): Promise<RecordingConsent>;
@@ -212,6 +234,51 @@ export const postgresScribeStore: ScribeStore = {
       })
       // Never purge behind an attestation: that content is a clinical record.
       .where(and(eq(scribeSessionsTable.id, id), isNull(scribeSessionsTable.attestation)));
+  },
+
+  async applyWithdrawal(profileId) {
+    // Unattested: nothing here is a clinical record. The transcript and the
+    // draft both go, and the audio is marked destroyed.
+    const purged = await phiDb
+      .update(scribeSessionsTable)
+      .set({
+        transcript: null,
+        draft: null,
+        status: "abandoned" satisfies ScribeSessionStatus,
+        audioDeletedAt: sql`COALESCE(${scribeSessionsTable.audioDeletedAt}, NOW())`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scribeSessionsTable.profileId, profileId),
+          isNull(scribeSessionsTable.attestation),
+        ),
+      )
+      .returning({ id: scribeSessionsTable.id });
+
+    // Attested: the note is a record of care that was delivered, retained
+    // under medical-records law rather than on consent, so it stays. The
+    // transcript does not — it is the verbatim capture of the room, the same
+    // category as the audio, and "we kept a recording of everything you said
+    // because you had already signed the note" is not a reading of withdrawal
+    // anyone would accept. The cost is real and is reported rather than
+    // hidden: the note's evidence links no longer resolve.
+    const retained = await phiDb
+      .update(scribeSessionsTable)
+      .set({
+        transcript: null,
+        audioDeletedAt: sql`COALESCE(${scribeSessionsTable.audioDeletedAt}, NOW())`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scribeSessionsTable.profileId, profileId),
+          isNotNull(scribeSessionsTable.attestation),
+        ),
+      )
+      .returning({ id: scribeSessionsTable.id });
+
+    return { purgedDrafts: purged.length, attestedRetained: retained.length };
   },
 
   async findConsent(profileId, purpose) {
@@ -383,6 +450,29 @@ export function createMemoryScribeStore(): ScribeStore {
         status: "abandoned",
         audioDeletedAt: existing.audioDeletedAt ?? new Date().toISOString(),
       });
+    },
+
+    async applyWithdrawal(profileId) {
+      let purgedDrafts = 0;
+      let attestedRetained = 0;
+      for (const [id, s] of Array.from(sessions.entries())) {
+        if (s.profileId !== profileId) continue;
+        const audioDeletedAt = s.audioDeletedAt ?? new Date().toISOString();
+        if (s.attestation) {
+          sessions.set(id, { ...s, transcript: undefined, audioDeletedAt });
+          attestedRetained += 1;
+        } else {
+          sessions.set(id, {
+            ...s,
+            transcript: undefined,
+            draft: undefined,
+            status: "abandoned",
+            audioDeletedAt,
+          });
+          purgedDrafts += 1;
+        }
+      }
+      return { purgedDrafts, attestedRetained };
     },
 
     async findConsent(profileId, purpose) {
