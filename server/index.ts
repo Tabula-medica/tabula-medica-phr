@@ -177,6 +177,7 @@ app.use(gcpAuditMiddleware);
 // override via AI_BLOCKED_COUNTRIES env var).
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
+import { redactPath } from "./security/redact-path";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
 
@@ -192,6 +193,23 @@ app.use(unifiedComplianceMiddleware());
 
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "10mb";
 const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "10mb";
+
+/**
+ * Passport verification is unauthenticated by design, and canonicalising the
+ * posted document is real CPU on a process that also serves PHI routes. The
+ * global 10mb allowance is sized for uploads; a signed IPS passport is orders
+ * of magnitude smaller, so this route gets its own cap.
+ *
+ * Mounted BEFORE the global parser on purpose — body-parser skips a request
+ * whose body is already parsed, so the stricter limit is the one that applies
+ * and an oversized body is refused before it is read into memory.
+ */
+const PASSPORT_VERIFY_BODY_LIMIT =
+  process.env.PASSPORT_VERIFY_BODY_LIMIT || "512kb";
+app.use(
+  "/api/world/ips/verify",
+  express.json({ limit: PASSPORT_VERIFY_BODY_LIMIT }),
+);
 
 app.use(
   express.json({
@@ -210,7 +228,11 @@ app.use((err: Error & { type?: string; status?: number }, req: Request, res: Res
   if (err.type === "entity.too.large") {
     return res.status(413).json({
       error: "PAYLOAD_TOO_LARGE",
-      message: "Request body exceeds size limit. Maximum allowed: " + JSON_BODY_LIMIT,
+      message:
+        "Request body exceeds size limit. Maximum allowed: " +
+        (req.path === "/api/world/ips/verify"
+          ? PASSPORT_VERIFY_BODY_LIMIT
+          : JSON_BODY_LIMIT),
       requestId: getRequestId(req),
     });
   }
@@ -243,7 +265,10 @@ app.use((req, res, next) => {
         timestamp: new Date().toISOString(),
         request_id: getRequestId(req),
         method: req.method,
-        path: path,
+        // Gated on /api today; redacted anyway so this line stays safe if the
+        // gate ever widens. Relying on a filter elsewhere is what produced
+        // rounds 5 and 11.
+        path: redactPath(path),
         status: res.statusCode,
         duration_ms: duration,
         actor_id: user?.claims?.sub,

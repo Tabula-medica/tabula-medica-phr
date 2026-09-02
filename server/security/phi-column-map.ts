@@ -214,6 +214,25 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
 
   // --- Packets, dedup, AI audit ---
   packetExports: { text: [], jsonb: ["optionsJson"] },
+
+  // --- Engagement consent + health-summary shares ---
+  // `phone` is the contact point itself; lookup goes through the HMAC in
+  // `phoneHash`, so the plaintext never needs to be queryable.
+  engagementConsentsTable: { text: ["phone"], jsonb: [] },
+  // `label` is patient-chosen and names people ("Dr Rao", "Mum"); `directive`
+  // carries the designated person and destination from a 164.524(c)(3)(ii)
+  // written direction. `tokenHash` and `pinHash` are already one-way.
+  healthSummarySharesTable: { text: ["label"], jsonb: ["directive"] },
+
+  // Ambient scribe. `capturedBy` names the clinician who attests to having
+  // asked for recording consent.
+  scribeConsentsTable: { text: ["capturedBy"], jsonb: [] },
+
+  // The verbatim transcript is the most identifying payload this application
+  // stores — what a patient said about their own body, in their own words,
+  // plus whatever a relative in the room volunteered. The draft carries the
+  // same content in structured form, and the attestation names a clinician.
+  scribeSessionsTable: { text: [], jsonb: ["transcript", "draft", "attestation"] },
   matchCandidatesTable: { text: ["reviewNotes"], jsonb: ["matchDetails"] },
   mergeHistoryTable: {
     text: ["mergeReason"],

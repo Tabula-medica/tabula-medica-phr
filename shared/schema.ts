@@ -12,6 +12,7 @@ import {
   inet,
   primaryKey,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -518,6 +519,89 @@ export const shareLinks = pgTable(
   (t) => ({
     tokenUx: uniqueIndex("share_links_token_hash_ux").on(t.tokenHash),
   })
+);
+
+/**
+ * TCPA / DPDP consent, one row per contact point.
+ *
+ * Durable rather than process-local because a revocation that only reaches
+ * one instance is not a revocation. Every production deploy path in this repo
+ * (`deploy.sh`, `deploy-world.sh`, `deploy/gcp-deploy.sh`, `cloudbuild.yaml`)
+ * runs Cloud Run with `--max-instances=10` and no session affinity, so a STOP
+ * processed on one instance has to be visible to the other nine before the
+ * next send is gated — otherwise the statutory opt-out is honoured on a tenth
+ * of the traffic and ignored on the rest.
+ *
+ * Lookup is by `phoneHash` (HMAC via `hashPhone`) so a number can be found
+ * without decrypting the table; `phone` itself is encrypted at rest.
+ */
+export const engagementConsentsTable = pgTable(
+  "engagement_consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    phoneHash: text("phone_hash").notNull(),
+    phone: text("phone").notNull(),
+    state: text("state").notNull(),
+    purposes: jsonb("purposes").$type<string[]>().notNull().default([]),
+    capturedVia: text("captured_via"),
+    capturedAt: timestamp("captured_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedByKeyword: text("revoked_by_keyword"),
+    noticeLanguage: text("notice_language"),
+    noticeVersion: text("notice_version"),
+    needsStaffReview: boolean("needs_staff_review").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    phoneUx: uniqueIndex("engagement_consents_phone_hash_ux").on(t.phoneHash),
+  }),
+);
+
+/**
+ * Share grants for the health-summary link.
+ *
+ * Same reasoning as consent, with a sharper edge: `/s/:token` is
+ * unauthenticated, so a grant that lives only in one process means a staff
+ * revoke on instance A leaves instance B serving medications, diagnoses and
+ * allergies to anyone holding the link. The view cap and the PIN attempt
+ * lockout are equally worthless per-process — ten instances multiply both by
+ * ten.
+ *
+ * `tokenHash` is SHA-256 of the token; the token itself is never stored.
+ */
+export const healthSummarySharesTable = pgTable(
+  "health_summary_shares",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    sections: jsonb("sections").$type<string[]>().notNull(),
+    initiator: text("initiator").notNull(),
+    createdByAccountId: text("created_by_account_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    maxViews: integer("max_views").notNull(),
+    viewCount: integer("view_count").notNull().default(0),
+    pinAttempts: integer("pin_attempts").notNull().default(0),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+    language: text("language").notNull().default("en"),
+    pinRequired: boolean("pin_required").notNull().default(false),
+    /** base64 scrypt output and its salt. Null when no PIN was set. */
+    pinHash: text("pin_hash"),
+    pinSalt: text("pin_salt"),
+    /** Patient-chosen label ("Dr Rao", "Mum"). Encrypted — it names people. */
+    label: text("label"),
+    attestations: jsonb("attestations").$type<Record<string, boolean>>(),
+    /** 45 CFR 164.524(c)(3)(ii) directive. Names a person — encrypted. */
+    directive: jsonb("directive").$type<Record<string, string>>(),
+  },
+  (t) => ({
+    tokenUx: uniqueIndex("health_summary_shares_token_hash_ux").on(t.tokenHash),
+    profileIdx: index("health_summary_shares_profile_idx").on(t.profileId),
+  }),
 );
 
 export const auditLogTable = pgTable("audit_log_new", {
@@ -22405,3 +22489,106 @@ export const insertAccountPrivacyPrefsSchema = createInsertSchema(accountPrivacy
 });
 export type InsertAccountPrivacyPrefs = z.infer<typeof insertAccountPrivacyPrefsSchema>;
 export type AccountPrivacyPrefs = typeof accountPrivacyPrefs.$inferSelect;
+
+/**
+ * Ambient scribe: consent to record a consultation.
+ *
+ * Deliberately not folded into `engagement_consents`. That table answers "may
+ * we text this number"; this one answers "may we capture this room". A patient
+ * who agreed to appointment reminders has agreed to nothing here, and one
+ * table with a widened purpose list would let the first answer satisfy a
+ * question about the second.
+ *
+ * `noticeElements` records which DPDP s.5 elements the delivered notice
+ * covered. Section 5 makes the notice constitutive rather than procedural, so
+ * this is part of whether consent exists at all — not an audit nicety.
+ */
+export const scribeConsentsTable = pgTable(
+  "scribe_consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    jurisdiction: text("jurisdiction").notNull(),
+    purpose: text("purpose").notNull(),
+    state: text("state").notNull(),
+    method: text("method").notNull(),
+    noticeLanguage: text("notice_language").notNull(),
+    noticeVersion: text("notice_version").notNull(),
+    noticeElements: jsonb("notice_elements").$type<string[]>().notNull().default([]),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The clinician who attests to having asked. Names a person — encrypted. */
+    capturedBy: text("captured_by"),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("scribe_consents_profile_idx").on(t.profileId),
+    /**
+     * One authoritative row per (patient, purpose).
+     *
+     * Without this the store's insert appended, and `findConsent` — `LIMIT 1`
+     * with no ordering — could return the superseded `granted` row after a
+     * withdrawal had been written. Recording would then continue for a patient
+     * who had exercised DPDP s.6(6), and every surface would look correct.
+     *
+     * `engagement_consents` has had the equivalent unique index on `phoneHash`
+     * since it was written; this table was added without it.
+     */
+    profilePurposeUx: uniqueIndex("scribe_consents_profile_purpose_ux").on(
+      t.profileId,
+      t.purpose,
+    ),
+  }),
+);
+
+/**
+ * Ambient scribe sessions.
+ *
+ * `transcript` and `draft` are the most identifying payloads this application
+ * stores: a verbatim record of what a patient said about their own body, in
+ * their own words, plus whatever a relative in the room volunteered. Both are
+ * encrypted jsonb.
+ *
+ * The audio itself is **not** stored here and no column references it. It is
+ * working material with a 24-hour life (`SCRIBE_LIMITS.AUDIO_RETENTION_HOURS`);
+ * keeping it alongside the note would build a voice-biometric corpus nobody
+ * consented to, one consultation at a time.
+ *
+ * `attestation` being null is the difference between a draft and a clinical
+ * record. Nothing downstream may exchange a row whose attestation is null.
+ */
+export const scribeSessionsTable = pgTable(
+  "scribe_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    clinicianAccountId: text("clinician_account_id").notNull(),
+    jurisdiction: text("jurisdiction").notNull(),
+    status: text("status").notNull(),
+    language: text("language").notNull(),
+    mixedWith: jsonb("mixed_with").$type<string[]>().notNull().default([]),
+    engine: text("engine"),
+    /** Region inference actually ran in, recorded at start for the audit trail. */
+    processedInRegion: text("processed_in_region"),
+    rolesEstablished: boolean("roles_established").notNull().default(false),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** When the working audio was destroyed. Null means it has not been yet. */
+    audioDeletedAt: timestamp("audio_deleted_at", { withTimezone: true }),
+    /** Unattested drafts expire; an abandoned session must not linger as a shadow record. */
+    draftExpiresAt: timestamp("draft_expires_at", { withTimezone: true }),
+    /** Verbatim diarised turns. The most identifying payload here — encrypted. */
+    transcript: jsonb("transcript").$type<Record<string, unknown>>(),
+    /** Structured note items with their evidence spans — encrypted. */
+    draft: jsonb("draft").$type<Record<string, unknown>>(),
+    /** Null until a named clinician signs. Null means "not a clinical record". */
+    attestation: jsonb("attestation").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("scribe_sessions_profile_idx").on(t.profileId),
+    clinicianIdx: index("scribe_sessions_clinician_idx").on(t.clinicianAccountId),
+  }),
+);
