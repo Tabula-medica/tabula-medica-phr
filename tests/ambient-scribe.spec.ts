@@ -46,6 +46,8 @@ import { matchTerms, SEED_TERMS, terminology, __resetTerminologyCache } from "..
 import { buildNoteDraft, evidenceText } from "../server/services/ambient-scribe/note-builder";
 import { buildOpConsultBundle, NotAttestedError } from "../server/services/ambient-scribe/abdm-bundle";
 import { createMemoryScribeStore, __setScribeStore, scribeStore } from "../server/services/ambient-scribe/scribe-store";
+import { getTableConfig } from "drizzle-orm/pg-core";
+import { scribeConsentsTable } from "@shared/schema";
 
 const ENV_KEYS = [
   "SCRIBE_SPEECH_LANGUAGES",
@@ -880,5 +882,102 @@ describe("scribe store contract", () => {
     const found = await scribeStore().findConsent("p1", "ambient-documentation");
     expect(found?.state).toBe("granted");
     expect(found?.noticeElements).toHaveLength(NOTICE_ELEMENTS.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Round 9 — the withdrawal that could be outvoted by a stale grant.
+ *
+ * `putConsent` was a bare insert against a table with no unique constraint,
+ * and `findConsent` was `LIMIT 1` with no ordering. Writing a withdrawal
+ * appended a second row and left the superseded `granted` row equally
+ * reachable, so recording could continue for a patient who had exercised DPDP
+ * s.6(6) — with the withdrawal sitting in the table looking honoured.
+ *
+ * The memory double hid it by keying on profile+purpose, which made the double
+ * *more correct than production*. These tests pin both halves: the behaviour,
+ * against a double that now mirrors the real semantics, and the DDL, which no
+ * in-memory double can ever check.
+ */
+describe("consent supersession", () => {
+  const at = (iso: string) => fullConsent({ capturedAt: iso });
+
+  it("returns the withdrawal, not the grant it superseded", async () => {
+    await scribeStore().putConsent(at("2026-09-02T09:00:00.000Z"));
+    await scribeStore().putConsent({
+      ...at("2026-09-02T09:30:00.000Z"),
+      state: "withdrawn",
+      withdrawnAt: "2026-09-02T09:30:00.000Z",
+    });
+
+    const found = await scribeStore().findConsent("p1", "ambient-documentation");
+    expect(found?.state).toBe("withdrawn");
+  });
+
+  it("refuses a session once the withdrawal is the current state", async () => {
+    // The property that actually matters: the gate sees the withdrawal.
+    await scribeStore().putConsent(at("2026-09-02T09:00:00.000Z"));
+    await scribeStore().putConsent({
+      ...at("2026-09-02T09:30:00.000Z"),
+      state: "withdrawn",
+      withdrawnAt: "2026-09-02T09:30:00.000Z",
+    });
+
+    const found = await scribeStore().findConsent("p1", "ambient-documentation");
+    const decision = evaluateRecordingConsent(found, "ambient-documentation");
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) expect(decision.reason).toBe("consent-withdrawn");
+  });
+
+  it("does not let an older grant arriving late overwrite a newer withdrawal", async () => {
+    // A retry, a slow instance, a queued request. Last-writer-wins by arrival
+    // would resurrect consent here; the write is conditional on capturedAt.
+    await scribeStore().putConsent({
+      ...at("2026-09-02T09:30:00.000Z"),
+      state: "withdrawn",
+      withdrawnAt: "2026-09-02T09:30:00.000Z",
+    });
+    await scribeStore().putConsent(at("2026-09-02T09:00:00.000Z"));
+
+    const found = await scribeStore().findConsent("p1", "ambient-documentation");
+    expect(found?.state).toBe("withdrawn");
+  });
+
+  it("reports the state that stands when a write is superseded", async () => {
+    await scribeStore().putConsent({
+      ...at("2026-09-02T09:30:00.000Z"),
+      state: "withdrawn",
+      withdrawnAt: "2026-09-02T09:30:00.000Z",
+    });
+    // The caller is told what is true, not that their rejected grant landed.
+    const returned = await scribeStore().putConsent(at("2026-09-02T09:00:00.000Z"));
+    expect(returned.state).toBe("withdrawn");
+  });
+
+  it("still accepts a genuine later re-grant", async () => {
+    // Withdrawal is not permanent: a patient who declined last visit can agree
+    // at the next one, and the monotonic guard must not block that.
+    await scribeStore().putConsent({
+      ...at("2026-09-02T09:30:00.000Z"),
+      state: "withdrawn",
+      withdrawnAt: "2026-09-02T09:30:00.000Z",
+    });
+    await scribeStore().putConsent(at("2026-09-09T10:00:00.000Z"));
+
+    const found = await scribeStore().findConsent("p1", "ambient-documentation");
+    expect(found?.state).toBe("granted");
+  });
+
+  it("keeps one row per patient and purpose, enforced in the schema", () => {
+    // The half no in-memory double can catch. Without this index the postgres
+    // store appends, and every behavioural test above still passes.
+    const cfg = getTableConfig(scribeConsentsTable);
+    const unique = cfg.indexes.filter((i) => i.config.unique);
+    const cols = unique.map((i) =>
+      (i.config.columns as { name?: string }[]).map((c) => c.name).sort().join(","),
+    );
+    expect(cols).toContain("profile_id,purpose");
   });
 });

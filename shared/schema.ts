@@ -22524,6 +22524,21 @@ export const scribeConsentsTable = pgTable(
   },
   (t) => ({
     profileIdx: index("scribe_consents_profile_idx").on(t.profileId),
+    /**
+     * One authoritative row per (patient, purpose).
+     *
+     * Without this the store's insert appended, and `findConsent` — `LIMIT 1`
+     * with no ordering — could return the superseded `granted` row after a
+     * withdrawal had been written. Recording would then continue for a patient
+     * who had exercised DPDP s.6(6), and every surface would look correct.
+     *
+     * `engagement_consents` has had the equivalent unique index on `phoneHash`
+     * since it was written; this table was added without it.
+     */
+    profilePurposeUx: uniqueIndex("scribe_consents_profile_purpose_ux").on(
+      t.profileId,
+      t.purpose,
+    ),
   }),
 );
 

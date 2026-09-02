@@ -25,7 +25,7 @@
  * > a green suite.
  */
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { scribeConsentsTable, scribeSessionsTable } from "@shared/schema";
 import { phiDb, encryptPhiRow, decryptPhiRow } from "../../storage/phi-storage";
 import type { Attestation, ScribeNoteDraft, ScribeSessionStatus, Transcript } from "@shared/ambient-scribe";
@@ -224,10 +224,38 @@ export const postgresScribeStore: ScribeStore = {
           eq(scribeConsentsTable.purpose, purpose),
         ),
       )
+      // The unique index makes this a single row. The ordering is belt and
+      // braces: if a duplicate ever exists — a pre-index row, a restore from
+      // an older dump — the newest still wins, rather than whichever one the
+      // planner happened to reach first.
+      .orderBy(desc(scribeConsentsTable.capturedAt))
       .limit(1);
     return row ? rowToConsent(row) : null;
   },
 
+  /**
+   * Write the current consent state, and never move it backwards in time.
+   *
+   * Two things had to be true and only one of them was.
+   *
+   * **One row.** This was a bare `insert`. After a grant, writing a withdrawal
+   * appended a second row, and `findConsent` — `LIMIT 1`, no ordering — could
+   * return either. So recording could continue for a patient who had
+   * withdrawn, with the withdrawal sitting in the table looking honoured.
+   *
+   * **The newest write wins, by intent rather than by arrival.** A plain
+   * last-writer-wins upsert still loses a withdrawal to a `granted` write that
+   * was issued earlier and arrived later — a retry, a slow instance, a queued
+   * request. Across ten instances that is not exotic. So the update is
+   * conditional on `captured_at`: an older write cannot overwrite a newer one,
+   * which makes the outcome depend on when the patient actually said it rather
+   * than on which packet won the race.
+   *
+   * A rejected write returns no row. That is not an error — it means a newer
+   * state is already recorded — so the current row is read back and returned.
+   * Returning the rejected write would tell the caller their grant took effect
+   * when a withdrawal is what stands.
+   */
   async putConsent(consent) {
     const values = encryptPhiRow("scribeConsentsTable", {
       profileId: consent.patientId,
@@ -243,8 +271,39 @@ export const postgresScribeStore: ScribeStore = {
       withdrawnAt: consent.withdrawnAt ? new Date(consent.withdrawnAt) : null,
       updatedAt: new Date(),
     });
-    const [row] = await phiDb.insert(scribeConsentsTable).values(values).returning();
-    return rowToConsent(row);
+
+    const [row] = await phiDb
+      .insert(scribeConsentsTable)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [scribeConsentsTable.profileId, scribeConsentsTable.purpose],
+        set: {
+          jurisdiction: values.jurisdiction,
+          state: values.state,
+          method: values.method,
+          noticeLanguage: values.noticeLanguage,
+          noticeVersion: values.noticeVersion,
+          noticeElements: values.noticeElements,
+          capturedAt: values.capturedAt,
+          capturedBy: values.capturedBy,
+          withdrawnAt: values.withdrawnAt,
+          updatedAt: values.updatedAt,
+        },
+        where: sql`${scribeConsentsTable.capturedAt} <= ${values.capturedAt}`,
+      })
+      .returning();
+
+    if (row) return rowToConsent(row);
+
+    const current = await postgresScribeStore.findConsent(consent.patientId, consent.purpose);
+    if (current) return current;
+    // Unreachable in practice: the conflict fired, so a row exists. Refusing
+    // rather than fabricating one, because a caller that believes a consent
+    // write landed is the exact belief that starts a recording.
+    throw new Error(
+      "Consent write was superseded but the superseding row could not be read back. " +
+        "Refusing to report a consent state this process cannot confirm.",
+    );
   },
 };
 
@@ -330,8 +389,19 @@ export function createMemoryScribeStore(): ScribeStore {
       return consents.get(`${profileId}:${purpose}`) ?? null;
     },
 
+    // Mirrors the monotonic conditional upsert, not just the happy path. The
+    // previous version keyed by profile+purpose and always overwrote, which
+    // made it *kinder* than production: the store appended rows and could
+    // return a superseded grant, and no test could see it because the double
+    // did the right thing. A double that is more correct than the code it
+    // stands in for does not test the code, it hides it.
     async putConsent(consent) {
-      consents.set(`${consent.patientId}:${consent.purpose}`, consent);
+      const key = `${consent.patientId}:${consent.purpose}`;
+      const existing = consents.get(key);
+      if (existing && Date.parse(existing.capturedAt) > Date.parse(consent.capturedAt)) {
+        return existing;
+      }
+      consents.set(key, consent);
       return consent;
     },
   };
