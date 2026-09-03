@@ -1,0 +1,3 @@
+# Never commit real secret values — setup-secrets.sh reads this locally only.
+secrets.env
+*.secrets
