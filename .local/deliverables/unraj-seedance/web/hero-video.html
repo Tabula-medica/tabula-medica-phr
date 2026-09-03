@@ -1,0 +1,44 @@
+<!-- unraj.org hero with Seedance 2.0 background loop.
+     Paste this <section> where the current hero lives; link hero-video.css and hero-video.js once per page.
+     Media paths assume optimize.sh output copied to /media/01-hero-loop/. -->
+<link rel="stylesheet" href="/hero-video.css">
+<link rel="preload" as="image" href="/media/01-hero-loop/01-hero-loop.jpg" fetchpriority="high">
+
+<section class="uh-hero" aria-labelledby="uh-hero-title">
+  <div class="uh-hero__media" aria-hidden="true">
+    <img class="uh-hero__poster" src="/media/01-hero-loop/01-hero-loop.jpg" alt="" width="1280" height="720" decoding="async" fetchpriority="high">
+    <video class="uh-hero__video" muted playsinline loop preload="none" disablepictureinpicture
+           poster="/media/01-hero-loop/01-hero-loop.jpg"
+           data-src-webm="/media/01-hero-loop/01-hero-loop.webm"
+           data-src-mp4="/media/01-hero-loop/01-hero-loop.mp4">
+    </video>
+    <div class="uh-hero__scrim"></div>
+  </div>
+
+  <div class="uh-hero__content">
+    <p class="uh-hero__eyebrow">Rajiv Aggarwal, MD · Family physician · Founder</p>
+    <h1 id="uh-hero-title" class="uh-hero__title">
+      Records that follow you.<br>
+      <span class="uh-hero__title-accent">Care you can afford.</span>
+    </h1>
+    <p class="uh-hero__lede">
+      Thirty-eight years in family medicine, now building patient-owned health records and
+      real access to care for the 40 million Americans without coverage.
+    </p>
+    <div class="uh-hero__actions">
+      <a class="uh-btn uh-btn--primary" href="#work">See what I'm building</a>
+      <a class="uh-btn uh-btn--ghost" href="#about">About Dr. Aggarwal</a>
+    </div>
+  </div>
+
+  <button class="uh-hero__toggle" type="button" aria-pressed="true" aria-label="Pause background video" data-hero-toggle>
+    <svg class="uh-hero__icon uh-hero__icon--pause" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+    <svg class="uh-hero__icon uh-hero__icon--play" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+  </button>
+</section>
+
+<p class="uh-ai-disclosure">
+  Illustrative video created with AI-generated imagery. No patient data or patient likenesses were used.
+</p>
+
+<script src="/hero-video.js" defer></script>
