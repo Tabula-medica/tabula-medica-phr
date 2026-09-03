@@ -1,0 +1,115 @@
+{
+  "_readme": "Six Seedance 2.0 jobs for the Higgsfield MCP video-generation tool. Map fields to the live tool schema: model -> Seedance 2.0 Standard (or Fast for drafts); prompt as-is; duration seconds; aspect_ratio; resolution; audio boolean; references via the tool's file/URL input. Run drafts (draft:true) first.",
+  "server": "https://mcp.higgsfield.ai/mcp",
+  "model": {
+    "standard": "seedance-2.0",
+    "draft": "seedance-2.0-fast",
+    "long_form_option": "seedance-2.5"
+  },
+  "jobs": [
+    {
+      "id": "01-hero-loop",
+      "draft": true,
+      "seeds": 3,
+      "duration_seconds": 8,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "audio": false,
+      "references": {
+        "images": [],
+        "audio": [],
+        "video": []
+      },
+      "notes": "Hero background. Draft first. Loop check: last frame should match first.",
+      "prompt": "【Style】Clean modern healthcare tech, cinematic 35mm, deep navy background with teal and sky-blue light, soft volumetric glow, minimal, premium, no text, no logos, no faces. 【Duration】8 seconds, designed to loop: the final frame composition matches the opening frame. [00:00-00:03] Shot 1: Dozens of translucent paper medical records drift apart in dark space like scattered leaves, slightly out of focus, each glowing faintly teal at the edges. Camera holds fixed, slow gentle drift of the papers only. [00:03-00:06] Shot 2 (continuous, no cut): The records slowly converge and stack into a single luminous card that hovers at center, edges aligning with a soft pulse of light. Subtle particles settle. [00:06-00:08] Shot 3 (continuous): The single card gently rotates 15 degrees and dissolves back into the drifting field from the opening, so the loop restarts invisibly. Camera: fixed, completely still, subtle depth of field. Motion is slow, smooth, stable, gradual. Avoid: text, letters, numbers, logos, faces, hands, jitter, temporal flicker, fast motion, lens flare streaks, camera shake."
+    },
+    {
+      "id": "02-founder-intro",
+      "draft": false,
+      "seeds": 3,
+      "duration_seconds": 12,
+      "aspect_ratio": "16:9",
+      "resolution": "1080p",
+      "audio": true,
+      "references": {
+        "images": [
+          "refs/headshot.jpg"
+        ],
+        "audio": [
+          "refs/voice-sample.mp3"
+        ],
+        "video": []
+      },
+      "notes": "Needs refs: headshot (image) + voice sample (audio). Approve drafts before running.",
+      "prompt": "Character appearance references @Image1 exactly: same face, hair, glasses, skin tone, age. Voice tone and cadence reference @Audio1 only. 【Style】Warm documentary interview, natural window light from camera-left, shallow depth of field, calm and credible, 35mm, muted navy and warm neutral palette. 【Duration】12 seconds. [00:00-00:04] Medium close-up. A family physician in his sixties in a light blue open-collar shirt sits in a quiet, book-lined study, hands loosely folded. He looks into the lens, gives a small genuine smile, and speaks in clear English: \"I've been a family doctor for thirty-eight years.\" [00:04-00:09] Slow, gentle push-in. He continues, unhurried: \"I've watched patients lose their records, and lose care they couldn't afford.\" [00:09-00:12] Camera settles. He nods once and says: \"So I started building the tools I wished they'd had.\" Camera: one slow push-in only, stable, no handheld shake. Lip-sync precisely to the spoken lines. Background stays soft and still. Avoid: identity drift, extra people, text on screen, logos, exaggerated gestures, bent fingers, jitter, temporal flicker, dramatic music (ambient room tone only)."
+    },
+    {
+      "id": "03-portfolio-explainer",
+      "draft": false,
+      "seeds": 3,
+      "duration_seconds": 15,
+      "aspect_ratio": "16:9",
+      "resolution": "1080p",
+      "audio": true,
+      "references": {
+        "images": [],
+        "audio": [],
+        "video": []
+      },
+      "notes": "Longest clip; run after 01 is approved so palette matches.",
+      "prompt": "【Style】Cinematic, human, hopeful. Natural light, real-world settings, subtle teal accent color carried through every shot, 35mm, gentle score with soft piano and ambient sound. 【Duration】15 seconds, three shots with clean cuts. [00:00-00:05] Shot 1 \"Fragmented\": A woman in her forties sits at a kitchen table in an ordinary American apartment, three different paper folders and two clinic portals open on a laptop, visibly overwhelmed, rubbing her temple. Camera: slow pull-out from her hands to a medium shot. Ambient: kitchen hum. [00:05-00:10] Shot 2 \"One record\": Cut. She holds a phone; the screen glows soft teal (screen content out of focus, no readable text). Her shoulders relax, she exhales, a small relieved smile. Camera: slow push-in to close-up on her face. Score enters gently. [00:10-00:15] Shot 3 \"Affordable care\": Cut. Bright community clinic waiting room, morning light. She checks in at a friendly front desk, the receptionist smiles and gestures her through. Camera: fixed medium-wide, natural movement only. Score resolves warmly. Consistency: same woman in all three shots (same hair, same navy cardigan). One camera move per shot. Avoid: readable text on screens or signs, logos, medical instruments in frame, dramatic sadness, jitter, temporal flicker, identity drift, more than two people per shot."
+    },
+    {
+      "id": "04-care-access",
+      "draft": true,
+      "seeds": 3,
+      "duration_seconds": 10,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "audio": false,
+      "references": {
+        "images": [],
+        "audio": [],
+        "video": []
+      },
+      "notes": "No audio. Caption on site must read: Membership for care access. Not insurance.",
+      "prompt": "【Style】Warm, dignified, documentary realism, golden-hour light, 35mm, handheld with very slight natural movement, palette of warm neutrals with a single teal accent. 【Duration】10 seconds, two shots. [00:00-00:05] Shot 1: A young father in a work shirt sits on the front steps of a modest suburban Virginia townhouse at dusk, his daughter (about six) leaning against his shoulder. He looks at his phone, brows furrowed, then his expression eases. Camera: gentle handheld medium shot, slow subtle push-in. [00:05-00:10] Shot 2: Cut. The next morning, the same father and daughter walk hand in hand through the glass door of a small, bright neighborhood health clinic, sunlight behind them. Camera: fixed low-angle wide shot, they walk toward and past the lens. Consistency: same father (short dark hair, beard, olive work shirt) and same daughter (pink jacket) in both shots. Avoid: readable text, logos, signs, the word insurance anywhere, money or cards in frame, medical equipment, jitter, temporal flicker, identity drift."
+    },
+    {
+      "id": "05-diaspora-families",
+      "draft": true,
+      "seeds": 3,
+      "duration_seconds": 10,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "audio": true,
+      "references": {
+        "images": [],
+        "audio": [],
+        "video": []
+      },
+      "notes": "Audio on (ambient voices, no dialogue).",
+      "prompt": "【Style】Warm, joyful, multigenerational, natural light, 35mm, soft focus backgrounds, palette of saffron, teal, and cream. Sound: gentle overlapping family voices in Hindi, Tamil, Telugu, and Mandarin, indistinct, plus a soft radio jingle hum. 【Duration】10 seconds, three quick shots. [00:00-00:04] Shot 1: An Indian-American grandmother in a cotton sari and her teenage grandson sit together on a living-room sofa in a Northern Virginia home, listening to a small radio on the coffee table; she laughs and taps his knee. Camera: fixed medium shot. [00:04-00:07] Shot 2: Cut. A Chinese-American mother in a kitchen reads aloud from a phone to a toddler in a high chair who giggles. Camera: slow pan left to right. [00:07-00:10] Shot 3: Cut. A South Asian father and two children on a porch at golden hour, the father cupping headphones to the smaller child's ears, both smiling. Camera: gentle push-in. One camera move per shot. Real, unposed body language. Avoid: readable text, logos, flags, stereotyped costume, jitter, temporal flicker, more than four people per shot, bent limbs."
+    },
+    {
+      "id": "06-social-vertical",
+      "draft": false,
+      "seeds": 2,
+      "duration_seconds": 8,
+      "aspect_ratio": "9:16",
+      "resolution": "1080p",
+      "audio": true,
+      "references": {
+        "images": [
+          "refs/headshot.jpg"
+        ],
+        "audio": [],
+        "video": [
+          "out/03-portfolio-explainer.mp4"
+        ]
+      },
+      "notes": "Needs refs: headshot (image) + the chosen 03 output (video). Run last.",
+      "prompt": "Rhythm, cut timing, and color palette reference @Video1 only. Character appearance references @Image1 exactly. 【Style】Vertical, phone-native, bold but calm, navy and teal, cinematic 35mm, soft piano score. 【Duration】8 seconds, two shots. [00:00-00:04] Shot 1: Translucent medical records drift and converge into one glowing card in dark navy space (vertical framing, card centered in the upper third to leave the lower third clear for captions). Camera fixed. [00:04-00:08] Shot 2: Cut. Medium close-up of the family physician from @Image1 in a book-lined study, warm window light, looking into the lens with a calm nod and a small smile. No speech. Camera: slow push-in. Avoid: text, logos, identity drift, jitter, temporal flicker, fast motion."
+    }
+  ]
+}

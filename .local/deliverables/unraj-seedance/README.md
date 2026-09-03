@@ -22,6 +22,7 @@ Where to run it:
 
 | Route | Best for | Cost (Sep 2026) | Watermark / license |
 |---|---|---|---|
+| **Higgsfield MCP** (`https://mcp.higgsfield.ai/mcp`) | Saying "make the clips" to Claude in chat, Cowork, or Claude Code; 30+ models incl. Seedance 2.0/2.5 on one login | Credits: ≈ 45 per 5 s at 1080p, ≈ 25 per 5 s at lower res; full pack ≈ $21 per seed on Plus | No watermark on paid plans; see `higgsfield/RUNBOOK.md` |
 | **Dreamina (CapCut) web UI** | Hands-on iteration, 1080p–4K exports | Free tier (watermarked) · Standard ≈ $9.99/mo · Pro ≈ $19.99/mo | Pro = no watermark + commercial license |
 | **fal.ai API** (`bytedance/seedance-2.0/*`) | Batch generation from the prompt pack, repeatable | 720p std $0.30/s · 1080p std $0.68/s · 720p fast $0.24/s | No watermark; check fal ToS for commercial use |
 | **BytePlus ModelArk** (`dreamina-seedance-2-0-260128`) | Enterprise billing, region control | Token-based, ≈ $0.014 / 1k tokens | `watermark:false` flag available |
@@ -56,7 +57,10 @@ Prompts are in `prompts/` (one file per clip, paste-ready for Dreamina; the JSON
 ## 3. Workflow (≈ 3 hours end to end)
 
 1. **Collect references** into `refs/` (not committed): one clean headshot (front-lit, neutral background), the unraj logo PNG, a 10–20 s voice sample of you reading any paragraph, and one still from the Tabula Medica app.
-2. **Generate** — either paste `prompts/*.md` into Dreamina (attach refs in Multiframes mode using `@Image1`, `@Audio1`), or run:
+2. **Generate** — pick one route:
+   - **Higgsfield MCP (recommended, no code):** connect once per `higgsfield/RUNBOOK.md` §1, then paste the §4 message into a Claude session; Claude runs `higgsfield/jobs.json` and returns the URLs.
+   - **Dreamina:** paste `prompts/*.md` (attach refs in Multiframes mode using `@Image1`, `@Audio1`).
+   - **fal.ai script:**
    ```bash
    cd .local/deliverables/unraj-seedance
    npm i @fal-ai/client
@@ -100,6 +104,10 @@ unraj-seedance/
 ├── README.md                 ← this plan
 ├── checklist.md              ← pre-publish QA
 ├── generate.mjs              ← fal.ai batch generator + cost estimator
+├── higgsfield/
+│   ├── RUNBOOK.md            ← connect the Higgsfield MCP, credit budget, run loop
+│   ├── jobs.json             ← the six clips as MCP video-generation jobs
+│   └── mcp.json              ← drop-in .mcp.json for Claude Code
 ├── optimize.sh               ← ffmpeg web-encode pipeline
 ├── prompts/
 │   ├── prompts.json          ← machine-readable (used by generate.mjs)
