@@ -181,7 +181,7 @@
     "ip-address": "^10.3.1",
     "basic-ftp": "^6.0.1",
     "hono": "^4.12.34",
-    "fast-uri": "^3.1.5",
+    "fast-uri": "^3.1.7",
     "fast-xml-builder": "^1.2.0",
     "@protobufjs/utf8": "^1.1.1",
     "qs": "^6.15.2",
