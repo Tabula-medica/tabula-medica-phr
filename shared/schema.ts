@@ -22477,3 +22477,42 @@ export type HealthcareProviderDB = typeof healthcareProvidersTable.$inferSelect;
 export const insertProviderLocationDBSchema = createInsertSchema(providerLocationsTable).omit({ id: true, createdAt: true });
 export type InsertProviderLocationDB = z.infer<typeof insertProviderLocationDBSchema>;
 export type ProviderLocationDB = typeof providerLocationsTable.$inferSelect;
+
+// ─── Firecrawl reference-content ingestion (Phase 1) ────────────────────────
+// Public medical reference content (FDA/CDC/WHO/ICD-11) ingested from public
+// URLs only — NEVER PHI. Every row lands as `draft`; nothing surfaces to a
+// patient or clinician until a human sets status="published". Patient-facing
+// text is passed through sanitizeNoCDS + carries the NO-CDS disclaimer.
+export const referenceContent = pgTable("reference_content", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  source: text("source").notNull(),                    // "fda" | "cdc" | "who" | "icd11"
+  sourceUrl: text("source_url").notNull().unique(),    // dedup key
+  externalVersion: text("external_version"),           // source date/version for change detection
+  contentType: text("content_type").notNull(),         // "drug-label" | "clinical-guideline" | "patient-education" | "coding"
+  surface: text("surface").notNull().default("patient-education"), // "patient-education" | "clinician-reference"
+  title: text("title").notNull(),
+  body: text("body"),                                  // clean markdown (sanitized if patient-facing)
+  structuredData: jsonb("structured_data").$type<Record<string, unknown>>().notNull().default({}),
+  license: text("license"),                            // "public-domain" | "CC-BY-NC-SA" | ...
+  attribution: text("attribution"),
+  status: text("status").notNull().default("draft"),   // draft | in-review | published | retired
+  reviewedBy: uuid("reviewed_by"),                     // account id of human reviewer (no FK: audit-only)
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  statusIdx: index("reference_content_status_idx").on(t.status),
+  sourceIdx: index("reference_content_source_idx").on(t.source),
+}));
+
+export const referenceContentTags = pgTable("reference_content_tags", {
+  contentId: uuid("content_id").notNull().references(() => referenceContent.id, { onDelete: "cascade" }),
+  tag: text("tag").notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.contentId, t.tag] }),
+  tagIdx: index("reference_content_tags_tag_idx").on(t.tag),
+}));
+
+export const insertReferenceContentSchema = createInsertSchema(referenceContent).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertReferenceContent = z.infer<typeof insertReferenceContentSchema>;
+export type ReferenceContent = typeof referenceContent.$inferSelect;
