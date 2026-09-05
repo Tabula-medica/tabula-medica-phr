@@ -22496,7 +22496,7 @@ export const referenceContent = pgTable("reference_content", {
   license: text("license"),                            // "public-domain" | "CC-BY-NC-SA" | ...
   attribution: text("attribution"),
   status: text("status").notNull().default("draft"),   // draft | in-review | published | retired
-  reviewedBy: uuid("reviewed_by"),                     // account id of human reviewer (no FK: audit-only)
+  reviewedBy: text("reviewed_by"),                     // reviewer user id (claims.sub; audit-only, no FK)
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

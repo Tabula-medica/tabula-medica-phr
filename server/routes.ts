@@ -316,6 +316,7 @@ import consolidatedHealthRoutes from "./consolidated-health-routes";
 import documentSummarizationRoutes from "./document-summarization-routes";
 import carePacketsRoutes from "./care-packets-routes";
 import { supportResourcesRoutes } from "./support-resources-routes";
+import { referenceContentRoutes } from "./reference-content-routes";
 import { caregiverPermissionsRoutes } from "./caregiver-permissions-routes";
 import { caregiverDashboardRoutes } from "./caregiver-dashboard-routes";
 import { caregiverHealthDashboardRoutes } from "./caregiver-health-dashboard-routes";
@@ -1327,6 +1328,8 @@ export async function registerRoutes(
   app.use("/api/health-journey", personalizedHealthJourneyRoutes);
   console.log("[Routes] Personalized Health Journey routes registered at /api/health-journey/*");
   app.use("/api/enhanced-health-journey", enhancedHealthJourneyRoutes);
+  app.use("/api/reference-content", referenceContentRoutes);
+  console.log("[Routes] Reference-content reviewer routes registered at /api/reference-content/*");
   console.log("[Routes] Enhanced Health Journey routes registered at /api/enhanced-health-journey/*");
   registerCarePathwayRoutes(app);
   console.log("[Routes] Provider Population Management routes registered at /api/provider-population/*");
