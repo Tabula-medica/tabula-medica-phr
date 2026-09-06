@@ -10,6 +10,7 @@ Call **(571) 223-3833** · docs@lansdownedoctor.com · {{BOOKING_URL}}
 - **All vaccination records**, in any language (childhood card, school records, prior I-693, WHO yellow card)
 - Any recent TB test result (IGRA / QuantiFERON / T-SPOT) or chest X-ray report
 - Records of past treatment for TB, syphilis, or other conditions listed on the form
+- Insurance card, if any (the exam fee is self-pay; labs and vaccines may be covered)
 - Your attorney's name and email so we can confirm completion
 
 ## What happens
@@ -20,8 +21,8 @@ Call **(571) 223-3833** · docs@lansdownedoctor.com · {{BOOKING_URL}}
 
 ## Fees
 
-- **{{I693_FEE}}**, all-inclusive: exam, completed I-693 paperwork, required labs, and age-appropriate immunizations
-- No insurance needed; nothing is billed separately
+- Exam and completed I-693 paperwork: **{{I693_FEE}}** (self-pay)
+- Required labs and age-appropriate vaccines: billed separately; often covered by insurance
 
 ## Good to know
 

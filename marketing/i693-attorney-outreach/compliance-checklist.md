@@ -14,7 +14,7 @@
 ## Professional advertising (VA Board of Medicine, MD, DC)
 - [ ] "USCIS-Designated Civil Surgeon" is accurate and current (verify designation status in the USCIS Find a Civil Surgeon locator before sending)
 - [ ] No guarantees of USCIS approval; turnaround claims are about the clinic's own timeline
-- [ ] Fee quoted ($250, all-inclusive of paperwork, labs, and age-appropriate immunizations) matches what the front desk charges
+- [ ] Fee quoted ($250 for exam and paperwork) matches the front desk; labs and vaccines are stated as extra in every message
 - [ ] No fee-splitting, referral payments, or gifts offered to attorneys
 
 ## Deliverability

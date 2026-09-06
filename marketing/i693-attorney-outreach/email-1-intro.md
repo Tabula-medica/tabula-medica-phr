@@ -8,7 +8,7 @@
 4. `A civil surgeon who actually calls you back (Northern VA / DC / MD)`
 5. `I-693 medical exams for {{FIRM}} clients — fast, sealed, USCIS-compliant`
 
-**Preheader:** Same/next-day exam, sealed envelope in {{TURNAROUND}}, one flat fee that includes labs and vaccines. Two offices in Northern Virginia.
+**Preheader:** Same/next-day exam, sealed envelope in {{TURNAROUND}}, transparent flat exam fee. Two offices in Northern Virginia.
 
 ## Plain-text body
 
@@ -22,8 +22,8 @@ We built our I-693 service around the attorney's timeline, not the clinic's:
   • {{APPT_LEAD}} exam appointments, Monday–Friday
   • Sealed I-693 ready in {{TURNAROUND}} (gated only by the TB blood test)
   • Same-day RFE fixes: we re-issue a corrected, sealed form the day you flag the problem
-  • Flat {{I693_FEE}}: exam, completed I-693 paperwork, required labs, and age-appropriate immunizations. No add-ons, no separate lab bill.
-  • Everything done in-house, so the client doesn't bounce between three offices
+  • Flat {{I693_FEE}} for the exam and completed I-693 paperwork, quoted up front. Required labs and any age-appropriate vaccines are billed separately and can go through insurance when covered.
+  • Labs and vaccines done in-house, so the client doesn't bounce between three offices
   • Current USCIS/CDC Technical Instructions followed, including the 2024 rule that I-693 signed on or after Nov. 1, 2023 does not expire
   • A direct line for your paralegals: (571) 223-3833, or docs@lansdownedoctor.com
 

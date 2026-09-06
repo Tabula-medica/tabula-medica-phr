@@ -26,7 +26,7 @@ Confirm these before the first send:
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `I693_FEE` | `$250 per applicant, all-inclusive` | Confirmed by Dr. Aggarwal (Sep 2026): covers paperwork, labs, and age-appropriate immunizations. |
+| `I693_FEE` | `$250 per applicant` | Confirmed by Dr. Aggarwal (Sep 2026): exam and paperwork only. Labs and age-appropriate vaccines are extra. |
 | `TURNAROUND` | `2–3 business days` | Sealed I-693 ready after lab results return. |
 | `APPT_LEAD` | `same or next business day` | Exam appointment availability. |
 | `RESTON_ADDRESS` | `Reston, VA (address on request)` | Fill in the Reston suite address before sending. |
@@ -45,7 +45,7 @@ Confirm these before the first send:
 
 ## Assumptions made (confirm or edit)
 
-1. Fee is $250 per applicant and includes the exam, completed I-693, required labs, and age-appropriate immunizations (confirmed Sep 2026).
+1. Fee is $250 per applicant for the exam and completed I-693 paperwork. Required labs and age-appropriate vaccines are billed separately and may go through insurance (confirmed Sep 2026).
 2. Sealed I-693 turnaround is 2–3 business days after labs result (IGRA TB blood test is the gating step).
 3. The Reston office address is not in the codebase or recent email; it is a placeholder.
 4. Sending domain is `lansdownedoctor.com` (reply-to `docs@lansdownedoctor.com`). SPF/DKIM must be set up on that domain before a bulk send.
