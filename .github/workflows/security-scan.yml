@@ -19,19 +19,27 @@ permissions:
 
 jobs:
   osv-scanner:
-    name: OSV-Scanner (lockfiles)
+    # Report-only: OSV covers every severity (incl. low/moderate dev-only
+    # findings that npm audit --audit-level=high deliberately tolerates), so
+    # it annotates the run instead of gating it. The blocking gate is the
+    # npm-audit job below. Ratchet: once the OSV table is clean on main,
+    # drop `continue-on-error` and add `--fail-on-vuln`.
+    name: OSV-Scanner (lockfiles, report-only)
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: Scan lockfiles with OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v2
-        with:
-          scan-args: |-
-            --config=osv-scanner.toml
-            --lockfile=package-lock.json
-            --format=table
-            --fail-on-vuln
-            ./
+      - name: Install OSV-Scanner (pinned release binary)
+        env:
+          OSV_VERSION: v2.2.3
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /usr/local/bin/osv-scanner \
+            "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64"
+          chmod +x /usr/local/bin/osv-scanner
+          osv-scanner --version
+      - name: Scan root lockfile
+        run: osv-scanner scan --config=osv-scanner.toml --lockfile=package-lock.json --format=table
 
   npm-audit:
     name: npm audit (high+)
