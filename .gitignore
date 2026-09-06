@@ -18,3 +18,9 @@ database_backup.json
 *-key.json
 service-account*.json
 google-service-account*.json
+
+# Archify browser-check sidecars (regenerate with visual-check)
+*.visual-check.json
+*.visual-check.html
+*.visual-check.*.png
+*.visual-check/

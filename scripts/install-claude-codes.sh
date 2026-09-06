@@ -47,8 +47,8 @@ fi
 run cp "$SNIP" "$DEST/CLAUDE.snippet.md"
 for d in "$SRC"/skills/*/; do
   name="$(basename "$d")"
-  run mkdir -p "$DEST/skills/$name"
-  run cp "$d/SKILL.md" "$DEST/skills/$name/SKILL.md"
+  run rm -rf "$DEST/skills/$name"
+  run cp -R "${d%/}" "$DEST/skills/$name"
 done
 
 # Insert or replace the protocol block in CLAUDE.md.

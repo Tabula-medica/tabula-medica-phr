@@ -42,6 +42,7 @@ Action Item **AF** in `.local/deliverables/f1-action-items.md` tracks the consol
 - `CLAUDE.md` — project memory loaded by every Claude Code session (non-negotiables, commands, prompt-code protocol)
 - `.claude/prompt-codes.md` — behavior specs for the 100 "Claude Secret Codes" prompt prefixes (`/ghost`, `/redteam`, `L99`, `OODA`, ...)
 - `.claude/skills/` — 21 of those codes as real slash commands (`/redteam`, `/premortem`, `/shipit`, `/testit`, `/sentinel`, ...)
+- `.claude/skills/archify/` — vendored Archify (MIT) diagram renderer; `cache-miss.architecture.json` + `cache-miss.html` show the evidence-only cache-miss path
 - `.claude/claude-code-cheatsheet.md` — documented Claude Code commands, shortcuts, and flags
 - `scripts/install-claude-codes.sh` — copy the bundle into another repo (`--repo PATH`) or into `~/.claude` for all projects (`--global`)
 

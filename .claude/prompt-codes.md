@@ -41,6 +41,7 @@ this table.
 | `BLUEPRINT` | Full project plan: file tree, purpose of each file, dependencies, milestones, risks. |
 | `WIREFRAME` | Low-fidelity screen layout (ASCII, SVG, or HTML) with annotated regions. No visual polish. |
 | `/livecode` | Write the code and run it immediately. Show output. Iterate until it works. |
+| `/archify` **[skill]** | Evidence-only architecture, workflow, sequence, dataflow, or lifecycle diagram as self-contained HTML from typed JSON. For a repo diagram: prove every box with `file:line`, omit anything unproven, one main path, detail in cards. |
 | `GENERATOR` | Build a reusable script or template that produces outputs from parameters, with a usage example. |
 
 ## Thinking & Reasoning

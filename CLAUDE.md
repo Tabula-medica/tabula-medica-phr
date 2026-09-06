@@ -67,4 +67,19 @@ Quick reference (full table in `.claude/prompt-codes.md`):
 | Prioritization and execution | `PARETO` `LEVERAGE` `BOTTLENECK` `OPERATOR` `CEOMODE` |
 
 Real Claude Code commands and shortcuts (documented, not viral): `.claude/claude-code-cheatsheet.md`.
+## Architecture diagrams (Archify, evidence-only)
+
+`/archify` is vendored in `.claude/skills/archify/` (MIT). When asked for a diagram of this repo:
+
+- Only draw boxes you can prove from code. Cite `file:line` in each component's `sources`.
+  If a component cannot be proven, omit it. Never invent Redis, Kafka, gateways, queues, or
+  services that are not in the repo.
+- 8 to 12 nodes, one main path, side branches short. Extra detail goes in `cards`, not nodes.
+- Write `./<topic>.architecture.json`, then run from the repo root:
+  `node .claude/skills/archify/bin/archify.mjs validate architecture <topic>.architecture.json --quality showcase --repo-root .`
+  and `... deliver architecture <topic>.architecture.json <topic>.html --quality showcase --repo-root .`
+- A non-zero validate or deliver is never success. Fix only the diagnosed subject and rerun.
+- Never put the literal words `undefined`, `NaN`, or `Infinity` in labels or notes: the finite-SVG
+  check matches them as broken coordinates. Write "no entry" instead.
+- Worked example: `cache-miss.architecture.json` and `cache-miss.html` at the repo root.
 <!-- claude-prompt-codes:end -->
