@@ -1,0 +1,59 @@
+name: Dependency & secret exposure scan
+
+# CrowdStrike 2026 Threat Hunting Report: 88% of observed vulnerability
+# exploitation began within 48 hours of a public PoC. A weekly Dependabot
+# cadence leaves a multi-day window, so this workflow runs OSV-Scanner and
+# `npm audit` on every PR/push AND on a daily schedule, failing loudly on
+# high/critical findings. Ignore-list lives in osv-scanner.toml.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  osv-scanner:
+    name: OSV-Scanner (lockfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan lockfiles with OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=package-lock.json
+            --format=table
+            --fail-on-vuln
+            ./
+
+  npm-audit:
+    name: npm audit (high+)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Audit production dependency tree
+        run: npm audit --omit=dev --audit-level=high
+
+  phi-siem-fields:
+    name: SIEM forwarder PHI allowlist test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run security-layer unit tests
+        run: npx vitest run tests/siem-forwarder.spec.ts tests/ai-runtime-guard.spec.ts tests/session-binding.spec.ts

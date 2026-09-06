@@ -1,4 +1,6 @@
 import passport from "passport";
+import { sessionBindingMiddleware } from "../../security/session-binding";
+import { aiRuntimeGuard } from "../../security/ai-runtime-guard";
 import session from "express-session";
 import type { Express, RequestHandler, Request } from "express";
 import connectPg from "connect-pg-simple";
@@ -205,6 +207,12 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Identity + AI runtime controls (must run after session/passport so
+  // req.user and req.session exist). Both default to monitor mode; flip
+  // SESSION_BINDING_MODE / AI_GUARD_MODE to "enforce" once telemetry is clean.
+  app.use(sessionBindingMiddleware());
+  app.use(aiRuntimeGuard());
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
