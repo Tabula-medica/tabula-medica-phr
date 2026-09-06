@@ -19,14 +19,12 @@ permissions:
 
 jobs:
   osv-scanner:
-    # Report-only: OSV covers every severity (incl. low/moderate dev-only
-    # findings that npm audit --audit-level=high deliberately tolerates), so
-    # it annotates the run instead of gating it. The blocking gate is the
-    # npm-audit job below. Ratchet: once the OSV table is clean on main,
-    # drop `continue-on-error` and add `--fail-on-vuln`.
-    name: OSV-Scanner (lockfiles, report-only)
+    # Blocking, every severity. Fix findings with npm overrides in
+    # package.json; an IgnoredVulns entry in osv-scanner.toml is allowed only
+    # for a breaking-major fix a direct dependency cannot consume, with the
+    # reason recorded there.
+    name: OSV-Scanner (lockfiles)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Install OSV-Scanner (pinned release binary)
