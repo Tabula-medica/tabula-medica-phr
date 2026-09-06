@@ -26,7 +26,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 DEFAULTS = {
-    "I693_FEE": "$250 per applicant",
+    "I693_FEE": "$250 per applicant, all-inclusive",
     "TURNAROUND": "2-3 business days",
     "APPT_LEAD": "same or next business day",
     "RESTON_ADDRESS": "Reston, VA (address on request)",

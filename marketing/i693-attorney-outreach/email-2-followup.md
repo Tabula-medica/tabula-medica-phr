@@ -13,7 +13,7 @@ Three things attorneys ask me first, answered:
 
 1. How fast, really? Exam {{APPT_LEAD}}. Sealed envelope in {{TURNAROUND}}. If the client already has a recent IGRA result, often faster.
 2. What if USCIS issues an RFE on the medical? Send me the notice; we correct and re-seal the same day at no charge for our own errors.
-3. What does the client pay? {{I693_FEE}} for the exam and form. Labs and vaccines are billed separately and can go through insurance when covered.
+3. What does the client pay? {{I693_FEE}}. That one price covers the exam, the completed I-693, all required labs, and any age-appropriate immunizations the client is missing. Nothing billed separately.
 
 Happy to be a name your paralegals can hand out. Should I send the client "what to bring" card?
 
