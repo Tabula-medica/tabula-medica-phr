@@ -38,6 +38,7 @@ import {
   Loader2,
   Video,
   MessageSquare,
+  Timer,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -53,6 +54,28 @@ import type {
 } from "@shared/schema";
 import { Link } from "wouter";
 import { StatusBadge, FlagBadge, LoadingState } from "@/components/shared";
+import { LongevityPreventivePanel } from "@/components/longevity-preventive-panel";
+import type { LongevityProfile } from "@shared/longevity-preventive";
+
+/** Derive the anonymous longevity profile (age + sex) from chart demographics. */
+function longevityProfileFromDemographics(
+  demographics: ComprehensiveHealthRecord["demographics"] | undefined,
+): Partial<LongevityProfile> | undefined {
+  if (!demographics) return undefined;
+  const profile: Partial<LongevityProfile> = {};
+  const dob = demographics.dateOfBirth ? new Date(demographics.dateOfBirth) : undefined;
+  if (dob && !Number.isNaN(dob.getTime())) {
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const beforeBirthday = now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+    if (beforeBirthday) age -= 1;
+    if (age >= 18 && age <= 120) profile.age = age;
+  }
+  const gender = (demographics.gender ?? "").toLowerCase();
+  if (gender.startsWith("f")) profile.sex = "female";
+  else if (gender.startsWith("m")) profile.sex = "male";
+  return profile;
+}
 
 const DEFAULT_PATIENT_ID = "patient-001";
 
@@ -1149,10 +1172,14 @@ export default function PatientHealthRecord() {
           </Alert>
 
           <Tabs value={preventiveSubTab} onValueChange={setPreventiveSubTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6" data-testid="tabs-preventive">
+            <TabsList className="grid w-full grid-cols-5 mb-6" data-testid="tabs-preventive">
               <TabsTrigger value="uspstf" data-testid="subtab-uspstf">
                 <Stethoscope className="h-4 w-4 mr-2" />
                 USPSTF Guidelines
+              </TabsTrigger>
+              <TabsTrigger value="longevity" data-testid="subtab-longevity">
+                <Timer className="h-4 w-4 mr-2" />
+                Longevity &amp; Prevention
               </TabsTrigger>
               <TabsTrigger value="claims" data-testid="subtab-claims">
                 <DollarSign className="h-4 w-4 mr-2" />
@@ -1237,6 +1264,14 @@ export default function PatientHealthRecord() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="longevity">
+              <LongevityPreventivePanel
+                mode="clinician"
+                initialProfile={longevityProfileFromDemographics(healthRecord?.demographics)}
+                storageKey={`tabula_longevity_prevention_chart_${patientId}`}
+              />
             </TabsContent>
 
             <TabsContent value="claims">

@@ -32,6 +32,7 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **API Contracts**: Defined implicitly by `server/routes/*`
 *   **UI Components**: `client/src/components/`
 *   **Unified Health Summary Panel**: `client/src/components/unified-summary-panel.tsx`
+*   **Longevity & Preventive Health**: protocol module `shared/longevity-preventive.ts` (portable, mirror to WorldEHR), API `server/routes/longevity-preventive-routes.ts`, UI `client/src/components/longevity-preventive-panel.tsx` (PHR tab, clinician chart subtab, `/longevity-preventive-health` page), practice summary `docs/LONGEVITY_PREVENTIVE_HEALTH_PROTOCOL.md`
 *   **Strategic Planning Docs**: `docs/`
 *   **Security Policy**: `client/public/.well-known/security.txt`
 

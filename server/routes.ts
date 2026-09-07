@@ -38393,6 +38393,13 @@ startxref
   app.use("/api/pet-health", petHealthRoutes);
   console.log("[Routes] Pet Health routes registered at /api/pet-health/*");
 
+  // ================== Longevity & Preventive Health Routes ==================
+  // Shared protocol module (shared/longevity-preventive.ts) — same plan for the
+  // PHR, the clinician chart and the WorldEHR mirror. Educational, no CDS.
+  const longevityPreventiveRoutes = await import("./routes/longevity-preventive-routes");
+  app.use("/api/longevity-preventive", longevityPreventiveRoutes.default);
+  console.log("[Routes] Longevity & Preventive Health routes registered at /api/longevity-preventive/*");
+
   // ================== Drug Savings Routes ==================
   app.use("/api/drug-savings", drugSavingsRoutes);
   // Mounted as drug-label-lookup (not drug-interactions) because this is a passive
