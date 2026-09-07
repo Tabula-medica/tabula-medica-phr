@@ -178,6 +178,10 @@ app.use(gcpAuditMiddleware);
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
 import { redactPath } from "./security/redact-path";
+import {
+  UNAUTHENTICATED_BODY_LIMITS,
+  bodyLimitFor,
+} from "./security/body-limits";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
 
@@ -195,21 +199,20 @@ const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "10mb";
 const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "10mb";
 
 /**
- * Passport verification is unauthenticated by design, and canonicalising the
- * posted document is real CPU on a process that also serves PHI routes. The
- * global 10mb allowance is sized for uploads; a signed IPS passport is orders
- * of magnitude smaller, so this route gets its own cap.
+ * Caps for the endpoints an anonymous client can reach. The table, and the
+ * reasoning behind it, live in `server/security/body-limits.ts`.
  *
- * Mounted BEFORE the global parser on purpose — body-parser skips a request
+ * Mounted BEFORE the global parsers on purpose — body-parser skips a request
  * whose body is already parsed, so the stricter limit is the one that applies
  * and an oversized body is refused before it is read into memory.
  */
-const PASSPORT_VERIFY_BODY_LIMIT =
-  process.env.PASSPORT_VERIFY_BODY_LIMIT || "512kb";
-app.use(
-  "/api/world/ips/verify",
-  express.json({ limit: PASSPORT_VERIFY_BODY_LIMIT }),
-);
+for (const { path, limit } of UNAUTHENTICATED_BODY_LIMITS) {
+  // Both parsers: a carrier posts form-encoded, a browser form posts
+  // form-encoded, a client posts JSON, and a cap that covers only one of
+  // them is not a cap.
+  app.use(path, express.json({ limit }));
+  app.use(path, express.urlencoded({ extended: false, limit }));
+}
 
 app.use(
   express.json({
@@ -226,13 +229,15 @@ app.use(csrfProtection);
 
 app.use((err: Error & { type?: string; status?: number }, req: Request, res: Response, next: NextFunction) => {
   if (err.type === "entity.too.large") {
+    // Report the limit that actually rejected this request, read from the
+    // same table that mounted it — a 413 naming the global 10mb for a route
+    // capped at 64kb sends the caller off to debug the wrong number.
+    const capped = bodyLimitFor(req.path);
     return res.status(413).json({
       error: "PAYLOAD_TOO_LARGE",
       message:
         "Request body exceeds size limit. Maximum allowed: " +
-        (req.path === "/api/world/ips/verify"
-          ? PASSPORT_VERIFY_BODY_LIMIT
-          : JSON_BODY_LIMIT),
+        (capped ? capped.limit : JSON_BODY_LIMIT),
       requestId: getRequestId(req),
     });
   }
