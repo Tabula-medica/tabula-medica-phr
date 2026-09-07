@@ -1,10 +1,43 @@
-import OpenAI, { toFile } from "openai";
+import OpenAI from "openai";
 import { Buffer } from "node:buffer";
+import { medicalSpeechToTextService } from "../../services/gcp/medical-speech-to-text";
+import { synthesizeSpeech } from "../../lib/gcp-tts";
 
+// NOTE: `openai` here is the Vertex shim (build alias) — chat.completions routes to
+// Vertex/Gemini (BAA). Its `.audio`/`.images` are hard-disabled. Audio in this module
+// therefore uses GCP Speech-to-Text + Google Cloud TTS (both BAA-covered). Single-model
+// audio-in/audio-out (voiceChat*) can't run on Gemini and is fail-closed → use the
+// cascade voiceChatWithTextModel (STT → Vertex text → TTS) instead.
 export const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+// Map the app's audio container hints to GCP STT encodings; fail closed on mp4/aac.
+function sttEncoding(format: string): "WEBM_OPUS" | "OGG_OPUS" | "LINEAR16" | "MP3" {
+  if (format.includes("webm")) return "WEBM_OPUS";
+  if (format.includes("ogg")) return "OGG_OPUS";
+  if (format.includes("mp3") || format.includes("mpeg")) return "MP3";
+  if (format.includes("wav")) return "LINEAR16";
+  throw new Error(`Unsupported audio format "${format}" for GCP Speech-to-Text (mp4/aac needs transcoding — follow-up).`);
+}
+
+async function transcribeBaaSafe(audioBuffer: Buffer, format: string): Promise<string> {
+  const ready = await medicalSpeechToTextService.initialize();
+  if (!ready) throw new Error("GCP Speech-to-Text unavailable (ADC) — no PHI is sent to OpenAI.");
+  const r = await medicalSpeechToTextService.transcribe({
+    audioContent: audioBuffer.toString("base64"),
+    encoding: sttEncoding(format),
+    sampleRateHertz: 48000,
+    languageCode: "en-US",
+    model: "medical_conversation",
+    punctuation: true,
+  });
+  if (!r.transcript || r.model === "local-fallback") {
+    throw new Error("GCP STT returned no transcript (audio may exceed the ~60s sync limit — long-running recognize is a follow-up).");
+  }
+  return r.transcript;
+}
 
 
 /**
@@ -18,25 +51,9 @@ export async function voiceChat(
   inputFormat: "wav" | "mp3" = "wav",
   outputFormat: "wav" | "mp3" = "mp3"
 ): Promise<{ transcript: string; audioResponse: Buffer }> {
-  const audioBase64 = audioBuffer.toString("base64");
-  const response = await openai.chat.completions.create({
-    model: "gpt-audio-mini",
-    modalities: ["text", "audio"],
-    audio: { voice, format: outputFormat },
-    messages: [{
-      role: "user",
-      content: [
-        { type: "input_audio", input_audio: { data: audioBase64, format: inputFormat } },
-      ],
-    }],
-  });
-  const message = response.choices[0]?.message as any;
-  const transcript = message?.audio?.transcript || message?.content || "";
-  const audioData = message?.audio?.data ?? "";
-  return {
-    transcript,
-    audioResponse: Buffer.from(audioData, "base64"),
-  };
+  // FAIL-CLOSED: OpenAI single-model audio-in/audio-out (gpt-audio-mini) has no BAA
+  // and no Gemini/Vertex equivalent. Use the BAA-safe cascade voiceChatWithTextModel.
+  throw new Error("voiceChat disabled (no OpenAI BAA for audio models). Use voiceChatWithTextModel (GCP STT → Vertex text → GCP TTS).");
 }
 
 /**
@@ -49,32 +66,8 @@ export async function voiceChatStream(
   voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "alloy",
   inputFormat: "wav" | "mp3" = "wav"
 ): Promise<AsyncIterable<{ type: "transcript" | "audio"; data: string }>> {
-  const audioBase64 = audioBuffer.toString("base64");
-  const stream = await openai.chat.completions.create({
-    model: "gpt-audio-mini",
-    modalities: ["text", "audio"],
-    audio: { voice, format: "pcm16" },
-    messages: [{
-      role: "user",
-      content: [
-        { type: "input_audio", input_audio: { data: audioBase64, format: inputFormat } },
-      ],
-    }],
-    stream: true,
-  });
-
-  return (async function* () {
-    for await (const chunk of stream) {
-      const delta = chunk.choices?.[0]?.delta as any;
-      if (!delta) continue;
-      if (delta?.audio?.transcript) {
-        yield { type: "transcript", data: delta.audio.transcript };
-      }
-      if (delta?.audio?.data) {
-        yield { type: "audio", data: delta.audio.data };
-      }
-    }
-  })();
+  // FAIL-CLOSED: see voiceChat. No BAA-safe single-model streaming audio-in/out.
+  throw new Error("voiceChatStream disabled (no OpenAI BAA for audio models). Use voiceChatWithTextModel (GCP STT → Vertex text → GCP TTS).");
 }
 
 /**
@@ -86,17 +79,8 @@ export async function textToSpeech(
   voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "alloy",
   format: "wav" | "mp3" | "flac" | "opus" | "pcm16" = "wav"
 ): Promise<Buffer> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-audio-mini",
-    modalities: ["text", "audio"],
-    audio: { voice, format },
-    messages: [
-      { role: "system", content: "You are an assistant that performs text-to-speech." },
-      { role: "user", content: `Repeat the following text verbatim: ${text}` },
-    ],
-  });
-  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
-  return Buffer.from(audioData, "base64");
+  // Google Cloud TTS (BAA-covered) instead of OpenAI audio (no BAA).
+  return synthesizeSpeech(text, voice, format);
 }
 
 /**
@@ -108,25 +92,11 @@ export async function textToSpeechStream(
   text: string,
   voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "alloy"
 ): Promise<AsyncIterable<string>> {
-  const stream = await openai.chat.completions.create({
-    model: "gpt-audio-mini",
-    modalities: ["text", "audio"],
-    audio: { voice, format: "pcm16" },
-    messages: [
-      { role: "system", content: "You are an assistant that performs text-to-speech." },
-      { role: "user", content: `Repeat the following text verbatim: ${text}` },
-    ],
-    stream: true,
-  });
-
+  // Google Cloud TTS (BAA). No token-level streaming — synthesize once and yield a
+  // single base64 chunk (callers consume an async iterable of base64 audio).
+  const audio = await synthesizeSpeech(text, voice, "pcm16");
   return (async function* () {
-    for await (const chunk of stream) {
-      const delta = chunk.choices?.[0]?.delta as any;
-      if (!delta) continue;
-      if (delta?.audio?.data) {
-        yield delta.audio.data;
-      }
-    }
+    yield audio.toString("base64");
   })();
 }
 
@@ -138,12 +108,8 @@ export async function speechToText(
   audioBuffer: Buffer,
   format: "wav" | "mp3" | "webm" = "wav"
 ): Promise<string> {
-  const file = await toFile(audioBuffer, `audio.${format}`);
-  const response = await openai.audio.transcriptions.create({
-    file,
-    model: "gpt-4o-mini-transcribe",
-  });
-  return response.text;
+  // GCP Speech-to-Text (BAA) instead of OpenAI Whisper (no BAA).
+  return transcribeBaaSafe(audioBuffer, format);
 }
 
 /**
@@ -154,19 +120,10 @@ export async function speechToTextStream(
   audioBuffer: Buffer,
   format: "wav" | "mp3" | "webm" = "wav"
 ): Promise<AsyncIterable<string>> {
-  const file = await toFile(audioBuffer, `audio.${format}`);
-  const stream = await openai.audio.transcriptions.create({
-    file,
-    model: "gpt-4o-mini-transcribe",
-    stream: true,
-  });
-
+  // GCP STT sync recognize isn't token-streaming; transcribe once, yield the result.
+  const text = await transcribeBaaSafe(audioBuffer, format);
   return (async function* () {
-    for await (const event of stream) {
-      if (event.type === "transcript.text.delta") {
-        yield event.delta;
-      }
-    }
+    yield text;
   })();
 }
 
