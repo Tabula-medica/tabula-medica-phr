@@ -125,6 +125,7 @@ class AmbientEncounterService {
       languageCode: language || "en-US",
       model: "medical_conversation",
       punctuation: true,
+      longRunning: true, // full encounters exceed the ~60s sync-recognize cap
     });
 
     if (!result.transcript || result.model === "local-fallback") {
