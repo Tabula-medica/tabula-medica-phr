@@ -20074,13 +20074,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
 
       // Transcribe audio using Whisper
       const audioBuffer = Buffer.from(audioBase64, "base64");
-      const audioFile = new File([audioBuffer], "audio.webm", { type: "audio/webm" });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-1",
-        language: language || undefined,
-      });
+      // GCP Speech-to-Text (BAA) via the shared audio client — not OpenAI Whisper.
+      const { speechToText } = await import("./replit_integrations/audio/client");
+      const transcription = { text: await speechToText(audioBuffer, "webm") };
 
       // Perform search with transcribed text
       const searchResponse = await fetch(`http://localhost:5000/api/search`, {
