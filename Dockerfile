@@ -13,6 +13,11 @@ COPY . .
 ENV VITE_GCIP_API_KEY=AIzaSyBCCtuVajEza6yHonlkz8XkVQJjIgAMS9o
 ENV VITE_GCIP_AUTH_DOMAIN=united-planet-485003-n7-9f345.firebaseapp.com
 ENV VITE_GCIP_PROJECT_ID=united-planet-485003-n7-9f345
+# Server-side GCIP project for token verification. The app no longer hardcodes
+# a fallback (server/auth/gcip.ts fails closed without this), so pin it here —
+# same project as the client above. Runtime-overridable via a Cloud Run env var
+# when auth is migrated to an org-owned GCIP project.
+ENV GCIP_PROJECT_ID=united-planet-485003-n7-9f345
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 RUN test -f dist/index.cjs && echo "Build verified: dist/index.cjs" || (echo "MISSING: dist/index.cjs" && exit 1)

@@ -58,6 +58,11 @@ async function buildAll() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
+    // PHI GUARD (no OpenAI BAA): route every `import OpenAI from "openai"` through the
+    // Vertex shim so chat goes to Vertex (Google BAA) and audio/images fail closed —
+    // PHI can never reach api.openai.com. Without this alias the real openai package
+    // was bundled and used directly (the shim was dead code). See server/lib/vertex-openai.ts.
+    alias: { openai: "./server/lib/vertex-openai.ts" },
     define: {
       "process.env.NODE_ENV": '"production"',
     },
@@ -65,6 +70,18 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // PHI-egress guard (self-enforcing): the openai→Vertex shim MUST be bundled (see the
+  // `alias` above). If it ever regresses (alias dropped in a Base44/Replit regen), FAIL
+  // the build rather than silently ship PHI→OpenAI (no BAA). Asserts the shim's markers.
+  const bundle = await readFile("dist/index.cjs", "utf-8");
+  if (!bundle.includes("aiplatform.googleapis.com") || !bundle.includes("PHI-guard")) {
+    throw new Error(
+      "PHI GUARD FAILED: openai→Vertex shim missing from dist/index.cjs — the build alias regressed. " +
+      "Refusing to build (would leak PHI to OpenAI, no BAA). Restore `alias: { openai }` in script/build.ts.",
+    );
+  }
+  console.log("[phi-guard] ✓ openai→Vertex shim present in bundle — PHI cannot reach OpenAI");
 }
 
 buildAll().catch((err) => {

@@ -102,7 +102,7 @@ const tagLabels: Record<ProfileTag, string> = {
   post_surgery: "Post-Surgery",
 };
 
-function ProfileCard({ profile, onSelect }: { profile: ExtendedProfile; onSelect: () => void }) {
+function ProfileCard({ profile, onSelect }: { profile: ExtendedProfile & { mrn?: string }; onSelect: () => void }) {
   const Icon = profileTypeIcons[profile.profileType] || User;
 
   return (
@@ -130,10 +130,19 @@ function ProfileCard({ profile, onSelect }: { profile: ExtendedProfile; onSelect
                 <Badge variant="secondary" className="text-xs">Default</Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
               <Icon className="h-4 w-4" />
               <span>{profileTypeLabels[profile.profileType]}</span>
             </div>
+            {profile.mrn && (
+              <div
+                className="text-xs font-mono tracking-wide text-muted-foreground mb-2 select-all"
+                title="Medical Record Number"
+                data-testid={`text-mrn-${profile.id}`}
+              >
+                {profile.mrn}
+              </div>
+            )}
             <div className="flex flex-wrap gap-1">
               {profile.tags?.map(tag => (
                 <Badge key={tag} variant="outline" className="text-xs flex items-center gap-1">
