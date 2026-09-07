@@ -53,7 +53,7 @@ User ──► Host app (chat, voice, provider portal)
 | PHI access audit | `server/security/hipaa-audit.ts` → `logPhiAccess`, `server/middleware/fhir-audit-middleware.ts` | Every MCP tool call and every A2A task |
 | BAA-safe model routing | `server/services/ai-provider.ts` (Vertex default, fail-closed) | Any server-side agent that *reasons* over PHI |
 | Medical-advice guardrail | `server/ai-guardrail-service.ts` | Wrap MCP prompt outputs and A2A task responses |
-| CDS Hooks (provider decision support) | `server/services/cds-hooks-service.ts`, `server/cds-hooks-routes.ts` | Becomes an A2A skill; **note:** still instantiates OpenAI directly — must move behind `ai-provider.ts` before it is exposed to any agent (tracked in `docs/vertex-migration-plan.md`) |
+| CDS Hooks (provider decision support) | `server/services/cds-hooks-service.ts`, `server/cds-hooks-routes.ts` | Becomes an A2A skill. **Note:** it still writes `new OpenAI(...)` directly. Since PR #81 (merged 2026-09-07) the production build aliases the `openai` package to `server/lib/vertex-openai.ts`, so that call is Vertex-routed in the deployed bundle. The dev server (`tsx`) does not apply the alias. Moving it behind `ai-provider.ts` is now hygiene, tracked in `docs/vertex-migration-plan.md`, not a launch blocker. |
 | Explain / summarize services | `server/explain-anything-service.ts`, `server/eli12-service.ts`, `server/summarizer.ts`, `server/glossary-service.ts` | MCP tools that return *explanations of the patient's own data* (not advice) |
 | Care Access (zero-PHI) | `/care/*` routes, `CARE_BRIDGE_SECRET` | First A2A skill: no PHI, lowest risk, highest cross-app value |
 | MCP SDK | `package.json` → `@modelcontextprotocol/sdk ^1.30.0` (no imports anywhere) | Phase 1 needs zero new dependencies |
@@ -72,6 +72,8 @@ The **MCP host** (the app running the model) sees every tool result. So the host
 | **B. Covered-entity workload** | Our own agents on Vertex / Gemini (GCP BAA), or a provider's system under a BAA with us | Treatment / operations under the BAA chain | Whatever the provider's role and RBAC allow (`server/rbac.ts`) |
 
 **Forbidden:** our server-side agents sending PHI to a non-BAA model (OpenAI standard tier, Anthropic API without BAA) via MCP or A2A. `ai-provider.ts` already fails closed for this; the MCP/A2A layer must call through it, never around it.
+
+Two enforcement layers now exist and both stay on. PR #81 (merged 2026-09-07) aliases the `openai` package to `server/lib/vertex-openai.ts` in the production bundle, so every `new OpenAI(...)` call site routes to Vertex and audio/image calls fail closed. That alias applies only to the esbuild output, not to the `tsx` dev server, and the build now fails if the alias is dropped. New MCP and A2A code must still call `ai-provider.ts` explicitly so the same guarantee holds in dev and in tests.
 
 ### 3.2 Non-negotiable gates for every MCP tool and A2A task
 
@@ -166,7 +168,7 @@ Registration: one `registerMcpRoutes(app)` call inside `registerRoutes` in `serv
 - **Auth:** the same `uninsurance-fhir-client` Auth0 application already planned as the SMART client becomes the A2A client identity. Card `securitySchemes` = OAuth 2.0 client-credentials for zero-PHI skills, authorization-code with SMART scopes for PHI skills.
 - **Runtime:** implement the Tabula Medica agent on Vertex via Google ADK (native A2A + MCP support, under the GCP BAA). It calls Phase 1's MCP tools; nothing new touches the database.
 - **Task lifecycle** mapped to our audit: `submitted` → `working` → `completed|failed`, each transition logged with the requesting agent id.
-- **Do not** expose CDS Hooks as an A2A skill until `cds-hooks-service.ts` is moved off the direct OpenAI client.
+- CDS Hooks may be exposed as an A2A skill once the Phase 1 MCP server is live. Its direct OpenAI client is Vertex-routed in production by the PR #81 build alias, so it is no longer a blocker. Confirm `AI_PROVIDER` is unset or `vertex` on the deployed service before enabling the skill.
 
 ---
 
