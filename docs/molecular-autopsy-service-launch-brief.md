@@ -1,8 +1,58 @@
 # Non-Invasive Postmortem DNA ("Molecular Autopsy") Service — Launch Brief
 
 **Project:** TabulaMedica PHR — new service line candidate
-**Status:** Draft v1 (2026-09-07)
+**Status:** Draft v2 (2026-09-07) — refocused on sudden unexplained adult death as a non-invasive alternative to autopsy
 **Regulatory frame:** US, HIPAA-covered (decedent PHI is protected for 50 years after death, 45 CFR 160.103)
+
+---
+
+## 0. Positioning: sudden unexplained adult death, instead of an autopsy
+
+**The customer moment.** A previously healthy adult, typically 18 to 65, dies suddenly with no obvious reason. The medical examiner either declines the case (recent medical care, plausible natural death) or releases the body without autopsy. The family is left with "presumed cardiac" on the certificate. Over 90% of sudden cardiac deaths happen out of hospital and non-forensic autopsies are rarely performed, so the cause is presumed, not found. Many families also refuse autopsy on religious grounds (Hindu cremation and Muslim burial within 24-48 hours, Orthodox Jewish body-integrity rules), which is exactly the diaspora base in the portfolio.
+
+**Product name:** Sudden Death Answers — Non-Invasive Evaluation (working title).
+
+**What the package includes, and what each part answers:**
+
+| Component | Invasiveness | Answers | Cannot answer |
+|---|---|---|---|
+| Molecular autopsy (buccal + dried blood spot, cardiac/SUD panel or exome) | None | Inherited arrhythmia, cardiomyopathy, aortopathy, metabolic causes; relatives' risk | Acquired coronary disease, overdose, trauma |
+| Postmortem CT, ideally with targeted coronary angiography (PMCTA) | None (scan only) | Coronary occlusion, aortic dissection, hemorrhage, stroke, trauma, tamponade; in a coroner cohort PMCTA gave a cause in 92% with major discrepancy rates no different from autopsy | Pulmonary embolism without contrast, myocarditis, early infarct, channelopathies |
+| Needle-only toxicology (vitreous humor and peripheral blood) | Minimal (needle, no incision) | Overdose, drug interactions, alcohol, diabetic ketoacidosis via vitreous glucose; the San Francisco POST SCD study found roughly 40% of presumed sudden cardiac deaths were actually non-arrhythmic, often occult overdose | Chronic exposures beyond the detection window |
+| Clinical records review by a cardiologist or pathologist using the TabulaMedica PHR | None | Prior ECG patterns, medication risks, missed symptoms, family history synthesis | Anything undocumented |
+| Genetic counseling and family action plan | None | Cascade testing, screening ECG/echo for relatives, insurance timing | |
+
+**Honest resolution rate to publish.** Combining PMCT/PMCTA, needle toxicology, records review, and genetics, the family gets a probable cause in most cases and a definite genetic cause in 13-30% of the truly unexplained ones. Autopsy remains the gold standard for pulmonary embolism, myocarditis, and subtle myocardial disease. The consent form states this plainly.
+
+**Comparison for the family:**
+
+| | Traditional private autopsy | Non-invasive evaluation (this service) |
+|---|---|---|
+| Body intact | No | Yes |
+| Compatible with 24-48 h burial or cremation | Rarely | Yes, samples and scan done within hours |
+| Private-market price | $3,500-6,000+ | $1,995-4,495 depending on tier |
+| Time to preliminary answer | Days for gross, 6-12 weeks for final | PMCT read in 24-48 h, toxicology 1-2 weeks, genetics 2-6 weeks |
+| Relatives' risk assessed | Only if genetics is added | Built in, with cascade testing |
+| Certifies cause of death | No (private) | No; report is given to the certifying physician or ME |
+
+**Package pricing (adult sudden unexplained death):**
+
+| Tier | Contents | Price |
+|---|---|---|
+| Core | Genetic panel, records review, counseling, family plan | $1,995 |
+| Core + Tox | Core plus vitreous and blood toxicology | $2,495 |
+| Complete | Core + Tox plus PMCT/PMCTA at a partner imaging site | $3,995-4,495 |
+| Cascade, per relative | Single-variant test with counseling | $299 |
+
+**Jurisdiction decision tree (must run before anything is collected):**
+
+1. Death reported to the ME/coroner? If the ME accepts jurisdiction, nothing is collected until the ME releases the body or signs a specimen release. Offer the family the genetics and cascade component after release; the ME's autopsy and toxicology results are folded into the report.
+2. ME declines or never had jurisdiction (attended death, hospice, physician willing to certify)? Family or executor signs authorization. Funeral home collects buccal and DBS at intake, phlebotomist or funeral director with state-permitted scope draws vitreous and peripheral blood by needle, body goes to the imaging partner for PMCT before embalming.
+3. Family refuses all invasive steps? Buccal + DBS + PMCT only. No needle.
+
+**Timing standard:** collection within 24 hours of arrival at the funeral home, always before embalming, and the scan slot booked at the same time as the transfer. This is the only way to serve families with same-day or next-day religious burial or cremation.
+
+**Channel:** funeral homes serving Indian, Pakistani, Bangladeshi, Chinese, and Jewish communities in the launch metros first, because they already field the "we don't want an autopsy but we want to know why" question. Hospice and cardiology practices second. Family-facing copy in Hindi, Tamil, Telugu, Punjabi, Urdu, and Simplified Chinese.
 
 ---
 
@@ -167,6 +217,12 @@ Building an in-house CLIA lab later: $1.5M-5M capex plus 12-18 months for CLIA a
 ---
 
 ## Sources
+
+- Lancet PMCTA vs autopsy, coroner cohort (2017): https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)30333-1/fulltext
+- PMCTA vs autopsy in sudden cardiac death, meta-analysis: https://link.springer.com/article/10.1007/s11547-018-0943-y
+- Forensic multicenter PMCTA vs autopsy: https://pubmed.ncbi.nlm.nih.gov/29714682/
+- POST SCD San Francisco study (Circulation 2018): https://pmc.ncbi.nlm.nih.gov/articles/PMC6013842/
+- Medscape sudden natural death and ME jurisdiction overview: https://emedicine.medscape.com/article/1680282-overview
 
 - ACMG points to consider in postmortem genetic testing (2023): https://www.gimjournal.org/article/S1098-3600(23)00023-0/fulltext
 - NSGC postmortem genetic testing resource: https://www.nsgc.org/postmortem
