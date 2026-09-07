@@ -70,6 +70,18 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // PHI-egress guard (self-enforcing): the openai→Vertex shim MUST be bundled (see the
+  // `alias` above). If it ever regresses (alias dropped in a Base44/Replit regen), FAIL
+  // the build rather than silently ship PHI→OpenAI (no BAA). Asserts the shim's markers.
+  const bundle = await readFile("dist/index.cjs", "utf-8");
+  if (!bundle.includes("aiplatform.googleapis.com") || !bundle.includes("PHI-guard")) {
+    throw new Error(
+      "PHI GUARD FAILED: openai→Vertex shim missing from dist/index.cjs — the build alias regressed. " +
+      "Refusing to build (would leak PHI to OpenAI, no BAA). Restore `alias: { openai }` in script/build.ts.",
+    );
+  }
+  console.log("[phi-guard] ✓ openai→Vertex shim present in bundle — PHI cannot reach OpenAI");
 }
 
 buildAll().catch((err) => {
