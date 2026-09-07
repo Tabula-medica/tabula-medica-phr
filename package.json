@@ -10,6 +10,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "seed:reviewer-account": "tsx scripts/seed-reviewer-account.ts",
+    "seed:provider-directory": "tsx scripts/seed-provider-directory.ts",
+    "ingest:reference-content": "tsx scripts/ingest-reference-content.ts",
     "test": "vitest run",
     "lint": "eslint ."
   },

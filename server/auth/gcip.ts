@@ -5,10 +5,24 @@ import { externalIdentities, users, type User } from "@shared/models/auth";
 import { and, eq } from "drizzle-orm";
 import { logger } from "../utils/logger";
 
+// Auth MUST be pinned to a GCIP/Firebase project you control, via env.
+// This previously fell back to a hardcoded, unmanaged project
+// ("united-planet-485003-n7-9f345") that no current account can administer —
+// when its MFA enforcement flipped to MANDATORY it locked every user out and
+// could not be undone. The fallback is removed: if no project is configured we
+// fail CLOSED (all token verification returns null) and log loudly, instead of
+// silently trusting an untrusted project.
 const GCIP_PROJECT_ID =
   process.env.GCIP_PROJECT_ID ||
   process.env.FIREBASE_PROJECT_ID ||
-  "united-planet-485003-n7-9f345";
+  "";
+
+if (!GCIP_PROJECT_ID) {
+  logger.error(
+    "[GCIP] No GCIP_PROJECT_ID / FIREBASE_PROJECT_ID configured. Token " +
+      "verification will fail closed until this is set to a project you control.",
+  );
+}
 
 const GCIP_ISSUER = `https://securetoken.google.com/${GCIP_PROJECT_ID}`;
 const GCIP_AUDIENCE = GCIP_PROJECT_ID;
@@ -34,6 +48,7 @@ export interface GcipClaims extends jose.JWTPayload {
 }
 
 export async function verifyGcipToken(token: string): Promise<GcipClaims | null> {
+  if (!GCIP_PROJECT_ID) return null; // fail closed when no trusted project configured
   try {
     const jwks = getGcipJWKS();
     const { payload } = await jose.jwtVerify(token, jwks, {
@@ -206,7 +221,17 @@ export async function verifyAndResolveGcip(token: string): Promise<User | null> 
   if (!claims) return null;
   const existing = await resolveGcipUser(claims);
   if (existing) return existing;
-  return createUserFromGcipClaims(claims);
+  const created = await createUserFromGcipClaims(claims);
+  if (created?.email) {
+    // Fire-and-forget transactional welcome email on first provisioning.
+    // No-op when Resend isn't configured; never blocks or fails the sign-in.
+    import("../services/email-service")
+      .then(({ sendWelcomeEmail }) =>
+        sendWelcomeEmail(created.email!, [created.firstName, created.lastName].filter(Boolean).join(" ")),
+      )
+      .catch(() => {});
+  }
+  return created;
 }
 
 export { GCIP_PROJECT_ID, GCIP_ISSUER, GCIP_AUDIENCE };
