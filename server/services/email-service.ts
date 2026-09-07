@@ -90,3 +90,27 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     return { ok: false, reason: "send-failed", error: err?.message || String(err) };
   }
 }
+
+/**
+ * Transactional welcome email, sent on first sign-in (new user provisioning).
+ * Fail-safe + non-blocking: returns {ok:false} when Resend isn't configured, so
+ * callers can fire-and-forget without gating the auth flow. Contains no PHI —
+ * only the user's own name + email.
+ */
+export async function sendWelcomeEmail(to: string, name?: string): Promise<EmailResult> {
+  const first = (name || "").trim().split(/\s+/)[0] || "there";
+  const subject = "Welcome to Tabula Medica";
+  const text =
+    `Hi ${first},\n\n` +
+    `Welcome to Tabula Medica — your personal health record.\n\n` +
+    `You can now add your health records, connect your providers, and manage ` +
+    `your family's care in one secure place.\n\n` +
+    `— The Tabula Medica team`;
+  const html =
+    `<p>Hi ${first},</p>` +
+    `<p>Welcome to <strong>Tabula Medica</strong> — your personal health record.</p>` +
+    `<p>You can now add your health records, connect your providers, and manage ` +
+    `your family's care in one secure place.</p>` +
+    `<p>— The Tabula Medica team</p>`;
+  return sendEmail({ to, subject, text, html, tags: [{ name: "type", value: "welcome" }] });
+}

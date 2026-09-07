@@ -1048,10 +1048,15 @@ by-category, by-status, by-provider, and monthly trends over claim-shaped
 records already in the database. It is descriptive analytics with no payer
 connection, no submission path, and no write-back; it cannot identify a
 denial because nothing feeds it one, and it should not be described as denial
-management. One flag for the team: it constructs an OpenAI client directly
-rather than routing through `server/lib/baa-chat.ts`, and OpenAI's standard
-tier carries no BAA under this repo's own stated policy, so anything sent
-through that path needs review before it goes anywhere near identified data.
+management. One note on its AI call, since the call site reads alarmingly and
+is not: the module constructs an OpenAI client directly rather than routing
+through `server/lib/baa-chat.ts`, but `script/build.ts` aliases the `openai`
+module to `server/lib/vertex-openai.ts` for the production bundle, so chat
+goes to Vertex under the Google BAA and audio and images fail closed. The
+build then asserts the shim's markers are present in `dist/index.cjs` and
+refuses to build if the alias ever regresses. The protection is therefore the
+build, not the call site — which is worth knowing before anyone moves this
+module, copies its import, or runs it outside that bundle.
 
 **Our why.** A denial is the payer's counter-assertion, and half the value of
 denial analysis is in taking it seriously as one. **A denial engine that
@@ -1975,8 +1980,10 @@ tool in this category has shipped as a feature.
   has nothing to do with medical claims.
 - **`server/services/claims-analysis.ts` is descriptive analytics** over
   claim-shaped records with no payer connection, no submission path, and no
-  write-back; its direct OpenAI call needs review before it touches
-  identified data.
+  write-back. Its direct `openai` import is aliased to the Vertex shim by
+  `script/build.ts` for the production bundle, with a build-time assertion
+  that the alias has not regressed — the guard is the build, not the call
+  site.
 - **No revenue-cycle metrics** — clean-claim rate, denial rate, days in A/R,
   net collection rate — can be computed from the product today, because the
   product holds none of the source artefacts they are computed from.
