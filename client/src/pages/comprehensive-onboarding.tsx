@@ -1572,44 +1572,57 @@ function ProviderSearch({ pcp, setPcp, lang }: { pcp: PrimaryCareProvider; setPc
 
 function PharmacySearch({ pharmacy, setPharmacy, lang }: { pharmacy: PharmacyPreferences; setPharmacy: (p: PharmacyPreferences) => void; lang: string }) {
   const [pharmSearch, setPharmSearch] = useState("");
+  const [pharmCity, setPharmCity] = useState("");
   const [pharmResults, setPharmResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
-  const searchPharmacies = async () => {
-    if (!pharmSearch.trim()) return;
-    setSearching(true);
-    try {
-      const params = new URLSearchParams();
-      const isZip = /^\d{5}/.test(pharmSearch.trim());
-      if (isZip) {
-        params.set("postal_code", pharmSearch.trim().slice(0, 5));
-      } else {
-        params.set("organization_name", pharmSearch.trim());
-      }
-      params.set("taxonomy_description", "Pharmacy");
-      params.set("enumeration_type", "NPI-2");
-      params.set("limit", "10");
-      params.set("version", "2.1");
-      const resp = await fetch(`https://npiregistry.cms.hhs.gov/api/?${params.toString()}`);
-      const data = await resp.json();
-      setPharmResults(data.results || []);
-    } catch {
+  // Debounced typeahead: auto-search as the user types a pharmacy name (+ city)
+  // via our backend NPPES proxy (/api/pharmacies/search). No button needed.
+  useEffect(() => {
+    const name = pharmSearch.trim();
+    if (name.length < 2) {
       setPharmResults([]);
+      return;
     }
-    setSearching(false);
-  };
+    let cancelled = false;
+    setSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ name });
+        if (pharmCity.trim()) params.set("city", pharmCity.trim());
+        const resp = await fetch(`/api/pharmacies/search?${params.toString()}`, {
+          credentials: "include",
+        });
+        const data = resp.ok ? await resp.json() : { results: [] };
+        if (!cancelled) {
+          setPharmResults(data.results || []);
+          setShowResults(true);
+        }
+      } catch {
+        if (!cancelled) setPharmResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [pharmSearch, pharmCity]);
 
   const selectPharmacy = (result: any) => {
-    const b = result.basic || {};
-    const a = result.addresses?.[0] || {};
     setPharmacy({
       ...pharmacy,
-      preferredPharmacyName: b.organization_name || "",
-      preferredPharmacyPhone: a.telephone_number || "",
-      preferredPharmacyAddress: [a.address_1, a.city, a.state, a.postal_code].filter(Boolean).join(", "),
+      preferredPharmacyName: result.name || "",
+      preferredPharmacyPhone: result.phone || "",
+      preferredPharmacyAddress: [result.addressLine1, result.city, result.state, result.zip]
+        .filter(Boolean)
+        .join(", "),
     });
     setPharmResults([]);
-    setPharmSearch("");
+    setShowResults(false);
+    setPharmSearch(result.name || "");
   };
 
   return (
@@ -1619,34 +1632,48 @@ function PharmacySearch({ pharmacy, setPharmacy, lang }: { pharmacy: PharmacyPre
 
         <Card className="bg-green-500/5 border-green-500/20">
           <CardContent className="p-3 space-y-2">
-            <h4 className="font-medium text-sm flex items-center gap-2"><Search className="w-4 h-4 text-green-600" /> Search Pharmacy by Name or Zip Code</h4>
-            <div className="flex gap-2">
-              <Input
-                value={pharmSearch}
-                onChange={e => setPharmSearch(e.target.value)}
-                placeholder="Enter pharmacy name or zip code (e.g., CVS or 10001)"
-                onKeyDown={e => e.key === "Enter" && searchPharmacies()}
-                data-testid="input-pharmacy-search"
-                className="flex-1"
-              />
-              <Button size="sm" onClick={searchPharmacies} disabled={searching} data-testid="button-search-pharmacy">
-                {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              </Button>
-            </div>
-            {pharmResults.length > 0 && (
-              <div className="max-h-48 overflow-y-auto space-y-1">
-                {pharmResults.map((r: any, i: number) => {
-                  const b = r.basic || {};
-                  const a = r.addresses?.[0] || {};
-                  return (
-                    <div key={i} className="p-2 bg-background rounded border hover:border-primary/50 cursor-pointer text-sm" onClick={() => selectPharmacy(r)} data-testid={`pharmacy-result-${i}`}>
-                      <div className="font-medium">{b.organization_name}</div>
-                      <div className="text-xs text-muted-foreground">{[a.address_1, a.city, a.state, a.postal_code].filter(Boolean).join(", ")} — {a.telephone_number || ""}</div>
-                    </div>
-                  );
-                })}
+            <h4 className="font-medium text-sm flex items-center gap-2"><Search className="w-4 h-4 text-green-600" /> Find your pharmacy — start typing the name and city</h4>
+            <div className="relative">
+              <div className="grid gap-2 sm:grid-cols-[1fr_10rem]">
+                <div className="relative">
+                  <Input
+                    value={pharmSearch}
+                    onChange={e => setPharmSearch(e.target.value)}
+                    onFocus={() => pharmResults.length > 0 && setShowResults(true)}
+                    placeholder="Pharmacy name (e.g., CVS, Walgreens)"
+                    data-testid="input-pharmacy-search"
+                    autoComplete="off"
+                  />
+                  {searching && <Loader2 className="w-4 h-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />}
+                </div>
+                <Input
+                  value={pharmCity}
+                  onChange={e => setPharmCity(e.target.value)}
+                  placeholder="City (optional)"
+                  data-testid="input-pharmacy-city"
+                  autoComplete="off"
+                />
               </div>
-            )}
+              {showResults && pharmResults.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto space-y-1 bg-background rounded-md border shadow-lg p-1">
+                  {pharmResults.map((r: any, i: number) => (
+                    <button
+                      type="button"
+                      key={r.npi || i}
+                      className="w-full text-left p-2 rounded hover:bg-muted cursor-pointer text-sm"
+                      onClick={() => selectPharmacy(r)}
+                      data-testid={`pharmacy-result-${i}`}
+                    >
+                      <div className="font-medium">{r.name}</div>
+                      <div className="text-xs text-muted-foreground">{[r.addressLine1, r.city, r.state, r.zip].filter(Boolean).join(", ")}{r.phone ? ` — ${r.phone}` : ""}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showResults && !searching && pharmSearch.trim().length >= 2 && pharmResults.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">No pharmacies found — you can enter it manually below.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
