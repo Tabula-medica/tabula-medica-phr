@@ -118,6 +118,7 @@ export default tseslint.config(
       "dist/**",
       "build/**",
       ".local/**",
+      ".claude/**",     // vendored Claude Code skills (Archify renderer etc.), not project source
       "client/**",       // client uses its own toolchain; PHI guard is server-only
       "ios/**",
       "android/**",
