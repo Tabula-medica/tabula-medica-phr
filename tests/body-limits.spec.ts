@@ -29,9 +29,14 @@ describe("unauthenticated body limits", () => {
   }
 
   it("covers every route that is reachable without credentials", () => {
+    // This list is hand-written and therefore proves only that a row has not
+    // been silently dropped. It does NOT prove the table is complete — a
+    // hand-written list checked against itself cannot. The completeness check
+    // is derived from the route files, at the bottom of this file.
     const paths = UNAUTHENTICATED_BODY_LIMITS.map((entry) => entry.path).sort();
     expect(paths).toEqual([
       "/api/engagement/inbound",
+      "/api/engagement/share/view",
       "/api/world/ips/verify",
       "/s/redeem",
     ]);
@@ -132,5 +137,78 @@ describe("unauthenticated body limits", () => {
       // caller off to debug the wrong number.
       expect(source).toContain("bodyLimitFor(req.path)");
     });
+  });
+});
+
+/**
+ * Round 13 capped three routes and I said the class was swept. Round 14 found
+ * `POST /api/engagement/share/view` — the JSON twin of `/s/redeem`, declared
+ * as such in its own docstring, registered fifteen lines below the route I had
+ * just capped. The round-13 test asserted the three-path list was *complete*,
+ * so it did not catch the gap; it pinned it.
+ *
+ * A hand-written list checked against itself proves nothing. This derives the
+ * expected set from the route files instead: every body-bearing route this
+ * branch registers with no authentication guard must be in the table. It fails
+ * if someone adds an unauthenticated POST and forgets the cap, which is the
+ * only failure mode that has actually occurred here — twice.
+ */
+describe("the table is complete against the routes themselves", () => {
+  /** Route files this branch owns. Auth guards recognised in the chain. */
+  const ROUTE_FILES = [
+    "engagement-routes.ts",
+    "health-summary-share-routes.ts",
+    "world-ips-routes.ts",
+    "ambient-scribe-routes.ts",
+    "care-management-routes.ts",
+    "hcc-routes.ts",
+    "rvu-routes.ts",
+    "npi-lookup-routes.ts",
+  ];
+
+  const AUTH_GUARDS =
+    /isAuthenticated|requireClinicStaff|requireEngagementStaff|requireProfile|requireProviderAuth|requireRole/;
+
+  /** Every `app.post|put|patch` path in those files that carries no guard. */
+  function unauthenticatedBodyRoutes(): string[] {
+    const found: string[] = [];
+    for (const file of ROUTE_FILES) {
+      let source: string;
+      try {
+        source = readFileSync(new URL(`../server/${file}`, import.meta.url), "utf8");
+      } catch {
+        continue; // a file this branch has not added is not a gap
+      }
+      const lines = source.split("\n");
+      lines.forEach((line, i) => {
+        if (!/\bapp\.(post|put|patch)\(/.test(line)) return;
+        // The registration head may span lines; take a window wide enough to
+        // hold the path and the middleware chain before the handler body.
+        const window = lines.slice(i, i + 6).join("\n");
+        const path = /"(\/[^"]*)"/.exec(window)?.[1];
+        if (!path) return;
+        if (AUTH_GUARDS.test(window)) return;
+        found.push(path);
+      });
+    }
+    return Array.from(new Set(found)).sort();
+  }
+
+  it("caps every unauthenticated body-bearing route this branch registers", () => {
+    const capped = new Set(UNAUTHENTICATED_BODY_LIMITS.map((e) => e.path));
+    const uncapped = unauthenticatedBodyRoutes().filter((p) => !capped.has(p));
+    expect(
+      uncapped,
+      `unauthenticated and uncapped — add to UNAUTHENTICATED_BODY_LIMITS: ${uncapped.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("finds the routes it claims to scan", () => {
+    // Guards the scanner itself: a regex that silently matches nothing would
+    // make the test above pass for the wrong reason.
+    const found = unauthenticatedBodyRoutes();
+    expect(found.length).toBeGreaterThanOrEqual(3);
+    expect(found).toContain("/api/engagement/inbound");
+    expect(found).toContain("/s/redeem");
   });
 });

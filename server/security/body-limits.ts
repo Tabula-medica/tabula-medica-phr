@@ -97,7 +97,13 @@ export const UNAUTHENTICATED_BODY_LIMITS: readonly BodyLimit[] = [
     path: "/s/redeem",
     limit: WEBHOOK_BODY_LIMIT,
     reason:
-      "Share-link redemption. The recipient holds a capability token and no account.",
+      "Share-link redemption, HTML form. The recipient holds a capability token and no account.",
+  },
+  {
+    path: "/api/engagement/share/view",
+    limit: WEBHOOK_BODY_LIMIT,
+    reason:
+      "The JSON twin of /s/redeem. Same token in the same body, answered as JSON instead of HTML — so it is the same anonymous surface and takes the same cap.",
   },
 ];
 
