@@ -178,6 +178,13 @@ const mainNavItems = [
     badge: "new",
   },
   {
+    title: "Longevity & Prevention",
+    titleKey: "sidebar.longevityPreventive",
+    url: "/longevity-preventive-health",
+    icon: ShieldCheck,
+    badge: "new",
+  },
+  {
     title: "Advance Directives",
     titleKey: "sidebar.advanceDirectives",
     url: "/advance-directives",
