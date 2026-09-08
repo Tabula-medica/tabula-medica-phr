@@ -1,8 +1,35 @@
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { validateCorsOrigin } from "./cors-config";
 import { getRequestId } from "./production-logger";
+import { logSecurityEvent } from "./gcp-audit-logger";
+
+/**
+ * Shared 429 handler: emits a PHI-free security event (fanned out to Cloud
+ * Logging + SIEM) before answering. CrowdStrike 2026: credential stuffing
+ * and vishing-driven takeover attempts show up first as bursts against the
+ * session-exchange and recovery endpoints — those bursts must be visible to
+ * the SOC, not just silently throttled.
+ */
+function rateLimitHandler(limiterName: string) {
+  return (req: Request, res: Response, _next: NextFunction, options: { message: unknown; statusCode: number }) => {
+    void logSecurityEvent({
+      eventType: "auth_rate_limited",
+      actor: (req.user as any)?.claims?.sub || "anonymous",
+      ip: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip,
+      riskLevel: "medium",
+      details: {
+        requestId: getRequestId(req),
+        limiter: limiterName,
+        path: req.path,
+        method: req.method,
+        userAgent: (req.headers["user-agent"] || "unknown").toString().slice(0, 120),
+      },
+    });
+    res.status(options.statusCode).json(options.message);
+  };
+}
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -15,9 +42,31 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  handler: rateLimitHandler("auth"),
   skip: (req) => {
     return req.method === "OPTIONS";
   },
+});
+
+/**
+ * Token → session exchange endpoints (web + mobile). More generous than
+ * `authRateLimiter` because a legitimate household or clinic NAT can share
+ * one IP, but tight enough that a replayed/stolen-token spray is throttled
+ * and surfaced as a security event.
+ */
+export const sessionExchangeRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: {
+    error: "AUTH_RATE_LIMITED",
+    message: "Too many sign-in attempts from this network. Please try again later.",
+    retryAfter: "15 minutes",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  handler: rateLimitHandler("session_exchange"),
+  skip: (req) => req.method === "OPTIONS",
 });
 
 export const mfaRateLimiter = rateLimit({
@@ -31,6 +80,7 @@ export const mfaRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  handler: rateLimitHandler("mfa"),
 });
 
 export const passwordResetRateLimiter = rateLimit({
@@ -44,6 +94,7 @@ export const passwordResetRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  handler: rateLimitHandler("password_reset"),
 });
 
 export const apiRateLimiter = rateLimit({
@@ -145,7 +196,12 @@ export function productionErrorHandler(err: Error & { status?: number; statusCod
   });
 }
 
-export function applyAuthRateLimiting(app: { use: Function }) {
+export function applyAuthRateLimiting(app: { use: (path: string, handler: RequestHandler) => unknown }) {
   app.use("/api/auth/reset-password", passwordResetRateLimiter);
   app.use("/api/auth/forgot-password", passwordResetRateLimiter);
+  // Identity-first hardening: every endpoint that turns a bearer token into
+  // a session (or links an external identity) is a takeover chokepoint.
+  app.use("/api/auth/gcip/session", sessionExchangeRateLimiter);
+  app.use("/api/mobile/auth/gcip/session", sessionExchangeRateLimiter);
+  app.use("/api/auth/fasten/verify", sessionExchangeRateLimiter);
 }

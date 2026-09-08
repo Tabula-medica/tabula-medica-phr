@@ -50,6 +50,7 @@ export {
 
 export {
   authRateLimiter,
+  sessionExchangeRateLimiter,
   mfaRateLimiter,
   passwordResetRateLimiter,
   apiRateLimiter,
@@ -176,6 +177,36 @@ export {
 export {
   complianceSecurityHeaders,
 } from "./compliance-headers";
+
+export {
+  forwardSecurityEvent,
+  flushSiemQueue,
+  isSiemEnabled,
+  getSiemStatus,
+  buildHecEnvelope,
+  scrubDetails,
+  type SiemSecurityEvent,
+} from "./siem-forwarder";
+
+export {
+  aiRuntimeGuard,
+  scanForPromptInjection,
+  scanModelOutput,
+  auditModelOutput,
+  collectStrings,
+  DEFAULT_AI_ROUTE_PATTERN,
+  type InjectionScanResult,
+  type InjectionSeverity,
+} from "./ai-runtime-guard";
+
+export {
+  sessionBindingMiddleware,
+  fingerprintRequest,
+  evaluateBinding,
+  networkPrefix,
+  type SessionFingerprint,
+  type BindingVerdict,
+} from "./session-binding";
 
 export {
   getSOC2Controls,
