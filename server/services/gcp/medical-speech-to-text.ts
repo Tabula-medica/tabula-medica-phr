@@ -113,17 +113,23 @@ export class MedicalSpeechToTextService {
   }
 
   async initialize(): Promise<boolean> {
+    if (this.gcpAvailable && this.auth) return true; // idempotent
     try {
-      if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-        console.log("[MedASR] No GCP credentials — NLP term detection available, real-time transcription requires GCP");
-        return false;
-      }
+      // Use Application Default Credentials. On Cloud Run this resolves to the
+      // runtime service account via the metadata server — there is NO
+      // GOOGLE_APPLICATION_CREDENTIALS file. The previous env-var gate made this
+      // ALWAYS false on Cloud Run (prod), silently disabling real transcription.
       this.auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
+      // Probe once so we fail fast (and return false) if ADC truly isn't available
+      // (e.g. local dev with no creds), rather than discovering it mid-request.
+      await this.auth.getAccessToken();
       this.gcpAvailable = true;
-      console.log("[MedASR] Initialized with GCP Speech-to-Text Medical model");
+      console.log("[MedASR] Initialized with GCP Speech-to-Text (ADC)");
       return true;
     } catch (err: any) {
-      console.warn("[MedASR] GCP init failed:", err.message);
+      this.auth = null;
+      this.gcpAvailable = false;
+      console.warn("[MedASR] GCP ADC unavailable — transcription disabled:", err?.message);
       return false;
     }
   }
