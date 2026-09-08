@@ -177,6 +177,11 @@ app.use(gcpAuditMiddleware);
 // override via AI_BLOCKED_COUNTRIES env var).
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
+import { redactPath } from "./security/redact-path";
+import {
+  UNAUTHENTICATED_BODY_LIMITS,
+  bodyLimitFor,
+} from "./security/body-limits";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
 
@@ -193,6 +198,22 @@ app.use(unifiedComplianceMiddleware());
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "10mb";
 const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "10mb";
 
+/**
+ * Caps for the endpoints an anonymous client can reach. The table, and the
+ * reasoning behind it, live in `server/security/body-limits.ts`.
+ *
+ * Mounted BEFORE the global parsers on purpose — body-parser skips a request
+ * whose body is already parsed, so the stricter limit is the one that applies
+ * and an oversized body is refused before it is read into memory.
+ */
+for (const { path, limit } of UNAUTHENTICATED_BODY_LIMITS) {
+  // Both parsers: a carrier posts form-encoded, a browser form posts
+  // form-encoded, a client posts JSON, and a cap that covers only one of
+  // them is not a cap.
+  app.use(path, express.json({ limit }));
+  app.use(path, express.urlencoded({ extended: false, limit }));
+}
+
 app.use(
   express.json({
     limit: JSON_BODY_LIMIT,
@@ -208,9 +229,15 @@ app.use(csrfProtection);
 
 app.use((err: Error & { type?: string; status?: number }, req: Request, res: Response, next: NextFunction) => {
   if (err.type === "entity.too.large") {
+    // Report the limit that actually rejected this request, read from the
+    // same table that mounted it — a 413 naming the global 10mb for a route
+    // capped at 64kb sends the caller off to debug the wrong number.
+    const capped = bodyLimitFor(req.path);
     return res.status(413).json({
       error: "PAYLOAD_TOO_LARGE",
-      message: "Request body exceeds size limit. Maximum allowed: " + JSON_BODY_LIMIT,
+      message:
+        "Request body exceeds size limit. Maximum allowed: " +
+        (capped ? capped.limit : JSON_BODY_LIMIT),
       requestId: getRequestId(req),
     });
   }
@@ -243,7 +270,10 @@ app.use((req, res, next) => {
         timestamp: new Date().toISOString(),
         request_id: getRequestId(req),
         method: req.method,
-        path: path,
+        // Gated on /api today; redacted anyway so this line stays safe if the
+        // gate ever widens. Relying on a filter elsewhere is what produced
+        // rounds 5 and 11.
+        path: redactPath(path),
         status: res.statusCode,
         duration_ms: duration,
         actor_id: user?.claims?.sub,

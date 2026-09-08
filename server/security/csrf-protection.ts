@@ -11,6 +11,7 @@
  */
 
 import type { Request, Response, NextFunction, RequestHandler } from "express";
+import { redactPath } from "./redact-path";
 
 // Allowed origins for the application
 function getAllowedOrigins(req: Request): string[] {
@@ -112,7 +113,7 @@ export const csrfProtection: RequestHandler = (req: Request, res: Response, next
   
   // Validate origin
   if (!isValidOrigin(req)) {
-    console.warn(`[CSRF] Origin validation failed for ${req.method} ${req.path}`, {
+    console.warn(`[CSRF] Origin validation failed for ${req.method} ${redactPath(req.path)}`, {
       origin: req.get("origin"),
       referer: req.get("referer"),
       host: req.get("host"),
@@ -132,7 +133,7 @@ export const csrfProtection: RequestHandler = (req: Request, res: Response, next
                               contentType.includes("application/x-www-form-urlencoded");
     
     if (!isFormSubmission) {
-      console.warn(`[CSRF] Missing custom header for ${req.method} ${req.path}`);
+      console.warn(`[CSRF] Missing custom header for ${req.method} ${redactPath(req.path)}`);
       return res.status(403).json({
         error: "Forbidden", 
         code: "CSRF_HEADER_MISSING",

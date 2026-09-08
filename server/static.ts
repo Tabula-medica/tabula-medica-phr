@@ -30,14 +30,38 @@ function findDistPath(): string | null {
   return null;
 }
 
-function isApiOrInfraPath(url: string): boolean {
-  // NOTE: /auth/* is intentionally NOT treated as infra here. /auth/login and
-  // /auth/register are SPA routes that must fall through to index.html so
-  // direct navigation, bookmarks, and full reloads work in production. The
-  // few real server handlers under /auth/* (e.g. /auth/callback legacy
-  // redirect) are mounted BEFORE serveStatic and match first.
+/**
+ * Paths the SPA catch-all must NOT swallow.
+ *
+ * `serveStatic` is mounted before `registerRoutes`, and its `app.use("*")`
+ * answers everything it does not list here with `index.html`. So this
+ * predicate is not a convenience — it is the whole reachability contract for
+ * any server-rendered route outside `/api`. A handler missing from this list
+ * is a handler that never runs in production, however well it is written and
+ * however green its tests are.
+ *
+ * `/s/` is the health-summary share link. It was missing, and the effect was
+ * worse than a 404: the token landed on the marketing SPA, which is
+ * `robots: index, follow` and loads a Google Fonts stylesheet, so the 256-bit
+ * bearer token in the URL went out in a cross-origin `Referer` and sat on an
+ * indexable document — while the page's own CSP, `no-referrer`, `noindex` and
+ * GET-is-inert interstitial, all written specifically to prevent that, never
+ * executed. `POST /api/engagement/share/view` stayed reachable, so a token
+ * recovered that way still redeemed.
+ *
+ * NOTE: /auth/* is intentionally NOT treated as infra here. /auth/login and
+ * /auth/register are SPA routes that must fall through to index.html so
+ * direct navigation, bookmarks, and full reloads work in production. The
+ * few real server handlers under /auth/* (e.g. /auth/callback legacy
+ * redirect) are mounted BEFORE serveStatic and match first.
+ */
+export function isServerRoutePath(url: string): boolean {
   return (
     url.startsWith("/api/") ||
+    // Health-summary share links. Server-rendered, deliberately outside /api
+    // so the token stays out of the /api request log.
+    url === "/s" ||
+    url.startsWith("/s/") ||
     url === "/health" ||
     url === "/healthz" ||
     url.startsWith("/_ah/")
@@ -57,8 +81,21 @@ export function serveStatic(app: Express) {
   app.use("*", (req, res, next) => {
     const url = req.originalUrl.split("?")[0];
 
-    if (isApiOrInfraPath(url)) {
+    if (isServerRoutePath(url)) {
       if (!apiRoutesReady) {
+        // A share link opened during startup must say "not yet", not hand the
+        // recipient the SPA — falling through here is exactly the bug this
+        // predicate exists to prevent.
+        if (url === "/s" || url.startsWith("/s/")) {
+          return res
+            .status(503)
+            .set("Retry-After", "5")
+            .set("Cache-Control", "no-store")
+            .type("text/html")
+            .send(
+              `<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Shared health summary</title></head><body style="font-family:system-ui;max-width:32rem;margin:4rem auto;padding:1.5rem"><h1>One moment</h1><p>This service is starting up. Please open the link again in a few seconds.</p></body></html>`,
+            );
+        }
         if (url === "/api/login" || url === "/api/auth/login") {
           return res.status(503).set("Retry-After", "5").json({
             error: "SERVICE_STARTING",

@@ -11,6 +11,7 @@
 
 import type { Request, Response, NextFunction } from "express";
 import { logPhiAccess } from "./hipaa-audit";
+import { redactPath } from "./redact-path";
 
 const COMPLIANCE_LOG_PREFIX = "[Compliance]";
 
@@ -106,7 +107,9 @@ export function hipaaComplianceMiddleware(config: ComplianceConfig = DEFAULT_COM
         action: req.method === "GET" || req.method === "HEAD" ? "read" : req.method === "DELETE" ? "delete" : "write",
         resourceType: "ComplianceAudit",
         patientId: req.params?.patientId || "system",
-        details: `${req.method} ${req.path} [${res.statusCode}] ${responseTime}ms`,
+        // redactPath, not req.path: a capability token in a URL must not
+        // reach an audit record either. See server/security/redact-path.ts.
+        details: `${req.method} ${redactPath(req.path)} [${res.statusCode}] ${responseTime}ms`,
       });
 
       return originalEnd(chunk, encoding, cb);
@@ -134,7 +137,10 @@ export function soc2ComplianceMiddleware(config: ComplianceConfig = DEFAULT_COMP
         requestId,
         timestamp: new Date().toISOString(),
         method: req.method,
-        path: req.path,
+        // The round-11 leak. This tracker is mounted globally, is on by
+        // default, and logs every non-GET request regardless of path — so the
+        // `/api`-only skip that protected the JSON route never applied here.
+        path: redactPath(req.path),
         userId: (req as any).user?.id || "anonymous",
         userAgent: req.get("user-agent") || "unknown",
         ip: req.ip || req.socket.remoteAddress || "unknown",
@@ -161,7 +167,7 @@ export function tefcaComplianceMiddleware(config: ComplianceConfig = DEFAULT_COM
       const consentInBody = (req.body as any)?.consent || (req.body as any)?.patientConsent;
       
       if (!consentHeader && !consentInBody) {
-        console.log(`${COMPLIANCE_LOG_PREFIX} [TEFCA] Consent verification pending for ${req.path}`);
+        console.log(`${COMPLIANCE_LOG_PREFIX} [TEFCA] Consent verification pending for ${redactPath(req.path)}`);
         res.setHeader("X-Consent-Status", "pending-verification");
       } else {
         res.setHeader("X-Consent-Status", "verified");
@@ -171,7 +177,7 @@ export function tefcaComplianceMiddleware(config: ComplianceConfig = DEFAULT_COM
     const exchangeRecord = {
       timestamp: new Date().toISOString(),
       direction: req.method === "GET" ? "outbound" : "inbound",
-      path: req.path,
+      path: redactPath(req.path),
       purpose: req.get("X-Exchange-Purpose") || "treatment",
       source: req.get("X-Data-Source") || "internal",
       userId: (req as any).user?.id || "anonymous",
