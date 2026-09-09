@@ -418,6 +418,7 @@ import payerFhirRoutes from "./routes/payer-fhir-routes";
 import internalAnalyticsRoutes from "./routes/internal-analytics-routes";
 import extractionPipelineRoutes from "./routes/extraction-pipeline-routes";
 import billsEobRoutes from "./routes/bills-eob-routes";
+import rcmRoutes from "./rcm/routes";
 import appStoreIapRoutes from "./routes/appstore-iap-routes";
 import phrPipelineRoutes from "./routes/phr-pipeline-routes";
 import fqhcFinderRoutes from "./routes/fqhc-finder-routes";
@@ -38556,6 +38557,10 @@ startxref
   // ================== Bills & EOB Routes ==================
   app.use("/api/bills-eob", billsEobRoutes);
   console.log("[Routes] Bills & EOB routes registered at /api/bills-eob/*");
+
+  // ================== Outpatient RCM (World EHR) Routes ==================
+  app.use("/api/rcm", isAuthenticated, rcmRoutes);
+  console.log("[Routes] Outpatient RCM routes registered at /api/rcm/* (eligibility, prior-auth, charge capture, coding, scrubber, claims, ERA, denials, patient financials, contracts, analytics, voice, agents)");
 
   // ================== App Store IAP Routes ==================
   app.use("/api/appstore-iap", appStoreIapRoutes);
