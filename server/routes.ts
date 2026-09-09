@@ -33,6 +33,7 @@ import {
   linkFastenConnection,
   triggerFastenExport,
 } from "./auth/fasten";
+import { verifyStepUpAssertion, STEP_UP_FAILURE_MESSAGES } from "./auth/step-up";
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
@@ -7481,6 +7482,55 @@ STRICT NO-CDS CONSTRAINTS:
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid prescription data", details: parsed.error.errors });
       }
+
+      const userId = (req.user as any)?.claims?.sub as string | undefined;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      // The prescriber's identity is the authenticated session, never a
+      // client-supplied field — a prescription forged with someone else's
+      // providerId would misattribute who legally wrote it.
+      parsed.data.providerId = userId;
+
+      const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
+      const userAgent = req.headers["user-agent"] || "Unknown";
+
+      // DEA EPCS (21 CFR 1311): creating a controlled-substance prescription
+      // requires a fresh, TOTP-backed step-up re-authentication on top of the
+      // normal session — see server/auth/step-up.ts.
+      if (parsed.data.isControlledSubstance) {
+        const stepUpToken = req.headers["x-step-up-token"] as string | undefined;
+        const stepUp = await verifyStepUpAssertion(stepUpToken, userId);
+        if (!stepUp.ok) {
+          await storage.createSecurityAuditLog({
+            userId,
+            eventType: "permission_denied",
+            description: `DEA EPCS step-up verification failed (${stepUp.reason})`,
+            metadata: {
+              deaSchedule: parsed.data.deaSchedule ?? "unspecified",
+              reason: stepUp.reason,
+            },
+            ipAddress,
+            userAgent,
+          });
+          return res.status(401).json({
+            error: "step_up_required",
+            reason: stepUp.reason,
+            message: STEP_UP_FAILURE_MESSAGES[stepUp.reason],
+          });
+        }
+        await storage.createSecurityAuditLog({
+          userId,
+          eventType: "data_access",
+          description: "DEA EPCS step-up verification succeeded for controlled-substance prescription",
+          metadata: {
+            deaSchedule: parsed.data.deaSchedule ?? "unspecified",
+          },
+          ipAddress,
+          userAgent,
+        });
+      }
+
       const prescription = await storage.createPrescription(parsed.data);
       res.status(201).json(prescription);
     } catch (error) {

@@ -21,6 +21,7 @@ import {
   parseFhirResources,
   bucketResources,
 } from "./fasten-export-parsing";
+import { resolvePatientIdentityForUser } from "../services/patient-identity-resolution";
 
 // ---------------------------------------------------------------------------
 // Fasten EHI-export ingestion.
@@ -151,7 +152,26 @@ export async function processFastenExportEvent(
     let patient = existingPatients[0];
     if (!patient) {
       const source = buckets.patient ?? { id: payload.orgConnectionId };
-      patient = await storage.createPatient(mapFhirPatient(source, connection));
+      const patientData = mapFhirPatient(source, connection);
+
+      // Positive patient ID: this account may already have a matching
+      // identity from a different EHR connection — link into it instead of
+      // creating a second, disconnected identity for the same person.
+      const identity = await resolvePatientIdentityForUser(userId, {
+        firstName: patientData.firstName,
+        lastName: patientData.lastName,
+        dateOfBirth: patientData.dateOfBirth,
+        email: patientData.email,
+        phone: patientData.phone,
+        ehrConnectionId: connection.id,
+        platform: connection.platform,
+        facilityName: connection.facilityName,
+        mrn: patientData.mrn,
+        patientId: patientData.mrn || connection.id,
+      });
+      patientData.unifiedPatientId = identity.unifiedPatientId;
+
+      patient = await storage.createPatient(patientData);
     }
 
     const result: FastenImportResult = {

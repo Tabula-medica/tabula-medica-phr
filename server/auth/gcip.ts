@@ -29,8 +29,16 @@ export interface GcipClaims extends jose.JWTPayload {
   picture?: string;
   firebase?: {
     sign_in_provider?: string;
+    // Present and set to "totp" when this specific sign-in event completed a
+    // TOTP second-factor challenge (see step-up.ts) — absent on a bare
+    // first-factor (phone/password/social) sign-in even if the account has
+    // TOTP enrolled from some other session.
+    sign_in_second_factor?: string;
     identities?: Record<string, unknown>;
   };
+  // Firebase-specific claim: unix seconds of the most recent full sign-in
+  // (distinct from `iat`, which also advances on background token refresh).
+  auth_time?: number;
 }
 
 export async function verifyGcipToken(token: string): Promise<GcipClaims | null> {

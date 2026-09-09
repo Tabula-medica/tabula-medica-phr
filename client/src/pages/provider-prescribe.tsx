@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { useSEO } from "@/hooks/use-seo";
@@ -18,11 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { 
+import {
   ArrowLeft,
   ClipboardPlus,
   User,
@@ -34,10 +36,25 @@ import {
   Loader2,
   Check,
   Send,
+  ShieldCheck,
+  MessageSquare,
 } from "lucide-react";
 import type { Patient, Pharmacy, PatientPharmacy } from "@shared/schema";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { PageHeader, LoadingState } from "@/components/shared";
+import {
+  startPhoneSignIn,
+  confirmPhoneCode,
+  normalizePhoneE164,
+  clearRecaptcha,
+  getGcipIdToken,
+  isGcipConfigured,
+  isMfaChallenge,
+  getMfaResolver,
+  resolveTotpChallenge,
+  type ConfirmationResult,
+  type MultiFactorResolver,
+} from "@/lib/gcip";
 
 const prescriptionFormSchema = z.object({
   patientId: z.string().min(1, "Patient is required"),
@@ -141,32 +158,171 @@ export default function ProviderPrescribePage() {
   const isControlledSubstance = form.watch("isControlledSubstance");
   const primaryPharmacy = patientPharmacies.find(pp => pp.isPrimary);
 
+  // DEA EPCS step-up re-authentication for controlled-substance prescriptions
+  // (see server/auth/step-up.ts). The provider's identity for the
+  // prescription itself always comes from the authenticated session — the
+  // server ignores/overrides any providerId sent here.
+  const [pendingPrescription, setPendingPrescription] = useState<PrescriptionFormData | null>(null);
+  const [stepUpOpen, setStepUpOpen] = useState(false);
+  const [stepUpPhase, setStepUpPhase] = useState<"phone" | "code" | "totp">("phone");
+  const [stepUpPhone, setStepUpPhone] = useState("");
+  const [stepUpCode, setStepUpCode] = useState("");
+  const [stepUpTotpCode, setStepUpTotpCode] = useState("");
+  const [stepUpConfirmation, setStepUpConfirmation] = useState<ConfirmationResult | null>(null);
+  const [stepUpMfaResolver, setStepUpMfaResolver] = useState<MultiFactorResolver | null>(null);
+  const [stepUpBusy, setStepUpBusy] = useState(false);
+  const [stepUpError, setStepUpError] = useState<string | null>(null);
+  const gcipReady = isGcipConfigured();
+  const stepUpPhoneE164 = normalizePhoneE164(stepUpPhone);
+
+  useEffect(() => () => clearRecaptcha(), []);
+
+  const STEP_UP_ERROR_REASONS = new Set([
+    "missing_token",
+    "invalid_token",
+    "wrong_user",
+    "stale",
+    "second_factor_required",
+  ]);
+
+  async function postPrescription(data: PrescriptionFormData, stepUpToken?: string) {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    };
+    if (stepUpToken) headers["X-Step-Up-Token"] = stepUpToken;
+    const res = await fetch("/api/prescriptions", {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}) as any);
+      const err = new Error(body?.message || "Failed to create prescription.") as Error & { reason?: string };
+      err.reason = body?.reason;
+      throw err;
+    }
+    return res.json();
+  }
+
+  const resetStepUp = () => {
+    clearRecaptcha();
+    setStepUpOpen(false);
+    setStepUpPhase("phone");
+    setStepUpPhone("");
+    setStepUpCode("");
+    setStepUpTotpCode("");
+    setStepUpConfirmation(null);
+    setStepUpMfaResolver(null);
+    setStepUpError(null);
+  };
+
   const createPrescriptionMutation = useMutation({
-    mutationFn: async (data: PrescriptionFormData) => {
-      return apiRequest("POST", "/api/prescriptions", {
-        ...data,
-        providerId: "provider-default",
-      });
-    },
+    mutationFn: async (vars: { data: PrescriptionFormData; stepUpToken?: string }) =>
+      postPrescription(vars.data, vars.stepUpToken),
     onSuccess: () => {
-      toast({ 
-        title: "Prescription Created", 
-        description: "The prescription has been successfully created and sent to the pharmacy." 
+      toast({
+        title: "Prescription Created",
+        description: "The prescription has been successfully created and sent to the pharmacy.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/patients", patientId, "prescriptions"] });
+      setPendingPrescription(null);
+      resetStepUp();
       navigate(`/patients/${patientId}`);
     },
-    onError: (error: Error) => {
-      toast({ 
-        title: "Error", 
-        description: error.message || "Failed to create prescription.", 
-        variant: "destructive" 
+    onError: (error: Error & { reason?: string }) => {
+      // A step-up-specific failure means the account/session is fine but the
+      // DEA re-verification wasn't accepted — keep the filled-out prescription
+      // and let the provider retry the step-up rather than losing their work.
+      if (error.reason && STEP_UP_ERROR_REASONS.has(error.reason)) {
+        setStepUpBusy(false);
+        setStepUpError(error.message);
+        setStepUpPhase("phone");
+        setStepUpConfirmation(null);
+        setStepUpMfaResolver(null);
+        setStepUpOpen(true);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create prescription.",
+        variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: PrescriptionFormData) => {
-    createPrescriptionMutation.mutate(data);
+    if (data.isControlledSubstance) {
+      setPendingPrescription(data);
+      setStepUpError(null);
+      setStepUpOpen(true);
+      return;
+    }
+    createPrescriptionMutation.mutate({ data });
+  };
+
+  const finishStepUp = async () => {
+    const token = await getGcipIdToken(true);
+    if (!token || !pendingPrescription) {
+      setStepUpError("Could not complete verification. Please try again.");
+      return;
+    }
+    resetStepUp();
+    createPrescriptionMutation.mutate({ data: pendingPrescription, stepUpToken: token });
+  };
+
+  const handleStepUpSendCode = async () => {
+    if (!stepUpPhoneE164) {
+      setStepUpError("Enter a valid mobile number, e.g. (571) 555-0123.");
+      return;
+    }
+    setStepUpError(null);
+    setStepUpBusy(true);
+    try {
+      const result = await startPhoneSignIn(stepUpPhoneE164, "recaptcha-container-prescribe");
+      setStepUpConfirmation(result);
+      setStepUpPhase("code");
+    } catch (e: any) {
+      setStepUpError(e?.message || "Couldn't send the code. Please try again.");
+    } finally {
+      setStepUpBusy(false);
+    }
+  };
+
+  const handleStepUpVerifyCode = async () => {
+    if (!stepUpConfirmation || stepUpCode.length !== 6) return;
+    setStepUpError(null);
+    setStepUpBusy(true);
+    try {
+      await confirmPhoneCode(stepUpConfirmation, stepUpCode);
+      // No TOTP factor enrolled: this was a bare first-factor sign-in. Submit
+      // anyway — the server requires sign_in_second_factor === "totp" and will
+      // reject with a clear "enable an authenticator app" message if so.
+      await finishStepUp();
+    } catch (e: any) {
+      if (isMfaChallenge(e)) {
+        setStepUpMfaResolver(getMfaResolver(e));
+        setStepUpPhase("totp");
+        setStepUpBusy(false);
+      } else {
+        setStepUpError(e?.message || "Couldn't verify the code. Please try again.");
+        setStepUpBusy(false);
+      }
+    }
+  };
+
+  const handleStepUpVerifyTotp = async () => {
+    if (!stepUpMfaResolver || stepUpTotpCode.length < 6) return;
+    setStepUpError(null);
+    setStepUpBusy(true);
+    try {
+      await resolveTotpChallenge(stepUpMfaResolver, stepUpTotpCode);
+      await finishStepUp();
+    } catch (e: any) {
+      setStepUpError(e?.message || "That authenticator code didn't work. Please try again.");
+      setStepUpBusy(false);
+    }
   };
 
   if (patientLoading) {
@@ -590,10 +746,12 @@ export default function ProviderPrescribePage() {
                   >
                     {createPrescriptionMutation.isPending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : isControlledSubstance ? (
+                      <ShieldCheck className="h-4 w-4 mr-2" />
                     ) : (
                       <Send className="h-4 w-4 mr-2" />
                     )}
-                    Send Prescription
+                    {isControlledSubstance ? "Verify & Send Prescription" : "Send Prescription"}
                   </Button>
                 </div>
               </form>
@@ -601,6 +759,146 @@ export default function ProviderPrescribePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* DEA EPCS step-up re-authentication, required only for controlled substances */}
+      <Dialog open={stepUpOpen} onOpenChange={(open) => { if (!open) resetStepUp(); }}>
+        <DialogContent data-testid="dialog-dea-step-up">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Verify your identity to prescribe
+            </DialogTitle>
+            <DialogDescription>
+              DEA rules require a fresh, two-factor identity check before sending a Schedule {form.watch("deaSchedule") || "II-V"} prescription.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {!gcipReady && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>Verification is temporarily unavailable. Please try again shortly.</AlertDescription>
+              </Alert>
+            )}
+            {stepUpError && (
+              <Alert variant="destructive" data-testid="alert-step-up-error">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{stepUpError}</AlertDescription>
+              </Alert>
+            )}
+
+            {stepUpPhase === "phone" && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="step-up-phone" className="text-sm">Mobile number</Label>
+                  <Input
+                    id="step-up-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="(571) 555-0123"
+                    value={stepUpPhone}
+                    onChange={(e) => setStepUpPhone(e.target.value)}
+                    data-testid="input-step-up-phone"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={stepUpBusy || !gcipReady || !stepUpPhoneE164}
+                  onClick={handleStepUpSendCode}
+                  data-testid="button-step-up-send-code"
+                >
+                  {stepUpBusy ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending code...</>
+                  ) : (
+                    <><MessageSquare className="h-4 w-4 mr-2" /> Text me a code</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {stepUpPhase === "code" && (
+              <div className="space-y-3" data-testid="step-up-code-step">
+                <div className="space-y-1.5">
+                  <Label htmlFor="step-up-code" className="text-sm">
+                    Enter the code we texted to {stepUpPhoneE164}
+                  </Label>
+                  <Input
+                    id="step-up-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    maxLength={6}
+                    value={stepUpCode}
+                    onChange={(e) => setStepUpCode(e.target.value.replace(/\D/g, ""))}
+                    className="text-center text-lg tracking-widest font-mono"
+                    data-testid="input-step-up-code"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={stepUpBusy || stepUpCode.length !== 6}
+                  onClick={handleStepUpVerifyCode}
+                  data-testid="button-step-up-verify-code"
+                >
+                  {stepUpBusy ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verifying...</>
+                  ) : (
+                    "Continue"
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {stepUpPhase === "totp" && (
+              <div className="space-y-3" data-testid="step-up-totp-step">
+                <div className="space-y-1.5">
+                  <Label htmlFor="step-up-totp" className="text-sm">
+                    Enter the 6-digit code from your authenticator app
+                  </Label>
+                  <Input
+                    id="step-up-totp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    maxLength={6}
+                    value={stepUpTotpCode}
+                    onChange={(e) => setStepUpTotpCode(e.target.value.replace(/\D/g, ""))}
+                    className="text-center text-lg tracking-widest font-mono"
+                    data-testid="input-step-up-totp"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={stepUpBusy || stepUpTotpCode.length < 6}
+                  onClick={handleStepUpVerifyTotp}
+                  data-testid="button-step-up-verify-totp"
+                >
+                  {stepUpBusy ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verifying...</>
+                  ) : (
+                    <><ShieldCheck className="h-4 w-4 mr-2" /> Verify & Send Prescription</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Invisible reCAPTCHA target for Firebase phone auth. */}
+            <div id="recaptcha-container-prescribe" />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={resetStepUp} disabled={stepUpBusy} data-testid="button-step-up-cancel">
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
