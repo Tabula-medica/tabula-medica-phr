@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { Buffer } from "node:buffer";
 import { medicalSpeechToTextService } from "../../services/gcp/medical-speech-to-text";
 import { synthesizeSpeech } from "../../lib/gcp-tts";
+import { prepareForStt } from "../../lib/audio-transcode";
 
 // NOTE: `openai` here is the Vertex shim (build alias) — chat.completions routes to
 // Vertex/Gemini (BAA). Its `.audio`/`.images` are hard-disabled. Audio in this module
@@ -13,22 +14,15 @@ export const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-// Map the app's audio container hints to GCP STT encodings; fail closed on mp4/aac.
-function sttEncoding(format: string): "WEBM_OPUS" | "OGG_OPUS" | "LINEAR16" | "MP3" {
-  if (format.includes("webm")) return "WEBM_OPUS";
-  if (format.includes("ogg")) return "OGG_OPUS";
-  if (format.includes("mp3") || format.includes("mpeg")) return "MP3";
-  if (format.includes("wav")) return "LINEAR16";
-  throw new Error(`Unsupported audio format "${format}" for GCP Speech-to-Text (mp4/aac needs transcoding — follow-up).`);
-}
-
 async function transcribeBaaSafe(audioBuffer: Buffer, format: string): Promise<string> {
   const ready = await medicalSpeechToTextService.initialize();
   if (!ready) throw new Error("GCP Speech-to-Text unavailable (ADC) — no PHI is sent to OpenAI.");
+  // mp4/aac transcoded to FLAC; WebM/Opus, Ogg, WAV, MP3 pass through. BAA-safe.
+  const { audioContent, encoding, sampleRateHertz } = await prepareForStt(audioBuffer, format);
   const r = await medicalSpeechToTextService.transcribe({
-    audioContent: audioBuffer.toString("base64"),
-    encoding: sttEncoding(format),
-    sampleRateHertz: 48000,
+    audioContent,
+    encoding: encoding as any,
+    sampleRateHertz,
     languageCode: "en-US",
     model: "medical_conversation",
     punctuation: true,
