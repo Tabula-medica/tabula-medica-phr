@@ -129,7 +129,7 @@ function initializeSampleData(): void {
     coverageRegions: ["US-Nationwide"],
     lastSyncAt: new Date().toISOString(),
     connectionDetails: {
-      endpoint: "https://api.fastenhealth.com/fhir/R4",
+      endpoint: "https://api.connect.fastenhealth.com/fhir/R4",
       authType: "OAuth2 / SMART on FHIR",
       version: "FHIR R4 (4.0.1)",
     },

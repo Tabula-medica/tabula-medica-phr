@@ -11,6 +11,7 @@ import {
 } from "./mapper";
 import { storage } from "../storage";
 import type { EhrConnection } from "@shared/schema";
+import { resolvePatientIdentityForUser } from "../services/patient-identity-resolution";
 
 export interface SyncResult {
   success: boolean;
@@ -60,6 +61,25 @@ export async function syncEhrConnection(connection: EhrConnection): Promise<Sync
     const data = await client.getAllPatientData(patientId);
 
     const patientData = mapFhirPatient(data.patient, connection);
+
+    // Positive patient ID: before creating a new isolated Patient record,
+    // check whether this account already has a matching identity linked
+    // through a different EHR connection, so the same person doesn't end up
+    // split across disconnected records.
+    const identity = await resolvePatientIdentityForUser(connection.userId, {
+      firstName: patientData.firstName,
+      lastName: patientData.lastName,
+      dateOfBirth: patientData.dateOfBirth,
+      email: patientData.email,
+      phone: patientData.phone,
+      ehrConnectionId: connection.id,
+      platform: connection.platform,
+      facilityName: connection.facilityName,
+      mrn: patientData.mrn,
+      patientId: patientData.mrn || connection.id,
+    });
+    patientData.unifiedPatientId = identity.unifiedPatientId;
+
     const patient = await storage.createPatient(patientData);
     result.patientsAdded = 1;
 

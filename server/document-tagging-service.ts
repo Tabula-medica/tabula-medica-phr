@@ -1,5 +1,8 @@
 import OpenAI from "openai";
-import type { AutoTagCategory, DocumentAutoTag, DocumentAutoTagResult } from "@shared/schema";
+import type { AutoTagCategory, AutoTagSubcategory, DocumentAutoTag, DocumentAutoTagResult } from "@shared/schema";
+import { autoTagSubcategories, autoTagSubcategoryLabels, isValidSubcategory } from "@shared/schema";
+
+export { autoTagSubcategoryLabels };
 
 // Use AI Integrations for OpenAI access (no API key required)
 const openai = new OpenAI({
@@ -30,6 +33,11 @@ export async function classifyDocumentWithExplanation(
   textContent: string,
   mimeType: string
 ): Promise<DocumentAutoTagResult> {
+  const subcategoryList = (Object.entries(autoTagSubcategories) as [AutoTagCategory, readonly string[]][])
+    .filter(([, subs]) => subs.length > 0)
+    .map(([cat, subs]) => `- ${cat}: ${subs.join(", ")}`)
+    .join("\n");
+
   const classificationPrompt = `You are a medical document classifier. Analyze the following document and classify it into ONE of these categories:
 
 Categories:
@@ -40,12 +48,16 @@ Categories:
 - referral: Referral letters from one provider to another
 - other: Documents that don't fit the above categories
 
+After picking the category, also pick the best-fitting subcategory for that category (or null if none fits or the category is "other"):
+${subcategoryList}
+
 Provide:
 1. The category (exactly one of: discharge_summary, lab, imaging, insurance, referral, other)
-2. Confidence score (0-100)
-3. A clear explanation of WHY you classified it this way (2-3 sentences explaining key indicators)
-4. Suggested descriptive tags (3-5 relevant keywords)
-5. Any extracted metadata (date, facility, provider, test name)
+2. The subcategory (one of the listed subcategories for the chosen category, or null)
+3. Confidence score (0-100)
+4. A clear explanation of WHY you classified it this way (2-3 sentences explaining key indicators)
+5. Suggested descriptive tags (3-5 relevant keywords)
+6. Any extracted metadata (date, facility, provider, test name)
 
 Document filename: ${fileName}
 Document type: ${mimeType}
@@ -56,6 +68,7 @@ ${textContent.slice(0, 4000)}
 Respond in JSON format:
 {
   "category": "lab",
+  "subcategory": "blood_work",
   "confidence": 92,
   "explanation": "This document contains laboratory test results including a Complete Blood Count (CBC) with specific values for WBC, RBC, and hemoglobin. The format and terminology are consistent with standard lab reports.",
   "suggestedTags": ["blood test", "CBC", "complete blood count", "routine labs"],
@@ -89,9 +102,14 @@ Respond in JSON format:
     // Validate category
     const validCategories: AutoTagCategory[] = ["discharge_summary", "lab", "imaging", "insurance", "referral", "other"];
     const category = validCategories.includes(result.category) ? result.category : "other";
+    const subcategory =
+      typeof result.subcategory === "string" && isValidSubcategory(category, result.subcategory)
+        ? result.subcategory
+        : null;
 
     return {
       category,
+      subcategory,
       confidence: Math.min(100, Math.max(0, result.confidence || 50)),
       explanation: result.explanation || "Unable to determine classification reason.",
       suggestedTags: Array.isArray(result.suggestedTags) ? result.suggestedTags : [],
@@ -107,9 +125,10 @@ Respond in JSON format:
     
     // Fallback classification based on filename
     const fallbackCategory = inferCategoryFromFilename(fileName);
-    
+
     return {
       category: fallbackCategory,
+      subcategory: inferSubcategoryFromFilename(fallbackCategory, fileName),
       confidence: 30,
       explanation: "Automatic classification was unable to analyze the document content. Classification based on filename only.",
       suggestedTags: [],
@@ -144,8 +163,52 @@ function inferCategoryFromFilename(fileName: string): AutoTagCategory {
   if (lowerName.includes("referral") || lowerName.includes("refer")) {
     return "referral";
   }
-  
+
   return "other";
+}
+
+/**
+ * Infer subcategory from filename as fallback (keyword match within the chosen category)
+ */
+export function inferSubcategoryFromFilename(
+  category: AutoTagCategory,
+  fileName: string
+): AutoTagSubcategory | null {
+  const lowerName = fileName.toLowerCase();
+  const keywordsBySubcategory: Partial<Record<AutoTagSubcategory, string[]>> = {
+    inpatient: ["inpatient", "admission"],
+    emergency: ["emergency", "er ", "ed "],
+    surgical: ["surgery", "surgical", "op note", "operative"],
+    rehabilitation: ["rehab"],
+    blood_work: ["blood", "cbc", "cmp", "metabolic", "lipid", "a1c"],
+    urinalysis: ["urine", "urinalysis"],
+    microbiology: ["culture", "micro"],
+    pathology: ["pathology", "biopsy"],
+    genetic_testing: ["genetic", "genomic", "dna"],
+    xray: ["xray", "x-ray", "radiograph"],
+    ct_scan: ["ct ", "ct_", "ct-", "computed tomography"],
+    mri: ["mri"],
+    ultrasound: ["ultrasound", "sonogram", "echo"],
+    mammogram: ["mammogram", "mammo"],
+    pet_scan: ["pet "],
+    eob: ["eob", "explanation of benefits"],
+    claim: ["claim"],
+    prior_authorization: ["prior auth", "authorization"],
+    coverage: ["coverage", "policy"],
+    denial_appeal: ["denial", "appeal"],
+    specialist: ["specialist"],
+    imaging_referral: ["imaging referral"],
+    therapy: ["therapy", "physical therapy", "pt referral"],
+    second_opinion: ["second opinion"],
+  };
+
+  for (const subcategory of autoTagSubcategories[category]) {
+    const keywords = keywordsBySubcategory[subcategory as AutoTagSubcategory] || [];
+    if (keywords.some(keyword => lowerName.includes(keyword))) {
+      return subcategory as AutoTagSubcategory;
+    }
+  }
+  return null;
 }
 
 /**
@@ -160,6 +223,9 @@ export function saveDocumentAutoTag(
     id: `autotag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     documentId,
     category: result.category,
+    subcategory: result.subcategory && isValidSubcategory(result.category, result.subcategory)
+      ? result.subcategory
+      : null,
     confidence: result.confidence,
     explanation: result.explanation,
     suggestedTags: result.suggestedTags,
@@ -187,17 +253,21 @@ export function overrideDocumentAutoTag(
   newCategory: AutoTagCategory,
   newTags: string[] | undefined,
   reason: string | undefined,
-  userId: string
+  userId: string,
+  newSubcategory?: AutoTagSubcategory | null
 ): DocumentAutoTag | null {
   const existing = documentAutoTags.get(documentId);
   if (!existing) {
     return null;
   }
-  
+
   const updated: DocumentAutoTag = {
     ...existing,
     isOverridden: true,
     overriddenCategory: newCategory,
+    overriddenSubcategory: newSubcategory && isValidSubcategory(newCategory, newSubcategory)
+      ? newSubcategory
+      : null,
     overriddenAt: new Date().toISOString(),
     overriddenBy: userId,
     overrideReason: reason,
@@ -222,9 +292,18 @@ export function getPatientDocumentAutoTags(documentIds: string[]): DocumentAutoT
  * Get the effective category (considering overrides)
  */
 export function getEffectiveCategory(autoTag: DocumentAutoTag): AutoTagCategory {
-  return autoTag.isOverridden && autoTag.overriddenCategory 
-    ? autoTag.overriddenCategory 
+  return autoTag.isOverridden && autoTag.overriddenCategory
+    ? autoTag.overriddenCategory
     : autoTag.category;
+}
+
+/**
+ * Get the effective subcategory (considering overrides)
+ */
+export function getEffectiveSubcategory(autoTag: DocumentAutoTag): AutoTagSubcategory | null {
+  return autoTag.isOverridden
+    ? autoTag.overriddenSubcategory ?? null
+    : autoTag.subcategory ?? null;
 }
 
 /**
