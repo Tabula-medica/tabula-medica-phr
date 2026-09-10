@@ -200,7 +200,7 @@
     "websocket-driver": "^0.7.5",
     "body-parser@1": "^1.20.6",
     "body-parser@2": "^2.3.0",
-    "morgan": "^1.11.0",
+    "morgan": "^1.12.0",
     "re2": "^1.25.2",
     "@opentelemetry/core": "^2.8.0",
     "@modelcontextprotocol/sdk": "^1.30.0"
