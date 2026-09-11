@@ -1,10 +1,8 @@
-import OpenAI from "openai";
 import { createHash, randomUUID } from "crypto";
 import { DataPolicy, DataPolicyType, DataPolicyRule } from "@shared/schema";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_POLICY_DRAFTING_PROMPT = `You are a healthcare data governance policy expert specializing in drafting compliant policies.
 
@@ -629,7 +627,7 @@ class AIPolicyDraftingService {
       gaps: [] as string[]
     };
 
-    if (process.env.OPENAI_API_KEY && openai) {
+    if (aiEnabled) {
       try {
         const context = sanitizePhi(JSON.stringify({
           targetCategory: request.targetCategory,
@@ -640,13 +638,9 @@ class AIPolicyDraftingService {
           templateAvailable: !!template
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_POLICY_DRAFTING_PROMPT },
-            {
-              role: "user",
-              content: `Generate policy drafting suggestions for a ${request.targetCategory} policy covering ${request.targetFrameworks.join(", ")} regulations.
+        const content = await generatePhiSafeText({
+          system: NO_CDS_POLICY_DRAFTING_PROMPT,
+          user: `Generate policy drafting suggestions for a ${request.targetCategory} policy covering ${request.targetFrameworks.join(", ")} regulations.
 
 Context: ${context}
 
@@ -657,14 +651,11 @@ Provide JSON with:
 - rules: Array of 3-5 suggested rule descriptions
 - bestPractices: Array of 3-5 best practices
 - complianceNotes: Array of 2-3 compliance considerations
-- gaps: Array of potential gaps to address based on existing policies`
-            }
-          ],
-          max_tokens: 800,
+- gaps: Array of potential gaps to address based on existing policies`,
+          maxTokens: 800,
           temperature: 0.5
         });
 
-        const content = response.choices[0]?.message?.content || "";
         try {
           aiSuggestions = JSON.parse(content.replace(/```json\n?|\n?```/g, ""));
         } catch {
@@ -749,31 +740,24 @@ Provide JSON with:
       rationale: ""
     };
 
-    if (process.env.OPENAI_API_KEY && openai) {
+    if (aiEnabled) {
       try {
         const sanitizedDescription = sanitizePhi(description);
         const context = sanitizePhi(JSON.stringify({ category, description: sanitizedDescription }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_POLICY_DRAFTING_PROMPT },
-            {
-              role: "user",
-              content: `Generate a policy rule for ${category} policy based on this requirement: "${sanitizedDescription}"
+        const content = await generatePhiSafeText({
+          system: NO_CDS_POLICY_DRAFTING_PROMPT,
+          user: `Generate a policy rule for ${category} policy based on this requirement: "${sanitizedDescription}"
 
 Provide JSON with:
 - name: Short rule name
 - condition: Condition expression (e.g., "access_type == 'PHI' && !mfa_verified")
 - action: Action to take (e.g., "deny_access", "require_approval", "log_alert")
-- rationale: Why this rule is recommended`
-            }
-          ],
-          max_tokens: 300,
+- rationale: Why this rule is recommended`,
+          maxTokens: 300,
           temperature: 0.5
         });
 
-        const content = response.choices[0]?.message?.content || "";
         try {
           aiRule = JSON.parse(content.replace(/```json\n?|\n?```/g, ""));
         } catch {
@@ -819,7 +803,7 @@ Provide JSON with:
 
     let aiContent = { content: "", references: [] as string[] };
 
-    if (process.env.OPENAI_API_KEY && openai) {
+    if (aiEnabled) {
       try {
         const sanitizedTitle = sanitizePhi(sectionTitle);
         const context = sanitizePhi(JSON.stringify({
@@ -828,24 +812,17 @@ Provide JSON with:
           frameworks
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_POLICY_DRAFTING_PROMPT },
-            {
-              role: "user",
-              content: `Generate policy section content for "${sanitizedTitle}" in a ${policyCategory} policy covering ${frameworks.join(", ")}.
+        const responseContent = await generatePhiSafeText({
+          system: NO_CDS_POLICY_DRAFTING_PROMPT,
+          user: `Generate policy section content for "${sanitizedTitle}" in a ${policyCategory} policy covering ${frameworks.join(", ")}.
 
 Provide JSON with:
 - content: 2-3 paragraphs of professional policy language
-- references: Array of regulatory references (e.g., "HIPAA §164.312(a)(1)")`
-            }
-          ],
-          max_tokens: 500,
+- references: Array of regulatory references (e.g., "HIPAA §164.312(a)(1)")`,
+          maxTokens: 500,
           temperature: 0.5
         });
 
-        const responseContent = response.choices[0]?.message?.content || "";
         try {
           aiContent = JSON.parse(responseContent.replace(/```json\n?|\n?```/g, ""));
         } catch {

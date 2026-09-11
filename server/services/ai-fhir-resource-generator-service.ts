@@ -1,11 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY 
-  ? new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    })
-  : null;
+// PHI-bearing generation now runs through the Vertex/BAA gateway; AI is always
+// available, with template fallback resources produced on error.
+const aiEnabled = true;
 
 interface GeneratedResource {
   id: string;
@@ -200,31 +197,22 @@ export class AIFHIRResourceGeneratorService {
     let suggestions: string[] = [];
     let validation: ValidationResult;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: `You are a FHIR R4 expert. Generate valid FHIR R4 resources from natural language descriptions. Always return properly structured, valid FHIR JSON. Include appropriate coding systems (LOINC, SNOMED CT, RxNorm, ICD-10) where applicable.
+        const content = await generatePhiSafeText({
+          system: `You are a FHIR R4 expert. Generate valid FHIR R4 resources from natural language descriptions. Always return properly structured, valid FHIR JSON. Include appropriate coding systems (LOINC, SNOMED CT, RxNorm, ICD-10) where applicable.
 
 If no resource type is specified, detect the most appropriate type from the description.
 
-Return JSON format: { "resourceType": "...", "resource": {...}, "suggestions": [...] }`
-            },
-            {
-              role: "user",
-              content: resourceType 
-                ? `Generate a FHIR R4 ${resourceType} resource from: "${prompt}"`
-                : `Generate an appropriate FHIR R4 resource from: "${prompt}"`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096
+Return JSON format: { "resourceType": "...", "resource": {...}, "suggestions": [...] }`,
+          user: resourceType
+            ? `Generate a FHIR R4 ${resourceType} resource from: "${prompt}"`
+            : `Generate an appropriate FHIR R4 resource from: "${prompt}"`,
+          responseMimeType: "application/json",
+          maxTokens: 4096,
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         resource = parsed.resource || {};
         detectedType = parsed.resourceType || resource.resourceType || resourceType || "Unknown";
         suggestions = parsed.suggestions || [];
@@ -286,25 +274,16 @@ Return JSON format: { "resourceType": "...", "resource": {...}, "suggestions": [
       throw new Error("Resource not found");
     }
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: "You are a FHIR R4 expert. Refine the given FHIR resource based on user feedback. Maintain valid FHIR structure."
-            },
-            {
-              role: "user",
-              content: `Refine this FHIR resource:\n${JSON.stringify(existing.resource, null, 2)}\n\nFeedback: ${feedback}\n\nReturn JSON: { "resource": {...}, "changes": [...] }`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096
+        const content = await generatePhiSafeText({
+          system: "You are a FHIR R4 expert. Refine the given FHIR resource based on user feedback. Maintain valid FHIR structure.",
+          user: `Refine this FHIR resource:\n${JSON.stringify(existing.resource, null, 2)}\n\nFeedback: ${feedback}\n\nReturn JSON: { "resource": {...}, "changes": [...] }`,
+          responseMimeType: "application/json",
+          maxTokens: 4096,
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         existing.resource = parsed.resource || existing.resource;
         existing.resource.meta.lastUpdated = new Date().toISOString();
         existing.validation = this.validateResource(existing.resource);

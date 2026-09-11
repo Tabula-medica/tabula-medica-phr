@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { getUserConnections, fetchFhirResource } from "./ehr-integration-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const ONBOARDING_SYSTEM_PROMPT = `You are a friendly, helpful onboarding assistant for Tabula Medica, a personal health records application. Your job is to guide new patients through the onboarding process step by step.
 
@@ -103,25 +98,19 @@ export class AIOnboardingAgentService {
         : ""
     }`;
 
-    const messages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: "system", content: ONBOARDING_SYSTEM_PROMPT },
-      { role: "system", content: contextMessage },
-      ...history.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-    ];
+    const systemPrompt = `${ONBOARDING_SYSTEM_PROMPT}\n\n${contextMessage}`;
+    const conversation = history
+      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+      .join("\n");
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages,
-        max_tokens: 1024,
-        temperature: 0.7,
-      });
-
       const reply =
-        response.choices[0]?.message?.content ||
+        (await generatePhiSafeText({
+          system: systemPrompt,
+          user: conversation,
+          maxTokens: 1024,
+          temperature: 0.7,
+        })) ||
         "I'm sorry, I wasn't able to generate a response. Please try again.";
 
       history.push({ role: "assistant", content: reply });
@@ -275,22 +264,14 @@ IMPORTANT: Use only descriptive, factual language. Do NOT provide medical advice
 Return valid JSON only.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a pharmacology reference system. Analyze medications and allergies for potential interactions. Respond with valid JSON only. Do not provide medical advice.",
-          },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system:
+          "You are a pharmacology reference system. Analyze medications and allergies for potential interactions. Respond with valid JSON only. Do not provide medical advice.",
+        user: prompt,
         temperature: 0.3,
-        max_tokens: 1000,
-        response_format: { type: "json_object" },
+        maxTokens: 1000,
+        responseMimeType: "application/json",
       });
-
-      const content = response.choices[0]?.message?.content;
       if (!content) return [];
 
       const parsed = JSON.parse(content);

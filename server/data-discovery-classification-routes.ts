@@ -7,8 +7,11 @@ import {
   DataSourceType,
   ScanConfiguration,
 } from "./services/ai-data-discovery-classification";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -170,7 +173,7 @@ router.post("/scan", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error });
     }
 
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("START_DATA_SCAN", { sourceId: hashIdentifier(parseResult.data.sourceId), userId: hashIdentifier(userId) });
     
     const job = await aiDataDiscoveryClassificationService.scanDataSource(
@@ -260,7 +263,7 @@ router.post("/suggestions/:id/approve", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid suggestion ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("APPROVE_CLASSIFICATION_SUGGESTION", { suggestionId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const suggestion = await aiDataDiscoveryClassificationService.approveSuggestion(id, userId);
     res.json({ success: true, data: suggestion });
@@ -277,7 +280,7 @@ router.post("/suggestions/:id/reject", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid suggestion ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("REJECT_CLASSIFICATION_SUGGESTION", { suggestionId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const suggestion = await aiDataDiscoveryClassificationService.rejectSuggestion(id, userId);
     res.json({ success: true, data: suggestion });

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "../services/ai-gateway";
 
 const router = Router();
 
@@ -62,10 +62,6 @@ NOTE: This is a draft letter generated from the information you provided. Please
 }
 
 async function generateAiLetter(input: z.infer<typeof generateSchema>): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return buildFallbackLetter(input);
-
-  const client = new OpenAI({ apiKey });
   const today = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -85,19 +81,16 @@ async function generateAiLetter(input: z.infer<typeof generateSchema>): Promise<
 Format: standard business letter. Length: 250-400 words. End with a brief disclaimer that this is a draft for the patient to review with their physician and that it is not medical or legal advice.`;
 
   try {
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+    const completion = await generatePhiSafeText({
+      system,
+      user,
       temperature: 0.4,
-      max_tokens: 900,
+      maxTokens: 900,
     });
-    const text = completion.choices?.[0]?.message?.content?.trim();
+    const text = completion?.trim();
     return text || buildFallbackLetter(input);
   } catch (err) {
-    console.warn("[PriorAuthLetter] OpenAI generation failed, using fallback:", String(err));
+    console.warn("[PriorAuthLetter] AI generation failed, using fallback:", String(err));
     return buildFallbackLetter(input);
   }
 }
@@ -112,7 +105,7 @@ router.post("/generate", async (req, res) => {
   }
   try {
     const letter = await generateAiLetter(parsed.data);
-    const usingAi = !!process.env.OPENAI_API_KEY;
+    const usingAi = true;
     res.json({
       letter,
       generatedBy: usingAi ? "ai" : "template",

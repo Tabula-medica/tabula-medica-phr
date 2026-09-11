@@ -1,11 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 interface HealthEvent {
   id: string;
@@ -283,13 +278,11 @@ Create a JSON response with:
 The response should be educational and help the patient understand their health history. Include at least 3 sections covering different aspects of their health.`;
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
+        const content = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           

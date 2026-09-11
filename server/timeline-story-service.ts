@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { logPhiAccess } from "./security/hipaa-audit";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 function enforceSafeVerbs(text: string): string {
   const unsafePatterns = [
@@ -561,18 +556,14 @@ Respond with JSON containing:
 Remember: DESCRIBE what happened. Never recommend or advise.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
-      max_tokens: 1500,
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }

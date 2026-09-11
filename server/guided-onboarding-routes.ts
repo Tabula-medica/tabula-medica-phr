@@ -78,8 +78,8 @@ router.post("/complete", async (req: Request, res: Response) => {
     // Store the onboarding data
     onboardingStorage.set(onboardingId, data);
 
-    // Log completion for audit purposes
-    console.log(`[Guided Onboarding] Completed for ${data.profile.firstName} ${data.profile.lastName}`);
+    // Log completion for audit purposes — PHI-safe: use the onboarding id, never the patient name.
+    console.log(`[Guided Onboarding] Completed for ${onboardingId}`);
     console.log(`  - Family members: ${data.familyMembers?.length || 0}`);
     console.log(`  - Document actions: ${data.documentActions?.length || 0}`);
     console.log(`  - Health goals: ${data.goals?.length || 0}`);

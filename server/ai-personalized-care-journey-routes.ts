@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import {
   createPersonalizedCareJourney,
   getPatientCareJourneys,
@@ -10,6 +11,7 @@ import {
 } from "./services/ai-personalized-care-journey-service";
 
 const router = Router();
+router.use(requireUser);
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This is NOT clinical decision support. All content is for patient engagement, education, and care coordination only. Treatment decisions must be made by qualified healthcare professionals.";
 
@@ -20,7 +22,7 @@ function logHipaaAudit(action: string, userId: string, patientId: string, detail
 
 router.get("/patients", async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("LIST_PATIENTS", userId, "all", "Fetching available patients");
     
     const result = await getAvailablePatients();
@@ -28,7 +30,7 @@ router.get("/patients", async (req: Request, res: Response) => {
     logHipaaAudit("LIST_PATIENTS_SUCCESS", userId, "all", `Retrieved ${result.patients.length} patients`);
     res.json({ success: true, ...result });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("LIST_PATIENTS_ERROR", userId, "all", `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error fetching patients:", error);
     res.status(500).json({ error: "Failed to fetch patients", disclaimer: NO_CDS_DISCLAIMER });
@@ -37,7 +39,7 @@ router.get("/patients", async (req: Request, res: Response) => {
 
 router.get("/journeys", async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const patientId = req.query.patientId as string | undefined;
 
     logHipaaAudit("LIST_JOURNEYS", userId, patientId || "all", "Fetching care journeys");
@@ -48,7 +50,7 @@ router.get("/journeys", async (req: Request, res: Response) => {
 
     res.json({ success: true, ...result });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("LIST_JOURNEYS_ERROR", userId, "all", `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error fetching journeys:", error);
     res.status(500).json({ error: "Failed to fetch care journeys", disclaimer: NO_CDS_DISCLAIMER });
@@ -57,7 +59,8 @@ router.get("/journeys", async (req: Request, res: Response) => {
 
 router.post("/journeys", async (req: Request, res: Response) => {
   try {
-    const { userId = "system", patientId, journeyType = "Comprehensive Care" } = req.body;
+    const { patientId, journeyType = "Comprehensive Care" } = req.body;
+    const userId = getUserId(req);
 
     if (!patientId) {
       logHipaaAudit("CREATE_JOURNEY_ERROR", userId, "none", "Missing patientId");
@@ -72,7 +75,7 @@ router.post("/journeys", async (req: Request, res: Response) => {
 
     res.json({ success: true, journey });
   } catch (error) {
-    const userId = req.body?.userId || "system";
+    const userId = getUserId(req);
     const patientId = req.body?.patientId || "unknown";
     logHipaaAudit("CREATE_JOURNEY_ERROR", userId, patientId, `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error creating journey:", error);
@@ -83,7 +86,7 @@ router.post("/journeys", async (req: Request, res: Response) => {
 router.get("/recommendations/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const recentLabResults = req.query.labResults as string | undefined;
     const symptoms = req.query.symptoms ? (req.query.symptoms as string).split(",") : undefined;
 
@@ -98,7 +101,7 @@ router.get("/recommendations/:patientId", async (req: Request, res: Response) =>
 
     res.json({ success: true, ...result });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const patientId = req.params.patientId;
     logHipaaAudit("GET_RECOMMENDATIONS_ERROR", userId, patientId, `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error getting recommendations:", error);
@@ -109,7 +112,7 @@ router.get("/recommendations/:patientId", async (req: Request, res: Response) =>
 router.get("/education/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const topic = req.query.topic as string | undefined;
 
     logHipaaAudit("GET_EDUCATION", userId, patientId, `Topic: ${topic || "all"}`);
@@ -120,7 +123,7 @@ router.get("/education/:patientId", async (req: Request, res: Response) => {
 
     res.json({ success: true, ...result });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const patientId = req.params.patientId;
     logHipaaAudit("GET_EDUCATION_ERROR", userId, patientId, `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error getting education content:", error);
@@ -131,7 +134,7 @@ router.get("/education/:patientId", async (req: Request, res: Response) => {
 router.get("/reminders/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const adherenceRate = req.query.adherenceRate ? parseFloat(req.query.adherenceRate as string) : undefined;
     const engagementScore = req.query.engagementScore ? parseFloat(req.query.engagementScore as string) : undefined;
 
@@ -146,7 +149,7 @@ router.get("/reminders/:patientId", async (req: Request, res: Response) => {
 
     res.json({ success: true, ...result });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const patientId = req.params.patientId;
     logHipaaAudit("GET_REMINDERS_ERROR", userId, patientId, `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error generating reminders:", error);
@@ -157,7 +160,8 @@ router.get("/reminders/:patientId", async (req: Request, res: Response) => {
 router.post("/progress/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const { userId = "system", completedTasks, completedMilestones, feedback, symptoms, adherenceData } = req.body;
+    const { completedTasks, completedMilestones, feedback, symptoms, adherenceData } = req.body;
+    const userId = getUserId(req);
 
     logHipaaAudit("UPDATE_PROGRESS", userId, patientId, `Tasks: ${completedTasks?.length || 0}, Milestones: ${completedMilestones?.length || 0}, Feedback: ${feedback ? "yes" : "no"}`);
 
@@ -173,7 +177,7 @@ router.post("/progress/:patientId", async (req: Request, res: Response) => {
 
     res.json({ success: true, ...result });
   } catch (error) {
-    const userId = req.body?.userId || "system";
+    const userId = getUserId(req);
     const patientId = req.params.patientId;
     logHipaaAudit("UPDATE_PROGRESS_ERROR", userId, patientId, `Error: ${error instanceof Error ? error.message : "Unknown"}`);
     console.error("[CareJourney] Error updating progress:", error);

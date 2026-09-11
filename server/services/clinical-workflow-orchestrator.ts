@@ -1023,6 +1023,7 @@ class ClinicalWorkflowOrchestrator {
           category: "system_event" as any,
           action: "execute" as any,
           resourceType: "workflow",
+          // eslint-disable-next-line tabulaAuth/no-fallback-identity -- not an identity fallback: this is resourceId (workflow/instance/task id), userId is a separate required param; "system" here means a workflow-level event with no specific resource id
           resourceId: details.workflowId || details.instanceId || details.taskId || "system",
           resourceName: details.name || action,
           description: `Workflow action: ${action}`

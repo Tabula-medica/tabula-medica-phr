@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import type { Patient, Medication, MedicalRecord } from "@shared/schema";
 
@@ -6,11 +6,6 @@ import type { Patient, Medication, MedicalRecord } from "@shared/schema";
 function getPatientName(patient: Patient): string {
   return `${patient.firstName} ${patient.lastName}`;
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 // Drug interaction severity levels
 export type InteractionSeverity = "contraindicated" | "serious" | "moderate" | "minor";
@@ -238,23 +233,16 @@ export async function analyzeMedicationSafety(
     .map((r: MedicalRecord) => ({ title: r.title, status: r.status }));
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert clinical pharmacist AI assistant specialized in medication safety analysis. Your role is to:
+    const responseText = await generatePhiSafeText({
+      system: `You are an expert clinical pharmacist AI assistant specialized in medication safety analysis. Your role is to:
 1. Identify potential drug-drug interactions based on pharmacological mechanisms
 2. Detect adherence issues and their root causes
 3. Flag medication risks including contraindications and therapeutic duplications
 4. Suggest evidence-based intervention strategies
 
 Always provide specific, actionable recommendations. Include confidence scores (0-100) for your assessments.
-Be thorough but prioritize clinically significant findings over minor concerns.`
-        },
-        {
-          role: "user",
-          content: `Analyze medication safety for patient:
+Be thorough but prioritize clinically significant findings over minor concerns.`,
+      user: `Analyze medication safety for patient:
 
 PATIENT PROFILE:
 - Name: ${getPatientName(patient)}
@@ -328,15 +316,11 @@ Provide a comprehensive medication safety analysis in the following JSON format:
   ],
   "prioritizedActions": ["Top action 1", "Top action 2", "Top action 3"],
   "aiConfidence": 0-100
-}`
-        }
-      ],
+}`,
       temperature: 0.3,
-      max_tokens: 4000,
-    });
+      maxTokens: 4000,
+    }) || "{}";
 
-    const responseText = completion.choices[0]?.message?.content || "{}";
-    
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {

@@ -1,17 +1,9 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
-}
+// PHI-bearing analytics generation now runs through the Vertex/BAA gateway, which
+// is always available. Deterministic fallbacks remain if the gateway errors.
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This analytics report is for INFORMATIONAL and OPERATIONAL purposes only. It does NOT constitute clinical decision support, medical advice, or diagnosis. All healthcare decisions must be made by qualified healthcare professionals based on individual patient assessments.";
 
@@ -747,8 +739,7 @@ class AIHealthcareAnalyticsService {
     let recommendedInterventions: string[] = [];
 
     try {
-      const openai = getOpenAI();
-      if (openai) {
+      if (aiEnabled) {
         const prompt = `You are a healthcare analytics AI that identifies statistical patterns for operational planning. This is NOT clinical decision support.
 
 Analyze de-identified patient data for ${predictionType} risk patterns:
@@ -767,19 +758,18 @@ Provide a JSON response with:
 
 Remember: This is for operational planning only, not clinical decisions.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" }
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         riskScore = result.riskScore || 45;
         contributingFactors = result.contributingFactors || [];
         recommendedInterventions = result.operationalRecommendations || [];
       }
     } catch (error) {
-      console.error("[AIHealthcareAnalytics] OpenAI error:", error);
+      console.error("[AIHealthcareAnalytics] AI error:", error);
     }
 
     if (!contributingFactors.length) {
@@ -907,8 +897,7 @@ Remember: This is for operational planning only, not clinical decisions.`;
     let projections: PopulationHealthTrendAnalysis["projections"] = [];
 
     try {
-      const openai = getOpenAI();
-      if (openai) {
+      if (aiEnabled) {
         const prompt = `You are a population health analytics expert. Analyze trends for:
 - Analysis Type: ${analysisType}
 - Population Segment: ${populationSegment}
@@ -919,13 +908,12 @@ Provide JSON with:
   "projections": [{"metric": "string", "projectedValue": <number>, "confidence": <0-1>, "timeframe": "string"}]
 }`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" }
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         aiInsights = result.insights || [];
         projections = result.projections || [];
       }
@@ -991,8 +979,7 @@ Provide JSON with:
     let aiAnalysis = "";
 
     try {
-      const openai = getOpenAI();
-      if (openai) {
+      if (aiEnabled) {
         const prompt = `Analyze treatment efficacy data (de-identified, aggregate only):
 - Treatment: ${treatmentName}
 - Condition: ${condition}
@@ -1004,12 +991,9 @@ Provide a brief analytical summary (2-3 sentences) focusing on:
 
 This is for operational planning only, NOT clinical decision support.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }]
-        });
-
-        aiAnalysis = response.choices[0].message.content || "";
+        aiAnalysis = await generatePhiSafeText({
+          user: prompt,
+        }) || "";
       }
     } catch (error) {
       console.error("[AIHealthcareAnalytics] Efficacy report error:", error);

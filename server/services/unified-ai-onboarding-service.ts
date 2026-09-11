@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return crypto.createHash("sha256").update(id).digest("hex").slice(0, 16);
@@ -314,29 +309,19 @@ Requirements:
 
 The patient's name is ${patientName || "there"}.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a friendly healthcare app assistant helping new patients feel welcome. Never provide medical advice. Be warm and supportive." },
-        { role: "user", content: prompt },
-      ],
-      max_completion_tokens: 200,
-    });
-
-    messageEn = response.choices[0]?.message?.content || getDefaultWelcomeMessage(populationType, patientName);
+    messageEn = (await generatePhiSafeText({
+      system: "You are a friendly healthcare app assistant helping new patients feel welcome. Never provide medical advice. Be warm and supportive.",
+      user: prompt,
+      maxTokens: 200,
+    })) || getDefaultWelcomeMessage(populationType, patientName);
     personalizedElements.push("ai_generated", populationType);
 
     if (primaryLanguage !== "en") {
-      const translationResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: `Translate the following message to ${supportedLanguages[primaryLanguage].name}. Keep the same warm, supportive tone.` },
-          { role: "user", content: messageEn },
-        ],
-        max_completion_tokens: 300,
-      });
-
-      messageTranslated = translationResponse.choices[0]?.message?.content || undefined;
+      messageTranslated = (await generatePhiSafeText({
+        system: `Translate the following message to ${supportedLanguages[primaryLanguage].name}. Keep the same warm, supportive tone.`,
+        user: messageEn,
+        maxTokens: 300,
+      })) || undefined;
       personalizedElements.push("translated");
     }
   } catch (error) {

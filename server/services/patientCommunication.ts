@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import type {
   PatientCommunication,
@@ -12,11 +12,6 @@ import type {
   InsertPatientQueryResponse,
 } from "@shared/schema";
 import { storage } from "../storage";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const communications: Map<string, PatientCommunication> = new Map();
 const templates: Map<string, CommunicationTemplate> = new Map();
@@ -161,21 +156,15 @@ Generate a caring, professional follow-up message that:
 Important: Do NOT provide medical advice. Only summarize what was discussed and encourage follow-up with their provider for questions.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare communication assistant that generates personalized, empathetic patient messages. Always maintain HIPAA compliance and never provide medical advice.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a healthcare communication assistant that generates personalized, empathetic patient messages. Always maintain HIPAA compliance and never provide medical advice.",
+      user: prompt,
       temperature: 0.7,
-      max_tokens: 500,
+      maxTokens: 500,
     });
 
     return {
-      content: response.choices[0]?.message?.content || "Thank you for your recent visit. If you have any questions, please contact your healthcare provider.",
+      content: responseText || "Thank you for your recent visit. If you have any questions, please contact your healthcare provider.",
       confidence: 0.85,
     };
   } catch (error) {
@@ -219,21 +208,15 @@ Generate a brief, friendly reminder (50-80 words) that:
 4. Has a warm, helpful tone`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare scheduling assistant. Generate friendly, concise appointment reminders.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a healthcare scheduling assistant. Generate friendly, concise appointment reminders.",
+      user: prompt,
       temperature: 0.6,
-      max_tokens: 200,
+      maxTokens: 200,
     });
 
     return {
-      content: response.choices[0]?.message?.content || `Reminder: You have an appointment with ${appointment.providerName} on ${appointment.date} at ${appointment.time}.`,
+      content: responseText || `Reminder: You have an appointment with ${appointment.providerName} on ${appointment.date} at ${appointment.time}.`,
       confidence: 0.9,
     };
   } catch (error) {
@@ -280,21 +263,15 @@ Generate a gentle, non-alarming message (80-120 words) that:
 Do NOT diagnose or suggest the patient has any condition.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a preventive care communication assistant. Generate supportive messages about routine screenings without causing anxiety.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a preventive care communication assistant. Generate supportive messages about routine screenings without causing anxiety.",
+      user: prompt,
       temperature: 0.7,
-      max_tokens: 300,
+      maxTokens: 300,
     });
 
     return {
-      content: response.choices[0]?.message?.content || `Dear ${patientName}, our records indicate you may be due for ${screening.name}. This routine screening helps maintain your health. Please contact us to schedule.`,
+      content: responseText || `Dear ${patientName}, our records indicate you may be due for ${screening.name}. This routine screening helps maintain your health. Please contact us to schedule.`,
       confidence: 0.85,
     };
   } catch (error) {
@@ -344,21 +321,15 @@ Important:
 - Keep the tone supportive and educational`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a remote patient monitoring communication assistant. Generate supportive summaries of health data. Always respond in valid JSON format.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a remote patient monitoring communication assistant. Generate supportive summaries of health data. Always respond in valid JSON format.",
+      user: prompt,
       temperature: 0.6,
-      max_tokens: 400,
-      response_format: { type: "json_object" },
+      maxTokens: 400,
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     return {
       content: result.message || `Hi ${patientName}, your recent health readings have been reviewed by your care team.`,
       recommendations: result.recommendations || [],
@@ -409,21 +380,15 @@ Important Guidelines:
 - If you cannot answer safely, acknowledge limitations`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a patient health assistant that answers questions based on their medical records. Never provide medical diagnoses or treatment recommendations. Always encourage consulting their healthcare provider for medical decisions. Respond in valid JSON.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a patient health assistant that answers questions based on their medical records. Never provide medical diagnoses or treatment recommendations. Always encourage consulting their healthcare provider for medical decisions. Respond in valid JSON.",
+      user: prompt,
       temperature: 0.7,
-      max_tokens: 600,
-      response_format: { type: "json_object" },
+      maxTokens: 600,
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     
     const queryResponse: PatientQueryResponse = {
       id: randomUUID(),

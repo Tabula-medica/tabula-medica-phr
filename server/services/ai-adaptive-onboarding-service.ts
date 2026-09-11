@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import {
   NO_CDS_POLICY,
   NO_CDS_DISCLAIMER_SHORT,
@@ -11,11 +11,6 @@ import type {
   HealthAssessmentAnalysis,
   PatientOnboardingFormData,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface AdaptiveQuestionSet {
   questions: HealthAssessmentQuestion[];
@@ -69,12 +64,8 @@ function buildPreviousAnswersContext(
 }
 
 export async function generateInitialQuestions(): Promise<AdaptiveQuestionSet> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `${NO_CDS_POLICY}
+  const content = await generatePhiSafeText({
+    system: `${NO_CDS_POLICY}
 
 You are a health information intake assistant. Generate initial health screening questions for a new patient onboarding questionnaire.
 
@@ -99,19 +90,13 @@ Return valid JSON with this structure:
 
 Generate 5-6 questions covering: general health status, existing conditions, lifestyle factors, current concerns, and family history patterns.
 Use observational, non-prescriptive language. Questions should gather information, not provide guidance.`,
-      },
-      {
-        role: "user",
-        content:
-          "Generate the initial set of health intake questions for a new patient.",
-      },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+    user: "Generate the initial set of health intake questions for a new patient.",
+    responseMimeType: "application/json",
+    maxTokens: 2000,
   });
 
   const parsed = sanitizeNoCDSObject(
-    JSON.parse(response.choices[0]?.message?.content || "{}")
+    JSON.parse(content || "{}")
   );
 
   return {
@@ -153,12 +138,8 @@ export async function generateAdaptiveFollowUpQuestions(
     ? `Known allergies: ${formData.allergies.map((a) => a.allergen).join(", ")}`
     : "";
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `${NO_CDS_POLICY}
+  const content = await generatePhiSafeText({
+    system: `${NO_CDS_POLICY}
 
 You are a health information intake assistant conducting an adaptive questionnaire. Based on the patient's previous answers, generate targeted follow-up questions that gather more relevant detail.
 
@@ -182,18 +163,13 @@ Return valid JSON:
 }
 
 Generate 3-5 targeted follow-up questions. Set isComplete to true only if you have gathered sufficient information (usually after round 2-3).`,
-      },
-      {
-        role: "user",
-        content: `Round ${round}. Previous answers:\n\n${previousContext}\n\nGenerate follow-up questions based on these answers.`,
-      },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+    user: `Round ${round}. Previous answers:\n\n${previousContext}\n\nGenerate follow-up questions based on these answers.`,
+    responseMimeType: "application/json",
+    maxTokens: 2000,
   });
 
   const parsed = sanitizeNoCDSObject(
-    JSON.parse(response.choices[0]?.message?.content || "{}")
+    JSON.parse(content || "{}")
   );
 
   const isComplete = parsed.isComplete === true || round >= 3;
@@ -248,12 +224,8 @@ export async function generateHealthSummary(
         .join("\n")
     : "";
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `${NO_CDS_POLICY}
+  const content = await generatePhiSafeText({
+    system: `${NO_CDS_POLICY}
 
 You are a health data summarization assistant. Create an initial health profile summary based on the patient's questionnaire responses. This is strictly an informational summary of reported data - NOT clinical assessment.
 
@@ -272,18 +244,13 @@ Return valid JSON:
   "lifestyleObservations": ["observation1", "observation2"],
   "dataCompleteness": 0.85
 }`,
-      },
-      {
-        role: "user",
-        content: `Generate a health profile summary from the following patient data:\n\nProfile:\n${profileContext}\n\nQuestionnaire Responses:\n${answersContext}`,
-      },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+    user: `Generate a health profile summary from the following patient data:\n\nProfile:\n${profileContext}\n\nQuestionnaire Responses:\n${answersContext}`,
+    responseMimeType: "application/json",
+    maxTokens: 2000,
   });
 
   const parsed = sanitizeNoCDSObject(
-    JSON.parse(response.choices[0]?.message?.content || "{}")
+    JSON.parse(content || "{}")
   );
 
   return {
@@ -328,12 +295,8 @@ export async function generateEducationContent(
 
   const lifestyle = healthSummary.lifestyleObservations.join("; ");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `${NO_CDS_POLICY}
+  const content = await generatePhiSafeText({
+    system: `${NO_CDS_POLICY}
 
 You are a health education content generator. Create personalized educational modules for a new patient based on their health profile. Content must be strictly informational and educational.
 
@@ -360,18 +323,13 @@ Return valid JSON:
 }
 
 Generate 3-5 modules personalized to the patient's profile.`,
-      },
-      {
-        role: "user",
-        content: `Generate personalized education content for a patient with:\nConditions: ${conditions || "none reported"}\nRisk factors: ${riskFactors || "none identified"}\nLifestyle observations: ${lifestyle || "limited data"}\nOverview: ${healthSummary.overview}`,
-      },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 3000,
+    user: `Generate personalized education content for a patient with:\nConditions: ${conditions || "none reported"}\nRisk factors: ${riskFactors || "none identified"}\nLifestyle observations: ${lifestyle || "limited data"}\nOverview: ${healthSummary.overview}`,
+    responseMimeType: "application/json",
+    maxTokens: 3000,
   });
 
   const parsed = sanitizeNoCDSObject(
-    JSON.parse(response.choices[0]?.message?.content || "{}")
+    JSON.parse(content || "{}")
   );
 
   return {

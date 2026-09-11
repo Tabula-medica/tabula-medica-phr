@@ -618,6 +618,7 @@ class SmartAppRegistrationService {
       registeredApps.set(event.appId, app);
     }
 
+    // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: SMART-app connection events include backend/client-credentials connections with no user actor
     auditLog("CONNECTION_EVENT", "SMARTApp", event.appId, event.userId || "system",
       `${event.eventType} - ${event.status}`);
 

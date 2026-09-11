@@ -92,7 +92,17 @@ export function decryptPhi(encryptedData: string): string {
   if (parts.length !== 3) return encryptedData;
   
   const [ivHex, authTagHex, encrypted] = parts;
-  
+
+  // P1-4: only treat this as ciphertext if the IV/authTag segments have the exact
+  // hex shape encryptPhi produces. Otherwise it's plaintext that merely contains
+  // ":" — pass it through unchanged rather than attempting (and failing) to decrypt
+  // and throwing. This keeps the fail-closed throw scoped to genuine ciphertext.
+  const looksEncrypted =
+    /^[0-9a-f]+$/i.test(ivHex) && ivHex.length === IV_LENGTH * 2 &&
+    /^[0-9a-f]+$/i.test(authTagHex) && authTagHex.length === AUTH_TAG_LENGTH * 2 &&
+    /^[0-9a-f]*$/i.test(encrypted);
+  if (!looksEncrypted) return encryptedData;
+
   try {
     const key = getEncryptionKey();
     const iv = Buffer.from(ivHex, "hex");
@@ -110,8 +120,13 @@ export function decryptPhi(encryptedData: string): string {
     
     return decrypted;
   } catch (error) {
+    // P1-4: FAIL CLOSED. Previously returned the ciphertext on failure, which let
+    // callers render or re-save `iv:tag:ciphertext` as if it were plaintext. Throw
+    // instead so the caller surfaces a 500 and never exposes/persists ciphertext.
+    // Properly-encrypted data with the correct key never reaches here — this only
+    // fires on genuine corruption or a key mismatch.
     console.error("[PHI-Encryption] Decryption failed - data may be corrupted or key mismatch");
-    return encryptedData;
+    throw new Error("PHI_DECRYPTION_FAILED");
   }
 }
 

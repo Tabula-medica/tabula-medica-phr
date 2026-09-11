@@ -6,8 +6,10 @@ import {
   getResourceAllocationOptimization,
   getAIPopulationInsights,
 } from "./services/ai-population-analytics-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This is NOT clinical decision support. All content is for operational analytics, resource planning, and quality improvement purposes only. All clinical decisions must be made by qualified healthcare professionals based on their clinical judgment.";
 
@@ -18,7 +20,7 @@ function logHipaaAudit(action: string, userId: string, details: string) {
 
 router.get("/dashboard", async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("DASHBOARD_ACCESS", userId, "Fetching population analytics dashboard - aggregate data only, no individual PHI");
 
     const dashboard = await getPopulationAnalyticsDashboard(userId);
@@ -30,7 +32,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       ...dashboard,
     });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("DASHBOARD_ACCESS_ERROR", userId, `Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     console.error("[PopulationAnalytics] Error fetching dashboard:", error);
     res.status(500).json({ 
@@ -42,7 +44,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
 
 router.get("/readmission-risk", async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const ageGroup = req.query.ageGroup as string | undefined;
     const riskLevel = req.query.riskLevel as string | undefined;
 
@@ -57,7 +59,7 @@ router.get("/readmission-risk", async (req: Request, res: Response) => {
       ...analysis,
     });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("READMISSION_ANALYSIS_ERROR", userId, `Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     console.error("[PopulationAnalytics] Error analyzing readmission risk:", error);
     res.status(500).json({ 
@@ -69,7 +71,7 @@ router.get("/readmission-risk", async (req: Request, res: Response) => {
 
 router.get("/treatment-efficacy", async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     const treatmentId = req.query.treatmentId as string | undefined;
     const demographic = req.query.demographic as string | undefined;
 
@@ -84,7 +86,7 @@ router.get("/treatment-efficacy", async (req: Request, res: Response) => {
       ...efficacy,
     });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("TREATMENT_EFFICACY_ERROR", userId, `Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     console.error("[PopulationAnalytics] Error analyzing treatment efficacy:", error);
     res.status(500).json({ 
@@ -96,7 +98,7 @@ router.get("/treatment-efficacy", async (req: Request, res: Response) => {
 
 router.get("/resource-optimization", async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("RESOURCE_OPTIMIZATION", userId, "Generating resource allocation optimization recommendations");
 
@@ -109,7 +111,7 @@ router.get("/resource-optimization", async (req: Request, res: Response) => {
       ...optimization,
     });
   } catch (error) {
-    const userId = (req.query.userId as string) || "system";
+    const userId = getUserId(req);
     logHipaaAudit("RESOURCE_OPTIMIZATION_ERROR", userId, `Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     console.error("[PopulationAnalytics] Error optimizing resources:", error);
     res.status(500).json({ 
@@ -121,7 +123,8 @@ router.get("/resource-optimization", async (req: Request, res: Response) => {
 
 router.post("/ai-insights", async (req: Request, res: Response) => {
   try {
-    const { userId = "system", query } = req.body;
+    const { query } = req.body;
+    const userId = getUserId(req);
 
     if (!query) {
       logHipaaAudit("AI_INSIGHTS_VALIDATION_ERROR", userId, "Missing required query parameter");
@@ -142,7 +145,7 @@ router.post("/ai-insights", async (req: Request, res: Response) => {
       ...insights,
     });
   } catch (error) {
-    const userId = req.body?.userId || "system";
+    const userId = getUserId(req);
     logHipaaAudit("AI_INSIGHTS_ERROR", userId, `Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     console.error("[PopulationAnalytics] Error generating AI insights:", error);
     res.status(500).json({ 

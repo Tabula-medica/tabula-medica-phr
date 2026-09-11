@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import type { Patient, Medication, Appointment } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface AdherenceRecord {
   id: string;
@@ -169,12 +164,8 @@ export async function generateAdherenceCoachingPlan(
   
   const riskLevel = overallAdherenceRate >= 80 ? "low" : overallAdherenceRate >= 60 ? "medium" : "high";
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a medication adherence coach helping patients stay on track with their medications. Be supportive, understanding, and practical.
+  const content = await generatePhiSafeText({
+    system: `You are a medication adherence coach helping patients stay on track with their medications. Be supportive, understanding, and practical.
 
 Return a JSON object with:
 - coachingMessages: array of 3-5 messages, each with:
@@ -193,28 +184,23 @@ Consider:
 - Address specific skip reasons with solutions
 - Provide practical timing/routine tips
 - Be encouraging, not judgmental about missed doses
-- Suggest talking to doctor if side effects are a pattern`
-      },
-      {
-        role: "user",
-        content: `Create a coaching plan for a patient with:
+- Suggest talking to doctor if side effects are a pattern`,
+    user: `Create a coaching plan for a patient with:
 Overall adherence: ${overallAdherenceRate}%
 Risk level: ${riskLevel}
 
 Medications:
-${medicationStats.map(s => 
+${medicationStats.map(s =>
   `- ${s.medicationName} (${s.dosage}, ${s.frequency}): ${s.adherenceRate}% adherence, ${s.streak} day streak
    Skip reasons: ${s.commonSkipReasons.join(", ") || "none"}`
 ).join("\n")}
 
-Upcoming appointments: ${context.appointments.filter(a => a.status === "scheduled").length}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2500,
+Upcoming appointments: ${context.appointments.filter(a => a.status === "scheduled").length}`,
+    responseMimeType: "application/json",
+    maxTokens: 2500,
   });
 
-  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const result = JSON.parse(content || "{}");
   
   const nextCheckIn = new Date();
   nextCheckIn.setDate(nextCheckIn.getDate() + (result.nextCheckInDays || 3));
@@ -252,28 +238,19 @@ export async function generateMedicationReminder(
     throw new Error("Medication not found");
   }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a friendly medication reminder assistant. Create a brief, encouraging reminder.
+  const content = await generatePhiSafeText({
+    system: `You are a friendly medication reminder assistant. Create a brief, encouraging reminder.
 
 Return a JSON object with:
 - title: string (short, friendly)
 - message: string (1-2 sentences, warm and supportive)
-- tip: string (optional quick tip about this medication)`
-      },
-      {
-        role: "user",
-        content: `Create a reminder for ${patient?.firstName || "the patient"} to take their ${medication.name} (${medication.dosage}, ${medication.frequency}).`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 500,
+- tip: string (optional quick tip about this medication)`,
+    user: `Create a reminder for ${patient?.firstName || "the patient"} to take their ${medication.name} (${medication.dosage}, ${medication.frequency}).`,
+    responseMimeType: "application/json",
+    maxTokens: 500,
   });
 
-  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const result = JSON.parse(content || "{}");
 
   return {
     id: `rem_${Date.now()}`,

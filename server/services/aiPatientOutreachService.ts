@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
@@ -14,11 +13,7 @@ import type {
   CheckInQuestion,
   Patient,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -244,21 +239,15 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare communication assistant. Generate personalized, empathetic patient messages. Never provide medical advice. Respond in valid JSON format.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a healthcare communication assistant. Generate personalized, empathetic patient messages. Never provide medical advice. Respond in valid JSON format.",
+      user: prompt,
       temperature: 0.7,
-      max_tokens: 400,
-      response_format: { type: "json_object" },
+      maxTokens: 400,
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     const personalizedContent = enforceSafeVerbs(result.personalizedContent || "We hope you're doing well.");
 
     let subject = template.subjectTemplate;
@@ -341,21 +330,15 @@ Return as JSON:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare check-in designer. Create clinically relevant, patient-friendly questions. Respond in valid JSON.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a healthcare check-in designer. Create clinically relevant, patient-friendly questions. Respond in valid JSON.",
+      user: prompt,
       temperature: 0.6,
-      max_tokens: 600,
-      response_format: { type: "json_object" },
+      maxTokens: 600,
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     return (result.questions || []).map((q: any, idx: number) => ({
       id: randomUUID(),
       questionText: enforceSafeVerbs(q.questionText),
@@ -446,21 +429,15 @@ Return as JSON:
 IMPORTANT: Use only descriptive language. Do not provide medical diagnoses or treatment recommendations.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare check-in analyzer. Assess patient responses and flag concerns. Never diagnose. Respond in valid JSON.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: "You are a healthcare check-in analyzer. Assess patient responses and flag concerns. Never diagnose. Respond in valid JSON.",
+      user: prompt,
       temperature: 0.5,
-      max_tokens: 400,
-      response_format: { type: "json_object" },
+      maxTokens: 400,
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     return {
       status: result.status || "green",
       analysis: enforceSafeVerbs(result.analysis || "Check-in completed successfully."),

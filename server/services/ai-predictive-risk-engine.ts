@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
@@ -8,13 +8,8 @@ import type {
   ComplianceRisk,
 } from "@shared/schema";
 
-let openai: OpenAI | null = null;
-if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-}
+// PHI-safe Vertex/BAA gateway is always available.
+const aiEnabled = true;
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -564,7 +559,7 @@ class AIPredictiveRiskEngineService {
 
     let aiAnalysis = `Predicted ${predictionType} based on historical patterns and current risk indicators`;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedContext = sanitizePhi(JSON.stringify({
           predictionType,
@@ -574,20 +569,12 @@ class AIPredictiveRiskEngineService {
           patterns: contributingPatterns,
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_PREDICTIVE_RISK_PROMPT },
-            {
-              role: "user",
-              content: `Provide analysis for this risk prediction:\n${sanitizedContext}\n\nFocus on compliance implications and preventative recommendations.`,
-            },
-          ],
-          max_tokens: 300,
+        aiAnalysis = (await generatePhiSafeText({
+          system: NO_CDS_PREDICTIVE_RISK_PROMPT,
+          user: `Provide analysis for this risk prediction:\n${sanitizedContext}\n\nFocus on compliance implications and preventative recommendations.`,
+          maxTokens: 300,
           temperature: 0.3,
-        });
-
-        aiAnalysis = response.choices[0]?.message?.content || aiAnalysis;
+        })) || aiAnalysis;
       } catch (error) {
         console.error("[AIPredictiveRiskEngine] AI analysis failed:", error);
       }
@@ -680,7 +667,7 @@ class AIPredictiveRiskEngineService {
 
     let executiveSummary = `Forecast period: ${forecastDays} days. Overall risk level: ${overallRiskLevel}. Trend: ${riskTrend}.`;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedContext = sanitizePhi(JSON.stringify({
           forecastDays,
@@ -691,20 +678,12 @@ class AIPredictiveRiskEngineService {
           keyFindings,
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_PREDICTIVE_RISK_PROMPT },
-            {
-              role: "user",
-              content: `Generate an executive summary for this compliance risk forecast:\n${sanitizedContext}`,
-            },
-          ],
-          max_tokens: 400,
+        executiveSummary = (await generatePhiSafeText({
+          system: NO_CDS_PREDICTIVE_RISK_PROMPT,
+          user: `Generate an executive summary for this compliance risk forecast:\n${sanitizedContext}`,
+          maxTokens: 400,
           temperature: 0.3,
-        });
-
-        executiveSummary = response.choices[0]?.message?.content || executiveSummary;
+        })) || executiveSummary;
       } catch (error) {
         console.error("[AIPredictiveRiskEngine] AI summary failed:", error);
       }

@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI();
-  }
-} catch (error) {
-  console.log("[EnhancedAIHealthJourney] OpenAI client not available");
-}
+const aiEnabled = true;
 
 export interface VitalTrendAnalysis {
   vitalName: string;
@@ -412,7 +405,7 @@ class EnhancedAIHealthJourneyService {
     let specialistNotes = "";
 
     try {
-      if (!openai) throw new Error("OpenAI not configured");
+      if (!aiEnabled) throw new Error("AI not configured");
 
       const prompt = `Analyze this patient's health data over the past ${timeframeDays} days and generate a comprehensive health journey summary.
 
@@ -431,14 +424,13 @@ Generate a JSON response with:
 
 IMPORTANT: This is informational only, not medical advice. Use supportive, patient-friendly language for the narrative but clinical accuracy for specialist notes.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_tokens: 1500,
+      const response = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(response || "{}");
       executiveSummary = result.executiveSummary || "";
       aiNarrative = result.aiNarrative || "";
       specialistNotes = result.specialistNotes || "";

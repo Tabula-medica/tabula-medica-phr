@@ -1,6 +1,7 @@
 import { Express, Request, Response } from "express";
 import { aiPatientSummaryGeneratorService, SummaryRequest } from "./services/ai-patient-summary-generator";
 import { comprehensiveAuditTrailService } from "./services/comprehensive-audit-trail-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 function logAudit(
   userId: string,
@@ -45,7 +46,7 @@ function logAudit(
 }
 
 export function registerAIPatientSummaryGeneratorRoutes(app: Express): void {
-  app.get("/api/patient-summary-generator/patients", async (req: Request, res: Response) => {
+  app.get("/api/patient-summary-generator/patients", requireUser, async (req: Request, res: Response) => {
     try {
       const patients = await aiPatientSummaryGeneratorService.getAvailablePatients();
       logAudit("system", "List Patients", "Patient", `Retrieved ${patients.length} patients for summary selection`, true);
@@ -57,25 +58,25 @@ export function registerAIPatientSummaryGeneratorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-summary-generator/generate", async (req: Request, res: Response) => {
+  app.post("/api/patient-summary-generator/generate", requireUser, async (req: Request, res: Response) => {
     try {
       const request: SummaryRequest = {
         patientId: req.body.patientId,
-        userId: req.body.userId || "system",
+        userId: getUserId(req),
         focusAreas: req.body.focusAreas,
         timeframeDays: req.body.timeframeDays || 365,
         includeInsights: req.body.includeInsights !== false
       };
 
       if (!request.patientId) {
-        logAudit(request.userId || "system", "Generate Summary", "PatientSummary", "Missing patient ID", false);
+        logAudit(request.userId, "Generate Summary", "PatientSummary", "Missing patient ID", false);
         return res.status(400).json({ error: "Patient ID is required" });
       }
 
       const summary = await aiPatientSummaryGeneratorService.generateSummary(request);
       logAudit(
-        request.userId || "system", 
-        "Generate Summary", 
+        request.userId,
+        "Generate Summary",
         "PatientSummary", 
         `Generated AI summary for patient ${request.patientId}`, 
         true,
@@ -90,7 +91,7 @@ export function registerAIPatientSummaryGeneratorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-summary-generator/patient/:patientId", async (req: Request, res: Response) => {
+  app.get("/api/patient-summary-generator/patient/:patientId", requireUser, async (req: Request, res: Response) => {
     try {
       const { patientId } = req.params;
       const patientData = await aiPatientSummaryGeneratorService.getPatientFHIRData(patientId);
@@ -109,7 +110,7 @@ export function registerAIPatientSummaryGeneratorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-summary-generator/history/:patientId", async (req: Request, res: Response) => {
+  app.get("/api/patient-summary-generator/history/:patientId", requireUser, async (req: Request, res: Response) => {
     try {
       const { patientId } = req.params;
       const history = await aiPatientSummaryGeneratorService.getSummaryHistory(patientId);
@@ -122,7 +123,7 @@ export function registerAIPatientSummaryGeneratorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-summary-generator/metadata", async (req: Request, res: Response) => {
+  app.get("/api/patient-summary-generator/metadata", requireUser, async (req: Request, res: Response) => {
     try {
       const metadata = aiPatientSummaryGeneratorService.getMetadata();
       logAudit("system", "Get Metadata", "PatientSummary", "Retrieved service metadata", true);

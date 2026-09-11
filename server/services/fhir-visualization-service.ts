@@ -1,21 +1,4 @@
-import OpenAI from "openai";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (openaiClient) return openaiClient;
-  
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  
-  if (!apiKey || !baseURL) {
-    console.log("[FHIRVisualization] OpenAI not configured, using mock data");
-    return null;
-  }
-  
-  openaiClient = new OpenAI({ apiKey, baseURL });
-  return openaiClient;
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface ChartRecommendation {
   id: string;
@@ -180,20 +163,10 @@ function generateMockVisualizationData(patientId: string): VisualizationData {
 }
 
 async function getAIChartRecommendations(data: VisualizationData): Promise<ChartRecommendation[]> {
-  const client = getOpenAIClient();
-  
-  if (!client) {
-    return getDefaultRecommendations(data);
-  }
-  
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare data visualization expert. Analyze patient health data and recommend the most effective chart types to visualize trends and insights. 
-          
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare data visualization expert. Analyze patient health data and recommend the most effective chart types to visualize trends and insights.
+
 Focus on:
 1. Identifying meaningful patterns in observations, conditions, and medications
 2. Suggesting appropriate chart types (line, bar, pie, area, scatter, radar, gauge)
@@ -217,11 +190,8 @@ Return a JSON array of recommendations with this structure:
       "reasoning": "Why this chart type is recommended"
     }
   ]
-}`
-        },
-        {
-          role: "user",
-          content: `Analyze this patient health data and recommend 5-7 visualizations:
+}`,
+      user: `Analyze this patient health data and recommend 5-7 visualizations:
 
 Summary:
 - Total Observations: ${data.summary.totalObservations}
@@ -234,18 +204,15 @@ Observations by Category: ${JSON.stringify(data.observations.byCategory)}
 Active Conditions: ${data.conditions.list.map(c => c.name).join(", ")}
 Active Medications: ${data.medications.list.filter(m => m.status === "active").map(m => m.name).join(", ")}
 Medication Adherence Trend: ${JSON.stringify(data.medications.adherence)}
-Lab Results: ${data.observations.labResults.map(l => `${l.name}: ${l.value} ${l.unit} (${l.status})`).join(", ")}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+Lab Results: ${data.observations.labResults.map(l => `${l.name}: ${l.value} ${l.unit} (${l.status})`).join(", ")}`,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
-    
-    const content = response.choices[0]?.message?.content;
+
     if (!content) {
       return getDefaultRecommendations(data);
     }
-    
+
     const parsed = JSON.parse(content);
     return parsed.recommendations || getDefaultRecommendations(data);
   } catch (error) {

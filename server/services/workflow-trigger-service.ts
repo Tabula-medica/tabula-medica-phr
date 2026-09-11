@@ -199,6 +199,7 @@ export async function emitEvent(
 
       const result = await generateDocument({
         documentTypeId: trigger.documentType,
+        // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: event-driven trigger auto-generates documents; providerId is optional because events may fire from automated/system sources with no provider
         userId: data.providerId || "system",
         patientId: data.patientId,
         patientName: data.contextData?.patientName,

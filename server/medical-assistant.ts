@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { storage } from "./storage";
 import type { 
   AssistantMessage, 
@@ -449,19 +450,13 @@ export async function generateConversationTitle(
   firstMessage: string
 ): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: "Generate a brief, descriptive title (3-6 words) for a health-related conversation based on the user's first message. Just return the title, nothing else."
-        },
-        { role: "user", content: firstMessage }
-      ],
-      max_completion_tokens: 50,
+    const content = await generatePhiSafeText({
+      system: "Generate a brief, descriptive title (3-6 words) for a health-related conversation based on the user's first message. Just return the title, nothing else.",
+      user: firstMessage,
+      maxTokens: 50,
     });
 
-    return response.choices[0]?.message?.content?.trim() || "Health Conversation";
+    return content?.trim() || "Health Conversation";
   } catch {
     return "Health Conversation";
   }

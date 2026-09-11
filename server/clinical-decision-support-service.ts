@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { sanitizeNoCDS, sanitizeNoCDSObject, NO_CDS_DISCLAIMER, NO_CDS_DISCLAIMER_SHORT, NO_CDS_POLICY } from "./security/no-cds-guardrails";
 import { generateDifferentialDiagnosis, type PatientDataForDiagnosis, type DifferentialDiagnosisResult } from "./differential-diagnosis-service";
 import { aiMedicationService, type DrugInteractionAlert } from "./ai-medication-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface CDSSymptomInput {
   name: string;
@@ -236,13 +231,8 @@ export async function generateDiagnosticTestRecommendations(
     : "Not specified";
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical informatics system that identifies relevant diagnostic tests based on documented patient data. You provide INFORMATIONAL context only — never clinical advice.
+    const content = (await generatePhiSafeText({
+      system: `You are a medical informatics system that identifies relevant diagnostic tests based on documented patient data. You provide INFORMATIONAL context only — never clinical advice.
 
 STRICT RULES:
 - Use observational language: "data shows", "records indicate", "patterns noted"
@@ -253,10 +243,7 @@ STRICT RULES:
 - Prioritize as: routine, urgent, or stat based on data patterns
 
 Respond ONLY with valid JSON array.`,
-        },
-        {
-          role: "user",
-          content: `Based on the following documented patient data, identify relevant diagnostic tests for provider review:
+      user: `Based on the following documented patient data, identify relevant diagnostic tests for provider review:
 
 Patient Demographics: ${demographicsText}
 Documented Symptoms: ${symptomsText}
@@ -278,12 +265,9 @@ Provide a JSON array of test objects:
 }]
 
 Return 3-8 relevant tests.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content || "{}";
+      maxTokens: 2000,
+      responseMimeType: "application/json",
+    })) || "{}";
     const parsed = JSON.parse(content);
     const tests: DiagnosticTestRecommendation[] = Array.isArray(parsed) ? parsed : (parsed.tests || parsed.recommendations || []);
 
@@ -451,21 +435,13 @@ export async function generateRiskStratification(
   const socialText = request.socialFactors?.join(", ") || "None documented";
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_tokens: 2500,
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical informatics system that analyzes documented patient data to identify statistical risk patterns. You provide INFORMATIONAL analysis only — never clinical advice.
+    const content = (await generatePhiSafeText({
+      system: `You are a medical informatics system that analyzes documented patient data to identify statistical risk patterns. You provide INFORMATIONAL analysis only — never clinical advice.
 
 ${NO_CDS_POLICY}
 
 Respond ONLY with valid JSON.`,
-        },
-        {
-          role: "user",
-          content: `Analyze the following documented patient data for statistical risk patterns across common conditions. This is for provider informational review only.
+      user: `Analyze the following documented patient data for statistical risk patterns across common conditions. This is for provider informational review only.
 
 Patient Demographics: ${demographicsText}
 Current Vitals: ${vitalsText}
@@ -489,12 +465,9 @@ Provide a JSON object:
 }
 
 Identify 3-6 relevant conditions. Use only observational language.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content || "{}";
+      maxTokens: 2500,
+      responseMimeType: "application/json",
+    })) || "{}";
     const parsed = JSON.parse(content);
     const conditionRisks: ConditionRisk[] = parsed.conditionRisks || [];
 

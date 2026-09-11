@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import { z } from "zod";
 import { publicHealthReportingService, AggregationCriteria, ExportOptions } from "./services/public-health-reporting-service";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This report is for public health surveillance and administrative purposes only. It does NOT constitute clinical decision support or medical advice.";
 
@@ -35,9 +36,9 @@ const ExportOptionsSchema = z.object({
 });
 
 export function registerPublicHealthReportingRoutes(app: Express): void {
-  app.get("/api/public-health/dashboard", async (req: Request, res: Response) => {
+  app.get("/api/public-health/dashboard", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
 
       await logPhiAccess({
         userId,
@@ -62,7 +63,7 @@ export function registerPublicHealthReportingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/public-health/filters", async (req: Request, res: Response) => {
+  app.get("/api/public-health/filters", requireUser, async (req: Request, res: Response) => {
     try {
       const filters = await publicHealthReportingService.getAvailableFilters();
       res.json({
@@ -78,9 +79,9 @@ export function registerPublicHealthReportingRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/public-health/reports/generate", async (req: Request, res: Response) => {
+  app.post("/api/public-health/reports/generate", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const parsed = GenerateReportSchema.parse(req.body);
 
       await logPhiAccess({
@@ -119,10 +120,10 @@ export function registerPublicHealthReportingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/public-health/reports/:reportId", async (req: Request, res: Response) => {
+  app.get("/api/public-health/reports/:reportId", requireUser, async (req: Request, res: Response) => {
     try {
       const { reportId } = req.params;
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
 
       await logPhiAccess({
         userId,
@@ -155,9 +156,9 @@ export function registerPublicHealthReportingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/public-health/reports", async (req: Request, res: Response) => {
+  app.get("/api/public-health/reports", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
 
       const reports = await publicHealthReportingService.listReports(userId);
 
@@ -182,10 +183,10 @@ export function registerPublicHealthReportingRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/public-health/reports/:reportId/export", async (req: Request, res: Response) => {
+  app.post("/api/public-health/reports/:reportId/export", requireUser, async (req: Request, res: Response) => {
     try {
       const { reportId } = req.params;
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const options = ExportOptionsSchema.parse(req.body);
 
       await logPhiAccess({
@@ -248,10 +249,10 @@ export function registerPublicHealthReportingRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/public-health/reports/:reportId/download", async (req: Request, res: Response) => {
+  app.post("/api/public-health/reports/:reportId/download", requireUser, async (req: Request, res: Response) => {
     try {
       const { reportId } = req.params;
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const options = ExportOptionsSchema.parse(req.body);
 
       await logPhiAccess({

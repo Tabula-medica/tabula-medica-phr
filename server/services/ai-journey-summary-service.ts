@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface JourneyDataInput {
   patientId: string;
@@ -97,17 +92,13 @@ OUTPUT FORMAT (JSON):
     const userPrompt = this.buildUserPrompt(data);
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         throw new Error("Empty response from AI");
       }

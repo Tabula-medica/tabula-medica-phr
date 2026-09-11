@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import type {
   AICarePlanDraft,
@@ -9,14 +9,7 @@ import type {
   AICarePlanDraftStatus,
 } from "@shared/schema";
 
-let openai: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+const aiEnabled = true;
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 const PROHIBITED_VERBS = [
@@ -205,9 +198,8 @@ export async function generateCarePlanDraft(
     details: `Generating AI care plan draft for condition: ${primaryCondition}`,
   });
 
-  const client = getOpenAI();
-  if (!client) {
-    console.log("[AICarePlanDraft] OpenAI not configured, using mock generation");
+  if (!aiEnabled) {
+    console.log("[AICarePlanDraft] AI disabled, using mock generation");
     return generateMockDraft(patientData, primaryCondition, treatmentGoals, userId);
   }
 
@@ -244,14 +236,12 @@ Generate a JSON response with:
 
 Return valid JSON only.`;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_tokens: 4000,
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 4000,
     });
 
-    const content = response.choices[0].message.content;
     if (!content) throw new Error("Empty AI response");
 
     const parsed = JSON.parse(content);
@@ -297,7 +287,7 @@ Return valid JSON only.`;
     draftsStore.push(draft);
     return draft;
   } catch (error) {
-    console.error("[AICarePlanDraft] OpenAI error:", error);
+    console.error("[AICarePlanDraft] AI gateway error:", error);
     return generateMockDraft(patientData, primaryCondition, treatmentGoals, userId);
   }
 }

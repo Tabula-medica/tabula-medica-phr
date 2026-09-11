@@ -1,4 +1,5 @@
 import { Express } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import {
   analyzeMessage,
   analyzeBatch,
@@ -37,9 +38,9 @@ function logHipaaAudit(action: string, userId: string, patientId?: string, detai
 }
 
 export function registerCommunicationAnalyticsRoutes(app: Express) {
-  app.post("/api/communication-analytics/analyze", async (req, res) => {
+  app.post("/api/communication-analytics/analyze", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const message: CommunicationMessage = req.body;
       
       if (!message.id || !message.patientId || !message.content) {
@@ -72,9 +73,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/analyze-batch", async (req, res) => {
+  app.post("/api/communication-analytics/analyze-batch", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { messages } = req.body;
       
       if (!Array.isArray(messages) || messages.length === 0) {
@@ -97,9 +98,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/urgent-flags", async (req, res) => {
+  app.get("/api/communication-analytics/urgent-flags", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       
       logHipaaAudit("GET_URGENT_FLAGS_REQUEST", userId, undefined, "Fetching urgent flags");
       
@@ -114,9 +115,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/communication-analytics/urgent-flags/:flagId", async (req, res) => {
+  app.patch("/api/communication-analytics/urgent-flags/:flagId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { flagId } = req.params;
       const { status, notes } = req.body;
       
@@ -140,9 +141,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/overview", async (req, res) => {
+  app.get("/api/communication-analytics/overview", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       
       logHipaaAudit("GET_OVERVIEW_REQUEST", userId, undefined, "Fetching analytics overview");
       
@@ -157,9 +158,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/patient/:patientId", async (req, res) => {
+  app.get("/api/communication-analytics/patient/:patientId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logHipaaAudit("GET_PATIENT_HISTORY_REQUEST", userId, patientId, "Fetching patient communication history");
@@ -179,9 +180,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // ENHANCED: Trend Detection & Communication Patterns
   // ============================================================================
 
-  app.get("/api/communication-analytics/trends/:patientId", async (req, res) => {
+  app.get("/api/communication-analytics/trends/:patientId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       const period = (req.query.period as "7d" | "30d" | "90d") || "30d";
       
@@ -198,9 +199,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/patterns/:patientId", async (req, res) => {
+  app.get("/api/communication-analytics/patterns/:patientId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logHipaaAudit("GET_PATTERNS_REQUEST", userId, patientId, "Fetching communication patterns");
@@ -216,9 +217,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/questions/:patientId", async (req, res) => {
+  app.get("/api/communication-analytics/questions/:patientId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       const includeAnswered = req.query.includeAnswered === "true";
       
@@ -235,9 +236,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/communication-analytics/questions/:questionId", async (req, res) => {
+  app.patch("/api/communication-analytics/questions/:questionId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { questionId } = req.params;
       const { answered } = req.body;
       
@@ -258,9 +259,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // ENHANCED: Portal Interaction Tracking
   // ============================================================================
 
-  app.post("/api/communication-analytics/portal-interactions", async (req, res) => {
+  app.post("/api/communication-analytics/portal-interactions", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const interaction = req.body;
       
       if (!interaction.patientId || !interaction.eventType || !interaction.sessionId) {
@@ -287,9 +288,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/engagement/:patientId", async (req, res) => {
+  app.get("/api/communication-analytics/engagement/:patientId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logHipaaAudit("GET_ENGAGEMENT_REQUEST", userId, patientId, "Fetching engagement metrics");
@@ -309,9 +310,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // ENHANCED: Automated Alerts System
   // ============================================================================
 
-  app.get("/api/communication-analytics/alert-configs", async (req, res) => {
+  app.get("/api/communication-analytics/alert-configs", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       
       logHipaaAudit("GET_ALERT_CONFIGS_REQUEST", userId, undefined, "Fetching alert configurations");
       
@@ -326,9 +327,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/alert-configs", async (req, res) => {
+  app.post("/api/communication-analytics/alert-configs", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const config = req.body;
       
       if (!config.name || !config.triggerType) {
@@ -351,9 +352,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/communication-analytics/alert-configs/:configId", async (req, res) => {
+  app.patch("/api/communication-analytics/alert-configs/:configId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { configId } = req.params;
       const updates = req.body;
       
@@ -370,9 +371,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/alerts", async (req, res) => {
+  app.get("/api/communication-analytics/alerts", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const filters: any = {};
       
       if (req.query.patientId) filters.patientId = req.query.patientId;
@@ -392,9 +393,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-analytics/alerts/stats", async (req, res) => {
+  app.get("/api/communication-analytics/alerts/stats", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       
       logHipaaAudit("GET_ALERT_STATS_REQUEST", userId, undefined, "Fetching alert statistics");
       
@@ -409,9 +410,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/alerts/:alertId/acknowledge", async (req, res) => {
+  app.post("/api/communication-analytics/alerts/:alertId/acknowledge", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { alertId } = req.params;
       
       logHipaaAudit("ACKNOWLEDGE_ALERT_REQUEST", userId, undefined, `Alert ID: ${alertId}`);
@@ -427,9 +428,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/alerts/:alertId/resolve", async (req, res) => {
+  app.post("/api/communication-analytics/alerts/:alertId/resolve", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { alertId } = req.params;
       const { resolution } = req.body;
       
@@ -453,9 +454,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/alerts/:alertId/escalate", async (req, res) => {
+  app.post("/api/communication-analytics/alerts/:alertId/escalate", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { alertId } = req.params;
       const { escalateTo, reason } = req.body;
       
@@ -483,9 +484,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // AI RESPONSE TEMPLATES
   // ============================================
 
-  app.post("/api/communication-analytics/response-templates", async (req, res) => {
+  app.post("/api/communication-analytics/response-templates", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { message, context } = req.body;
       
       if (!message || !message.id || !message.patientId || !message.content) {
@@ -512,9 +513,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // PATIENT MESSAGE SUMMARY
   // ============================================
 
-  app.post("/api/communication-analytics/patient-summary", async (req, res) => {
+  app.post("/api/communication-analytics/patient-summary", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { patientId, messages, periodDays } = req.body;
       
       if (!patientId || !messages || !Array.isArray(messages)) {
@@ -541,9 +542,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // CARE TEAM NOTIFICATIONS
   // ============================================
 
-  app.get("/api/communication-analytics/notifications", async (req, res) => {
+  app.get("/api/communication-analytics/notifications", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { unreadOnly, patientId, type, priority } = req.query;
       
       logHipaaAudit("GET_NOTIFICATIONS_REQUEST", userId, patientId as string, "Fetching notifications");
@@ -564,9 +565,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/notifications/:id/read", async (req, res) => {
+  app.post("/api/communication-analytics/notifications/:id/read", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       logHipaaAudit("MARK_NOTIFICATION_READ_REQUEST", userId, undefined, `Notification ID: ${id}`);
@@ -582,9 +583,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-analytics/notifications/read-all", async (req, res) => {
+  app.post("/api/communication-analytics/notifications/read-all", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       
       logHipaaAudit("MARK_ALL_NOTIFICATIONS_READ_REQUEST", userId, undefined, "Marking all read");
       
@@ -603,9 +604,9 @@ export function registerCommunicationAnalyticsRoutes(app: Express) {
   // ANALYTICS EXPORT
   // ============================================
 
-  app.post("/api/communication-analytics/export", async (req, res) => {
+  app.post("/api/communication-analytics/export", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { type, format, patientId, startDate, endDate } = req.body;
       
       if (!type || !format) {

@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 // ============================================================================
 // CLINICAL TERM PRESERVATION - CRITICAL SAFETY FEATURE
@@ -321,8 +319,8 @@ class ClinicalSummaryTranslationService {
     const readingLevel = options?.readingLevel || "intermediate";
     const includePlainLanguage = options?.includePlainLanguage !== false;
 
-    if (!openai) {
-      // Return a placeholder when OpenAI is not configured
+    if (!aiEnabled) {
+      // Return a placeholder when AI is not configured
       return {
         originalSummary: summary,
         targetLanguage: targetLanguage.name,
@@ -342,12 +340,8 @@ class ClinicalSummaryTranslationService {
       
       console.log(`[Clinical Term Preservation] Found ${extractedTerms.length} terms to preserve:`, extractedTerms.slice(0, 20));
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical document TRANSLATOR. Your ONLY job is to convert text from one language to another.
+      const content = await generatePhiSafeText({
+        system: `You are a medical document TRANSLATOR. Your ONLY job is to convert text from one language to another.
 
 ABSOLUTE RULES - VIOLATIONS CAUSE HARM:
 1. ONLY translate - never add explanations or interpretations
@@ -365,11 +359,8 @@ Output format:
 TRANSLATED_TITLE: [translated title]
 TRANSLATED_CONTENT: [exact translation, no additions]
 PLAIN_LANGUAGE: [simplified vocabulary, same content, no interpretations]
-PRESERVED_TERMS: [comma-separated list of clinical terms kept in original form]`
-          },
-          {
-            role: "user",
-            content: `Translate the following clinical summary to ${targetLanguage.name} (${targetLanguage.nativeName}).
+PRESERVED_TERMS: [comma-separated list of clinical terms kept in original form]`,
+        user: `Translate the following clinical summary to ${targetLanguage.name} (${targetLanguage.nativeName}).
 Reading level: ${readingLevel}
 Include plain language version: ${includePlainLanguage}
 
@@ -380,16 +371,12 @@ ${summary.content}
 
 IMPORTANT: Keep ALL drug names, lab test names, diagnostic codes, and medical units in their ORIGINAL English form. Do NOT translate terms like "${extractedTerms.slice(0, 10).join('", "')}" - these must remain exactly as written for patient safety.
 
-Please provide the translation maintaining medical accuracy while making it accessible to patients.`
-          }
-        ],
-        max_tokens: 2000
+Please provide the translation maintaining medical accuracy while making it accessible to patients.`,
+        maxTokens: 2000,
       });
 
-      const content = response.choices[0]?.message?.content || "";
-      
       // Parse the response
-      const sections = content.split(/TRANSLATED_TITLE:|TRANSLATED_CONTENT:|PLAIN_LANGUAGE:/);
+      const sections = (content || "").split(/TRANSLATED_TITLE:|TRANSLATED_CONTENT:|PLAIN_LANGUAGE:/);
       const titleMatch = sections[1]?.trim();
       const contentMatch = sections[2]?.trim();
       const plainMatch = sections[3]?.trim();
@@ -424,7 +411,7 @@ Please provide the translation maintaining medical accuracy while making it acce
       throw new Error("Unsupported language");
     }
 
-    if (!openai) {
+    if (!aiEnabled) {
       return {
         translatedText: `[Translation to ${targetLanguage.name} requires AI configuration]\n\nOriginal: ${text}`,
         plainLanguageVersion: "[Plain language version requires AI configuration]",
@@ -439,12 +426,8 @@ Please provide the translation maintaining medical accuracy while making it acce
       
       console.log(`[Clinical Term Preservation - Custom] Found ${extractedTerms.length} terms to preserve`);
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical text TRANSLATOR. Your ONLY job is to convert text between languages.
+      const content = await generatePhiSafeText({
+        system: `You are a medical text TRANSLATOR. Your ONLY job is to convert text between languages.
 
 ABSOLUTE RULES:
 1. ONLY translate - do not add any content
@@ -455,11 +438,8 @@ ${preservationInstruction}
 
 End with: "[Translation only. Not medical advice.]"
 
-Context: ${context || "Clinical health record content"}`
-          },
-          {
-            role: "user",
-            content: `Translate from ${sourceLanguage} to ${targetLanguage.name}:
+Context: ${context || "Clinical health record content"}`,
+        user: `Translate from ${sourceLanguage} to ${targetLanguage.name}:
 
 "${text}"
 
@@ -468,14 +448,11 @@ IMPORTANT: Keep ALL drug names, lab test names, diagnostic codes, and medical un
 Provide:
 1. TRANSLATION: [accurate translation]
 2. PLAIN_LANGUAGE: [simplified explanation]
-3. PRESERVED_TERMS: [clinical terms kept in original form]`
-          }
-        ],
-        max_tokens: 1000
+3. PRESERVED_TERMS: [clinical terms kept in original form]`,
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content || "";
-      const sections = content.split(/TRANSLATION:|PLAIN_LANGUAGE:/);
+      const sections = (content || "").split(/TRANSLATION:|PLAIN_LANGUAGE:/);
       const transMatch = sections[1]?.trim();
       const plainMatch2 = sections[2]?.trim();
 

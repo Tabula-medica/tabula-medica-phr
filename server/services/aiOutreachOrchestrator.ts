@@ -1,13 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { getAuditLogger } from "./integrations/factory";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export type ContactMethod = "secure_message" | "sms" | "phone_call" | "email" | "push_notification";
 export type OutreachUrgency = "low" | "medium" | "high" | "critical";
@@ -535,14 +530,13 @@ CRITICAL COMPLIANCE RULES:
 Generate ONLY a message preview, nothing else.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 150,
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      maxTokens: 150,
       temperature: 0.7,
     });
 
-    let message = response.choices[0]?.message?.content || "";
+    let message = responseText || "";
     
     message = sanitizeNoCdsContent(message).trim();
 
@@ -746,15 +740,12 @@ Generate a JSON response with these fields:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 500,
+    let responseText = await generatePhiSafeText({
+      user: prompt,
+      maxTokens: 500,
       temperature: 0.7,
-    });
+    }) || "";
 
-    let responseText = response.choices[0]?.message?.content || "";
-    
     responseText = sanitizeNoCdsContent(responseText);
 
     try {

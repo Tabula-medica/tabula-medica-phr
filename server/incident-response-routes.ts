@@ -7,8 +7,10 @@ import {
   type IncidentSeverity,
   type IncidentCategory,
 } from "./services/ai-incident-response";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -17,7 +19,7 @@ function hashIdentifier(id: string): string {
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
   console.log(`[IncidentResponseAPI][HIPAA] ${action}`, {
     resource,
-    userId: hashIdentifier((req as any).user?.id || req.ip || "anonymous"),
+    userId: hashIdentifier(getUserId(req)),
     ip: req.ip,
     ...details,
     timestamp: new Date().toISOString(),
@@ -144,7 +146,7 @@ router.get("/incidents/:id", async (req: Request, res: Response) => {
 router.post("/incidents", async (req: Request, res: Response) => {
   try {
     const { title, description, severity, category } = createIncidentSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("CREATE_INCIDENT", "incidents", req, { severity, category });
 
@@ -173,7 +175,7 @@ router.post("/incidents", async (req: Request, res: Response) => {
 router.patch("/incidents/:id/status", async (req: Request, res: Response) => {
   try {
     const { status, notes } = updateStatusSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("UPDATE_INCIDENT_STATUS", "incidents", req, {
       incidentId: req.params.id,
@@ -204,7 +206,7 @@ router.patch("/incidents/:id/status", async (req: Request, res: Response) => {
 router.post("/incidents/:id/escalate", async (req: Request, res: Response) => {
   try {
     const { escalateTo, reason } = escalateSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ESCALATE_INCIDENT", "incidents", req, {
       incidentId: req.params.id,
@@ -235,7 +237,7 @@ router.post("/incidents/:id/escalate", async (req: Request, res: Response) => {
 router.post("/incidents/:id/assign", async (req: Request, res: Response) => {
   try {
     const { assignTo } = assignSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ASSIGN_INCIDENT", "incidents", req, {
       incidentId: req.params.id,
@@ -265,7 +267,7 @@ router.post("/incidents/:id/assign", async (req: Request, res: Response) => {
 router.post("/incidents/:id/containment/:stepId/execute", async (req: Request, res: Response) => {
   try {
     const { result } = executeStepSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("EXECUTE_CONTAINMENT_STEP", "incidents", req, {
       incidentId: req.params.id,
@@ -296,7 +298,7 @@ router.post("/incidents/:id/containment/:stepId/execute", async (req: Request, r
 router.post("/incidents/:id/notes", async (req: Request, res: Response) => {
   try {
     const { note } = addNoteSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ADD_INCIDENT_NOTE", "incidents", req, {
       incidentId: req.params.id,

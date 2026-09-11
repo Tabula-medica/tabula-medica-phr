@@ -10,8 +10,10 @@ import {
   NotificationChannel
 } from "./services/clinical-workflow-orchestrator";
 import { requireRole, extractUserContext, AuthorizedRequest } from "./middleware/rbac-authorization";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.use(extractUserContext);
 
@@ -27,7 +29,7 @@ router.get("/metadata", async (req: AuthorizedRequest, res: Response) => {
 
 router.get("/dashboard", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const dashboard = await clinicalWorkflowOrchestrator.getDashboard(userId);
     res.json(dashboard);
   } catch (error) {
@@ -40,7 +42,7 @@ const workflowStatusSchema = z.enum(["draft", "active", "paused", "archived"]);
 
 router.get("/workflows", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { status, category } = req.query;
 
     const filters: { status?: WorkflowStatus; category?: string } = {};
@@ -57,7 +59,7 @@ router.get("/workflows", requireRole("administrator", "clinician", "care_coordin
 
 router.get("/workflows/:workflowId", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const workflow = await clinicalWorkflowOrchestrator.getWorkflow(userId, req.params.workflowId);
     
     if (!workflow) {
@@ -100,7 +102,7 @@ const createWorkflowSchema = z.object({
 
 router.post("/workflows", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const validation = createWorkflowSchema.safeParse(req.body);
     
     if (!validation.success) {
@@ -117,7 +119,7 @@ router.post("/workflows", requireRole("administrator"), async (req: AuthorizedRe
 
 router.patch("/workflows/:workflowId", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const workflow = await clinicalWorkflowOrchestrator.updateWorkflow(userId, req.params.workflowId, req.body);
     
     if (!workflow) {
@@ -133,7 +135,7 @@ router.patch("/workflows/:workflowId", requireRole("administrator"), async (req:
 
 router.post("/workflows/:workflowId/publish", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const workflow = await clinicalWorkflowOrchestrator.publishWorkflow(userId, req.params.workflowId);
     
     if (!workflow) {
@@ -154,7 +156,7 @@ const triggerWorkflowSchema = z.object({
 
 router.post("/workflows/:workflowId/trigger", requireRole("administrator", "clinician"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const validation = triggerWorkflowSchema.safeParse(req.body);
     
     if (!validation.success) {
@@ -179,7 +181,7 @@ const instanceStatusSchema = z.enum(["pending", "running", "completed", "cancell
 
 router.get("/instances", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { workflowId, status, patientId } = req.query;
 
     const filters: { 
@@ -202,7 +204,7 @@ router.get("/instances", requireRole("administrator", "clinician", "care_coordin
 
 router.get("/instances/:instanceId", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const instance = await clinicalWorkflowOrchestrator.getInstance(userId, req.params.instanceId);
     
     if (!instance) {
@@ -222,7 +224,7 @@ const completeStepSchema = z.object({
 
 router.post("/instances/:instanceId/steps/:stepId/complete", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const validation = completeStepSchema.safeParse(req.body);
     
     if (!validation.success) {
@@ -252,7 +254,7 @@ const taskPrioritySchema = z.enum(["critical", "high", "medium", "low"]);
 
 router.get("/tasks", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { assignedTo, status, priority } = req.query;
 
     const filters: { 
@@ -281,7 +283,7 @@ const updateTaskSchema = z.object({
 
 router.patch("/tasks/:taskId", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const validation = updateTaskSchema.safeParse(req.body);
     
     if (!validation.success) {
@@ -308,7 +310,7 @@ const reassignTaskSchema = z.object({
 
 router.post("/tasks/:taskId/reassign", requireRole("administrator", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const validation = reassignTaskSchema.safeParse(req.body);
     
     if (!validation.success) {
@@ -344,7 +346,7 @@ const sendNotificationSchema = z.object({
 
 router.post("/notifications", requireRole("administrator", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const validation = sendNotificationSchema.safeParse(req.body);
     
     if (!validation.success) {
@@ -370,7 +372,7 @@ router.post("/notifications", requireRole("administrator", "care_coordinator"), 
 
 router.get("/notifications", requireRole("administrator", "clinician", "care_coordinator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { instanceId, recipientId, status } = req.query;
 
     const filters: { 

@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface OnboardingProfile {
   userId: string;
@@ -191,12 +186,8 @@ export async function generatePersonalizedWelcome(profile: OnboardingProfile): P
   const firstName = profile.firstName || "there";
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a warm, supportive healthcare assistant helping patients begin their health management journey. Generate a personalized welcome message that:
+    const content = await generatePhiSafeText({
+      system: `You are a warm, supportive healthcare assistant helping patients begin their health management journey. Generate a personalized welcome message that:
 - Uses warm, encouraging language
 - Acknowledges any health conditions they may have without making assumptions
 - Highlights relevant benefits of the platform
@@ -213,23 +204,17 @@ Return JSON with these fields:
 - motivationalMessage: An encouraging message about their health journey
 
 Use only safe language without medical advice. Focus on empowerment and support.`,
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            firstName,
-            conditions: profile.conditions,
-            medicationCount: profile.medications.length,
-            hasAllergies: profile.allergies.length > 0,
-          }),
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 600,
+      user: JSON.stringify({
+        firstName,
+        conditions: profile.conditions,
+        medicationCount: profile.medications.length,
+        hasAllergies: profile.allergies.length > 0,
+      }),
+      responseMimeType: "application/json",
+      maxTokens: 600,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       greeting: parsed.greeting || `Welcome, ${firstName}!`,
@@ -278,12 +263,8 @@ export async function generateInitialHealthAssessment(profile: OnboardingProfile
   const assessmentId = generateId();
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a health risk analysis assistant. Based on the patient profile provided, generate an initial health assessment. 
+    const content = await generatePhiSafeText({
+      system: `You are a health risk analysis assistant. Based on the patient profile provided, generate an initial health assessment.
 
 IMPORTANT RULES:
 - Use only "shows", "states", "refers to", "means" as verbs
@@ -300,26 +281,20 @@ Return JSON with:
 - screeningsNeeded: Array of {name, reason, frequency, dueStatus}
 - lifestyleFactors: Array of {category, currentStatus, impact, suggestion}
 - disclaimers: Array of important disclaimers`,
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            age: profile.dateOfBirth ? new Date().getFullYear() - new Date(profile.dateOfBirth).getFullYear() : null,
-            gender: profile.gender,
-            conditions: profile.conditions,
-            medicationCount: profile.medications.length,
-            allergyCount: profile.allergies.length,
-            familyHistory: profile.familyHistory,
-            lifestyle: profile.lifestyle,
-          }),
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1200,
+      user: JSON.stringify({
+        age: profile.dateOfBirth ? new Date().getFullYear() - new Date(profile.dateOfBirth).getFullYear() : null,
+        gender: profile.gender,
+        conditions: profile.conditions,
+        medicationCount: profile.medications.length,
+        allergyCount: profile.allergies.length,
+        familyHistory: profile.familyHistory,
+        lifestyle: profile.lifestyle,
+      }),
+      responseMimeType: "application/json",
+      maxTokens: 1200,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     const assessment: InitialHealthAssessment = {
       id: assessmentId,

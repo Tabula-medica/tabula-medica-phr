@@ -1,9 +1,9 @@
-import OpenAI from "openai";
-import { 
-  AuditEntry, 
-  AuditActionCategory, 
+import { generatePhiSafeText } from "./ai-gateway";
+import {
+  AuditEntry,
+  AuditActionCategory,
   AuditActionType,
-  comprehensiveAuditTrailService 
+  comprehensiveAuditTrailService
 } from "./comprehensive-audit-trail-service";
 
 const NO_CDS_COMPLIANCE = `CRITICAL COMPLIANCE NOTICE: This AI-driven audit log enrichment tool is for SECURITY MONITORING, COMPLIANCE AUDITING, and OPERATIONAL purposes ONLY. It does NOT provide clinical decision support, treatment recommendations, or medical advice. All flagged anomalies and risk assessments must be reviewed by qualified security personnel before action.`;
@@ -139,20 +139,12 @@ const SENSITIVE_DATA_PATTERNS: SensitiveDataPattern[] = [
 ];
 
 class AIAuditLogEnrichmentService {
-  private openai: OpenAI | null = null;
+  private aiEnabled: boolean = true;
   private enrichedLogs: Map<string, EnrichedAuditLog> = new Map();
   private userAccessPatterns: Map<string, { timestamps: number[]; resources: string[]; actions: string[] }> = new Map();
 
   constructor() {
-    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-      this.openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-      console.log("[AIAuditLogEnrichment] OpenAI client initialized for AI analysis");
-    } else {
-      console.log("[AIAuditLogEnrichment] OpenAI not configured, using rule-based analysis");
-    }
+    console.log("[AIAuditLogEnrichment] PHI-safe AI gateway available for AI analysis");
 
     this.initializeSampleData();
   }
@@ -560,7 +552,7 @@ class AIAuditLogEnrichmentService {
       complianceNotes: this.generateComplianceNotes(log, sensitivePatterns)
     };
 
-    if (this.openai && (level === "high" || level === "critical")) {
+    if (this.aiEnabled && (level === "high" || level === "critical")) {
       try {
         aiAnalysis = await this.generateAIAnalysis(log, sensitivePatterns, anomalies);
       } catch (error) {
@@ -644,7 +636,7 @@ class AIAuditLogEnrichmentService {
     recommendations: string[];
     complianceNotes: string[];
   }> {
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return {
         summary: this.generateRuleSummary(log, patterns, anomalies),
         patterns: patterns.map(p => p.name),
@@ -678,20 +670,13 @@ Provide a JSON response with:
 IMPORTANT: This is for SECURITY MONITORING and COMPLIANCE AUDITING only, NOT for clinical decision-making.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4.1-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a healthcare security and compliance analyst specializing in HIPAA and SOC2 auditing. Provide concise, actionable analysis for security teams. Never provide clinical or medical advice."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1000
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare security and compliance analyst specializing in HIPAA and SOC2 auditing. Provide concise, actionable analysis for security teams. Never provide clinical or medical advice.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         return {

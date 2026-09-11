@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY 
-  ? new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    })
-  : null;
+const aiEnabled = true;
 
 interface PatientInsight {
   id: string;
@@ -187,27 +182,18 @@ export class AIFHIRInsightsEngineService {
 
     const insights: PatientInsight[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: `You are a clinical decision support assistant analyzing FHIR patient data. Generate health insights, identify risks, and suggest care opportunities. Be evidence-based and cite specific data points. Return JSON format.
-              
-IMPORTANT: All insights are for informational purposes only and should not replace clinical judgment.`
-            },
-            {
-              role: "user",
-              content: `Analyze this patient's FHIR data and generate insights:\n${JSON.stringify(fhirData, null, 2)}\n\nReturn JSON: { "insights": [{ "type": "...", "title": "...", "summary": "...", "details": "...", "severity": "...", "confidence": 0.0-1.0, "recommendations": [...] }] }`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096
+        const content = await generatePhiSafeText({
+          system: `You are a clinical decision support assistant analyzing FHIR patient data. Generate health insights, identify risks, and suggest care opportunities. Be evidence-based and cite specific data points. Return JSON format.
+
+IMPORTANT: All insights are for informational purposes only and should not replace clinical judgment.`,
+          user: `Analyze this patient's FHIR data and generate insights:\n${JSON.stringify(fhirData, null, 2)}\n\nReturn JSON: { "insights": [{ "type": "...", "title": "...", "summary": "...", "details": "...", "severity": "...", "confidence": 0.0-1.0, "recommendations": [...] }] }`,
+          responseMimeType: "application/json",
+          maxTokens: 4096
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         if (parsed.insights) {
           parsed.insights.forEach((insight: any, idx: number) => {
             const newInsight: PatientInsight = {
@@ -244,25 +230,16 @@ IMPORTANT: All insights are for informational purposes only and should not repla
 
     let summary: DataSummary;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: "You are a healthcare data analyst. Create clear, actionable summaries of FHIR health data. Include key findings, statistics, and trends. Return JSON format."
-            },
-            {
-              role: "user",
-              content: `Create a ${scope} summary for this data:\n${JSON.stringify(data, null, 2)}\n\nReturn JSON: { "title": "...", "narrative": "...", "keyFindings": [...], "statistics": {...} }`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096
+        const content = await generatePhiSafeText({
+          system: "You are a healthcare data analyst. Create clear, actionable summaries of FHIR health data. Include key findings, statistics, and trends. Return JSON format.",
+          user: `Create a ${scope} summary for this data:\n${JSON.stringify(data, null, 2)}\n\nReturn JSON: { "title": "...", "narrative": "...", "keyFindings": [...], "statistics": {...} }`,
+          responseMimeType: "application/json",
+          maxTokens: 4096
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         summary = {
           id: `summary-ai-${Date.now()}`,
           scope,
@@ -298,25 +275,16 @@ IMPORTANT: All insights are for informational purposes only and should not repla
     let prediction = { nextValue: 0, confidence: 0.5 };
     let insights: string[] = [];
 
-    if (openai && dataPoints.length >= 3) {
+    if (aiEnabled && dataPoints.length >= 3) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: "You are a clinical data analyst. Analyze health metric trends and provide predictions. Be specific about trend direction and clinical significance."
-            },
-            {
-              role: "user",
-              content: `Analyze this trend for ${metric}:\n${JSON.stringify(dataPoints)}\n\nReturn JSON: { "trend": "improving|stable|declining|fluctuating", "prediction": { "nextValue": number, "confidence": 0-1 }, "insights": ["..."] }`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 1024
+        const content = await generatePhiSafeText({
+          system: "You are a clinical data analyst. Analyze health metric trends and provide predictions. Be specific about trend direction and clinical significance.",
+          user: `Analyze this trend for ${metric}:\n${JSON.stringify(dataPoints)}\n\nReturn JSON: { "trend": "improving|stable|declining|fluctuating", "prediction": { "nextValue": number, "confidence": 0-1 }, "insights": ["..."] }`,
+          responseMimeType: "application/json",
+          maxTokens: 1024
         });
 
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(content || "{}");
         trend = parsed.trend || 'stable';
         prediction = parsed.prediction || { nextValue: dataPoints[dataPoints.length - 1]?.value || 0, confidence: 0.5 };
         insights = parsed.insights || [];

@@ -12,17 +12,12 @@ import {
   profiles,
   accounts,
 } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { logger } from "./lib/logger";
 import { phiDb, encryptPhiRow, decryptPhiRow, decryptPhiRows } from "./storage/phi-storage";
 import { noStorePhi } from "./lib/middleware/no-store-phi";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function logHipaaAudit(action: string, details: Record<string, unknown>): void {
   // Spread `details` so PHI fields (patientId, profileId, userId, etc.) become
@@ -696,15 +691,11 @@ Surgeries (${surgeries.length}): ${surgeries.map(s => s.procedureName).join(", "
 Conditions (${medicalHistory.length}): ${medicalHistory.map(h => h.condition).join(", ") || "None"}
 Vaccines (${vaccines.length}): ${vaccines.map(v => v.vaccineName).join(", ") || "None"}`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are a helpful health record summarizer. Provide a brief, factual summary. Never provide medical advice. Include a disclaimer that this is an AI-generated summary and patients should consult their healthcare provider." },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 300,
+      aiSummary = await generatePhiSafeText({
+        system: "You are a helpful health record summarizer. Provide a brief, factual summary. Never provide medical advice. Include a disclaimer that this is an AI-generated summary and patients should consult their healthcare provider.",
+        user: prompt,
+        maxTokens: 300,
       });
-      aiSummary = completion.choices[0]?.message?.content || "";
     } catch {
       aiSummary = `Your health record contains ${totalRecords} entries across ${Object.entries(counts).filter(([, v]) => v > 0).length} categories: ${Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(", ")}.`;
     }

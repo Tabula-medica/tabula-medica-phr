@@ -1,10 +1,5 @@
-import OpenAI from "openai";
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-} catch (error) {
-  console.log("[QOCAAIoT] OpenAI client not initialized - AI features will use fallback");
-}
+import { generatePhiSafeText } from "./ai-gateway";
+const aiEnabled = true;
 
 export type QocaDeviceType =
   | "ecg_monitor"
@@ -660,7 +655,7 @@ class QocaAIoTService {
     const readings = await this.getReadingsByPatient(patientId, undefined, 20);
     const devices = await this.getDevices(patientId);
 
-    if (!openai) {
+    if (!aiEnabled) {
       return {
         insight: this.generateFallbackInsight(readings, devices, locale),
         disclaimer: "NOT CLINICAL ADVICE — This AI-generated summary is for informational purposes only. Always consult your healthcare provider for medical decisions.",
@@ -675,23 +670,14 @@ class QocaAIoTService {
         anomalous: r.isAnomalous,
       }));
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a health data summarizer for QOCA AIoT devices. Provide a brief, patient-friendly summary of recent health readings from IoT devices. CRITICAL: This is NOT clinical decision support. Output must be informational only. Never diagnose, prescribe, or recommend treatments. Respond in the language matching locale: ${locale}. Keep response under 200 words.`,
-          },
-          {
-            role: "user",
-            content: `Summarize these recent QOCA AIoT device readings for the patient:\n${JSON.stringify(readingSummary, null, 2)}`,
-          },
-        ],
-        max_tokens: 300,
+      const insightText = await generatePhiSafeText({
+        system: `You are a health data summarizer for QOCA AIoT devices. Provide a brief, patient-friendly summary of recent health readings from IoT devices. CRITICAL: This is NOT clinical decision support. Output must be informational only. Never diagnose, prescribe, or recommend treatments. Respond in the language matching locale: ${locale}. Keep response under 200 words.`,
+        user: `Summarize these recent QOCA AIoT device readings for the patient:\n${JSON.stringify(readingSummary, null, 2)}`,
+        maxTokens: 300,
       });
 
       return {
-        insight: response.choices[0]?.message?.content || this.generateFallbackInsight(readings, devices, locale),
+        insight: insightText || this.generateFallbackInsight(readings, devices, locale),
         disclaimer: "NOT CLINICAL ADVICE — This AI-generated summary is for informational purposes only. Always consult your healthcare provider for medical decisions.",
       };
     } catch {

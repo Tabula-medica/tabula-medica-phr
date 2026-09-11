@@ -1,7 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { createHash } from "crypto";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are an AI assistant specializing in FHIR data transformation and mapping.
 CRITICAL COMPLIANCE REQUIREMENT: You must NEVER provide clinical decision support, diagnosis, treatment recommendations, or medical advice.
@@ -895,15 +895,13 @@ class AIFHIRTransformationService {
 
     const suggestions: TransformationSuggestion[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Analyze this FHIR resource and suggest transformations to map it to the target model.
+        const content = await generatePhiSafeText({
+          system: NO_CDS_SYSTEM_PROMPT,
+          responseMimeType: "application/json",
+          temperature: 0.3,
+          user: `Analyze this FHIR resource and suggest transformations to map it to the target model.
 
 Source Resource (sample):
 ${JSON.stringify(sourceResource, null, 2)}
@@ -933,13 +931,8 @@ Provide transformation suggestions as JSON array with format:
 }]
 
 Focus on data structure transformation only. Do NOT provide any clinical decision support.`,
-            },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.3,
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           const aiSuggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : (Array.isArray(parsed) ? parsed : []);

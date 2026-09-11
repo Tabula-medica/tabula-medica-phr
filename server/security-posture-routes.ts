@@ -3,9 +3,11 @@ import { securityPostureEngine, CloudProvider, FindingSeverity, FindingStatus, C
 import { getAuditLogger } from "./services/integrations/factory";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { requireRole } from "./rbac";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
 
+router.use(requireUser);
 router.use(isAuthenticated);
 router.use(requireRole("admin"));
 
@@ -110,7 +112,7 @@ router.patch("/findings/:findingId", async (req: Request, res: Response) => {
 router.post("/findings/:findingId/remediate", async (req: Request, res: Response) => {
   try {
     const { findingId } = req.params;
-    const userId = req.body.userId || "system";
+    const userId = getUserId(req);
 
     const result = await securityPostureEngine.applyRemediation(findingId, userId);
 

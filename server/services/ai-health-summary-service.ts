@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI();
-  }
-} catch (error) {
-  console.log("[AIHealthSummary] OpenAI client not available");
-}
+const aiEnabled = true;
 
 export interface HealthTimelineEvent {
   id: string;
@@ -128,10 +121,10 @@ class AIHealthSummaryService {
     let aiInsights: HealthSummary["keyInsights"] = [];
 
     try {
-      if (!openai) {
-        throw new Error("OpenAI client not configured");
+      if (!aiEnabled) {
+        throw new Error("AI gateway not configured");
       }
-      
+
       const prompt = `Based on this patient health data, generate a personalized health summary:
 
 FHIR Data:
@@ -153,14 +146,13 @@ Generate a JSON response with:
 
 Important: This is for informational purposes only, not medical advice. Keep tone supportive and patient-friendly.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
+      const responseText = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(responseText || "{}");
       aiOverview = result.overview || "";
       aiInsights = result.insights || [];
     } catch (error) {

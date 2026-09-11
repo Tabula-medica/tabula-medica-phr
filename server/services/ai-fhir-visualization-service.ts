@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface ChartData {
   labels: string[];
@@ -273,12 +268,8 @@ class AIFHIRVisualizationService {
 
   private async getAIGeneratedInsights(analysis: FHIRDataAnalysis): Promise<AIInsight[]> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare data analyst expert. Analyze FHIR data metrics and provide actionable insights.
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare data analyst expert. Analyze FHIR data metrics and provide actionable insights.
 Return a JSON object with an "insights" array containing objects with:
 - type: "trend" | "anomaly" | "correlation" | "recommendation"
 - title: Brief title
@@ -288,18 +279,12 @@ Return a JSON object with an "insights" array containing objects with:
 - confidence: 0-1 score
 
 Focus on clinical relevance and data quality improvements. Keep insights actionable and specific.`,
-          },
-          {
-            role: "user",
-            content: `Analyze these FHIR data metrics and provide 2-3 key insights:
+        user: `Analyze these FHIR data metrics and provide 2-3 key insights:
 ${JSON.stringify(analysis, null, 2)}`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return [];
 
       const parsed = JSON.parse(content);
@@ -319,31 +304,21 @@ ${JSON.stringify(analysis, null, 2)}`,
     analysis: FHIRDataAnalysis
   ): Promise<VisualizationConfig[]> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare data visualization expert. Enhance chart configurations with AI-generated insights.
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare data visualization expert. Enhance chart configurations with AI-generated insights.
 Return a JSON object with an "enhancements" array containing objects with:
 - chartId: ID of the chart to enhance
 - additionalInsights: Array of insight strings
 - recommendations: Array of action recommendations
 
 Focus on clinical significance and actionable findings.`,
-          },
-          {
-            role: "user",
-            content: `Enhance these visualizations with clinical insights:
+        user: `Enhance these visualizations with clinical insights:
 Charts: ${JSON.stringify(visualizations.map(v => ({ id: v.id, title: v.title, category: v.category })))}
 Data Analysis: ${JSON.stringify(analysis)}`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return visualizations;
 
       const parsed = JSON.parse(content);

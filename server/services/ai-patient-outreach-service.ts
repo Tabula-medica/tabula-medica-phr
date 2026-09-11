@@ -1,10 +1,5 @@
-import OpenAI from 'openai';
 import { logPhiAccess } from '../security/hipaa-audit';
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
-});
+import { generatePhiSafeText } from './ai-gateway';
 
 const NO_CDS_COMPLIANCE = "FOR INFORMATIONAL PURPOSES ONLY - NOT FOR CLINICAL DECISION-MAKING. This AI-generated content is intended for administrative and operational use only. All patient communications must be reviewed by qualified healthcare staff before sending.";
 
@@ -338,17 +333,12 @@ class AIPatientOutreachService {
            
            [email body]`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are a healthcare communication specialist. Generate patient-friendly outreach messages that are warm, professional, and HIPAA-compliant. Never include specific medical information or diagnoses in messages.' },
-          { role: 'user', content: prompt }
-        ],
+      const generatedText = await generatePhiSafeText({
+        system: 'You are a healthcare communication specialist. Generate patient-friendly outreach messages that are warm, professional, and HIPAA-compliant. Never include specific medical information or diagnoses in messages.',
+        user: prompt,
         temperature: 0.7,
-        max_tokens: 500
-      });
-
-      const generatedText = response.choices[0]?.message?.content || '';
+        maxTokens: 500,
+      }) || '';
 
       if (channel === 'email') {
         const subjectMatch = generatedText.match(/Subject:\s*(.+?)(?:\n|$)/i);

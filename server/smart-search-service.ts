@@ -1,6 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 async function logPhiAccess(data: {
   userId: string;
@@ -75,24 +73,14 @@ async function expandSearchTermsWithAI(query: string): Promise<string[]> {
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You expand medical search queries with synonyms and related terms. Return only a JSON array of search terms. Be concise.",
-        },
-        {
-          role: "user",
-          content: `Expand this medical search query with synonyms and related terms (max 8 terms total): "${query}"`,
-        },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You expand medical search queries with synonyms and related terms. Return only a JSON array of search terms. Be concise.",
+      user: `Expand this medical search query with synonyms and related terms (max 8 terms total): "${query}"`,
       temperature: 0.3,
-      max_tokens: 200,
-      response_format: { type: "json_object" },
+      maxTokens: 200,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       return parsed.terms || [query];
@@ -147,24 +135,14 @@ async function aiFuzzyRank(
       `${i}: [${c.type}] ${c.title} - ${c.content.slice(0, 100)}`
     ).join("\n");
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical search relevance scorer. Given a patient's search query and candidate health records, score each candidate 0-100 based on relevance. Return JSON with format: { "scores": [{ "index": 0, "score": 85, "matchedTerms": ["term1"] }] }. Consider semantic similarity, medical synonyms, abbreviations, and context.`,
-        },
-        {
-          role: "user",
-          content: `Query: "${query}"\n\nCandidates:\n${candidateSummaries}`,
-        },
-      ],
+    const content = await generatePhiSafeText({
+      system: `You are a medical search relevance scorer. Given a patient's search query and candidate health records, score each candidate 0-100 based on relevance. Return JSON with format: { "scores": [{ "index": 0, "score": 85, "matchedTerms": ["term1"] }] }. Consider semantic similarity, medical synonyms, abbreviations, and context.`,
+      user: `Query: "${query}"\n\nCandidates:\n${candidateSummaries}`,
       temperature: 0.2,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
+      maxTokens: 500,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       const scores = parsed.scores || [];

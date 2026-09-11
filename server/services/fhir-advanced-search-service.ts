@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export type SearchOperator = "eq" | "ne" | "lt" | "le" | "gt" | "ge" | "contains" | "exact" | "starts" | "ends" | "fuzzy" | "in" | "not-in" | "missing";
 export type SearchModifier = "exact" | "contains" | "text" | "above" | "below" | "not" | "type" | "identifier" | "ofType";
@@ -76,15 +76,12 @@ export interface SavedQuery {
 }
 
 class FHIRAdvancedSearchService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private searchParameters: Map<string, SearchParameter[]> = new Map();
   private savedQueries: Map<string, SavedQuery> = new Map();
   private sampleData: Map<string, Record<string, unknown>[]> = new Map();
 
   constructor() {
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    }
     this.initializeSearchParameters();
     if (process.env.NODE_ENV !== 'production') {
       this.initializeSampleData();
@@ -528,7 +525,7 @@ class FHIRAdvancedSearchService {
   async getAISearchSuggestions(resourceType: string, currentConditions: SearchCondition[]): Promise<SearchSuggestion[]> {
     console.log(`[HIPAA-AUDIT][FHIRSearch] AI suggestions requested for: ${resourceType}`);
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return this.getDefaultSearchSuggestions(resourceType, currentConditions);
     }
 
@@ -551,14 +548,13 @@ Suggest 4-5 search improvements. For each, provide:
 
 Return ONLY valid JSON array, no markdown.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
+      const response = await generatePhiSafeText({
+        user: prompt,
         temperature: 0.7,
-        max_tokens: 1000,
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content || "[]";
+      const content = response || "[]";
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const suggestions = JSON.parse(cleanContent);
 

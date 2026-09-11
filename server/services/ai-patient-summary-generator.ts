@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface PatientFHIRData {
   patient: {
@@ -250,12 +245,8 @@ class AIPatientSummaryGeneratorService {
 
       const prompt = this.buildSummaryPrompt(patientData, request);
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical documentation assistant that creates clear, informational patient record summaries from FHIR health data.
+      const content = await generatePhiSafeText({
+        system: `You are a medical documentation assistant that creates clear, informational patient record summaries from FHIR health data.
 
 CRITICAL COMPLIANCE REQUIREMENTS (NO-CDS):
 - You are STRICTLY PROHIBITED from providing clinical decision support, treatment recommendations, or medical advice
@@ -265,18 +256,12 @@ CRITICAL COMPLIANCE REQUIREMENTS (NO-CDS):
 - Use plain language that patients and caregivers can understand
 - Synthesize information to highlight key facts without interpreting clinical significance
 
-Your role is to help organize and summarize documented medical information for review purposes only. Present the facts as recorded, not clinical interpretations.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4000
+Your role is to help organize and summarize documented medical information for review purposes only. Present the facts as recorded, not clinical interpretations.`,
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 4000,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateFallbackSummary(summaryId, patientData, request);
       }

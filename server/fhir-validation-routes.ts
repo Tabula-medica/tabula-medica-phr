@@ -11,9 +11,10 @@ import {
   getResourceTypes,
   logValidationAccess,
 } from "./services/fhir-validation-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 export function registerFHIRValidationRoutes(app: Express): void {
-  app.get("/api/fhir-validation/rules", async (req: Request, res: Response) => {
+  app.get("/api/fhir-validation/rules", requireUser, async (req: Request, res: Response) => {
     try {
       const { all } = req.query;
       const rules = all === "true" ? getAllValidationRules() : getValidationRules();
@@ -24,9 +25,9 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/fhir-validation/rules", async (req: Request, res: Response) => {
+  app.post("/api/fhir-validation/rules", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -38,9 +39,9 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/fhir-validation/rules/:id", async (req: Request, res: Response) => {
+  app.patch("/api/fhir-validation/rules/:id", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -55,9 +56,9 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/fhir-validation/failures", async (req: Request, res: Response) => {
+  app.get("/api/fhir-validation/failures", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const { patientId, resourceType, severity, status } = req.query;
@@ -75,9 +76,9 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/fhir-validation/summary", async (req: Request, res: Response) => {
+  app.get("/api/fhir-validation/summary", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const summary = getValidationSummary();
@@ -89,9 +90,9 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/fhir-validation/failures/:id/status", async (req: Request, res: Response) => {
+  app.patch("/api/fhir-validation/failures/:id/status", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
       const { status, notes } = req.body;
@@ -107,7 +108,7 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/fhir-validation/patients", async (req: Request, res: Response) => {
+  app.get("/api/fhir-validation/patients", requireUser, async (req: Request, res: Response) => {
     try {
       const patients = getPatientsList();
       res.json({ patients });
@@ -117,7 +118,7 @@ export function registerFHIRValidationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/fhir-validation/resource-types", async (req: Request, res: Response) => {
+  app.get("/api/fhir-validation/resource-types", requireUser, async (req: Request, res: Response) => {
     try {
       const resourceTypes = getResourceTypes();
       res.json({ resourceTypes });

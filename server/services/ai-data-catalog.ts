@@ -1,16 +1,14 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
-import { 
-  aiDataDiscoveryClassificationService, 
-  DiscoveredData, 
+import {
+  aiDataDiscoveryClassificationService,
+  DiscoveredData,
   DataSource,
-  SensitiveDataType 
+  SensitiveDataType
 } from "./ai-data-discovery-classification";
 import { aiPolicyLifecycleService } from "./ai-policy-lifecycle";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_CATALOG_PROMPT = `You are a healthcare data catalog specialist focusing on data asset documentation and governance enrichment.
 
@@ -878,15 +876,11 @@ class AIDataCatalogService {
 
     let enrichment: AIEnrichment;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_CATALOG_PROMPT },
-            {
-              role: "user",
-              content: `Analyze this data asset and provide enrichment for the data catalog:
+        const content = await generatePhiSafeText({
+          system: NO_CDS_CATALOG_PROMPT,
+          user: `Analyze this data asset and provide enrichment for the data catalog:
 
 Asset Name: ${asset.displayName}
 Description: ${asset.description}
@@ -903,14 +897,11 @@ Provide response as JSON:
   "usagePatterns": ["common usage patterns for this data type"],
   "qualityRecommendations": ["data quality improvement suggestions"],
   "governanceRecommendations": ["governance policy recommendations"]
-}`
-            }
-          ],
+}`,
           temperature: 0.7,
-          max_tokens: 1000,
+          maxTokens: 1000,
         });
 
-        const content = response.choices[0]?.message?.content || "";
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -922,13 +913,13 @@ Provide response as JSON:
             qualityRecommendations: parsed.qualityRecommendations || [],
             governanceRecommendations: parsed.governanceRecommendations || [],
             enrichedAt: new Date().toISOString(),
-            model: "gpt-4o",
+            model: "vertex-gemini",
           };
         } else {
           throw new Error("Failed to parse AI response");
         }
       } catch (error) {
-        console.error("[AIDataCatalog] OpenAI enrichment error:", error);
+        console.error("[AIDataCatalog] AI enrichment error:", error);
         enrichment = this.generateFallbackEnrichment(asset);
       }
     } else {

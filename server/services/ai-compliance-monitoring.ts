@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { storage } from "../storage";
@@ -14,11 +14,6 @@ import type {
   ComplianceRuleConfig,
   SecurityAuditLog,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -430,20 +425,14 @@ Provide:
 Focus ONLY on compliance, security, and data protection. Do NOT provide any clinical or medical advice.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: NO_CDS_SYSTEM_PROMPT,
-        },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 1500,
+    const responseText = await generatePhiSafeText({
+      system: NO_CDS_SYSTEM_PROMPT,
+      user: prompt,
+      maxTokens: 1500,
       temperature: 0.3,
     });
 
-    return response.choices[0]?.message?.content || "Unable to generate AI analysis.";
+    return responseText || "Unable to generate AI analysis.";
   } catch (error) {
     console.error("[ComplianceMonitoring] AI analysis error:", error);
     return "AI analysis unavailable. Please review risks manually using standard compliance procedures.";

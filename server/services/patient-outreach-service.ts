@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { getAuditLogger } from "./integrations/factory";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 export type OutreachType = 
   | "medication_reminder"
@@ -614,18 +609,15 @@ ${contextString}
 Return a JSON object with "subject" and "content" fields.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
+    const responseText = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.7,
-      max_tokens: 300,
-      response_format: { type: "json_object" },
+      maxTokens: 300,
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
 
     await logOutreachActivity(
       "generate_message",

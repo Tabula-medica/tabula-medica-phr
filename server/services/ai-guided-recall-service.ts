@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface OnboardingQuestion {
   id: string;
@@ -330,16 +325,13 @@ Based on this response, generate a brief, helpful follow-up message (1-2 sentenc
 
 Keep the tone warm and supportive. Do not ask any new questions - just provide a brief acknowledgment.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a friendly health record onboarding assistant. Keep responses brief and supportive." },
-          { role: "user", content: prompt },
-        ],
-        max_completion_tokens: 100,
+      const content = await generatePhiSafeText({
+        system: "You are a friendly health record onboarding assistant. Keep responses brief and supportive.",
+        user: prompt,
+        maxTokens: 100,
       });
 
-      return completion.choices[0]?.message?.content || "";
+      return content || "";
     } catch (error) {
       console.error("AI follow-up generation error:", error);
       return "";
@@ -438,16 +430,13 @@ Generate a brief, encouraging summary (2-3 sentences) that:
 
 Keep the tone warm and supportive. This is for patient education only, not medical advice.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a friendly health record onboarding assistant. Keep responses brief, encouraging, and supportive." },
-          { role: "user", content: prompt },
-        ],
-        max_completion_tokens: 150,
+      const content = await generatePhiSafeText({
+        system: "You are a friendly health record onboarding assistant. Keep responses brief, encouraging, and supportive.",
+        user: prompt,
+        maxTokens: 150,
       });
 
-      return completion.choices[0]?.message?.content || "Great job completing your health profile! We've identified several portals that may have your health records.";
+      return content || "Great job completing your health profile! We've identified several portals that may have your health records.";
     } catch (error) {
       console.error("AI summary generation error:", error);
       return "Great job completing your health profile! We've identified several portals that may have your health records.";

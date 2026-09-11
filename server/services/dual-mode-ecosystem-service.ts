@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { generateCrossAppToken, buildDeepLinkUrl } from "./cross-app-link-service";
+import { generatePhiSafeText } from "./ai-gateway";
 
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "united-planet-485003-n7";
 const GCS_TABULA_BUCKET = process.env.GCS_VAULT_BUCKET || "tabula-medica-vault";
@@ -465,41 +466,29 @@ class DualModeEcosystemService {
     let model = "rule-based";
 
     try {
-      const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI();
-
-      const resp = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a financial health analyst for a healthcare savings platform.
+      const respText = await generatePhiSafeText({
+        system: `You are a financial health analyst for a healthcare savings platform.
 Generate 3-5 concise insights about the patient's healthcare spending and savings.
 Focus on: total savings vs retail, projected annual savings, cost optimization opportunities.
 Be encouraging and specific with dollar amounts. Keep each insight to 1-2 sentences.
 Return a JSON array of strings.`,
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              totalSavings,
-              totalSpent,
-              totalRetailCost,
-              savingsBreakdown,
-              careGapsCount: gaps.length,
-              overdueGaps: gaps.filter(g => g.urgency === "overdue").length,
-            }),
-          },
-        ],
+        user: JSON.stringify({
+          totalSavings,
+          totalSpent,
+          totalRetailCost,
+          savingsBreakdown,
+          careGapsCount: gaps.length,
+          overdueGaps: gaps.filter(g => g.urgency === "overdue").length,
+        }),
         temperature: 0.3,
-        max_tokens: 400,
-        response_format: { type: "json_object" },
+        maxTokens: 400,
+        responseMimeType: "application/json",
       });
 
-      const parsed = JSON.parse(resp.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(respText || "{}");
       if (Array.isArray(parsed.insights)) {
         insights = parsed.insights;
-        model = "gpt-4o";
+        model = "vertex";
       }
     } catch (aiErr) {
       console.log(`[DualMode] AI insights unavailable (${String(aiErr).slice(0, 60)}), using rule-based`);

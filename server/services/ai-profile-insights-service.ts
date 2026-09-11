@@ -1,13 +1,8 @@
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { ehrPlatformInfo, type EhrPlatform } from "@shared/schema";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (error) {
-  console.log("[AIProfileInsights] OpenAI client not configured, using fallback responses");
-}
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This information is for educational purposes only and is NOT medical advice. It does not constitute clinical decision support. Always consult with qualified healthcare providers for medical decisions.";
 
@@ -241,17 +236,14 @@ Remember: NO medical advice or recommendations. Educational summary only.`;
   let aiSummary: any = null;
   
   try {
-    if (openai) {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a medical data summarizer. Provide factual summaries only - never give medical advice or recommendations. All output is educational." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1500,
+    if (aiEnabled) {
+      const content = await generatePhiSafeText({
+        system: "You are a medical data summarizer. Provide factual summaries only - never give medical advice or recommendations. All output is educational.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
-      aiSummary = JSON.parse(response.choices[0].message.content || "{}");
+      aiSummary = JSON.parse(content || "{}");
     }
   } catch (error) {
     console.error("[AIProfileInsights] OpenAI error, using fallback:", error);
@@ -326,17 +318,14 @@ NO medical recommendations - educational observations only.`;
   let aiRisks: any = null;
   
   try {
-    if (openai) {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a health risk analyzer. Identify potential risks based on data patterns - never give medical advice. All output is educational." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1500,
+    if (aiEnabled) {
+      const content = await generatePhiSafeText({
+        system: "You are a health risk analyzer. Identify potential risks based on data patterns - never give medical advice. All output is educational.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
-      aiRisks = JSON.parse(response.choices[0].message.content || "{}");
+      aiRisks = JSON.parse(content || "{}");
     }
   } catch (error) {
     console.error("[AIProfileInsights] OpenAI risk assessment error, using fallback:", error);
@@ -460,17 +449,14 @@ NO prescriptive recommendations - educational considerations only.`;
   let aiAdjustments: any = null;
   
   try {
-    if (openai) {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a care plan analyst. Suggest considerations for care plan review - never prescribe or recommend specific treatments. All output is educational." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1500,
+    if (aiEnabled) {
+      const content = await generatePhiSafeText({
+        system: "You are a care plan analyst. Suggest considerations for care plan review - never prescribe or recommend specific treatments. All output is educational.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
-      aiAdjustments = JSON.parse(response.choices[0].message.content || "{}");
+      aiAdjustments = JSON.parse(content || "{}");
     }
   } catch (error) {
     console.error("[AIProfileInsights] OpenAI care plan error, using fallback:", error);

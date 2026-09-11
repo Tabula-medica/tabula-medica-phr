@@ -3,7 +3,10 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { aiFHIRDeepAnalysisEngine } from "./services/ai-fhir-deep-analysis";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -34,7 +37,7 @@ function sanitizeDetails(details: Record<string, unknown>): Record<string, unkno
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   console.log(`[HIPAA_AUDIT] ${JSON.stringify({
     timestamp: new Date().toISOString(),
     action,
@@ -84,7 +87,7 @@ const trendReportSchema = z.object({
 router.post("/analyze", async (req: Request, res: Response) => {
   try {
     const { resourceType, resourceId, resourceData } = analyzeResourceSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("ANALYZE_FHIR_RESOURCE", "fhir_resource", req, { resourceType, resourceId });
 
@@ -139,7 +142,7 @@ router.get("/inconsistencies", async (req: Request, res: Response) => {
 router.post("/inconsistencies/:id/resolve", async (req: Request, res: Response) => {
   try {
     const { notes } = z.object({ notes: z.string().min(1).max(2000) }).parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("RESOLVE_INCONSISTENCY", "inconsistency", req, {
       inconsistencyId: req.params.id,
@@ -179,7 +182,7 @@ router.get("/safety-risks", async (req: Request, res: Response) => {
 
 router.post("/safety-risks/:id/acknowledge", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ACKNOWLEDGE_SAFETY_RISK", "safety_risk", req, { riskId: req.params.id });
 
     const result = await aiFHIRDeepAnalysisEngine.acknowledgeRisk(req.params.id, userId);
@@ -196,7 +199,7 @@ router.post("/safety-risks/:id/acknowledge", async (req: Request, res: Response)
 
 router.post("/strategies/:id/apply", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("APPLY_CORRECTION_STRATEGY", "strategy", req, { strategyId: req.params.id });
 
     const result = await aiFHIRDeepAnalysisEngine.applyStrategy(req.params.id, userId);
@@ -214,7 +217,7 @@ router.post("/strategies/:id/apply", async (req: Request, res: Response) => {
 router.post("/trend-report", async (req: Request, res: Response) => {
   try {
     const { startDate, endDate } = trendReportSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     logHipaaAudit("GENERATE_TREND_REPORT", "trend_report", req, { startDate, endDate });
 

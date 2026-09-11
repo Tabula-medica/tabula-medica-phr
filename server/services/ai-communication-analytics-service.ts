@@ -1,20 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey) {
-      openaiClient = new OpenAI({ apiKey, baseURL });
-      console.log("[AICommunicationAnalytics] OpenAI client configured");
-    } else {
-      console.log("[AICommunicationAnalytics] OpenAI API key not configured");
-    }
-  }
-  return openaiClient;
+function isAiEnabled(): boolean {
+  return true;
 }
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This AI-powered communication analysis is for INFORMATIONAL and OPERATIONAL purposes only. It is NOT a substitute for clinical judgment or diagnosis. All flagged concerns must be reviewed by qualified healthcare professionals. This system does NOT provide clinical decision support.";
@@ -424,26 +411,21 @@ export async function analyzeMessage(
 ): Promise<CommunicationAnalysis> {
   logHipaaAudit("ANALYZE_MESSAGE", userId, message.patientId, `Message ID: ${message.id}, Type: ${message.messageType}`);
   
-  const openai = getOpenAI();
-  if (!openai) {
-    console.log("[CommunicationAnalytics] OpenAI not configured, using fallback analysis");
+  if (!isAiEnabled()) {
+    console.log("[CommunicationAnalytics] AI not configured, using fallback analysis");
     const fallbackResult = buildFallbackAnalysis(message);
     analysisCache.set(message.id, fallbackResult);
-    
+
     if (fallbackResult.urgentFlags.length > 0) {
       urgentFlagsQueue.push({ analysis: fallbackResult, status: "pending" });
     }
-    
+
     return fallbackResult;
   }
-  
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare communication analyst. Analyze patient messages to detect sentiment, identify concerns, and flag urgent issues.
+    const responseText = await generatePhiSafeText({
+      system: `You are a healthcare communication analyst. Analyze patient messages to detect sentiment, identify concerns, and flag urgent issues.
 
 Return a JSON object with:
 {
@@ -481,22 +463,17 @@ Return a JSON object with:
 Flag as CRITICAL: suicidal ideation, chest pain, difficulty breathing, severe allergic reactions, overdose mentions.
 Flag as URGENT: severe pain, medication issues, worsening symptoms, high distress.
 
-IMPORTANT: This analysis is for operational triage only, NOT clinical decision support.`
-        },
-        {
-          role: "user",
-          content: `Analyze this ${message.messageType} message from patient:
+IMPORTANT: This analysis is for operational triage only, NOT clinical decision support.`,
+      user: `Analyze this ${message.messageType} message from patient:
 
 Subject: ${message.metadata?.subject || "N/A"}
 Direction: ${message.direction}
-Message: ${message.content}`
-        }
-      ],
-      response_format: { type: "json_object" },
+Message: ${message.content}`,
+      responseMimeType: "application/json",
       temperature: 0.3
     });
-    
-    const parsed = JSON.parse(response.choices[0].message.content || "{}");
+
+    const parsed = JSON.parse(responseText || "{}");
     
     const analysis: CommunicationAnalysis = {
       messageId: message.id,
@@ -1270,9 +1247,7 @@ export async function generateResponseTemplate(
 ): Promise<{ templates: ResponseTemplate[]; disclaimer: string }> {
   logHipaaAudit("GENERATE_RESPONSE_TEMPLATE", userId, patientMessage.patientId, `Message ID: ${patientMessage.id}`);
   
-  const openai = getOpenAI();
-  
-  if (openai) {
+  if (isAiEnabled()) {
     try {
       const prompt = `You are an AI assistant helping healthcare staff respond to patient messages. Generate 3 response templates for the following patient message.
 
@@ -1303,14 +1278,12 @@ Requirements:
 - Set requiresReview to true for any response involving clinical content
 - Provide varied tones: one empathetic, one professional, one friendly`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
         temperature: 0.7
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const templates: ResponseTemplate[] = (parsed.templates || []).map((t: any, idx: number) => ({
@@ -1485,10 +1458,9 @@ export async function generatePatientMessageSummary(
   }
   
   // AI insights
-  const openai = getOpenAI();
   let aiInsights: string[] = [];
-  
-  if (openai && analyses.length > 0) {
+
+  if (isAiEnabled() && analyses.length > 0) {
     try {
       const summaryPrompt = `Based on the following patient communication analysis, provide 3-5 brief operational insights (NOT clinical advice):
 
@@ -1501,14 +1473,12 @@ Message Count: ${messages.length}
 Provide insights in JSON format: { "insights": ["insight1", "insight2", ...] }
 Focus on communication patterns, engagement suggestions, and operational improvements.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: summaryPrompt }],
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        user: summaryPrompt,
+        responseMimeType: "application/json",
         temperature: 0.5
       });
-      
-      const content = response.choices[0]?.message?.content;
+
       if (content) {
         const parsed = JSON.parse(content);
         aiInsights = parsed.insights || [];

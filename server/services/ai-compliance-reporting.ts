@@ -1,11 +1,9 @@
-import OpenAI from "openai";
 import { createHash, randomUUID } from "crypto";
 import PDFDocument from "pdfkit";
 import { Writable } from "stream";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_REPORTING_PROMPT = `You are a healthcare compliance reporting specialist focused on data governance and regulatory compliance.
 
@@ -477,7 +475,7 @@ class AIComplianceReportingService {
     let aiInsights: string[] = [];
     let executiveOverview = "";
 
-    if (process.env.OPENAI_API_KEY && openai) {
+    if (aiEnabled) {
       try {
         const context = sanitizePhi(JSON.stringify({
           reportType,
@@ -495,20 +493,13 @@ class AIComplianceReportingService {
           regulatoryStatus: regulatoryCompliance.map(r => ({ framework: r.framework, score: r.complianceScore }))
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_REPORTING_PROMPT },
-            {
-              role: "user",
-              content: `Generate an executive summary and 4-5 key insights for this compliance report data. Format as JSON with "overview" (2-3 sentences) and "insights" (array of strings):\n\n${context}`
-            }
-          ],
-          max_tokens: 600,
-          temperature: 0.5
-        });
-
-        const content = response.choices[0]?.message?.content || "";
+        const content = (await generatePhiSafeText({
+          system: NO_CDS_REPORTING_PROMPT,
+          user: `Generate an executive summary and 4-5 key insights for this compliance report data. Format as JSON with "overview" (2-3 sentences) and "insights" (array of strings):\n\n${context}`,
+          maxTokens: 600,
+          temperature: 0.5,
+          responseMimeType: "application/json"
+        })) || "";
         try {
           const parsed = JSON.parse(content.replace(/```json\n?|\n?```/g, ""));
           executiveOverview = parsed.overview || "";

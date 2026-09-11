@@ -1,16 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
-if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  console.log("[AIFHIRReportAutomation] OpenAI client initialized for AI report generation");
-}
-
-console.log("[AIFHIRReportAutomation] Service initialized with NO-CDS compliance");
+console.log("[AIFHIRReportAutomation] Service initialized with NO-CDS compliance (Vertex/BAA)");
 console.log("[AIFHIRReportAutomation] Report types: patient_summary, population_health, data_quality, governance_compliance");
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This report is for INFORMATIONAL and EDUCATIONAL purposes only. It does NOT constitute medical advice, diagnosis, or clinical decision support. All healthcare decisions must be made by qualified healthcare providers.";
@@ -1530,17 +1521,13 @@ Provide 3 key insights for clinician review. Focus on:
 
 Format as JSON array with: type, title, description, confidence (0-1), actionItems (array)`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a clinical informatics AI assistant. Provide insights for care coordination. Always include NO-CDS disclaimer." },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a clinical informatics AI assistant. Provide insights for care coordination. Always include NO-CDS disclaimer.",
+        user: prompt,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const insights = parsed.insights || [parsed];
@@ -1583,17 +1570,13 @@ Provide 3 strategic population health insights focusing on:
 
 Format as JSON array with: type, title, description, confidence (0-1), actionItems (array)`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a population health analytics AI. Provide strategic insights for healthcare administrators." },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a population health analytics AI. Provide strategic insights for healthcare administrators.",
+        user: prompt,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const insights = parsed.insights || [parsed];
@@ -1637,17 +1620,13 @@ Provide 3 data quality improvement insights focusing on:
 
 Format as JSON array with: type, title, description, confidence (0-1), actionItems (array)`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a healthcare data quality expert. Provide actionable insights for improving FHIR data quality." },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare data quality expert. Provide actionable insights for improving FHIR data quality.",
+        user: prompt,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const insights = parsed.insights || [parsed];
@@ -1692,17 +1671,13 @@ Provide 3 compliance and governance insights focusing on:
 
 Format as JSON array with: type, title, description, confidence (0-1), actionItems (array)`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a healthcare compliance and governance expert. Provide regulatory compliance insights." },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare compliance and governance expert. Provide regulatory compliance insights.",
+        user: prompt,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const insights = parsed.insights || [parsed];

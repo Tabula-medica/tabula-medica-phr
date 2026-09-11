@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -328,23 +328,12 @@ class FHIRAPIGatewaySecurityService {
   private threatPatterns: Map<string, ThreatPattern> = new Map();
   private threatEvents: ThreatEvent[] = [];
   private aiAnalyses: AIThreatAnalysis[] = [];
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
 
   constructor() {
-    this.initializeOpenAI();
     this.initializeThreatPatterns();
     this.initializeSampleData();
     console.log("[FHIRGatewaySecurity] Service initialized with SMART app controls and AI threat detection");
-  }
-
-  private initializeOpenAI() {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      console.log("[FHIRGatewaySecurity] OpenAI client initialized for AI threat detection");
-    }
   }
 
   private initializeSampleData() {
@@ -915,7 +904,7 @@ class FHIRAPIGatewaySecurityService {
           resolved: false
         };
 
-        if (pattern.aiEnhanced && this.openai) {
+        if (pattern.aiEnhanced && this.aiEnabled) {
           try {
             event.aiAnalysis = await this.getAIThreatAnalysis(pattern, matchingRequests);
           } catch (error) {
@@ -984,7 +973,7 @@ class FHIRAPIGatewaySecurityService {
   }
 
   private async getAIThreatAnalysis(pattern: ThreatPattern, requests: GatewayAuditLog[]): Promise<string> {
-    if (!this.openai) return "";
+    if (!this.aiEnabled) return "";
 
     const prompt = `Analyze this potential security threat in a healthcare FHIR API:
 
@@ -1009,17 +998,14 @@ Provide a concise threat analysis including:
 Keep response under 200 words, focused on actionable insights.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a healthcare security analyst specializing in FHIR API protection and HIPAA compliance. Provide concise, actionable threat analysis." },
-          { role: "user", content: prompt }
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare security analyst specializing in FHIR API protection and HIPAA compliance. Provide concise, actionable threat analysis.",
+        user: prompt,
         temperature: 0.3,
-        max_tokens: 300
+        maxTokens: 300,
       });
 
-      return response.choices[0]?.message?.content || "";
+      return content || "";
     } catch (error) {
       console.error("[FHIRGatewaySecurity] AI analysis error:", error);
       return "";
@@ -1076,7 +1062,7 @@ Keep response under 200 words, focused on actionable insights.`;
       analysis.findings.recommendations.push("Multiple high-severity threats detected - immediate investigation recommended");
     }
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
         const prompt = `Analyze 24-hour FHIR API security metrics:
 - Total requests: ${last24h.length}
@@ -1097,17 +1083,12 @@ Provide a security summary with:
 
 Keep response under 250 words.`;
 
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: "You are a healthcare API security analyst. Provide actionable security insights for HIPAA-compliant FHIR APIs." },
-            { role: "user", content: prompt }
-          ],
+        analysis.detailedAnalysis = await generatePhiSafeText({
+          system: "You are a healthcare API security analyst. Provide actionable security insights for HIPAA-compliant FHIR APIs.",
+          user: prompt,
           temperature: 0.3,
-          max_tokens: 400
-        });
-
-        analysis.detailedAnalysis = response.choices[0]?.message?.content || "";
+          maxTokens: 400,
+        }) || "";
       } catch (error) {
         console.error("[FHIRGatewaySecurity] AI report generation error:", error);
         analysis.detailedAnalysis = "AI analysis unavailable. Manual review recommended based on metrics above.";

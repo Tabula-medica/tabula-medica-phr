@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT, sanitizeNoCDSObject } from "../security/no-cds-guardrails";
 import type { Patient, Medication, MedicalRecord, Appointment, LabResult } from "@shared/schema";
@@ -142,12 +143,8 @@ export async function generateHealthRecommendations(patientId: string): Promise<
       ? Math.floor((Date.now() - new Date(context.patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
       : undefined;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare recommendation AI that creates personalized, evidence-based health recommendations for patients.
+    const responseText = await generatePhiSafeText({
+      system: `You are a healthcare recommendation AI that creates personalized, evidence-based health recommendations for patients.
 
 Generate exactly 6 personalized health recommendations based on the patient's health profile.
 Each recommendation should be actionable, specific, and tailored to their conditions and medications.
@@ -167,25 +164,20 @@ Return a JSON object with a "recommendations" array containing objects with thes
 - evidenceLevel: "strong", "moderate", or "emerging"
 - personalizationFactors: array of 1-2 factors that made this recommendation specific to them
 
-Use patient-friendly language. Avoid medical jargon. Be encouraging but realistic.`
-        },
-        {
-          role: "user",
-          content: `Generate personalized health recommendations for this patient:
+Use patient-friendly language. Avoid medical jargon. Be encouraging but realistic.`,
+      user: `Generate personalized health recommendations for this patient:
 
 Patient Age: ${patientAge || "Unknown"}
 Active Conditions: ${conditionsList}
 Current Medications: ${medicationsList}
 Recent Lab Results: ${labSummary}
 
-Create recommendations that are specifically relevant to their health situation.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+Create recommendations that are specifically relevant to their health situation.`,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
+    const result = parseAIResponse(responseText);
     return result.recommendations || getDefaultRecommendations();
   } catch (error: any) {
     console.error("[AI Engagement] Error generating health recommendations:", error?.message || error);
@@ -288,12 +280,8 @@ export async function assessPatientRisk(patientId: string): Promise<PatientRiskA
     const abnormalLabs = context.labResults.filter(l => l.status !== "normal").slice(0, 5);
     const labInfo = abnormalLabs.map(l => `${l.testName}: ${l.status}`).join(", ") || "None abnormal";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare risk assessment AI that identifies patients at risk of non-adherence and health complications.
+    const responseText = await generatePhiSafeText({
+      system: `You are a healthcare risk assessment AI that identifies patients at risk of non-adherence and health complications.
 
 Analyze the patient data and generate a comprehensive risk assessment.
 
@@ -316,11 +304,8 @@ Return a JSON object with:
   - description: what to do
   - channel: "app", "sms", "email", or "call"
 
-Be specific and actionable. Focus on modifiable risk factors.`
-        },
-        {
-          role: "user",
-          content: `Assess risk for this patient:
+Be specific and actionable. Focus on modifiable risk factors.`,
+      user: `Assess risk for this patient:
 
 Active Conditions: ${conditionsList}
 Current Medications: ${medicationsList}
@@ -328,14 +313,12 @@ Recent Adherence Rates: ${adherenceInfo}
 Abnormal Lab Results: ${labInfo}
 Age: ${context.patient.dateOfBirth ? Math.floor((Date.now() - new Date(context.patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "Unknown"}
 
-Identify non-adherence risks and recommend targeted interventions.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1500,
+Identify non-adherence risks and recommend targeted interventions.`,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
+    const result = parseAIResponse(responseText);
     return {
       patientId,
       overallRiskScore: result.overallRiskScore || 30,
@@ -490,12 +473,8 @@ export async function generatePersonalizedEducation(
       ? `Generate content specifically about: ${topic}`
       : `Generate content relevant to the patient's conditions: ${conditions.join(", ") || "general wellness"}`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a health education content creator specializing in patient-friendly medical information.
+    const responseText = await generatePhiSafeText({
+      system: `You are a health education content creator specializing in patient-friendly medical information.
 
 Create personalized health education content that is:
 - Written at an 8th-grade reading level
@@ -518,11 +497,8 @@ Return a JSON object with an "education" array containing 3 educational pieces, 
 - estimatedReadTime: minutes to read (integer)
 - personalizationNote: brief note on why this was selected for them
 
-IMPORTANT: Use plain language, avoid medical jargon, and explain any technical terms.`
-        },
-        {
-          role: "user",
-          content: `Create personalized health education for this patient:
+IMPORTANT: Use plain language, avoid medical jargon, and explain any technical terms.`,
+      user: `Create personalized health education for this patient:
 
 Patient Conditions: ${conditions.join(", ") || "None specified"}
 Current Medications: ${medications.join(", ") || "None"}
@@ -532,14 +508,12 @@ ${topicContext}
 
 Format: ${preferredFormat}
 
-Make the content specifically relevant to their health situation and easy to understand.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 3000,
+Make the content specifically relevant to their health situation and easy to understand.`,
+      responseMimeType: "application/json",
+      maxTokens: 3000,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
+    const result = parseAIResponse(responseText);
     return result.education || getDefaultEducation(preferredFormat);
   } catch (error: any) {
     console.error("[AI Engagement] Error generating personalized education:", error?.message || error);
@@ -783,12 +757,8 @@ export async function getPersonalizedEducationContent(
       ? Math.floor((Date.now() - new Date(context.patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
       : undefined;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare education recommendation AI that suggests relevant health education content based on a patient's conditions, medications, and needs.
+    const responseText = await generatePhiSafeText({
+      system: `You are a healthcare education recommendation AI that suggests relevant health education content based on a patient's conditions, medications, and needs.
 
 Generate ${options?.maxResults || 6} personalized health education resource recommendations.
 
@@ -810,25 +780,20 @@ Return a JSON object with a "recommendations" array containing objects with:
 
 ${options?.focusArea ? `Focus primarily on the "${options.focusArea}" category.` : ""}
 Prioritize content that addresses the patient's specific conditions and medications.
-Use plain language appropriate for patients.`
-        },
-        {
-          role: "user",
-          content: `Generate personalized education recommendations for:
+Use plain language appropriate for patients.`,
+      user: `Generate personalized education recommendations for:
 
 Age: ${patientAge || "Unknown"}
 Active Conditions: ${conditionsList}
 Current Medications: ${medicationsList}
 Recent Lab Concerns: ${recentLabIssues}
 
-Create highly relevant, actionable education content recommendations.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2500,
+Create highly relevant, actionable education content recommendations.`,
+      responseMimeType: "application/json",
+      maxTokens: 2500,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
+    const result = parseAIResponse(responseText);
     const recommendations = (result.recommendations || []).map((r: any) => ({
       ...r,
       lastUpdated: new Date().toISOString(),
@@ -988,12 +953,8 @@ export async function generateProactiveOutreach(patientId: string): Promise<Proa
       .filter(Boolean)
       .join(", ") || "None identified";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a compassionate healthcare outreach AI that creates personalized support messages for patients at risk of non-adherence.
+    const responseText = await generatePhiSafeText({
+      system: `You are a compassionate healthcare outreach AI that creates personalized support messages for patients at risk of non-adherence.
 
 Create a warm, supportive outreach message that:
 1. Acknowledges any challenges they might be facing
@@ -1011,11 +972,8 @@ Return a JSON object with:
 - callToAction: object with "text" (button/link text), "type" ("link", "button", or "schedule_call"), and optional "url"
 - supportResources: array of 2-3 objects with "title", "description", and "url" for helpful resources
 
-Be empathetic and solution-focused. Avoid guilt or blame language.`
-        },
-        {
-          role: "user",
-          content: `Create outreach for ${patientName}:
+Be empathetic and solution-focused. Avoid guilt or blame language.`,
+      user: `Create outreach for ${patientName}:
 
 Conditions: ${conditionsList}
 Medications: ${medicationsList}
@@ -1024,15 +982,13 @@ Risk Level: ${riskAssessment.riskLevel} (score: ${riskAssessment.overallRiskScor
 Non-Adherence Risk: ${riskAssessment.nonAdherenceRisk.level} (score: ${riskAssessment.nonAdherenceRisk.score})
 Top Risk Factors: ${riskAssessment.riskFactors.slice(0, 2).map(f => f.factor).join(", ") || "None specific"}
 
-Create a supportive outreach that addresses their specific situation.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1200,
+Create a supportive outreach that addresses their specific situation.`,
+      responseMimeType: "application/json",
+      maxTokens: 1200,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
-    
+    const result = parseAIResponse(responseText);
+
     return {
       id: `outreach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       patientId,
@@ -1205,12 +1161,8 @@ export async function generateHealthGoals(patientId: string): Promise<HealthGoal
     const abnormalLabs = context.labResults.filter(l => l.status !== "normal").slice(0, 3);
     const labConcerns = abnormalLabs.map(l => `${l.testName}: ${l.value} ${l.unit || ""} (${l.status})`).join("; ") || "None";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare goal-setting AI that creates personalized, achievable health goals for patients.
+    const responseText = await generatePhiSafeText({
+      system: `You are a healthcare goal-setting AI that creates personalized, achievable health goals for patients.
 
 Generate 4-6 personalized health goals based on the patient's conditions and needs.
 
@@ -1231,25 +1183,20 @@ Return a JSON object with a "goals" array containing objects with:
 
 Make goals SMART: Specific, Measurable, Achievable, Relevant, Time-bound.
 Focus on what's most impactful for this patient's specific situation.
-Use encouraging, empowering language.`
-        },
-        {
-          role: "user",
-          content: `Create personalized health goals for this patient:
+Use encouraging, empowering language.`,
+      user: `Create personalized health goals for this patient:
 
 Conditions: ${conditionsList}
 Medications: ${medicationsList}
 Lab Concerns: ${labConcerns}
 
-Generate achievable goals that address their specific health needs.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+Generate achievable goals that address their specific health needs.`,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
-    
+    const result = parseAIResponse(responseText);
+
     return (result.goals || []).map((g: any) => ({
       ...g,
       patientId,

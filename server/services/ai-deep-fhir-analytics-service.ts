@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "INFORMATIONAL ONLY: This AI-generated analytics output is for DATA GOVERNANCE, OPERATIONAL PLANNING, and QUALITY IMPROVEMENT purposes ONLY. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All predictions and analyses must be reviewed by qualified personnel and validated before any clinical application.";
 
@@ -305,8 +300,7 @@ function generateId(): string {
 }
 
 function isOpenAIConfigured(): boolean {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  return !!(apiKey && apiKey.length > 10);
+  return true;
 }
 
 async function logAudit(userId: string, action: string, resourceType: string, success: boolean, metadata: Record<string, unknown>): Promise<void> {
@@ -516,16 +510,13 @@ Provide a JSON response with population-level predictive analytics including out
 
     if (isOpenAIConfigured()) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            { role: "system", content: "You are a healthcare analytics AI specializing in predictive modeling based on FHIR data. Provide structured JSON responses for clinical predictions. Always include disclaimers that this is not clinical decision support." },
-            { role: "user", content: analysisPrompt },
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 2000,
+        const responseText = await generatePhiSafeText({
+          system: "You are a healthcare analytics AI specializing in predictive modeling based on FHIR data. Provide structured JSON responses for clinical predictions. Always include disclaimers that this is not clinical decision support.",
+          user: analysisPrompt,
+          responseMimeType: "application/json",
+          maxTokens: 2000,
         });
-        aiResponse = JSON.parse(response.choices[0]?.message?.content || "{}");
+        aiResponse = JSON.parse(responseText || "{}");
       } catch (error) {
         console.error("[DeepFHIRAnalytics] OpenAI error:", error);
       }
@@ -675,12 +666,8 @@ Provide a JSON response with population-level predictive analytics including out
 
     if (isOpenAIConfigured()) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [
-            {
-              role: "system",
-              content: `You are a FHIR data query assistant. Parse natural language queries into structured FHIR search parameters.
+        const responseText = await generatePhiSafeText({
+          system: `You are a FHIR data query assistant. Parse natural language queries into structured FHIR search parameters.
 Return JSON with:
 - queryType: one of patient_search, population_analysis, trend_query, comparison, aggregation, anomaly_search
 - entities: array of {type, value, confidence}
@@ -690,13 +677,11 @@ Return JSON with:
 - fhirResourceType: the primary FHIR resource type to query
 - fhirSearchParams: object with FHIR search parameter key-value pairs
 - explanation: human readable explanation of the query`,
-            },
-            { role: "user", content: query },
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 1500,
+          user: query,
+          responseMimeType: "application/json",
+          maxTokens: 1500,
         });
-        const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(responseText || "{}");
         parsedIntent = {
           queryType: parsed.queryType || "patient_search",
           entities: parsed.entities || [],

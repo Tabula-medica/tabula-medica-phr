@@ -1,8 +1,8 @@
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { unifiedNotificationService } from "./unified-notification-service";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: AI-generated insights are for INFORMATIONAL and OPERATIONAL purposes only. They do NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals.";
 
@@ -489,7 +489,7 @@ export async function generateAIInsightsForPatient(
 
   const existingInsights = insightStore.get(patientId) || [];
   
-  if (!openai) {
+  if (!aiEnabled) {
     return existingInsights;
   }
 
@@ -523,17 +523,14 @@ Respond in JSON format:
   ]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You are a healthcare operations assistant. You ONLY suggest administrative and care coordination tasks. You NEVER provide clinical advice or treatment recommendations." },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 500,
-      response_format: { type: "json_object" }
+    const content = await generatePhiSafeText({
+      system: "You are a healthcare operations assistant. You ONLY suggest administrative and care coordination tasks. You NEVER provide clinical advice or treatment recommendations.",
+      user: prompt,
+      maxTokens: 500,
+      responseMimeType: "application/json"
     });
 
-    const aiResponse = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const aiResponse = JSON.parse(content || "{}");
     
     if (aiResponse.insights && Array.isArray(aiResponse.insights)) {
       const now = new Date();

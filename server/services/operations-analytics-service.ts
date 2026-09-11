@@ -1,14 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
 
 export interface StaffingPrediction {
   id: string;
@@ -677,31 +668,22 @@ class OperationsAnalyticsService {
     const avgWalkIns = sameDayData.reduce((sum, d) => sum + d.walkIns, 0) / Math.max(sameDayData.length, 1);
 
     try {
-      const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare operations analyst providing staffing predictions.
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare operations analyst providing staffing predictions.
 Based on historical data, provide staffing recommendations.
 Return JSON with: insights (string with 2-3 sentences of analysis).
-This is for INFORMATIONAL purposes only, not clinical decision support.`
-          },
-          {
-            role: "user",
-            content: `Analyze staffing needs for ${dayOfWeek}, ${targetDate}:
+This is for INFORMATIONAL purposes only, not clinical decision support.`,
+        user: `Analyze staffing needs for ${dayOfWeek}, ${targetDate}:
 Historical average appointments: ${Math.round(avgAppointments)}
 Historical average walk-ins: ${Math.round(avgWalkIns)}
 Day type: ${isWeekend ? "Weekend" : "Weekday"}
 
-Provide insights on staffing optimization.`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 300
+Provide insights on staffing optimization.`,
+        responseMimeType: "application/json",
+        maxTokens: 300
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       const prediction: StaffingPrediction = {
         id: `pred-${Date.now()}`,
@@ -820,35 +802,26 @@ Provide insights on staffing optimization.`
     }
 
     try {
-      const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare financial analyst identifying cost efficiency opportunities.
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare financial analyst identifying cost efficiency opportunities.
 Analyze the cost data and provide actionable recommendations.
 Return JSON with: analysis (string with 3-4 sentences), focusAreas (array of 3 strings).
-This is for INFORMATIONAL purposes only, not financial advice.`
-          },
-          {
-            role: "user",
-            content: `Analyze operational costs:
+This is for INFORMATIONAL purposes only, not financial advice.`,
+        user: `Analyze operational costs:
 Total Operating Cost: $${costData.totalOperatingCost.toLocaleString()}
 Cost Per Patient Visit: $${costData.costPerPatientVisit}
 Labor Cost Ratio: ${(costData.laborCostRatio * 100).toFixed(1)}%
 Supply Utilization: ${(costData.supplyUtilizationRate * 100).toFixed(1)}%
 
 Categories with variance:
-${costData.categories.filter(c => Math.abs(c.variancePercentage) > 2).map(c => 
+${costData.categories.filter(c => Math.abs(c.variancePercentage) > 2).map(c =>
   `- ${c.name}: ${c.variancePercentage > 0 ? '+' : ''}${c.variancePercentage.toFixed(1)}% vs budget`
-).join('\n')}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 400
+).join('\n')}`,
+        responseMimeType: "application/json",
+        maxTokens: 400
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
       const topOpportunities = costData.efficiencyOpportunities.slice(0, 3);
       const totalSavings = topOpportunities.reduce((sum, o) => sum + o.potentialSavings, 0);
 

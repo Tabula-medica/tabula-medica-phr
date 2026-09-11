@@ -25,6 +25,9 @@ steps:
 
         const NO_CDS_REQUIRED_DIRS = ['server/services'];
         const CDS_PATTERN = /NO.?CDS|no clinical decision support/i;
+        // P1-1.4: provider-neutral LLM-call detection so Vertex files no longer
+        // skip the NO-CDS check (was 'openai'/'gpt-' only).
+        const AI_CALL_PATTERN = /chat\.completions\.create|generateContent|generatePhiSafeText|\.invoke\(|VertexAI|getGenerativeModel|\bopenai\b|OpenAI|gpt-/i;
 
         let aiFiles = 0;
         let compliantFiles = 0;
@@ -39,7 +42,7 @@ steps:
             if (stat.isDirectory()) { checkDir(fullPath); continue; }
             if (!file.endsWith('.ts') && !file.endsWith('.js')) continue;
             const content = fs.readFileSync(fullPath, 'utf8');
-            if (content.includes('openai') || content.includes('OpenAI') || content.includes('gpt-')) {
+            if (AI_CALL_PATTERN.test(content)) {
               aiFiles++;
               if (CDS_PATTERN.test(content)) {
                 compliantFiles++;

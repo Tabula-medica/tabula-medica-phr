@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { v4 as uuidv4 } from "uuid";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export type PHICategory =
   | "name"
@@ -264,12 +259,8 @@ class AIPHIAnonymizationService {
     const existingPaths = new Set(existingDetections.map((d) => d.path));
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a HIPAA compliance expert. Analyze FHIR resources and identify any PHI (Protected Health Information) that may not be in standard locations. Focus on:
+      const content = await generatePhiSafeText({
+        system: `You are a HIPAA compliance expert. Analyze FHIR resources and identify any PHI (Protected Health Information) that may not be in standard locations. Focus on:
 1. Names hidden in display fields or notes
 2. Dates that could identify individuals
 3. Location information in unexpected fields
@@ -282,17 +273,11 @@ Return a JSON object with a "detections" array containing objects with:
 - category: One of: name, address, date, phone, fax, email, ssn, mrn, healthPlanId, accountNumber, license, vehicleId, deviceId, url, ipAddress, biometric, photo, uniqueIdentifier
 - confidence: 0-1 confidence score
 - reason: Brief explanation`,
-          },
-          {
-            role: "user",
-            content: `Analyze this FHIR resource for hidden PHI. Already detected paths: ${Array.from(existingPaths).join(", ")}\n\nResource:\n${JSON.stringify(resource, null, 2)}`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        user: `Analyze this FHIR resource for hidden PHI. Already detected paths: ${Array.from(existingPaths).join(", ")}\n\nResource:\n${JSON.stringify(resource, null, 2)}`,
+        responseMimeType: "application/json",
         temperature: 0.1,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return [];
 
       const parsed = JSON.parse(content);
@@ -464,12 +449,8 @@ Return a JSON object with a "detections" array containing objects with:
     const detections = await this.detectPHI(resource);
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare data privacy expert specializing in FHIR data anonymization. Provide smart de-identification suggestions that:
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare data privacy expert specializing in FHIR data anonymization. Provide smart de-identification suggestions that:
 1. Comply with HIPAA Safe Harbor requirements
 2. Preserve clinical utility for research
 3. Maintain referential integrity
@@ -480,10 +461,7 @@ For each PHI field, suggest the best anonymization approach and explain the trad
 Return a JSON object with:
 - suggestions: Array of suggestion objects with path, originalValue, suggestedValue, strategy, rationale, utilityImpact
 - overallRecommendation: Brief summary of the anonymization approach`,
-          },
-          {
-            role: "user",
-            content: `Analyze this FHIR resource and provide smart anonymization suggestions.
+        user: `Analyze this FHIR resource and provide smart anonymization suggestions.
 
 PHI Detected:
 ${JSON.stringify(detections, null, 2)}
@@ -492,13 +470,10 @@ Fields to preserve if possible: ${preserveFields.join(", ")}
 
 Resource:
 ${JSON.stringify(resource, null, 2)}`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return { suggestions: [], overallRecommendation: "Unable to generate suggestions" };
       }

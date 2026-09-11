@@ -1,18 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: These reminders are for INFORMATIONAL AND ADMINISTRATIVE PURPOSES ONLY. They do NOT constitute medical advice, clinical decision support, or treatment recommendations. Always consult with your healthcare provider for medical decisions.";
-
-let openai: OpenAI | null = null;
-function getOpenAI(): OpenAI | null {
-  if (!openai && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openai;
-}
 
 export type ReminderType = "appointment" | "medication" | "preventive_care" | "follow_up" | "wellness" | "lab_result" | "prescription_refill" | "health_goal";
 export type ReminderChannel = "email" | "sms" | "push" | "in_app";
@@ -363,42 +352,28 @@ async function generateAIPersonalizedMessage(
   template: ReminderTemplate,
   patientContext: any
 ): Promise<string> {
-  const client = getOpenAI();
-  if (!client) {
-    return reminder.message;
-  }
-  
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare communication assistant creating personalized patient reminders.
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare communication assistant creating personalized patient reminders.
 Guidelines:
 - Be warm, supportive, and encouraging
 - Keep messages concise (under 200 characters for SMS, under 500 for email)
 - Include any relevant context about the patient's health journey
 - Match the tone to the reminder priority and type
 - Never provide medical advice
-${NO_CDS_DISCLAIMER}`
-        },
-        {
-          role: "user",
-          content: `Create a personalized reminder message:
+${NO_CDS_DISCLAIMER}`,
+      user: `Create a personalized reminder message:
 Type: ${reminder.type}
 Priority: ${reminder.priority}
 Original message: ${reminder.message}
 Patient name: ${reminder.patientName}
 Template enhancement prompt: ${template.aiEnhancementPrompt || "Make it friendly and helpful"}
-Patient context: ${JSON.stringify(patientContext)}`
-        }
-      ],
-      max_tokens: 200,
-      temperature: 0.7
+Patient context: ${JSON.stringify(patientContext)}`,
+      maxTokens: 200,
+      temperature: 0.7,
     });
-    
-    return response.choices[0]?.message?.content || reminder.message;
+
+    return content || reminder.message;
   } catch (error) {
     console.error("[EnhancedReminders] AI personalization error:", error);
     return reminder.message;
@@ -712,40 +687,29 @@ export async function getReminderAnalytics(userId: string): Promise<ReminderAnal
     deliveryRate: stats!.sent > 0 ? (stats!.delivered / stats!.sent) * 100 : 0
   }));
   
-  const client = getOpenAI();
   let aiInsights: string[] = [
     "SMS reminders have the highest response rate at 78%",
     "Morning reminders (8-10 AM) show 23% better engagement",
     "Medication reminders have 45% higher acknowledgment than wellness reminders",
     "Consider increasing advance notice for preventive care reminders"
   ];
-  
-  if (client && allReminders.length > 5) {
+
+  if (allReminders.length > 5) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a healthcare analytics assistant. Provide 3-4 brief insights about patient reminder performance. Keep each insight to one sentence."
-          },
-          {
-            role: "user",
-            content: `Analyze these reminder statistics:
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare analytics assistant. Provide 3-4 brief insights about patient reminder performance. Keep each insight to one sentence.",
+        user: `Analyze these reminder statistics:
 Total: ${allReminders.length}
 By type: ${JSON.stringify(byType)}
 By status: ${JSON.stringify(byStatus)}
 Delivery rate: ${sentReminders.length > 0 ? (acknowledgedReminders.length / sentReminders.length * 100).toFixed(1) : 0}%
 Action rate: ${sentReminders.length > 0 ? (actionTakenReminders.length / sentReminders.length * 100).toFixed(1) : 0}%
 
-Provide actionable insights to improve reminder effectiveness.`
-          }
-        ],
-        max_tokens: 200,
-        temperature: 0.3
+Provide actionable insights to improve reminder effectiveness.`,
+        maxTokens: 200,
+        temperature: 0.3,
       });
-      
-      const content = response.choices[0]?.message?.content;
+
       if (content) {
         aiInsights = content.split('\n').filter(line => line.trim().length > 0).slice(0, 4);
       }

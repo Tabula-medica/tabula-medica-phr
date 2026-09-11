@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import type { Patient, VitalSign, LabResult, MedicalRecord, Problem } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface VitalTrend {
   type: string;
@@ -275,12 +270,8 @@ export async function analyzePatientHealth(patientId: string): Promise<Monitorin
   if (abnormalVitals.length > 0 || abnormalLabs.length > 0) overallRisk = "moderate";
   if (abnormalVitals.length >= 2 || abnormalLabs.length >= 2) overallRisk = "high";
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a clinical decision support system analyzing patient monitoring data for early signs of health deterioration.
+  const responseText = await generatePhiSafeText({
+    system: `You are a clinical decision support system analyzing patient monitoring data for early signs of health deterioration.
 
 Return a JSON object with:
 - alerts: array of 0-3 alerts if concerning patterns detected, each with:
@@ -301,29 +292,24 @@ Consider:
 - Trends over time, not just single readings
 - Combinations of findings (e.g., elevated BP + increased heart rate)
 - Patient's underlying conditions
-- Rate of change matters for deterioration detection`
-      },
-      {
-        role: "user",
-        content: `Analyze health status for patient with:
+- Rate of change matters for deterioration detection`,
+    user: `Analyze health status for patient with:
 Conditions: ${[...context.conditions.map(c => c.title), ...context.problems.map(p => p.name)].join(", ") || "none"}
 
 Vital Sign Trends:
-${vitalTrends.map(t => 
+${vitalTrends.map(t =>
   `- ${t.type}: ${t.currentValue} ${t.unit} (${t.trend}, ${t.changePercent}% change, ${t.isNormal ? "normal" : "ABNORMAL"})`
 ).join("\n")}
 
 Recent Lab Results:
-${context.labResults.map(l => 
+${context.labResults.map(l =>
   `- ${l.testName}: ${l.value} ${l.unit} (range: ${l.referenceRange || 'N/A'}, ${l.status})`
-).join("\n")}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+).join("\n")}`,
+    responseMimeType: "application/json",
+    maxTokens: 2000,
   });
 
-  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const result = JSON.parse(responseText || "{}");
 
   const alerts: DeteriorationAlert[] = (result.alerts || []).map((a: any, idx: number) => ({
     id: `alert_${Date.now()}_${idx}`,
@@ -362,12 +348,8 @@ export async function generateHealthSnapshot(patientId: string): Promise<HealthS
   const context = await getPatientMonitoringContext(patientId);
   const vitalTrends = analyzeVitalTrends(context.vitals);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are creating a patient-friendly health snapshot summary. Use simple language that patients can understand.
+  const responseText = await generatePhiSafeText({
+    system: `You are creating a patient-friendly health snapshot summary. Use simple language that patients can understand.
 
 Return a JSON object with:
 - summary: string (2-3 sentences overall health summary for the patient)
@@ -380,25 +362,20 @@ Be:
 - Encouraging but honest
 - Clear about what's good and what needs attention
 - Specific about action items
-- Avoid medical jargon`
-      },
-      {
-        role: "user",
-        content: `Create a health snapshot for a patient with:
+- Avoid medical jargon`,
+    user: `Create a health snapshot for a patient with:
 Conditions: ${[...context.conditions.map(c => c.title), ...context.problems.map(p => p.name)].join(", ") || "none"}
 
 Recent Vitals:
 ${vitalTrends.map(t => `- ${t.type}: ${t.currentValue} ${t.unit} (${t.isNormal ? "normal" : "needs attention"})`).join("\n")}
 
 Recent Labs:
-${context.labResults.slice(0, 5).map(l => `- ${l.testName}: ${l.value} ${l.unit} (${l.status})`).join("\n")}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 1500,
+${context.labResults.slice(0, 5).map(l => `- ${l.testName}: ${l.value} ${l.unit} (${l.status})`).join("\n")}`,
+    responseMimeType: "application/json",
+    maxTokens: 1500,
   });
 
-  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const result = JSON.parse(responseText || "{}");
 
   return {
     patientId,

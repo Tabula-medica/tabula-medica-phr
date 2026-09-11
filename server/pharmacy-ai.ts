@@ -1,18 +1,13 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import type { 
-  DrugInteractionCheckResult, 
+import type {
+  DrugInteractionCheckResult,
   DrugInteractionDetail,
   InsertRefillStatusNotification,
   RefillRequest,
   PrescriptionTransferRequest
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export async function checkDrugInteractions(
   patientId: string,
@@ -33,13 +28,9 @@ export async function checkDrugInteractions(
   
   if (existingMedNames.length > 0 || drugAllergies.length > 0) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical pharmacology expert. Analyze proposed medication against patient's current medications and drug allergies for potential interactions.
-            
+      const content = await generatePhiSafeText({
+        system: `You are a clinical pharmacology expert. Analyze proposed medication against patient's current medications and drug allergies for potential interactions.
+
 Provide analysis in JSON format:
 {
   "interactions": [
@@ -63,11 +54,8 @@ Always check for:
 3. Therapeutic duplications
 4. Dosage concerns when combined
 
-If no significant interactions, return empty interactions array with "safe" risk level.`
-          },
-          {
-            role: "user",
-            content: `Analyze this prescription for potential drug interactions:
+If no significant interactions, return empty interactions array with "safe" risk level.`,
+        user: `Analyze this prescription for potential drug interactions:
 
 PROPOSED MEDICATION: ${proposedMedication} ${proposedDosage}
 
@@ -77,15 +65,12 @@ ${existingMedNames.length > 0 ? existingMedNames.join("\n") : "None"}
 DRUG ALLERGIES:
 ${drugAllergies.length > 0 ? drugAllergies.map(a => `${a.name} - Reaction: ${a.reaction} (Severity: ${a.severity})`).join("\n") : "None"}
 
-Provide comprehensive drug interaction analysis.`
-          }
-        ],
-        max_tokens: 1500,
+Provide comprehensive drug interaction analysis.`,
+        maxTokens: 1500,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         

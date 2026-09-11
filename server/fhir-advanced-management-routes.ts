@@ -3,8 +3,10 @@ import { z } from "zod";
 import { fhirBulkOperations, BulkOperationRequest } from "./services/fhir-bulk-operations";
 import { fhirAccessControl, Permission } from "./services/fhir-access-control";
 import { fhirAdvancedSearch, SearchQuery } from "./services/fhir-advanced-search";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 function logHipaaAudit(action: string, resource: string, userId: string = "system") {
   console.log(`[HIPAA-AUDIT] ${new Date().toISOString()} - ${action} on ${resource} by ${userId}`);
@@ -64,7 +66,7 @@ const policySchema = z.object({
 router.post("/bulk/create", async (req: Request, res: Response) => {
   try {
     const validated = bulkOperationSchema.parse(req.body);
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
 
     const operation = await fhirBulkOperations.createBulkOperation(
       validated as BulkOperationRequest,
@@ -86,7 +88,7 @@ router.post("/bulk/create", async (req: Request, res: Response) => {
 router.post("/bulk/:operationId/execute", async (req: Request, res: Response) => {
   try {
     const { operationId } = req.params;
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
 
     const operation = await fhirBulkOperations.executeBulkOperation(operationId, userId);
 
@@ -141,7 +143,7 @@ router.get("/bulk/operations/:operationId", async (req: Request, res: Response) 
 router.post("/bulk/:operationId/cancel", async (req: Request, res: Response) => {
   try {
     const { operationId } = req.params;
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
 
     const operation = await fhirBulkOperations.cancelOperation(operationId, userId);
 
@@ -159,7 +161,7 @@ router.post("/bulk/:operationId/cancel", async (req: Request, res: Response) => 
 router.post("/bulk/:operationId/retry", async (req: Request, res: Response) => {
   try {
     const { operationId } = req.params;
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
 
     const operation = await fhirBulkOperations.retryFailedItems(operationId, userId);
 
@@ -356,7 +358,7 @@ router.post("/search", async (req: Request, res: Response) => {
 router.post("/search/save", async (req: Request, res: Response) => {
   try {
     const { name, description, query, isPublic } = req.body;
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
 
     const savedSearch = await fhirAdvancedSearch.saveSearch({
       name,
@@ -376,7 +378,7 @@ router.post("/search/save", async (req: Request, res: Response) => {
 
 router.get("/search/saved", async (req: Request, res: Response) => {
   try {
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
     const savedSearches = await fhirAdvancedSearch.getSavedSearches(userId);
     res.json({ success: true, data: savedSearches });
   } catch (error) {
@@ -404,7 +406,7 @@ router.post("/search/saved/:searchId/execute", async (req: Request, res: Respons
 router.delete("/search/saved/:searchId", async (req: Request, res: Response) => {
   try {
     const { searchId } = req.params;
-    const userId = ((req as unknown) as { userId?: string }).userId || "system";
+    const userId = getUserId(req);
 
     await fhirAdvancedSearch.deleteSavedSearch(searchId, userId);
 

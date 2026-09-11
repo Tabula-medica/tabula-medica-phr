@@ -1,15 +1,10 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { streamText, generateText, getProviderForFeature } from "./ai-provider";
 
 function logPhiAccess(details: { userId: string; action: string; resourceType: string; resourceId: string; details?: any }) {
   console.log(`[PHI_ACCESS] User: ${details.userId}, Action: ${details.action}, Resource: ${details.resourceType}/${details.resourceId}`, details.details || "");
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = `
 IMPORTANT DISCLAIMER: This information is for educational and informational purposes only. 
@@ -494,24 +489,13 @@ async function extractMedicalTermExplanations(
 
 export async function explainMedicalTerm(term: string): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a patient education assistant. Explain medical terms in simple, everyday language that anyone can understand. Keep explanations brief (2-3 sentences) and avoid medical jargon.
+    const explanation = (await generatePhiSafeText({
+      system: `You are a patient education assistant. Explain medical terms in simple, everyday language that anyone can understand. Keep explanations brief (2-3 sentences) and avoid medical jargon.
 
 IMPORTANT: This is for educational purposes only. Always note that patients should discuss specifics with their healthcare provider.`,
-        },
-        {
-          role: "user",
-          content: `Please explain this medical term in simple language: "${term}"`,
-        },
-      ],
-      max_completion_tokens: 300,
-    });
-
-    const explanation = response.choices[0]?.message?.content || `${term} is a medical term. Please ask your healthcare provider for more information.`;
+      user: `Please explain this medical term in simple language: "${term}"`,
+      maxTokens: 300,
+    })) || `${term} is a medical term. Please ask your healthcare provider for more information.`;
     const disclaimer = "\n\n*This is educational information only, not medical advice. Discuss with your healthcare provider.*";
     return explanation + disclaimer;
   } catch (error) {
@@ -740,17 +724,14 @@ export async function processAppointmentRequest(
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: APPOINTMENT_SYSTEM_PROMPT },
-        { role: "user", content: `Patient request: "${request}"\n\nExtract intent and respond helpfully. Return JSON with: action, appointmentType, preferredDate, preferredTime, provider, reason, message` }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 500
+    const responseText = await generatePhiSafeText({
+      system: APPOINTMENT_SYSTEM_PROMPT,
+      user: `Patient request: "${request}"\n\nExtract intent and respond helpfully. Return JSON with: action, appointmentType, preferredDate, preferredTime, provider, reason, message`,
+      responseMimeType: "application/json",
+      maxTokens: 500
     });
 
-    const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const parsed = JSON.parse(responseText || "{}");
     
     const intent: AppointmentIntent = {
       action: parsed.action || "inquiry",
@@ -861,24 +842,18 @@ export async function generatePersonalizedHealthTips(
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: HEALTH_TIPS_SYSTEM_PROMPT },
-        { 
-          role: "user", 
-          content: `Generate 3 personalized health tips for a patient with:
+    const responseText = await generatePhiSafeText({
+      system: HEALTH_TIPS_SYSTEM_PROMPT,
+      user: `Generate 3 personalized health tips for a patient with:
 Conditions: ${conditions.join(", ") || "General wellness"}
 Medications: ${medications.join(", ") || "None specified"}
 
-Return JSON with array "tips", each having: title, content, category (medication/diet/exercise/sleep/mental_health/preventive_care), priority (low/medium/high)`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1000
+Return JSON with array "tips", each having: title, content, category (medication/diet/exercise/sleep/mental_health/preventive_care), priority (low/medium/high)`,
+      responseMimeType: "application/json",
+      maxTokens: 1000
     });
 
-    const parsed = JSON.parse(response.choices[0]?.message?.content || '{"tips":[]}');
+    const parsed = JSON.parse(responseText || '{"tips":[]}');
     
     const tips: HealthTip[] = (parsed.tips || []).map((tip: any, idx: number) => ({
       id: `tip-gen-${Date.now()}-${idx}`,
@@ -980,22 +955,15 @@ export async function sendSecureMessage(
   let aiDraft: string | undefined;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { 
-          role: "system", 
-          content: `Help patients communicate clearly with healthcare providers. Suggest a polished version that:
+    aiDraft = (await generatePhiSafeText({
+      system: `Help patients communicate clearly with healthcare providers. Suggest a polished version that:
 1. Clearly describes their concern
 2. Includes relevant details
 3. Asks specific questions
-Keep the tone respectful and professional.`
-        },
-        { role: "user", content: `Polish this patient message:\n"${content}"` }
-      ],
-      max_tokens: 400
-    });
-    aiDraft = response.choices[0]?.message?.content || undefined;
+Keep the tone respectful and professional.`,
+      user: `Polish this patient message:\n"${content}"`,
+      maxTokens: 400
+    })) || undefined;
   } catch (error) {
     console.error("AI draft error:", error);
   }
@@ -1025,18 +993,11 @@ export async function generateMessageReply(
   incomingMessage: string
 ): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { 
-          role: "system", 
-          content: `Generate a helpful, appropriate reply for a patient responding to their healthcare provider. Be respectful and appreciative.`
-        },
-        { role: "user", content: `Provider's message: "${incomingMessage}"\n\nSuggest a reply.` }
-      ],
-      max_tokens: 300
-    });
-    return response.choices[0]?.message?.content || "Thank you for your message. I'll review this and follow up if I have questions.";
+    return (await generatePhiSafeText({
+      system: `Generate a helpful, appropriate reply for a patient responding to their healthcare provider. Be respectful and appreciative.`,
+      user: `Provider's message: "${incomingMessage}"\n\nSuggest a reply.`,
+      maxTokens: 300
+    })) || "Thank you for your message. I'll review this and follow up if I have questions.";
   } catch (error) {
     return "Thank you for your message. I'll review this information.";
   }

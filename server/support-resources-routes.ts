@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import {
   SupportResource,
   SupportResourceCategory,
@@ -301,14 +301,9 @@ router.post("/api/support-resources/ai-suggestions", async (req, res) => {
 
   const resources = Array.from(resourcesStore.values());
 
-  let openai: OpenAI | null = null;
-  try {
-    openai = new OpenAI();
-  } catch {
-    openai = null;
-  }
+  const aiEnabled = true;
 
-  if (openai && process.env.OPENAI_API_KEY) {
+  if (aiEnabled) {
     try {
       const relevantResources = resources.filter((r) => {
         if (cancerType && r.cancerTypes && !r.cancerTypes.includes(cancerType.toLowerCase())) {
@@ -349,14 +344,12 @@ Respond in JSON format:
   ]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const suggestions: AIResourceSuggestion[] = [];

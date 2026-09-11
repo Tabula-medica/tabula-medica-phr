@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "../services/ai-gateway";
 import { requireFeature } from "../middleware/require-feature";
 
 const router = Router();
@@ -570,29 +570,15 @@ router.post("/ai-dental-insights", async (req: Request, res: Response) => {
   });
 
   try {
-    const openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
-    });
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a dental health assistant integrated with patient dental records from Open Dental, Dentrix, and Eaglesoft. Help patients understand their dental data, treatment plans, insurance coverage, and next steps. Be clear, empathetic, and accurate. Always include this disclaimer at the end: "\n\n⚠️ This is AI-generated educational information only. It is not a clinical diagnosis or substitute for professional dental advice. Always consult your dentist for treatment decisions."`
-        },
-        {
-          role: "user",
-          content: `Patient dental data context:\n${context}\n\nPatient question: ${question}`
-        }
-      ],
-      max_tokens: 800,
-      temperature: 0.7
+    const answer = await generatePhiSafeText({
+      system: `You are a dental health assistant integrated with patient dental records from Open Dental, Dentrix, and Eaglesoft. Help patients understand their dental data, treatment plans, insurance coverage, and next steps. Be clear, empathetic, and accurate. Always include this disclaimer at the end: "\n\n⚠️ This is AI-generated educational information only. It is not a clinical diagnosis or substitute for professional dental advice. Always consult your dentist for treatment decisions."`,
+      user: `Patient dental data context:\n${context}\n\nPatient question: ${question}`,
+      maxTokens: 800,
+      temperature: 0.7,
     });
 
     res.json({
-      answer: completion.choices[0]?.message?.content || "Unable to generate a response.",
+      answer: answer || "Unable to generate a response.",
       sources: [...new Set(patientPlans.map(p => p.software))]
     });
   } catch (error: any) {

@@ -9,19 +9,11 @@
  * - Uses safe verbs only: "shows", "states", "refers to", "means"
  */
 
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { UnifiedNotificationService } from "./unified-notification-service";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-} catch (e) {
-  console.log("[AICareMonitoring] OpenAI not configured, using mock responses");
-}
+const aiEnabled = true;
 
 const notificationService = new UnifiedNotificationService();
 
@@ -286,7 +278,7 @@ export class AICareMonitoringService {
   async detectCareGaps(data: PatientDataSnapshot): Promise<CareGap[]> {
     const detected: CareGap[] = [];
 
-    if (!openai) {
+    if (!aiEnabled) {
       return this.getMockCareGaps(data.patientId);
     }
 
@@ -320,17 +312,12 @@ Return JSON array with format:
   "confidence": 0.0-1.0
 }]`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a healthcare data analyst. Identify documentation and scheduling gaps only. Never provide medical advice." },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
-      });
-
-      const content = response.choices[0]?.message?.content || "{}";
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare data analyst. Identify documentation and scheduling gaps only. Never provide medical advice.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
+      }) || "{}";
       const parsed = JSON.parse(content);
       const gaps = Array.isArray(parsed) ? parsed : parsed.gaps || [];
 
@@ -377,7 +364,7 @@ Return JSON array with format:
   async suggestInterModuleLinks(data: PatientDataSnapshot): Promise<InterModuleLink[]> {
     const suggestions: InterModuleLink[] = [];
 
-    if (!openai) {
+    if (!aiEnabled) {
       return this.getMockInterModuleLinks(data.patientId);
     }
 
@@ -410,17 +397,12 @@ Return JSON array:
   "confidence": 0.0-1.0
 }]`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a health data organization assistant. Suggest logical connections between health records. No medical advice." },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
-      });
-
-      const content = response.choices[0]?.message?.content || "{}";
+      const content = await generatePhiSafeText({
+        system: "You are a health data organization assistant. Suggest logical connections between health records. No medical advice.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
+      }) || "{}";
       const parsed = JSON.parse(content);
       const links = Array.isArray(parsed) ? parsed : parsed.links || [];
 

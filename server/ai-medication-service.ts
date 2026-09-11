@@ -1,17 +1,12 @@
-import OpenAI from "openai";
-import type { 
-  MedicationReminder, 
-  MedicationAdherenceRecord, 
-  DrugInteraction, 
+import { generatePhiSafeText } from "./services/ai-gateway";
+import type {
+  MedicationReminder,
+  MedicationAdherenceRecord,
+  DrugInteraction,
   MedicationAIInsight,
   AdherenceCoachingSession,
-  Medication 
+  Medication
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface AdherencePrediction {
   patientId: string;
@@ -216,17 +211,9 @@ export class AIMedicationService {
         .map(h => h.missedReason);
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          max_completion_tokens: 1000,
-          messages: [
-            {
-              role: "system",
-              content: `You are a clinical pharmacist AI assistant specializing in medication adherence prediction. Analyze patient medication patterns and predict potential adherence issues. Respond ONLY with valid JSON.`
-            },
-            {
-              role: "user",
-              content: `Analyze adherence for patient medication:
+        const responseText = await generatePhiSafeText({
+          system: `You are a clinical pharmacist AI assistant specializing in medication adherence prediction. Analyze patient medication patterns and predict potential adherence issues. Respond ONLY with valid JSON.`,
+          user: `Analyze adherence for patient medication:
 Medication: ${medication.name} (${medication.dosage})
 Current adherence rate: ${currentRate}%
 Recent history: ${medHistory.length} doses tracked
@@ -241,13 +228,12 @@ Provide JSON with:
   "predictedIssues": string[],
   "suggestedInterventions": string[],
   "confidence": number (0-100)
-}`
-            }
-          ],
-          response_format: { type: "json_object" }
+}`,
+          maxTokens: 1000,
+          responseMimeType: "application/json",
         });
 
-        const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const analysis = JSON.parse(responseText || "{}");
         
         predictions.push({
           patientId,
@@ -297,17 +283,9 @@ Provide JSON with:
       const recentMisses = medHistory.filter(h => h.action === "missed" || h.action === "skipped").slice(-5);
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          max_completion_tokens: 800,
-          messages: [
-            {
-              role: "system",
-              content: `You are a compassionate health coach AI. Generate personalized, encouraging medication reminders. Be warm but professional. Use the patient's name naturally. Respond ONLY with valid JSON.`
-            },
-            {
-              role: "user",
-              content: `Create a personalized medication reminder:
+        const responseText = await generatePhiSafeText({
+          system: `You are a compassionate health coach AI. Generate personalized, encouraging medication reminders. Be warm but professional. Use the patient's name naturally. Respond ONLY with valid JSON.`,
+          user: `Create a personalized medication reminder:
 Patient: ${patientName}
 Medication: ${medication.name}
 Dosage: ${medication.dosage}
@@ -322,13 +300,12 @@ Provide JSON with:
   "personalizedMessage": "Brief, personalized reminder message (2-3 sentences)",
   "educationalTip": "One helpful tip about this medication",
   "motivationalNote": "Short encouraging message"
-}`
-            }
-          ],
-          response_format: { type: "json_object" }
+}`,
+          maxTokens: 800,
+          responseMimeType: "application/json",
         });
 
-        const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         
         reminders.push({
           medicationId: medication.id,
@@ -377,17 +354,9 @@ Provide JSON with:
 
     for (const [med1, med2] of medicationPairs) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          max_completion_tokens: 1200,
-          messages: [
-            {
-              role: "system",
-              content: `You are a clinical pharmacology AI expert. Analyze potential drug-drug interactions with high accuracy. Be conservative - flag potential issues even if uncertain. Always prioritize patient safety. Respond ONLY with valid JSON.`
-            },
-            {
-              role: "user",
-              content: `Analyze drug interaction between:
+        const responseText = await generatePhiSafeText({
+          system: `You are a clinical pharmacology AI expert. Analyze potential drug-drug interactions with high accuracy. Be conservative - flag potential issues even if uncertain. Always prioritize patient safety. Respond ONLY with valid JSON.`,
+          user: `Analyze drug interaction between:
 Medication 1: ${med1.name} (${med1.dosage})
 Medication 2: ${med2.name} (${med2.dosage})
 Patient allergies: ${patientAllergies?.join(", ") || "None known"}
@@ -405,13 +374,12 @@ Provide JSON with:
   "alternativeOptions": string[],
   "monitoringRequired": string[],
   "confidence": number (0-100)
-}`
-            }
-          ],
-          response_format: { type: "json_object" }
+}`,
+          maxTokens: 1200,
+          responseMimeType: "application/json",
         });
 
-        const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const analysis = JSON.parse(responseText || "{}");
         
         if (analysis.hasInteraction && analysis.severity !== "none") {
           alerts.push({
@@ -448,17 +416,9 @@ Provide JSON with:
     patientReadingLevel?: "basic" | "intermediate" | "advanced"
   ): Promise<MedicationEducation> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        max_completion_tokens: 1500,
-        messages: [
-          {
-            role: "system",
-            content: `You are a patient education specialist. Provide clear, accurate medication information at an appropriate reading level. Use plain language and avoid medical jargon unless necessary. Always encourage patients to discuss concerns with their healthcare provider. Respond ONLY with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Create patient education content for:
+      const responseText = await generatePhiSafeText({
+        system: `You are a patient education specialist. Provide clear, accurate medication information at an appropriate reading level. Use plain language and avoid medical jargon unless necessary. Always encourage patients to discuss concerns with their healthcare provider. Respond ONLY with valid JSON.`,
+        user: `Create patient education content for:
 Medication: ${medication.name}
 Dosage: ${medication.dosage}
 Prescribed for: As directed by healthcare provider
@@ -473,13 +433,12 @@ Provide JSON with:
   "bestPractices": ["Tips for taking this medication correctly"],
   "foodInteractions": ["Foods to avoid or considerations"],
   "lifestyleTips": ["Lifestyle adjustments that may help"]
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        maxTokens: 1500,
+        responseMimeType: "application/json",
       });
 
-      const education = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const education = JSON.parse(responseText || "{}");
 
       return {
         medicationId: medication.id,
@@ -523,17 +482,9 @@ Provide JSON with:
       : null;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        max_completion_tokens: 1200,
-        messages: [
-          {
-            role: "system",
-            content: `You are a supportive medication adherence coach. Provide empathetic, practical guidance to help patients stay on track with their medications. Focus on understanding barriers and offering realistic solutions. Respond ONLY with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Create a ${sessionType} coaching session:
+      const responseText = await generatePhiSafeText({
+        system: `You are a supportive medication adherence coach. Provide empathetic, practical guidance to help patients stay on track with their medications. Focus on understanding barriers and offering realistic solutions. Respond ONLY with valid JSON.`,
+        user: `Create a ${sessionType} coaching session:
 Patient: ${patientName}
 Medication: ${medication.name} (${medication.dosage})
 Recent misses: ${recentMisses.length} in the past week
@@ -546,13 +497,12 @@ Provide JSON with:
   "recommendations": ["3-4 specific, actionable recommendations"],
   "actionPlan": ["2-3 concrete steps the patient can take today"],
   "motivationalMessage": "Encouraging message that acknowledges challenges while inspiring hope"
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        maxTokens: 1200,
+        responseMimeType: "application/json",
       });
 
-      const coaching = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const coaching = JSON.parse(responseText || "{}");
 
       return {
         patientId,
@@ -620,22 +570,14 @@ Provide JSON with:
       }
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          max_completion_tokens: 800,
-          messages: [
-            {
-              role: "system",
-              content: `You are a helpful pharmacy assistant AI. Generate refill reminder messages.
+        const responseText = await generatePhiSafeText({
+          system: `You are a helpful pharmacy assistant AI. Generate refill reminder messages.
 CRITICAL RULES:
 1. Use ONLY these safe verbs: "shows", "states", "refers to", "means"
 2. NEVER use prescriptive language like "should", "must", "recommend", "advise"
 3. Be informative and helpful without giving medical advice
-Respond ONLY with valid JSON.`
-            },
-            {
-              role: "user",
-              content: `Generate a refill reminder:
+Respond ONLY with valid JSON.`,
+          user: `Generate a refill reminder:
 Medication: ${medication.name} (${medication.dosage})
 Days remaining: ${daysRemaining}
 Refills remaining: ${refillsRemaining}
@@ -646,13 +588,12 @@ Provide JSON with:
 {
   "reminderMessage": "Brief, helpful reminder message about the upcoming refill need",
   "refillInstructions": "Clear steps for obtaining a refill"
-}`
-            }
-          ],
-          response_format: { type: "json_object" }
+}`,
+          maxTokens: 800,
+          responseMimeType: "application/json",
         });
 
-        const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const result = JSON.parse(responseText || "{}");
 
         reminders.push({
           medicationId: medication.id,
@@ -762,23 +703,15 @@ Provide JSON with:
     else if (recentRate < olderRate - 5) trendDirection = "declining";
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        max_completion_tokens: 1500,
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical analytics AI specializing in medication adherence pattern analysis.
+      const responseText = await generatePhiSafeText({
+        system: `You are a clinical analytics AI specializing in medication adherence pattern analysis.
 CRITICAL RULES:
 1. Use ONLY these safe verbs: "shows", "states", "refers to", "means"
 2. NEVER use prescriptive language like "should", "must", "recommend", "advise"
 3. Be descriptive and informative without giving medical advice
 4. Focus on patterns and observations, not instructions
-Respond ONLY with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Analyze medication adherence patterns:
+Respond ONLY with valid JSON.`,
+        user: `Analyze medication adherence patterns:
 Medications: ${medications.map(m => m.name).join(", ")}
 Overall adherence rate: ${overallRate}%
 Total doses tracked: ${totalDoses}
@@ -809,13 +742,12 @@ Provide JSON with:
   ],
   "insights": ["Key observations about adherence patterns"],
   "recommendations": ["Personalized tips based on patterns"]
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        maxTokens: 1500,
+        responseMimeType: "application/json",
       });
 
-      const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const analysis = JSON.parse(responseText || "{}");
 
       return {
         patientId,
@@ -872,23 +804,15 @@ Provide JSON with:
     const missedReasons = missedRecords.map(r => r.missedReason).filter(Boolean);
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        max_completion_tokens: 2000,
-        messages: [
-          {
-            role: "system",
-            content: `You are a patient support AI providing personalized health tips.
+      const responseText = await generatePhiSafeText({
+        system: `You are a patient support AI providing personalized health tips.
 CRITICAL RULES:
 1. Use ONLY these safe verbs: "shows", "states", "refers to", "means"
 2. NEVER use prescriptive language like "should", "must", "recommend", "advise", "need to"
 3. All tips must be educational and informational, not medical advice
 4. Always refer patients to healthcare providers for medical decisions
-Respond ONLY with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Generate personalized tips:
+Respond ONLY with valid JSON.`,
+        user: `Generate personalized tips:
 Medications: ${medications.map(m => `${m.name} (${m.dosage})`).join("; ")}
 Reported side effects: ${reportedSideEffects?.join(", ") || "None reported"}
 Common missed reasons: ${missedReasons.slice(0, 5).join(", ") || "None recorded"}
@@ -917,13 +841,12 @@ Provide JSON with:
       "personalizedReason": "Why this tip is relevant to this patient"
     }
   ]
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        maxTokens: 2000,
+        responseMimeType: "application/json",
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       // Apply safe content to all text fields
       for (const tip of result.sideEffectTips || []) {
@@ -984,13 +907,8 @@ Provide JSON with:
     reportMethod: "voice" | "text"
   ): Promise<VoiceCommandResult> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        max_completion_tokens: 1000,
-        messages: [
-          {
-            role: "system",
-            content: `You are a medication tracking assistant. Parse voice/text commands about medication intake.
+      const responseText = await generatePhiSafeText({
+        system: `You are a medication tracking assistant. Parse voice/text commands about medication intake.
 Understand commands like:
 - "I took my Metformin"
 - "Took morning meds"
@@ -1003,11 +921,8 @@ CRITICAL RULES:
 2. Be supportive and non-judgmental
 3. Never give medical advice
 
-Respond ONLY with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Parse this medication command:
+Respond ONLY with valid JSON.`,
+        user: `Parse this medication command:
 Command: "${command}"
 Available medications: ${medications.map(m => m.name).join(", ")}
 
@@ -1020,13 +935,12 @@ Provide JSON with:
   "sideEffectSeverity": "mild" | "moderate" | "severe" | null,
   "notes": "any additional notes from the command",
   "response": "Friendly acknowledgment message for the patient"
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        maxTokens: 1000,
+        responseMimeType: "application/json",
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       // Find matching medication
       const matchedMedication = medications.find(m => 
@@ -1121,23 +1035,15 @@ Provide JSON with:
     reportMethod: "voice" | "text"
   ): Promise<SideEffectReport> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        max_completion_tokens: 1000,
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical assistant analyzing patient-reported side effects.
+      const responseText = await generatePhiSafeText({
+        system: `You are a clinical assistant analyzing patient-reported side effects.
 CRITICAL RULES:
 1. Use ONLY these safe verbs: "shows", "states", "refers to", "means"
 2. NEVER diagnose or provide medical advice
 3. Flag severe symptoms for provider attention
 4. Be supportive and acknowledge patient concerns
-Respond ONLY with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Analyze this side effect report:
+Respond ONLY with valid JSON.`,
+        user: `Analyze this side effect report:
 Patient report: "${description}"
 Current medications: ${medications.map(m => m.name).join(", ")}
 
@@ -1151,13 +1057,12 @@ Provide JSON with:
   "aiAnalysis": "Brief, supportive analysis of the report",
   "recommendations": ["Informational tips, not medical advice"],
   "requiresProviderAttention": boolean
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        maxTokens: 1000,
+        responseMimeType: "application/json",
       });
 
-      const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const analysis = JSON.parse(responseText || "{}");
 
       const matchedMedication = medications.find(m => 
         m.name.toLowerCase() === (analysis.likelyMedication || "").toLowerCase()

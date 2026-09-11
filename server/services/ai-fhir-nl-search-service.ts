@@ -1,17 +1,9 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-const openaiBaseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-let openai: OpenAI | null = null;
-if (openaiApiKey && openaiBaseURL) {
-  openai = new OpenAI({
-    apiKey: openaiApiKey,
-    baseURL: openaiBaseURL,
-  });
-  console.log("[AIFHIRNLSearch] OpenAI client initialized for NL query parsing");
-}
+// PHI-bearing LLM calls now run through the Vertex/BAA gateway. AI query parsing
+// is always available; the rule-based path remains a resilient fallback on error.
+const aiEnabled = true;
 
 export interface FHIRSearchParameter {
   resourceType: string;
@@ -331,8 +323,8 @@ const SAMPLE_CLINICAL_DATA: NLSearchResult[] = [
 
 async function parseQueryWithAI(query: string): Promise<ParsedNLQuery> {
   const queryId = randomUUID();
-  
-  if (!openai) {
+
+  if (!aiEnabled) {
     return parseQueryWithRules(query, queryId);
   }
 
@@ -373,17 +365,13 @@ Return a JSON object with:
   "suggestedRefinements": ["Alternative or more specific queries"]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Parse this clinical query: "${query}"` }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Parse this clinical query: "${query}"`,
+      responseMimeType: "application/json",
+      maxTokens: 1000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -624,31 +612,22 @@ function executeSearch(parsedQuery: ParsedNLQuery): NLSearchResult[] {
 }
 
 async function generateAIExplanation(parsedQuery: ParsedNLQuery, results: NLSearchResult[]): Promise<string> {
-  if (!openai) {
+  if (!aiEnabled) {
     return `Found ${results.length} result(s) matching "${parsedQuery.intent}". ` +
       `Searched across ${parsedQuery.resourceTypes.join(", ")} resources. ` +
-      (results.length > 0 
+      (results.length > 0
         ? `Top result: ${results[0].display} - ${results[0].summary}.`
         : "No matching records found. Try broadening your search criteria.");
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a clinical data assistant. Provide a brief, professional summary of search results. Keep it under 100 words. Do not provide medical advice - only describe the data found." 
-        },
-        { 
-          role: "user", 
-          content: `Query: "${parsedQuery.originalQuery}"\nResults found: ${results.length}\nResource types: ${parsedQuery.resourceTypes.join(", ")}\nTop results: ${results.slice(0, 3).map(r => `${r.display}: ${r.summary}`).join("; ")}\n\nProvide a brief summary of what was found.` 
-        }
-      ],
-      max_completion_tokens: 150,
+    const content = await generatePhiSafeText({
+      system: "You are a clinical data assistant. Provide a brief, professional summary of search results. Keep it under 100 words. Do not provide medical advice - only describe the data found.",
+      user: `Query: "${parsedQuery.originalQuery}"\nResults found: ${results.length}\nResource types: ${parsedQuery.resourceTypes.join(", ")}\nTop results: ${results.slice(0, 3).map(r => `${r.display}: ${r.summary}`).join("; ")}\n\nProvide a brief summary of what was found.`,
+      maxTokens: 150,
     });
 
-    return response.choices[0]?.message?.content || "Search completed successfully.";
+    return content || "Search completed successfully.";
   } catch {
     return `Found ${results.length} result(s) for your query about ${parsedQuery.intent}.`;
   }
@@ -776,7 +755,7 @@ export function getSearchMetadata() {
     version: "1.0.0",
     supportedResourceTypes: FHIR_RESOURCE_TYPES,
     clinicalConcepts: Object.keys(CLINICAL_CONCEPTS),
-    aiEnabled: !!openai,
+    aiEnabled,
     features: [
       "Natural language query parsing",
       "AI-powered query translation",
@@ -790,4 +769,4 @@ export function getSearchMetadata() {
   };
 }
 
-console.log("[AIFHIRNLSearch] Service initialized with", openai ? "AI-powered" : "rule-based", "query parsing");
+console.log("[AIFHIRNLSearch] Service initialized with", aiEnabled ? "AI-powered (Vertex/BAA)" : "rule-based", "query parsing");

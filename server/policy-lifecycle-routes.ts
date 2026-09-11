@@ -2,8 +2,10 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { aiPolicyLifecycleService } from "./services/ai-policy-lifecycle";
 import { getAuditLogger } from "./services/integrations/factory";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 async function logAudit(action: string, resourceId: string, userId: string, details: Record<string, unknown>): Promise<void> {
   try {
@@ -23,7 +25,7 @@ async function logAudit(action: string, resourceId: string, userId: string, deta
 
 router.get("/dashboard", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "anonymous";
+    const userId = getUserId(req);
     await logAudit("VIEW_DASHBOARD", "dashboard", userId, {});
 
     const dashboard = await aiPolicyLifecycleService.getDashboard();
@@ -90,7 +92,7 @@ const createVersionSchema = z.object({
 router.post("/policies/:id/versions", async (req: Request, res: Response) => {
   try {
     const { changes, changeReason, regulatoryDriver } = createVersionSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     const version = await aiPolicyLifecycleService.createPolicyVersion(
       req.params.id,
@@ -116,7 +118,7 @@ router.post("/policies/:id/versions", async (req: Request, res: Response) => {
 
 router.post("/detect-conflicts", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const conflicts = await aiPolicyLifecycleService.detectConflicts(userId);
     res.json({ success: true, data: conflicts });
   } catch (error) {
@@ -139,7 +141,7 @@ router.get("/conflicts", async (req: Request, res: Response) => {
 router.post("/conflicts/:id/resolve", async (req: Request, res: Response) => {
   try {
     const { resolutionNotes } = z.object({ resolutionNotes: z.string().min(1) }).parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     const conflict = await aiPolicyLifecycleService.resolveConflict(req.params.id, userId, resolutionNotes);
     if (!conflict) {
@@ -158,7 +160,7 @@ router.post("/conflicts/:id/resolve", async (req: Request, res: Response) => {
 
 router.post("/detect-redundancies", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const redundancies = await aiPolicyLifecycleService.detectRedundancies(userId);
     res.json({ success: true, data: redundancies });
   } catch (error) {
@@ -180,7 +182,7 @@ router.get("/redundancies", async (req: Request, res: Response) => {
 
 router.post("/redundancies/:id/resolve", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const redundancy = await aiPolicyLifecycleService.resolveRedundancy(req.params.id, userId);
     if (!redundancy) {
       return res.status(404).json({ success: false, error: "Redundancy not found" });
@@ -194,7 +196,7 @@ router.post("/redundancies/:id/resolve", async (req: Request, res: Response) => 
 
 router.post("/analyze-outdated", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const analyses = await aiPolicyLifecycleService.analyzeOutdatedPolicies(userId);
     res.json({ success: true, data: analyses });
   } catch (error) {
@@ -205,7 +207,7 @@ router.post("/analyze-outdated", async (req: Request, res: Response) => {
 
 router.post("/policies/:id/suggest-retirement", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const recommendation = await aiPolicyLifecycleService.suggestRetirement(req.params.id, userId);
     if (!recommendation) {
       return res.status(404).json({ success: false, error: "Policy not found" });
@@ -232,7 +234,7 @@ router.get("/retirement-recommendations", async (req: Request, res: Response) =>
 
 router.post("/retirement-recommendations/:id/approve", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const recommendation = await aiPolicyLifecycleService.approveRetirement(req.params.id, userId);
     if (!recommendation) {
       return res.status(404).json({ success: false, error: "Recommendation not found" });
@@ -265,7 +267,7 @@ const approvalDecisionSchema = z.object({
 router.post("/approval-workflows/:id/decision", async (req: Request, res: Response) => {
   try {
     const { decision, comments } = approvalDecisionSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
 
     const workflow = await aiPolicyLifecycleService.submitApprovalDecision(
       req.params.id,
@@ -312,7 +314,7 @@ const draftPolicySchema = z.object({
 router.post("/drafts", async (req: Request, res: Response) => {
   try {
     const request = draftPolicySchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const draft = await aiPolicyLifecycleService.draftPolicy(request, userId);
     res.json({ success: true, data: draft });
   } catch (error) {
@@ -350,7 +352,7 @@ router.get("/drafts/:id", async (req: Request, res: Response) => {
 
 router.post("/drafts/:id/accept", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const modifications = req.body.modifications;
     const policy = await aiPolicyLifecycleService.acceptDraft(req.params.id, userId, modifications);
     if (!policy) {
@@ -365,7 +367,7 @@ router.post("/drafts/:id/accept", async (req: Request, res: Response) => {
 
 router.post("/policies/:id/suggest-amendments", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { trigger } = req.body;
     const amendments = await aiPolicyLifecycleService.suggestAmendments(req.params.id, userId, trigger);
     res.json({ success: true, data: amendments });
@@ -388,7 +390,7 @@ router.get("/amendments", async (req: Request, res: Response) => {
 
 router.post("/amendments/:id/accept", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const version = await aiPolicyLifecycleService.acceptAmendment(req.params.id, userId);
     if (!version) {
       return res.status(404).json({ success: false, error: "Amendment not found" });
@@ -402,7 +404,7 @@ router.post("/amendments/:id/accept", async (req: Request, res: Response) => {
 
 router.post("/bulk-amendment-scan", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const result = await aiPolicyLifecycleService.runBulkAmendmentScan(userId);
     res.json({ success: true, data: result });
   } catch (error) {
@@ -422,7 +424,7 @@ const autoReviewScheduleSchema = z.object({
 router.post("/policies/:id/auto-review-schedule", async (req: Request, res: Response) => {
   try {
     const options = autoReviewScheduleSchema.parse(req.body);
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const schedule = await aiPolicyLifecycleService.createAutoReviewSchedule(req.params.id, userId, options);
     if (!schedule) {
       return res.status(404).json({ success: false, error: "Policy not found" });
@@ -450,7 +452,7 @@ router.get("/auto-review-schedules", async (req: Request, res: Response) => {
 
 router.post("/auto-review-schedules/:id/run", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const result = await aiPolicyLifecycleService.runAutoReview(req.params.id, userId);
     if (!result) {
       return res.status(404).json({ success: false, error: "Schedule not found" });
@@ -475,7 +477,7 @@ router.get("/auto-review-results", async (req: Request, res: Response) => {
 
 router.post("/run-due-reviews", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const results = await aiPolicyLifecycleService.runDueReviews(userId);
     res.json({ success: true, data: results });
   } catch (error) {

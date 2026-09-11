@@ -10,13 +10,8 @@ import type {
   LabResult,
   VitalSign,
 } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { randomUUID } from "crypto";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const healthContentLibrary: HealthContent[] = [
   {
@@ -348,16 +343,9 @@ export async function generateAIContentRecommendations(
       .slice(0, 5)
       .join(", ");
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a health education specialist. Generate personalized explanations for why health content is relevant to a patient. Be encouraging, educational, and specific. Keep explanations under 100 words each.`
-        },
-        {
-          role: "user",
-          content: `Patient profile:
+    const responseText = await generatePhiSafeText({
+      system: `You are a health education specialist. Generate personalized explanations for why health content is relevant to a patient. Be encouraging, educational, and specific. Keep explanations under 100 words each.`,
+      user: `Patient profile:
 - Active conditions: ${conditionsList || "None specified"}
 - Health goals: ${goalsList || "General wellness"}
 - Current medications: ${medicationsList || "None"}
@@ -365,14 +353,12 @@ export async function generateAIContentRecommendations(
 For each of these recommended articles, provide a personalized 1-2 sentence explanation of why it's relevant:
 ${baseRecommendations.map((r, i) => `${i + 1}. "${r.content.title}" (${r.content.category})`).join("\n")}
 
-Return JSON array with format: [{"index": 0, "explanation": "..."}]`
-        }
-      ],
-      max_completion_tokens: 800,
-      response_format: { type: "json_object" },
+Return JSON array with format: [{"index": 0, "explanation": "..."}]`,
+      maxTokens: 800,
+      responseMimeType: "application/json",
     });
 
-    const aiExplanations = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const aiExplanations = JSON.parse(responseText || "{}");
     if (aiExplanations.explanations) {
       for (const exp of aiExplanations.explanations) {
         if (baseRecommendations[exp.index]) {

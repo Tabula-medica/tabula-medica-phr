@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PatientProfile {
   patientId: string;
@@ -155,14 +150,12 @@ Respond in JSON format:
   ]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1000,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         return parsed.recommendations.map((rec: any) => {
@@ -232,14 +225,12 @@ Respond in JSON format:
   "passingScore": 70
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const totalPoints = parsed.questions.reduce((sum: number, q: any) => sum + (q.points || 10), 0);
@@ -326,14 +317,12 @@ Respond in JSON:
   "recommendedReview": ["Topic 1 to review", "Topic 2 to review"]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 500,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         feedback = parsed.feedback;
@@ -420,14 +409,12 @@ Respond in JSON:
   ]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         return parsed.nudges.map((nudge: any, i: number) => ({
@@ -502,14 +489,12 @@ Respond in JSON:
   "encouragementMessage": "Brief personalized message"
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 800,
+      const content = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 800,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         return JSON.parse(content);
       }

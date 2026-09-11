@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "This educational content is for informational purposes only and does not constitute medical advice, diagnosis, or treatment. Always consult your healthcare provider for personalized medical guidance.";
 
@@ -196,17 +191,13 @@ Return a JSON object with this structure:
   "sources": ["credible medical sources"]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
       const parsed = JSON.parse(content);
@@ -357,17 +348,13 @@ Provide an educational answer. Return JSON with:
   "confidence": "high|medium|low"
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
       const parsed = JSON.parse(content);
@@ -511,18 +498,14 @@ Recent Vitals: ${patientData.vitalSigns.slice(0, 5).map(v => `${v.type}: ${v.val
 
 Generate a personalized education plan with articles relevant to this patient's specific health situation.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
         temperature: 0.7,
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
+        maxTokens: 4000,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
       const parsed = JSON.parse(content);

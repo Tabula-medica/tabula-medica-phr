@@ -2,13 +2,12 @@ import { Router, Request, Response } from "express";
 import { aiProviderAutomationService, ClinicalDocumentationSnippet, ReferralNote, PreventiveCareOrder } from "./services/ai-provider-automation-service";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { createAuditLogEntry } from "./ai-audit-log-routes";
+import { requireUser, getUserId } from "./middleware/require-user";
 import type { InsertAiAuditLogEntry, UserRole } from "@shared/schema";
 
 const router = Router();
 
-function getUserId(req: Request): string {
-  return (req as any).user?.id || (req as any).session?.userId || "system";
-}
+router.use(requireUser);
 
 function getUserRole(req: Request): UserRole {
   return (req as any).user?.role || (req as any).session?.userRole || "patient";

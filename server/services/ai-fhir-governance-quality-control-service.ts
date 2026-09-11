@@ -1,14 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
 function isOpenAIConfigured(): boolean {
-  const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  return !!key && key !== 'dummy' && key.length > 10;
+  return true;
 }
 
 function logAudit(action: string, details: Record<string, unknown>, success: boolean) {
@@ -376,21 +370,11 @@ class AIFHIRGovernanceQualityControlService {
     let aiRecommendations: string[] = [];
     if (isOpenAIConfigured() && issues.length > 0) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a FHIR data quality expert. Provide recommendations for improving data conformance. Do NOT provide clinical advice. Focus only on data quality and interoperability improvements. Keep recommendations concise.`
-            },
-            {
-              role: "user",
-              content: `Resource type: ${resourceType}\nIssues found:\n${issues.map(i => `- ${i.ruleName}: ${i.message}`).join('\n')}\n\nProvide 2-3 actionable recommendations for improving data quality.`
-            }
-          ],
-          max_tokens: 300
+        const content = await generatePhiSafeText({
+          system: `You are a FHIR data quality expert. Provide recommendations for improving data conformance. Do NOT provide clinical advice. Focus only on data quality and interoperability improvements. Keep recommendations concise.`,
+          user: `Resource type: ${resourceType}\nIssues found:\n${issues.map(i => `- ${i.ruleName}: ${i.message}`).join('\n')}\n\nProvide 2-3 actionable recommendations for improving data quality.`,
+          maxTokens: 300
         });
-        const content = response.choices[0]?.message?.content;
         if (content) {
           aiRecommendations = content.split('\n').filter(line => line.trim().length > 0).slice(0, 3);
         }
@@ -513,23 +497,13 @@ class AIFHIRGovernanceQualityControlService {
           fields: Object.keys(r.data).slice(0, 5)
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare data quality analyst. Analyze FHIR resources for data anomalies. Focus ONLY on data quality issues like missing data, inconsistencies, or unusual patterns. Do NOT provide clinical interpretations or medical advice. Return a JSON array of anomalies with: type, severity (critical/high/medium/low), description, affected_resources.`
-            },
-            {
-              role: "user",
-              content: `Analyze these patient resources for data quality anomalies:\n${JSON.stringify(resourceSummary, null, 2)}`
-            }
-          ],
-          max_tokens: 500,
-          response_format: { type: "json_object" }
+        const content = await generatePhiSafeText({
+          system: `You are a healthcare data quality analyst. Analyze FHIR resources for data anomalies. Focus ONLY on data quality issues like missing data, inconsistencies, or unusual patterns. Do NOT provide clinical interpretations or medical advice. Return a JSON array of anomalies with: type, severity (critical/high/medium/low), description, affected_resources.`,
+          user: `Analyze these patient resources for data quality anomalies:\n${JSON.stringify(resourceSummary, null, 2)}`,
+          maxTokens: 500,
+          responseMimeType: "application/json"
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           try {
             const parsed = JSON.parse(content);
@@ -620,23 +594,13 @@ class AIFHIRGovernanceQualityControlService {
 
     if (isOpenAIConfigured()) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a FHIR data enrichment specialist. Analyze resources and suggest data improvements for better interoperability and completeness. Focus on: missing identifiers, unstandardized codes, format inconsistencies. Do NOT provide clinical suggestions. Return JSON with: suggestions array containing field, current_value, suggested_value, rationale, confidence (0-1).`
-            },
-            {
-              role: "user",
-              content: `Analyze this ${resourceType} for enrichment opportunities:\n${JSON.stringify(resourceData, null, 2)}`
-            }
-          ],
-          max_tokens: 400,
-          response_format: { type: "json_object" }
+        const content = await generatePhiSafeText({
+          system: `You are a FHIR data enrichment specialist. Analyze resources and suggest data improvements for better interoperability and completeness. Focus on: missing identifiers, unstandardized codes, format inconsistencies. Do NOT provide clinical suggestions. Return JSON with: suggestions array containing field, current_value, suggested_value, rationale, confidence (0-1).`,
+          user: `Analyze this ${resourceType} for enrichment opportunities:\n${JSON.stringify(resourceData, null, 2)}`,
+          maxTokens: 400,
+          responseMimeType: "application/json"
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           try {
             const parsed = JSON.parse(content);

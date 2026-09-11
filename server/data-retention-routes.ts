@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { z } from "zod";
 
 export interface DataRetentionPolicy {
@@ -138,7 +139,7 @@ const updatePolicySchema = z.object({
 });
 
 export function registerDataRetentionRoutes(app: Express): void {
-  app.get("/api/data-retention/policies", async (_req: Request, res: Response) => {
+  app.get("/api/data-retention/policies", requireUser, async (_req: Request, res: Response) => {
     try {
       const allPolicies = Array.from(policies.values()).sort((a, b) =>
         a.displayName.localeCompare(b.displayName)
@@ -150,7 +151,7 @@ export function registerDataRetentionRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/data-retention/policies/:id", async (req: Request, res: Response) => {
+  app.get("/api/data-retention/policies/:id", requireUser, async (req: Request, res: Response) => {
     try {
       const policy = policies.get(req.params.id);
       if (!policy) {
@@ -163,10 +164,9 @@ export function registerDataRetentionRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/data-retention/policies/:id", async (req: Request, res: Response) => {
+  app.patch("/api/data-retention/policies/:id", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
 
       const policy = policies.get(req.params.id);
       if (!policy) {
@@ -206,7 +206,7 @@ export function registerDataRetentionRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/data-retention/summary", async (_req: Request, res: Response) => {
+  app.get("/api/data-retention/summary", requireUser, async (_req: Request, res: Response) => {
     try {
       const allPolicies = Array.from(policies.values());
       const activePolicies = allPolicies.filter(p => p.isActive);
@@ -241,7 +241,7 @@ export function registerDataRetentionRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/data-retention/cleanup/dry-run", async (req: Request, res: Response) => {
+  app.post("/api/data-retention/cleanup/dry-run", requireUser, async (req: Request, res: Response) => {
     try {
       const allPolicies = Array.from(policies.values()).filter(p => p.isActive);
       const results = allPolicies.map(policy => {
@@ -271,10 +271,9 @@ export function registerDataRetentionRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/session/heartbeat", async (req: Request, res: Response) => {
+  app.post("/api/session/heartbeat", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub;
+      const userId = getUserId(req);
       if (userId) {
         const sessions = await storage.getUserSessions(userId);
         if (sessions.length > 0) {

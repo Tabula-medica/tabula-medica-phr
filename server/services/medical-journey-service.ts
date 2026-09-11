@@ -4,7 +4,7 @@
  * Provides AI-powered status summaries and health narrative generation
  */
 
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import {
   normalizeLoincCode,
   normalizeRxNormCode,
@@ -17,11 +17,6 @@ import {
   logNormalizationAccess
 } from "./semantic-normalization-service";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
-});
 
 export type TimelineEventType = "clinical" | "vital" | "medication" | "lab" | "condition" | "procedure" | "immunization" | "milestone";
 
@@ -795,21 +790,17 @@ Generate a JSON response with:
 IMPORTANT: This is for INFORMATIONAL PURPOSES ONLY and is NOT clinical decision support.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: "You are a HIPAA-compliant medical summarization AI. Provide patient-friendly summaries. Always include NO-CDS disclaimer." },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000
+    const content = await generatePhiSafeText({
+      system: "You are a HIPAA-compliant medical summarization AI. Provide patient-friendly summaries. Always include NO-CDS disclaimer.",
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1000
     });
-    
-    const content = response.choices[0]?.message?.content;
+
     if (!content) {
       return generateFallbackSummary(activeConditions, activeMedications, vitals, lastEncounter);
     }
-    
+
     const parsed = JSON.parse(content);
     return {
       statusUpdate: parsed.statusUpdate || "Health summary not available.",

@@ -1,16 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-} catch (error) {
-  console.warn("[DataLakeAnalytics] OpenAI client initialization failed, AI features will use fallback");
-}
+const aiEnabled = true;
 
 const alertStatusStore: Map<string, { status: string; acknowledgedAt?: string; resolvedAt?: string; resolution?: string }> = new Map();
 const recommendationStatusStore: Map<string, { status: string; assignedTo?: string; updatedAt: string }> = new Map();
@@ -785,14 +775,14 @@ export const generateAIEnhancedInsight = async (
     ]
   };
 
-  if (!openai) {
-    console.warn("[DataLakeAnalytics] OpenAI not configured, using fallback analysis");
+  if (!aiEnabled) {
+    console.warn("[DataLakeAnalytics] AI not configured, using fallback analysis");
     return fallbackResponse;
   }
 
   try {
-    const prompt = `You are a healthcare analytics AI assistant analyzing FHIR health data. 
-    
+    const prompt = `You are a healthcare analytics AI assistant analyzing FHIR health data.
+
 Analyze this ${insightType} with the following context:
 ${JSON.stringify(context, null, 2)}
 
@@ -802,17 +792,15 @@ Provide:
 
 Format your response as JSON with keys: "analysis" (string) and "recommendations" (array of strings).
 
-IMPORTANT DISCLAIMER: This analysis is for informational and operational purposes only. 
+IMPORTANT DISCLAIMER: This analysis is for informational and operational purposes only.
 It is NOT for clinical decision-making and should not replace professional medical judgment.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.2",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -883,7 +871,7 @@ export const generateCustomReport = async (
 
   const fallbackNarrative = 'This report provides a comprehensive analysis of healthcare operations and population health metrics. Review individual sections for detailed findings and recommendations.';
 
-  if (openai) {
+  if (aiEnabled) {
     try {
       const narrativePrompt = `Generate an executive summary for a healthcare analytics report with the following configuration:
 Title: ${title}
@@ -897,14 +885,11 @@ Create a 2-3 paragraph executive summary that:
 
 Format as plain text. This is for informational purposes only, not clinical decision-making.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [{ role: "user", content: narrativePrompt }],
-        max_completion_tokens: 500,
-      });
+      const narrative = await generatePhiSafeText({
+        user: narrativePrompt,
+        maxTokens: 500,
+      }) || fallbackNarrative;
 
-      const narrative = response.choices[0]?.message?.content || fallbackNarrative;
-      
       sections.unshift({
         title: 'Executive Summary',
         type: 'narrative',

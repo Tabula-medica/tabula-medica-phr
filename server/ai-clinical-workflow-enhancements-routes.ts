@@ -7,12 +7,11 @@ import {
   generateSmartAlerts,
   PatientContext,
 } from "./services/ai-clinical-workflow-enhancements-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
 
-function getUserId(req: Request): string {
-  return (req as any).user?.id || (req as any).session?.userId || "system";
-}
+router.use(requireUser);
 
 function auditLog(req: Request, action: string, patientId: string, details: string) {
   logPhiAccess({

@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface SharedPatientCase {
   id: string;
@@ -219,13 +214,9 @@ Begin your response with: "DOCUMENTATION SUMMARY (NOT CLINICAL ADVICE):"`;
     .join("\n");
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: NO_CDS_INSTRUCTION },
-        {
-          role: "user",
-          content: `Summarize the following clinical discussion for documentation purposes. Do NOT provide any clinical recommendations.
+    const summary = await generatePhiSafeText({
+      system: NO_CDS_INSTRUCTION,
+      user: `Summarize the following clinical discussion for documentation purposes. Do NOT provide any clinical recommendations.
 
 Patient Context:
 ${patientContext}
@@ -234,13 +225,10 @@ Discussion History:
 ${discussionText}
 
 Provide a structured summary organizing the key points discussed by the clinical team.`,
-        },
-      ],
       temperature: 0.3,
-      max_tokens: 800,
+      maxTokens: 800,
     });
 
-    const summary = response.choices[0]?.message?.content;
     if (!summary) {
       return "Unable to generate summary. Please review the discussion notes directly.";
     }
@@ -270,13 +258,9 @@ You may ONLY provide:
 This is NOT clinical advice - it is educational context only.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: NO_CDS_INSTRUCTION },
-        {
-          role: "user",
-          content: `Provide educational context about this clinical alert for documentation purposes. Do NOT provide recommendations.
+    const analysis = await generatePhiSafeText({
+      system: NO_CDS_INSTRUCTION,
+      user: `Provide educational context about this clinical alert for documentation purposes. Do NOT provide recommendations.
 
 Alert Type: ${alert.type}
 Alert Title: ${alert.title}
@@ -287,13 +271,10 @@ Patient Context:
 ${patientContext}
 
 Explain what this alert means in general educational terms without recommending any actions.`,
-        },
-      ],
       temperature: 0.3,
-      max_tokens: 400,
+      maxTokens: 400,
     });
 
-    const analysis = response.choices[0]?.message?.content;
     if (!analysis) {
       return "Unable to generate alert analysis.";
     }

@@ -1,16 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-  console.log("[AIPatientProfileSummary] OpenAI client configured");
-} catch (error) {
-  console.log("[AIPatientProfileSummary] OpenAI client not configured, using fallback responses");
-}
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This summary is for informational and documentation purposes only. It does NOT constitute clinical decision support or medical advice. All information requires verification by qualified healthcare professionals before use in clinical decisions.";
 
@@ -289,7 +280,7 @@ async function generateAIHealthSummary(
   profileData: PatientProfileData,
   format: string
 ): Promise<EnhancedSummaryResult> {
-  if (!openai) {
+  if (!aiEnabled) {
     return generateFallbackSummary(profileData);
   }
 
@@ -389,15 +380,13 @@ Generate a JSON response with the following structure for a ${format} format sum
 
 Important: This is for documentation purposes only, not clinical decision support. Focus on summarizing existing data clearly. Do not make clinical recommendations.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
-      max_tokens: 2000,
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       return generateFallbackSummary(profileData);
     }

@@ -1,14 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: AI-generated summaries are for INFORMATIONAL purposes only. They do NOT constitute clinical decision support or medical advice. All clinical decisions must be made by qualified healthcare professionals who have reviewed the complete medical record.";
 
@@ -320,15 +311,12 @@ class AIMedicalRecordReviewService {
     const clinicalNotes = clinicalNotesStore.get(patientId) || [];
     
     try {
-      const openai = getOpenAI();
       const notesText = clinicalNotes.map(n => `[${n.date}] ${n.type}: ${n.content}`).join("\n\n");
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical record summarization assistant. Generate a structured summary extracting:
+
+      const aiContent = await generatePhiSafeText({
+        temperature: 0.3,
+        maxTokens: 2000,
+        system: `You are a medical record summarization assistant. Generate a structured summary extracting:
 1. Key diagnoses with ICD-10 codes where available
 2. Current medications with dosages
 3. Known allergies with reactions
@@ -336,19 +324,10 @@ class AIMedicalRecordReviewService {
 5. Lab result trends
 
 Use neutral, factual language. Do not provide medical advice or recommendations.
-Output in JSON format matching the PatientRecordSummary interface.`
-          },
-          {
-            role: "user",
-            content: `Summarize the following clinical notes for patient ${patientName}:\n\n${notesText || "No clinical notes available."}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
-      });
+Output in JSON format matching the PatientRecordSummary interface.`,
+        user: `Summarize the following clinical notes for patient ${patientName}:\n\n${notesText || "No clinical notes available."}`
+      }) || "";
 
-      const aiContent = response.choices[0]?.message?.content || "";
-      
       return this.parseAISummary(patientId, patientName, aiContent, clinicalNotes);
     } catch (error) {
       console.error("[MedicalRecordReview] AI error, using fallback:", error);
@@ -483,33 +462,22 @@ Output in JSON format matching the PatientRecordSummary interface.`
     });
 
     try {
-      const openai = getOpenAI();
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical documentation assistant. Summarize the clinical note and extract key information.
-            
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        temperature: 0.3,
+        maxTokens: 1000,
+        system: `You are a clinical documentation assistant. Summarize the clinical note and extract key information.
+
 Output JSON with:
 - summary: 2-3 sentence summary
 - keyFindings: array of key clinical points
 - extractedData: { diagnoses, medications, allergies, procedures, labs }
 
-Use neutral language. Do not provide recommendations.`
-          },
-          {
-            role: "user",
-            content: `Summarize this ${noteType}:\n\n${noteContent}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 1000
+Use neutral language. Do not provide recommendations.`,
+        user: `Summarize this ${noteType}:\n\n${noteContent}`
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
       
       return {
         summary: parsed.summary || "Summary not available.",

@@ -1,9 +1,7 @@
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -616,21 +614,16 @@ Be concise, accurate, and always cite your sources when possible.`;
       `\nContext: Asset ID: ${query.context.assetId || "N/A"}, Task ID: ${query.context.taskId || "N/A"}, Policy ID: ${query.context.policyId || "N/A"}` : "";
 
     try {
-      if (!openai) {
+      if (!aiEnabled) {
         return this.getFallbackResponse(query);
       }
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: query.query + contextInfo },
-        ],
-        max_tokens: 1000,
+      const answer = (await generatePhiSafeText({
+        system: systemPrompt,
+        user: query.query + contextInfo,
+        maxTokens: 1000,
         temperature: 0.7,
-      });
-
-      const answer = completion.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+      })) || "I couldn't generate a response. Please try again.";
 
       return {
         answer,

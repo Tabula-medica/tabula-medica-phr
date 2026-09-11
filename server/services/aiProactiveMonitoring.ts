@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import type {
   HealthMonitoringAlert,
@@ -14,13 +14,6 @@ import type {
   LabResult,
   PromResponse,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "not-set",
-  ...(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && {
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  }),
-});
 
 export interface PatientDataBundle {
   patientId: string;
@@ -200,10 +193,6 @@ async function generateAIAnalysis(
     timeToEffect: string;
   }[];
 }> {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return generateFallbackAnalysis(data, vitalTrends, labTrends);
-  }
-
   try {
     const prompt = `You are an AI health monitoring assistant analyzing patient data to detect early warning signs and recommend proactive interventions.
 
@@ -251,25 +240,21 @@ Analyze this data and return a JSON object with:
 
 Focus on early warning signs and preventive interventions. Be specific and actionable.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You are a clinical decision support AI. Analyze patient data and provide alerts and intervention recommendations. Return valid JSON only." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: "You are a clinical decision support AI. Analyze patient data and provide alerts and intervention recommendations. Return valid JSON only.",
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
-      max_tokens: 2000,
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0].message.content;
     if (!content) {
       throw new Error("No response from AI");
     }
 
     return JSON.parse(content);
   } catch (error) {
-    console.error("[AI Proactive Monitoring] OpenAI error:", error);
+    console.error("[AI Proactive Monitoring] AI gateway error:", error);
     return generateFallbackAnalysis(data, vitalTrends, labTrends);
   }
 }

@@ -1,11 +1,6 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = `DISCLAIMER: This onboarding system is for INFORMATIONAL AND ADMINISTRATIVE PURPOSES ONLY. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals.`;
 
@@ -626,17 +621,14 @@ ${registration.medicalHistory?.conditions.length ? `They have ${registration.med
 Keep the message under 100 words, friendly, and reassuring. Do not provide any medical advice.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You are a friendly healthcare administrative assistant. Generate warm, non-clinical welcome messages." },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 200,
-      temperature: 0.7
+    const content = await generatePhiSafeText({
+      system: "You are a friendly healthcare administrative assistant. Generate warm, non-clinical welcome messages.",
+      user: prompt,
+      maxTokens: 200,
+      temperature: 0.7,
     });
-    
-    return response.choices[0]?.message?.content || null;
+
+    return content || null;
   } catch (error) {
     console.error("[AutomatedOnboarding] AI summary error:", error);
     return `Welcome to Tabula Medica, ${registration.demographics.firstName}! We're excited to have you as part of our healthcare community. Your care team is ready to support your health journey.`;

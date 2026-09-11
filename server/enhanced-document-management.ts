@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface ExtractedMedication {
   name: string;
@@ -172,27 +167,21 @@ export async function extractDocumentInformation(
   filename?: string
 ): Promise<DocumentExtraction> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: EXTRACTION_PROMPT },
-        { 
-          role: "user", 
-          content: `Extract clinical information from this medical document:
+    const responseText = await generatePhiSafeText({
+      system: EXTRACTION_PROMPT,
+      user: `Extract clinical information from this medical document:
 
 Filename: ${filename || "Unknown"}
 
 Document content:
 ${content.slice(0, 20000)}
 
-Provide extraction as JSON.` 
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4000,
+Provide extraction as JSON.`,
+      responseMimeType: "application/json",
+      maxTokens: 4000,
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     
     return {
       medications: result.medications || [],
@@ -265,25 +254,19 @@ export async function searchDocumentsNaturalLanguage(
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: SEARCH_PROMPT },
-        {
-          role: "user",
-          content: `Search query: "${query}"
+    const responseText = await generatePhiSafeText({
+      system: SEARCH_PROMPT,
+      user: `Search query: "${query}"
 
 Available documents:
 ${JSON.stringify(documentSummaries, null, 2)}
 
 Find the most relevant documents for this query.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || '{"results":[]}');
+    const result = JSON.parse(responseText || '{"results":[]}');
     
     return (result.results || [])
       .filter((r: any) => r.relevanceScore > 0.3)
@@ -863,17 +846,13 @@ async function crossReferenceDocuments(documents: Document[]): Promise<CrossRefe
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: CROSS_REFERENCE_PROMPT },
-        { role: "user", content: `Analyze these medical documents:\n\n${JSON.stringify(documentsData, null, 2)}` }
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: CROSS_REFERENCE_PROMPT,
+      user: `Analyze these medical documents:\n\n${JSON.stringify(documentsData, null, 2)}`,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No response from AI");
 
     const analysis = JSON.parse(content);
@@ -916,17 +895,13 @@ async function answerMultiDocumentQuestion(question: string, documents: Document
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: MULTI_DOC_QA_PROMPT },
-        { role: "user", content: `Question: ${question}\n\nDocuments:\n${JSON.stringify(documentsData, null, 2)}` }
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: MULTI_DOC_QA_PROMPT,
+      user: `Question: ${question}\n\nDocuments:\n${JSON.stringify(documentsData, null, 2)}`,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No response from AI");
 
     const result = JSON.parse(content);
@@ -969,27 +944,20 @@ async function compareDocuments(doc1: Document, doc2: Document): Promise<{
   });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { 
-          role: "system", 
-          content: `You are a medical document comparison assistant. Compare two medical documents and identify:
+    const content = await generatePhiSafeText({
+      system: `You are a medical document comparison assistant. Compare two medical documents and identify:
 1. Similarities in findings, medications, or diagnoses
 2. Differences in values, measurements, or conclusions
 3. Progressions showing changes over time (improvements or concerns)
 4. Any concerns that might warrant attention
 
 COMPLIANCE: This is for patient information only, not clinical decision support.
-Return JSON: { "comparison": { "similarities": [...], "differences": [...], "progressions": [...], "concerns": [...] }, "summary": "..." }`
-        },
-        { role: "user", content: `Compare these documents:\n\nDocument 1:\n${JSON.stringify(docs[0], null, 2)}\n\nDocument 2:\n${JSON.stringify(docs[1], null, 2)}` }
-      ],
-      response_format: { type: "json_object" },
+Return JSON: { "comparison": { "similarities": [...], "differences": [...], "progressions": [...], "concerns": [...] }, "summary": "..." }`,
+      user: `Compare these documents:\n\nDocument 1:\n${JSON.stringify(docs[0], null, 2)}\n\nDocument 2:\n${JSON.stringify(docs[1], null, 2)}`,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No response from AI");
 
     return JSON.parse(content);

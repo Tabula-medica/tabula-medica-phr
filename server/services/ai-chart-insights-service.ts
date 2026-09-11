@@ -1,22 +1,9 @@
-import OpenAI from "openai";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient) {
-    try {
-      openaiClient = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-    } catch (error) {
-      console.log("[AIChartInsights] OpenAI client not configured, using mock data");
-      return null;
-    }
-  }
-  return openaiClient;
+function isAiEnabled(): boolean {
+  return true;
 }
 
 const PROHIBITED_TERMS = [
@@ -212,21 +199,13 @@ export async function getPredictiveRiskStratification(patientId: string): Promis
   if (!data.patient) throw new Error("Patient not found");
 
   const patientContext = buildPatientContext(data);
-  const client = getOpenAIClient();
   let result: PredictiveRiskStratification;
 
-  if (client) {
+  if (isAiEnabled()) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical data analysis AI that examines patient data patterns for chronic disease scoring. You MUST NOT provide clinical recommendations, advice, or decision support. Only describe data patterns and statistical associations. Use only safe verbs: "shows", "states", "data shows", "pattern shows". Never use: recommend, suggest, advise, should, must, prescribe, diagnose, treat. Always respond with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Analyze the following patient data for chronic disease patterns and generate scores.
+      const response = await generatePhiSafeText({
+        system: `You are a clinical data analysis AI that examines patient data patterns for chronic disease scoring. You MUST NOT provide clinical recommendations, advice, or decision support. Only describe data patterns and statistical associations. Use only safe verbs: "shows", "states", "data shows", "pattern shows". Never use: recommend, suggest, advise, should, must, prescribe, diagnose, treat. Always respond with valid JSON.`,
+        user: `Analyze the following patient data for chronic disease patterns and generate scores.
 
 <UNTRUSTED_PATIENT_DATA>
 ${patientContext}
@@ -257,15 +236,13 @@ Return JSON with this structure:
   "dataQuality": {"score": 0-1, "availableDataPoints": number, "missingDataAreas": ["areas"]}
 }
 
-Generate 4-6 chronic disease assessments based on the patient data. For diseases with no data, assign low scores. Focus on: Type 2 Diabetes, Cardiovascular Disease, COPD, Chronic Kidney Disease, Hypertension, Stroke.`
-          }
-        ],
-        response_format: { type: "json_object" },
+Generate 4-6 chronic disease assessments based on the patient data. For diseases with no data, assign low scores. Focus on: Type 2 Diabetes, Cardiovascular Disease, COPD, Chronic Kidney Disease, Hypertension, Stroke.`,
+        responseMimeType: "application/json",
         temperature: 0.3,
-        max_tokens: 2500,
+        maxTokens: 2500,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+      const aiResult = JSON.parse(response || "{}");
       const name = data.patient?.name || `${(data.patient as any)?.firstName || ""} ${(data.patient as any)?.lastName || ""}`.trim();
 
       result = {
@@ -328,21 +305,13 @@ export async function getComprehensiveHistorySummary(patientId: string): Promise
   if (!data.patient) throw new Error("Patient not found");
 
   const patientContext = buildPatientContext(data);
-  const client = getOpenAIClient();
   let result: ComprehensiveHistorySummary;
 
-  if (client) {
+  if (isAiEnabled()) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical documentation AI that generates comprehensive patient history summaries. You MUST only summarize what the data shows. Never provide recommendations, advice, or clinical decision support. Use only safe verbs: "shows", "states", "data shows". Always respond with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Generate a comprehensive cross-module patient history summary.
+      const response = await generatePhiSafeText({
+        system: `You are a clinical documentation AI that generates comprehensive patient history summaries. You MUST only summarize what the data shows. Never provide recommendations, advice, or clinical decision support. Use only safe verbs: "shows", "states", "data shows". Always respond with valid JSON.`,
+        user: `Generate a comprehensive cross-module patient history summary.
 
 <UNTRUSTED_PATIENT_DATA>
 ${patientContext}
@@ -387,15 +356,13 @@ Return JSON:
   "keyInsights": ["3-5 key data-driven observations from across all modules"]
 }
 
-Provide comprehensive coverage of ALL available data modules. End overallNarrative with: "This is an AI-generated summary for informational purposes only."`
-          }
-        ],
-        response_format: { type: "json_object" },
+Provide comprehensive coverage of ALL available data modules. End overallNarrative with: "This is an AI-generated summary for informational purposes only."`,
+        responseMimeType: "application/json",
         temperature: 0.2,
-        max_tokens: 3000,
+        maxTokens: 3000,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+      const aiResult = JSON.parse(response || "{}");
       const name = data.patient?.name || `${(data.patient as any)?.firstName || ""} ${(data.patient as any)?.lastName || ""}`.trim();
 
       result = {
@@ -492,21 +459,13 @@ export async function getCareGapAnalysis(patientId: string): Promise<CareGapAnal
   if (!data.patient) throw new Error("Patient not found");
 
   const patientContext = buildPatientContext(data);
-  const client = getOpenAIClient();
   let result: CareGapAnalysis;
 
-  if (client) {
+  if (isAiEnabled()) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical quality metrics AI that identifies gaps in care based on clinical guidelines (USPSTF, ADA, ACC/AHA, HEDIS). You MUST only identify data-supported gaps. Never provide recommendations or clinical advice. Use only safe verbs: "shows", "data shows", "guidelines state". Always respond with valid JSON.`
-          },
-          {
-            role: "user",
-            content: `Analyze the following patient data to identify potential gaps in care based on current clinical guidelines.
+      const response = await generatePhiSafeText({
+        system: `You are a clinical quality metrics AI that identifies gaps in care based on clinical guidelines (USPSTF, ADA, ACC/AHA, HEDIS). You MUST only identify data-supported gaps. Never provide recommendations or clinical advice. Use only safe verbs: "shows", "data shows", "guidelines state". Always respond with valid JSON.`,
+        user: `Analyze the following patient data to identify potential gaps in care based on current clinical guidelines.
 
 <UNTRUSTED_PATIENT_DATA>
 ${patientContext}
@@ -544,15 +503,13 @@ Identify 5-10 potential care gaps based on age, gender, conditions, medications,
 - Immunizations (flu, pneumonia, shingles, COVID, Tdap)
 - Follow-up care for chronic conditions
 - Medication review needs
-- Preventive care based on age/gender guidelines`
-          }
-        ],
-        response_format: { type: "json_object" },
+- Preventive care based on age/gender guidelines`,
+        responseMimeType: "application/json",
         temperature: 0.3,
-        max_tokens: 2500,
+        maxTokens: 2500,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+      const aiResult = JSON.parse(response || "{}");
       const name = data.patient?.name || `${(data.patient as any)?.firstName || ""} ${(data.patient as any)?.lastName || ""}`.trim();
 
       const gaps = (aiResult.gaps || []).map((g: any, i: number) => ({

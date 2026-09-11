@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type {
   HighRiskPatient,
   PatientRiskFactor,
@@ -18,8 +18,6 @@ import type {
   InsertOutreachAttempt,
 } from "@shared/schema";
 import { format, subDays, differenceInDays } from "date-fns";
-
-const openai = new OpenAI();
 
 const outreachActions = new Map<string, OutreachAction>();
 const talkingPointsCache = new Map<string, OutreachTalkingPoints>();
@@ -313,12 +311,8 @@ async function generateTalkingPointsWithAI(patient: HighRiskPatient): Promise<Ou
     .join("\n") || "No recent alerts";
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare care coordinator assistant helping care team members prepare for patient outreach calls. Generate talking points that are:
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare care coordinator assistant helping care team members prepare for patient outreach calls. Generate talking points that are:
 - Professional and empathetic in tone
 - Focused on patient education and engagement
 - Using safe language (avoid medical advice - use "discuss with your provider", "your care team recommends")
@@ -349,10 +343,7 @@ Return a JSON object with this structure:
   "messageTemplate": "Brief secure message template if call unsuccessful",
   "escalationTriggers": ["When to escalate to provider"]
 }`,
-        },
-        {
-          role: "user",
-          content: `Generate outreach talking points for this patient:
+      user: `Generate outreach talking points for this patient:
 
 Patient: ${patient.patientName}
 Age: ${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} years old
@@ -368,13 +359,10 @@ Recent Alerts:
 ${alertSummary}
 
 Preferred Contact Method: ${patient.contactInfo.preferredContactMethod || "phone_call"}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
       temperature: 0.7,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No response from AI");
 
     const parsed = JSON.parse(content);

@@ -1,15 +1,13 @@
 import { randomUUID, createHash } from "crypto";
-import OpenAI from "openai";
 import {
   CohortDefinition,
   PatientMatch,
   getCohort,
   getCohortResults,
 } from "./ai-patient-cohort-builder";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_PREDICTIVE_PROMPT = `You are an AI assistant for population health analytics and research cohort analysis.
 Your role is to provide statistical predictions and risk factor analysis for research and operational planning purposes.
@@ -191,15 +189,11 @@ export async function forecastCohortOutcomes(
   let methodology = "";
   let limitations: string[] = [];
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_PREDICTIVE_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this cohort for ${outcomeType} outcomes over ${timeframeMonths} months.
+      const content = await generatePhiSafeText({
+        system: NO_CDS_PREDICTIVE_PROMPT,
+        user: `Analyze this cohort for ${outcomeType} outcomes over ${timeframeMonths} months.
 
 Cohort: "${cohort.name}"
 Patient count: ${patients.length}
@@ -217,12 +211,9 @@ Provide population-level statistical predictions in JSON format:
 }
 
 Focus on research and operational planning insights only. No clinical recommendations.`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         predictions = (parsed.predictions || []).map((p: any) => ({
@@ -237,7 +228,7 @@ Focus on research and operational planning insights only. No clinical recommenda
         limitations = (parsed.limitations || []).map((l: string) => enforceCdsCompliance(l));
       }
     } catch (error) {
-      console.error("[CohortPredictive] OpenAI prediction failed:", error);
+      console.error("[CohortPredictive] AI prediction failed:", error);
     }
   }
 

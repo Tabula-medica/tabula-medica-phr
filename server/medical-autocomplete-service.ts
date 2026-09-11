@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 export type AutocompleteDomain = "conditions" | "medications" | "allergies" | "procedures" | "icd_codes";
 
@@ -85,23 +80,13 @@ export async function getAutocompleteSuggestions(
       ? `\nPatient context: ${JSON.stringify(patientContext)}`
       : "";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical terminology assistant. Given a partial search query for ${domain}, return a JSON object with a "suggestions" array containing up to 8 matching medical terms. Each item in the array should have: label (display name), code (ICD-10 for conditions, NDC/RxNorm for medications, or relevant code), system (coding system name), category (general category). Only return clinically accurate, commonly used terms. Prioritize results relevant to the patient context if provided. Format: {"suggestions": [...]}${contextStr}`
-        },
-        {
-          role: "user",
-          content: `Search query: "${query}" for domain: ${domain}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+    const content = await generatePhiSafeText({
+      system: `You are a medical terminology assistant. Given a partial search query for ${domain}, return a JSON object with a "suggestions" array containing up to 8 matching medical terms. Each item in the array should have: label (display name), code (ICD-10 for conditions, NDC/RxNorm for medications, or relevant code), system (coding system name), category (general category). Only return clinically accurate, commonly used terms. Prioritize results relevant to the patient context if provided. Format: {"suggestions": [...]}${contextStr}`,
+      user: `Search query: "${query}" for domain: ${domain}`,
+      responseMimeType: "application/json",
+      maxTokens: 500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       const rawResults = Array.isArray(parsed) ? parsed : (parsed.suggestions || parsed.results || []);
@@ -201,23 +186,13 @@ export async function validateFormEntry(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical data quality validator for a health record system. Analyze the submitted ${domain} data for potential errors, inconsistencies, or safety concerns. Return a JSON object with an "issues" array. Each issue should have: field (field name), severity (info|warning|error), message (clear explanation), suggestion (how to fix, optional). Focus on: clinical accuracy, dosage safety, drug interactions, duplicate entries, missing critical info, date inconsistencies. Do NOT provide clinical decision support or treatment recommendations - only validate data quality. If no issues found, return empty array. Patient context: ${JSON.stringify(patientContext || {})}`
-        },
-        {
-          role: "user",
-          content: `Validate this ${domain} entry: ${JSON.stringify(fields)}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+    const content = await generatePhiSafeText({
+      system: `You are a medical data quality validator for a health record system. Analyze the submitted ${domain} data for potential errors, inconsistencies, or safety concerns. Return a JSON object with an "issues" array. Each issue should have: field (field name), severity (info|warning|error), message (clear explanation), suggestion (how to fix, optional). Focus on: clinical accuracy, dosage safety, drug interactions, duplicate entries, missing critical info, date inconsistencies. Do NOT provide clinical decision support or treatment recommendations - only validate data quality. If no issues found, return empty array. Patient context: ${JSON.stringify(patientContext || {})}`,
+      user: `Validate this ${domain} entry: ${JSON.stringify(fields)}`,
+      responseMimeType: "application/json",
+      maxTokens: 500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       const aiIssues: ValidationIssue[] = (parsed.issues || [])

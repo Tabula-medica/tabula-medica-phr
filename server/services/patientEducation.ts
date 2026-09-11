@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT, sanitizeNoCDS, sanitizeNoCDSObject } from "../security/no-cds-guardrails";
 import type { Patient, MedicalRecord, Medication, Problem, Allergy } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface EducationModule {
   id: string;
@@ -97,12 +92,8 @@ export async function generatePersonalizedEducation(
     ? `Create personalized education about "${topic}" for a patient with: Conditions: ${conditionsList || "none"}. Medications: ${medicationsList || "none"}. Allergies: ${allergiesList || "none"}.`
     : `Create personalized health education for a patient with: Conditions: ${conditionsList || "none"}. Medications: ${medicationsList || "none"}. Allergies: ${allergiesList || "none"}. Focus on the most important condition or health topic for this patient.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a patient education specialist creating personalized health education modules. Create engaging, easy-to-understand content appropriate for patients.
+  const responseText = await generatePhiSafeText({
+    system: `You are a patient education specialist creating personalized health education modules. Create engaging, easy-to-understand content appropriate for patients.
 
 Return a JSON object with:
 - title: string (clear, patient-friendly title)
@@ -129,19 +120,14 @@ Guidelines:
 - Be encouraging and supportive
 - Never give specific medical advice - note that consulting healthcare providers is an option
 - All content is general health information, not clinical advice
-- ${NO_CDS_DISCLAIMER_SHORT}`
-      },
-      {
-        role: "user",
-        content: prompt
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 4000,
+- ${NO_CDS_DISCLAIMER_SHORT}`,
+    user: prompt,
+    responseMimeType: "application/json",
+    maxTokens: 4000,
   });
 
-  const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
-  
+  const result = sanitizeNoCDSObject(JSON.parse(responseText || "{}"));
+
   const moduleId = `edu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
   return {
@@ -184,12 +170,8 @@ export async function getEducationRecommendations(
   
   const medicationsList = context.medications.map(m => m.name);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a patient education specialist. Based on the patient's conditions and medications, identify relevant general health information topics.
+  const responseText = await generatePhiSafeText({
+    system: `You are a patient education specialist. Based on the patient's conditions and medications, identify relevant general health information topics.
 
 Return a JSON object with:
 - recommendations: array of 3-6 education topics, each with:
@@ -206,21 +188,16 @@ Focus areas:
 - Lifestyle information related to their conditions
 - Preventive care information appropriate for their situation
 - Information about warning signs to be aware of
-- ${NO_CDS_DISCLAIMER_SHORT}`
-      },
-      {
-        role: "user",
-        content: `Recommend education for a patient with:
+- ${NO_CDS_DISCLAIMER_SHORT}`,
+    user: `Recommend education for a patient with:
 Conditions: ${conditionsList.join(", ") || "none listed"}
 Medications: ${medicationsList.join(", ") || "none listed"}
-Allergies: ${context.allergies.map(a => a.name).join(", ") || "none listed"}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+Allergies: ${context.allergies.map(a => a.name).join(", ") || "none listed"}`,
+    responseMimeType: "application/json",
+    maxTokens: 2000,
   });
 
-  const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
+  const result = sanitizeNoCDSObject(JSON.parse(responseText || "{}"));
   return result.recommendations || [];
 }
 
@@ -238,12 +215,8 @@ export async function explainMedicalTerm(
     }
   }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a medical educator explaining terms to patients in plain English.
+  const responseText = await generatePhiSafeText({
+    system: `You are a medical educator explaining terms to patients in plain English.
 
 Return a JSON object with:
 - explanation: string (2-3 paragraphs explaining the term simply, avoiding jargon)
@@ -254,18 +227,13 @@ Make the explanation:
 - Easy to understand for someone without medical background
 - Relevant to the patient's conditions if provided
 - Practical and informational where appropriate
-- Present as general health information, not clinical advice`
-      },
-      {
-        role: "user",
-        content: `Explain the medical term "${term}" in simple terms.${contextInfo}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 1500,
+- Present as general health information, not clinical advice`,
+    user: `Explain the medical term "${term}" in simple terms.${contextInfo}`,
+    responseMimeType: "application/json",
+    maxTokens: 1500,
   });
 
-  const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
+  const result = sanitizeNoCDSObject(JSON.parse(responseText || "{}"));
   return {
     explanation: result.explanation || `${term} is a medical term. Please consult your healthcare provider for more information.`,
     relatedTerms: result.relatedTerms || [],
@@ -349,24 +317,24 @@ Return a JSON object with:
 - relatedTopics: string[] (2-4 topics they might want to learn more about)
 - disclaimer: string (brief reminder about consulting healthcare providers)`;
 
-  const messages: any[] = [
-    { role: "system", content: systemPrompt }
-  ];
+  const historyText =
+    conversationHistory && conversationHistory.length > 0
+      ? conversationHistory
+          .slice(-6)
+          .map((m) => `${m.role === "assistant" ? "Assistant" : "Patient"}: ${m.content}`)
+          .join("\n") + "\n"
+      : "";
 
-  if (conversationHistory && conversationHistory.length > 0) {
-    messages.push(...conversationHistory.slice(-6));
-  }
+  const userPrompt = `${historyText}Patient: ${question}`;
 
-  messages.push({ role: "user", content: question });
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages,
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
+  const responseText = await generatePhiSafeText({
+    system: systemPrompt,
+    user: userPrompt,
+    responseMimeType: "application/json",
+    maxTokens: 2000,
   });
 
-  const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
+  const result = sanitizeNoCDSObject(JSON.parse(responseText || "{}"));
   
   const patientQuestion: PatientQuestion = {
     id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -406,12 +374,8 @@ export async function getResourceRecommendations(
   const medicationsList = context.medications.map(m => m.name);
   const recentTopics = recentQuestions.map(q => q.category);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a health resource curator. Based on the patient's health profile, recommend relevant educational resources.
+  const responseText = await generatePhiSafeText({
+    system: `You are a health resource curator. Based on the patient's health profile, recommend relevant educational resources.
 
 Return a JSON object with:
 - resources: array of 6-8 recommended resources, each with:
@@ -431,21 +395,16 @@ Prioritize resources that:
 2. Cover medication safety and side effects
 3. Explain lifestyle modifications for their conditions
 4. Are from highly reputable medical sources
-5. Are appropriate for patient education (not clinical materials)`
-      },
-      {
-        role: "user",
-        content: `Recommend resources for a patient with:
+5. Are appropriate for patient education (not clinical materials)`,
+    user: `Recommend resources for a patient with:
 Conditions: ${conditionsList.join(", ") || "none listed"}
 Medications: ${medicationsList.join(", ") || "none listed"}
-Recent interests: ${recentTopics.join(", ") || "general health"}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 3000,
+Recent interests: ${recentTopics.join(", ") || "general health"}`,
+    responseMimeType: "application/json",
+    maxTokens: 3000,
   });
 
-  const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
+  const result = sanitizeNoCDSObject(JSON.parse(responseText || "{}"));
   
   return {
     patientId,
@@ -482,12 +441,8 @@ export async function generateFAQsForPatient(
   
   const medicationsList = context.medications.map(m => m.name);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      {
-        role: "system",
-        content: `You are a patient education specialist. Generate personalized FAQs that patients with these specific conditions and medications commonly ask.
+  const responseText = await generatePhiSafeText({
+    system: `You are a patient education specialist. Generate personalized FAQs that patients with these specific conditions and medications commonly ask.
 
 Return a JSON object with:
 - faqs: array of 8-10 questions and answers, each with:
@@ -502,19 +457,14 @@ Focus on:
 4. Warning signs that need medical attention
 5. Common concerns patients have about their treatment
 
-Use simple, non-medical language. Be warm and reassuring.`
-      },
-      {
-        role: "user",
-        content: `Generate personalized FAQs for a patient with:
+Use simple, non-medical language. Be warm and reassuring.`,
+    user: `Generate personalized FAQs for a patient with:
 Conditions: ${conditionsList.join(", ") || "no specific conditions listed"}
-Medications: ${medicationsList.join(", ") || "no medications listed"}`
-      }
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 3000,
+Medications: ${medicationsList.join(", ") || "no medications listed"}`,
+    responseMimeType: "application/json",
+    maxTokens: 3000,
   });
 
-  const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
+  const result = sanitizeNoCDSObject(JSON.parse(responseText || "{}"));
   return result.faqs || [];
 }

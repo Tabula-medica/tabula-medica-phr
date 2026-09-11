@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { onPipelineRunCompleted } from "./ai-proactive-data-quality";
 
 const CDS_PROHIBITED_PATTERNS = [
@@ -17,9 +17,7 @@ function enforceCdsCompliance(text: string): string {
   return sanitized;
 }
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 export interface DataSource {
   id: string;
@@ -1044,19 +1042,14 @@ async function executeAICohortAnalysis(
     try {
       let result: CohortAnalysisTask["results"];
 
-      if (openai) {
+      if (aiEnabled) {
         const prompt = buildAnalysisPrompt(task);
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: "You are a healthcare data analyst. Generate observational research findings only. NO clinical decision support or treatment recommendations. Focus on population health patterns and statistical observations." },
-            { role: "user", content: prompt },
-          ],
-          max_tokens: 1000,
+        const content = (await generatePhiSafeText({
+          system: "You are a healthcare data analyst. Generate observational research findings only. NO clinical decision support or treatment recommendations. Focus on population health patterns and statistical observations.",
+          user: prompt,
+          maxTokens: 1000,
           temperature: 0,
-        });
-
-        const content = response.choices[0]?.message?.content || "";
+        })) || "";
         result = parseAnalysisResult(task.taskType, content);
       } else {
         result = generateFallbackAnalysisResult(task);
@@ -1262,7 +1255,7 @@ async function makeStageDecisions(
     estimatedImpact: pipeline.cohortAnalysisTasks.length > 0 ? "medium" : "none",
   };
 
-  if (config.useAIDecisions && openai) {
+  if (config.useAIDecisions && aiEnabled) {
     try {
       const prompt = `Analyze this pipeline execution context and provide optimization recommendations:
 Data Quality Score: ${(qualityAnalysis.overallScore * 100).toFixed(1)}%
@@ -1273,17 +1266,14 @@ Configured Tasks: ${pipeline.cohortAnalysisTasks.length}
 
 Should harmonization be skipped? Should analysis proceed? Focus on data processing efficiency. NO clinical recommendations.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a healthcare data pipeline optimization expert. Provide brief, actionable recommendations for data processing efficiency. NO clinical decision support." },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 200,
+      const responseText = await generatePhiSafeText({
+        system: "You are a healthcare data pipeline optimization expert. Provide brief, actionable recommendations for data processing efficiency. NO clinical decision support.",
+        user: prompt,
+        maxTokens: 200,
         temperature: 0,
       });
 
-      const aiRecommendation = enforceCdsCompliance(response.choices[0]?.message?.content || "");
+      const aiRecommendation = enforceCdsCompliance(responseText || "");
       harmonizationDecision.aiRecommendation = aiRecommendation;
     } catch (error) {
       console.error("[FHIRDataPipeline] AI decision error:", error);

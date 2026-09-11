@@ -1,9 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const aiEnabled = true;
 
 export interface StructureDefinitionProfile {
   id: string;
@@ -465,17 +462,13 @@ class AIFHIRCustomValidationService {
       ],
     };
 
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    if (!aiEnabled) {
       return fallbackInsights;
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert FHIR validator providing insights on resource validation results.
+      const content = await generatePhiSafeText({
+        system: `You are an expert FHIR validator providing insights on resource validation results.
 Analyze the validation issues and provide:
 1. Critical findings that need immediate attention
 2. Recommendations for fixing issues
@@ -489,10 +482,7 @@ Respond in JSON format:
 }
 
 NO-CDS COMPLIANCE: These are informational insights only, not clinical decision support or medical advice.`,
-          },
-          {
-            role: "user",
-            content: `Analyze this FHIR validation result:
+        user: `Analyze this FHIR validation result:
 
 Resource Type: ${resource.resourceType}
 Profile: ${profile.name} (${profile.url})
@@ -502,13 +492,11 @@ Validation Issues (${issues.length} total):
 ${issues.slice(0, 10).map((i) => `- [${i.severity.toUpperCase()}] ${i.message}`).join("\n")}
 
 Provide insights for addressing these validation issues.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 1000,
+        maxTokens: 1000,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
@@ -542,17 +530,13 @@ Provide insights for addressing these validation issues.`,
       ],
     };
 
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    if (!aiEnabled) {
       return fallbackSuggestions;
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert FHIR resource validator. Analyze the resource and suggest fixes to make it conform to the specified profile.
+      const content = await generatePhiSafeText({
+        system: `You are an expert FHIR resource validator. Analyze the resource and suggest fixes to make it conform to the specified profile.
 
 Respond in JSON format:
 {
@@ -567,10 +551,7 @@ Respond in JSON format:
 }
 
 Only suggest fixes for actual issues. Provide realistic FHIR-compliant values.`,
-          },
-          {
-            role: "user",
-            content: `Analyze this ${resource.resourceType} resource against the ${profile.name} profile:
+        user: `Analyze this ${resource.resourceType} resource against the ${profile.name} profile:
 
 Resource:
 ${JSON.stringify(resource, null, 2)}
@@ -579,13 +560,11 @@ Profile Requirements:
 ${profile.elementDefinitions.map((e) => `- ${e.path}: min=${e.min}, max=${e.max}${e.mustSupport ? ", must-support" : ""}`).join("\n")}
 
 Suggest fixes to make this resource conformant.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 1500,
+        maxTokens: 1500,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {

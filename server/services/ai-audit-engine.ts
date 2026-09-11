@@ -1,13 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import * as integrationHub from "./external-integration-hub";
 import { createHash } from "crypto";
 import type { SecurityAuditLog } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return "H" + createHash("sha256").update(id).digest("hex").substring(0, 8);
@@ -1021,10 +1016,6 @@ async function generateAIInsights(
   syncEvents: integrationHub.SyncEvent[],
   logs: SecurityAuditLog[]
 ): Promise<string> {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return generateFallbackInsights(anomalies, syncEvents, logs);
-  }
-
   try {
     const summaryData = {
       totalAnomalies: anomalies.length,
@@ -1046,13 +1037,9 @@ async function generateAIInsights(
       },
     };
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      max_completion_tokens: 1024,
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare security analyst reviewing audit data for a HIPAA-compliant health records system. 
+    const content = await generatePhiSafeText({
+      maxTokens: 1024,
+      system: `You are a healthcare security analyst reviewing audit data for a HIPAA-compliant health records system.
 Provide concise, actionable insights about the security posture. Focus on:
 1. Key risk areas that need immediate attention
 2. Patterns that indicate potential security issues
@@ -1061,10 +1048,7 @@ Provide concise, actionable insights about the security posture. Focus on:
 
 IMPORTANT: Do NOT provide clinical advice or medical recommendations. Focus only on security, compliance, and operational insights.
 Keep your response under 300 words. Use professional, clear language.`,
-        },
-        {
-          role: "user",
-          content: `Analyze this audit summary and provide security insights:
+      user: `Analyze this audit summary and provide security insights:
 
 ${JSON.stringify(summaryData, null, 2)}
 
@@ -1073,11 +1057,9 @@ ${anomalies
   .slice(0, 5)
   .map((a) => `- ${a.severity.toUpperCase()}: ${a.title} - ${a.description}`)
   .join("\n")}`,
-        },
-      ],
     });
 
-    return response.choices[0]?.message?.content || generateFallbackInsights(anomalies, syncEvents, logs);
+    return content || generateFallbackInsights(anomalies, syncEvents, logs);
   } catch (error) {
     console.error("[AIAuditEngine] Error generating AI insights:", error);
     return generateFallbackInsights(anomalies, syncEvents, logs);
@@ -1690,7 +1672,7 @@ export async function runForensicAnalysis(
   const riskLevel = riskScore >= 80 ? "critical" : riskScore >= 60 ? "high" : riskScore >= 40 ? "medium" : "low";
 
   let aiAnalysis: string | undefined;
-  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && findings.length > 0) {
+  if (findings.length > 0) {
     aiAnalysis = await generateForensicAIAnalysis(analysisType, findings, patterns);
   }
 
@@ -1891,13 +1873,9 @@ async function generateForensicAIAnalysis(
   patterns: DataAccessPattern[]
 ): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_completion_tokens: 1024,
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare security forensic analyst reviewing data access patterns for a HIPAA-compliant system.
+    const content = await generatePhiSafeText({
+      maxTokens: 1024,
+      system: `You are a healthcare security forensic analyst reviewing data access patterns for a HIPAA-compliant system.
 Provide a detailed forensic analysis summary focusing on:
 1. Key security concerns and their severity
 2. Evidence patterns that support or refute malicious intent
@@ -1907,10 +1885,7 @@ Provide a detailed forensic analysis summary focusing on:
 CRITICAL: Do NOT provide any clinical advice, medical recommendations, or interpret clinical data.
 Focus ONLY on security, access patterns, and compliance analysis.
 Keep response under 500 words. Be specific and actionable.`,
-        },
-        {
-          role: "user",
-          content: `Analyze this ${analysisType} forensic investigation:
+      user: `Analyze this ${analysisType} forensic investigation:
 
 Findings (${findings.length}):
 ${findings.slice(0, 5).map(f => `- ${f.severity.toUpperCase()}: ${f.description} [Categories: ${f.affectedDataCategories.join(", ")}]`).join("\n")}
@@ -1919,11 +1894,9 @@ Patterns (${patterns.length}):
 ${patterns.slice(0, 5).map(p => `- ${p.patternType}: ${p.description} (Confidence: ${(p.confidence * 100).toFixed(0)}%)`).join("\n")}
 
 Provide forensic analysis and recommendations.`,
-        },
-      ],
     });
 
-    return response.choices[0]?.message?.content || "AI analysis unavailable";
+    return content || "AI analysis unavailable";
   } catch (error) {
     console.error("[AIAuditEngine] Forensic AI analysis error:", error);
     return "AI forensic analysis could not be generated";

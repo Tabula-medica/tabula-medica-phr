@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface ConditionTrend {
   id: string;
@@ -211,9 +206,7 @@ function generateId(): string {
 }
 
 function isOpenAIConfigured(): boolean {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (!apiKey) return false;
-  if (apiKey.includes("dummy") || apiKey.includes("test") || apiKey.length < 20) return false;
+  // PHI-safe Vertex/BAA gateway is always available; genuine errors fall back via try/catch.
   return true;
 }
 
@@ -356,14 +349,13 @@ Generate a JSON response analyzing the condition trend:
 
 IMPORTANT: This is for PATIENT EDUCATION purposes only, NOT clinical decision-making.`;
 
-          const response = await openai.chat.completions.create({
-            model: "gpt-5.1",
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" },
+          const responseText = await generatePhiSafeText({
+            user: prompt,
+            responseMimeType: "application/json",
           });
 
-          const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
-          
+          const aiResult = JSON.parse(responseText || "{}");
+
           const baseValue = condition.code === "I10" ? 140 : condition.code === "E11.9" ? 7.5 : 85;
           const trendDir = aiResult.trendDirection === "declining" ? "down" : aiResult.trendDirection === "improving" ? "down" : "stable";
           
@@ -492,13 +484,12 @@ Generate a JSON response with ${riskType} risk prediction:
 
 IMPORTANT: This is for PATIENT AWARENESS only. NOT clinical decision support.`;
 
-          const response = await openai.chat.completions.create({
-            model: "gpt-5.1",
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" },
+          const responseText = await generatePhiSafeText({
+            user: prompt,
+            responseMimeType: "application/json",
           });
 
-          const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+          const aiResult = JSON.parse(responseText || "{}");
 
           prediction = {
             id: generateId(),
@@ -682,13 +673,12 @@ Generate a JSON response with personalized health report:
 
 IMPORTANT: This is for PATIENT EDUCATION and WELLNESS AWARENESS purposes only. NOT clinical decision support or treatment recommendations.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const aiResult = JSON.parse(responseText || "{}");
 
         report = {
           id: generateId(),

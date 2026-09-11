@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = `DISCLAIMER: This document extraction system is for DATA PROCESSING AND ADMINISTRATIVE PURPOSES ONLY. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals.`;
@@ -131,27 +131,21 @@ export interface TemplateFHIRMapping {
 }
 
 class AIDocumentExtractionService {
-  private openai: OpenAI | null = null;
+  private aiEnabled: boolean = false;
   private requests: Map<string, DocumentExtractionRequest> = new Map();
   private templates: Map<string, ExtractionTemplate> = new Map();
 
   constructor() {
-    this.initializeOpenAI();
+    this.initializeAI();
     this.initializeTemplates();
     console.log("[AIDocumentExtraction] Service initialized with AI-powered extraction");
     console.log("[AIDocumentExtraction] NO-CDS compliance enabled for all outputs");
   }
 
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL: baseURL || undefined });
-      console.log("[AIDocumentExtraction] OpenAI client configured for intelligent extraction");
-    } else {
-      console.log("[AIDocumentExtraction] Using rule-based extraction (AI not configured)");
-    }
+  private initializeAI(): void {
+    // AI text extraction runs through the PHI-safe Vertex (BAA) gateway.
+    this.aiEnabled = true;
+    console.log("[AIDocumentExtraction] PHI-safe AI gateway configured for intelligent extraction");
   }
 
   private initializeTemplates(): void {
@@ -277,7 +271,7 @@ class AIDocumentExtractionService {
 
     let rawExtraction = this.ruleBasedExtraction(content, documentType);
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       const aiExtraction = await this.aiExtraction(content, documentType, userId);
       rawExtraction = this.mergeExtractions(rawExtraction, aiExtraction);
     }
@@ -372,7 +366,7 @@ class AIDocumentExtractionService {
   }
 
   private async aiExtraction(content: string, documentType: DocumentType, userId: string): Promise<RawExtraction> {
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return { conditions: [], medications: [], procedures: [], observations: [], allergies: [], immunizations: [], diagnosticResults: [] };
     }
 
@@ -386,13 +380,9 @@ class AIDocumentExtractionService {
     const truncatedContent = content.length > 8000 ? content.substring(0, 8000) + "..." : content;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
-          { 
-            role: "user", 
-            content: `Extract clinical entities from this ${documentType} document. Return a JSON object with these arrays:
+      const content_response = await generatePhiSafeText({
+        system: EXTRACTION_SYSTEM_PROMPT,
+        user: `Extract clinical entities from this ${documentType} document. Return a JSON object with these arrays:
 - conditions: diagnosed conditions (text, code if identifiable)
 - medications: medications mentioned (name, dosage, frequency)
 - procedures: procedures performed or recommended
@@ -404,15 +394,12 @@ For each entity include: text (original), normalizedText, confidence (0-1).
 Do NOT interpret findings or provide clinical advice.
 
 Document content:
-${truncatedContent}`
-          }
-        ],
-        max_tokens: 2000,
+${truncatedContent}`,
+        maxTokens: 2000,
         temperature: 0.2,
-        response_format: { type: "json_object" }
+        responseMimeType: "application/json",
       });
 
-      const content_response = response.choices[0]?.message?.content;
       if (content_response) {
         const parsed = JSON.parse(content_response);
         return {

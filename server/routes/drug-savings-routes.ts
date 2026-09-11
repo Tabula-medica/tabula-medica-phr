@@ -1,11 +1,7 @@
 import { Router } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "../services/ai-gateway";
 
 const router = Router();
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 interface ManufacturerProgram {
   id: string;
@@ -308,24 +304,15 @@ router.post("/ai-compare", async (req, res) => {
       p => p.coveredMedications.some(m => m.toLowerCase().includes(medication.toLowerCase()))
     );
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a pharmaceutical savings advisor for Tabula Medica. Help patients find the most affordable options for their medications. Provide practical, actionable advice. Always include a disclaimer that this is informational only and not medical advice. Keep responses concise (3-4 paragraphs). Format savings tips as a numbered list.`,
-        },
-        {
-          role: "user",
-          content: `I'm looking for ways to save on "${medication}"${currentCost ? ` (currently paying ~$${currentCost}/month)` : ""}. ${matchingGeneric ? `I found a generic alternative: ${matchingGeneric.genericName} (${matchingGeneric.estimatedSavings}).` : ""} ${matchingPrograms.length > 0 ? `Available assistance programs: ${matchingPrograms.map(p => p.programName).join(", ")}.` : ""} What are my best options to reduce costs?`,
-        },
-      ],
+    const advice = await generatePhiSafeText({
+      system: `You are a pharmaceutical savings advisor for Tabula Medica. Help patients find the most affordable options for their medications. Provide practical, actionable advice. Always include a disclaimer that this is informational only and not medical advice. Keep responses concise (3-4 paragraphs). Format savings tips as a numbered list.`,
+      user: `I'm looking for ways to save on "${medication}"${currentCost ? ` (currently paying ~$${currentCost}/month)` : ""}. ${matchingGeneric ? `I found a generic alternative: ${matchingGeneric.genericName} (${matchingGeneric.estimatedSavings}).` : ""} ${matchingPrograms.length > 0 ? `Available assistance programs: ${matchingPrograms.map(p => p.programName).join(", ")}.` : ""} What are my best options to reduce costs?`,
       temperature: 0.5,
-      max_tokens: 600,
+      maxTokens: 600,
     });
 
     res.json({
-      advice: response.choices[0]?.message?.content || "Unable to generate comparison.",
+      advice: advice || "Unable to generate comparison.",
       genericAlternative: matchingGeneric || null,
       assistancePrograms: matchingPrograms,
       disclaimer: "This is informational only and does not constitute medical or pharmaceutical advice. Always consult your doctor before switching medications.",

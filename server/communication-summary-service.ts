@@ -1,13 +1,4 @@
-import OpenAI from "openai";
-
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -181,10 +172,10 @@ export async function generateCommunicationSummary(
   let summaryText: string;
   
   try {
-    if (!process.env.OPENAI_API_KEY || filteredComms.length === 0) {
+    if (filteredComms.length === 0) {
       throw new Error("Using mock summary");
     }
-    
+
     const systemPrompt = `You are a medical communication summarizer.
 CRITICAL RULES:
 - Use ONLY these verbs: "shows", "states", "refers to", "means"
@@ -197,17 +188,14 @@ CRITICAL RULES:
       `[${c.type}] ${c.sender} to ${c.recipient}: ${c.subject || ""} - ${c.content.substring(0, 100)}`
     ).join("\n");
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Summarize these patient communications for ${patientName}:\n\n${commText}` }
-      ],
+    const aiText = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Summarize these patient communications for ${patientName}:\n\n${commText}`,
       temperature: 0.3,
-      max_tokens: 300,
+      maxTokens: 300,
     });
 
-    summaryText = response.choices[0]?.message?.content || generateMockSummary(filteredComms, patientName);
+    summaryText = aiText || generateMockSummary(filteredComms, patientName);
     summaryText = sanitizeText(summaryText);
   } catch (error) {
     summaryText = generateMockSummary(filteredComms, patientName);

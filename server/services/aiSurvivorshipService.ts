@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type { SurvivorshipProfile, FollowUpSchedule, LateEffectWatchlistItem } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface AISurvivorshipCarePlan {
   id: string;
@@ -133,18 +128,14 @@ Output must be valid JSON matching this structure:
 Remember: This is educational information only, not medical advice.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       id: `care-plan-${Date.now()}`,
@@ -211,18 +202,14 @@ ${upcoming.map(fu => `- ${fu.title} (${fu.category}) - Due: ${fu.nextDueDate}`).
 Total Active Follow-ups: ${followUps.filter(fu => fu.isActive).length}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1500,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     const completedCount = followUps.filter(fu => fu.lastCompletedDate).length;
     const completionRate = followUps.length > 0 ? Math.round((completedCount / followUps.length) * 100) : 0;
@@ -291,18 +278,14 @@ ${reportedSymptoms.length > 0 ? reportedSymptoms.join(", ") : "None reported"}
 Provide educational information about what late effects to be aware of based on treatment history.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       id: `late-effect-analysis-${Date.now()}`,

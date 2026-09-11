@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface DataClassification {
   id: string;
@@ -300,7 +300,7 @@ export interface ComplianceDashboard {
 }
 
 class AIDataGovernanceService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private classifications: Map<string, DataClassification> = new Map();
   private qualityChecks: Map<string, DataQualityCheck> = new Map();
   private checkResults: QualityCheckResult[] = [];
@@ -314,7 +314,6 @@ class AIDataGovernanceService {
   private impactAnalyses: Map<string, ImpactAnalysis> = new Map();
 
   constructor() {
-    this.initializeOpenAI();
     this.initializeDefaultQualityChecks();
     this.initializeDefaultPolicies();
     this.initializeComplianceRequirements();
@@ -322,18 +321,6 @@ class AIDataGovernanceService {
     this.initializeSampleData();
     console.log("[AIDataGovernance] Service initialized with AI classification and policy enforcement");
     console.log("[AIDataGovernance] Features: HIPAA/GDPR compliance, data lineage tracking, impact analysis");
-  }
-
-  private initializeOpenAI() {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey && baseURL) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      console.log("[AIDataGovernance] OpenAI client initialized for AI classification");
-    } else {
-      console.log("[AIDataGovernance] OpenAI not configured, using rule-based classification");
-    }
   }
 
   private initializeDefaultQualityChecks() {
@@ -856,7 +843,7 @@ class AIDataGovernanceService {
     
     let classification: DataClassification;
     
-    if (this.openai) {
+    if (this.aiEnabled) {
       classification = await this.aiClassifyResource(resourceId, resourceType, resourceData);
     } else {
       classification = this.ruleBasedClassify(resourceId, resourceType, resourceData);
@@ -872,12 +859,8 @@ class AIDataGovernanceService {
 
   private async aiClassifyResource(resourceId: string, resourceType: string, resourceData: Record<string, unknown>): Promise<DataClassification> {
     try {
-      const response = await this.openai!.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare data governance expert specializing in HIPAA compliance and PHI classification.
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare data governance expert specializing in HIPAA compliance and PHI classification.
 Analyze FHIR resources and classify them according to sensitivity levels.
 
 Classification Levels:
@@ -896,18 +879,13 @@ Respond in JSON format:
   "phiElements": [{"fieldPath": "...", "phiType": "...", "confidence": 0-1, "requiresMasking": true/false}],
   "reviewRequired": true/false,
   "reasoning": "Brief explanation"
-}`
-          },
-          {
-            role: "user",
-            content: `Classify this ${resourceType} resource:\n${JSON.stringify(resourceData, null, 2)}`
-          }
-        ],
+}`,
+        user: `Classify this ${resourceType} resource:\n${JSON.stringify(resourceData, null, 2)}`,
         temperature: 0.1,
-        response_format: { type: "json_object" }
+        responseMimeType: "application/json"
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(responseText || "{}");
       
       return {
         id: `class-${Date.now()}`,
@@ -1063,14 +1041,10 @@ Respond in JSON format:
   async detectAnomalies(resources: Record<string, unknown>[]): Promise<DataAnomaly[]> {
     const detected: DataAnomaly[] = [];
     
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare data quality expert. Analyze FHIR resources for anomalies.
+        const responseText = await generatePhiSafeText({
+          system: `You are a healthcare data quality expert. Analyze FHIR resources for anomalies.
 
 Anomaly Types:
 - outlier: Value significantly outside expected range
@@ -1092,18 +1066,13 @@ Respond in JSON format:
       "analysis": "Brief AI analysis"
     }
   ]
-}`
-            },
-            {
-              role: "user",
-              content: `Analyze these resources for anomalies:\n${JSON.stringify(resources.slice(0, 10), null, 2)}`
-            }
-          ],
+}`,
+          user: `Analyze these resources for anomalies:\n${JSON.stringify(resources.slice(0, 10), null, 2)}`,
           temperature: 0.2,
-          response_format: { type: "json_object" }
+          responseMimeType: "application/json"
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         
         for (const a of result.anomalies || []) {
           const anomaly: DataAnomaly = {
@@ -1431,15 +1400,11 @@ Respond in JSON format:
   async generateGovernanceReport(): Promise<{ report: string; recommendations: string[] }> {
     const dashboard = this.getGovernanceDashboard();
     
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare data governance expert. Generate a comprehensive governance report with actionable recommendations.
-              
+        const responseText = await generatePhiSafeText({
+          system: `You are a healthcare data governance expert. Generate a comprehensive governance report with actionable recommendations.
+
 Focus on:
 - Data classification coverage and accuracy
 - Data quality trends and issues
@@ -1451,18 +1416,13 @@ Respond in JSON format:
 {
   "report": "Comprehensive narrative report",
   "recommendations": ["Action 1", "Action 2", ...]
-}`
-            },
-            {
-              role: "user",
-              content: `Generate a governance report based on this dashboard data:\n${JSON.stringify(dashboard, null, 2)}`
-            }
-          ],
+}`,
+          user: `Generate a governance report based on this dashboard data:\n${JSON.stringify(dashboard, null, 2)}`,
           temperature: 0.3,
-          response_format: { type: "json_object" }
+          responseMimeType: "application/json"
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         return {
           report: result.report || "Unable to generate report",
           recommendations: result.recommendations || []
@@ -1549,15 +1509,11 @@ Respond in JSON format:
   }
 
   private async evaluateRequirement(requirement: ComplianceRequirement, resourceData: Record<string, unknown>): Promise<ComplianceFinding> {
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare compliance expert evaluating FHIR data against ${requirement.framework} requirements.
-              
+        const responseText = await generatePhiSafeText({
+          system: `You are a healthcare compliance expert evaluating FHIR data against ${requirement.framework} requirements.
+
 Evaluate the resource against this requirement:
 - Requirement: ${requirement.requirement}
 - Description: ${requirement.description}
@@ -1569,18 +1525,13 @@ Respond in JSON format:
   "status": "pass" | "fail" | "warning" | "not_applicable",
   "evidence": "Explanation of what was found",
   "remediation": "Steps to address any issues (if status is fail or warning)"
-}`
-            },
-            {
-              role: "user",
-              content: `Evaluate this FHIR resource:\n${JSON.stringify(resourceData, null, 2)}`
-            }
-          ],
+}`,
+          user: `Evaluate this FHIR resource:\n${JSON.stringify(resourceData, null, 2)}`,
           temperature: 0.2,
-          response_format: { type: "json_object" }
+          responseMimeType: "application/json"
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         return {
           requirementId: requirement.id,
           requirement: requirement.requirement,
@@ -1770,29 +1721,20 @@ Respond in JSON format:
       criticalCount > 3 ? "critical" : criticalCount > 1 ? "high" : indirectCount > 2 ? "medium" : "low";
 
     let aiInsights: string | undefined;
-    if (this.openai && impactedNodes.length > 0) {
+    if (this.aiEnabled && impactedNodes.length > 0) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a data governance expert. Provide brief insights on the impact analysis and key recommendations."
-            },
-            {
-              role: "user",
-              content: `Analyze this impact assessment for ${analysisType} on ${targetNode.name}:
+        const responseText = await generatePhiSafeText({
+          system: "You are a data governance expert. Provide brief insights on the impact analysis and key recommendations.",
+          user: `Analyze this impact assessment for ${analysisType} on ${targetNode.name}:
               - Directly impacted: ${criticalCount} nodes
               - Indirectly impacted: ${indirectCount} nodes
               - Data flows affected: ${impactedDataFlows.length}
-              
-              Provide 2-3 sentences of insights and recommendations.`
-            }
-          ],
+
+              Provide 2-3 sentences of insights and recommendations.`,
           temperature: 0.3,
-          max_tokens: 200
+          maxTokens: 200
         });
-        aiInsights = response.choices[0].message.content || undefined;
+        aiInsights = responseText || undefined;
       } catch (error) {
         console.error("[AIDataGovernance] AI impact analysis error:", error);
       }

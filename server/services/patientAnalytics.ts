@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import type { Patient, VitalSign, LabResult } from "@shared/schema";
 
@@ -25,11 +25,6 @@ interface AnalyticsLabResult {
   performedAt: string;
   source?: string;
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface TimeSeriesDataPoint {
   date: string;
@@ -481,21 +476,14 @@ Provide a JSON response with:
 
 Focus on clinically relevant patterns, actionable recommendations, and patient-friendly language. Do not provide diagnoses.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare analytics AI that provides educational insights about health data trends. Never provide diagnoses or treatment recommendations. Focus on data patterns and general wellness guidance.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You are a healthcare analytics AI that provides educational insights about health data trends. Never provide diagnoses or treatment recommendations. Focus on data patterns and general wellness guidance.",
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 800,
-      response_format: { type: "json_object" },
+      maxTokens: 800,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       return {

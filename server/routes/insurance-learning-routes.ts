@@ -1,12 +1,7 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "../services/ai-gateway";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 interface LessonModule {
   id: string;
@@ -275,21 +270,15 @@ router.post("/translate", async (req: Request, res: Response) => {
 
     const langName = supportedLanguages.find(l => l.code === targetLanguage)?.name || targetLanguage;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical insurance education translator. Translate the following insurance education content into ${langName}. Keep medical and insurance terminology accurate. Use simple, clear language appropriate for patients with varying health literacy levels. Context: ${context || "insurance education module"}. Return ONLY the translated text with no preamble.`,
-        },
-        { role: "user", content: text },
-      ],
+    const response = await generatePhiSafeText({
+      system: `You are a medical insurance education translator. Translate the following insurance education content into ${langName}. Keep medical and insurance terminology accurate. Use simple, clear language appropriate for patients with varying health literacy levels. Context: ${context || "insurance education module"}. Return ONLY the translated text with no preamble.`,
+      user: text,
       temperature: 0.3,
-      max_tokens: 2000,
+      maxTokens: 2000,
     });
 
     res.json({
-      translatedText: response.choices[0]?.message?.content || text,
+      translatedText: response || text,
       language: targetLanguage,
     });
   } catch (error: any) {
@@ -309,24 +298,15 @@ router.post("/ai-explain", async (req: Request, res: Response) => {
       ? `Respond in ${supportedLanguages.find(l => l.code === language)?.name || language}.`
       : "Respond in English.";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a friendly insurance education assistant for Tabula Medica. Explain insurance concepts in simple, patient-friendly language using everyday analogies. ${langInstruction} Keep responses concise (2-3 paragraphs max). Important: This is educational information only — not legal or financial advice. Always recommend consulting with the patient's insurance company or a benefits counselor for specific coverage questions.`,
-        },
-        {
-          role: "user",
-          content: question || `Explain the concept of "${topic}" in health insurance in a simple, easy-to-understand way. Use a real-world analogy.`,
-        },
-      ],
+    const response = await generatePhiSafeText({
+      system: `You are a friendly insurance education assistant for Tabula Medica. Explain insurance concepts in simple, patient-friendly language using everyday analogies. ${langInstruction} Keep responses concise (2-3 paragraphs max). Important: This is educational information only — not legal or financial advice. Always recommend consulting with the patient's insurance company or a benefits counselor for specific coverage questions.`,
+      user: question || `Explain the concept of "${topic}" in health insurance in a simple, easy-to-understand way. Use a real-world analogy.`,
       temperature: 0.7,
-      max_tokens: 500,
+      maxTokens: 500,
     });
 
     res.json({
-      explanation: response.choices[0]?.message?.content || "Unable to generate explanation.",
+      explanation: response || "Unable to generate explanation.",
       disclaimer: "This is educational information only. It does not constitute insurance, legal, or financial advice. Please consult your insurance company or a benefits counselor for specific coverage questions.",
     });
   } catch (error: any) {
