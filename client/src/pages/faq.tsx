@@ -81,7 +81,7 @@ const FAQ_DATA: FAQItem[] = [
   {
     category: "Privacy & Security",
     question: "Is my health data safe?",
-    answer: "Yes. Tabula Medica is HIPAA compliant with SOC 2 Type II certification. All data is encrypted with AES-256-GCM at rest and TLS 1.3 in transit. We use zero-knowledge encryption — our servers cannot read your health records. We never sell, share, or monetize your data.",
+    answer: "Yes. Tabula Medica is built to HIPAA standards with AES-256-GCM encryption at rest and TLS 1.3 in transit. We use zero-knowledge encryption — our servers cannot read your health records. A SOC 2 Type II audit is on our roadmap. We never sell, share, or monetize your data.",
   },
   {
     category: "Privacy & Security",

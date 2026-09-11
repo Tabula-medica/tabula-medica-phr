@@ -11,6 +11,7 @@ export interface MedicalTranscriptionRequest {
   maxSpeakers?: number;
   punctuation?: boolean;
   profanityFilter?: boolean;
+  longRunning?: boolean; // stage to GCS + longrunningrecognize (no ~60s cap) — for full encounters
 }
 
 export interface MedicalTranscriptionResponse {
@@ -113,17 +114,23 @@ export class MedicalSpeechToTextService {
   }
 
   async initialize(): Promise<boolean> {
+    if (this.gcpAvailable && this.auth) return true; // idempotent
     try {
-      if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-        console.log("[MedASR] No GCP credentials — NLP term detection available, real-time transcription requires GCP");
-        return false;
-      }
+      // Use Application Default Credentials. On Cloud Run this resolves to the
+      // runtime service account via the metadata server — there is NO
+      // GOOGLE_APPLICATION_CREDENTIALS file. The previous env-var gate made this
+      // ALWAYS false on Cloud Run (prod), silently disabling real transcription.
       this.auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
+      // Probe once so we fail fast (and return false) if ADC truly isn't available
+      // (e.g. local dev with no creds), rather than discovering it mid-request.
+      await this.auth.getAccessToken();
       this.gcpAvailable = true;
-      console.log("[MedASR] Initialized with GCP Speech-to-Text Medical model");
+      console.log("[MedASR] Initialized with GCP Speech-to-Text (ADC)");
       return true;
     } catch (err: any) {
-      console.warn("[MedASR] GCP init failed:", err.message);
+      this.auth = null;
+      this.gcpAvailable = false;
+      console.warn("[MedASR] GCP ADC unavailable — transcription disabled:", err?.message);
       return false;
     }
   }
@@ -132,7 +139,11 @@ export class MedicalSpeechToTextService {
     const startTime = Date.now();
 
     if (this.gcpAvailable && this.auth) {
-      return this.transcribeWithGcp(request, startTime);
+      // Full-length audio (ambient encounters) exceeds the sync recognize ~60s cap →
+      // stage to GCS + long-running recognize. Short clips use the faster sync path.
+      return request.longRunning
+        ? this.transcribeLongRunning(request, startTime)
+        : this.transcribeWithGcp(request, startTime);
     }
 
     return this.transcribeLocal(request, startTime);
@@ -234,6 +245,108 @@ export class MedicalSpeechToTextService {
     } catch (err: any) {
       console.error("[MedASR] GCP transcription failed, falling back to local:", err.message);
       return this.transcribeLocal(request, startTime);
+    }
+  }
+
+  // Long-running recognize for full-length audio (no ~60s sync cap): stage to GCS,
+  // run the async op, poll, parse, delete the temp object. BAA-covered (GCS + Speech
+  // API via ADC). On failure returns local-fallback (model="local-fallback") which the
+  // caller treats as an error — never OpenAI, never silent garbage.
+  private async transcribeLongRunning(request: MedicalTranscriptionRequest, startTime: number): Promise<MedicalTranscriptionResponse> {
+    if (!request.audioContent) return this.transcribeLocal(request, startTime);
+    const bucketName =
+      process.env.STT_STAGING_BUCKET ||
+      (process.env.PRIVATE_OBJECT_DIR || "").replace(/^\/+/, "").split("/")[0] ||
+      "tabula-medica-gcs";
+    const ext =
+      request.encoding === "WEBM_OPUS" ? "webm"
+      : request.encoding === "OGG_OPUS" ? "ogg"
+      : request.encoding === "MP3" ? "mp3" : "wav";
+    const objectName = `stt-tmp/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    let file: any = null;
+    try {
+      const { Storage } = await import("@google-cloud/storage");
+      file = new Storage().bucket(bucketName).file(objectName);
+      await file.save(Buffer.from(request.audioContent, "base64"), { resumable: false, contentType: `audio/${ext}` });
+
+      const client = await this.auth!.getClient();
+      const accessToken = await client.getAccessToken();
+      const token = typeof accessToken === "string" ? accessToken : accessToken.token;
+
+      const model =
+        request.model === "medical_dictation" ? "medical_dictation"
+        : request.model === "medical_conversation" ? "medical_conversation" : "default";
+      const config: any = {
+        encoding: request.encoding,
+        sampleRateHertz: request.sampleRateHertz,
+        languageCode: request.languageCode,
+        model,
+        useEnhanced: true,
+        enableAutomaticPunctuation: request.punctuation !== false,
+        enableWordTimeOffsets: true,
+        profanityFilter: request.profanityFilter || false,
+      };
+      if (request.speakerDiarization) {
+        config.diarizationConfig = { enableSpeakerDiarization: true, minSpeakerCount: 2, maxSpeakerCount: request.maxSpeakers || 4 };
+      }
+
+      const startRes = await fetch("https://speech.googleapis.com/v1p1beta1/speech:longrunningrecognize", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ config, audio: { uri: `gs://${bucketName}/${objectName}` } }),
+      });
+      if (!startRes.ok) throw new Error(`longrunningrecognize start ${startRes.status}: ${(await startRes.text()).slice(0, 160)}`);
+      const { name } = (await startRes.json()) as { name: string };
+
+      // Poll up to ~15 min (Google guidance ≈ 1x audio duration).
+      let op: any = null;
+      for (let i = 0; i < 180; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const opRes = await fetch(`https://speech.googleapis.com/v1p1beta1/operations/${name}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        op = await opRes.json();
+        if (op.done) break;
+      }
+      if (!op?.done) throw new Error("long-running transcription timed out");
+      if (op.error) throw new Error(`STT operation error: ${op.error.message}`);
+
+      const results = op.response?.results || [];
+      const allWords: TranscriptionWord[] = [];
+      let fullTranscript = "";
+      let totalConfidence = 0;
+      let confidenceCount = 0;
+      for (const result of results) {
+        const alt = result.alternatives?.[0];
+        if (!alt) continue;
+        fullTranscript += (fullTranscript ? " " : "") + alt.transcript;
+        if (alt.confidence) { totalConfidence += alt.confidence; confidenceCount++; }
+        for (const w of alt.words || []) {
+          allWords.push({
+            word: w.word,
+            startTime: parseFloat(w.startTime?.replace("s", "") || "0"),
+            endTime: parseFloat(w.endTime?.replace("s", "") || "0"),
+            confidence: alt.confidence || 0,
+            speakerTag: w.speakerTag,
+          });
+        }
+      }
+
+      return {
+        transcript: fullTranscript,
+        confidence: confidenceCount > 0 ? totalConfidence / confidenceCount : 0,
+        words: allWords,
+        speakers: request.speakerDiarization ? this.buildSpeakerSegments(allWords) : undefined,
+        medicalTerms: this.detectMedicalTerms(fullTranscript),
+        processingTimeMs: Date.now() - startTime,
+        model: `gcp-medasr-lro-${request.model || "default"}`,
+      };
+    } catch (err: any) {
+      console.error("[MedASR] long-running transcription failed:", err?.message);
+      return this.transcribeLocal(request, startTime);
+    } finally {
+      if (file) await file.delete({ ignoreNotFound: true }).catch(() => {});
     }
   }
 

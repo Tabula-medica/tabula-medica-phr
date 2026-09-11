@@ -1,6 +1,7 @@
-import { generatePhiSafeText } from "./services/ai-gateway";
-
-const aiEnabled = true;
+// PHI-bearing referral generation must use Vertex AI (Google BAA), never the consumer OpenAI
+// endpoint (no BAA). baaChatFetch routes to Vertex by default and throws when AI isn't configured
+// so the existing try/catch falls back to the deterministic mock — PHI never leaves without a BAA.
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
 
@@ -175,8 +176,8 @@ export async function generateReferralLetter(
   let letterContent: string;
   
   try {
-    if (!aiEnabled) {
-      throw new Error("AI not available");
+    if (!isAiConfigured()) {
+      throw new Error("AI not configured");
     }
 
     const systemPrompt = `You are a medical documentation assistant generating referral letters.
@@ -206,14 +207,24 @@ ${request.additionalNotes ? `\nAdditional notes: ${request.additionalNotes}` : "
 
 Generate the referral letter using only safe, descriptive language.`;
 
-    const aiText = await generatePhiSafeText({
-      system: systemPrompt,
-      user: userPrompt,
-      temperature: 0.3,
-      maxTokens: 1500,
+    // Routes to Vertex AI (Google BAA) by default; only OpenAI on an explicit non-PHI opt-in.
+    const response = await baaChatFetch({
+      body: {
+        model: "gpt-4o", // mapped to a Vertex model by the helper
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 1500,
+      },
     });
+    if (!response.ok) {
+      throw new Error(`referral AI HTTP ${response.status}`);
+    }
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
 
-    letterContent = aiText || generateMockReferralLetter(request);
+    letterContent = data.choices?.[0]?.message?.content || generateMockReferralLetter(request);
     letterContent = sanitizeText(letterContent);
   } catch (error) {
     console.log("Using mock referral letter generation");

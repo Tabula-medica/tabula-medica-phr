@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reference Content — Reviewer Console</title>
+<style>
+  :root { --bg:#f7f7f8; --card:#fff; --line:#e4e4e7; --ink:#18181b; --muted:#71717a; --brand:#0f766e; --danger:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px 24px; background:var(--card); border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; }
+  .muted { color:var(--muted); }
+  select, button { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  button.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  button.warn { color:var(--danger); border-color:#f3c6c6; }
+  button:disabled { opacity:.5; cursor:default; }
+  main { padding:24px; max-width:1100px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .row { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+  .pill { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); }
+  .s-draft{background:#fef9c3;} .s-in-review{background:#dbeafe;} .s-published{background:#dcfce7;} .s-retired{background:#f4f4f5;color:var(--muted);}
+  .kp { margin:8px 0 0; padding-left:18px; }
+  .meta { font-size:12px; color:var(--muted); margin-top:6px; }
+  .actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .err { color:var(--danger); font-size:13px; margin-top:8px; white-space:pre-wrap; }
+  .empty { text-align:center; color:var(--muted); padding:48px; }
+  details > summary { cursor:pointer; color:var(--brand); font-size:13px; margin-top:8px; }
+  pre { white-space:pre-wrap; background:var(--bg); padding:10px; border-radius:8px; max-height:240px; overflow:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reference Content <span class="muted">· Reviewer Console</span></h1>
+  <label>Status
+    <select id="status">
+      <option value="draft" selected>draft</option>
+      <option value="in-review">in-review</option>
+      <option value="published">published</option>
+      <option value="retired">retired</option>
+      <option value="">all</option>
+    </select>
+  </label>
+  <label>Source
+    <select id="source"><option value="">all</option><option>fda</option><option>cdc</option><option>who</option><option>icd11</option></select>
+  </label>
+  <button id="refresh" class="primary">Refresh</button>
+  <span id="count" class="muted"></span>
+</header>
+<main id="list"><div class="empty">Loading…</div></main>
+
+<script>
+const API = "/api/reference-content";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => (s ?? "").toString().replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+// Next-status buttons available from each state (mirrors server TRANSITIONS).
+const NEXT = { draft:["in-review","published"], "in-review":["published","draft"], published:["retired"], retired:["draft"] };
+const LABEL = { "in-review":"Send to review", published:"Publish", draft:"Back to draft", retired:"Retire" };
+
+async function load() {
+  const q = new URLSearchParams();
+  if ($("#status").value) q.set("status", $("#status").value);
+  if ($("#source").value) q.set("source", $("#source").value);
+  $("#list").innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await fetch(`${API}?${q}`, { credentials: "same-origin" });
+    if (r.status === 401) return fail("Not signed in. Open the app and sign in as a clinician/admin, then reload.");
+    if (r.status === 403) return fail("Your account is not a clinician/admin reviewer.");
+    if (!r.ok) return fail(`List failed: HTTP ${r.status}`);
+    const { count, items } = await r.json();
+    $("#count").textContent = `${count} item(s)`;
+    $("#list").innerHTML = items.length ? items.map(render).join("") : '<div class="empty">Nothing here.</div>';
+  } catch (e) { fail(e.message); }
+}
+function fail(msg){ $("#list").innerHTML = `<div class="empty err">${esc(msg)}</div>`; }
+
+function render(it) {
+  const kp = (it.structuredData && it.structuredData.keyPoints) || [];
+  const summary = (it.structuredData && it.structuredData.summary) || "";
+  const btns = (NEXT[it.status] || []).map(s =>
+    `<button data-id="${it.id}" data-to="${s}" class="${s==="published"?"primary":s==="retired"?"warn":""}">${LABEL[s]}</button>`).join("");
+  return `<div class="card" id="c-${it.id}">
+    <div class="row">
+      <div>
+        <strong>${esc(it.title)}</strong>
+        <div class="meta">${esc(it.source)} · ${esc(it.surface)} · ${esc(it.contentType)} · v:${esc(it.externalVersion||"—")}</div>
+      </div>
+      <span class="pill s-${it.status}">${esc(it.status)}</span>
+    </div>
+    ${summary ? `<div class="meta" style="margin-top:8px">${esc(summary)}</div>` : ""}
+    ${kp.length ? `<ul class="kp">${kp.map(k=>`<li>${esc(k)}</li>`).join("")}</ul>` : ""}
+    <div class="meta">${esc(it.license||"")}${it.attribution?` · ${esc(it.attribution)}`:""} · <a href="${esc(it.sourceUrl)}" target="_blank" rel="noopener">source ↗</a>${it.reviewedBy?` · reviewed by ${esc(it.reviewedBy)}`:""}</div>
+    ${it.body ? `<details><summary>View body</summary><pre>${esc(it.body.slice(0,4000))}</pre></details>` : ""}
+    <div class="actions">${btns}</div>
+    <div class="err" id="e-${it.id}"></div>
+  </div>`;
+}
+
+async function transition(id, to) {
+  $(`#e-${id}`).textContent = "";
+  const btns = document.querySelectorAll(`#c-${id} button`); btns.forEach(b=>b.disabled=true);
+  try {
+    const r = await fetch(`${API}/${id}/status`, {
+      method:"PATCH", credentials:"same-origin",
+      headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ status: to }),
+    });
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok) {
+      const extra = data.violations ? `\nNO-CDS violations:\n- ${data.violations.join("\n- ")}` : (data.allowed?`\nAllowed: ${data.allowed.join(", ")}`:"");
+      $(`#e-${id}`).textContent = `${data.error||("HTTP "+r.status)}${extra}`;
+      btns.forEach(b=>b.disabled=false);
+      return;
+    }
+    load(); // refresh list
+  } catch (e) { $(`#e-${id}`).textContent = e.message; btns.forEach(b=>b.disabled=false); }
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-id]");
+  if (b) transition(b.dataset.id, b.dataset.to);
+});
+$("#refresh").onclick = load;
+$("#status").onchange = load;
+$("#source").onchange = load;
+load();
+</script>
+</body>
+</html>

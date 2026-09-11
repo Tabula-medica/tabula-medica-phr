@@ -36,6 +36,7 @@ import {
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
+import { registerAbdmRoutes } from "./abdm-routes";
 import { registerComplianceRoutes } from "./compliance/compliance-routes";
 import { registerCompAiRoutes } from "./compai-routes";
 import { registerPhiAuditRoutes } from "./phi-audit-routes";
@@ -315,6 +316,7 @@ import consolidatedHealthRoutes from "./consolidated-health-routes";
 import documentSummarizationRoutes from "./document-summarization-routes";
 import carePacketsRoutes from "./care-packets-routes";
 import { supportResourcesRoutes } from "./support-resources-routes";
+import { referenceContentRoutes } from "./reference-content-routes";
 import { caregiverPermissionsRoutes } from "./caregiver-permissions-routes";
 import { caregiverDashboardRoutes } from "./caregiver-dashboard-routes";
 import { caregiverHealthDashboardRoutes } from "./caregiver-health-dashboard-routes";
@@ -885,6 +887,9 @@ export async function registerRoutes(
   
   // Register consent management routes (GDPR/HIPAA)
   registerConsentRoutes(app);
+
+  // Register ABDM (India) routes — connection ops + ABHA enrollment (stub until ABDM_ENABLED + creds)
+  registerAbdmRoutes(app);
   
   // Compliance routes already registered earlier for CDS blocking
   
@@ -1324,6 +1329,8 @@ export async function registerRoutes(
   app.use("/api/health-journey", personalizedHealthJourneyRoutes);
   console.log("[Routes] Personalized Health Journey routes registered at /api/health-journey/*");
   app.use("/api/enhanced-health-journey", enhancedHealthJourneyRoutes);
+  app.use("/api/reference-content", referenceContentRoutes);
+  console.log("[Routes] Reference-content reviewer routes registered at /api/reference-content/*");
   console.log("[Routes] Enhanced Health Journey routes registered at /api/enhanced-health-journey/*");
   registerCarePathwayRoutes(app);
   console.log("[Routes] Provider Population Management routes registered at /api/provider-population/*");
@@ -7282,6 +7289,22 @@ STRICT NO-CDS CONSTRAINTS:
     } catch (error) {
       console.error("Error fetching pharmacies:", error);
       res.status(500).json({ error: "Failed to fetch pharmacies" });
+    }
+  });
+
+  // Typeahead: search pharmacies by name + city via the public NPPES registry.
+  // Registered BEFORE /:id so "search" isn't captured as an id.
+  app.get("/api/pharmacies/search", requirePermission("records:read"), async (req, res) => {
+    try {
+      const { searchPharmacies } = await import("./services/pharmacy-lookup");
+      const name = typeof req.query.name === "string" ? req.query.name : "";
+      const city = typeof req.query.city === "string" ? req.query.city : undefined;
+      const state = typeof req.query.state === "string" ? req.query.state : undefined;
+      const results = await searchPharmacies(name, city, state);
+      res.json({ results });
+    } catch (error) {
+      console.error("Error searching pharmacies:", error);
+      res.status(500).json({ error: "Failed to search pharmacies" });
     }
   });
 
@@ -20052,13 +20075,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
 
       // Transcribe audio using Whisper
       const audioBuffer = Buffer.from(audioBase64, "base64");
-      const audioFile = new File([audioBuffer], "audio.webm", { type: "audio/webm" });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-1",
-        language: language || undefined,
-      });
+      // GCP Speech-to-Text (BAA) via the shared audio client — not OpenAI Whisper.
+      const { speechToText } = await import("./replit_integrations/audio/client");
+      const transcription = { text: await speechToText(audioBuffer, "webm") };
 
       // Perform search with transcribed text
       const searchResponse = await fetch(`http://localhost:5000/api/search`, {
@@ -24179,6 +24198,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   console.log("[Routes] Provider Integration Hub routes registered at /api/provider-integration");
 
   const providerIntegration = await import("./services/providerIntegration");
+  const providerDirectoryStore = await import("./services/providerDirectoryStore");
   const {
     providerSearchFiltersSchema,
     insertFhirEhrConnectionSchema,
@@ -24481,13 +24501,97 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
+  // Underinsured "Sesame" cash-pay marketplace — proxied server-to-server
+  // (public, non-PHI provider + cash-price data) and served same-origin so the
+  // PHR can show a "pay-cash, find-a-price" tab without CORS.
+  app.get("/api/marketplace/categories", requireRole("patient", "provider", "admin", "caregiver"), async (_req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace("/marketplace/categories");
+    res.json(r.data);
+  });
+  // Cash-price lookup: category=LAB|IMAGING|RX, q=service, zip. Returns quotes low→high.
+  app.get("/api/marketplace/price-lookup", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace("/marketplace/price-lookup", {
+      category: typeof req.query.category === "string" ? req.query.category : undefined,
+      q: typeof req.query.q === "string" ? req.query.q : undefined,
+      zip: typeof req.query.zip === "string" ? req.query.zip : undefined,
+    });
+    res.json(r.data);
+  });
+  app.get("/api/marketplace/providers/:id", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace(`/marketplace/providers/${encodeURIComponent(req.params.id)}`);
+    res.json(r.data);
+  });
+
+  // Provider self-onboarding: add a provider (+ primary location) to the
+  // persisted directory. Held as status "pending" until an admin approves,
+  // so it doesn't surface in search (which filters status = 'active') yet.
+  app.post("/api/provider-integration/providers/apply", requireRole("provider", "admin"), async (req, res) => {
+    try {
+      const b = req.body ?? {};
+      const loc = b.location ?? {};
+      if (!b.npi || !b.firstName || !b.lastName || !b.primarySpecialty || !loc.zipCode || !loc.city) {
+        return res.status(400).json({ error: "Missing required fields (npi, firstName, lastName, primarySpecialty, location.city, location.zipCode)" });
+      }
+      const { createProvider } = await import("./services/providerDirectoryStore");
+      const user = req.user as any;
+      const isAdmin = user?.claims?.role === "admin";
+      const providerId = await createProvider({
+        npi: String(b.npi),
+        firstName: b.firstName,
+        lastName: b.lastName,
+        credentials: b.credentials,
+        providerType: b.providerType || "physician",
+        specialties: Array.isArray(b.specialties) && b.specialties.length ? b.specialties : [b.primarySpecialty],
+        primarySpecialty: b.primarySpecialty,
+        languages: b.languages,
+        acceptingNewPatients: b.acceptingNewPatients,
+        bio: b.bio,
+        // Admins adding a provider can publish immediately; self-serve is pending.
+        status: isAdmin ? "active" : "pending",
+        location: {
+          name: loc.name || `${b.firstName} ${b.lastName}`,
+          addressLine1: loc.addressLine1 || "",
+          addressLine2: loc.addressLine2,
+          city: loc.city,
+          state: loc.state || "",
+          zipCode: loc.zipCode,
+          phone: loc.phone || "",
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        },
+      });
+      res.status(201).json({ providerId, status: isAdmin ? "active" : "pending" });
+    } catch (error: any) {
+      console.error("[Provider Integration] Error onboarding provider:", error);
+      res.status(500).json({ error: error?.message || "Failed to onboard provider" });
+    }
+  });
+
+  // Admin: approve (activate) a pending provider so it appears in search.
+  app.post("/api/provider-integration/providers/:providerId/approve", requireRole("admin"), async (req, res) => {
+    try {
+      const { setProviderStatus } = await import("./services/providerDirectoryStore");
+      await setProviderStatus(req.params.providerId, "active");
+      res.json({ ok: true, providerId: req.params.providerId, status: "active" });
+    } catch (error: any) {
+      console.error("[Provider Integration] Error approving provider:", error);
+      res.status(500).json({ error: error?.message || "Failed to approve provider" });
+    }
+  });
+
   // Provider Directory Routes
   app.get("/api/provider-integration/providers", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const validationResult = providerSearchFiltersSchema.safeParse(req.query);
       const filters = validationResult.success ? validationResult.data : {};
-      
-      const result = providerIntegration.providerDirectoryService.searchProviders(filters as any);
+
+      // Prefer the persisted directory (zip + specialty search over Postgres);
+      // fall back to the in-memory directory when no providers are seeded.
+      const persisted = await providerDirectoryStore.searchProvidersDb(filters as any);
+      const result = persisted ?? providerIntegration.providerDirectoryService.searchProviders(filters as any);
       res.json(result);
     } catch (error) {
       console.error("[Provider Integration] Error searching providers:", error);
@@ -24525,7 +24629,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   // AI-Powered Provider Search Routes
   console.log("[Routes] AI Provider Search routes registered at /api/provider-integration/ai-search");
 
-  app.get("/api/provider-integration/ai-search/suggestions", async (req, res) => {
+  app.get("/api/provider-integration/ai-search/suggestions", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== "string") {
@@ -24541,7 +24645,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/provider-integration/ai-search/autocomplete", async (req, res) => {
+  app.get("/api/provider-integration/ai-search/autocomplete", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== "string") {
@@ -24557,7 +24661,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/provider-integration/ai-search/semantic", requireUser, async (req, res) => {
+  app.post("/api/provider-integration/ai-search/semantic", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { query } = req.body;
       if (!query || typeof query !== "string") {
@@ -32521,7 +32625,8 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       const profiles = await storage.getProfiles(userId);
-      res.json(profiles);
+      const { formatMrn } = await import("@shared/mrn");
+      res.json(profiles.map((p) => ({ ...p, mrn: formatMrn(p.id) })));
     } catch (error) {
       console.error("[ProfileManagement] Get profiles error:", error);
       res.status(500).json({ error: "Failed to get profiles" });
@@ -32594,8 +32699,9 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         action: "read",
         details: `Accessed active profile: ${activeProfile.firstName} ${activeProfile.lastName}`,
       });
-      
-      res.json(activeProfile);
+
+      const { formatMrn } = await import("@shared/mrn");
+      res.json({ ...activeProfile, mrn: formatMrn(activeProfile.id) });
     } catch (error) {
       console.error("[ProfileManagement] Get active profile error:", error);
       res.status(500).json({ error: "Failed to get active profile" });
@@ -32624,7 +32730,8 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         details: `Accessed profile: ${profile.firstName} ${profile.lastName} (${profile.relationship})`,
       });
 
-      res.json(profile);
+      const { formatMrn } = await import("@shared/mrn");
+      res.json({ ...profile, mrn: formatMrn(profile.id) });
     } catch (error) {
       console.error("[ProfileManagement] Get profile error:", error);
       res.status(500).json({ error: "Failed to get profile" });

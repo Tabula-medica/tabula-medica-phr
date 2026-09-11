@@ -14,6 +14,11 @@
       content="black-translucent"
     />
     <meta name="apple-mobile-web-app-title" content="Tabula Medica" />
+    <!-- iOS Safari Smart App Banner -> Tabula Medica PHR on the App Store (id 6758421617) -->
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6758421617, app-argument=https://tabulamedica.us"
+    />
     <meta
       name="description"
       content="Tabula Medica is your unified personal health record. Connect every doctor, hospital, lab and pharmacy you've ever used into one private timeline with deduplication, plain-English explanations, and family caregiving built in."
@@ -219,5 +224,8 @@
         });
       }
     </script>
-  </body>
+      <!-- Self-hosted accessibility widget (vanilla JS, no external calls; safe for PHI-adjacent surfaces) -->
+    <script>window.TM_A11Y={position:'right',color:'#0A1628',accent:'#2FAE7E'}</script>
+    <script src="/accessibility-widget.js" defer></script>
+</body>
 </html>
