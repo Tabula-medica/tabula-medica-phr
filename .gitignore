@@ -106,3 +106,6 @@ Desktop/uninsurance-email-outreach/email-send/send-state.json
 
 # ringcentral api creds
 .ringcentral.json
+
+# Nested venture repos are self-contained git repos — never track them here
+repos/
