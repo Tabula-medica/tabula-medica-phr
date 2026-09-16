@@ -195,12 +195,22 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     // needed it, while a DIFFERENT required CPT with no coverage at all must still block.
     const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
     const requiredLines = linesNeedingAuth(claim.lines, contract);
-    for (const cpt of Array.from(new Set(requiredLines.map((r) => r.line.cpt.toUpperCase())))) {
-      const cptLines = requiredLines.filter((r) => r.line.cpt.toUpperCase() === cpt).map((r) => r.line);
-      const unitsForCpt = cptLines.reduce((s, l) => s + l.units, 0);
+    // Group by CPT + date of service, not CPT alone — the prior-auth agent itself opens a
+    // separate request per distinct date (a split, multi-visit claim can legitimately carry two
+    // different approved auths for the same CPT, each covering only its own visit's units), so
+    // requiring ONE auth record to cover every date's units combined would wrongly block a claim
+    // where each date is independently, fully covered by its own auth.
+    const byCptAndDate = new Map<string, { cpt: string; dateOfService: string; units: number }>();
+    for (const { line } of requiredLines) {
+      const key = `${line.cpt.toUpperCase()}|${line.dateOfService}`;
+      const existing = byCptAndDate.get(key);
+      if (existing) existing.units += line.units;
+      else byCptAndDate.set(key, { cpt: line.cpt.toUpperCase(), dateOfService: line.dateOfService, units: line.units });
+    }
+    for (const { cpt, dateOfService, units } of Array.from(byCptAndDate.values())) {
       const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
-      if (!covering.some((a) => cptLines.every((l) => authCoversService(a, l.cpt, l.dateOfService, unitsForCpt).ok))) {
-        throw new Error(`No authorization on file covers ${cpt} on this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
+      if (!covering.some((a) => authCoversService(a, cpt, dateOfService, units).ok)) {
+        throw new Error(`No authorization on file covers ${cpt} on ${dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
       }
     }
     const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;

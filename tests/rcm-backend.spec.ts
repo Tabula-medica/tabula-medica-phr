@@ -432,6 +432,24 @@ describe("agents", () => {
     expect(exec2.ok).toBe(false); // 70450 has no covering auth, even though 97110 (the attached number) does
     expect(exec2.error).toMatch(/70450/);
   });
+  it("submit-claim allows a split-visit claim where the same CPT on two different dates is each independently covered by its own auth", async () => {
+    // The prior-auth agent itself opens a separate request per distinct date of service — one
+    // auth record covering only the first visit's units must not be required to also cover a
+    // second visit's units on a different date for the SAME CPT.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const auth1 = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(auth1, "approved", { actor: "t", authNumber: "AUTH-SPLIT-1", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const auth2 = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-10" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(auth2, "approved", { actor: "t", authNumber: "AUTH-SPLIT-2", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-split-visit", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-SPLIT-1", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-10", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(true);
+  });
   it("submit-claim's auth lookup requires a payer match, not just number/patient/coverage", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
