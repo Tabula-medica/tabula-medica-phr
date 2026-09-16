@@ -16,15 +16,17 @@ export interface ClaimInput {
   lines: ServiceLine[];
   priorAuthNumber?: string;
   referralNumber?: string;
-  // Payer contract's own timely-filing window (Medicare 365, Medicaid 180, etc.) — falls back to
-  // the coverage record's value, then a generic 90 days, only when the contract wasn't looked up.
+  // Payer contract's own timely-filing window (Medicare 365, Medicaid 180, etc.) — authoritative
+  // whenever the contract was looked up, since Coverage.timelyFilingDays is itself documented as
+  // just a cached copy of "the payer contract default" and can go stale; falls back to the
+  // coverage record's own value, then a generic 90 days, only when no contract was found.
   contractTimelyFilingDays?: number;
 }
 
 export function buildClaim(input: ClaimInput): Claim {
   const at = nowIso();
   const dos = input.lines[0]?.dateOfService;
-  const tf = input.coverage.timelyFilingDays ?? input.contractTimelyFilingDays ?? 90;
+  const tf = input.contractTimelyFilingDays ?? input.coverage.timelyFilingDays ?? 90;
   return {
     id: newId("clm"),
     encounterId: input.encounterId,

@@ -109,11 +109,20 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
 rcmRouter.get("/prior-auth/rules", (_req, res) => res.json({ success: true, rules: DEFAULT_AUTH_RULES }));
 rcmRouter.get("/prior-auth", wrap(async (req, res) => res.json({ success: true, auths: await rcmStore.listAuths(tenantOf(req), typeof req.query.patientId === "string" ? req.query.patientId : undefined) })));
 rcmRouter.post("/prior-auth", wrap(async (req, res) => {
-  const p = z.object({ patientId: z.string(), coverageId: z.string(), payerId: z.string(), cpt: z.string(), diagnoses: z.array(z.string()).default([]), units: z.number().int().positive().optional(), urgency: z.enum(["standard", "urgent"]).optional(), availableDocs: z.array(z.string()).optional(), submit: z.boolean().default(false) }).safeParse(req.body);
+  const p = z.object({ patientId: z.string(), coverageId: z.string(), payerId: z.string(), cpt: z.string(), diagnoses: z.array(z.string()).default([]), dateOfService: z.string().optional(), units: z.number().int().positive().optional(), urgency: z.enum(["standard", "urgent"]).optional(), availableDocs: z.array(z.string()).optional(), submit: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  // Independently-supplied ids must actually belong together — otherwise this can persist an
+  // authorization record for the wrong patient/coverage/payer combination, which the scrubber
+  // later trusts when clearing auth-missing.
+  const patient = await rcmStore.getPatient(t, p.data.patientId);
+  const coverage = await rcmStore.getCoverage(t, p.data.coverageId);
+  if (!patient || !coverage) return fail(res, 404, "patient or coverage not found");
+  if (coverage.patientId !== patient.id) return fail(res, 400, "coverage does not belong to this patient");
+  if (coverage.payerId !== p.data.payerId) return fail(res, 400, "payerId does not match this coverage");
   let auth = createAuthRequest(p.data);
   if (p.data.submit) auth = transitionAuth(auth, "requested", { actor: actorOf(req) });
-  res.json({ success: true, auth: await rcmStore.upsertAuth(tenantOf(req), auth) });
+  res.json({ success: true, auth: await rcmStore.upsertAuth(t, auth) });
 }));
 rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
   const p = z.object({ to: z.enum(["not-required", "required", "requested", "pended", "approved", "denied", "expired", "exhausted"]), note: z.string().optional(), authNumber: z.string().optional(), validFrom: z.string().optional(), validTo: z.string().optional(), approvedUnits: z.number().int().positive().optional() }).safeParse(req.body);

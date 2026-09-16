@@ -91,6 +91,14 @@ describe("remittance posting", () => {
     expect(r.unapplied).toBe(100); // none of the unmatched claim's cash counts as applied
     expect(r.balanced).toBe(false);
   });
+  it("treats a matched claim id as unmatched when the ERA's payer id doesn't agree with the claim's own payer", () => {
+    const c = mkClaim(); // payerId BCBS
+    const rem = parseEra({ payerid: "AETNA", check_amount: 100, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c });
+    expect(r.postings[0].status).toBe("unmatched"); // wrong-payer ERA must not post against this claim
+    expect(r.postings[0].entries).toHaveLength(0);
+    expect(r.unapplied).toBe(100);
+  });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
     const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
@@ -265,6 +273,17 @@ describe("agents", () => {
     const auth = await rcmStore.getAuth(T, (opened.output as { authId: string }).authId);
     expect(auth?.units).toBe(3); // not the createAuthRequest default of 1
   });
+  it("prior-auth agent matches an existing auth even when the claim line's CPT case differs", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approved = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "J0135", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approved, "approved", { actor: "t", authNumber: "AUTH-CASE-1", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-case", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "j0135", modifiers: [], units: 1, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim);
+    const r = await agentRuntime.run("prior-auth", T);
+    expect(r.steps.some((s) => s.tool === "attach-auth-to-claim" && s.outcome === "ok")).toBe(true);
+    expect(r.steps.some((s) => s.tool === "open-auth-request")).toBe(false); // must not open a duplicate request
+  });
   it("prior-auth agent merges duplicate same-date lines but keeps different dates of service separate", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
@@ -307,6 +326,34 @@ describe("agents", () => {
     const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
     expect(exec.ok).toBe(true);
     expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
+  });
+  it("submitting a claim consumes its prior-auth's units, and blocks submission once they're exhausted", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-UNIT-1", approvedUnits: 2, validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim1 = buildClaim({ encounterId: "e-u1", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 2, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "AUTH-UNIT-1" });
+    const ready1 = transitionClaim(transitionClaim(claim1, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready1);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending1 = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready1.id)!;
+    await rcmStore.decideApproval(T, pending1.id, "approved", "biller");
+    const exec1 = await agentRuntime.executeApproved(T, pending1.id, "biller");
+    expect(exec1.ok).toBe(true);
+    const authAfter1 = await rcmStore.getAuth(T, approvedAuth.id);
+    expect(authAfter1?.unitsUsed).toBe(2);
+    expect(authAfter1?.status).toBe("exhausted");
+    // A second claim trying to reuse the now-exhausted auth must be blocked at submission time,
+    // not silently allowed through with zero units actually tracked as used.
+    const claim2 = buildClaim({ encounterId: "e-u2", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-05", placeOfService: "11" }], priorAuthNumber: "AUTH-UNIT-1" });
+    const ready2 = transitionClaim(transitionClaim(claim2, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready2);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending2 = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready2.id)!;
+    await rcmStore.decideApproval(T, pending2.id, "approved", "biller");
+    const exec2 = await agentRuntime.executeApproved(T, pending2.id, "biller");
+    expect(exec2.ok).toBe(false);
+    expect((await rcmStore.getClaim(T, ready2.id))?.status).toBe("ready"); // never actually submitted
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
@@ -517,6 +564,13 @@ describe("round 4 hardening", () => {
   it("buildClaim falls back to the payer contract's timely-filing default before the generic 90 days", () => {
     const c = buildClaim({ encounterId: "e", patient, coverage: { ...coverage, timelyFilingDays: undefined }, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }], contractTimelyFilingDays: 365 });
     expect(c.timelyFilingDeadline).toBe("2027-07-01"); // 365 days, not the generic 90
+  });
+  it("buildClaim prefers the payer contract's timely-filing window over a stale coverage value", () => {
+    // coverage.timelyFilingDays is documented as itself just a cached copy of the payer contract
+    // default — when a live contract lookup disagrees with it (e.g. a coverage record defaulted
+    // to 90 for every payer), the contract must win, not the coverage's stale copy.
+    const c = buildClaim({ encounterId: "e", patient, coverage: { ...coverage, timelyFilingDays: 90 }, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }], contractTimelyFilingDays: 365 });
+    expect(c.timelyFilingDeadline).toBe("2027-07-01");
   });
   it("scrubber's timely-filing rule uses the claim's own resolved deadline, not a bare 90-day default", () => {
     // No coverage.timelyFilingDays override — the deadline comes entirely from the payer

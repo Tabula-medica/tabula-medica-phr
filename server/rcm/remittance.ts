@@ -93,7 +93,11 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
   let applied = 0;
   for (const rc of rem.claims) {
     const claim = rc.claimId ? claimsById[rc.claimId] : undefined;
-    if (!claim) {
+    // A claim id match alone isn't enough: an ERA carrying the wrong payer id (malformed vendor
+    // payload, or a claim id that happens to collide across payers) must not be allowed to post
+    // payment/adjustments or move claim status for a different payer's claim.
+    const payerMismatch = !!claim && !!rem.payerId && claim.payerId !== rem.payerId;
+    if (!claim || payerMismatch) {
       // Never post cash against a fabricated "unknown" patient and never count it as applied —
       // that would make an unreconciled payment look balanced and the money unrecoverable.
       // Leave it unmatched for a human to reconcile against the real patient/claim.

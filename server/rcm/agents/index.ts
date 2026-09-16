@@ -3,7 +3,7 @@
 import { agentRuntime, type AgentDefinition, type AgentStep, type Tool, type ToolContext } from "./runtime";
 import { aiText } from "./ai";
 import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance } from "../eligibility";
-import { authCoversService, authorizedCptsOnFile, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
+import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
@@ -102,7 +102,9 @@ const priorAuthAgent: AgentDefinition = {
         // Consider every auth on file for this patient/coverage/payer/CPT, not just the first
         // match — a leftover denied/expired row must never shadow a later approved one, and an
         // approved auth from a *different* coverage/payer must never clear this one's requirement.
-        const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt);
+        // auth.cpt is always uppercased (createAuthRequest normalizes it) but a claim line's CPT
+        // isn't guaranteed to be — normalize both sides so e.g. "j0135" still matches "J0135".
+        const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt.toUpperCase());
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
         // A pending request only covers this line if it was opened for at least as many units —
@@ -161,6 +163,20 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
+    // Consume the auth's units at the moment the claim actually goes out — attaching an auth
+    // number never did, so a one-unit authorization stayed at zero units used and could be
+    // reused indefinitely. Fail closed if the claim needs more than what's left, rather than
+    // silently submitting over the authorized amount.
+    if (claim.priorAuthNumber) {
+      const auth = (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId);
+      if (auth) {
+        const unitsNeeded = claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0);
+        if (unitsNeeded > 0) {
+          if (auth.unitsUsed + unitsNeeded > auth.units) throw new Error(`Prior auth ${auth.authNumber} has insufficient units remaining (${auth.units - auth.unitsUsed} left, ${unitsNeeded} needed)`);
+          await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+        }
+      }
+    }
     await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
     return { submitted: claim.id };
   },
