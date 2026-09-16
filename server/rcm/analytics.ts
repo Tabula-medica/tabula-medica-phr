@@ -21,8 +21,10 @@ function aggregateAgingByPatient(ledger: LedgerEntry[], today: string): Aging {
 }
 
 // The insurance side of a single claim's balance still open (billed minus whatever has
-// already resolved it on the insurance side): what should actually age as payer A/R.
-function outstandingInsurance(claim: Claim, ledger: LedgerEntry[]): number {
+// already resolved it on the insurance side): what should actually age as payer A/R. Exported so
+// the denials agent's write-off/transfer-to-patient tools can cap a posted denial-adjustment
+// against what's actually still outstanding, rather than trusting a possibly-stale Denial.amount.
+export function outstandingInsurance(claim: Claim, ledger: LedgerEntry[]): number {
   const entries = ledger.filter((e) => e.claimId === claim.id);
   let insuranceSide = claim.totalCharge;
   for (const e of entries) {

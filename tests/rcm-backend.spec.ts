@@ -13,7 +13,7 @@ import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthReq
 import { scrubClaim } from "../server/rcm/scrubber";
 import { estimatePatientResponsibility, financialClearance, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
-import { addDays, isValidIcd10, round2 } from "../server/rcm/util";
+import { addDays, businessDaysBetween, isValidIcd10, round2 } from "../server/rcm/util";
 import { agentRuntime } from "../server/rcm/agents";
 import { aiText } from "../server/rcm/agents/ai";
 import { rcmStore } from "../server/rcm/store";
@@ -237,6 +237,21 @@ describe("remittance posting", () => {
     expect(canTransition(paid.status, claimStatusFromPosting(r.postings[0]))).toBe(true);
     expect(transitionClaim(paid, claimStatusFromPosting(r.postings[0]), "era-post").status).toBe("adjudicated");
   });
+  it("parseEra recognizes its own canonical camelCase field names, not just the vendor-JSON aliases", () => {
+    // A caller round-tripping an already-parsed Remittance/RemitClaim (a resend, or a client
+    // mirroring the TS field names) uses "claimId"/"statusCode"/"patientResp"/"checkAmount" etc,
+    // not "pcn"/"status"/"patient_resp"/"check_amount" — those must be recognized too.
+    const c = mkClaim();
+    const rem = parseEra({ payerId: "BCBS", checkAmount: 100, checkNumber: "CHK-RT", claims: [{ claimId: c.id, statusCode: "1", billed: 450, paid: 100, patientResp: 0, claimAdjustments: [{ group: "CO", carc: "45", amount: 350 }] }] });
+    expect(rem.checkAmount).toBe(100);
+    expect(rem.checkNumber).toBe("CHK-RT");
+    expect(rem.claims[0].claimId).toBe(c.id);
+    expect(rem.claims[0].statusCode).toBe("1");
+    expect(rem.claims[0].claimAdjustments?.[0]).toMatchObject({ group: "CO", carc: "45", amount: 350 });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).not.toBe("unmatched");
+    expect(r.postings[0].contractual).toBe(350);
+  });
 });
 
 describe("denials", () => {
@@ -348,6 +363,23 @@ describe("patient financials", () => {
     expect(gfe.total).toBe(160.5);
     expect(gfe.deliverBy).toBe("2026-09-09"); // 3 business days from the 2026-09-05 (Sat) request date
     expect(gfe.disclaimers.length).toBeGreaterThan(1);
+  });
+  it("businessDaysBetween counts weekdays strictly after `from` up to and including `to`, across full and partial weeks", () => {
+    // Two full weeks (Mon->Mon, 14 calendar days) = 10 weekdays.
+    expect(businessDaysBetween("2026-09-07", "2026-09-21")).toBe(10); // both Mondays
+    // One full week plus a partial week (Fri->Mon, 3 calendar days, crossing one weekend).
+    expect(businessDaysBetween("2026-09-04", "2026-09-07")).toBe(1); // Fri -> Mon: only Monday counts
+    // Same day, or `to` before `from`, must never go negative or loop.
+    expect(businessDaysBetween("2026-09-07", "2026-09-07")).toBe(0);
+    expect(businessDaysBetween("2026-09-07", "2026-09-01")).toBe(0);
+  });
+  it("businessDaysBetween resolves a far-future date instantly instead of looping day-by-day", () => {
+    // A malformed/huge scheduledDate (e.g. a caller-supplied "9999-12-31") must not force millions
+    // of synchronous iterations and block the event loop.
+    const start = Date.now();
+    const result = businessDaysBetween("2026-09-05", "9999-12-31");
+    expect(Date.now() - start).toBeLessThan(50);
+    expect(result).toBeGreaterThan(0);
   });
   it("flags a GFE line with no self-pay rate instead of silently pricing it at zero", () => {
     const gfe = goodFaithEstimate(patient, [{ cpt: "00000", units: 1 }], {}, undefined, "2026-09-05");
@@ -642,6 +674,24 @@ describe("agents", () => {
     expect(exec.error).toMatch(/no longer matches the amount/);
     expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
   });
+  it("submit-claim refuses to submit once the claim's lines/diagnoses have drifted from the approval's fingerprint, even at an unchanged total", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-content-drift" }; // 99214/20610 need no auth
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    // Same total, but a line's date of service changes after the approval was requested.
+    const drifted = { ...ready, lines: ready.lines.map((l, i) => (i === 0 ? { ...l, dateOfService: "2026-08-15" } : l)) };
+    expect(drifted.totalCharge).toBe(ready.totalCharge);
+    await rcmStore.upsertClaim(T, drifted);
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/lines\/diagnoses no longer match/);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
+  });
   it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
     // The guard used to be wrapped in `if (claim.priorAuthNumber && ...)`, so a claim needing
     // auth with NO box-23 number at all skipped validation entirely instead of failing closed.
@@ -802,7 +852,11 @@ describe("agents", () => {
     const afterFailure = (await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!;
     expect(afterFailure.status).toBe("approved");
     expect(afterFailure.executedAt).toBeUndefined(); // must stay retryable, not locked out by the failure
-    await rcmStore.upsertDenial(T, { id: "missing-denial", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    // write-off now caps against the claim's actual outstanding insurance balance, so this needs
+    // a real seeded claim (any of pt-demo-1's demo claims carries far more than $10 open) rather
+    // than a placeholder id that resolves to no claim at all.
+    const realClaimId = (await rcmStore.listClaims(T)).find((c) => c.patientId === "pt-demo-1")!.id;
+    await rcmStore.upsertDenial(T, { id: "missing-denial", claimId: realClaimId, patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
     const exec2 = await agentRuntime.executeApproved(T, approval.id, "biller");
     expect(exec2.ok).toBe(true);
     expect((await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!.executedAt).toBeDefined();
@@ -854,7 +908,8 @@ describe("agents", () => {
     expect(exec.error).toMatch(/no longer open/);
   });
   it("write-off and transfer-to-patient can't both win a race against the same open denial", async () => {
-    await rcmStore.upsertDenial(T, { id: "den-race-1", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const realClaimId = (await rcmStore.listClaims(T)).find((c) => c.patientId === "pt-demo-1")!.id;
+    await rcmStore.upsertDenial(T, { id: "den-race-1", claimId: realClaimId, patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
     const writeOffApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-race-1", patientId: "pt-demo-1", amount: 10, reason: "test" }, reason: "test" });
     const transferApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "transfer-to-patient", payload: { denialId: "den-race-1", patientId: "pt-demo-1", amount: 10 }, reason: "test" });
     await rcmStore.decideApproval(T, writeOffApproval.id, "approved", "biller");
@@ -868,6 +923,26 @@ describe("agents", () => {
     ]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
+  });
+  it("write-off caps a stale denial amount against the claim's actual outstanding insurance balance instead of creating a credit", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = mkClaim(); // totalCharge 450, no other postings yet
+    await rcmStore.upsertClaim(T, claim);
+    // Most of the claim's insurance balance has already been resolved by the time this stale
+    // denial (amount 300, captured earlier) gets written off — only $50 is actually still open.
+    await rcmStore.postLedger(T, [
+      { id: "led-cap-1", patientId: patient.id, claimId: claim.id, type: "insurance-payment", amount: 300, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "led-cap-2", patientId: patient.id, claimId: claim.id, type: "contractual-adjustment", amount: 100, date: "2026-08-01", responsibleParty: "insurance" },
+    ]);
+    await rcmStore.upsertDenial(T, { id: "den-cap-1", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "1", group: "PR", amount: 300, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-cap-1", patientId: patient.id, amount: 300, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, approval.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, approval.id, "biller");
+    expect(exec.ok).toBe(true);
+    expect((exec.output as { writtenOff: number }).writtenOff).toBe(50); // capped, not the full stale 300
+    const entries = await rcmStore.ledger(T, patient.id);
+    expect(entries.find((e) => e.type === "denial-adjustment")?.amount).toBe(50);
   });
   it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
     const approvalsBefore = (await rcmStore.listApprovals(T)).length;

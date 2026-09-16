@@ -421,9 +421,14 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   // ($0, balanced) remittance. Reject a payload with no claim rows before doing any work.
   if (!rem.claims.length) return fail(res, 400, "ERA has no claim rows to post — check the uploaded payload");
   // Idempotency: a clearinghouse retry or a duplicate click must not double-post the same ERA.
-  // Identify it by payer + check number/amount (the standard 835 trace key) when present,
-  // otherwise by its own id (explicit, or a content fingerprint — see parseEra).
-  const identityKey = rem.checkNumber ? `cn:${rem.payerId ?? ""}:${rem.checkNumber}:${rem.checkAmount}` : `id:${rem.id}`;
+  // Identify it by payer + check number (the standard 835 trace key) when present, otherwise by
+  // its own id (explicit, or a content fingerprint — see parseEra). The LOCK key deliberately
+  // excludes checkAmount: a retry or corrected resend can legitimately carry the same trace
+  // number with a different parsed amount, and keying the lock on amount would give it a
+  // different lock key than the original post, letting both run concurrently — defeating the
+  // lock. (The separate `alreadyPosted` duplicate check below still compares checkAmount too,
+  // which is fine there — it only makes duplicate DETECTION stricter, it doesn't gate the lock.)
+  const identityKey = rem.checkNumber ? `cn:${rem.payerId ?? ""}:${rem.checkNumber}` : `id:${rem.id}`;
   const lockKey = `${t}:${identityKey}`;
   // Synchronous check-and-set, before any `await` — see remittancePostInFlight's comment.
   if (remittancePostInFlight.has(lockKey)) return fail(res, 409, "This remittance is already being posted");
@@ -588,7 +593,7 @@ rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
   }
 }));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
-rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().int().positive().default(1) })), selfPayRates: z.record(z.number().nonnegative()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
+rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().int().positive().default(1) })), selfPayRates: z.record(z.number().nonnegative()).default({}), scheduledDate: isoDate.optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
 // Direct posting is limited to entries that record something that already happened at the
 // point of care/reception (a charge, a manually-keyed payment/adjustment, a PR transfer).
 // Refunds, write-offs, and denial adjustments forgive or return money and must go through the

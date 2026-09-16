@@ -13,7 +13,10 @@ const pick = (r: Record<string, unknown>, ...keys: string[]) => keys.map((k) => 
 
 function parseAdjustments(r: Record<string, unknown>, isReversal = false): Adjustment[] {
   const out: Adjustment[] = [];
-  for (const a of arr(pick(r, "adjustments", "adjustment", "cas", "CAS"))) {
+  // "claimAdjustments" is RemitClaim's own canonical field name (distinct from RemitLine's
+  // "adjustments") — included here too so a round-tripped RemitClaim object (its own output
+  // shape passed back in) is still recognized, alongside the vendor-JSON aliases.
+  for (const a of arr(pick(r, "adjustments", "adjustment", "cas", "CAS", "claimAdjustments"))) {
     const group = (str(pick(a, "group", "group_code", "CAS01")) ?? "CO").toUpperCase();
     const g: Adjustment["group"] = group === "PR" || group === "OA" || group === "PI" ? group : "CO";
     const amount = round2(num(pick(a, "amount", "adj_amount", "CAS03")));
@@ -36,24 +39,24 @@ function parseAdjustments(r: Record<string, unknown>, isReversal = false): Adjus
 export function parseEra(raw: unknown): Remittance {
   const r = (raw ?? {}) as Record<string, unknown>;
   const claims: RemitClaim[] = arr(pick(r, "claims", "claim", "CLP")).map((c) => {
-    const statusCode = str(pick(c, "status", "claim_status", "CLP02"));
+    const statusCode = str(pick(c, "statusCode", "status", "claim_status", "CLP02"));
     const paid = round2(num(pick(c, "paid", "amount_paid", "CLP04")));
     const isReversal = statusCode === "22" || paid < 0;
     return {
-      claimId: str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")),
-      payerClaimNumber: str(pick(c, "payer_claim_id", "icn", "CLP07")),
-      patientName: str(pick(c, "patient_name", "patient")),
+      claimId: str(pick(c, "claimId", "pcn", "patient_control_number", "claimid", "CLP01")),
+      payerClaimNumber: str(pick(c, "payerClaimNumber", "payer_claim_id", "icn", "CLP07")),
+      patientName: str(pick(c, "patientName", "patient_name", "patient")),
       statusCode,
       billed: round2(num(pick(c, "billed", "total_charge", "CLP03"))),
       allowed: pick(c, "allowed", "allowed_amount") !== undefined ? round2(num(pick(c, "allowed", "allowed_amount"))) : undefined,
       paid,
-      patientResp: round2(num(pick(c, "patient_resp", "patient_responsibility", "CLP05"))),
+      patientResp: round2(num(pick(c, "patientResp", "patient_resp", "patient_responsibility", "CLP05"))),
       lines: arr(pick(c, "lines", "services", "service", "SVC")).map((l) => ({
         cpt: str(pick(l, "proc", "proc_code", "procedure_code", "cpt"))?.replace(/^HC:/, ""),
         billed: round2(num(pick(l, "billed", "charge", "SVC02"))),
         allowed: pick(l, "allowed", "allowed_amount") !== undefined ? round2(num(pick(l, "allowed", "allowed_amount"))) : undefined,
         paid: round2(num(pick(l, "paid", "amount_paid", "SVC03"))),
-        patientResp: round2(num(pick(l, "patient_resp", "patient_responsibility"))),
+        patientResp: round2(num(pick(l, "patientResp", "patient_resp", "patient_responsibility"))),
         adjustments: parseAdjustments(l, isReversal),
       })),
       // 2100 CLP-level CAS — an 835 can carry these *alongside* SVC-level line adjustments, not
@@ -62,17 +65,24 @@ export function parseEra(raw: unknown): Remittance {
       claimAdjustments: parseAdjustments(c, isReversal),
     };
   });
-  const method = (str(pick(r, "payment_method", "method", "BPR04")) ?? "").toUpperCase();
-  const explicitId = str(pick(r, "eraid", "era_id", "id"));
+  const method = (str(pick(r, "method", "payment_method", "BPR04")) ?? "").toUpperCase();
+  const explicitId = str(pick(r, "id", "eraid", "era_id"));
+  // Computed once (with the canonical camelCase name checked first, alongside the vendor-JSON
+  // aliases) and reused by both the fingerprint below and the returned Remittance, so a caller
+  // round-tripping this module's own output shape back through parseEra (a resend of an
+  // already-parsed/stored ERA, or a client mirroring the TS field names) is recognized the same
+  // way a fresh vendor payload is — including by the payer-verification guard in postRemittance,
+  // which would otherwise treat a missed "payerId" as having no payer id at all.
+  const payerId = str(pick(r, "payerId", "payerid", "payer_id"));
+  const payerName = str(pick(r, "payerName", "payer_name", "payer"));
+  const checkNumber = str(pick(r, "checkNumber", "check_number", "checknumber", "trn", "TRN02"));
+  const checkAmount = round2(num(pick(r, "checkAmount", "check_amount", "total_paid", "amount", "BPR02")));
+  const checkDate = str(pick(r, "checkDate", "check_date", "paid_date", "date"));
   // No vendor-supplied id or check number to key off of — derive a stable fingerprint from the
   // remittance's own content instead of a random id, so re-POSTing the identical payload (the
   // vendor retrying a webhook, a duplicate upload) is still recognized as the same ERA by the
   // idempotency check in routes.ts, rather than silently minting a new "unique" remittance each time.
-  const checkNumber = str(pick(r, "check_number", "checknumber", "trn", "TRN02"));
   const fingerprintId = () => {
-    const payerId = str(pick(r, "payerid", "payer_id", "payerId")) ?? "";
-    const checkAmount = round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02")));
-    const checkDate = str(pick(r, "check_date", "paid_date", "date")) ?? "";
     // Per-claim billed/paid/patient-resp, not just the claim id list — two distinct ERAs for the
     // same payer/total/date/claim-id set but a different actual allocation across those claims
     // (or the same claims paid differently) must not collide on the same fingerprint.
@@ -80,30 +90,25 @@ export function parseEra(raw: unknown): Remittance {
     // (a vendor quirk, or a lossy round-trip through some intermediate system) must still produce
     // the same fingerprint, or the duplicate check below would never catch the retry.
     const claimSummaries = arr(pick(r, "claims", "claim", "CLP")).map((c) => {
-      const id = str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")) ?? "";
+      const id = str(pick(c, "claimId", "pcn", "patient_control_number", "claimid", "CLP01")) ?? "";
       const billed = round2(num(pick(c, "billed", "total_charge", "CLP03")));
       const paid = round2(num(pick(c, "paid", "amount_paid", "CLP04")));
-      const patientResp = round2(num(pick(c, "patient_resp", "patient_responsibility", "CLP05")));
+      const patientResp = round2(num(pick(c, "patientResp", "patient_resp", "patient_responsibility", "CLP05")));
       return `${id}/${billed}/${paid}/${patientResp}`;
     }).sort().join(",");
     // Fold the check number into the fingerprint (rather than skipping fingerprinting whenever
     // one is present) so a re-POST of the same ERA gets the same deterministic id either way,
     // instead of minting a fresh random id every time just because a check number happened to be
     // on the payload.
-    return `era-fp:${payerId}:${checkNumber ?? ""}:${checkAmount}:${checkDate}:${claimSummaries}`;
+    return `era-fp:${payerId ?? ""}:${checkNumber ?? ""}:${checkAmount}:${checkDate ?? ""}:${claimSummaries}`;
   };
   return {
     id: explicitId ?? fingerprintId() ?? newId("era"),
-    // "payerId" (camelCase) is included alongside the snake/lower-case vendor-style aliases so a
-    // caller round-tripping this same Remittance shape back through parseEra (a resend of an
-    // already-parsed/stored ERA, or a client mirroring the TS field name) is still recognized —
-    // otherwise the payer-verification guard in postRemittance below would treat that payload as
-    // having no payer id at all and leave every claim unmatched.
-    payerId: str(pick(r, "payerid", "payer_id", "payerId")),
-    payerName: str(pick(r, "payer_name", "payer")),
-    checkNumber: str(pick(r, "check_number", "checknumber", "trn", "TRN02")),
-    checkAmount: round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02"))),
-    checkDate: str(pick(r, "check_date", "paid_date", "date")),
+    payerId,
+    payerName,
+    checkNumber,
+    checkAmount,
+    checkDate,
     method: method === "ACH" ? "ACH" : method === "CHK" ? "CHK" : method === "NON" ? "NON" : undefined,
     claims,
     receivedAt: nowIso(),

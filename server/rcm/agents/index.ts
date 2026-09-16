@@ -9,7 +9,7 @@ import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claim
 import { generateAppealLetter, recommendAction } from "../denials";
 import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, detectCreditBalances, paymentPlanLocks, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
-import { computeKpis } from "../analytics";
+import { computeKpis, outstandingInsurance } from "../analytics";
 import { newId, round2, todayIso } from "../util";
 import type { Claim, LedgerEntry } from "../types";
 import { buildPayerCallScript } from "./payer-call";
@@ -245,7 +245,18 @@ export function isAuthSubmitLocked(tenantId: string, authId: string): boolean {
 // stale approvals for the same action) can otherwise both observe "open" before either posts its
 // ledger entry, causing duplicate or conflicting financial actions on the same denial.
 const denialActionLocks = new Set<string>();
-const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
+// A matching totalCharge alone doesn't bind an approval to the actual claim content an admin
+// reviewed — a provider could revert to draft, swap lines/modifiers/diagnoses/dates of service to
+// something that happens to sum to the same total, then re-scrub back to ready. Fingerprint the
+// claim's billable content (independent of its own dollar amounts, which the totalCharge check
+// already covers) so submit-claim can also detect that class of drift, not just an amount change.
+function claimContentFingerprint(c: Pick<Claim, "lines" | "diagnoses">): string {
+  return JSON.stringify({
+    lines: c.lines.map((l) => ({ cpt: l.cpt, units: l.units, modifiers: [...l.modifiers].sort(), dxPointers: l.dxPointers, dateOfService: l.dateOfService, placeOfService: l.placeOfService })),
+    diagnoses: c.diagnoses.map((d) => d.code),
+  });
+}
+const submitClaim: Tool<{ claimId: string; amount: number; contentFingerprint?: string }, unknown> = {
   name: "submit-claim",
   description: "Submit a ready claim to the clearinghouse (837P)",
   requiresApproval: true,
@@ -261,6 +272,11 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     // one the approval was granted for. Fail closed on any drift and require a fresh approval
     // instead of submitting a claim the approver never actually reviewed.
     if (round2(claim.totalCharge) !== round2(input.amount)) throw new Error(`Claim total ($${claim.totalCharge.toFixed(2)}) no longer matches the amount ($${input.amount.toFixed(2)}) this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
+    // Catches a content swap (lines/modifiers/diagnoses/dates) that happens to land on the same
+    // total, which the amount check above can't see. Optional/best-effort: only enforced when a
+    // fingerprint was actually captured at plan() time, so a caller/test that predates this field
+    // isn't blocked — every real plan()-driven approval request always includes one.
+    if (input.contentFingerprint !== undefined && input.contentFingerprint !== claimContentFingerprint(claim)) throw new Error(`This claim's lines/diagnoses no longer match what this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
     // /coverage can upsert (replace) an existing record by id — the same check the /claims/:id/837p
     // route already makes before exporting. Without it, a coverage record replaced with a
     // different patient's or payer's data after this claim was created/scrubbed could be marked
@@ -383,7 +399,7 @@ const scrubberAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     for (const c of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) steps.push({ tool: "scrub-claim", input: { claimId: c.id }, why: "draft claim" });
-    for (const c of await ctx.store.listClaims(ctx.tenantId, { status: "ready" })) steps.push({ tool: "submit-claim", input: { claimId: c.id, patientId: c.patientId, amount: c.totalCharge }, why: `clean claim $${c.totalCharge.toFixed(2)} to ${c.payerName}` });
+    for (const c of await ctx.store.listClaims(ctx.tenantId, { status: "ready" })) steps.push({ tool: "submit-claim", input: { claimId: c.id, patientId: c.patientId, amount: c.totalCharge, contentFingerprint: claimContentFingerprint(c) }, why: `clean claim $${c.totalCharge.toFixed(2)} to ${c.payerName}` });
     return steps;
   },
   summarize: (s) => `Scrubber: ${s.filter((x) => x.tool === "scrub-claim" && x.outcome === "ok").length} scrubbed, ${s.filter((x) => x.tool === "scrub-claim" && (x.output as { clean?: boolean })?.clean).length} clean, ${s.filter((x) => x.outcome === "needs-approval").length} submissions awaiting approval.`,
@@ -567,10 +583,19 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
       // still open right before posting, so a stale approval can't double-adjust a denial that
       // another action (or a human) already resolved in the meantime.
       if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-      const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount: d.amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
+      const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
+      if (!claim) throw new Error("claim not found");
+      // d.amount is captured when the denial was created and can be stale by execution time (a
+      // malformed/duplicated CAS, or other postings against this claim since) — cap it against
+      // what's actually still outstanding on the insurance side so this can never post more than
+      // the claim genuinely owes and turn a write-off into a fabricated insurance credit.
+      const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
+      const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
+      if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to write off`);
+      const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
       await ctx.store.postLedger(ctx.tenantId, [e]);
       await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
-      return { writtenOff: d.amount };
+      return { writtenOff: amount };
     } finally {
       denialActionLocks.delete(lockKey);
     }
@@ -589,9 +614,17 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       if (!d) throw new Error("denial not found");
       if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount: d.amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
+      const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
+      if (!claim) throw new Error("claim not found");
+      // Same reasoning as write-off above: d.amount can be stale by execution time, so cap it
+      // against what's actually still outstanding on the insurance side before moving it to the
+      // patient — otherwise this could transfer more than the claim genuinely still owes.
+      const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
+      const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
+      if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to transfer`);
+      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
       await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
-      return { transferred: d.amount };
+      return { transferred: amount };
     } finally {
       denialActionLocks.delete(lockKey);
     }
