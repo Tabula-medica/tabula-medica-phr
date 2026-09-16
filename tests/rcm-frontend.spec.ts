@@ -155,6 +155,16 @@ describe("charge capture", () => {
     expect(injections).toHaveLength(1);
     expect(injections[0].units).toBe(1);
   });
+  it("does not double-bill a code the encounter already generates from its own dedicated fields (E/M, G2211, vaccine admin)", () => {
+    // A clinician's note can restate the visit's own E/M code, the G2211 add-on, and the vaccine
+    // admin codes as if they were separately "documented procedures" — those must not also be
+    // billed a second time via the generic procedure loop.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 4, visitComplexityAddOn: true, proceduresDocumented: ["99214", "G2211", "90471", "90472"], ordersCompleted: [], vaccinesGiven: 2, diagnoses: [{ code: "M17.11" }] });
+    expect(lines.filter((l) => l.cpt === "99214")).toHaveLength(1);
+    expect(lines.filter((l) => l.cpt === "G2211")).toHaveLength(1);
+    expect(lines.filter((l) => l.cpt === "90471")).toHaveLength(1);
+    expect(lines.filter((l) => l.cpt === "90472")).toHaveLength(1);
+  });
   it("uses telehealth POS + modifier 95", () => {
     const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: true, telehealth: true, emLevel: 3, proceduresDocumented: [], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "J06.9" }] });
     expect(lines[0]).toMatchObject({ cpt: "99203", placeOfService: "10", modifiers: ["95"] });

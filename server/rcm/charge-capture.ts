@@ -78,6 +78,16 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
   for (const cpt of Array.from(new Set([...Array.from(documentedCounts.keys()), ...Array.from(completedCounts.keys())]))) {
     procedureCounts.set(cpt, Math.max(documentedCounts.get(cpt) ?? 0, completedCounts.get(cpt) ?? 0));
   }
+  // A clinician documenting the encounter can restate a code this function already generates
+  // from its own dedicated fields (the E/M level, the G2211 add-on flag, or the vaccine count) —
+  // e.g. noting "99214" or "G2211" in the note text as well as flagging emLevel/visitComplexityAddOn.
+  // Without excluding those here, the loop below would bill the same service a second time as a
+  // "procedure".
+  const generatedCodes = new Set<string>();
+  if (facts.emLevel) generatedCodes.add(emCodeFor(facts.emLevel, facts.newPatient).toUpperCase());
+  if (facts.visitComplexityAddOn && !facts.newPatient) generatedCodes.add("G2211");
+  if (facts.vaccinesGiven > 0) { generatedCodes.add("90471"); if (facts.vaccinesGiven > 1) generatedCodes.add("90472"); }
+  for (const code of Array.from(generatedCodes)) procedureCounts.delete(code);
   const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));
 
   if (facts.emLevel) {
