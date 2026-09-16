@@ -274,6 +274,14 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
 
 // ---------- Remittance ----------
 rcmRouter.post("/remittance/post", wrap(async (req, res) => {
+  // This route posts exactly the insurance-side ledger entry types (insurance-payment,
+  // contractual-adjustment, transfer-to-patient) that /ledger above restricts to admin, plus
+  // moves claims to paid/denied and creates denial records — all from a caller-supplied ERA
+  // payload with no payer/channel authentication behind it (parseEra accepts arbitrary JSON from
+  // a stub clearinghouse). Leaving this open to the wider provider/clinician role set would let a
+  // clinician fabricate an ERA to inject insurance cash or mark claims paid/denied, bypassing the
+  // same admin-only money-posting control /ledger already enforces for these entry types.
+  if ((req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting a remittance requires an admin role");
   const t = tenantOf(req);
   const rem = parseEra(req.body?.era ?? req.body);
   // Idempotency: a clearinghouse retry or a duplicate click must not double-post the same ERA.
