@@ -184,7 +184,7 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   // default Medicare contract) can still have default-rule codes like 72148 that need auth.
   const authRequiredCpts = claim.lines.filter((l) => requiresPriorAuth(l.cpt, contract).required).map((l) => l.cpt);
   const auths = await rcmStore.listAuths(t);
-  const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, authRequiredCpts, auths);
+  const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.lines, auths);
   const ctx = { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others };
   const result = scrubClaim(claim, ctx);
   await rcmStore.recordScrub(t, result.clean);

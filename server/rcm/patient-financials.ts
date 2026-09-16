@@ -34,10 +34,19 @@ export function computeAccount(patientId: string, entries: LedgerEntry[]): Accou
   // write-off, refund) already carries the side it settles. transfer-to-patient only moves an
   // amount that is actually still sitting on the insurance side, capped so it can never double
   // count a charge that was already patient-side from the start or push insurance negative.
+  // Two passes, not one: totaling every charge FIRST (order-independent — addition commutes)
+  // before applying any transfer means a transfer's cap always sees the charge it's transferring
+  // against, regardless of which one happens to come first in the ledger array (a caller-ordered
+  // POST /ledger, or any other non-chronological arrangement).
   let insuranceSide = 0;
   let patientSide = 0;
   for (const e of mine) {
-    if (e.type === "charge") { if (e.responsibleParty === "patient") patientSide += e.amount; else insuranceSide += e.amount; continue; }
+    if (e.type !== "charge") continue;
+    if (e.responsibleParty === "patient") patientSide += e.amount;
+    else insuranceSide += e.amount;
+  }
+  for (const e of mine) {
+    if (e.type === "charge") continue;
     if (e.type === "transfer-to-patient") { const move = Math.min(e.amount, Math.max(0, insuranceSide)); insuranceSide -= move; patientSide += move; continue; }
     const amt = signedAmount(e);
     if (e.responsibleParty === "patient") patientSide += amt;

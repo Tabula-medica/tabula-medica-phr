@@ -141,7 +141,7 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     const auths = await ctx.store.listAuths(ctx.tenantId);
     // applyAutoFixes never touches priorAuthNumber, so the same validated flag holds for both
     // the pre-fix and post-fix scrub passes.
-    const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, authRequiredCpts, auths);
+    const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.lines, auths);
     const first = scrubClaim(claim, { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
     await ctx.store.recordScrub(ctx.tenantId, first.clean);
     const fixed = applyAutoFixes(claim, first.edits);
@@ -247,7 +247,7 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
     const draft = correctedClaim(orig, {});
     const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
     const auths = await ctx.store.listAuths(ctx.tenantId);
-    const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, authRequiredCpts, auths);
+    const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.lines, auths);
     const scrubCtx = { patient, coverage, authRequiredCpts, authorizedCpts };
     const first = scrubClaim(draft, scrubCtx);
     const fixed = applyAutoFixes(draft, first.edits);

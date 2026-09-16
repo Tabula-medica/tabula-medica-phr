@@ -174,16 +174,19 @@ export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: s
   return { ok: true };
 }
 
-// Which of the CPTs that need prior auth is `priorAuthNumber` actually backed by, per a real
-// approved PriorAuth record? A non-empty string alone isn't proof — it could be stale, for the
-// wrong payer/coverage, or hand-typed — and a single auth number only ever covers one CPT, so
-// this returns the (at most one, in practice) CPT it clears rather than a single claim-wide
-// boolean, so a claim with several auth-required lines doesn't get every one of them waved
-// through by an auth for just one of them.
-export function authorizedCptsOnFile(priorAuthNumber: string | undefined, patientId: string, coverageId: string, authRequiredCpts: string[], auths: PriorAuth[]): string[] {
+// Which of a claim's service lines is `priorAuthNumber` actually backed by, per a real approved
+// PriorAuth record? A non-empty string alone isn't proof — it could be stale, for the wrong
+// payer/coverage, or hand-typed — and neither is a bare "approved" status: the auth could have
+// since expired, cover a different date of service, or have too few units remaining. This runs
+// every line through the same authCoversService check a fresh prior-auth lookup would use, and
+// returns the (at most one, in practice — a single auth number only ever covers one CPT) CPT it
+// actually clears, so a claim with several auth-required lines doesn't get every one of them
+// waved through by an auth that's only good for one of them.
+export function authorizedCptsOnFile(priorAuthNumber: string | undefined, patientId: string, coverageId: string, lines: Array<Pick<ServiceLine, "cpt" | "dateOfService" | "units">>, auths: PriorAuth[]): string[] {
   if (!priorAuthNumber) return [];
-  const need = new Set(authRequiredCpts.map((c) => c.toUpperCase()));
-  return auths.filter((a) => a.status === "approved" && a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId && need.has(a.cpt.toUpperCase())).map((a) => a.cpt.toUpperCase());
+  const auth = auths.find((a) => a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId);
+  if (!auth) return [];
+  return lines.filter((l) => authCoversService(auth, l.cpt, l.dateOfService, l.units).ok).map((l) => l.cpt.toUpperCase());
 }
 
 export function slaBreached(auth: PriorAuth, now: string = nowIso()): boolean {

@@ -481,14 +481,16 @@ describe("round 4 hardening", () => {
     const withNumber = { ...approved, authNumber: "AUTH123" };
     expect(authCoversService(withNumber, "70450", "2026-09-01").ok).toBe(true);
   });
-  it("authorizedCptsOnFile validates the claim's priorAuthNumber against a real approved auth, not just its presence", () => {
+  it("authorizedCptsOnFile validates the claim's priorAuthNumber against a real, still-covering approved auth, not just its presence", () => {
     const auths = [{ ...transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" }) }];
-    const approved = transitionAuth(auths[0], "approved", { actor: "t", authNumber: "AUTH999" });
-    expect(authorizedCptsOnFile("MADE-UP-NUMBER", "p1", "c1", ["70450"], [approved])).toEqual([]);
-    expect(authorizedCptsOnFile(undefined, "p1", "c1", ["70450"], [approved])).toEqual([]);
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", ["70450"], [approved])).toEqual(["70450"]);
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", ["72148"], [approved])).toEqual([]); // wrong CPT
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c2", ["70450"], [approved])).toEqual([]); // wrong coverage
+    const approved = transitionAuth(auths[0], "approved", { actor: "t", authNumber: "AUTH999", validFrom: "2026-01-01", validTo: "2026-12-31" });
+    const line = { cpt: "70450", dateOfService: "2026-09-01", units: 1 };
+    expect(authorizedCptsOnFile("MADE-UP-NUMBER", "p1", "c1", [line], [approved])).toEqual([]);
+    expect(authorizedCptsOnFile(undefined, "p1", "c1", [line], [approved])).toEqual([]);
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [line], [approved])).toEqual(["70450"]);
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [{ ...line, cpt: "72148" }], [approved])).toEqual([]); // wrong CPT
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c2", [line], [approved])).toEqual([]); // wrong coverage
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [{ ...line, dateOfService: "2027-01-15" }], [approved])).toEqual([]); // outside validTo
   });
   it("scrubber's auth-missing rule clears per-CPT, not the whole claim, and normalizes CPT case", () => {
     const claim = { ...mkClaim(), priorAuthNumber: "SOME-STRING" };
@@ -515,6 +517,27 @@ describe("round 4 hardening", () => {
   it("buildClaim falls back to the payer contract's timely-filing default before the generic 90 days", () => {
     const c = buildClaim({ encounterId: "e", patient, coverage: { ...coverage, timelyFilingDays: undefined }, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }], contractTimelyFilingDays: 365 });
     expect(c.timelyFilingDeadline).toBe("2027-07-01"); // 365 days, not the generic 90
+  });
+  it("scrubber's timely-filing rule uses the claim's own resolved deadline, not a bare 90-day default", () => {
+    // No coverage.timelyFilingDays override — the deadline comes entirely from the payer
+    // contract's 365-day Medicare default. 200 days out would trip a naive 90-day check.
+    const c = buildClaim({ encounterId: "e", patient, coverage: { ...coverage, timelyFilingDays: undefined }, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-01-01", placeOfService: "11" }], contractTimelyFilingDays: 365 });
+    const result = scrubClaim(c, { coverage: { ...coverage, timelyFilingDays: undefined }, today: "2026-07-20" }); // 200 days since DOS
+    expect(result.edits.some((e) => e.id === "timely-filing")).toBe(false);
+    const late = scrubClaim(c, { coverage: { ...coverage, timelyFilingDays: undefined }, today: "2027-02-01" }); // past the 365-day deadline
+    expect(late.edits.some((e) => e.id === "timely-filing" && e.severity === "error")).toBe(true);
+  });
+  it("computeAccount doesn't depend on ledger entry order — a transfer listed before its own charge still applies", () => {
+    const chargeFirst: LedgerEntry[] = [
+      { id: "a", patientId: "p8", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b", patientId: "p8", type: "transfer-to-patient", amount: 40, date: "2026-08-02", responsibleParty: "patient" },
+    ];
+    const transferFirst: LedgerEntry[] = [chargeFirst[1], chargeFirst[0]]; // same entries, reversed order
+    const s1 = computeAccount("p8", chargeFirst);
+    const s2 = computeAccount("p8", transferFirst);
+    expect(s2).toEqual(s1);
+    expect(s1.patientBalance).toBe(40);
+    expect(s1.insuranceBalance).toBe(160);
   });
   it("correctedClaim caps diagnoses to 12 like buildClaim does", () => {
     const c = mkClaim();

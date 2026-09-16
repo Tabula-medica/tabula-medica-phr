@@ -141,12 +141,17 @@ const rules: Record<string, Rule> = {
     return c.lines.flatMap((l, i) => (need.has(l.cpt.toUpperCase()) && !covered.has(l.cpt.toUpperCase()) ? [{ id: "auth-missing", category: "authorization", severity: "error" as const, lineNumber: i + 1, message: `${l.cpt} requires prior authorization; none on claim`, fix: "Attach the auth number (box 23) or obtain retro-auth" }] : []));
   },
   "timely-filing": (c, ctx) => {
+    // Use the claim's own precomputed deadline (buildClaim already resolves payer contract
+    // default → coverage override → 90-day fallback) instead of recomputing from
+    // coverage.timelyFilingDays alone — a payer whose deadline comes from its contract (e.g.
+    // Medicare's 365 days) rather than an explicit per-coverage override would otherwise get
+    // flagged here at day 91 using the wrong, shorter generic default.
     const dos = c.lines[0]?.dateOfService;
-    const days = ctx.coverage?.timelyFilingDays ?? 90;
-    if (!dos) return [];
-    const elapsed = daysBetween(dos, ctx.today ?? new Date().toISOString().slice(0, 10));
-    if (elapsed > days) return [{ id: "timely-filing", category: "timely-filing", severity: "error", message: `${elapsed} days since DOS exceeds payer timely-filing limit ${days}`, fix: "Submit with proof of timely filing or write off per policy" }];
-    if (elapsed > days - 14) return [{ id: "timely-filing", category: "timely-filing", severity: "warning", message: `Timely-filing deadline in ${days - elapsed} days`, fix: "Submit today" }];
+    if (!dos || !c.timelyFilingDeadline) return [];
+    const today = ctx.today ?? new Date().toISOString().slice(0, 10);
+    const daysRemaining = daysBetween(today, c.timelyFilingDeadline);
+    if (daysRemaining < 0) return [{ id: "timely-filing", category: "timely-filing", severity: "error", message: `Timely-filing deadline (${c.timelyFilingDeadline}) has passed`, fix: "Submit with proof of timely filing or write off per policy" }];
+    if (daysRemaining <= 14) return [{ id: "timely-filing", category: "timely-filing", severity: "warning", message: `Timely-filing deadline in ${daysRemaining} days (${c.timelyFilingDeadline})`, fix: "Submit today" }];
     return [];
   },
   "duplicate-claim": (c, ctx) => {
