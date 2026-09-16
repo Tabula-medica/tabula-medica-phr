@@ -331,6 +331,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       if (claim && to) {
         const next = transitionClaim(claim, to, "era-post");
         await rcmStore.upsertClaim(t, next);
+        // A later CLP in this same ERA can be a replacement adjudication after a status-22
+        // reversal of this claim (same CLP01). claimsById is otherwise the pre-posting snapshot,
+        // so the correction would still see "paid" and be rejected as an illegal paid→paid
+        // transition even though the reversal just unwound it.
+        claimsById[claim.id] = next;
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
         if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);

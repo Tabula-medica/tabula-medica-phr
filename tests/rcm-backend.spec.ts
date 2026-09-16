@@ -136,6 +136,33 @@ describe("remittance posting", () => {
     expect(r.postings[1].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100); // only the first row's $100 counted as applied
   });
+  it("posts both CLP rows of an 835 reversal-and-correction pair that share a claimId", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [
+      { pcn: c.id, status: "22", billed: 450, paid: -80, patient_resp: 0 },
+      { pcn: c.id, status: "1", billed: 450, paid: 80, patient_resp: 0 },
+    ] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[0].entries).not.toHaveLength(0);
+    expect(r.postings[1].status).not.toBe("unmatched");
+    expect(r.postings[1].entries).not.toHaveLength(0);
+    expect(r.postings[1].paid).toBe(80);
+    expect(r.unapplied).toBe(0);
+    expect(r.balanced).toBe(true);
+  });
+  it("preserves negated CAS amounts on a status-22 reversal so contractual write-offs unwind", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -80, claims: [{ pcn: c.id, status: "22", billed: 100, paid: -80, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -20 }] }] });
+    expect(rem.claims[0].claimAdjustments![0].amount).toBe(-20);
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[0].contractual).toBe(-20);
+    expect(r.postings[0].entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "contractual-adjustment", amount: -20 }),
+      expect.objectContaining({ type: "refund", amount: 80 }),
+    ]));
+  });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
     const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
