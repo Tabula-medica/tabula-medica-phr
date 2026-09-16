@@ -10,7 +10,7 @@ import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge,
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
-import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
+import { appliedPaid, claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
@@ -20,7 +20,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
 import { agentRuntime, isAuthSubmitLocked } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, round2, todayIso } from "./util";
+import { daysBetween, round2, sum, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
@@ -357,12 +357,16 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   // Derive the COB summary from the claim's own stored, posted primary remittance rather than
   // trusting a caller-supplied paid/patientResp/billed figure — an authenticated caller could
   // otherwise send the secondary payer an arbitrary primary payment amount unrelated to what the
-  // primary payer actually adjudicated. Pick the most recently posted matching row, in case this
-  // claim has more than one (a reversal-and-correction pair, for instance).
+  // primary payer actually adjudicated. Net every matching row (reversals subtract their
+  // magnitude) so cobPrimaryPaid is the primary payment currently on the ledger — a later
+  // standalone take-back or a staggered installment is not the whole story, and neither is the
+  // most recently posted row alone. billed/patientResp still come from the latest row (the
+  // current EOB's charge picture); only paid is the running net.
   const posted = (await rcmStore.listRemittances(t)).filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === c.id).map((rc) => ({ rc, postedAt: r.postedAt! })));
   const primary = posted.sort((a, b) => a.postedAt.localeCompare(b.postedAt)).at(-1)?.rc;
   if (!primary) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
-  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: primary.billed, paid: primary.paid, patientResp: primary.patientResp, lines: [] })) });
+  const netPaid = round2(sum(posted.map(({ rc }) => appliedPaid(rc))));
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: primary.billed, paid: netPaid, patientResp: primary.patientResp, lines: [] })) });
 }));
 
 // ---------- Remittance ----------
@@ -421,9 +425,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
         // would have applied (postRemittance already counted it toward `applied`/`unapplied`) must
         // be added back to `unapplied` and `balanced` forced false, or a duplicate/erroneous ERA
         // that skips every posting would come back reporting a fully reconciled $0 remittance even
-        // though none of its money actually landed anywhere.
+        // though none of its money actually landed anywhere. Use appliedPaid, not raw `paid` —
+        // a skipped CLP02 22 take-back with positive-magnitude `paid` contributed -abs(paid) to
+        // applied, and adding the wire value here would move unapplied in the wrong direction.
         needsReconciliation.push(p.claimId!);
-        skippedCash += p.paid;
+        skippedCash += appliedPaid(p);
         continue;
       }
       await rcmStore.postLedger(t, p.entries);

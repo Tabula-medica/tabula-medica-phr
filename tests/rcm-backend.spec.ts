@@ -1,7 +1,7 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
 import { describe, it, expect, beforeEach } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
-import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
+import { appliedPaid, parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
@@ -162,6 +162,14 @@ describe("remittance posting", () => {
     expect(rem.claims[0].claimAdjustments![0].amount).toBe(-150); // not clamped to 0 — this negates the original write-off
     const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
     expect(r.postings[0].contractual).toBe(-150);
+  });
+  it("appliedPaid subtracts reversal magnitude regardless of wire sign, and leaves ordinary paid as-is", () => {
+    expect(appliedPaid({ paid: 180, statusCode: "1" })).toBe(180);
+    expect(appliedPaid({ paid: 100, status: "paid" })).toBe(100);
+    expect(appliedPaid({ paid: -100, statusCode: "22" })).toBe(-100);
+    expect(appliedPaid({ paid: 100, statusCode: "22" })).toBe(-100); // CLP02 22 with positive-magnitude take-back
+    expect(appliedPaid({ paid: 100, status: "reversal" })).toBe(-100);
+    expect(appliedPaid({ paid: -50, status: "reversal" })).toBe(-50);
   });
   it("unwinds a reversal correctly even when the vendor sends paid/CAS as positive magnitudes and relies solely on status '22' for direction", () => {
     // Not every vendor pre-negates a reversal's wire values the way the other reversal tests'

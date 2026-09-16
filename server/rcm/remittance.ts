@@ -122,6 +122,13 @@ export interface Posting {
   crossoverToSecondary: boolean;
 }
 
+// Cash this row contributes to applied/unapplied. `parseEra` stores wire-sign `paid`, so a
+// CLP02 22 take-back may arrive as +100 or -100; reversals always subtract their magnitude.
+export function appliedPaid(row: { paid: number; status?: PostingStatus; statusCode?: string }): number {
+  const reversal = row.status === "reversal" || row.statusCode === "22" || row.paid < 0;
+  return reversal ? -Math.abs(row.paid) : row.paid;
+}
+
 export function postRemittance(rem: Remittance, claimsById: Record<string, Claim>, contracts: Record<string, PayerContract> = {}): { postings: Posting[]; unapplied: number; balanced: boolean } {
   const postings: Posting[] = [];
   let applied = 0;
@@ -188,7 +195,7 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // negative value or the same positive magnitude relying on CLP02 alone to signal a take-back
     // — trusting the raw sign here would double-count a positive-magnitude reversal as new cash
     // and throw off `unapplied`/`balanced`.
-    applied += isReversal ? -Math.abs(rc.paid) : rc.paid;
+    applied += appliedPaid(rc);
 
     let underpayment: Posting["underpayment"];
     const contract = claim ? contracts[claim.payerId] : undefined;
