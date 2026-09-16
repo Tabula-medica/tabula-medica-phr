@@ -423,6 +423,11 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
       // Revalidate before staging a replacement claim — an approval can sit pending for a while,
       // and another action (or a human) may have already resolved this denial in the meantime.
       if (!denialBefore || denialBefore.status !== "open") throw new Error(`Denial ${input.denialId} is no longer open — this approval is stale`);
+      // The approval payload supplies both ids independently — without this, a caller could stage
+      // a corrected claim for one claim while marking an UNRELATED denial as resolved by pointing
+      // resolvesDenialId at it, silently removing that other denial from the open queue with no
+      // actual remediation performed against it.
+      if (denialBefore.claimId !== input.claimId) throw new Error(`Denial ${input.denialId} does not belong to claim ${input.claimId}`);
       // A bare frequency-7 clone with no remediation would carry the exact same errors that
       // triggered the denial (and would trip the same CARC again). Re-scrub the clone and apply
       // safe auto-fixes; anything not auto-fixable goes to a claim-edits work item for a human

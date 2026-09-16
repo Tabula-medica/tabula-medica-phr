@@ -450,16 +450,20 @@ rcmRouter.post("/denials/:id/appeal", wrap(async (req, res) => {
   const letter = generateAppealLetter({ denial: d, claim, patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient", providerName: claim.renderingProviderName ?? "Rendering Provider", practiceName: req.body?.practiceName ?? "World EHR Outpatient", clinicalSummary: req.body?.clinicalSummary, policyCitation: req.body?.policyCitation, attachments: req.body?.attachments });
   res.json({ success: true, ...letter, recommendation: recommendAction(d) });
 }));
-// "written-off" and "appealed" are deliberately excluded: only the approval-gated write-off and
-// send-appeal tools may set those, since each also does the matching real work (posting the
-// denial-adjustment ledger entry; generating and sending the appeal letter) — setting the status
-// alone here would clear the denial from the open queue while skipping that work and the approval
-// gate entirely. "overturned"/"upheld" stay directly settable because nothing else in this app
-// can set them: they record the payer's actual decision on an appeal that already went out,
-// which arrives outside the system (a letter, a portal, a phone call) with no automated signal to
-// gate behind — a human recording a real external outcome, not bypassing an approval for one.
+// "written-off", "appealed", and "in-progress" are deliberately excluded: written-off/appealed
+// each require matching real work only the approval-gated write-off/send-appeal tools actually do
+// (posting the denial-adjustment ledger entry; generating and sending the appeal letter), and
+// file-corrected-claim is the only thing that legitimately sets "in-progress" (staging a real
+// replacement claim). Allowing any of them to be set directly here would clear the denial from
+// the open queue — and out of the denial agent's next `listDenials(..., "open")` scan — while
+// skipping that remediation (and, for the approval-gated pair, the approval itself) entirely,
+// silently hiding an unresolved receivable indefinitely. "overturned"/"upheld" stay directly
+// settable because nothing else in this app can set them: they record the payer's actual decision
+// on an appeal that already went out, which arrives outside the system (a letter, a portal, a
+// phone call) with no automated signal to gate behind — a human recording a real external
+// outcome, not bypassing an approval for one.
 rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
-  const p = z.object({ status: z.enum(["open", "in-progress", "overturned", "upheld"]) }).safeParse(req.body);
+  const p = z.object({ status: z.enum(["open", "overturned", "upheld"]) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const d = await rcmStore.getDenial(t, req.params.id);
@@ -468,10 +472,10 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
   if ((p.data.status === "overturned" || p.data.status === "upheld") && d.status !== "appealed") return fail(res, 409, `Denial ${d.id} is not in "appealed" status (currently: ${d.status}) — a payer decision only applies to a denial that was actually appealed`);
   // Terminal/resolved statuses (written-off, overturned, upheld) must never be reopened here —
   // this route only validates the destination, so nothing else stopped a caller from posting
-  // "open"/"in-progress" on an already-resolved denial and letting the denial agent stage a
-  // duplicate write-off/transfer/appeal against it.
+  // "open" on an already-resolved denial and letting the denial agent stage a duplicate
+  // write-off/transfer/appeal against it.
   const terminal = new Set(["written-off", "overturned", "upheld"]);
-  if ((p.data.status === "open" || p.data.status === "in-progress") && terminal.has(d.status)) return fail(res, 409, `Denial ${d.id} is already resolved (${d.status}) and cannot be reopened`);
+  if (p.data.status === "open" && terminal.has(d.status)) return fail(res, 409, `Denial ${d.id} is already resolved (${d.status}) and cannot be reopened`);
   res.json({ success: true, denial: await rcmStore.upsertDenial(t, { ...d, status: p.data.status }) });
 }));
 

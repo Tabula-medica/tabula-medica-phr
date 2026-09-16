@@ -1129,6 +1129,25 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("appealed");
   });
 
+  it("file-corrected-claim rejects a denialId/claimId pair that don't belong to each other", async () => {
+    // The approval payload supplies both ids independently — without cross-checking them, a
+    // caller could stage a corrected claim for one claim while marking an UNRELATED denial as
+    // resolved by pointing denialId at it.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claimA = mkClaim();
+    const claimB = mkClaim();
+    await rcmStore.upsertClaim(T, claimA);
+    await rcmStore.upsertClaim(T, claimB);
+    await rcmStore.upsertDenial(T, { id: "den-mismatch-1", claimId: claimB.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const tool = agentRuntime.get("denials")!.tools.find((t) => t.name === "file-corrected-claim")!;
+    await expect(
+      tool.run({ claimId: claimA.id, denialId: "den-mismatch-1", amount: 300 }, { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } }),
+    ).rejects.toThrow(/does not belong to claim/);
+    // The unrelated denial must still be open — the rejected call must not have touched it.
+    expect((await rcmStore.getDenial(T, "den-mismatch-1"))!.status).toBe("open");
+  });
+
   it("a corrected claim staged with no denial-specific patch is stranded at 'scrubbed' with a claim-edits work item, and applyClaimPatch is the real way back to 'ready'", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);

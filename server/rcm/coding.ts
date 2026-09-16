@@ -37,7 +37,11 @@ function dataLevel(i: MdmInputs): MdmLevel {
   const categoriesMet = [cat1 >= 3, i.independentInterpretation, i.discussionWithExternalPhysician].filter(Boolean).length;
   if (categoriesMet >= 2) return "high";
   if (categoriesMet >= 1 || cat1 >= 3) return "moderate";
-  if (cat1 >= 2 || i.independentHistorian) return "low";
+  // 2021 MDM Category 1 ("limited"/low) requires a COMBINATION OF 2 from: unique tests ordered/
+  // reviewed, external notes reviewed, or an independent historian — independentHistorian is
+  // already one of the three inputs summed into cat1 above, so it must not ALSO qualify on its
+  // own; that would let a visit meet "low" data with only 1 of the 2 required elements.
+  if (cat1 >= 2) return "low";
   return "straightforward";
 }
 
