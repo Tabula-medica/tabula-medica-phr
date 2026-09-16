@@ -241,6 +241,14 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
 export function applyClaimPatch(claim: Claim, patch: Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber" | "referralNumber" | "placeOfService">>): Claim {
   const lines = patch.lines ?? claim.lines;
   const diagnoses = (patch.diagnoses ?? claim.diagnoses).slice(0, 12);
+  // Re-anchor the filing deadline the same way correctedClaim does when the patch changes lines
+  // (and therefore date of service) — otherwise a later-DOS edit can immediately fail the
+  // timely-filing scrub rule, and an earlier-DOS edit can pass scrub but actually go out after
+  // the real filing window.
+  const originalDos = claim.lines[0]?.dateOfService;
+  const timelyFilingDays = originalDos && claim.timelyFilingDeadline ? daysBetween(originalDos, claim.timelyFilingDeadline) : 90;
+  const newDos = lines[0]?.dateOfService;
+  const timelyFilingDeadline = newDos ? addDays(newDos, timelyFilingDays) : claim.timelyFilingDeadline;
   return {
     ...claim,
     lines,
@@ -248,6 +256,7 @@ export function applyClaimPatch(claim: Claim, patch: Partial<Pick<Claim, "diagno
     priorAuthNumber: patch.priorAuthNumber ?? claim.priorAuthNumber,
     referralNumber: patch.referralNumber ?? claim.referralNumber,
     placeOfService: patch.placeOfService ?? claim.placeOfService,
+    timelyFilingDeadline,
     totalCharge: sum(lines.map((l) => l.charge)),
   };
 }

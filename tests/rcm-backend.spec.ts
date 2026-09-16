@@ -13,7 +13,7 @@ import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthReq
 import { scrubClaim } from "../server/rcm/scrubber";
 import { estimatePatientResponsibility, financialClearance, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
-import { isValidIcd10 } from "../server/rcm/util";
+import { addDays, isValidIcd10 } from "../server/rcm/util";
 import { agentRuntime } from "../server/rcm/agents";
 import { aiText } from "../server/rcm/agents/ai";
 import { rcmStore } from "../server/rcm/store";
@@ -1144,6 +1144,20 @@ describe("round 11 hardening", () => {
     if (result.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", "biller", "clean after edit");
     await rcmStore.upsertClaim(T, next);
     expect(next.status).toBe("ready");
+  });
+
+  it("applyClaimPatch re-anchors the timely-filing deadline when the patch changes lines' date of service, the same way correctedClaim does", () => {
+    const c = mkClaim();
+    expect(c.timelyFilingDeadline).toBe("2026-09-29");
+    // A later DOS must not inherit the old deadline (which would now fail timely-filing scrub
+    // immediately); an earlier DOS must not silently borrow the later deadline either (which
+    // would let it go out after its own real filing window).
+    const laterDos = applyClaimPatch(c, { lines: c.lines.map((l) => ({ ...l, dateOfService: "2026-08-01" })) });
+    expect(laterDos.timelyFilingDeadline).toBe(addDays("2026-08-01", 90));
+    expect(laterDos.timelyFilingDeadline).not.toBe(c.timelyFilingDeadline);
+    // A patch that doesn't touch lines at all must leave the deadline untouched.
+    const noLineChange = applyClaimPatch(c, { priorAuthNumber: "AUTH-1" });
+    expect(noLineChange.timelyFilingDeadline).toBe(c.timelyFilingDeadline);
   });
 
   it("file-corrected-claim and write-off can't both win a race against the same open denial", async () => {
