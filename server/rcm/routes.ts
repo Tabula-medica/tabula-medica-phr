@@ -362,8 +362,13 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   // on this claim. The ledger has no such ambiguity: postLedger is only ever called for rows that
   // weren't skipped, and it's also naturally net across however many remittances (reversal-and-
   // correction pairs, partial/installment payments) touched this claim.
+  //
+  // A pure denial (no CO-45/253 contractual write-off, zero paid, zero patient responsibility)
+  // legitimately posts NO ledger entries at all — denial CARCs go to Denial records, not the
+  // ledger — so an empty claimLedger here is not itself evidence that nothing was ever posted;
+  // primaryAdjudicatedStatuses already confirms the claim was actually adjudicated, and
+  // cobPrimaryPaid: 0 is the correct outcome to send in that case.
   const claimLedger = (await rcmStore.ledger(t, c.patientId)).filter((e) => e.claimId === c.id);
-  if (!claimLedger.length) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
   const netPaid = round2(sum(claimLedger.filter((e) => e.type === "insurance-payment").map((e) => e.amount)) - sum(claimLedger.filter((e) => e.type === "refund" && e.responsibleParty === "insurance").map((e) => e.amount)));
   const netPatientResp = round2(sum(claimLedger.filter((e) => e.type === "transfer-to-patient").map((e) => e.amount)));
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: c.totalCharge, paid: netPaid, patientResp: netPatientResp, lines: [] })) });
