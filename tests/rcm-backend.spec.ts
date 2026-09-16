@@ -141,6 +141,17 @@ describe("remittance posting", () => {
     expect(r.postings[0].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100);
   });
+  it("recognizes the canonical camelCase payerId field, not just the snake/lower-case vendor aliases", () => {
+    // A caller round-tripping an already-parsed Remittance (a resend, or a client mirroring the
+    // TS field name) sends "payerId", not "payerid"/"payer_id" — the payer-verification guard
+    // above must not treat that as having no payer id at all.
+    const c = mkClaim(); // payerId BCBS
+    const rem = parseEra({ payerId: "BCBS", check_amount: 100, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });
+    expect(rem.payerId).toBe("BCBS");
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).not.toBe("unmatched");
+    expect(r.postings[0].entries.length).toBeGreaterThan(0);
+  });
   it("clamps a negative CAS adjustment amount to zero instead of posting a negative-dollar ledger entry", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: 300, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 300, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -150 }] }] });

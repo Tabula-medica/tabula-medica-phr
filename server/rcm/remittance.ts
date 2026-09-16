@@ -70,7 +70,7 @@ export function parseEra(raw: unknown): Remittance {
   // idempotency check in routes.ts, rather than silently minting a new "unique" remittance each time.
   const checkNumber = str(pick(r, "check_number", "checknumber", "trn", "TRN02"));
   const fingerprintId = () => {
-    const payerId = str(pick(r, "payerid", "payer_id")) ?? "";
+    const payerId = str(pick(r, "payerid", "payer_id", "payerId")) ?? "";
     const checkAmount = round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02")));
     const checkDate = str(pick(r, "check_date", "paid_date", "date")) ?? "";
     // Per-claim billed/paid/patient-resp, not just the claim id list — two distinct ERAs for the
@@ -94,7 +94,12 @@ export function parseEra(raw: unknown): Remittance {
   };
   return {
     id: explicitId ?? fingerprintId() ?? newId("era"),
-    payerId: str(pick(r, "payerid", "payer_id")),
+    // "payerId" (camelCase) is included alongside the snake/lower-case vendor-style aliases so a
+    // caller round-tripping this same Remittance shape back through parseEra (a resend of an
+    // already-parsed/stored ERA, or a client mirroring the TS field name) is still recognized —
+    // otherwise the payer-verification guard in postRemittance below would treat that payload as
+    // having no payer id at all and leave every claim unmatched.
+    payerId: str(pick(r, "payerid", "payer_id", "payerId")),
     payerName: str(pick(r, "payer_name", "payer")),
     checkNumber: str(pick(r, "check_number", "checknumber", "trn", "TRN02")),
     checkAmount: round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02"))),
