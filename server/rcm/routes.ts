@@ -362,8 +362,12 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   // on this claim. The ledger has no such ambiguity: postLedger is only ever called for rows that
   // weren't skipped, and it's also naturally net across however many remittances (reversal-and-
   // correction pairs, partial/installment payments) touched this claim.
+  // Empty is a valid $0 primary outcome: postRemittance only writes ledger rows for insurance
+  // cash, PR, and CO-45/253 contractual amounts, so a typical denial (CLP02 4, paid 0, no PR,
+  // denial CARCs that go to Denial records) yields entries: [] while still moving the claim to
+  // "denied". The status gate above already covers the skipped-row case — a skipped posting never
+  // lands in primaryAdjudicatedStatuses — so cobPrimaryPaid of 0 is the correct COB figure.
   const claimLedger = (await rcmStore.ledger(t, c.patientId)).filter((e) => e.claimId === c.id);
-  if (!claimLedger.length) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
   const netPaid = round2(sum(claimLedger.filter((e) => e.type === "insurance-payment").map((e) => e.amount)) - sum(claimLedger.filter((e) => e.type === "refund" && e.responsibleParty === "insurance").map((e) => e.amount)));
   const netPatientResp = round2(sum(claimLedger.filter((e) => e.type === "transfer-to-patient").map((e) => e.amount)));
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: c.totalCharge, paid: netPaid, patientResp: netPatientResp, lines: [] })) });
