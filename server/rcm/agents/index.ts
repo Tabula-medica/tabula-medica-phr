@@ -180,26 +180,26 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
     const auths = await ctx.store.listAuths(ctx.tenantId);
-    // Match on payerId too — an authNumber/patient/coverage collision (or a coverage record
-    // later reused/repointed at a different payer) must never let an unrelated payer's
-    // authorization be selected, revalidated, and consumed for this claim.
-    const auth = claim.priorAuthNumber ? auths.find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId) : undefined;
     // Revalidate against the same rules a fresh prior-auth check uses (status, date of service,
     // remaining units) right before submission — scrubbing happened earlier, and any auth could
     // have expired, been denied, or been exhausted by another claim since. Check EVERY
-    // auth-required line against ALL matching auth records on file, not just whichever single
-    // line(s) happen to share the one priorAuthNumber attached to the claim — a claim can carry
-    // more than one auth-required CPT even though this schema only tracks one attached number,
-    // and a box-23 number that's purely informational (gold-carded CPTs, or one carried over onto
-    // a secondary/COB claim for a different payer/coverage) must not block a line that never
-    // needed it, while a DIFFERENT required CPT with no coverage at all must still block.
+    // auth-required line against ALL matching auth records on file (matched on patient, coverage,
+    // AND payer — never let an unrelated payer's authorization be selected), not just whichever
+    // single line(s) happen to share the one priorAuthNumber attached to the claim: a claim can
+    // carry more than one auth-required CPT even though this schema only tracks one attached
+    // number, and a box-23 number that's purely informational (gold-carded CPTs, or one carried
+    // over onto a secondary/COB claim for a different payer/coverage) must not block a line that
+    // never needed it, while a DIFFERENT required CPT with no coverage at all must still block.
+    //
+    // Group by CPT + date of service, not CPT alone — the prior-auth agent itself opens a
+    // separate request per distinct date, so a split, multi-visit claim can legitimately carry
+    // two different approved auths for the same CPT, each covering only its own visit's units.
+    // For each bucket, pick a SPECIFIC covering auth (not just "some auth covers it") and reserve
+    // its units against further buckets in this same pass — two buckets checked independently
+    // against the same auth's static (persisted) unitsUsed could otherwise both "pass" against
+    // one auth that only actually has enough units for one of them.
     const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
     const requiredLines = linesNeedingAuth(claim.lines, contract);
-    // Group by CPT + date of service, not CPT alone — the prior-auth agent itself opens a
-    // separate request per distinct date (a split, multi-visit claim can legitimately carry two
-    // different approved auths for the same CPT, each covering only its own visit's units), so
-    // requiring ONE auth record to cover every date's units combined would wrongly block a claim
-    // where each date is independently, fully covered by its own auth.
     const byCptAndDate = new Map<string, { cpt: string; dateOfService: string; units: number }>();
     for (const { line } of requiredLines) {
       const key = `${line.cpt.toUpperCase()}|${line.dateOfService}`;
@@ -207,29 +207,31 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       if (existing) existing.units += line.units;
       else byCptAndDate.set(key, { cpt: line.cpt.toUpperCase(), dateOfService: line.dateOfService, units: line.units });
     }
+    const reservedByAuthId = new Map<string, number>();
+    const consumption = new Map<string, number>();
     for (const { cpt, dateOfService, units } of Array.from(byCptAndDate.values())) {
       const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
-      if (!covering.some((a) => authCoversService(a, cpt, dateOfService, units).ok)) {
-        throw new Error(`No authorization on file covers ${cpt} on ${dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
-      }
+      const match = covering.find((a) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedByAuthId.get(a.id) ?? 0) }, cpt, dateOfService, units).ok);
+      if (!match) throw new Error(`No authorization on file covers ${cpt} on ${dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
+      reservedByAuthId.set(match.id, (reservedByAuthId.get(match.id) ?? 0) + units);
+      consumption.set(match.id, (consumption.get(match.id) ?? 0) + units);
     }
-    const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
-    if (lockKey) {
-      if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);
-      submitAuthLocks.add(lockKey);
-    }
+    // Lock every auth this submission is about to consume from — a submission spanning two
+    // auths must not let a concurrent submission race either one individually.
+    const lockKeys = Array.from(consumption.keys()).map((id) => `${ctx.tenantId}:${id}`);
+    if (lockKeys.some((k) => submitAuthLocks.has(k))) throw new Error("An authorization needed for this claim is already being consumed by another in-flight submission");
+    lockKeys.forEach((k) => submitAuthLocks.add(k));
     try {
-      // The per-CPT revalidation above already confirmed every auth-required line is covered;
-      // this just tallies how many units of the specific attached auth (if any) this submission
-      // actually consumes.
-      const unitsNeeded = auth ? claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0) : 0;
-      // Consume the auth's units at the moment the claim actually goes out — attaching an auth
-      // number never did, so a one-unit authorization stayed at zero units used and could be
-      // reused indefinitely. Transition the claim FIRST: if this throws (the claim is no longer
-      // "ready"), the units must stay untouched so a retry doesn't burn more of them for a
+      // Consume each matched auth's units at the moment the claim actually goes out — attaching
+      // an auth number never did, so a one-unit authorization stayed at zero units used and could
+      // be reused indefinitely. Transition the claim FIRST: if this throws (the claim is no
+      // longer "ready"), the units must stay untouched so a retry doesn't burn more of them for a
       // submission that never actually went out.
       await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
-      if (auth && unitsNeeded > 0) await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+      for (const [authId, units] of Array.from(consumption.entries())) {
+        const a = auths.find((x) => x.id === authId)!;
+        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(a, units));
+      }
       // Only now — the corrected claim actually left for the payer — does the denial it was
       // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved
       // (overturned/written-off/re-appealed-elsewhere) denial isn't clobbered by a stale claim.
@@ -239,7 +241,7 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       }
       return { submitted: claim.id };
     } finally {
-      if (lockKey) submitAuthLocks.delete(lockKey);
+      lockKeys.forEach((k) => submitAuthLocks.delete(k));
     }
   },
 };
