@@ -696,7 +696,27 @@ describe("agents", () => {
     await rcmStore.upsertClaim(T, drifted);
     const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
     expect(exec.ok).toBe(false);
-    expect(exec.error).toMatch(/lines\/diagnoses no longer match/);
+    expect(exec.error).toMatch(/content .* no longer matches/);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
+  });
+  it("submit-claim refuses to submit once the claim's placeOfService/priorAuthNumber/referralNumber have drifted, even though those never affect totalCharge", async () => {
+    // These claim-level fields don't sum into totalCharge at all, so the amount check alone can
+    // never catch a change to them — only the content fingerprint can. Each changes what actually
+    // goes out on the 837P/CMS-1500 (box 24b/23/17a) from what the approver reviewed.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-pos-drift" }; // 99214/20610 need no auth
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const drifted = { ...ready, placeOfService: "02" }; // was "11"
+    expect(drifted.totalCharge).toBe(ready.totalCharge);
+    await rcmStore.upsertClaim(T, drifted);
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/content .* no longer matches/);
     expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
   });
   it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
@@ -950,6 +970,23 @@ describe("agents", () => {
     expect((exec.output as { writtenOff: number }).writtenOff).toBe(50); // capped, not the full stale 300
     const entries = await rcmStore.ledger(T, patient.id);
     expect(entries.find((e) => e.type === "denial-adjustment")?.amount).toBe(50);
+  });
+  it("transfer-to-patient refuses to move a non-PR-group denial onto the patient", async () => {
+    // recommendAction only ever routes a denial to transfer-to-patient when group is "PR" — this
+    // guards the tool itself against a direct approval request that skips that recommendation
+    // (or a stale/tampered payload) converting a CO/OA/PI (insurance-side) adjustment into a
+    // patient balance.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = mkClaim();
+    await rcmStore.upsertClaim(T, claim);
+    await rcmStore.upsertDenial(T, { id: "den-co-group", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "45", group: "CO", amount: 100, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "transfer-to-patient", payload: { denialId: "den-co-group", patientId: patient.id, amount: 100 }, reason: "test" });
+    await rcmStore.decideApproval(T, approval.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, approval.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/not patient responsibility/);
+    expect((await rcmStore.ledger(T, patient.id)).filter((e) => e.type === "transfer-to-patient")).toHaveLength(0);
   });
   it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
     const approvalsBefore = (await rcmStore.listApprovals(T)).length;

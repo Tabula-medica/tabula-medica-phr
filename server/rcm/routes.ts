@@ -64,9 +64,27 @@ const demoSeedInFlight = new Set<string>();
 // each one individually. GETs stay open (read-only, and blocking them would make the UI look
 // broken during a routine reseed); /demo/seed itself is exempted so its own concurrent-call check
 // below can return its more specific 409.
+//
+// This alone still leaves a gap: a mutation that was ALREADY ADMITTED past this same check (it
+// read demoSeedInFlight as empty, then suspended at an `await` inside its own handler) can resume
+// and write into the tenant after /demo/seed's reset() has already cleared it — this middleware
+// only stops NEW requests from being admitted, it says nothing about ones already in flight.
+// Track how many admitted mutations are still running per tenant, and have /demo/seed wait for
+// that count to drain to zero (no new one can be admitted once demoSeedInFlight is set) before it
+// actually resets the store.
+const tenantMutationsInFlight = new Map<string, number>();
 rcmRouter.use((req, res, next) => {
   if (req.method === "GET" || req.path === "/demo/seed") return next();
-  if (demoSeedInFlight.has(tenantOf(req))) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
+  const t = tenantOf(req);
+  if (demoSeedInFlight.has(t)) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
+  tenantMutationsInFlight.set(t, (tenantMutationsInFlight.get(t) ?? 0) + 1);
+  const release = () => {
+    const remaining = (tenantMutationsInFlight.get(t) ?? 1) - 1;
+    if (remaining <= 0) tenantMutationsInFlight.delete(t);
+    else tenantMutationsInFlight.set(t, remaining);
+  };
+  res.once("finish", release);
+  res.once("close", release);
   next();
 });
 
@@ -75,7 +93,11 @@ rcmRouter.use((req, res, next) => {
 // deadlines) rather than parsed as a Date — a non-ISO value like "09/01/2026" would sort wrong
 // against a stored "YYYY-MM-DD" and could silently bypass a termination/effective-date or
 // timely-filing check instead of failing validation up front. One shared schema for all of them.
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be an ISO date (YYYY-MM-DD)");
+// The regex alone only checks the shape — it accepts an impossible calendar date like
+// "2026-02-31", which `new Date(...)` silently rolls over into March while the raw string is
+// still what gets compared elsewhere, producing inconsistent DOS/deadline decisions depending on
+// which code path touches it. Require the parsed UTC date to round-trip back to the same string.
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be an ISO date (YYYY-MM-DD)").refine((v) => { const d = new Date(v); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v; }, "must be a real calendar date");
 const patientSchema = z.object({ id: z.string().min(1), mrn: z.string().optional(), firstName: z.string().min(1), lastName: z.string().min(1), dob: isoDate, sex: z.enum(["M", "F", "U"]).optional(), phone: z.string().optional(), email: z.string().optional(), preferredLanguage: z.string().optional(), householdSize: z.number().int().positive().optional(), annualHouseholdIncome: z.number().nonnegative().optional() });
 const coverageSchema = z.object({ id: z.string().min(1), patientId: z.string().min(1), payerId: z.string().min(1), payerName: z.string().min(1), memberId: z.string().min(1), groupNumber: z.string().optional(), planType: z.enum(["HMO", "PPO", "EPO", "POS", "Medicare", "Medicaid", "Commercial", "SelfPay", "Other"]).optional(), priority: z.enum(["primary", "secondary", "tertiary"]), subscriberRelationship: z.enum(["self", "spouse", "child", "other"]), subscriberFirstName: z.string().optional(), subscriberLastName: z.string().optional(), subscriberDob: isoDate.optional(), effectiveDate: isoDate.optional(), terminationDate: isoDate.optional(), timelyFilingDays: z.number().int().positive().optional() });
 // CPT/HCPCS codes and modifiers are canonically upper-case; several scrubber rules and the
@@ -101,6 +123,11 @@ rcmRouter.post("/demo/seed", wrap(async (req, res) => {
   if (demoSeedInFlight.has(t)) return fail(res, 409, "A demo reseed is already in progress for this account — wait for it to finish");
   demoSeedInFlight.add(t);
   try {
+    // Setting demoSeedInFlight above stops any NEW mutation from being admitted by the middleware,
+    // but a request already admitted before that point (past the check, suspended at its own
+    // `await`) is still running and could write into the tenant after reset() — wait for every
+    // already-admitted mutation to actually finish before touching the store.
+    while ((tenantMutationsInFlight.get(t) ?? 0) > 0) await new Promise((resolve) => setTimeout(resolve, 10));
     rcmStore.reset(t);
     const r = await seedDemoTenant(rcmStore, t);
     res.json({ success: true, ...r });
@@ -343,6 +370,10 @@ rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => {
   // this check would emit an 837P/CMS-1500 mixing this claim's patientId/payerId with another
   // patient's subscriber data or another payer's member data.
   if (cov.patientId !== c.patientId || cov.payerId !== c.payerId) return fail(res, 409, "coverage on file no longer matches this claim's patient/payer — re-verify before exporting");
+  // "draft"/"scrubbed" haven't passed (or haven't yet passed clean) the scrub pass submit-claim
+  // requires — exporting a real, downloadable 837P/CMS-1500 for one would let a caller manually
+  // send a claim that bypassed the clean-scrub and approval gates entirely.
+  if (c.status === "draft" || c.status === "scrubbed") return fail(res, 409, `Claim ${c.id} hasn't passed scrubbing yet (status: ${c.status}) — it isn't payer-ready to export`);
   res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) });
 }));
 // Frequency-7 (replacement)/8 (void) only make sense once the original actually reached the

@@ -248,12 +248,18 @@ const denialActionLocks = new Set<string>();
 // A matching totalCharge alone doesn't bind an approval to the actual claim content an admin
 // reviewed — a provider could revert to draft, swap lines/modifiers/diagnoses/dates of service to
 // something that happens to sum to the same total, then re-scrub back to ready. Fingerprint the
-// claim's billable content (independent of its own dollar amounts, which the totalCharge check
-// already covers) so submit-claim can also detect that class of drift, not just an amount change.
-function claimContentFingerprint(c: Pick<Claim, "lines" | "diagnoses">): string {
+// claim's billable AND payer-facing content (independent of its own dollar amounts, which the
+// totalCharge check already covers) so submit-claim can also detect that class of drift, not just
+// an amount change. Includes the claim-level placeOfService/priorAuthNumber/referralNumber too —
+// none of those affect totalCharge, but each changes what actually goes out on the 837P/CMS-1500
+// (box 24b, box 23, box 17a) versus what the approver reviewed.
+function claimContentFingerprint(c: Pick<Claim, "lines" | "diagnoses" | "placeOfService" | "priorAuthNumber" | "referralNumber">): string {
   return JSON.stringify({
     lines: c.lines.map((l) => ({ cpt: l.cpt, units: l.units, modifiers: [...l.modifiers].sort(), dxPointers: l.dxPointers, dateOfService: l.dateOfService, placeOfService: l.placeOfService })),
     diagnoses: c.diagnoses.map((d) => d.code),
+    claimPlaceOfService: c.placeOfService,
+    priorAuthNumber: c.priorAuthNumber,
+    referralNumber: c.referralNumber,
   });
 }
 const submitClaim: Tool<{ claimId: string; amount: number; contentFingerprint?: string }, unknown> = {
@@ -276,7 +282,7 @@ const submitClaim: Tool<{ claimId: string; amount: number; contentFingerprint?: 
     // total, which the amount check above can't see. Optional/best-effort: only enforced when a
     // fingerprint was actually captured at plan() time, so a caller/test that predates this field
     // isn't blocked — every real plan()-driven approval request always includes one.
-    if (input.contentFingerprint !== undefined && input.contentFingerprint !== claimContentFingerprint(claim)) throw new Error(`This claim's lines/diagnoses no longer match what this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
+    if (input.contentFingerprint !== undefined && input.contentFingerprint !== claimContentFingerprint(claim)) throw new Error(`This claim's content (lines, diagnoses, place of service, prior auth, or referral) no longer matches what this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
     // /coverage can upsert (replace) an existing record by id — the same check the /claims/:id/837p
     // route already makes before exporting. Without it, a coverage record replaced with a
     // different patient's or payer's data after this claim was created/scrubbed could be marked
@@ -614,6 +620,11 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       if (!d) throw new Error("denial not found");
       if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+      // This tool only moves genuine patient-responsibility (CARC group "PR") amounts onto the
+      // patient — a CO/OA/PI adjustment is a contractual write-off or other insurance-side
+      // outcome, never something the patient actually owes, and approving this action must not be
+      // able to convert one into a patient balance.
+      if (d.group !== "PR") throw new Error(`Denial ${d.id} is group "${d.group}", not patient responsibility (PR) — use write-off instead`);
       const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
       if (!claim) throw new Error("claim not found");
       // Same reasoning as write-off above: d.amount can be stale by execution time, so cap it
