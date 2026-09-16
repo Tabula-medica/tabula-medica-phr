@@ -256,8 +256,17 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       // submission that never actually went out.
       await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
       for (const [authId, units] of Array.from(consumption.entries())) {
-        const a = auths.find((x) => x.id === authId)!;
-        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(a, units));
+        // Re-fetch and re-validate rather than reusing the `auths` snapshot taken before the
+        // lock above: that snapshot only guards against another concurrent submission, not an
+        // admin independently expiring/exhausting/voiding this same auth (via the separate auth
+        // transition route, which shares no lock with submissions) in the window between
+        // selection and this write. Writing back the stale snapshot in that case would silently
+        // resurrect an auth someone else just invalidated.
+        const current = await ctx.store.getAuth(ctx.tenantId, authId);
+        if (!current || current.status !== "approved" || current.unitsUsed + units > current.units) {
+          throw new Error(`Authorization ${authId} is no longer approved or lacks enough remaining units — it changed after this submission began; re-verify before resubmitting`);
+        }
+        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(current, units));
       }
       // Only now — the corrected claim actually left for the payer — does the denial it was
       // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved

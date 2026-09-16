@@ -256,12 +256,21 @@ rcmRouter.post("/claims/:id/transition", wrap(async (req, res) => {
   try { res.json({ success: true, claim: await rcmStore.upsertClaim(t, transitionClaim(claim, p.data.to as Claim["status"], actorOf(req), p.data.note)) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
 rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => { const t = tenantOf(req); const c = await rcmStore.getClaim(t, req.params.id); if (!c) return fail(res, 404, "claim not found"); const p = await rcmStore.getPatient(t, c.patientId); const cov = await rcmStore.getCoverage(t, c.coverageId); if (!p || !cov) return fail(res, 404, "patient/coverage missing"); res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) }); }));
+// Frequency-7 (replacement)/8 (void) only make sense once the original actually reached the
+// payer — that's the entire premise of "correcting"/"voiding" a prior submission. A claim still
+// pre-submission (draft/scrubbed/ready) or front-end-rejected (never accepted into adjudication,
+// and the state machine already routes it back to draft for a fresh resubmission, not a
+// replacement) has nothing to correct yet: cloning it here creates a second, independently
+// submit-able claim object that the scrubber's duplicate-service check intentionally excludes
+// from flagging against its original, so both could be billed.
+const correctableClaimStatuses = new Set<Claim["status"]>(["submitted", "acknowledged", "pended", "adjudicated", "paid", "partially-paid", "denied", "appealed"]);
 rcmRouter.post("/claims/:id/corrected", wrap(async (req, res) => {
   const p = z.object({ kind: z.enum(["7", "8"]).default("7"), diagnoses: z.array(dxSchema).optional(), lines: z.array(lineSchema).optional(), priorAuthNumber: z.string().optional() }).safeParse(req.body ?? {});
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const c = await rcmStore.getClaim(t, req.params.id);
   if (!c) return fail(res, 404, "claim not found");
+  if (!correctableClaimStatuses.has(c.status)) return fail(res, 409, `Cannot create a corrected/void claim from status "${c.status}" — the original hasn't reached the payer yet (or was front-end rejected); edit or resubmit it directly instead`);
   const next = correctedClaim(c, { diagnoses: p.data.diagnoses as Diagnosis[] | undefined, lines: p.data.lines as ServiceLine[] | undefined, priorAuthNumber: p.data.priorAuthNumber }, p.data.kind);
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, next) });
 }));
