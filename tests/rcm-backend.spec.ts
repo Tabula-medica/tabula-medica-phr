@@ -15,8 +15,10 @@ import { estimatePatientResponsibility, parse271 } from "../server/rcm/eligibili
 import { parseCodingSuggestion } from "../server/rcm/coding";
 import { isValidIcd10 } from "../server/rcm/util";
 import { agentRuntime } from "../server/rcm/agents";
+import { aiText } from "../server/rcm/agents/ai";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
+import { setFeatureProvider } from "../server/services/ai-provider";
 import type { BenefitSnapshot, Coverage, LedgerEntry, Patient } from "../server/rcm/types";
 
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
@@ -741,5 +743,17 @@ describe("round 7 hardening", () => {
     const realDup = { ...mkClaim(), id: "real-dup" };
     const resultVsRealDup = scrubClaim(original, { priorClaimsSameDos: [realDup] });
     expect(resultVsRealDup.edits.some((e) => e.id === "duplicate-claim")).toBe(true);
+  });
+  it("RCM AI seam fails closed to the deterministic fallback instead of sending PHI-bearing prompts to a non-Vertex provider", async () => {
+    const originalEnabled = process.env.RCM_AI_ENABLED;
+    process.env.RCM_AI_ENABLED = "true";
+    try {
+      setFeatureProvider("rcm-test-misconfigured", "openai");
+      const result = await aiText("system prompt", "user prompt", "deterministic fallback text", "rcm-test-misconfigured");
+      expect(result.source).toBe("stub-fallback");
+      expect(result.text).toBe("deterministic fallback text");
+    } finally {
+      process.env.RCM_AI_ENABLED = originalEnabled;
+    }
   });
 });

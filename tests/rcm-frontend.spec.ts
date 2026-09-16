@@ -128,6 +128,10 @@ describe("charge capture", () => {
     expect(built.diagnoses.map((d) => d.code)).toEqual(["E11.9", "I10"]);
     expect(built.lines[0].dxPointers).toEqual([1, 2]);
   });
+  it("parses a spoken U-series ICD-10 diagnosis (COVID-19), matching isValidIcd10's accepted range", () => {
+    const cmds = parseVoiceCharge("Add 99214, diagnosis U07 point 1");
+    expect(cmds[0].diagnoses).toEqual(["U07.1"]);
+  });
 });
 
 describe("coding", () => {

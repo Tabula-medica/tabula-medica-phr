@@ -218,8 +218,12 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
 // Manual/staging transitions only — anything that finalizes a payer-facing state (submitted
 // and beyond) must go through the approval-gated submit-claim tool or an actual ERA posting,
 // never a direct call to this endpoint, or a caller could fabricate an adjudication outcome or
-// skip the submission approval entirely.
-const directClaimTransitions = new Set<Claim["status"]>(["draft", "scrubbed", "ready", "rejected", "closed"]);
+// skip the submission approval entirely. "ready" is excluded too: it must only be reached by an
+// actual clean scrub (POST /claims/:id/scrub or the scrub-claim agent tool), since submit-claim
+// trusts "ready" without re-scrubbing — a direct transition here would let a dirty claim skip
+// scrubbing entirely. "rejected" is a real clearinghouse/payer outcome like denied/paid/
+// adjudicated, not something for a human to set by hand.
+const directClaimTransitions = new Set<Claim["status"]>(["draft", "scrubbed", "closed"]);
 rcmRouter.post("/claims/:id/transition", wrap(async (req, res) => {
   const p = z.object({ to: z.string(), note: z.string().optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
@@ -348,6 +352,13 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
   if (p.data.some((e) => adjustmentTypes.has(e.type)) && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting insurance-payment or contractual-adjustment entries directly requires an admin role");
   const t = tenantOf(req);
   const suppliedIds = p.data.map((e) => e.id).filter((id): id is string => !!id);
+  // The store-lookup dedup check below only catches ids already posted in a PRIOR request — a
+  // single batch repeating the same caller-supplied id would pass that check for both and post
+  // both, since neither exists yet. Reject that within-batch collision up front.
+  const idCounts = new Map<string, number>();
+  for (const id of suppliedIds) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+  const batchDupe = suppliedIds.find((id) => (idCounts.get(id) ?? 0) > 1);
+  if (batchDupe) return fail(res, 400, `ledger entry id ${batchDupe} appears more than once in this batch`);
   const lockKeys = suppliedIds.map((id) => `${t}:${id}`);
   // Synchronous check-and-set, before any `await` — see ledgerPostInFlight's comment.
   const inFlightDupe = lockKeys.find((k) => ledgerPostInFlight.has(k));
