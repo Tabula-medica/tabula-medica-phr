@@ -85,7 +85,7 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
   // "procedure".
   const generatedCodes = new Set<string>();
   if (facts.emLevel) generatedCodes.add(emCodeFor(facts.emLevel, facts.newPatient).toUpperCase());
-  if (facts.visitComplexityAddOn && !facts.newPatient) generatedCodes.add("G2211");
+  if (facts.emLevel && facts.visitComplexityAddOn && !facts.newPatient) generatedCodes.add("G2211");
   if (facts.vaccinesGiven > 0) { generatedCodes.add("90471"); if (facts.vaccinesGiven > 1) generatedCodes.add("90472"); }
   for (const code of Array.from(generatedCodes)) procedureCounts.delete(code);
   const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));

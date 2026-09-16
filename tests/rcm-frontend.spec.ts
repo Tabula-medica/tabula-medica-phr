@@ -165,6 +165,14 @@ describe("charge capture", () => {
     expect(lines.filter((l) => l.cpt === "90471")).toHaveLength(1);
     expect(lines.filter((l) => l.cpt === "90472")).toHaveLength(1);
   });
+  it("still bills a documented G2211 when there's no E/M level at all, instead of treating it as an already-generated duplicate", () => {
+    // deriveCharges only ever emits its OWN G2211 line inside the emLevel branch — without an
+    // emLevel, nothing generates one, so a G2211 the encounter actually documents must still go
+    // through the generic procedure loop rather than being silently stripped as if it were a
+    // duplicate of a line that was never produced.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, visitComplexityAddOn: true, proceduresDocumented: ["G2211"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(lines.filter((l) => l.cpt === "G2211")).toHaveLength(1);
+  });
   it("uses telehealth POS + modifier 95", () => {
     const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: true, telehealth: true, emLevel: 3, proceduresDocumented: [], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "J06.9" }] });
     expect(lines[0]).toMatchObject({ cpt: "99203", placeOfService: "10", modifiers: ["95"] });
