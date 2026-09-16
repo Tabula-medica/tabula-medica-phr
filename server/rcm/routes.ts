@@ -357,6 +357,12 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
   if (!d) return fail(res, 404, "denial not found");
   // A payer can only overturn or uphold a denial that was actually appealed to it.
   if ((p.data.status === "overturned" || p.data.status === "upheld") && d.status !== "appealed") return fail(res, 409, `Denial ${d.id} is not in "appealed" status (currently: ${d.status}) — a payer decision only applies to a denial that was actually appealed`);
+  // Terminal/resolved statuses (written-off, overturned, upheld) must never be reopened here —
+  // this route only validates the destination, so nothing else stopped a caller from posting
+  // "open"/"in-progress" on an already-resolved denial and letting the denial agent stage a
+  // duplicate write-off/transfer/appeal against it.
+  const terminal = new Set(["written-off", "overturned", "upheld"]);
+  if ((p.data.status === "open" || p.data.status === "in-progress") && terminal.has(d.status)) return fail(res, 409, `Denial ${d.id} is already resolved (${d.status}) and cannot be reopened`);
   res.json({ success: true, denial: await rcmStore.upsertDenial(t, { ...d, status: p.data.status }) });
 }));
 
