@@ -168,12 +168,6 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
     const auth = claim.priorAuthNumber ? (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId) : undefined;
-    // A priorAuthNumber with no matching internal record isn't proof there's no real
-    // authorization (it could be a payer number obtained outside this app's own tracking), but
-    // it's exactly the situation the auth-validation block below is meant to catch — and being
-    // wrapped in `if (auth)` meant it silently skipped validation entirely instead of failing
-    // closed. Block submission rather than letting an unverifiable auth number through untouched.
-    if (claim.priorAuthNumber && !auth) throw new Error(`Prior auth number ${claim.priorAuthNumber} on this claim has no matching authorization record for this patient/coverage — verify it before submitting`);
     const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
     if (lockKey) {
       if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);

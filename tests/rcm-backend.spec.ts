@@ -368,18 +368,22 @@ describe("agents", () => {
     expect(exec2.ok).toBe(false);
     expect((await rcmStore.getClaim(T, ready2.id))?.status).toBe("ready"); // never actually submitted
   });
-  it("submit-claim fails closed when the claim's priorAuthNumber has no matching internal authorization record", async () => {
+  it("submit-claim does not block a ready claim whose box 23 number has no matching internal authorization record", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
-    const claim = buildClaim({ encounterId: "e-bogus-auth", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "NEVER-ISSUED-BY-US" });
+    // Informational / inherited box 23 values (gold-carded CPTs, secondary COB copies, referral
+    // numbers stored in priorAuthNumber) have no PriorAuth row for this patient+coverage. Auth-
+    // required lines already fail auth-missing at scrub and never reach ready, so unmatched
+    // numbers here must not stall an already-approved submission.
+    const claim = buildClaim({ encounterId: "e-box23", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "INFORMATIONAL-BOX-23" });
     const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
     await rcmStore.upsertClaim(T, ready);
     await agentRuntime.run("claim-scrubber", T);
     const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
     await rcmStore.decideApproval(T, pending.id, "approved", "biller");
     const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
-    expect(exec.ok).toBe(false);
-    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+    expect(exec.ok).toBe(true);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
