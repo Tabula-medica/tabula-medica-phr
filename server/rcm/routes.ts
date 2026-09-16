@@ -1,5 +1,6 @@
-// /api/rcm — the outpatient RCM API. Zod-validated, tenant-scoped (header x-tenant-id or the
-// authenticated user's sub), stub-by-default vendors, agents gated behind approvals.
+// /api/rcm — the outpatient RCM API. Zod-validated, tenant-scoped to the authenticated user's
+// sub (never a client-supplied header — see tenantOf below), stub-by-default vendors, agents
+// gated behind approvals.
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { rcmStore } from "./store";
@@ -70,7 +71,13 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   if (!coverage) return fail(res, 404, "coverage not found");
   const patient = await rcmStore.getPatient(t, coverage.patientId);
   if (!patient) return fail(res, 404, "patient not found");
-  const benefits = p.data.payerResponse ? parse271(p.data.payerResponse) : await checkEligibility({ patient, coverage, dateOfService: p.data.dateOfService, providerNpi: p.data.providerNpi });
+  // A supplied payerResponse must not bypass the local coverage safeguards (effective/
+  // termination date, self-pay) that checkEligibility applies — otherwise an arbitrary request
+  // body could be stored as "active" benefits for coverage that was never actually in force.
+  const coverageInactive = (coverage.effectiveDate && p.data.dateOfService < coverage.effectiveDate) || (coverage.terminationDate && coverage.terminationDate < p.data.dateOfService) || coverage.planType === "SelfPay";
+  const benefits = coverageInactive
+    ? { active: false, planName: coverage.planType, checkedAt: new Date().toISOString(), source: "manual" as const }
+    : p.data.payerResponse ? parse271(p.data.payerResponse) : await checkEligibility({ patient, coverage, dateOfService: p.data.dateOfService, providerNpi: p.data.providerNpi });
   await rcmStore.setBenefits(t, coverage.id, benefits);
   const contract = await rcmStore.getContract(t, coverage.payerId);
   // Build the per-CPT rate from the contract's own pricing (explicit fee schedule, else
@@ -82,7 +89,9 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   const discrepancies = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, benefits.payerSubscriber ?? {});
   const needAuth = p.data.plannedLines.some((l) => requiresPriorAuth(l.cpt, contract).required);
   const auths = await rcmStore.listAuths(t, patient.id);
-  const authOnFile = p.data.plannedLines.every((l) => !requiresPriorAuth(l.cpt, contract).required || auths.some((a) => authCoversService(a, l.cpt, p.data.dateOfService, l.units).ok));
+  // Scope the match to this coverage/payer — an approved auth from a different plan for the
+  // same patient and CPT must not clear this coverage's authorization requirement.
+  const authOnFile = p.data.plannedLines.every((l) => !requiresPriorAuth(l.cpt, contract).required || auths.some((a) => a.coverageId === coverage.id && a.payerId === coverage.payerId && authCoversService(a, l.cpt, p.data.dateOfService, l.units).ok));
   const clearance = financialClearance(benefits, estimate, discrepancies, { requiresAuth: needAuth, authOnFile });
   res.json({ success: true, benefits, estimate, discrepancies, clearance });
 }));
@@ -160,10 +169,17 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   const coverage = await rcmStore.getCoverage(t, claim.coverageId);
   const contract = await rcmStore.getContract(t, claim.payerId);
   const others = (await rcmStore.listClaims(t, { patientId: claim.patientId })).filter((c) => c.id !== claim.id);
-  const ctx = { patient, coverage, authRequiredCpts: contract?.requiresAuth, authOnFile: !!claim.priorAuthNumber, priorClaimsSameDos: others };
+  // The full payer-aware auth requirement (contract list + DEFAULT_AUTH_RULES + gold-carding),
+  // not just the contract's own explicit list — a contract with no explicit list (e.g. the
+  // default Medicare contract) can still have default-rule codes like 72148 that need auth.
+  const authRequiredCpts = claim.lines.filter((l) => requiresPriorAuth(l.cpt, contract).required).map((l) => l.cpt);
+  const ctx = { patient, coverage, authRequiredCpts, authOnFile: !!claim.priorAuthNumber, priorClaimsSameDos: others };
   const result = scrubClaim(claim, ctx);
   await rcmStore.recordScrub(t, result.clean);
-  const applyFixes = req.body?.applyAutoFixes === true;
+  // Auto-fixes rewrite claim data (modifiers, totals) — only safe to persist while the claim is
+  // still pre-submission. A submitted/adjudicated/paid claim must go through a corrected claim
+  // (frequency 7/8) instead of having its historical bill silently rewritten.
+  const applyFixes = req.body?.applyAutoFixes === true && ["draft", "scrubbed", "ready"].includes(claim.status);
   let next = claim;
   let applied: string[] = [];
   let finalResult = result;
@@ -174,16 +190,30 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   if (!finalResult.clean) await rcmStore.addWorkItems(t, itemsFromScrub(next, finalResult.errors.length));
   res.json({ success: true, result: finalResult, applied, claim: next });
 }));
+// Manual/staging transitions only — anything that finalizes a payer-facing state (submitted
+// and beyond) must go through the approval-gated submit-claim tool or an actual ERA posting,
+// never a direct call to this endpoint, or a caller could fabricate an adjudication outcome or
+// skip the submission approval entirely.
+const directClaimTransitions = new Set<Claim["status"]>(["draft", "scrubbed", "ready", "rejected", "closed"]);
 rcmRouter.post("/claims/:id/transition", wrap(async (req, res) => {
   const p = z.object({ to: z.string(), note: z.string().optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
+  if (!directClaimTransitions.has(p.data.to as Claim["status"])) return fail(res, 403, `"${p.data.to}" can only be reached via claim submission or remittance posting, not a direct transition`);
   const t = tenantOf(req);
   const claim = await rcmStore.getClaim(t, req.params.id);
   if (!claim) return fail(res, 404, "claim not found");
   try { res.json({ success: true, claim: await rcmStore.upsertClaim(t, transitionClaim(claim, p.data.to as Claim["status"], actorOf(req), p.data.note)) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
 rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => { const t = tenantOf(req); const c = await rcmStore.getClaim(t, req.params.id); if (!c) return fail(res, 404, "claim not found"); const p = await rcmStore.getPatient(t, c.patientId); const cov = await rcmStore.getCoverage(t, c.coverageId); if (!p || !cov) return fail(res, 404, "patient/coverage missing"); res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) }); }));
-rcmRouter.post("/claims/:id/corrected", wrap(async (req, res) => { const t = tenantOf(req); const c = await rcmStore.getClaim(t, req.params.id); if (!c) return fail(res, 404, "claim not found"); const kind = req.body?.kind === "8" ? "8" : "7"; const next = correctedClaim(c, { diagnoses: req.body?.diagnoses, lines: req.body?.lines, priorAuthNumber: req.body?.priorAuthNumber }, kind); res.json({ success: true, claim: await rcmStore.upsertClaim(t, next) }); }));
+rcmRouter.post("/claims/:id/corrected", wrap(async (req, res) => {
+  const p = z.object({ kind: z.enum(["7", "8"]).default("7"), diagnoses: z.array(dxSchema).optional(), lines: z.array(lineSchema).optional(), priorAuthNumber: z.string().optional() }).safeParse(req.body ?? {});
+  if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  const c = await rcmStore.getClaim(t, req.params.id);
+  if (!c) return fail(res, 404, "claim not found");
+  const next = correctedClaim(c, { diagnoses: p.data.diagnoses as Diagnosis[] | undefined, lines: p.data.lines as ServiceLine[] | undefined, priorAuthNumber: p.data.priorAuthNumber }, p.data.kind);
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, next) });
+}));
 rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   const p = z.object({ secondaryCoverageId: z.string(), primaryRemit: z.object({ paid: z.number(), patientResp: z.number(), billed: z.number(), lines: z.array(z.any()).default([]) }) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
@@ -191,6 +221,8 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   const c = await rcmStore.getClaim(t, req.params.id);
   const cov = await rcmStore.getCoverage(t, p.data.secondaryCoverageId);
   if (!c || !cov) return fail(res, 404, "claim or coverage not found");
+  if (cov.patientId !== c.patientId) return fail(res, 400, "coverage does not belong to this claim's patient");
+  if (cov.priority === "primary") return fail(res, 400, "secondary claim requires a non-primary coverage");
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { ...p.data.primaryRemit, lines: [] })) });
 }));
 
@@ -241,7 +273,10 @@ rcmRouter.post("/denials/:id/appeal", wrap(async (req, res) => {
   const letter = generateAppealLetter({ denial: d, claim, patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient", providerName: claim.renderingProviderName ?? "Rendering Provider", practiceName: req.body?.practiceName ?? "World EHR Outpatient", clinicalSummary: req.body?.clinicalSummary, policyCitation: req.body?.policyCitation, attachments: req.body?.attachments });
   res.json({ success: true, ...letter, recommendation: recommendAction(d) });
 }));
-rcmRouter.post("/denials/:id/status", wrap(async (req, res) => { const p = z.object({ status: z.enum(["open", "in-progress", "appealed", "overturned", "upheld", "written-off"]) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const d = await rcmStore.getDenial(t, req.params.id); if (!d) return fail(res, 404, "denial not found"); res.json({ success: true, denial: await rcmStore.upsertDenial(t, { ...d, status: p.data.status }) }); }));
+// "written-off" is deliberately excluded: only the approval-gated write-off tool may set it,
+// since that tool also posts the matching denial-adjustment ledger entry — setting the status
+// alone here would clear the denial from the open queue while leaving the receivable untouched.
+rcmRouter.post("/denials/:id/status", wrap(async (req, res) => { const p = z.object({ status: z.enum(["open", "in-progress", "appealed", "overturned", "upheld"]) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const d = await rcmStore.getDenial(t, req.params.id); if (!d) return fail(res, 404, "denial not found"); res.json({ success: true, denial: await rcmStore.upsertDenial(t, { ...d, status: p.data.status }) }); }));
 
 // ---------- Patient financials ----------
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
@@ -249,14 +284,32 @@ rcmRouter.get("/patients/:id/statement", wrap(async (req, res) => { const t = te
 rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const s = computeAccount(p.id, await rcmStore.ledger(t, p.id)); const fpl = p.annualHouseholdIncome !== undefined && p.householdSize ? fplPercent(p.annualHouseholdIncome, p.householdSize) : undefined; res.json({ success: true, propensity: propensityToPay({ balance: s.patientBalance, priorStatementsPaidOnTime: req.body?.paidOnTime ?? 0, priorStatementsLate: req.body?.late ?? 0, hasCardOnFile: !!req.body?.hasCardOnFile, fplPct: fpl }), fplPct: fpl, slidingFee: fpl !== undefined ? slidingFeeDiscount(fpl) : undefined }); }));
 rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => { const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay); res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(tenantOf(req), plan) }); }));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
-rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().default(1) })), selfPayRates: z.record(z.number()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
+rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().int().positive().default(1) })), selfPayRates: z.record(z.number().nonnegative()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
 // Direct posting is limited to entries that record something that already happened at the
 // point of care/reception (a charge, a manually-keyed payment/adjustment, a PR transfer).
 // Refunds, write-offs, and denial adjustments forgive or return money and must go through the
 // approval-gated agent tools (issue-refund, write-off, small-balance-write-off) instead of a
 // raw client-supplied post.
 const directLedgerTypes = ["charge", "insurance-payment", "patient-payment", "contractual-adjustment", "transfer-to-patient"] as const;
-rcmRouter.post("/ledger", wrap(async (req, res) => { const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body); if (!p.success) return bad(res, p.error); const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}` })); await rcmStore.postLedger(tenantOf(req), entries); res.json({ success: true, posted: entries.length }); }));
+rcmRouter.post("/ledger", wrap(async (req, res) => {
+  const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
+  if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  // Even the allowed direct-posting types must reference a real patient (and, if given, a real
+  // claim actually belonging to that patient) — otherwise this can fabricate A/R against ids
+  // that don't exist or cross-link a payment to the wrong patient's claim.
+  for (const e of p.data) {
+    if (!(await rcmStore.getPatient(t, e.patientId))) return fail(res, 404, `patient ${e.patientId} not found`);
+    if (e.claimId) {
+      const claim = await rcmStore.getClaim(t, e.claimId);
+      if (!claim) return fail(res, 404, `claim ${e.claimId} not found`);
+      if (claim.patientId !== e.patientId) return fail(res, 400, `claim ${e.claimId} does not belong to patient ${e.patientId}`);
+    }
+  }
+  const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}` }));
+  await rcmStore.postLedger(t, entries);
+  res.json({ success: true, posted: entries.length });
+}));
 rcmRouter.get("/credit-balances", wrap(async (req, res) => res.json({ success: true, credits: detectCreditBalances(await rcmStore.ledgerByPatient(tenantOf(req))) })));
 
 // ---------- Contracts ----------

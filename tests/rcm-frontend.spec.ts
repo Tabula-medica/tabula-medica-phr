@@ -51,7 +51,12 @@ describe("eligibility", () => {
     expect(est.insuranceResponsibility).toBe(56);
     const capped = estimatePatientResponsibility([{ cpt: "99214", units: 1 }], { ...benefits, oopMaxRemaining: 40 }, { "99214": 150 });
     expect(capped.patientResponsibility).toBe(40);
-    // The breakdown must still reconcile with the capped total, not the pre-cap components.
+    // Allocated in cost-sharing order (copay, then deductible, then coinsurance) rather than
+    // scaled proportionally — the $30 copay and $10 of the $50 deductible exhaust the $40 cap,
+    // leaving nothing for coinsurance. The breakdown still reconciles with the capped total.
+    expect(capped.copay).toBe(30);
+    expect(capped.deductibleApplied).toBe(10);
+    expect(capped.coinsurance).toBe(0);
     expect(round2(capped.copay + capped.deductibleApplied + capped.coinsurance)).toBe(40);
   });
   it("detects registration/payer discrepancies and blocks clearance", () => {
@@ -66,6 +71,7 @@ describe("eligibility", () => {
     expect(eligibilityIsStale(undefined)).toBe(true);
     expect(eligibilityIsStale({ active: true, checkedAt: "2026-01-01T00:00:00Z", source: "stub" }, "2026-09-01")).toBe(true);
     expect(eligibilityIsStale({ active: true, checkedAt: "2026-08-25T00:00:00Z", source: "stub" }, "2026-09-01")).toBe(false);
+    expect(eligibilityIsStale({ active: true, checkedAt: "not-a-date", source: "stub" }, "2026-09-01")).toBe(true); // malformed timestamp must never read as fresh
   });
 });
 
@@ -151,15 +157,16 @@ describe("coding", () => {
 describe("scrubber", () => {
   const mk = (over: Partial<Parameters<typeof buildClaim>[0]> = {}) => buildClaim({ encounterId: "e", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 300, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "20610", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], ...over });
   it("validates NPIs with Luhn", () => { expect(isValidNpi("1234567893")).toBe(true); expect(isValidNpi("1234567890")).toBe(false); });
-  it("finds missing -25 and auto-fixes it", () => {
+  it("finds missing -25 but leaves it for a human — appending it is a coding judgment call, not an auto-fix", () => {
     const claim = mk();
     const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
     expect(r.errors.map((e) => e.id)).toContain("missing-em-25-modifier");
+    const found = r.edits.find((e) => e.id === "missing-em-25-modifier")!;
+    expect(found.autoFixable).toBeFalsy();
     const fixed = applyAutoFixes(claim, r.edits);
-    expect(fixed.applied).toContain("missing-em-25-modifier");
+    expect(fixed.applied).not.toContain("missing-em-25-modifier");
     const r2 = scrubClaim(fixed.claim, { patient, coverage, today: "2026-09-05" });
-    expect(r2.clean).toBe(true);
-    expect(r2.score).toBeGreaterThan(r.score);
+    expect(r2.clean).toBe(false); // still needs a human to confirm and add the modifier
   });
   it("catches bundling, timely filing, coverage, auth and demographic edits", () => {
     const claim = mk({ diagnoses: [{ code: "N40.1" }, { code: "E11" }], lines: [{ cpt: "99397", modifiers: ["25"], units: 1, charge: 200, dxPointers: [1, 2], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12001", modifiers: [], units: 1, charge: 120, dxPointers: [9], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "72148", modifiers: ["ZZ"], units: 1, charge: 900, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "99" }] });

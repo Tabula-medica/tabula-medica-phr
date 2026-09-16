@@ -7,10 +7,10 @@ import { authCoversService, createAuthRequest, linesNeedingAuth, transitionAuth 
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
-import { buildStatement, collectionsStage, createPaymentPlan, detectCreditBalances, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
+import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, detectCreditBalances, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
 import { computeKpis } from "../analytics";
-import { newId, todayIso } from "../util";
+import { newId, round2, todayIso } from "../util";
 import type { Claim, Denial, LedgerEntry } from "../types";
 import { buildPayerCallScript } from "./payer-call";
 
@@ -51,7 +51,7 @@ const eligibilityAgent: AgentDefinition = {
 };
 
 // ---------- Prior-auth agent ----------
-const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[] }, unknown> = {
+const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number }, unknown> = {
   name: "open-auth-request",
   description: "Create and mark requested a prior-auth for an auth-required service",
   async run(input, ctx) {
@@ -79,18 +79,29 @@ const priorAuthAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     const auths = await ctx.store.listAuths(ctx.tenantId);
+    // Merge duplicate auth-required lines (same patient/coverage/CPT, possibly across several
+    // draft claims) into a single 278 request with combined units, instead of opening one per
+    // line — otherwise two identical lines on a claim would each open their own auth record.
+    const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units: number; why: string }>();
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
-        // Consider every auth on file for this patient/CPT, not just the first match — a
-        // leftover denied/expired row must never shadow a later approved one.
-        const matches = auths.filter((a) => a.patientId === claim.patientId && a.cpt === line.cpt);
+        // Consider every auth on file for this patient/coverage/payer/CPT, not just the first
+        // match — a leftover denied/expired row must never shadow a later approved one, and an
+        // approved auth from a *different* coverage/payer must never clear this one's requirement.
+        const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt);
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
         if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
-        steps.push({ tool: "open-auth-request", input: { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code) }, why: check.reason ?? "auth required" });
+        const key = `${claim.patientId}|${claim.coverageId}|${line.cpt}`;
+        const existing = pendingOpens.get(key);
+        // Request enough units for the line itself — otherwise a fresh 1-unit-default auth can
+        // never satisfy a multi-unit line and the agent re-opens a request every run.
+        if (existing) existing.units += line.units;
+        else pendingOpens.set(key, { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code), units: line.units, why: check.reason ?? "auth required" });
       }
     }
+    for (const { why, ...input } of Array.from(pendingOpens.values())) steps.push({ tool: "open-auth-request", input, why });
     return steps;
   },
   summarize: (s) => `Prior auth: ${s.filter((x) => x.tool === "open-auth-request" && x.outcome === "ok").length} requests opened, ${s.filter((x) => x.tool === "attach-auth-to-claim" && x.outcome === "ok").length} auth numbers attached.`,
@@ -107,10 +118,12 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     const coverage = await ctx.store.getCoverage(ctx.tenantId, claim.coverageId);
     const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
     const others = (await ctx.store.listClaims(ctx.tenantId, { patientId: claim.patientId })).filter((c) => c.id !== claim.id);
-    const first = scrubClaim(claim, { patient, coverage, authRequiredCpts: contract?.requiresAuth, authOnFile: !!claim.priorAuthNumber, priorClaimsSameDos: others });
+    // The full payer-aware auth requirement (contract list + DEFAULT_AUTH_RULES + gold-carding).
+    const authRequiredCpts = linesNeedingAuth(claim.lines, contract).map((x) => x.line.cpt);
+    const first = scrubClaim(claim, { patient, coverage, authRequiredCpts, authOnFile: !!claim.priorAuthNumber, priorClaimsSameDos: others });
     await ctx.store.recordScrub(ctx.tenantId, first.clean);
     const fixed = applyAutoFixes(claim, first.edits);
-    const second = scrubClaim(fixed.claim, { patient, coverage, authRequiredCpts: contract?.requiresAuth, authOnFile: !!fixed.claim.priorAuthNumber, priorClaimsSameDos: others });
+    const second = scrubClaim(fixed.claim, { patient, coverage, authRequiredCpts, authOnFile: !!fixed.claim.priorAuthNumber, priorClaimsSameDos: others });
     let next = claim.status === "draft" ? transitionClaim(fixed.claim, "scrubbed", ctx.actor, `score ${second.score}`) : fixed.claim;
     if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
     await ctx.store.upsertClaim(ctx.tenantId, next);
@@ -210,15 +223,23 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
     const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
     const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
     const draft = correctedClaim(orig, {});
-    const scrubCtx = { patient, coverage, authRequiredCpts: contract?.requiresAuth, authOnFile: !!draft.priorAuthNumber };
+    const scrubCtx = { patient, coverage, authRequiredCpts: linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt), authOnFile: !!draft.priorAuthNumber };
     const first = scrubClaim(draft, scrubCtx);
     const fixed = applyAutoFixes(draft, first.edits);
     const second = scrubClaim(fixed.claim, { ...scrubCtx, authOnFile: !!fixed.claim.priorAuthNumber });
-    await ctx.store.upsertClaim(ctx.tenantId, fixed.claim);
-    if (!second.clean) await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(fixed.claim, second.errors.length));
+    // A clean corrected claim should actually be staged for resubmission (the same draft →
+    // scrubbed → ready lifecycle scrub-claim uses), not just persisted as a permanent draft.
+    let next = fixed.claim;
+    if (next.status === "draft") next = transitionClaim(next, "scrubbed", ctx.actor, `corrected claim score ${second.score}`);
+    if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
+    await ctx.store.upsertClaim(ctx.tenantId, next);
+    if (!second.clean) await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
-    return { correctedClaimId: fixed.claim.id, clean: second.clean, autoFixed: fixed.applied };
+    // Only mark the denial resolved once the replacement is actually clean and staged for
+    // resubmission — a corrected claim that still needs edits hasn't fixed anything yet, and
+    // nothing has been submitted to the payer either way (submission is its own approved step).
+    if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: second.clean ? "appealed" : "in-progress" });
+    return { correctedClaimId: next.id, clean: second.clean, autoFixed: fixed.applied };
   },
 };
 const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, unknown> = {
@@ -315,7 +336,17 @@ const issueRefund: Tool<{ patientId: string; amount: number; refundTo: string },
   description: "Refund a credit balance",
   requiresApproval: true,
   approvalReason: "money leaves the practice",
-  async run(input, ctx) { await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount: input.amount, date: todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]); return { refunded: input.amount }; },
+  async run(input, ctx) {
+    // Recompute the credit at execution time — planning and approval can lag behind other
+    // activity on the account (a payment, another refund), and posting the stale planned amount
+    // could refund money that's no longer there and turn the account into a debit.
+    const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
+    const availableCredit = round2(Math.max(0, -computeAccount(input.patientId, entries).balance));
+    if (availableCredit <= 0) throw new Error("no credit balance remains to refund");
+    const amount = round2(Math.min(input.amount, availableCredit));
+    await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount, date: todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]);
+    return { refunded: amount };
+  },
 };
 const smallBalanceWriteOff: Tool<{ patientId: string; amount: number }, unknown> = {
   name: "small-balance-write-off",
@@ -331,6 +362,10 @@ const patientFinancialAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     const byPatient = await ctx.store.ledgerByPatient(ctx.tenantId);
+    // A plan with any schedule entry not yet paid is still active — don't offer a second one or
+    // keep escalating collections for a patient who is already paying one down.
+    const existingPlans = await ctx.store.listPaymentPlans(ctx.tenantId);
+    const hasActivePlan = (patientId: string) => existingPlans.some((pp) => pp.patientId === patientId && pp.schedule.some((s) => s.status !== "paid"));
     for (const w of smallBalanceWriteOffs(byPatient)) steps.push({ tool: "small-balance-write-off", input: w, why: "below $5 policy threshold" });
     for (const c of detectCreditBalances(byPatient)) steps.push({ tool: "issue-refund", input: { patientId: c.patientId, amount: c.amount, refundTo: c.refundTo }, why: `${c.source} credit balance` });
     for (const [patientId, entries] of Object.entries(byPatient)) {
@@ -338,13 +373,14 @@ const patientFinancialAgent: AgentDefinition = {
       if (!p) continue;
       const stmt = buildStatement(p, entries);
       if (stmt.amountDue <= 5) continue;
+      const onPlan = hasActivePlan(patientId);
       const firstTransfer = entries.filter((e) => e.type === "transfer-to-patient").sort((a, b) => a.date.localeCompare(b.date))[0];
-      const stage = collectionsStage(firstTransfer?.date ?? todayIso());
+      const stage = collectionsStage(firstTransfer?.date ?? todayIso(), { onPaymentPlan: onPlan });
       if (stage.stage === "agency-referral") steps.push({ tool: "refer-to-agency", input: { patientId, amount: stmt.amountDue }, why: stage.reason });
       else if (stage.stage !== "hold") {
         const cycle: 1 | 2 | 3 | "final" = stage.stage === "statement-1" ? 1 : stage.stage === "statement-2" ? 2 : stage.stage === "statement-3" ? 3 : "final";
         steps.push({ tool: "send-statement", input: { patientId, cycle }, why: stage.reason });
-        if (stmt.amountDue >= 200) steps.push({ tool: "offer-payment-plan", input: { patientId, amount: stmt.amountDue, months: Math.min(12, Math.ceil(stmt.amountDue / 50)) }, why: "balance ≥ $200" });
+        if (!onPlan && stmt.amountDue >= 200) steps.push({ tool: "offer-payment-plan", input: { patientId, amount: stmt.amountDue, months: Math.min(12, Math.ceil(stmt.amountDue / 50)) }, why: "balance ≥ $200" });
       }
     }
     return steps;

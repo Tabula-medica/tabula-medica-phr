@@ -84,9 +84,9 @@ export class RcmStore {
   // id (double-click, retry, or replaying an old request) is a no-op — it returns undefined
   // rather than overwriting a decision that was already acted on.
   async decideApproval(tid: string, id: string, status: "approved" | "rejected", by: string): Promise<Approval | undefined> { const t = this.t(tid); const a = t.approvals.get(id); if (!a || a.status !== "pending") return undefined; const n: Approval = { ...a, status, decidedAt: nowIso(), decidedBy: by }; t.approvals.set(id, n); return n; }
-  // Atomic claim on the execution slot for an approved action — synchronous Map get+set with
-  // no `await` in between, so two concurrent callers can never both win it for the same id.
-  async claimApprovalExecution(tid: string, id: string): Promise<boolean> { const t = this.t(tid); const a = t.approvals.get(id); if (!a || a.executedAt) return false; t.approvals.set(id, { ...a, executedAt: nowIso() }); return true; }
+  // Marks an approval as executed once its tool has actually succeeded. The runtime is
+  // responsible for not calling this more than once per approval (see AgentRuntime.executing).
+  async markApprovalExecuted(tid: string, id: string): Promise<Approval | undefined> { const t = this.t(tid); const a = t.approvals.get(id); if (!a) return undefined; const n = { ...a, executedAt: nowIso() }; t.approvals.set(id, n); return n; }
   async listApprovals(tid: string, status?: Approval["status"]): Promise<Approval[]> { return Array.from(this.t(tid).approvals.values()).filter((a) => !status || a.status === status); }
 
   async upsertPaymentPlan(tid: string, p: PaymentPlan): Promise<PaymentPlan> { this.t(tid).paymentPlans.set(p.id, p); return p; }

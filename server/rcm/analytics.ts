@@ -58,7 +58,12 @@ export function computeKpis(i: KpiInputs): Kpi[] {
   const deniedClaims = new Set(i.denials.map((d) => d.claimId)).size;
   const denialRate = submitted > 0 ? round2((deniedClaims / submitted) * 100) : 0;
   const cleanRate = i.scrubTotal ? round2(((i.scrubFirstPassClean ?? 0) / i.scrubTotal) * 100) : 0;
-  const firstPass = submitted > 0 ? round2(((submitted - deniedClaims - i.claims.filter((c) => c.status === "rejected").length) / submitted) * 100) : 0;
+  // A claim still awaiting adjudication (submitted/acknowledged/pended) is not yet "paid without
+  // denial/rejection" — only count claims that actually reached paid/partially-paid, and only
+  // when they were never denied, so a batch of brand-new submissions doesn't read as 100%.
+  const deniedClaimIds = new Set(i.denials.map((d) => d.claimId));
+  const resolvedClean = i.claims.filter((c) => c.submittedAt && (c.status === "paid" || c.status === "partially-paid") && !deniedClaimIds.has(c.id)).length;
+  const firstPass = submitted > 0 ? round2((resolvedClean / submitted) * 100) : 0;
   const netCollection = charges - contractual > 0 ? round2((collected / (charges - contractual)) * 100) : 0;
   const grossCollection = charges > 0 ? round2((collected / charges) * 100) : 0;
   const chargeLag = i.chargeEntryLagDays?.length ? round2(i.chargeEntryLagDays.reduce((a, b) => a + b, 0) / i.chargeEntryLagDays.length) : 0;

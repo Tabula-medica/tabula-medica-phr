@@ -73,10 +73,13 @@ const rules: Record<string, Rule> = {
     return c.lines.flatMap((l, i) => (l.dateOfService > today ? [{ id: "dos-in-future", category: "format", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: DOS ${l.dateOfService} is in the future`, fix: "Correct the date of service" }] : []));
   },
   "unknown-modifier": (c) => c.lines.flatMap((l, i) => l.modifiers.filter((m) => !KNOWN_MODIFIERS.has(m.toUpperCase())).map((m) => ({ id: "unknown-modifier", category: "modifier", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: unknown modifier ${m}`, fix: "Remove or replace with a valid CPT/HCPCS modifier" }))),
+  // Not autoFixable: this rule's own message says 25 is valid only when a significant,
+  // separately identifiable E/M service was documented — a claim/service line alone can't
+  // establish that. Auto-appending it risks unsupported coding and a payer audit.
   "missing-em-25-modifier": (c) => {
     const em = c.lines.map((l, i) => ({ l, i })).filter(({ l }) => /^992(0[2-5]|1[1-5])$/.test(l.cpt));
     const proc = c.lines.some((l) => { const r = feeRow(l.cpt); return r ? r.category === "procedure" : /^[1-6]\d{4}$/.test(l.cpt); });
-    return em.filter(({ l }) => proc && !l.modifiers.includes("25")).map(({ l, i }) => ({ id: "missing-em-25-modifier", category: "modifier", severity: "error" as const, lineNumber: i + 1, message: `E/M ${l.cpt} billed with a same-day procedure without modifier 25`, fix: "Append modifier 25 to the E/M if a significant, separately identifiable service was documented", autoFixable: true }));
+    return em.filter(({ l }) => proc && !l.modifiers.includes("25")).map(({ l, i }) => ({ id: "missing-em-25-modifier", category: "modifier", severity: "error" as const, lineNumber: i + 1, message: `E/M ${l.cpt} billed with a same-day procedure without modifier 25`, fix: "Append modifier 25 to the E/M if a significant, separately identifiable service was documented" }));
   },
   "duplicate-line": (c) => {
     const seen = new Map<string, number>();
@@ -116,7 +119,9 @@ const rules: Record<string, Rule> = {
   "telehealth-modifier-pos": (c) => c.lines.flatMap((l, i): Edit[] => {
     const tele = l.placeOfService === "02" || l.placeOfService === "10";
     const hasMod = l.modifiers.some((m) => ["95", "93", "GT", "FQ"].includes(m.toUpperCase()));
-    if (tele && !hasMod && TELEHEALTH_CPTS.has(l.cpt)) return [{ id: "telehealth-modifier-pos", category: "telehealth", severity: "warning" as const, lineNumber: i + 1, message: `Telehealth POS ${l.placeOfService} without modifier 95/93`, fix: "Append 95 (video) or 93 (audio-only) per payer policy", autoFixable: true }];
+    // Not autoFixable: the claim carries no fact about audio vs. video modality, so guessing 95
+    // (video) can misrepresent an audio-only encounter and violate payer-specific modifier rules.
+    if (tele && !hasMod && TELEHEALTH_CPTS.has(l.cpt)) return [{ id: "telehealth-modifier-pos", category: "telehealth", severity: "warning" as const, lineNumber: i + 1, message: `Telehealth POS ${l.placeOfService} without modifier 95/93`, fix: "Append 95 (video) or 93 (audio-only) per payer policy" }];
     if (!tele && l.modifiers.includes("95")) return [{ id: "telehealth-modifier-pos", category: "telehealth", severity: "error" as const, lineNumber: i + 1, message: `Modifier 95 with non-telehealth POS ${l.placeOfService}`, fix: "Set POS 10/02 or remove modifier 95" }];
     return [];
   }),
@@ -160,8 +165,6 @@ export function applyAutoFixes(claim: Claim, edits: Edit[]): { claim: Claim; app
   for (const e of edits) {
     if (!e.autoFixable) continue;
     if (e.id === "total-mismatch") { c.totalCharge = Math.round(c.lines.reduce((s, l) => s + l.charge, 0) * 100) / 100; applied.push(e.id); }
-    if (e.id === "missing-em-25-modifier" && e.lineNumber) { c.lines[e.lineNumber - 1].modifiers.push("25"); applied.push(e.id); }
-    if (e.id === "telehealth-modifier-pos" && e.lineNumber && e.severity === "warning") { c.lines[e.lineNumber - 1].modifiers.push("95"); applied.push(e.id); }
   }
   return { claim: c, applied: Array.from(new Set(applied)) };
 }

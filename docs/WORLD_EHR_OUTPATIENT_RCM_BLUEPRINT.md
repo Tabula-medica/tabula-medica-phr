@@ -100,11 +100,11 @@ Legend: ✅ EHR has it · 🟡 EHR partial · ⛌ EHR missing · ➕ added here 
 |-------|---------|-----------|----------------|
 | `eligibility` | nightly / pre-visit | 270/271 re-checks, clearance items | — |
 | `prior-auth` | nightly / on draft claim | open 278, attach approved auth, SLA escalation | — |
-| `claim-scrubber` | on draft | scrub, safe auto-fix (-25, 95, pointer, totals), stage ready | `submit-claim` |
+| `claim-scrubber` | on draft | scrub, safe auto-fix (totals only — modifier/pointer edits need a human), stage ready | `submit-claim` |
 | `claim-followup` | nightly | status check, queue stale claims | — |
 | `payer-call` | on follow-up item | call script | — |
-| `denials` | on ERA / nightly | triage, appeal draft (+Vertex polish), PR → patient | `file-corrected-claim`, `send-appeal`, `write-off` |
-| `patient-financial` | nightly | statements by propensity channel, plan offers, <$5 write-off | `issue-refund`, `refer-to-agency` |
+| `denials` | on ERA / nightly | triage, appeal draft (+Vertex polish) | `file-corrected-claim`, `send-appeal`, `write-off`, `transfer-to-patient` |
+| `patient-financial` | nightly | statements by propensity channel, plan offers | `issue-refund`, `refer-to-agency`, `small-balance-write-off` |
 | `rcm-orchestrator` | nightly cron | runs the chain + KPI snapshot | inherits |
 
 Guardrails are in code, not prompts: approval-gated tools, max steps, unknown tools blocked,

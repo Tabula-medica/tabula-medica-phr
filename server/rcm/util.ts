@@ -29,6 +29,22 @@ export function addBusinessDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Counts business days strictly after `fromIso` up to and including `toIso`. Used to measure
+// NSA lead time (e.g. "is the visit 10+ business days out") in the same units as the deadline
+// itself — a calendar-day count can put an appointment in the wrong lead-time bracket.
+export function businessDaysBetween(fromIso: string, toIso: string): number {
+  const from = new Date(fromIso);
+  const to = new Date(toIso);
+  let count = 0;
+  const d = new Date(from);
+  while (d < to) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
 export function ageOn(dob: string, onIso: string): number {
   const d = new Date(dob);
   const t = new Date(onIso);

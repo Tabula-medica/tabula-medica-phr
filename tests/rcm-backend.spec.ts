@@ -177,6 +177,12 @@ describe("patient financials", () => {
     expect(gfe.deliverBy).toBe("2026-09-09"); // 3 business days from the 2026-09-05 (Sat) request date
     expect(gfe.disclaimers.length).toBeGreaterThan(1);
   });
+  it("flags a GFE line with no self-pay rate instead of silently pricing it at zero", () => {
+    const gfe = goodFaithEstimate(patient, [{ cpt: "00000", units: 1 }], {}, undefined, "2026-09-05");
+    expect(gfe.missingRateCpts).toContain("00000");
+    expect(gfe.items[0].ratePending).toBe(true);
+    expect(gfe.disclaimers.some((d) => d.includes("00000"))).toBe(true);
+  });
   it("detects credit balances and small balances", () => {
     const credit = detectCreditBalances({ p2: [{ id: "a", patientId: "p2", type: "charge", amount: 50, date: "2026-08-01", responsibleParty: "patient" }, { id: "b", patientId: "p2", type: "patient-payment", amount: 80, date: "2026-08-02", responsibleParty: "patient" }] });
     expect(credit[0]).toMatchObject({ amount: 30, refundTo: "patient", requiresApproval: true });
@@ -244,24 +250,40 @@ describe("agents", () => {
     expect(list.map((a) => a.name)).toEqual(expect.arrayContaining(["eligibility", "prior-auth", "claim-scrubber", "claim-followup", "denials", "patient-financial", "payer-call", "rcm-orchestrator"]));
     expect(list.find((a) => a.name === "denials")!.tools.find((t) => t.name === "send-appeal")!.requiresApproval).toBe(true);
   });
-  it("scrubber auto-fixes -25, stages the claim, and queues submission for approval", async () => {
+  it("prior-auth agent requests enough units for a multi-unit line", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = buildClaim({ encounterId: "e-pt", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 3, charge: 300, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opened = r.steps.find((s) => s.tool === "open-auth-request" && s.input.cpt === "97110")!;
+    expect(opened.outcome).toBe("ok");
+    const auth = await rcmStore.getAuth(T, (opened.output as { authId: string }).authId);
+    expect(auth?.units).toBe(3); // not the createAuthRequest default of 1
+  });
+  it("scrubber flags the missing -25 modifier for a human instead of auto-fixing it, and never stages an unclean claim for submission", async () => {
     const r = await agentRuntime.run("claim-scrubber", T);
     const scrub = r.steps.find((s) => s.tool === "scrub-claim")!;
-    expect((scrub.output as { autoFixed: string[] }).autoFixed).toContain("missing-em-25-modifier");
-    expect((scrub.output as { clean: boolean }).clean).toBe(true);
-    const ready = await rcmStore.listClaims(T, { status: "ready" });
-    expect(ready).toHaveLength(1);
-    // second run: ready claim → submission requires approval
+    expect((scrub.output as { autoFixed: string[] }).autoFixed).not.toContain("missing-em-25-modifier");
+    expect((scrub.output as { clean: boolean }).clean).toBe(false);
+    expect(await rcmStore.listClaims(T, { status: "ready" })).toHaveLength(0);
+    expect((await rcmStore.listWorkItems(T, "claim-edits")).length).toBeGreaterThan(0);
+    // With no claim reaching "ready", a second run must not queue any submission for approval.
     const r2 = await agentRuntime.run("claim-scrubber", T);
-    expect(r2.approvalsRequested).toBe(1);
-    const pending = await rcmStore.listApprovals(T, "pending");
-    expect(pending[0].action).toBe("submit-claim");
-    const wi = (await rcmStore.listWorkItems(T, "agent-approval"));
-    expect(wi.length).toBeGreaterThan(0);
-    await rcmStore.decideApproval(T, pending[0].id, "approved", "biller");
-    const exec = await agentRuntime.executeApproved(T, pending[0].id, "biller");
+    expect(r2.approvalsRequested).toBe(0);
+  });
+  it("stages an already-clean claim for submission and executes it once approved", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const ready = transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    expect(pending?.action).toBe("submit-claim");
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
     expect(exec.ok).toBe(true);
-    expect(await rcmStore.listClaims(T, { status: "submitted" })).toHaveLength(2);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
@@ -279,6 +301,19 @@ describe("agents", () => {
     expect(exec2.ok).toBe(false);
     const after = (await rcmStore.ledger(T, refundStep.input.patientId as string)).filter((e) => e.type === "refund").length;
     expect(after).toBe(before + 1);
+  });
+  it("a failed approval execution is retryable, not permanently locked out", async () => {
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "missing-denial", patientId: "pt-demo-1", amount: 10, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, approval.id, "approved", "biller");
+    const exec1 = await agentRuntime.executeApproved(T, approval.id, "biller"); // tool throws: denial not found
+    expect(exec1.ok).toBe(false);
+    const afterFailure = (await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!;
+    expect(afterFailure.status).toBe("approved");
+    expect(afterFailure.executedAt).toBeUndefined(); // must stay retryable, not locked out by the failure
+    await rcmStore.upsertDenial(T, { id: "missing-denial", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const exec2 = await agentRuntime.executeApproved(T, approval.id, "biller");
+    expect(exec2.ok).toBe(true);
+    expect((await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!.executedAt).toBeDefined();
   });
   it("denial agent triages and never executes any money-moving or patient-billing step without approval", async () => {
     const r = await agentRuntime.run("denials", T);
@@ -315,11 +350,39 @@ describe("agents", () => {
     const plan = await rcmStore.upsertPaymentPlan(T, createPaymentPlan("pt-demo-1", 300, 6));
     expect((await rcmStore.listPaymentPlans(T, "pt-demo-1"))[0]?.id).toBe(plan.id);
   });
+  it("patient-financial agent does not duplicate a payment plan or keep escalating collections once one exists", async () => {
+    const recent = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    await rcmStore.upsertPatient(T, { id: "pt-plan-test", firstName: "Test", lastName: "Plan", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-plan-1", patientId: "pt-plan-test", type: "charge", amount: 500, date: recent, responsibleParty: "insurance" },
+      { id: "led-plan-2", patientId: "pt-plan-test", type: "transfer-to-patient", amount: 250, date: recent, responsibleParty: "patient" },
+    ]);
+    const r1 = await agentRuntime.run("patient-financial", T);
+    expect(r1.steps.some((s) => s.tool === "offer-payment-plan" && s.input.patientId === "pt-plan-test")).toBe(true);
+    expect(await rcmStore.listPaymentPlans(T, "pt-plan-test")).toHaveLength(1);
+    // A second (e.g. nightly) run must not offer another plan, nor keep escalating collections,
+    // now that the patient is already on one.
+    const r2 = await agentRuntime.run("patient-financial", T);
+    expect(r2.steps.some((s) => s.tool === "offer-payment-plan" && s.input.patientId === "pt-plan-test")).toBe(false);
+    expect(r2.steps.some((s) => s.input.patientId === "pt-plan-test")).toBe(false);
+    expect(await rcmStore.listPaymentPlans(T, "pt-plan-test")).toHaveLength(1);
+  });
   it("patient-financial agent finds the duplicate payment credit and queues a refund approval", async () => {
     const r = await agentRuntime.run("patient-financial", T);
     const refund = r.steps.find((s) => s.tool === "issue-refund");
     expect(refund?.outcome).toBe("needs-approval");
     expect(refund?.input.patientId).toBe("pt-demo-4");
     expect(refund?.input.amount).toBe(150);
+  });
+  it("caps a refund to the credit still on the account at execution time, not the stale planned amount", async () => {
+    const r = await agentRuntime.run("patient-financial", T);
+    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
+    // Between planning and approval, part of the credit is already refunded through another
+    // channel — only $60 of credit remains on the $150 that was planned.
+    await rcmStore.postLedger(T, [{ id: "led-drain", patientId: refundStep.input.patientId as string, type: "refund", amount: 90, date: "2026-09-10", responsibleParty: "patient" }]);
+    const exec = await agentRuntime.executeApproved(T, refundStep.approvalId!, "biller");
+    expect(exec.ok).toBe(true);
+    expect((exec.output as { refunded: number }).refunded).toBe(60);
   });
 });

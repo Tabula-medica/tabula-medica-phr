@@ -2,7 +2,7 @@
 // and HCC capture checks, plus an AI suggestion hook that is a SUGGESTION ONLY (provider
 // confirms; never auto-bills). PHI-bearing AI goes through ai-provider (Vertex default).
 import { HCC_PREFIXES } from "./reference-data";
-import { isValidIcd10 } from "./util";
+import { isValidCpt, isValidIcd10 } from "./util";
 
 export interface MdmInputs {
   // Problems addressed
@@ -159,7 +159,9 @@ export function parseCodingSuggestion(text: string, source: string): AiCodingSug
   return {
     em: parsed.em && okCode(parsed.em.code) ? { code: parsed.em.code.toUpperCase(), rationale: String(parsed.em.rationale ?? "") } : { code: "", rationale: "no E/M suggested" },
     icd: (parsed.icd ?? []).filter((x) => okCode(x.code) && isValidIcd10(x.code)).map((x) => ({ code: x.code.toUpperCase(), description: String(x.description ?? "") })),
-    cptSuggestions: (parsed.cptSuggestions ?? []).filter((x) => okCode(x.code)).map((x) => ({ code: x.code.toUpperCase(), rationale: String(x.rationale ?? "") })),
+    // Unlike em.code (a level-range hint like "9921x", not a submittable code), cptSuggestions
+    // are meant to be real, billable CPT/HCPCS codes — validate them as such.
+    cptSuggestions: (parsed.cptSuggestions ?? []).filter((x) => okCode(x.code) && isValidCpt(x.code)).map((x) => ({ code: x.code.toUpperCase(), rationale: String(x.rationale ?? "") })),
     queries: (parsed.queries ?? []).map(String).slice(0, 10),
     disclaimer: CODING_DISCLAIMER,
     source,

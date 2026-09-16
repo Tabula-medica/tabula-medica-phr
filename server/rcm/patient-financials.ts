@@ -3,7 +3,7 @@
 // No Surprises Act Good Faith Estimate, credit balances & refunds, small-balance write-off.
 import type { LedgerEntry, Patient, ServiceLine } from "./types";
 import { FPL_BASE, FPL_PER_ADDITIONAL, feeRow } from "./reference-data";
-import { addBusinessDays, addDays, daysBetween, newId, round2, sum, todayIso } from "./util";
+import { addBusinessDays, addDays, businessDaysBetween, daysBetween, newId, round2, sum, todayIso } from "./util";
 
 const CREDIT_TYPES = new Set<LedgerEntry["type"]>(["insurance-payment", "patient-payment", "contractual-adjustment", "denial-adjustment", "write-off"]);
 
@@ -127,15 +127,21 @@ export function slidingFeeDiscount(fplPct: number): { discountPct: number; tier:
 }
 
 // No Surprises Act Good Faith Estimate for uninsured / self-pay patients.
-export interface GoodFaithEstimate { id: string; patientId: string; scheduledDate?: string; items: Array<{ cpt: string; description: string; units: number; amount: number }>; total: number; disclaimers: string[]; expiresAt: string; deliverBy: string }
+export interface GoodFaithEstimate { id: string; patientId: string; scheduledDate?: string; items: Array<{ cpt: string; description: string; units: number; amount: number; ratePending?: boolean }>; total: number; missingRateCpts: string[]; disclaimers: string[]; expiresAt: string; deliverBy: string }
 
 export function goodFaithEstimate(patient: Patient, lines: Pick<ServiceLine, "cpt" | "units">[], selfPayRates: Record<string, number>, scheduledDate?: string, today: string = todayIso()): GoodFaithEstimate {
-  const items = lines.map((l) => { const rate = selfPayRates[l.cpt] ?? feeRow(l.cpt)?.medicareAllowed ?? 0; return { cpt: l.cpt, description: feeRow(l.cpt)?.description ?? l.cpt, units: l.units, amount: round2(rate * l.units) }; });
+  // A CPT with no self-pay rate and no reference allowable must not silently price at $0 — that
+  // understates the estimate the NSA $400 dispute threshold is measured against. Flag it instead.
+  const items = lines.map((l) => {
+    const rate = selfPayRates[l.cpt] ?? feeRow(l.cpt)?.medicareAllowed;
+    return { cpt: l.cpt, description: feeRow(l.cpt)?.description ?? l.cpt, units: l.units, amount: rate !== undefined ? round2(rate * l.units) : 0, ratePending: rate === undefined };
+  });
+  const missingRateCpts = items.filter((i) => i.ratePending).map((i) => i.cpt);
   const total = sum(items.map((i) => i.amount));
   // NSA (45 CFR 149.610): the deadline is measured in business days from the request (today),
   // not from the appointment — 3 business days out when scheduled 10+ business days ahead,
   // 1 business day when scheduled 3-9 business days ahead, otherwise as soon as practicable.
-  const lead = scheduledDate ? daysBetween(today, scheduledDate) : 0;
+  const lead = scheduledDate ? businessDaysBetween(today, scheduledDate) : 0;
   const deliverBy = scheduledDate ? (lead >= 10 ? addBusinessDays(today, 3) : lead >= 3 ? addBusinessDays(today, 1) : today) : addBusinessDays(today, 3);
   return {
     id: newId("gfe"),
@@ -143,10 +149,12 @@ export function goodFaithEstimate(patient: Patient, lines: Pick<ServiceLine, "cp
     scheduledDate,
     items,
     total,
+    missingRateCpts,
     disclaimers: [
       "This Good Faith Estimate shows the costs of items and services reasonably expected for your health care needs. It is not a contract.",
       "If billed charges exceed this estimate by $400 or more, you may dispute the bill through the patient-provider dispute resolution process.",
       "The estimate is based on information known at the time; actual items or services may differ.",
+      ...(missingRateCpts.length ? [`No self-pay rate is on file for ${missingRateCpts.join(", ")}; get pricing for these before delivering this estimate — it is understated.`] : []),
     ],
     expiresAt: addDays(today, 365),
     deliverBy,

@@ -47,6 +47,11 @@ const MAX_STEPS = 300;
 
 export class AgentRuntime {
   private agents = new Map<string, AgentDefinition>();
+  // In-process lock on the *attempt* to execute a given approval — separate from the
+  // persisted `executedAt` flag, which is only ever set after the tool actually succeeds.
+  // This is what lets a failed execution (tool threw, or was removed) be retried, while still
+  // preventing two concurrent executeApproved calls for the same id from both running the tool.
+  private executing = new Set<string>();
   constructor(private store: RcmStore = rcmStore) {}
 
   register(def: AgentDefinition): void { this.agents.set(def.name, def); }
@@ -107,18 +112,25 @@ export class AgentRuntime {
     const a = approvals.find((x) => x.id === approvalId);
     if (!a) return { ok: false, error: "approval not found" };
     if (a.status !== "approved") return { ok: false, error: `approval status is ${a.status}` };
-    if (!(await this.store.claimApprovalExecution(tenantId, approvalId))) return { ok: false, error: "approval already executed" };
-    const def = this.agents.get(a.agent);
-    const tool = def?.tools.find((t) => t.name === a.action);
-    if (!tool) return { ok: false, error: "tool no longer available" };
+    if (a.executedAt) return { ok: false, error: "approval already executed" };
+    if (this.executing.has(approvalId)) return { ok: false, error: "execution already in progress" };
+    this.executing.add(approvalId);
     try {
+      const def = this.agents.get(a.agent);
+      const tool = def?.tools.find((t) => t.name === a.action);
+      if (!tool) return { ok: false, error: "tool no longer available" };
       const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false, budget: { remaining: MAX_STEPS } });
+      // Only mark executed on success — a thrown error (or a since-removed tool, above) must
+      // stay retryable rather than being permanently locked out.
+      await this.store.markApprovalExecuted(tenantId, approvalId);
       await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, by }, outcome: "ok" });
       return { ok: true, output };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, error }, outcome: "error" });
+      await this.store.audit(tenantId, { agent: a.agent, step: `${a.action}:approved-exec`, detail: { approvalId, error }, outcome: "error" });
       return { ok: false, error };
+    } finally {
+      this.executing.delete(approvalId);
     }
   }
 }

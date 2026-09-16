@@ -171,13 +171,14 @@ export function estimatePatientResponsibility(lines: Pick<ServiceLine, "cpt" | "
   let copayFinal = copay, deductibleFinal = deductibleApplied, coinsuranceFinal = coinsurance;
   if (benefits.oopMaxRemaining !== undefined && patient > benefits.oopMaxRemaining) {
     assumptions.push("Patient share capped at remaining out-of-pocket maximum");
-    // Scale every component down proportionally so copay + deductible + coinsurance still sums
-    // to the capped total — otherwise the breakdown no longer reconciles with the total shown.
+    // Allocate the cap in the plan's normal cost-sharing order (copay, then deductible, then
+    // coinsurance) rather than scaling every component proportionally — patients don't pay "a
+    // fraction of their copay"; the copay itself is honored up to the cap and coinsurance is
+    // whatever's left, same as this function's own uncapped order above.
     const cap = Math.max(0, benefits.oopMaxRemaining);
-    const scale = patient > 0 ? cap / patient : 0;
-    copayFinal = round2(copay * scale);
-    deductibleFinal = round2(deductibleApplied * scale);
-    coinsuranceFinal = round2(cap - copayFinal - deductibleFinal); // remainder absorbs rounding
+    copayFinal = round2(Math.min(copay, cap));
+    deductibleFinal = round2(Math.min(deductibleApplied, cap - copayFinal));
+    coinsuranceFinal = round2(Math.max(0, cap - copayFinal - deductibleFinal));
     patient = cap;
   }
   return {
@@ -214,6 +215,11 @@ export function financialClearance(benefits: BenefitSnapshot, estimate: Responsi
 
 export function eligibilityIsStale(snapshot: BenefitSnapshot | undefined, dateOfService: string = todayIso(), maxAgeDays = 30): boolean {
   if (!snapshot) return true;
-  const ageMs = Date.parse(dateOfService) - Date.parse(snapshot.checkedAt);
+  const dos = Date.parse(dateOfService);
+  const checkedAt = Date.parse(snapshot.checkedAt);
+  // An unparseable date must never read as "fresh" — both sides of the range check below would
+  // just evaluate false on NaN, silently skipping the re-check the agent is supposed to make.
+  if (Number.isNaN(dos) || Number.isNaN(checkedAt)) return true;
+  const ageMs = dos - checkedAt;
   return ageMs > maxAgeDays * 86_400_000 || ageMs < -86_400_000 * 2;
 }
