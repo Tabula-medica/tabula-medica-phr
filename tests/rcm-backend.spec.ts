@@ -824,6 +824,29 @@ describe("agents", () => {
     expect(r2.steps.some((s) => s.input.patientId === "pt-plan-test")).toBe(false);
     expect(await rcmStore.listPaymentPlans(T, "pt-plan-test")).toHaveLength(1);
   });
+  it("two concurrent offer-payment-plan calls for the same patient can't both win — one creates the plan, the other is rejected as in-flight", async () => {
+    // plan()'s hasActivePlan check only sees a snapshot taken before either run started, so two
+    // overlapping runs (a manual trigger overlapping the nightly cycle) could each stage an
+    // offer-payment-plan step for the same patient before either's insert lands. The tool's own
+    // lock + execution-time recheck is the only thing that can actually prevent a duplicate.
+    await rcmStore.upsertPatient(T, { id: "pt-plan-race", firstName: "Race", lastName: "Plan", dob: "1990-01-01" });
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
+    const input = { patientId: "pt-plan-race", amount: 300, months: 6 };
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([tool.run(input, ctx), tool.run(input, ctx)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+    expect(await rcmStore.listPaymentPlans(T, "pt-plan-race")).toHaveLength(1);
+  });
+  it("offer-payment-plan refuses to create a second plan once an active one already exists for the patient, even outside a concurrent race", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-plan-dup", firstName: "Dup", lastName: "Plan", dob: "1990-01-01" });
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    await tool.run({ patientId: "pt-plan-dup", amount: 300, months: 6 }, ctx);
+    await expect(tool.run({ patientId: "pt-plan-dup", amount: 300, months: 6 }, ctx)).rejects.toThrow(/already has an active payment plan/);
+    expect(await rcmStore.listPaymentPlans(T, "pt-plan-dup")).toHaveLength(1);
+  });
   it("patient-financial agent finds the duplicate payment credit and queues a refund approval", async () => {
     const r = await agentRuntime.run("patient-financial", T);
     const refund = r.steps.find((s) => s.tool === "issue-refund");

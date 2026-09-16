@@ -599,10 +599,31 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
     return { amountDue: stmt.amountDue, channel: ptp.recommendedChannel, cycle: stmt.cycle };
   },
 };
+// In-process lock closing the check-then-insert TOCTOU race in run() below: two concurrent runs
+// (a manual trigger overlapping the nightly cycle, or two nightly triggers) could each plan()
+// against the same pre-run snapshot of existingPlans, both see "no active plan" for a patient,
+// and each execute an offer-payment-plan step before either's insert lands — stacking two plans
+// against the same balance. plan()'s own hasActivePlan check can't prevent this by itself since
+// it only ever sees a snapshot taken before either run started.
+const paymentPlanLocks = new Set<string>();
 const offerPlan: Tool<{ patientId: string; amount: number; months: number }, unknown> = {
   name: "offer-payment-plan",
   description: "Create a payment plan offer",
-  async run(input, ctx) { const plan = await ctx.store.upsertPaymentPlan(ctx.tenantId, createPaymentPlan(input.patientId, input.amount, input.months)); return { planId: plan.id, installment: plan.installment, months: plan.months }; },
+  async run(input, ctx) {
+    const lockKey = `${ctx.tenantId}:${input.patientId}`;
+    if (paymentPlanLocks.has(lockKey)) throw new Error("A payment plan action for this patient is already in flight");
+    paymentPlanLocks.add(lockKey);
+    try {
+      // Recheck at execution time, not just at plan() time — a plan offered or accepted by
+      // another run between planning and this step's execution must block a duplicate here.
+      const existing = await ctx.store.listPaymentPlans(ctx.tenantId, input.patientId);
+      if (existing.some((pp) => pp.schedule.some((s) => s.status !== "paid"))) throw new Error("Patient already has an active payment plan");
+      const plan = await ctx.store.upsertPaymentPlan(ctx.tenantId, createPaymentPlan(input.patientId, input.amount, input.months));
+      return { planId: plan.id, installment: plan.installment, months: plan.months };
+    } finally {
+      paymentPlanLocks.delete(lockKey);
+    }
+  },
 };
 const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   name: "refer-to-agency",

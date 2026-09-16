@@ -48,6 +48,28 @@ function fail(res: Response, status: number, error: string, details?: unknown) {
 function bad(res: Response, e: z.ZodError) { return fail(res, 400, "Validation failed", e.flatten()); }
 const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => { fn(req, res).catch((e) => { console.error("[rcm]", e); if (!res.headersSent) fail(res, 500, e instanceof Error ? e.message : "Internal error"); }); };
 
+// Synchronous check-and-set, before any `await` (mirrors remittancePostInFlight/the other
+// in-process locks in this module) — reset() is synchronous but seedDemoTenant() isn't, so a
+// second /demo/seed call for the same tenant landing in that window would write into (or reseed
+// on top of) a tenant this call had already emptied, interleaving two seeds into one dataset.
+// Declared here (rather than by the /demo/seed route below) so the tenant-wide maintenance
+// middleware that follows can also read it.
+const demoSeedInFlight = new Set<string>();
+// Tenant-wide maintenance lock, set only around /demo/seed's reset()-to-reseed-complete window.
+// demoSeedInFlight alone only serializes /demo/seed calls against each other; it does nothing to
+// stop an unrelated patient/claim/ledger write or an agent run (POST /agents/:name/run) from
+// landing in the middle of that window, reading or writing into a tenant reset() has already
+// emptied but seedDemoTenant() hasn't finished repopulating. Blocking every mutating request for
+// the tenant here — ahead of all route handlers — closes that without threading a check through
+// each one individually. GETs stay open (read-only, and blocking them would make the UI look
+// broken during a routine reseed); /demo/seed itself is exempted so its own concurrent-call check
+// below can return its more specific 409.
+rcmRouter.use((req, res, next) => {
+  if (req.method === "GET" || req.path === "/demo/seed") return next();
+  if (demoSeedInFlight.has(tenantOf(req))) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
+  next();
+});
+
 const patientSchema = z.object({ id: z.string().min(1), mrn: z.string().optional(), firstName: z.string().min(1), lastName: z.string().min(1), dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sex: z.enum(["M", "F", "U"]).optional(), phone: z.string().optional(), email: z.string().optional(), preferredLanguage: z.string().optional(), householdSize: z.number().int().positive().optional(), annualHouseholdIncome: z.number().nonnegative().optional() });
 const coverageSchema = z.object({ id: z.string().min(1), patientId: z.string().min(1), payerId: z.string().min(1), payerName: z.string().min(1), memberId: z.string().min(1), groupNumber: z.string().optional(), planType: z.enum(["HMO", "PPO", "EPO", "POS", "Medicare", "Medicaid", "Commercial", "SelfPay", "Other"]).optional(), priority: z.enum(["primary", "secondary", "tertiary"]), subscriberRelationship: z.enum(["self", "spouse", "child", "other"]), subscriberFirstName: z.string().optional(), subscriberLastName: z.string().optional(), subscriberDob: z.string().optional(), effectiveDate: z.string().optional(), terminationDate: z.string().optional(), timelyFilingDays: z.number().int().positive().optional() });
 // CPT/HCPCS codes and modifiers are canonically upper-case; several scrubber rules and the
@@ -60,11 +82,6 @@ const dxSchema = z.object({ code: z.string().min(3), description: z.string().opt
 
 // ---------- Demo / health ----------
 rcmRouter.get("/health", (_req, res) => res.json({ success: true, module: "rcm", aiEnabled: (process.env.RCM_AI_ENABLED ?? "false") === "true", vendors: { eligibility: "stub", clearinghouse: "stub" }, agents: agentRuntime.list().map((a) => a.name) }));
-// Synchronous check-and-set, before any `await` (mirrors remittancePostInFlight/the other
-// in-process locks in this module) — reset() is synchronous but seedDemoTenant() isn't, so a
-// second /demo/seed call for the same tenant landing in that window would write into (or reseed
-// on top of) a tenant this call had already emptied, interleaving two seeds into one dataset.
-const demoSeedInFlight = new Set<string>();
 rcmRouter.post("/demo/seed", wrap(async (req, res) => {
   // Resets and reseeds the tenant's whole RCM partition — destructive in any environment, not
   // just production (staging/demo deployments hold real-looking financial state too), so this
@@ -515,18 +532,35 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
 rcmRouter.get("/patients/:id/statement", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const cycle = (["1", "2", "3", "final"].includes(String(req.query.cycle)) ? (req.query.cycle === "final" ? "final" : Number(req.query.cycle)) : 1) as 1 | 2 | 3 | "final"; res.json({ success: true, statement: buildStatement(p, await rcmStore.ledger(t, p.id), cycle) }); }));
 rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const s = computeAccount(p.id, await rcmStore.ledger(t, p.id)); const fpl = p.annualHouseholdIncome !== undefined && p.householdSize ? fplPercent(p.annualHouseholdIncome, p.householdSize) : undefined; res.json({ success: true, propensity: propensityToPay({ balance: s.patientBalance, priorStatementsPaidOnTime: req.body?.paidOnTime ?? 0, priorStatementsLate: req.body?.late ?? 0, hasCardOnFile: !!req.body?.hasCardOnFile, fplPct: fpl }), fplPct: fpl, slidingFee: fpl !== undefined ? slidingFeeDiscount(fpl) : undefined }); }));
+// In-process lock closing the check-then-insert TOCTOU race below: the balance/active-plan
+// checks and the eventual upsertPaymentPlan are separated by `await`s a second concurrent
+// request for the same patient could slip through, both reading "no active plan" and each
+// creating its own schedule against the same balance.
+const paymentPlanLocks = new Set<string>();
 rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
   const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const pt = await rcmStore.getPatient(t, req.params.id);
   if (!pt) return fail(res, 404, "patient not found");
-  // Without this, a caller-supplied total with no relation to what the patient actually owes
-  // could authorize/collect an installment plan for more than the real balance.
-  const balance = computeAccount(req.params.id, await rcmStore.ledger(t, req.params.id)).patientBalance;
-  if (p.data.total > balance + 0.01) return fail(res, 400, `Plan total $${p.data.total.toFixed(2)} exceeds the patient's outstanding balance $${balance.toFixed(2)}`);
-  const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay);
-  res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) });
+  const lockKey = `${t}:${req.params.id}`;
+  if (paymentPlanLocks.has(lockKey)) return fail(res, 409, "A payment plan action for this patient is already in progress — retry shortly");
+  paymentPlanLocks.add(lockKey);
+  try {
+    // Same "any unpaid schedule = active" invariant the patient-financial agent uses
+    // (agents/index.ts's hasActivePlan) — don't let a second plan stack on top of one the
+    // patient is already paying down, whatever total it covers.
+    const existingPlans = await rcmStore.listPaymentPlans(t, req.params.id);
+    if (existingPlans.some((pp) => pp.schedule.some((s) => s.status !== "paid"))) return fail(res, 409, "Patient already has an active payment plan — offer a new one only once the current schedule is fully paid");
+    // Without this, a caller-supplied total with no relation to what the patient actually owes
+    // could authorize/collect an installment plan for more than the real balance.
+    const balance = computeAccount(req.params.id, await rcmStore.ledger(t, req.params.id)).patientBalance;
+    if (p.data.total > balance + 0.01) return fail(res, 400, `Plan total $${p.data.total.toFixed(2)} exceeds the patient's outstanding balance $${balance.toFixed(2)}`);
+    const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay);
+    res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) });
+  } finally {
+    paymentPlanLocks.delete(lockKey);
+  }
 }));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
 rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().int().positive().default(1) })), selfPayRates: z.record(z.number().nonnegative()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
