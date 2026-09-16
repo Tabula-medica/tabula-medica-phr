@@ -62,7 +62,13 @@ export interface Aging { current: number; d31_60: number; d61_90: number; d91_12
 // FIFO aging: credits retire the oldest open charges first.
 export function computeAging(entries: LedgerEntry[], today: string = todayIso()): Aging {
   const charges = entries.filter((e) => e.type === "charge").sort((a, b) => a.date.localeCompare(b.date)).map((e) => ({ date: e.date, open: e.amount }));
-  let credits = sum(entries.filter((e) => signedAmount(e) < 0).map((e) => e.amount)) - sum(entries.filter((e) => e.type === "refund").map((e) => e.amount));
+  // Filter on CREDIT_TYPES, not `signedAmount(e) < 0`: a credit-type entry's own `amount` is
+  // ordinarily positive (contributing `-signedAmount(e)` = a positive amount to the pool), but an
+  // ERA reversal can post one of these types (e.g. contractual-adjustment) with a NEGATIVE amount
+  // to unwind an earlier write-off — that entry's signedAmount is positive, so filtering on
+  // `signedAmount(e) < 0` would silently drop it from this calculation entirely, leaving the
+  // original write-off's charge looking retired even after the reversal takes it back.
+  let credits = sum(entries.filter((e) => CREDIT_TYPES.has(e.type)).map((e) => -signedAmount(e))) - sum(entries.filter((e) => e.type === "refund").map((e) => e.amount));
   for (const c of charges) { const take = Math.min(c.open, Math.max(0, credits)); c.open = round2(c.open - take); credits -= take; }
   const a: Aging = { current: 0, d31_60: 0, d61_90: 0, d91_120: 0, over120: 0, total: 0 };
   for (const c of charges) {

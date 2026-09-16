@@ -340,6 +340,14 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       if (claim && to) {
         const next = transitionClaim(claim, to, "era-post");
         await rcmStore.upsertClaim(t, next);
+        // A reversal-and-correction pair (or any other legitimate multi-row sequence for the same
+        // claim) posts as two separate postings within this SAME loop — update the local snapshot
+        // so the correction's `canTransition` check above sees the reversal's own status change
+        // instead of the claim's pre-ERA status. Without this, e.g. a reversal moving a "paid"
+        // claim to "adjudicated" would leave the very next row still reading "paid" from the
+        // stale snapshot, and `canTransition("paid", "paid")` is false — the correction skips
+        // and gets flagged for reconciliation even though it's exactly what should post.
+        claimsById[claim.id] = next;
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
         if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);

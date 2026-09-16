@@ -128,9 +128,10 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
   // this, a duplicate row can double-apply payment/adjustments to one claim before it's ever
   // re-fetched from the store. But a standard 835 reversal-and-correction pair legitimately
   // shares one claimId within a single ERA (a status-22 reversal immediately followed by the
-  // corrected adjudication), so only the row immediately AFTER a non-reversal row for the same
-  // claim is treated as a duplicate — a row that follows a reversal for that claim is the
-  // expected correction and must still post.
+  // corrected adjudication), so only that EXACT pattern — a non-reversal row immediately after a
+  // reversal row for the same claim — is let through. Every other repeat (two reversals in a row,
+  // which would double-refund and double-unwind; or two ordinary rows in a row) is still a
+  // duplicate.
   const lastWasReversal = new Map<string, boolean>();
   for (const rc of rem.claims) {
     const claim = rc.claimId ? claimsById[rc.claimId] : undefined;
@@ -138,8 +139,9 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // payload, or a claim id that happens to collide across payers) must not be allowed to post
     // payment/adjustments or move claim status for a different payer's claim.
     const payerMismatch = !!claim && !!rem.payerId && claim.payerId !== rem.payerId;
+    const isReversal = rc.statusCode === "22" || rc.paid < 0;
     const priorState = rc.claimId ? lastWasReversal.get(rc.claimId) : undefined;
-    const duplicateInBatch = priorState !== undefined && !priorState;
+    const duplicateInBatch = priorState !== undefined && !(priorState && !isReversal);
     if (!claim || payerMismatch || duplicateInBatch) {
       // Never post cash against a fabricated "unknown" patient and never count it as applied —
       // that would make an unreconciled payment look balanced and the money unrecoverable.
@@ -147,13 +149,12 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       postings.push({ claimId: rc.claimId, status: "unmatched", billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: 0, denied: 0, entries: [], denials: [], crossoverToSecondary: false });
       continue;
     }
+    lastWasReversal.set(rc.claimId!, isReversal);
     const patientId = claim.patientId;
     const date = rem.checkDate ?? rem.receivedAt.slice(0, 10);
     const entries: LedgerEntry[] = [];
     const denials: Adjustment[] = [];
     let contractual = 0, denied = 0;
-    const isReversal = rc.statusCode === "22" || rc.paid < 0;
-    lastWasReversal.set(rc.claimId!, isReversal);
     // Claim-level (CLP) CAS can appear alongside SVC-level line CAS in the same 835 — process
     // both instead of only the lines, so claim-level contractual/denial adjustments aren't
     // silently dropped for a normal multi-line claim.
@@ -164,7 +165,17 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       // contractual code isn't misclassified as a denial.
       const bareCarc = a.carc.toUpperCase().replace(/^(CO|PR|OA|PI)-/, "");
       if (bareCarc === "45" || bareCarc === "253") { contractual += a.amount; entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "contractual-adjustment", amount: a.amount, date, memo: `CARC ${a.carc}`, responsibleParty: "insurance" }); }
-      else { denied += a.amount; denials.push(a); }
+      else {
+        denied += a.amount;
+        // A reversal's negated denial-CARC unwinds a prior denial's dollar amount (already
+        // reflected in the ledger via the refund/contractual entries above), but routes.ts turns
+        // every entry in `denials` into a brand-new open Denial record — pushing this one would
+        // create a nonsensical negative-amount denial instead of resolving the ORIGINAL one.
+        // Correlating this reversal back to that specific original Denial record (to close/adjust
+        // it directly) isn't tracked anywhere in this module yet, so the safe choice is to not
+        // spawn a new record at all rather than spawn a wrong one.
+        if (!isReversal) denials.push(a);
+      }
     }
     if (rc.paid !== 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: isReversal ? "refund" : "insurance-payment", amount: Math.abs(rc.paid), date, memo: `${rem.payerName ?? rem.payerId ?? "payer"} ${rem.checkNumber ?? ""}`.trim(), responsibleParty: "insurance" });
     if (rc.patientResp > 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "transfer-to-patient", amount: rc.patientResp, date, memo: "Patient responsibility per ERA", responsibleParty: "patient" });

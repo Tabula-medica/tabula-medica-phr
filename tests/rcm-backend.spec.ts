@@ -151,6 +151,21 @@ describe("remittance posting", () => {
     const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
     expect(r.postings[0].contractual).toBe(-150);
   });
+  it("does not spawn a new (negative-amount) denial record from a reversal's negated denial-CARC", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -30, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -30, patient_resp: 0, adjustments: [{ group: "CO", carc: "97", amount: -30 }] }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[0].denials).toHaveLength(0); // would otherwise create a bogus negative-amount Denial
+  });
+  it("treats a second reversal row for the same claimId as a duplicate instead of double-refunding it", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -200, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0 }, { pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[1].status).toBe("unmatched"); // two reversals in a row for one claim is not the legitimate reversal-then-correction pattern
+    expect(r.postings[1].entries).toHaveLength(0);
+  });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
     const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
@@ -203,6 +218,18 @@ describe("patient financials", () => {
     { id: "5", patientId: "p1", type: "patient-payment", amount: 40, date: "2026-05-01", responsibleParty: "patient" },
     { id: "6", patientId: "p1", type: "charge", amount: 200, date: "2026-08-20", responsibleParty: "insurance" },
   ];
+  it("computeAging un-retires a charge when a reversal posts a negative-amount credit entry to unwind it", () => {
+    const base: LedgerEntry[] = [
+      { id: "r1", patientId: "p9", type: "charge", amount: 500, date: "2026-03-01", responsibleParty: "insurance" },
+      { id: "r2", patientId: "p9", type: "insurance-payment", amount: 300, date: "2026-04-01", responsibleParty: "insurance" },
+      { id: "r3", patientId: "p9", type: "contractual-adjustment", amount: 100, date: "2026-04-01", responsibleParty: "insurance" },
+    ];
+    expect(computeAging(base, "2026-09-05").total).toBe(100); // 500 billed - 300 paid - 100 written off = 100 open
+    const reversed: LedgerEntry[] = [...base, { id: "r4", patientId: "p9", type: "refund", amount: 300, date: "2026-05-01", responsibleParty: "insurance" }, { id: "r5", patientId: "p9", type: "contractual-adjustment", amount: -100, date: "2026-05-01", responsibleParty: "insurance" }];
+    // Both the payment and its contractual write-off were taken back — the full $500 charge must
+    // look open again, not stay retired because the negative-amount reversal entry was ignored.
+    expect(computeAging(reversed, "2026-09-05").total).toBe(500);
+  });
   it("computes account, FIFO aging and statements", () => {
     const s = computeAccount("p1", led);
     expect(s.balance).toBe(260);
