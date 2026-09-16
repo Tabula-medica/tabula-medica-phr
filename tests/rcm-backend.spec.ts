@@ -608,6 +608,28 @@ describe("agents", () => {
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
   });
+  it("file-corrected-claim and write-off can't both win a race against the same open denial", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const orig = mkClaim();
+    await rcmStore.upsertClaim(T, orig);
+    await rcmStore.upsertDenial(T, { id: "den-race-fc-1", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 10, category: "coding", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const writeOffApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-race-fc-1", patientId: patient.id, amount: 10, reason: "test" }, reason: "test" });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-race-fc-1", amount: 10 }, reason: "test" });
+    await rcmStore.decideApproval(T, writeOffApproval.id, "approved", "biller");
+    await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
+    // file-corrected-claim used to skip the per-denial lock and overwrite a completed write-off
+    // back to in-progress after the ledger was already adjusted.
+    const results = await Promise.all([
+      agentRuntime.executeApproved(T, writeOffApproval.id, "biller"),
+      agentRuntime.executeApproved(T, fcApproval.id, "biller"),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight|no longer open/);
+    const denial = (await rcmStore.getDenial(T, "den-race-fc-1"))!;
+    if (results[0].ok) expect(denial.status).toBe("written-off");
+    else expect(denial.status).toBe("in-progress");
+  });
   it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
     const approvalsBefore = (await rcmStore.listApprovals(T)).length;
     const workItemsBefore = (await rcmStore.listWorkItems(T, "agent-approval")).length;
