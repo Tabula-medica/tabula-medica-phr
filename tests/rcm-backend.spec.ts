@@ -432,6 +432,48 @@ describe("agents", () => {
     expect(exec2.ok).toBe(false); // 70450 has no covering auth, even though 97110 (the attached number) does
     expect(exec2.error).toMatch(/70450/);
   });
+  it("submit-claim lets separate per-visit auths jointly cover the same CPT billed on multiple dates", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const sep = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }), "requested", { actor: "t" });
+    const oct = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-10-15", units: 1 }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(sep, "approved", { actor: "t", authNumber: "AUTH-DOS-1", approvedUnits: 1, validFrom: "2026-09-01", validTo: "2026-09-01" }));
+    await rcmStore.upsertAuth(T, transitionAuth(oct, "approved", { actor: "t", authNumber: "AUTH-DOS-2", approvedUnits: 1, validFrom: "2026-10-15", validTo: "2026-10-15" }));
+    const claim = buildClaim({
+      encounterId: "e-split-visits", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-DOS-1",
+      lines: [
+        { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" },
+        { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-10-15", placeOfService: "11" },
+      ],
+    });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(true);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
+  });
+  it("submit-claim still fails when two same-CPT lines share a date but only one unit is authorized", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const oneUnit = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(oneUnit, "approved", { actor: "t", authNumber: "AUTH-ONE-UNIT", approvedUnits: 1, validFrom: "2026-09-01", validTo: "2026-09-01" }));
+    const claim = buildClaim({
+      encounterId: "e-same-dos-units", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-ONE-UNIT",
+      lines: [
+        { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" },
+        { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" },
+      ],
+    });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+  });
   it("submit-claim's auth lookup requires a payer match, not just number/patient/coverage", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);

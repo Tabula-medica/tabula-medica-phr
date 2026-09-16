@@ -195,13 +195,19 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     // needed it, while a DIFFERENT required CPT with no coverage at all must still block.
     const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
     const requiredLines = linesNeedingAuth(claim.lines, contract);
-    for (const cpt of Array.from(new Set(requiredLines.map((r) => r.line.cpt.toUpperCase())))) {
-      const cptLines = requiredLines.filter((r) => r.line.cpt.toUpperCase() === cpt).map((r) => r.line);
-      const unitsForCpt = cptLines.reduce((s, l) => s + l.units, 0);
-      const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
-      if (!covering.some((a) => cptLines.every((l) => authCoversService(a, l.cpt, l.dateOfService, unitsForCpt).ok))) {
-        throw new Error(`No authorization on file covers ${cpt} on this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
+    // Attribute remaining capacity of each matching record as we go so two 1-unit lines cannot
+    // both clear against the same 1-unit approval — while still letting separate per-visit auths
+    // (the prior-auth planner keys 278s by date of service) jointly cover a claim that bills the
+    // same CPT on more than one date. Requiring one record to span every line AND the summed unit
+    // total would refuse exactly the outpatient pattern the rest of the engine was built to open.
+    const claimedUnits = new Map<string, number>();
+    for (const { line } of requiredLines) {
+      const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt.toUpperCase());
+      const usable = covering.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units + (claimedUnits.get(a.id) ?? 0)).ok);
+      if (!usable) {
+        throw new Error(`No authorization on file covers ${line.cpt.toUpperCase()} on this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
       }
+      claimedUnits.set(usable.id, (claimedUnits.get(usable.id) ?? 0) + line.units);
     }
     const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
     if (lockKey) {
