@@ -611,21 +611,35 @@ const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   approvalReason: "external collections referral",
   async run(input, ctx) { await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Agency referral executed $${input.amount.toFixed(2)}`, patientId: input.patientId, amount: input.amount, priority: 30, source: "agent" })]); return { referred: input.amount }; },
 };
+// In-process lock on a patient's ledger, shared by every tool below that reads the current
+// balance/credit and then posts a ledger entry based on it — two distinct approved actions for
+// the SAME patient (two refunds, two write-offs, or one of each) can otherwise both read the same
+// pre-mutation balance before either posts, and each proceed as if the full amount were still
+// available, over-refunding or over-forgiving the account. The runtime's own `executing` lock is
+// keyed by approval id, not patient, so it doesn't close this gap.
+const patientLedgerLocks = new Set<string>();
 const issueRefund: Tool<{ patientId: string; amount: number; refundTo: string }, unknown> = {
   name: "issue-refund",
   description: "Refund a credit balance",
   requiresApproval: true,
   approvalReason: "money leaves the practice",
   async run(input, ctx) {
-    // Recompute the credit at execution time — planning and approval can lag behind other
-    // activity on the account (a payment, another refund), and posting the stale planned amount
-    // could refund money that's no longer there and turn the account into a debit.
-    const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
-    const availableCredit = round2(Math.max(0, -computeAccount(input.patientId, entries).balance));
-    if (availableCredit <= 0) throw new Error("no credit balance remains to refund");
-    const amount = round2(Math.min(input.amount, availableCredit));
-    await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount, date: todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]);
-    return { refunded: amount };
+    const lockKey = `${ctx.tenantId}:${input.patientId}`;
+    if (patientLedgerLocks.has(lockKey)) throw new Error("Another ledger action for this patient is already in flight");
+    patientLedgerLocks.add(lockKey);
+    try {
+      // Recompute the credit at execution time — planning and approval can lag behind other
+      // activity on the account (a payment, another refund), and posting the stale planned amount
+      // could refund money that's no longer there and turn the account into a debit.
+      const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
+      const availableCredit = round2(Math.max(0, -computeAccount(input.patientId, entries).balance));
+      if (availableCredit <= 0) throw new Error("no credit balance remains to refund");
+      const amount = round2(Math.min(input.amount, availableCredit));
+      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount, date: todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]);
+      return { refunded: amount };
+    } finally {
+      patientLedgerLocks.delete(lockKey);
+    }
   },
 };
 const smallBalanceWriteOff: Tool<{ patientId: string; amount: number }, unknown> = {
@@ -634,15 +648,22 @@ const smallBalanceWriteOff: Tool<{ patientId: string; amount: number }, unknown>
   requiresApproval: true,
   approvalReason: "adjustment forgives a patient receivable",
   async run(input, ctx) {
-    // Recompute the balance at execution, same as issue-refund — a payment or another
-    // adjustment can land between planning and approval, and posting the stale planned amount
-    // could write off more than the patient actually still owes.
-    const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
-    const currentBalance = computeAccount(input.patientId, entries).patientBalance;
-    if (currentBalance <= 0) throw new Error("no patient balance remains to write off");
-    const amount = round2(Math.min(input.amount, currentBalance));
-    await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount, date: todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]);
-    return { writtenOff: amount };
+    const lockKey = `${ctx.tenantId}:${input.patientId}`;
+    if (patientLedgerLocks.has(lockKey)) throw new Error("Another ledger action for this patient is already in flight");
+    patientLedgerLocks.add(lockKey);
+    try {
+      // Recompute the balance at execution, same as issue-refund — a payment or another
+      // adjustment can land between planning and approval, and posting the stale planned amount
+      // could write off more than the patient actually still owes.
+      const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
+      const currentBalance = computeAccount(input.patientId, entries).patientBalance;
+      if (currentBalance <= 0) throw new Error("no patient balance remains to write off");
+      const amount = round2(Math.min(input.amount, currentBalance));
+      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount, date: todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]);
+      return { writtenOff: amount };
+    } finally {
+      patientLedgerLocks.delete(lockKey);
+    }
   },
 };
 const patientFinancialAgent: AgentDefinition = {

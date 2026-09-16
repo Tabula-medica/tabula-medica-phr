@@ -5,7 +5,7 @@ import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
-import { agingByPayer, computeKpis } from "../server/rcm/analytics";
+import { agingByPayer, computeKpis, payerScorecard } from "../server/rcm/analytics";
 import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
@@ -19,7 +19,7 @@ import { aiText } from "../server/rcm/agents/ai";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
 import { setFeatureProvider } from "../server/services/ai-provider";
-import type { BenefitSnapshot, Coverage, LedgerEntry, Patient } from "../server/rcm/types";
+import type { BenefitSnapshot, Coverage, LedgerEntry, Patient, Remittance } from "../server/rcm/types";
 
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
 const coverage: Coverage = { id: "c1", patientId: "p1", payerId: "BCBS", payerName: "BCBS PPO", memberId: "XYZ123", priority: "primary", subscriberRelationship: "self", timelyFilingDays: 90 };
@@ -176,6 +176,20 @@ describe("remittance posting", () => {
     expect(r.postings[0].entries.find((e) => e.type === "refund")?.amount).toBe(100);
     expect(r.balanced).toBe(true); // applied must be -100 (unwound), not +100 (counted as new cash)
   });
+  it("unwinds a reversal's patient responsibility instead of posting a new positive transfer, whichever sign the vendor sent", () => {
+    // A reversal must undo the ORIGINAL transfer-to-patient, not add a second one — whether the
+    // vendor pre-negated patient_resp or (like paid/CAS above) sent the same positive magnitude
+    // and relied solely on status "22" for direction.
+    const c = mkClaim();
+    const positiveMagnitude = parseEra({ payerid: "BCBS", check_amount: -20, claims: [{ pcn: c.id, status: "22", billed: 450, paid: 80, patient_resp: 20 }] });
+    const rPositive = postRemittance(positiveMagnitude, { [c.id]: c }, { BCBS: bcbs });
+    const transferPositive = rPositive.postings[0].entries.find((e) => e.type === "transfer-to-patient");
+    expect(transferPositive?.amount).toBe(-20);
+    const alreadyNegative = parseEra({ payerid: "BCBS", check_amount: -20, claims: [{ pcn: c.id, status: "22", billed: 450, paid: 80, patient_resp: -20 }] });
+    const rNegative = postRemittance(alreadyNegative, { [c.id]: c }, { BCBS: bcbs });
+    const transferNegative = rNegative.postings[0].entries.find((e) => e.type === "transfer-to-patient");
+    expect(transferNegative?.amount).toBe(-20);
+  });
   it("does not spawn a new (negative-amount) denial record from a reversal's negated denial-CARC", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: -30, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -30, patient_resp: 0, adjustments: [{ group: "CO", carc: "97", amount: -30 }] }] });
@@ -327,6 +341,15 @@ describe("contracts + analytics + worklists", () => {
     expect(k.clean_claim_rate.value).toBe(90);
     expect(k.gross_collection_rate.value).toBeCloseTo(55.56, 1);
     expect(agingByPayer([transitionClaim(transitionClaim(transitionClaim(c, "scrubbed", "t"), "ready", "t"), "submitted", "t")])[0].payerId).toBe("BCBS");
+  });
+  it("payerScorecard nets a payment-then-reversal pair instead of double-counting the reversal as new cash", () => {
+    const c = { ...mkClaim(), submittedAt: "2026-07-01T00:00:00Z" };
+    const payment: Remittance = { id: "rem-1", payerId: "BCBS", claims: [{ claimId: c.id, billed: 450, paid: 450, patientResp: 0, lines: [] }], checkAmount: 450, receivedAt: "2026-07-05" };
+    // Positive-magnitude reversal relying solely on status "22" for direction — the same wire
+    // convention exercised elsewhere for postRemittance itself.
+    const reversal: Remittance = { id: "rem-2", payerId: "BCBS", claims: [{ claimId: c.id, statusCode: "22", billed: 450, paid: 450, patientResp: 0, lines: [] }], checkAmount: -450, receivedAt: "2026-07-10" };
+    const [row] = payerScorecard([c], [], [payment, reversal]);
+    expect(row.paidRatio).toBe(0); // net $0 collected, not 200%
   });
   it("prioritizes and summarizes the queue", () => {
     const c = mkClaim();
@@ -798,6 +821,24 @@ describe("agents", () => {
     expect(exec.ok).toBe(true);
     expect((exec.output as { refunded: number }).refunded).toBe(60);
   });
+  it("two concurrent issue-refund calls for the same patient can't both win — one refunds, the other is rejected as in-flight", async () => {
+    // Without a per-patient lock, two approved refund actions for the same patient could both
+    // read the same pre-mutation credit before either posts, and each proceed as if the full
+    // amount were still available, over-refunding the account.
+    await rcmStore.upsertPatient(T, { id: "pt-refund-race", firstName: "Race", lastName: "Cond", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-race-credit", patientId: "pt-refund-race", type: "patient-payment", amount: 100, date: "2026-08-01", responsibleParty: "patient" }]);
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "issue-refund")!;
+    const input = { patientId: "pt-refund-race", amount: 100, refundTo: "patient" };
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([tool.run(input, ctx), tool.run(input, ctx)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+    // Exactly one $100 refund posted — the account must not go negative from a double-refund.
+    const entries = await rcmStore.ledger(T, "pt-refund-race");
+    expect(entries.filter((e) => e.type === "refund")).toHaveLength(1);
+  });
+
   it("small-balance write-off recomputes the balance at execution time and blocks once it's already been paid", async () => {
     await rcmStore.upsertPatient(T, { id: "pt-small-bal", firstName: "Small", lastName: "Bal", dob: "1990-01-01" });
     await rcmStore.postLedger(T, [

@@ -129,7 +129,11 @@ export function payerScorecard(claims: Claim[], denials: Denial[], remittances: 
     const paidClaims = cs.filter((c) => (c.status === "paid" || c.status === "partially-paid") && c.submittedAt);
     const days = paidClaims.map((c) => { const paidAt = c.history.find((h) => h.status === "paid" || h.status === "partially-paid")?.at ?? c.lastStatusAt; return daysBetween(c.submittedAt!.slice(0, 10), paidAt.slice(0, 10)); });
     const billed = sum(cs.map((c) => c.totalCharge));
-    const paid = sum(remittances.filter((r) => r.payerId === payerId).flatMap((r) => r.claims.map((rc) => rc.paid)));
+    // Same reversal-sign normalization as remittance posting: a CLP02 "22" reversal must always
+    // subtract its magnitude, whichever way the vendor signed `paid` on the wire — summing the
+    // raw value would let a payment-then-reversal pair (or a positive-magnitude takeback) inflate
+    // this payer's collected cash instead of netting back to what was actually kept.
+    const paid = sum(remittances.filter((r) => r.payerId === payerId).flatMap((r) => r.claims.map((rc) => (rc.statusCode === "22" || rc.paid < 0 ? -Math.abs(rc.paid) : rc.paid))));
     return { payerId, payerName: cs[0].payerName, claims: cs.length, denialRate: cs.length ? round2((denied / cs.length) * 100) : 0, avgDaysToPay: days.length ? round2(days.reduce((a, b) => a + b, 0) / days.length) : 0, paidRatio: billed ? round2((paid / billed) * 100) : 0 };
   });
 }

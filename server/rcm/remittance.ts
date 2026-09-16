@@ -182,7 +182,13 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       }
     }
     if (rc.paid !== 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: isReversal ? "refund" : "insurance-payment", amount: Math.abs(rc.paid), date, memo: `${rem.payerName ?? rem.payerId ?? "payer"} ${rem.checkNumber ?? ""}`.trim(), responsibleParty: "insurance" });
-    if (rc.patientResp > 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "transfer-to-patient", amount: rc.patientResp, date, memo: "Patient responsibility per ERA", responsibleParty: "patient" });
+    // A reversal must unwind the ORIGINAL transfer-to-patient, not add a new one — same
+    // reversal-sign handling as the paid/CAS amounts above: force the sign ourselves (a negative
+    // ledger amount here reduces the patient's balance) rather than trusting the vendor's wire
+    // convention, and allow a nonzero (not just positive) rc.patientResp to trigger it.
+    if (isReversal ? rc.patientResp !== 0 : rc.patientResp > 0) {
+      entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "transfer-to-patient", amount: isReversal ? -Math.abs(rc.patientResp) : rc.patientResp, date, memo: "Patient responsibility per ERA", responsibleParty: "patient" });
+    }
     // Same wire-sign ambiguity as the CAS amounts above: a reversal must always SUBTRACT its
     // magnitude from the batch's applied total, whether the vendor sent `paid` as an already-
     // negative value or the same positive magnitude relying on CLP02 alone to signal a take-back
