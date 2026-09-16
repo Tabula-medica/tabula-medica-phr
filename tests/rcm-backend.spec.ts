@@ -1,7 +1,7 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
 import { describe, it, expect, beforeEach } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
-import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
+import { parseEra, postRemittance, claimStatusFromPosting, cobFromPostedRemittances } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
@@ -201,6 +201,45 @@ describe("remittance posting", () => {
     const paid = transitionClaim(c, "paid", "era-post");
     expect(canTransition(paid.status, claimStatusFromPosting(r.postings[0]))).toBe(true);
     expect(transitionClaim(paid, claimStatusFromPosting(r.postings[0]), "era-post").status).toBe("adjudicated");
+  });
+  it("COB net ignores remittance rows that never applied to the ledger", () => {
+    const posted = {
+      id: "era-1",
+      checkAmount: 200,
+      receivedAt: "2026-08-01T00:00:00Z",
+      postedAt: "2026-08-01T00:00:00Z",
+      claims: [
+        { claimId: "c1", billed: 450, paid: 100, patientResp: 20, lines: [], applied: true },
+        { claimId: "c1", billed: 450, paid: 100, patientResp: 20, lines: [], applied: false }, // unmatched duplicate CLP
+      ],
+    };
+    const cob = cobFromPostedRemittances([posted], "c1");
+    expect(cob).toEqual({ paid: 100, patientResp: 20, billed: 450 }); // must not double-count the unposted duplicate
+  });
+  it("COB net still sums a reversal-and-correction pair and installment rows that did apply", () => {
+    const reversalThenCorrection = {
+      id: "era-2",
+      checkAmount: 100,
+      receivedAt: "2026-08-02T00:00:00Z",
+      postedAt: "2026-08-02T00:00:00Z",
+      claims: [
+        { claimId: "c1", statusCode: "22", billed: 450, paid: -100, patientResp: 0, lines: [], applied: true },
+        { claimId: "c1", statusCode: "1", billed: 450, paid: 200, patientResp: 30, lines: [], applied: true },
+      ],
+    };
+    expect(cobFromPostedRemittances([reversalThenCorrection], "c1")).toEqual({ paid: 100, patientResp: 30, billed: 450 });
+    const installments = [
+      { id: "era-3a", checkAmount: 50, receivedAt: "2026-08-03T00:00:00Z", postedAt: "2026-08-03T00:00:00Z", claims: [{ claimId: "c1", billed: 450, paid: 50, patientResp: 10, lines: [], applied: true }] },
+      { id: "era-3b", checkAmount: 50, receivedAt: "2026-08-04T00:00:00Z", postedAt: "2026-08-04T00:00:00Z", claims: [{ claimId: "c1", billed: 450, paid: 50, patientResp: 10, lines: [], applied: true }] },
+    ];
+    expect(cobFromPostedRemittances(installments, "c1")).toEqual({ paid: 100, patientResp: 20, billed: 450 });
+  });
+  it("COB net ignores a canTransition-skipped reversal so it cannot understate primary paid", () => {
+    const rems = [
+      { id: "era-4a", checkAmount: 100, receivedAt: "2026-08-05T00:00:00Z", postedAt: "2026-08-05T00:00:00Z", claims: [{ claimId: "c1", billed: 450, paid: 100, patientResp: 0, lines: [], applied: true }] },
+      { id: "era-4b", checkAmount: -100, receivedAt: "2026-08-06T00:00:00Z", postedAt: "2026-08-06T00:00:00Z", claims: [{ claimId: "c1", statusCode: "22", billed: 450, paid: -100, patientResp: 0, lines: [], applied: false }] },
+    ];
+    expect(cobFromPostedRemittances(rems, "c1")).toEqual({ paid: 100, patientResp: 0, billed: 450 });
   });
 });
 

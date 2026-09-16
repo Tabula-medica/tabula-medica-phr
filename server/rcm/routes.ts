@@ -10,7 +10,7 @@ import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge,
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
-import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
+import { claimStatusFromPosting, cobFromPostedRemittances, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
@@ -20,7 +20,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
 import { agentRuntime, isAuthSubmitLocked } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, round2, sum, todayIso } from "./util";
+import { daysBetween, round2, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
@@ -359,16 +359,13 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   // otherwise send the secondary payer an arbitrary primary payment amount unrelated to what the
   // primary payer actually adjudicated. This claim can have more than one posted row (a reversal-
   // and-correction pair, or several partial/installment remittances) — the most recent row alone
-  // could BE the reversal (or just one installment), so net every posted row's paid/patientResp
-  // instead, applying the same reversal-aware sign convention postRemittance itself uses (a
-  // reversal always subtracts its magnitude, whichever way the vendor signed it on the wire).
-  const primaryRows = (await rcmStore.listRemittances(t)).filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === c.id));
-  if (!primaryRows.length) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
-  const signed = (rc: (typeof primaryRows)[number], value: number) => (rc.statusCode === "22" || rc.paid < 0 ? -Math.abs(value) : value);
-  const netPaid = round2(sum(primaryRows.map((rc) => signed(rc, rc.paid))));
-  const netPatientResp = round2(sum(primaryRows.map((rc) => signed(rc, rc.patientResp))));
-  const billed = primaryRows[primaryRows.length - 1].billed;
-  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed, paid: netPaid, patientResp: netPatientResp, lines: [] })) });
+  // could BE the reversal (or just one installment), so net every row that actually applied to
+  // the ledger, not every CLP sitting on a remittance that happens to have postedAt (unmatched
+  // duplicates, wrong-payer rows, and canTransition skips are stored with the ERA but never
+  // produced cash). Same reversal-aware sign convention postRemittance itself uses.
+  const cob = cobFromPostedRemittances(await rcmStore.listRemittances(t), c.id);
+  if (!cob) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: cob.billed, paid: cob.paid, patientResp: cob.patientResp, lines: [] })) });
 }));
 
 // ---------- Remittance ----------
@@ -400,7 +397,8 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const created: string[] = [];
     const needsReconciliation: string[] = [];
     let skippedCash = 0;
-    for (const p of result.postings) {
+    const rowApplied = result.postings.map(() => false);
+    for (const [i, p] of result.postings.entries()) {
       // "unmatched" still carries the real claimId for reconciliation display, but this claim
       // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
       // means nothing was actually adjudicated against it (postRemittance already leaves its
@@ -438,6 +436,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       }
       await rcmStore.postLedger(t, p.entries);
       if (claim && to) {
+        rowApplied[i] = true;
         const next = transitionClaim(claim, to, "era-post");
         await rcmStore.upsertClaim(t, next);
         // A reversal-and-correction pair (or any other legitimate multi-row sequence for the same
@@ -455,7 +454,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     }
     const denials = (await rcmStore.listDenials(t, "open")).filter((d) => created.includes(d.id));
     await rcmStore.addWorkItems(t, itemsFromDenials(denials));
-    await rcmStore.addRemittance(t, { ...rem, postedAt: new Date().toISOString() });
+    await rcmStore.addRemittance(t, { ...rem, postedAt: new Date().toISOString(), claims: rem.claims.map((rc, i) => ({ ...rc, applied: rowApplied[i] })) });
     const unapplied = round2(result.unapplied + skippedCash);
     const balanced = needsReconciliation.length === 0 && result.balanced;
     res.json({ success: true, remittance: rem, postings: result.postings, unapplied, balanced, denialsCreated: created, needsReconciliation });

@@ -156,6 +156,12 @@ export interface RemitClaim {
   // also used as the shape of a client-supplied COB "primary remit" summary (secondaryClaim,
   // POST /claims/:id/secondary) that only ever carries billed/paid/patientResp/lines.
   claimAdjustments?: Adjustment[];
+  // Set when the ERA is persisted after /remittance/post: true if this CLP row actually applied
+  // (ledger + claim status), false if it was unmatched (duplicate CLP, wrong payer) or skipped
+  // because canTransition failed. Absent on parseEra output. COB netting must ignore false rows —
+  // they never produced ledger cash but live on the stored remittance because postedAt is stamped
+  // on the ERA as a whole.
+  applied?: boolean;
 }
 
 export interface Remittance {

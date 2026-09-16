@@ -251,3 +251,18 @@ export function claimStatusFromPosting(p: Posting): Claim["status"] {
     case "unmatched": return "adjudicated"; // unreachable via routes.ts, which only calls this when a claim was found
   }
 }
+
+// COB/secondary claims must net only CLP rows that actually applied to the ledger. An ERA is
+// stored with postedAt even when some of its rows were unmatched (duplicate CLP, wrong payer)
+// or skipped by canTransition — those never produced insurance cash, so including them would
+// overstate (or, for an unmatched reversal, understate) otherPayerPaid on the 837P.
+export function cobFromPostedRemittances(rems: Remittance[], claimId: string): { paid: number; patientResp: number; billed: number } | undefined {
+  const rows = rems.filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === claimId && rc.applied !== false));
+  if (!rows.length) return undefined;
+  const signed = (rc: RemitClaim, value: number) => (rc.statusCode === "22" || rc.paid < 0 ? -Math.abs(value) : value);
+  return {
+    paid: round2(sum(rows.map((rc) => signed(rc, rc.paid)))),
+    patientResp: round2(sum(rows.map((rc) => signed(rc, rc.patientResp)))),
+    billed: rows[rows.length - 1].billed,
+  };
+}
