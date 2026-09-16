@@ -84,7 +84,9 @@ export const NCCI_PTP_SEED: PtpPair[] = [
   { column1: "99495", column2: "99490", modifierIndicator: 0, rationale: "CCM not separately billable in TCM period (same month)" },
 ];
 
-export const NCCI_BYPASS_MODIFIERS = new Set(["59", "XE", "XS", "XP", "XU", "25", "57", "24", "78", "79", "91", "LT", "RT", "50", "E1", "E2", "E3", "E4", "FA", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "TA", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"]);
+// Modifier 25 is deliberately excluded: it flags a distinct E/M service, not a procedure-to-
+// procedure bypass, and is not a valid general bypass for NCCI PTP edits between two procedures.
+export const NCCI_BYPASS_MODIFIERS = new Set(["59", "XE", "XS", "XP", "XU", "57", "24", "78", "79", "91", "LT", "RT", "50", "E1", "E2", "E3", "E4", "FA", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "TA", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"]);
 
 export const KNOWN_MODIFIERS = new Set([
   "24", "25", "26", "TC", "27", "33", "50", "51", "52", "53", "54", "55", "57", "58", "59", "62", "66", "76", "77", "78", "79", "80", "81", "82", "90", "91", "92", "93", "95", "96", "97", "99",

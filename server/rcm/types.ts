@@ -57,6 +57,9 @@ export interface BenefitSnapshot {
   checkedAt: string;
   source: "stub" | "clearinghouse" | "manual";
   raw?: unknown;
+  // Subscriber identity as the payer/271 reported it (when available) — used to run
+  // registration-vs-payer discrepancy checks. Absent for stub responses.
+  payerSubscriber?: { firstName?: string; lastName?: string; dob?: string; memberId?: string };
 }
 
 export interface ServiceLine {

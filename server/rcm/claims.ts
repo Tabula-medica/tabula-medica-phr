@@ -141,8 +141,11 @@ const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   rejected: ["draft", "closed"],
   pended: ["adjudicated", "paid", "partially-paid", "denied"],
   adjudicated: ["paid", "partially-paid", "denied"],
-  paid: ["closed", "appealed"],
-  "partially-paid": ["appealed", "closed"],
+  // A takeback/reversal ERA (CLP02 22) unwinds a prior payment and puts the claim back up for
+  // adjudication — without this, `claimStatusFromPosting` has no legal transition to land on
+  // and the claim silently stays "paid" while the ledger records the refund.
+  paid: ["closed", "appealed", "adjudicated"],
+  "partially-paid": ["appealed", "closed", "adjudicated"],
   denied: ["appealed", "draft", "closed"],
   appealed: ["paid", "partially-paid", "denied", "closed"],
   closed: [],
@@ -173,12 +176,22 @@ export function mapStatusCategory(code: string): ClaimStatus | null {
 // Corrected/replacement claim (frequency 7) or void (8).
 export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber" | "referralNumber" | "placeOfService">>, kind: "7" | "8" = "7"): Claim {
   const at = nowIso();
+  // Fall back to the original field-by-field instead of spreading `patch` wholesale: an
+  // explicit `undefined` in the patch (e.g. a request body key that was simply omitted) must
+  // keep the original value, not blank it out.
   const lines = patch.lines ?? original.lines;
+  const diagnoses = patch.diagnoses ?? original.diagnoses;
+  const priorAuthNumber = patch.priorAuthNumber ?? original.priorAuthNumber;
+  const referralNumber = patch.referralNumber ?? original.referralNumber;
+  const placeOfService = patch.placeOfService ?? original.placeOfService;
   return {
     ...original,
-    ...patch,
     id: newId("clm"),
     lines,
+    diagnoses,
+    priorAuthNumber,
+    referralNumber,
+    placeOfService,
     totalCharge: sum(lines.map((l) => l.charge)),
     status: "draft",
     frequencyCode: kind,

@@ -46,6 +46,9 @@ describe("claims", () => {
     const c = mkClaim();
     const corr = correctedClaim(c, { lines: c.lines.slice(0, 1) });
     expect(corr).toMatchObject({ frequencyCode: "7", originalClaimId: c.id, totalCharge: 300, status: "draft" });
+    expect(corr.diagnoses).toEqual(c.diagnoses); // an omitted patch key must not blank the original field
+    const withUndefinedKeys = correctedClaim(c, { diagnoses: undefined, priorAuthNumber: undefined });
+    expect(withUndefinedKeys.diagnoses).toEqual(c.diagnoses);
     const sec = secondaryClaim(c, { ...coverage, id: "c2", payerId: "AETNA", payerName: "Aetna", priority: "secondary", timelyFilingDays: 120 }, { billed: 450, paid: 200, patientResp: 50, lines: [] });
     expect(sec).toMatchObject({ payerId: "AETNA", cobPrimaryPaid: 200, timelyFilingDeadline: "2026-10-29" });
   });
@@ -76,13 +79,24 @@ describe("remittance posting", () => {
     expect(p.underpayment!.variance).toBeGreaterThan(50);
     expect(claimStatusFromPosting(p)).toBe("partially-paid");
   });
-  it("handles reversals and unapplied cash", () => {
+  it("never posts cash against an unmatched claim id, and leaves it unapplied", () => {
     const rem = parseEra({ check_amount: 100, claims: [{ pcn: "x", status: "22", billed: 100, paid: -50, patient_resp: 0 }] });
     const r = postRemittance(rem, {});
+    expect(r.postings[0].status).toBe("unmatched");
+    expect(r.postings[0].entries).toHaveLength(0);
+    expect(r.unapplied).toBe(100); // none of the unmatched claim's cash counts as applied
+    expect(r.balanced).toBe(false);
+  });
+  it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
+    const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
+    const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c });
     expect(r.postings[0].status).toBe("reversal");
     expect(r.postings[0].entries[0].type).toBe("refund");
-    expect(r.unapplied).toBe(150);
-    expect(r.balanced).toBe(false);
+    expect(r.balanced).toBe(true);
+    const paid = transitionClaim(c, "paid", "era-post");
+    expect(canTransition(paid.status, claimStatusFromPosting(r.postings[0]))).toBe(true);
+    expect(transitionClaim(paid, claimStatusFromPosting(r.postings[0]), "era-post").status).toBe("adjudicated");
   });
 });
 
@@ -138,6 +152,16 @@ describe("patient financials", () => {
     expect(st.dueDate).toBe("2026-10-05");
     expect(st.message).toMatch(/past due/);
   });
+  it("a patient-side write-off actually zeroes the patient balance it covers", () => {
+    const withWriteOff: LedgerEntry[] = [
+      { id: "1", patientId: "p2", type: "charge", amount: 100, date: "2026-03-01", responsibleParty: "insurance" },
+      { id: "2", patientId: "p2", type: "transfer-to-patient", amount: 4, date: "2026-04-01", responsibleParty: "patient" },
+      { id: "3", patientId: "p2", type: "write-off", amount: 4, date: "2026-05-01", responsibleParty: "patient" },
+    ];
+    const s = computeAccount("p2", withWriteOff);
+    expect(s.patientBalance).toBe(0); // the $4 copay was written off, not still outstanding
+    expect(s.insuranceBalance).toBe(96); // the rest of the charge is still open on the insurance side
+  });
   it("propensity, plans, collections, FPL and GFE", () => {
     expect(propensityToPay({ balance: 50, priorStatementsPaidOnTime: 3, priorStatementsLate: 0, hasCardOnFile: true }).band).toBe("high");
     expect(propensityToPay({ balance: 50, priorStatementsPaidOnTime: 0, priorStatementsLate: 0, hasCardOnFile: false, fplPct: 150 }).band).toBe("assistance-eligible");
@@ -150,7 +174,7 @@ describe("patient financials", () => {
     expect(slidingFeeDiscount(120).discountPct).toBe(80);
     const gfe = goodFaithEstimate(patient, [{ cpt: "99203", units: 1 }, { cpt: "80053", units: 1 }], { "99203": 150 }, "2026-09-20", "2026-09-05");
     expect(gfe.total).toBe(160.5);
-    expect(gfe.deliverBy).toBe("2026-09-17");
+    expect(gfe.deliverBy).toBe("2026-09-09"); // 3 business days from the 2026-09-05 (Sat) request date
     expect(gfe.disclaimers.length).toBeGreaterThan(1);
   });
   it("detects credit balances and small balances", () => {
@@ -239,13 +263,46 @@ describe("agents", () => {
     expect(exec.ok).toBe(true);
     expect(await rcmStore.listClaims(T, { status: "submitted" })).toHaveLength(2);
   });
-  it("denial agent triages, never executes money-moving steps without approval, and moves PR to patient", async () => {
+  it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
+    const r = await agentRuntime.run("patient-financial", T);
+    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const before = (await rcmStore.ledger(T, refundStep.input.patientId as string)).filter((e) => e.type === "refund").length;
+    const first = await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
+    expect(first).toBeDefined();
+    const exec1 = await agentRuntime.executeApproved(T, refundStep.approvalId!, "biller");
+    expect(exec1.ok).toBe(true);
+    // Replaying the same decision (double-click, retry) must not create a second approval or
+    // execute the refund twice.
+    const second = await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
+    expect(second).toBeUndefined();
+    const exec2 = await agentRuntime.executeApproved(T, refundStep.approvalId!, "biller");
+    expect(exec2.ok).toBe(false);
+    const after = (await rcmStore.ledger(T, refundStep.input.patientId as string)).filter((e) => e.type === "refund").length;
+    expect(after).toBe(before + 1);
+  });
+  it("denial agent triages and never executes any money-moving or patient-billing step without approval", async () => {
     const r = await agentRuntime.run("denials", T);
     expect(r.steps.filter((s) => s.tool === "triage-denial" && s.outcome === "ok")).toHaveLength(3);
+    // write-off, send-appeal, file-corrected-claim, and transfer-to-patient all require approval —
+    // triage-denial is the only step that should ever come back "ok" on its own.
+    expect(r.steps.filter((s) => s.tool !== "triage-denial" && s.outcome === "ok")).toHaveLength(0);
     expect(r.steps.filter((s) => s.outcome === "needs-approval").length).toBeGreaterThanOrEqual(2);
     const audit = await rcmStore.listAudit(T);
     expect(audit.some((a) => a.outcome === "needs-approval")).toBe(true);
     expect(JSON.stringify(audit)).not.toMatch(/Asha|Miguel|Priya|Dana/);
+  });
+  it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
+    const approvalsBefore = (await rcmStore.listApprovals(T)).length;
+    const workItemsBefore = (await rcmStore.listWorkItems(T, "agent-approval")).length;
+    // The denials agent also writes directly to the "denials" queue from inside plan() itself
+    // (before the runtime's per-step dryRun branch even runs) — that write must be suppressed too.
+    const denialQueueBefore = (await rcmStore.listWorkItems(T, "denials")).length;
+    const r = await agentRuntime.run("denials", T, {}, { dryRun: true });
+    expect(r.dryRun).toBe(true);
+    expect(r.steps.some((s) => s.outcome === "needs-approval")).toBe(true);
+    expect(await rcmStore.listApprovals(T)).toHaveLength(approvalsBefore);
+    expect(await rcmStore.listWorkItems(T, "agent-approval")).toHaveLength(workItemsBefore);
+    expect(await rcmStore.listWorkItems(T, "denials")).toHaveLength(denialQueueBefore);
   });
   it("orchestrator runs the whole cycle in dry-run without side effects", async () => {
     const before = (await rcmStore.listClaims(T)).map((c) => c.status);
@@ -253,6 +310,10 @@ describe("agents", () => {
     expect(r.dryRun).toBe(true);
     expect(r.steps.filter((s) => s.outcome === "ok")).toHaveLength(8);
     expect((await rcmStore.listClaims(T)).map((c) => c.status)).toEqual(before);
+  });
+  it("payment plans are persisted, not just returned once and forgotten", async () => {
+    const plan = await rcmStore.upsertPaymentPlan(T, createPaymentPlan("pt-demo-1", 300, 6));
+    expect((await rcmStore.listPaymentPlans(T, "pt-demo-1"))[0]?.id).toBe(plan.id);
   });
   it("patient-financial agent finds the duplicate payment credit and queues a refund approval", async () => {
     const r = await agentRuntime.run("patient-financial", T);

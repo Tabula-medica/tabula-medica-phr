@@ -63,7 +63,10 @@ const rules: Record<string, Rule> = {
     if (!(l.charge > 0)) out.push({ id: "line-required-fields", category: "required-field", severity: "error", lineNumber: i + 1, message: `Line ${i + 1}: zero charge`, fix: "Apply charge master amount" });
     return out;
   }),
-  "unlinked-service-line": (c) => c.lines.flatMap((l, i) => (l.dxPointers.length === 0 || l.dxPointers.some((p) => p < 1 || p > c.diagnoses.length || p > 12) ? [{ id: "unlinked-service-line", category: "required-field", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: diagnosis pointer missing or out of range`, fix: "Link the line to 1-4 valid diagnosis pointers (box 24E)", autoFixable: true }] : [])),
+  // Not autoFixable: guessing diagnosis 1 for a missing/invalid pointer can link a service to
+  // a diagnosis it has nothing to do with, which is a medical-necessity/coding decision only a
+  // provider or coder can make — never something to silently apply and submit.
+  "unlinked-service-line": (c) => c.lines.flatMap((l, i) => (l.dxPointers.length === 0 || l.dxPointers.some((p) => p < 1 || p > c.diagnoses.length || p > 12) ? [{ id: "unlinked-service-line", category: "required-field", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: diagnosis pointer missing or out of range`, fix: "Link the line to 1-4 valid diagnosis pointers (box 24E)" }] : [])),
   "pos-format": (c) => c.lines.flatMap((l, i) => (!PLACE_OF_SERVICE[l.placeOfService] ? [{ id: "pos-format", category: "format", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: unknown place of service ${l.placeOfService}`, fix: "Use a valid 2-digit POS (11 office, 10 telehealth home…)" }] : [])),
   "dos-in-future": (c, ctx) => {
     const today = ctx.today ?? new Date().toISOString().slice(0, 10);
@@ -159,7 +162,6 @@ export function applyAutoFixes(claim: Claim, edits: Edit[]): { claim: Claim; app
     if (e.id === "total-mismatch") { c.totalCharge = Math.round(c.lines.reduce((s, l) => s + l.charge, 0) * 100) / 100; applied.push(e.id); }
     if (e.id === "missing-em-25-modifier" && e.lineNumber) { c.lines[e.lineNumber - 1].modifiers.push("25"); applied.push(e.id); }
     if (e.id === "telehealth-modifier-pos" && e.lineNumber && e.severity === "warning") { c.lines[e.lineNumber - 1].modifiers.push("95"); applied.push(e.id); }
-    if (e.id === "unlinked-service-line" && e.lineNumber && c.diagnoses.length) { c.lines[e.lineNumber - 1].dxPointers = [1]; applied.push(e.id); }
   }
   return { claim: c, applied: Array.from(new Set(applied)) };
 }

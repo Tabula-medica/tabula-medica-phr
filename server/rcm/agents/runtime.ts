@@ -12,7 +12,12 @@
 import { rcmStore, type RcmStore } from "../store";
 import { makeWorkItem } from "../worklists";
 
-export interface ToolContext { tenantId: string; store: RcmStore; actor: string; dryRun: boolean }
+// Shared, mutable step budget: the orchestrator's `run-agent` tool passes its own `ctx.budget`
+// through to the child `agentRuntime.run` call so nested agents draw from the same pool
+// instead of each getting a fresh MAX_STEPS — otherwise a single top-level run could fan out
+// to unbounded child steps.
+export interface StepBudget { remaining: number }
+export interface ToolContext { tenantId: string; store: RcmStore; actor: string; dryRun: boolean; budget: StepBudget }
 
 export interface Tool<I = unknown, O = unknown> {
   name: string;
@@ -35,7 +40,10 @@ export interface AgentDefinition {
   summarize(steps: AgentResult["steps"]): string;
 }
 
-const MAX_STEPS = 50;
+// Total step ceiling for a run tree: the top-level call gets a fresh budget of this size, and
+// every nested `run-agent` call (the orchestrator's fan-out) draws from that same shared pool
+// via `opts.budget`, so a single top-level invocation can never fan out to unbounded steps.
+const MAX_STEPS = 300;
 
 export class AgentRuntime {
   private agents = new Map<string, AgentDefinition>();
@@ -47,18 +55,29 @@ export class AgentRuntime {
   }
   get(name: string): AgentDefinition | undefined { return this.agents.get(name); }
 
-  async run(name: string, tenantId: string, args: Record<string, unknown> = {}, opts: { actor?: string; dryRun?: boolean } = {}): Promise<AgentResult> {
+  async run(name: string, tenantId: string, args: Record<string, unknown> = {}, opts: { actor?: string; dryRun?: boolean; budget?: StepBudget } = {}): Promise<AgentResult> {
     const def = this.agents.get(name);
     if (!def) throw new Error(`Unknown agent ${name}`);
-    const ctx: ToolContext = { tenantId, store: this.store, actor: opts.actor ?? `agent:${name}`, dryRun: !!opts.dryRun };
+    const budget = opts.budget ?? { remaining: MAX_STEPS };
+    const ctx: ToolContext = { tenantId, store: this.store, actor: opts.actor ?? `agent:${name}`, dryRun: !!opts.dryRun, budget };
     const tools = new Map(def.tools.map((t) => [t.name, t]));
     const steps: AgentResult["steps"] = [];
     let approvals = 0;
     await this.store.audit(tenantId, { agent: name, step: "start", detail: { args: Object.keys(args), dryRun: ctx.dryRun }, outcome: "ok" });
-    const plan = (await def.plan(ctx, args)).slice(0, MAX_STEPS);
+    const plan = (await def.plan(ctx, args)).slice(0, Math.max(0, budget.remaining));
     for (const step of plan) {
+      budget.remaining--;
       const tool = tools.get(step.tool);
       if (!tool) { steps.push({ ...step, outcome: "blocked", error: "unknown tool" }); await this.store.audit(tenantId, { agent: name, step: step.tool, detail: { blocked: "unknown tool" }, outcome: "blocked" }); continue; }
+      if (ctx.dryRun) {
+        // A dry run must be fully side-effect-free, including for approval-gated tools: it
+        // reports what *would* happen without writing an approval row or a work item.
+        const outcome: "ok" | "needs-approval" = tool.requiresApproval ? "needs-approval" : "ok";
+        if (outcome === "needs-approval") approvals++;
+        steps.push({ ...step, outcome, output: outcome === "ok" ? { dryRun: true } : undefined });
+        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { dryRun: true }, outcome });
+        continue;
+      }
       if (tool.requiresApproval) {
         const approval = await this.store.requestApproval(tenantId, { agent: name, action: tool.name, payload: step.input, reason: `${step.why} — ${tool.approvalReason ?? "human approval required"}` });
         await this.store.addWorkItems(tenantId, [makeWorkItem({ queue: "agent-approval", title: `${name}: ${tool.name} — ${step.why}`, patientId: typeof step.input.patientId === "string" ? step.input.patientId : undefined, claimId: typeof step.input.claimId === "string" ? step.input.claimId : undefined, amount: typeof step.input.amount === "number" ? step.input.amount : undefined, priority: 70, source: "agent", context: { approvalId: approval.id } })]);
@@ -68,7 +87,7 @@ export class AgentRuntime {
         continue;
       }
       try {
-        const output = ctx.dryRun ? { dryRun: true } : await tool.run(step.input, ctx);
+        const output = await tool.run(step.input, ctx);
         steps.push({ ...step, outcome: "ok", output });
         await this.store.audit(tenantId, { agent: name, step: tool.name, detail: summarizeForAudit(step.input), outcome: "ok" });
       } catch (e) {
@@ -88,11 +107,12 @@ export class AgentRuntime {
     const a = approvals.find((x) => x.id === approvalId);
     if (!a) return { ok: false, error: "approval not found" };
     if (a.status !== "approved") return { ok: false, error: `approval status is ${a.status}` };
+    if (!(await this.store.claimApprovalExecution(tenantId, approvalId))) return { ok: false, error: "approval already executed" };
     const def = this.agents.get(a.agent);
     const tool = def?.tools.find((t) => t.name === a.action);
     if (!tool) return { ok: false, error: "tool no longer available" };
     try {
-      const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false });
+      const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false, budget: { remaining: MAX_STEPS } });
       await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, by }, outcome: "ok" });
       return { ok: true, output };
     } catch (e) {

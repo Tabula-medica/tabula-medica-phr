@@ -25,7 +25,7 @@ const runEligibility: Tool<{ coverageId: string; patientId: string; dateOfServic
     const benefits = await checkEligibility({ patient, coverage, dateOfService: input.dateOfService, providerNpi: "1234567893" });
     await ctx.store.setBenefits(ctx.tenantId, coverage.id, benefits);
     const est = estimatePatientResponsibility([{ cpt: "99213", units: 1 }], benefits);
-    const disc = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, {});
+    const disc = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, benefits.payerSubscriber ?? {});
     const clearance = financialClearance(benefits, est, disc);
     if (!clearance.cleared) await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "eligibility", title: `Not cleared: ${clearance.reasons.join("; ")}`, patientId: patient.id, priority: 75, source: "agent", context: { coverageId: coverage.id, actions: clearance.actions } })]);
     return { active: benefits.active, cleared: clearance.cleared, collectAtVisit: clearance.collectAtVisit };
@@ -82,9 +82,12 @@ const priorAuthAgent: AgentDefinition = {
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
-        const existing = auths.find((a) => a.patientId === claim.patientId && a.cpt === line.cpt);
-        if (existing && authCoversService(existing, line.cpt, line.dateOfService).ok) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: existing.id }, why: "approved auth on file" }); continue; }
-        if (existing && ["requested", "pended"].includes(existing.status)) continue;
+        // Consider every auth on file for this patient/CPT, not just the first match — a
+        // leftover denied/expired row must never shadow a later approved one.
+        const matches = auths.filter((a) => a.patientId === claim.patientId && a.cpt === line.cpt);
+        const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
+        if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
+        if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
         steps.push({ tool: "open-auth-request", input: { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code) }, why: check.reason ?? "auth required" });
       }
     }
@@ -180,7 +183,11 @@ const triageDenial: Tool<{ denialId: string }, unknown> = {
       const patient = await ctx.store.getPatient(ctx.tenantId, d.patientId);
       const base = generateAppealLetter({ denial: d, claim, patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient", providerName: claim.renderingProviderName ?? "Rendering Provider", practiceName: "World EHR Outpatient" });
       const polished = await aiText("You polish payer appeal letters. Keep every fact, code, date, and amount exactly as given; improve clarity and persuasiveness only. Return the letter text.", base.letter, base.letter, "rcm-appeal");
-      appealDraft = polished.text;
+      // The prompt is not an enforcement mechanism: verify the protected facts a human approver
+      // relies on (the CARC and the dollar amount) actually survived the rewrite before trusting
+      // it, and fall back to the deterministic, fact-only letter otherwise.
+      const protectedFacts = [`CARC ${d.carc}`, `$${d.amount.toFixed(2)}`];
+      appealDraft = protectedFacts.every((f) => polished.text.includes(f)) ? polished.text : base.letter;
     }
     const updated: Denial = { ...d, status: "in-progress" };
     await ctx.store.upsertDenial(ctx.tenantId, updated);
@@ -189,17 +196,29 @@ const triageDenial: Tool<{ denialId: string }, unknown> = {
 };
 const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: number }, unknown> = {
   name: "file-corrected-claim",
-  description: "Create a frequency-7 replacement claim for a remediable denial",
+  description: "Create a frequency-7 replacement claim for a remediable denial, re-scrubbed and auto-fixed before it goes to approval",
   requiresApproval: true,
   approvalReason: "resubmission to payer",
   async run(input, ctx) {
     const orig = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!orig) throw new Error("claim not found");
-    const next = correctedClaim(orig, {});
-    await ctx.store.upsertClaim(ctx.tenantId, next);
+    // A bare frequency-7 clone with no remediation would carry the exact same errors that
+    // triggered the denial (and would trip the same CARC again). Re-scrub the clone and apply
+    // safe auto-fixes; anything not auto-fixable goes to a claim-edits work item for a human
+    // instead of silently resubmitting a claim that will just be denied again.
+    const patient = await ctx.store.getPatient(ctx.tenantId, orig.patientId);
+    const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
+    const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
+    const draft = correctedClaim(orig, {});
+    const scrubCtx = { patient, coverage, authRequiredCpts: contract?.requiresAuth, authOnFile: !!draft.priorAuthNumber };
+    const first = scrubClaim(draft, scrubCtx);
+    const fixed = applyAutoFixes(draft, first.edits);
+    const second = scrubClaim(fixed.claim, { ...scrubCtx, authOnFile: !!fixed.claim.priorAuthNumber });
+    await ctx.store.upsertClaim(ctx.tenantId, fixed.claim);
+    if (!second.clean) await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(fixed.claim, second.errors.length));
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
     if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
-    return { correctedClaimId: next.id };
+    return { correctedClaimId: fixed.claim.id, clean: second.clean, autoFixed: fixed.applied };
   },
 };
 const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, unknown> = {
@@ -233,6 +252,8 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
 const transferToPatient: Tool<{ denialId: string; patientId: string; amount: number }, unknown> = {
   name: "transfer-to-patient",
   description: "Move a PR-group amount to patient responsibility",
+  requiresApproval: true,
+  approvalReason: "increases what the patient owes",
   async run(input, ctx) {
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
     if (!d) throw new Error("denial not found");
@@ -248,7 +269,9 @@ const denialAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     const open = (await ctx.store.listDenials(ctx.tenantId, "open")).sort((a, b) => b.priorityScore - a.priorityScore);
-    await ctx.store.addWorkItems(ctx.tenantId, itemsFromDenials(open.filter((d) => d.priorityScore >= 60)));
+    // Planning must stay read-only under dryRun — this queue write is a real side effect, not
+    // a step the runtime's own dryRun branch can intercept (planning runs before that branch).
+    if (!ctx.dryRun) await ctx.store.addWorkItems(ctx.tenantId, itemsFromDenials(open.filter((d) => d.priorityScore >= 60)));
     for (const d of open) {
       steps.push({ tool: "triage-denial", input: { denialId: d.id }, why: `${d.category} CARC ${d.carc}` });
       const rec = recommendAction(d);
@@ -278,7 +301,7 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
 const offerPlan: Tool<{ patientId: string; amount: number; months: number }, unknown> = {
   name: "offer-payment-plan",
   description: "Create a payment plan offer",
-  async run(input) { const plan = createPaymentPlan(input.patientId, input.amount, input.months); return { planId: plan.id, installment: plan.installment, months: plan.months }; },
+  async run(input, ctx) { const plan = await ctx.store.upsertPaymentPlan(ctx.tenantId, createPaymentPlan(input.patientId, input.amount, input.months)); return { planId: plan.id, installment: plan.installment, months: plan.months }; },
 };
 const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   name: "refer-to-agency",
@@ -297,6 +320,8 @@ const issueRefund: Tool<{ patientId: string; amount: number; refundTo: string },
 const smallBalanceWriteOff: Tool<{ patientId: string; amount: number }, unknown> = {
   name: "small-balance-write-off",
   description: "Write off balances under the policy threshold",
+  requiresApproval: true,
+  approvalReason: "adjustment forgives a patient receivable",
   async run(input, ctx) { await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount: input.amount, date: todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]); return { writtenOff: input.amount }; },
 };
 const patientFinancialAgent: AgentDefinition = {
@@ -354,7 +379,7 @@ const payerCallAgent: AgentDefinition = {
 const runAgent: Tool<{ agent: string }, unknown> = {
   name: "run-agent",
   description: "Run a child agent",
-  async run(input, ctx) { const r = await agentRuntime.run(input.agent, ctx.tenantId, {}, { actor: ctx.actor, dryRun: ctx.dryRun }); return { summary: r.summary, approvals: r.approvalsRequested }; },
+  async run(input, ctx) { const r = await agentRuntime.run(input.agent, ctx.tenantId, {}, { actor: ctx.actor, dryRun: ctx.dryRun, budget: ctx.budget }); return { summary: r.summary, approvals: r.approvalsRequested }; },
 };
 const snapshotKpis: Tool<Record<string, never>, unknown> = {
   name: "snapshot-kpis",

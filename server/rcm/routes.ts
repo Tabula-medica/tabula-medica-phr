@@ -12,7 +12,7 @@ import { buildClaim, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, co
 import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
-import { expectedForLines, modelContractChange, varianceReport } from "./contracts";
+import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
@@ -24,10 +24,12 @@ import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
 
-interface AuthedRequest extends Request { user?: { claims?: { sub?: string } } }
+interface AuthedRequest extends Request { user?: { claims?: { sub?: string } }; userRole?: string }
 function tenantOf(req: Request): string {
-  const h = req.header("x-tenant-id");
-  if (h && /^[A-Za-z0-9_-]{1,64}$/.test(h)) return h;
+  // Tenant identity must come from the authenticated session, never a client-supplied header —
+  // this router is mounted behind isAuthenticated + requireRole, so `user.claims.sub` is always
+  // present in production. Trusting `x-tenant-id` would let any logged-in caller read/mutate
+  // another tenant's patients, claims, and ledger just by sending a different header value.
   return (req as AuthedRequest).user?.claims?.sub ?? "demo";
 }
 function actorOf(req: Request): string { return (req as AuthedRequest).user?.claims?.sub ?? "anonymous"; }
@@ -43,7 +45,15 @@ const dxSchema = z.object({ code: z.string().min(3), description: z.string().opt
 
 // ---------- Demo / health ----------
 rcmRouter.get("/health", (_req, res) => res.json({ success: true, module: "rcm", aiEnabled: (process.env.RCM_AI_ENABLED ?? "false") === "true", vendors: { eligibility: "stub", clearinghouse: "stub" }, agents: agentRuntime.list().map((a) => a.name) }));
-rcmRouter.post("/demo/seed", wrap(async (req, res) => { const t = tenantOf(req); rcmStore.reset(t); const r = await seedDemoTenant(rcmStore, t); res.json({ success: true, ...r }); }));
+rcmRouter.post("/demo/seed", wrap(async (req, res) => {
+  // Resets and reseeds the tenant's whole RCM partition, so keep it out of reach of everyday
+  // production traffic even though the route itself is authenticated.
+  if (process.env.NODE_ENV === "production" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Demo seeding requires an admin role in production");
+  const t = tenantOf(req);
+  rcmStore.reset(t);
+  const r = await seedDemoTenant(rcmStore, t);
+  res.json({ success: true, ...r });
+}));
 
 // ---------- Patients & coverage ----------
 rcmRouter.post("/patients", wrap(async (req, res) => { const p = patientSchema.safeParse(req.body); if (!p.success) return bad(res, p.error); res.json({ success: true, patient: await rcmStore.upsertPatient(tenantOf(req), p.data) }); }));
@@ -63,11 +73,16 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   const benefits = p.data.payerResponse ? parse271(p.data.payerResponse) : await checkEligibility({ patient, coverage, dateOfService: p.data.dateOfService, providerNpi: p.data.providerNpi });
   await rcmStore.setBenefits(t, coverage.id, benefits);
   const contract = await rcmStore.getContract(t, coverage.payerId);
-  const estimate = estimatePatientResponsibility(p.data.plannedLines, benefits, contract?.feeSchedule);
-  const discrepancies = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, {});
+  // Build the per-CPT rate from the contract's own pricing (explicit fee schedule, else
+  // pctOfMedicare) rather than passing the fee schedule alone — a %-of-Medicare contract like
+  // BCBS at 135% has an empty fee schedule, which would silently fall back to the raw
+  // Medicare reference rate and under-collect at check-in.
+  const contractRates = contract ? Object.fromEntries(p.data.plannedLines.map((l) => [l.cpt, expectedAllowed(contract, l.cpt)])) : undefined;
+  const estimate = estimatePatientResponsibility(p.data.plannedLines, benefits, contractRates);
+  const discrepancies = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, benefits.payerSubscriber ?? {});
   const needAuth = p.data.plannedLines.some((l) => requiresPriorAuth(l.cpt, contract).required);
   const auths = await rcmStore.listAuths(t, patient.id);
-  const authOnFile = p.data.plannedLines.every((l) => !requiresPriorAuth(l.cpt, contract).required || auths.some((a) => authCoversService(a, l.cpt, p.data.dateOfService).ok));
+  const authOnFile = p.data.plannedLines.every((l) => !requiresPriorAuth(l.cpt, contract).required || auths.some((a) => authCoversService(a, l.cpt, p.data.dateOfService, l.units).ok));
   const clearance = financialClearance(benefits, estimate, discrepancies, { requiresAuth: needAuth, authOnFile });
   res.json({ success: true, benefits, estimate, discrepancies, clearance });
 }));
@@ -88,7 +103,7 @@ rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
   const t = tenantOf(req);
   const auth = await rcmStore.getAuth(t, req.params.id);
   if (!auth) return fail(res, 404, "auth not found");
-  res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) });
+  try { res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
 
 // ---------- Charge capture & coding ----------
@@ -130,6 +145,7 @@ rcmRouter.post("/claims", wrap(async (req, res) => {
   const patient = await rcmStore.getPatient(t, p.data.patientId);
   const coverage = await rcmStore.getCoverage(t, p.data.coverageId);
   if (!patient || !coverage) return fail(res, 404, "patient or coverage not found");
+  if (coverage.patientId !== patient.id) return fail(res, 400, "coverage does not belong to this patient");
   const claim = buildClaim({ ...p.data, patient, coverage, diagnoses: p.data.diagnoses as Diagnosis[], lines: p.data.lines as ServiceLine[] });
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, claim) });
 }));
@@ -182,6 +198,11 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
 rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   const t = tenantOf(req);
   const rem = parseEra(req.body?.era ?? req.body);
+  // Idempotency: a clearinghouse retry or a duplicate click must not double-post the same ERA.
+  // Match on the ERA id when the payload carried one, and on payer + check number/amount
+  // (the standard 835 trace key) otherwise, before any ledger entries are written.
+  const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) => r.id === rem.id || (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount));
+  if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");
   const claimsById = await rcmStore.claimsById(t);
   const contracts = await rcmStore.contracts(t);
   const result = postRemittance(rem, claimsById, contracts);
@@ -226,9 +247,16 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => { const p = z.obj
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
 rcmRouter.get("/patients/:id/statement", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const cycle = (["1", "2", "3", "final"].includes(String(req.query.cycle)) ? (req.query.cycle === "final" ? "final" : Number(req.query.cycle)) : 1) as 1 | 2 | 3 | "final"; res.json({ success: true, statement: buildStatement(p, await rcmStore.ledger(t, p.id), cycle) }); }));
 rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const s = computeAccount(p.id, await rcmStore.ledger(t, p.id)); const fpl = p.annualHouseholdIncome !== undefined && p.householdSize ? fplPercent(p.annualHouseholdIncome, p.householdSize) : undefined; res.json({ success: true, propensity: propensityToPay({ balance: s.patientBalance, priorStatementsPaidOnTime: req.body?.paidOnTime ?? 0, priorStatementsLate: req.body?.late ?? 0, hasCardOnFile: !!req.body?.hasCardOnFile, fplPct: fpl }), fplPct: fpl, slidingFee: fpl !== undefined ? slidingFeeDiscount(fpl) : undefined }); }));
-rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => { const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body); if (!p.success) return bad(res, p.error); res.json({ success: true, plan: createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay) }); }));
+rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => { const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay); res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(tenantOf(req), plan) }); }));
+rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
 rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().default(1) })), selfPayRates: z.record(z.number()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
-rcmRouter.post("/ledger", wrap(async (req, res) => { const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(["charge", "insurance-payment", "patient-payment", "contractual-adjustment", "denial-adjustment", "write-off", "refund", "transfer-to-patient"]), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body); if (!p.success) return bad(res, p.error); const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}` })); await rcmStore.postLedger(tenantOf(req), entries); res.json({ success: true, posted: entries.length }); }));
+// Direct posting is limited to entries that record something that already happened at the
+// point of care/reception (a charge, a manually-keyed payment/adjustment, a PR transfer).
+// Refunds, write-offs, and denial adjustments forgive or return money and must go through the
+// approval-gated agent tools (issue-refund, write-off, small-balance-write-off) instead of a
+// raw client-supplied post.
+const directLedgerTypes = ["charge", "insurance-payment", "patient-payment", "contractual-adjustment", "transfer-to-patient"] as const;
+rcmRouter.post("/ledger", wrap(async (req, res) => { const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body); if (!p.success) return bad(res, p.error); const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}` })); await rcmStore.postLedger(tenantOf(req), entries); res.json({ success: true, posted: entries.length }); }));
 rcmRouter.get("/credit-balances", wrap(async (req, res) => res.json({ success: true, credits: detectCreditBalances(await rcmStore.ledgerByPatient(tenantOf(req))) })));
 
 // ---------- Contracts ----------
@@ -238,7 +266,7 @@ rcmRouter.post("/contracts/:payerId/variance", wrap(async (req, res) => { const 
 rcmRouter.post("/contracts/:payerId/model", wrap(async (req, res) => { const c = await rcmStore.getContract(tenantOf(req), req.params.payerId); if (!c) return fail(res, 404, "contract not found"); const p = z.object({ volume: z.array(z.object({ cpt: z.string(), units: z.number() })), pctChange: z.number().optional(), overrides: z.record(z.number()).optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); res.json({ success: true, ...modelContractChange(c, p.data.volume, p.data) }); }));
 
 // ---------- Analytics ----------
-rcmRouter.get("/analytics/kpis", wrap(async (req, res) => { const t = tenantOf(req); const stats = await rcmStore.scrubStats(t); const claims = await rcmStore.listClaims(t); const denials = await rcmStore.listDenials(t); const remittances = await rcmStore.listRemittances(t); res.json({ success: true, kpis: computeKpis({ claims, denials, ledger: await rcmStore.ledger(t), remittances, scrubTotal: stats.total, scrubFirstPassClean: stats.firstPassClean, chargeEntryLagDays: await rcmStore.chargeLagSamples(t) }), agingByPayer: agingByPayer(claims), payerScorecard: payerScorecard(claims, denials, remittances), denialTrends: denialTrends(denials) }); }));
+rcmRouter.get("/analytics/kpis", wrap(async (req, res) => { const t = tenantOf(req); const stats = await rcmStore.scrubStats(t); const claims = await rcmStore.listClaims(t); const denials = await rcmStore.listDenials(t); const remittances = await rcmStore.listRemittances(t); const ledger = await rcmStore.ledger(t); res.json({ success: true, kpis: computeKpis({ claims, denials, ledger, remittances, scrubTotal: stats.total, scrubFirstPassClean: stats.firstPassClean, chargeEntryLagDays: await rcmStore.chargeLagSamples(t) }), agingByPayer: agingByPayer(claims, ledger), payerScorecard: payerScorecard(claims, denials, remittances), denialTrends: denialTrends(denials) }); }));
 
 // ---------- Work queues ----------
 rcmRouter.get("/worklist", wrap(async (req, res) => { const t = tenantOf(req); const q = typeof req.query.queue === "string" ? (req.query.queue as WorkQueue) : undefined; const items = await rcmStore.listWorkItems(t, q); res.json({ success: true, items: sortQueue(items), summary: queueSummary(await rcmStore.listWorkItems(t)) }); }));
@@ -250,8 +278,24 @@ rcmRouter.post("/voice/command", wrap(async (req, res) => {
   if (!p.success) return bad(res, p.error);
   const intent = parseVoiceIntent(p.data.transcript);
   let speak = speakIntent(intent);
-  if (intent.type === "kpi-readout") { const t = tenantOf(req); const stats = await rcmStore.scrubStats(t); const kpis = computeKpis({ claims: await rcmStore.listClaims(t), denials: await rcmStore.listDenials(t), ledger: await rcmStore.ledger(t), remittances: await rcmStore.listRemittances(t), scrubTotal: stats.total, scrubFirstPassClean: stats.firstPassClean }); speak = speakKpis(kpis, intent.kpi); }
-  res.json({ success: true, intent, speak });
+  let result: unknown;
+  const t = tenantOf(req);
+  if (intent.type === "kpi-readout") {
+    const stats = await rcmStore.scrubStats(t);
+    const kpis = computeKpis({ claims: await rcmStore.listClaims(t), denials: await rcmStore.listDenials(t), ledger: await rcmStore.ledger(t), remittances: await rcmStore.listRemittances(t), scrubTotal: stats.total, scrubFirstPassClean: stats.firstPassClean });
+    speak = speakKpis(kpis, intent.kpi);
+  } else if (intent.type === "run-agent") {
+    // The only spoken intent this endpoint can safely execute outright: agentRuntime.run
+    // already gates every money-moving/payer-facing step behind human approval.
+    try {
+      const r = await agentRuntime.run(intent.agent, t, {}, { actor: actorOf(req) });
+      result = r;
+      speak = `${r.summary} ${r.approvalsRequested > 0 ? `${r.approvalsRequested} action${r.approvalsRequested === 1 ? "" : "s"} now need your approval.` : ""}`.trim();
+    } catch (e) {
+      speak = `I could not find an agent named ${intent.agent.replace(/-/g, " ")}.`;
+    }
+  }
+  res.json({ success: true, intent, speak, result });
 }));
 
 // ---------- Agents & approvals ----------
@@ -263,8 +307,10 @@ rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
   const p = z.object({ decision: z.enum(["approved", "rejected"]) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
+  const before = (await rcmStore.listApprovals(t)).find((x) => x.id === req.params.id);
+  if (!before) return fail(res, 404, "approval not found");
   const a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req));
-  if (!a) return fail(res, 404, "approval not found");
+  if (!a) return fail(res, 409, `approval already ${before.status}`);
   const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
   if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
   const exec = p.data.decision === "approved" ? await agentRuntime.executeApproved(t, a.id, actorOf(req)) : undefined;

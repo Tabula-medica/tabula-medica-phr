@@ -56,7 +56,7 @@ export function parseEra(raw: unknown): Remittance {
   };
 }
 
-export type PostingStatus = "paid" | "partial" | "denied" | "reversal" | "zero-pay";
+export type PostingStatus = "paid" | "partial" | "denied" | "reversal" | "zero-pay" | "unmatched";
 
 export interface Posting {
   claimId?: string;
@@ -78,7 +78,14 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
   let applied = 0;
   for (const rc of rem.claims) {
     const claim = rc.claimId ? claimsById[rc.claimId] : undefined;
-    const patientId = claim?.patientId ?? "unknown";
+    if (!claim) {
+      // Never post cash against a fabricated "unknown" patient and never count it as applied —
+      // that would make an unreconciled payment look balanced and the money unrecoverable.
+      // Leave it unmatched for a human to reconcile against the real patient/claim.
+      postings.push({ claimId: rc.claimId, status: "unmatched", billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: 0, denied: 0, entries: [], denials: [], crossoverToSecondary: false });
+      continue;
+    }
+    const patientId = claim.patientId;
     const date = rem.checkDate ?? rem.receivedAt.slice(0, 10);
     const entries: LedgerEntry[] = [];
     const denials: Adjustment[] = [];
@@ -115,5 +122,6 @@ export function claimStatusFromPosting(p: Posting): Claim["status"] {
     case "denied": return "denied";
     case "zero-pay": return "adjudicated";
     case "reversal": return "adjudicated";
+    case "unmatched": return "adjudicated"; // unreachable via routes.ts, which only calls this when a claim was found
   }
 }

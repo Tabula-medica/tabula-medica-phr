@@ -114,7 +114,26 @@ export function slaDeadlineFor(requestedAtIso: string, urgency: "standard" | "ur
   return new Date(Date.parse(requestedAtIso) + ms).toISOString();
 }
 
+// Legal auth lifecycle transitions. Blocks skipping a new payer decision — e.g. a caller
+// cannot move a `denied` or `expired` auth straight to `approved`; it must go back through
+// `requested`/`pended` first.
+const AUTH_TRANSITIONS: Record<AuthStatus, AuthStatus[]> = {
+  "not-required": [],
+  required: ["requested", "not-required"],
+  requested: ["pended", "approved", "denied", "expired"],
+  pended: ["approved", "denied", "expired"],
+  approved: ["expired", "exhausted"],
+  denied: ["requested"],
+  expired: ["requested"],
+  exhausted: [],
+};
+
+export function canTransitionAuth(from: AuthStatus, to: AuthStatus): boolean {
+  return AUTH_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
 export function transitionAuth(auth: PriorAuth, to: AuthStatus, opts: { actor: string; note?: string; authNumber?: string; validFrom?: string; validTo?: string; approvedUnits?: number } = { actor: "system" }): PriorAuth {
+  if (!canTransitionAuth(auth.status, to)) throw new Error(`Illegal auth transition ${auth.status} → ${to}`);
   const at = nowIso();
   const next: PriorAuth = { ...auth, status: to, history: [...auth.history, { at, status: to, actor: opts.actor, note: opts.note }] };
   if (to === "requested") { next.requestedAt = at; next.slaDeadline = slaDeadlineFor(at, auth.urgency); }
@@ -135,12 +154,14 @@ export function consumeAuthUnit(auth: PriorAuth, units = 1): PriorAuth {
 }
 
 // Is this auth usable for a service on `dateOfService`?
-export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: string): { ok: boolean; reason?: string } {
+export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: string, requestedUnits = 1): { ok: boolean; reason?: string } {
   if (auth.cpt !== cpt.toUpperCase()) return { ok: false, reason: "Auth is for a different code" };
   if (auth.status !== "approved") return { ok: false, reason: `Auth status is ${auth.status}` };
   if (auth.validFrom && dateOfService < auth.validFrom) return { ok: false, reason: "Service date before auth validity" };
   if (auth.validTo && dateOfService > auth.validTo) return { ok: false, reason: "Auth expired for this service date" };
-  if (auth.unitsUsed >= auth.units) return { ok: false, reason: "Authorized units exhausted" };
+  // Compare against the units this service actually needs, not just whether any unit remains —
+  // an auth for 1 unit must not clear a line requesting many.
+  if (auth.unitsUsed + Math.max(1, requestedUnits) > auth.units) return { ok: false, reason: "Authorized units exhausted" };
   return { ok: true };
 }
 

@@ -16,6 +16,19 @@ export function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Adds `days` business days (Mon-Fri; no federal-holiday calendar) to `iso`. Used for No
+// Surprises Act deadlines, which are expressed in business days, not calendar days.
+export function addBusinessDays(iso: string, days: number): string {
+  const d = new Date(iso);
+  let remaining = days;
+  while (remaining > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) remaining--;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
 export function ageOn(dob: string, onIso: string): number {
   const d = new Date(dob);
   const t = new Date(onIso);

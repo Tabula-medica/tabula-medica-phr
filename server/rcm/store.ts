@@ -3,11 +3,12 @@
 // needs no route changes.
 import type { Claim, Coverage, Denial, LedgerEntry, Patient, PayerContract, Remittance, WorkItem, BenefitSnapshot } from "./types";
 import type { PriorAuth } from "./prior-auth";
+import type { PaymentPlan } from "./patient-financials";
 import { DEFAULT_CONTRACTS } from "./contracts";
 import { newId, nowIso } from "./util";
 
 export interface AgentAuditRow { id: string; at: string; tenantId: string; agent: string; step: string; detail: Record<string, unknown>; outcome: "ok" | "blocked" | "needs-approval" | "error" }
-export interface Approval { id: string; tenantId: string; agent: string; action: string; payload: Record<string, unknown>; reason: string; status: "pending" | "approved" | "rejected"; createdAt: string; decidedAt?: string; decidedBy?: string }
+export interface Approval { id: string; tenantId: string; agent: string; action: string; payload: Record<string, unknown>; reason: string; status: "pending" | "approved" | "rejected"; createdAt: string; decidedAt?: string; decidedBy?: string; executedAt?: string }
 
 interface Tenant {
   patients: Map<string, Patient>;
@@ -22,12 +23,13 @@ interface Tenant {
   contracts: Map<string, PayerContract>;
   agentAudit: AgentAuditRow[];
   approvals: Map<string, Approval>;
+  paymentPlans: Map<string, PaymentPlan>;
   scrubStats: { total: number; firstPassClean: number };
   chargeLagSamples: number[];
 }
 
 function freshTenant(): Tenant {
-  return { patients: new Map(), coverages: new Map(), benefits: new Map(), claims: new Map(), denials: new Map(), remittances: new Map(), ledger: [], auths: new Map(), workItems: new Map(), contracts: new Map(DEFAULT_CONTRACTS.map((c) => [c.payerId, c])), agentAudit: [], approvals: new Map(), scrubStats: { total: 0, firstPassClean: 0 }, chargeLagSamples: [] };
+  return { patients: new Map(), coverages: new Map(), benefits: new Map(), claims: new Map(), denials: new Map(), remittances: new Map(), ledger: [], auths: new Map(), workItems: new Map(), contracts: new Map(DEFAULT_CONTRACTS.map((c) => [c.payerId, c])), agentAudit: [], approvals: new Map(), paymentPlans: new Map(), scrubStats: { total: 0, firstPassClean: 0 }, chargeLagSamples: [] };
 }
 
 export class RcmStore {
@@ -78,8 +80,17 @@ export class RcmStore {
   async listAudit(tid: string, limit = 200): Promise<AgentAuditRow[]> { return this.t(tid).agentAudit.slice(-limit).reverse(); }
 
   async requestApproval(tid: string, a: Omit<Approval, "id" | "tenantId" | "status" | "createdAt">): Promise<Approval> { const r: Approval = { id: newId("apr"), tenantId: tid, status: "pending", createdAt: nowIso(), ...a }; this.t(tid).approvals.set(r.id, r); return r; }
-  async decideApproval(tid: string, id: string, status: "approved" | "rejected", by: string): Promise<Approval | undefined> { const t = this.t(tid); const a = t.approvals.get(id); if (!a) return undefined; const n: Approval = { ...a, status, decidedAt: nowIso(), decidedBy: by }; t.approvals.set(id, n); return n; }
+  // Single-use: only a still-`pending` approval can be decided. A second decision on the same
+  // id (double-click, retry, or replaying an old request) is a no-op — it returns undefined
+  // rather than overwriting a decision that was already acted on.
+  async decideApproval(tid: string, id: string, status: "approved" | "rejected", by: string): Promise<Approval | undefined> { const t = this.t(tid); const a = t.approvals.get(id); if (!a || a.status !== "pending") return undefined; const n: Approval = { ...a, status, decidedAt: nowIso(), decidedBy: by }; t.approvals.set(id, n); return n; }
+  // Atomic claim on the execution slot for an approved action — synchronous Map get+set with
+  // no `await` in between, so two concurrent callers can never both win it for the same id.
+  async claimApprovalExecution(tid: string, id: string): Promise<boolean> { const t = this.t(tid); const a = t.approvals.get(id); if (!a || a.executedAt) return false; t.approvals.set(id, { ...a, executedAt: nowIso() }); return true; }
   async listApprovals(tid: string, status?: Approval["status"]): Promise<Approval[]> { return Array.from(this.t(tid).approvals.values()).filter((a) => !status || a.status === status); }
+
+  async upsertPaymentPlan(tid: string, p: PaymentPlan): Promise<PaymentPlan> { this.t(tid).paymentPlans.set(p.id, p); return p; }
+  async listPaymentPlans(tid: string, patientId?: string): Promise<PaymentPlan[]> { return Array.from(this.t(tid).paymentPlans.values()).filter((p) => !patientId || p.patientId === patientId); }
 
   async recordScrub(tid: string, clean: boolean): Promise<void> { const s = this.t(tid).scrubStats; s.total++; if (clean) s.firstPassClean++; }
   async scrubStats(tid: string): Promise<{ total: number; firstPassClean: number }> { return { ...this.t(tid).scrubStats }; }

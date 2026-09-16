@@ -1,8 +1,21 @@
 // Stage 17: revenue-cycle analytics — MGMA/HFMA-style KPIs with targets, A/R aging by payer,
 // denial and clean-claim rates, charge lag, cost-to-collect proxy, and payer scorecards.
 import type { Claim, Denial, LedgerEntry, Remittance } from "./types";
-import { computeAging } from "./patient-financials";
+import { computeAging, signedAmount } from "./patient-financials";
 import { daysBetween, round2, sum, todayIso } from "./util";
+
+// The insurance side of a single claim's balance still open (billed minus whatever has
+// already resolved it on the insurance side): what should actually age as payer A/R.
+function outstandingInsurance(claim: Claim, ledger: LedgerEntry[]): number {
+  const entries = ledger.filter((e) => e.claimId === claim.id);
+  const transferred = sum(entries.filter((e) => e.type === "transfer-to-patient").map((e) => e.amount));
+  let insuranceSide = claim.totalCharge - transferred;
+  for (const e of entries) {
+    if (e.type === "charge" || e.type === "transfer-to-patient") continue;
+    if (e.responsibleParty === "insurance") insuranceSide += signedAmount(e);
+  }
+  return round2(Math.max(0, insuranceSide));
+}
 
 export interface Kpi { key: string; name: string; value: number; unit: "days" | "pct" | "usd" | "count"; target: number; direction: "lower-better" | "higher-better"; status: "good" | "warning" | "critical"; definition: string }
 
@@ -73,15 +86,19 @@ export function computeKpis(i: KpiInputs): Kpi[] {
   return rows.map((r) => ({ ...r, status: r.key === "total_ar" ? "good" : status(r.value, r.target, r.direction) }));
 }
 
-export function agingByPayer(claims: Claim[], today: string = todayIso()): Array<{ payerId: string; payerName: string; buckets: { current: number; d31_60: number; d61_90: number; over90: number }; total: number; count: number }> {
+export function agingByPayer(claims: Claim[], ledger: LedgerEntry[] = [], today: string = todayIso()): Array<{ payerId: string; payerName: string; buckets: { current: number; d31_60: number; d61_90: number; over90: number }; total: number; count: number }> {
   const map = new Map<string, { payerName: string; buckets: { current: number; d31_60: number; d61_90: number; over90: number }; total: number; count: number }>();
   for (const c of claims) {
     if (!["submitted", "acknowledged", "pended", "partially-paid", "denied", "appealed"].includes(c.status)) continue;
+    // Age what's actually still open on the insurance side, not the full billed charge — a
+    // partially-paid or already-adjusted claim has had some of that charge resolved already.
+    const outstanding = outstandingInsurance(c, ledger);
+    if (outstanding <= 0) continue;
     const row = map.get(c.payerId) ?? { payerName: c.payerName, buckets: { current: 0, d31_60: 0, d61_90: 0, over90: 0 }, total: 0, count: 0 };
     const d = daysBetween((c.submittedAt ?? c.createdAt).slice(0, 10), today);
     const k = d <= 30 ? "current" : d <= 60 ? "d31_60" : d <= 90 ? "d61_90" : "over90";
-    row.buckets[k] = round2(row.buckets[k] + c.totalCharge);
-    row.total = round2(row.total + c.totalCharge);
+    row.buckets[k] = round2(row.buckets[k] + outstanding);
+    row.total = round2(row.total + outstanding);
     row.count++;
     map.set(c.payerId, row);
   }

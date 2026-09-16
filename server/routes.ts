@@ -38559,7 +38559,7 @@ startxref
   console.log("[Routes] Bills & EOB routes registered at /api/bills-eob/*");
 
   // ================== Outpatient RCM (World EHR) Routes ==================
-  app.use("/api/rcm", isAuthenticated, rcmRoutes);
+  app.use("/api/rcm", isAuthenticated, requireRole("admin", "provider", "clinician"), rcmRoutes);
   console.log("[Routes] Outpatient RCM routes registered at /api/rcm/* (eligibility, prior-auth, charge capture, coding, scrubber, claims, ERA, denials, patient financials, contracts, analytics, voice, agents)");
 
   // ================== App Store IAP Routes ==================

@@ -7,7 +7,7 @@ import { levelEm, mdmLevel, parseCodingSuggestion, reviewIcd } from "../server/r
 import { applyAutoFixes, scrubClaim } from "../server/rcm/scrubber";
 import { buildClaim } from "../server/rcm/claims";
 import { DEFAULT_CONTRACTS } from "../server/rcm/contracts";
-import { isValidNpi } from "../server/rcm/util";
+import { isValidNpi, round2 } from "../server/rcm/util";
 import type { Coverage, Patient } from "../server/rcm/types";
 
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
@@ -29,6 +29,9 @@ describe("eligibility", () => {
     const term = await checkEligibility({ patient, coverage: { ...coverage, terminationDate: "2026-06-30" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
     expect(term.active).toBe(false);
     expect(term.source).toBe("manual");
+    const notYetEffective = await checkEligibility({ patient, coverage: { ...coverage, effectiveDate: "2026-10-01" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(notYetEffective.active).toBe(false);
+    expect(notYetEffective.source).toBe("manual");
   });
   it("parses a vendor 271 defensively", () => {
     const b = parse271({ eligible: "1", plan_name: "Gold PPO", copay: "$30", deductible_remaining: "250.00", coinsurance: 20 });
@@ -48,6 +51,8 @@ describe("eligibility", () => {
     expect(est.insuranceResponsibility).toBe(56);
     const capped = estimatePatientResponsibility([{ cpt: "99214", units: 1 }], { ...benefits, oopMaxRemaining: 40 }, { "99214": 150 });
     expect(capped.patientResponsibility).toBe(40);
+    // The breakdown must still reconcile with the capped total, not the pre-cap components.
+    expect(round2(capped.copay + capped.deductibleApplied + capped.coinsurance)).toBe(40);
   });
   it("detects registration/payer discrepancies and blocks clearance", () => {
     const disc = detectDiscrepancies({ firstName: "Asha", lastName: "Demo", dob: "1968-03-14", memberId: "XYZ123" }, { lastName: "Demo-Kumar", memberId: "xyz 123" });
@@ -81,6 +86,7 @@ describe("prior auth", () => {
     a = transitionAuth(a, "approved", { actor: "t", authNumber: "A1", validFrom: "2026-09-01", validTo: "2026-10-01" });
     expect(authCoversService(a, "72148", "2026-09-15").ok).toBe(true);
     expect(authCoversService(a, "72148", "2026-10-15").ok).toBe(false);
+    expect(authCoversService(a, "72148", "2026-09-15", 3).ok).toBe(false); // only 2 units authorized
     a = consumeAuthUnit(a, 2);
     expect(a.status).toBe("exhausted");
     const x = build278(a, "XYZ123", "1234567893", "2026-09-01", "2026-10-01");
@@ -161,6 +167,11 @@ describe("scrubber", () => {
     const ids = new Set(r.edits.map((e) => e.id));
     for (const id of ["ncci-bundling", "timely-filing", "coverage-terminated", "auth-missing", "age-inappropriate-cpt", "sex-inappropriate-icd", "unknown-modifier", "pos-format", "unlinked-service-line", "icd-specificity"]) expect(ids.has(id), id).toBe(true);
     expect(r.clean).toBe(false);
+  });
+  it("modifier 25 alone does not bypass an NCCI PTP edit (it is an E/M modifier, not a bypass)", () => {
+    const claim = mk({ lines: [{ cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "12001", modifiers: ["25"], units: 1, charge: 120, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
+    expect(r.edits.map((e) => e.id)).toContain("ncci-bundling");
   });
   it("accepts NCCI bypass with a distinct-service modifier and flags telehealth POS without 95", () => {
     const claim = mk({ lines: [{ cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "12001", modifiers: ["59"], units: 1, charge: 120, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "99213", modifiers: ["25"], units: 1, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "10" }] });

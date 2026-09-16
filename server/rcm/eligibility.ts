@@ -82,6 +82,13 @@ export function parse271(raw: unknown): BenefitSnapshot {
   const pick = (...keys: string[]) => keys.map((k) => r[k]).find((v) => v !== undefined && v !== null);
   const activeRaw = pick("active", "coverage_active", "eligible", "status");
   const active = typeof activeRaw === "boolean" ? activeRaw : /^(1|true|active|eligible|a)$/i.test(String(activeRaw ?? ""));
+  const subscriber = {
+    firstName: str(pick("subscriber_first_name", "first_name", "firstName")),
+    lastName: str(pick("subscriber_last_name", "last_name", "lastName")),
+    dob: str(pick("subscriber_dob", "dob", "date_of_birth")),
+    memberId: str(pick("member_id", "memberId", "subscriber_id")),
+  };
+  const payerSubscriber = Object.values(subscriber).some((v) => v !== undefined) ? subscriber : undefined;
   return {
     active,
     planName: str(pick("plan_name", "planName", "plan")),
@@ -98,11 +105,15 @@ export function parse271(raw: unknown): BenefitSnapshot {
     checkedAt: new Date().toISOString(),
     source: "clearinghouse",
     raw,
+    payerSubscriber,
   };
 }
 
 export async function checkEligibility(req: EligibilityRequest, vendor: EligibilityVendor = stubEligibilityVendor): Promise<BenefitSnapshot> {
   const c = req.coverage;
+  if (c.effectiveDate && req.dateOfService < c.effectiveDate) {
+    return { active: false, planName: c.planType, checkedAt: new Date().toISOString(), source: "manual" };
+  }
   if (c.terminationDate && c.terminationDate < req.dateOfService) {
     return { active: false, planName: c.planType, checkedAt: new Date().toISOString(), source: "manual" };
   }
@@ -157,15 +168,23 @@ export function estimatePatientResponsibility(lines: Pick<ServiceLine, "cpt" | "
   const afterDeductible = round2(remainingAfterCopay - deductibleApplied);
   const coinsurance = round2(afterDeductible * ((benefits.coinsurancePct ?? 0) / 100));
   let patient = round2(copay + deductibleApplied + coinsurance);
+  let copayFinal = copay, deductibleFinal = deductibleApplied, coinsuranceFinal = coinsurance;
   if (benefits.oopMaxRemaining !== undefined && patient > benefits.oopMaxRemaining) {
     assumptions.push("Patient share capped at remaining out-of-pocket maximum");
-    patient = round2(benefits.oopMaxRemaining);
+    // Scale every component down proportionally so copay + deductible + coinsurance still sums
+    // to the capped total — otherwise the breakdown no longer reconciles with the total shown.
+    const cap = Math.max(0, benefits.oopMaxRemaining);
+    const scale = patient > 0 ? cap / patient : 0;
+    copayFinal = round2(copay * scale);
+    deductibleFinal = round2(deductibleApplied * scale);
+    coinsuranceFinal = round2(cap - copayFinal - deductibleFinal); // remainder absorbs rounding
+    patient = cap;
   }
   return {
     estimatedAllowed: allowed,
-    copay,
-    deductibleApplied,
-    coinsurance,
+    copay: copayFinal,
+    deductibleApplied: deductibleFinal,
+    coinsurance: coinsuranceFinal,
     patientResponsibility: patient,
     insuranceResponsibility: round2(Math.max(0, allowed - patient)),
     assumptions,

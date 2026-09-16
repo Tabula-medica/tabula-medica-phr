@@ -123,7 +123,7 @@ export default function RcmCommandCenter() {
                   </div>
                   <div className="flex gap-1">
                     {w.status !== "in-progress" && <Button size="sm" variant="outline" onClick={() => workItem.mutate({ id: w.id, status: "in-progress" })}>Start</Button>}
-                    <Button size="sm" variant="outline" onClick={() => workItem.mutate({ id: w.id, status: "done" })}><CheckCircle2 className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="outline" aria-label={`Mark "${w.title}" done`} onClick={() => workItem.mutate({ id: w.id, status: "done" })}><CheckCircle2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -161,8 +161,8 @@ export default function RcmCommandCenter() {
                     <div className="text-xs text-muted-foreground">{a.reason}</div>
                   </div>
                   <div className="flex gap-1">
-                    <Button size="sm" onClick={() => decide.mutate({ id: a.id, decision: "approved" })} data-testid={`button-approve-${a.id}`}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={() => decide.mutate({ id: a.id, decision: "rejected" })}>Reject</Button>
+                    <Button size="sm" disabled={decide.isPending && decide.variables?.id === a.id} onClick={() => decide.mutate({ id: a.id, decision: "approved" })} data-testid={`button-approve-${a.id}`}>Approve</Button>
+                    <Button size="sm" variant="outline" disabled={decide.isPending && decide.variables?.id === a.id} onClick={() => decide.mutate({ id: a.id, decision: "rejected" })}>Reject</Button>
                   </div>
                 </div>
               ))}
