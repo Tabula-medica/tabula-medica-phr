@@ -51,7 +51,7 @@ const eligibilityAgent: AgentDefinition = {
 };
 
 // ---------- Prior-auth agent ----------
-const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number }, unknown> = {
+const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number; dateOfService?: string }, unknown> = {
   name: "open-auth-request",
   description: "Create and mark requested a prior-auth for an auth-required service",
   async run(input, ctx) {
@@ -82,14 +82,16 @@ const priorAuthAgent: AgentDefinition = {
     // Merge duplicate auth-required lines (same patient/coverage/CPT, possibly across several
     // draft claims) into a single 278 request with combined units, instead of opening one per
     // line — otherwise two identical lines on a claim would each open their own auth record.
-    const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units: number; why: string }>();
+    const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units: number; dateOfService: string; why: string }>();
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
         // Consider every auth on file for this patient/coverage/payer/CPT, not just the first
         // match — a leftover denied/expired row must never shadow a later approved one, and an
         // approved auth from a *different* coverage/payer must never clear this one's requirement.
-        const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt);
+        // Date-scoped auths (opened for a specific visit) only match that visit; unscoped rows
+        // (no dateOfService, e.g. a manual 278) still apply across dates via their validity window.
+        const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt && (!a.dateOfService || a.dateOfService === line.dateOfService));
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
         if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
@@ -101,7 +103,7 @@ const priorAuthAgent: AgentDefinition = {
         // Request enough units for the line itself — otherwise a fresh 1-unit-default auth can
         // never satisfy a multi-unit line and the agent re-opens a request every run.
         if (existing) existing.units += line.units;
-        else pendingOpens.set(key, { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code), units: line.units, why: check.reason ?? "auth required" });
+        else pendingOpens.set(key, { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code), units: line.units, dateOfService: line.dateOfService, why: check.reason ?? "auth required" });
       }
     }
     for (const { why, ...input } of Array.from(pendingOpens.values())) steps.push({ tool: "open-auth-request", input, why });

@@ -32,6 +32,7 @@ export interface PriorAuth {
   coverageId: string;
   payerId: string;
   cpt: string;
+  dateOfService?: string; // visit this 278 was opened for; when set, it must not cover a different date
   diagnoses: string[];
   units: number;
   unitsUsed: number;
@@ -86,7 +87,7 @@ export function build278(auth: PriorAuth, memberId: string, requesterNpi: string
   };
 }
 
-export function createAuthRequest(input: { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number; urgency?: "standard" | "urgent"; availableDocs?: string[] }, rules: AuthRule[] = DEFAULT_AUTH_RULES): PriorAuth {
+export function createAuthRequest(input: { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number; urgency?: "standard" | "urgent"; availableDocs?: string[]; dateOfService?: string }, rules: AuthRule[] = DEFAULT_AUTH_RULES): PriorAuth {
   const rule = rules.find((r) => r.cpt === input.cpt.toUpperCase());
   const documentation = rule?.documentation ?? ["Clinical note supporting medical necessity"];
   const have = new Set((input.availableDocs ?? []).map((d) => d.toLowerCase()));
@@ -98,6 +99,7 @@ export function createAuthRequest(input: { patientId: string; coverageId: string
     coverageId: input.coverageId,
     payerId: input.payerId,
     cpt: input.cpt.toUpperCase(),
+    dateOfService: input.dateOfService,
     diagnoses: input.diagnoses,
     units: input.units ?? 1,
     unitsUsed: 0,
@@ -157,6 +159,10 @@ export function consumeAuthUnit(auth: PriorAuth, units = 1): PriorAuth {
 export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: string, requestedUnits = 1): { ok: boolean; reason?: string } {
   if (auth.cpt !== cpt.toUpperCase()) return { ok: false, reason: "Auth is for a different code" };
   if (auth.status !== "approved") return { ok: false, reason: `Auth status is ${auth.status}` };
+  // A 278 opened for one visit must not be reused for another date just because the default
+  // 90-day validity window happens to contain it. Unscoped auths (no dateOfService) still
+  // cover any date inside validFrom/validTo — that is the manual / API-created path.
+  if (auth.dateOfService && auth.dateOfService !== dateOfService) return { ok: false, reason: "Auth is for a different date of service" };
   if (auth.validFrom && dateOfService < auth.validFrom) return { ok: false, reason: "Service date before auth validity" };
   if (auth.validTo && dateOfService > auth.validTo) return { ok: false, reason: "Auth expired for this service date" };
   // Compare against the units this service actually needs, not just whether any unit remains —

@@ -93,6 +93,11 @@ describe("prior auth", () => {
     expect(authCoversService(a, "72148", "2026-09-15").ok).toBe(true);
     expect(authCoversService(a, "72148", "2026-10-15").ok).toBe(false);
     expect(authCoversService(a, "72148", "2026-09-15", 3).ok).toBe(false); // only 2 units authorized
+    let dated = createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "72148", diagnoses: ["M54.16"], dateOfService: "2026-09-01" });
+    dated = transitionAuth(dated, "requested", { actor: "t" });
+    dated = transitionAuth(dated, "approved", { actor: "t", authNumber: "A2", validFrom: "2026-09-01", validTo: "2026-12-01" });
+    expect(authCoversService(dated, "72148", "2026-09-01").ok).toBe(true);
+    expect(authCoversService(dated, "72148", "2026-10-15").ok).toBe(false); // pinned to the requested visit, not the 90-day window
     a = consumeAuthUnit(a, 2);
     expect(a.status).toBe("exhausted");
     const x = build278(a, "XYZ123", "1234567893", "2026-09-01", "2026-10-01");

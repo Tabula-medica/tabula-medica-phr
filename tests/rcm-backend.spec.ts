@@ -10,6 +10,7 @@ import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklis
 import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
 import { agentRuntime } from "../server/rcm/agents";
+import { transitionAuth } from "../server/rcm/prior-auth";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
 import type { Coverage, LedgerEntry, Patient } from "../server/rcm/types";
@@ -277,8 +278,37 @@ describe("agents", () => {
     const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
     expect(opens).toHaveLength(2); // one per distinct date of service, not one per line
     expect(opens.map((s) => s.input.units).sort()).toEqual([1, 3]); // 2026-09-01's two lines merged (1+2); 2026-10-15 stayed separate
+    expect(opens.map((s) => s.input.dateOfService).sort()).toEqual(["2026-09-01", "2026-10-15"]);
     const auths = await rcmStore.listAuths(T, "p1");
-    expect(auths.filter((a) => a.cpt === "97110")).toHaveLength(2);
+    const dated = auths.filter((a) => a.cpt === "97110");
+    expect(dated).toHaveLength(2);
+    expect(dated.map((a) => a.dateOfService).sort()).toEqual(["2026-09-01", "2026-10-15"]);
+  });
+  it("prior-auth agent does not let one date's in-flight or approved auth cover a later date of the same CPT", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claimA = buildClaim({ encounterId: "e-pt-a", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claimA);
+    const r1 = await agentRuntime.run("prior-auth", T);
+    const openA = r1.steps.find((s) => s.tool === "open-auth-request" && s.input.cpt === "97110")!;
+    expect(openA.input.dateOfService).toBe("2026-09-01");
+    const authA = (await rcmStore.getAuth(T, (openA.output as { authId: string }).authId))!;
+    expect(authA.dateOfService).toBe("2026-09-01");
+
+    const claimB = buildClaim({ encounterId: "e-pt-b", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-10-15", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claimB);
+    const r2 = await agentRuntime.run("prior-auth", T);
+    const openB = r2.steps.find((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(openB?.input.dateOfService).toBe("2026-10-15");
+    expect(openB?.outcome).toBe("ok");
+
+    await rcmStore.upsertAuth(T, transitionAuth(authA, "approved", { actor: "t", authNumber: "AUTH-A", validFrom: "2026-09-01", validTo: "2026-12-01" }));
+    const claimC = buildClaim({ encounterId: "e-pt-c", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-11-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claimC);
+    const r3 = await agentRuntime.run("prior-auth", T);
+    expect(r3.steps.find((s) => s.tool === "attach-auth-to-claim" && s.input.claimId === claimC.id)).toBeUndefined();
+    expect(r3.steps.find((s) => s.tool === "open-auth-request" && s.input.dateOfService === "2026-11-01")?.outcome).toBe("ok");
+    expect(r3.steps.find((s) => s.tool === "attach-auth-to-claim" && s.input.claimId === claimA.id)?.input.authId).toBe(authA.id);
   });
   it("scrubber flags the missing -25 modifier for a human instead of auto-fixing it, and never stages an unclean claim for submission", async () => {
     const r = await agentRuntime.run("claim-scrubber", T);
