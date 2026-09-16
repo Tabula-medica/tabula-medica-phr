@@ -79,9 +79,10 @@ const priorAuthAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     const auths = await ctx.store.listAuths(ctx.tenantId);
-    // Merge duplicate auth-required lines (same patient/coverage/CPT, possibly across several
-    // draft claims) into a single 278 request with combined units, instead of opening one per
-    // line — otherwise two identical lines on a claim would each open their own auth record.
+    // Merge duplicate auth-required lines on the same visit (same patient/coverage/CPT/DOS,
+    // possibly across several draft claims) into a single 278 with combined units — otherwise
+    // two identical lines would each open their own auth. Distinct dates of service stay
+    // separate: imaging ordered weeks apart cannot share one unit count or validity window.
     const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units: number; why: string }>();
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
@@ -93,7 +94,7 @@ const priorAuthAgent: AgentDefinition = {
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
         if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
-        const key = `${claim.patientId}|${claim.coverageId}|${line.cpt}`;
+        const key = `${claim.patientId}|${claim.coverageId}|${line.cpt}|${line.dateOfService}`;
         const existing = pendingOpens.get(key);
         // Request enough units for the line itself — otherwise a fresh 1-unit-default auth can
         // never satisfy a multi-unit line and the agent re-opens a request every run.

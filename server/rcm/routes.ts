@@ -355,19 +355,21 @@ rcmRouter.post("/voice/command", wrap(async (req, res) => {
 rcmRouter.get("/agents", (_req, res) => res.json({ success: true, agents: agentRuntime.list() }));
 rcmRouter.post("/agents/:name/run", wrap(async (req, res) => { try { res.json({ success: true, result: await agentRuntime.run(req.params.name, tenantOf(req), req.body?.args ?? {}, { actor: actorOf(req), dryRun: req.body?.dryRun === true }) }); } catch (e) { fail(res, 404, e instanceof Error ? e.message : "agent error"); } }));
 rcmRouter.get("/agents/audit", wrap(async (req, res) => res.json({ success: true, audit: await rcmStore.listAudit(tenantOf(req)) })));
-rcmRouter.get("/approvals", wrap(async (req, res) => res.json({ success: true, approvals: await rcmStore.listApprovals(tenantOf(req), typeof req.query.status === "string" ? (req.query.status as "pending" | "approved" | "rejected") : undefined) })));
+rcmRouter.get("/approvals", wrap(async (req, res) => {
+  const t = tenantOf(req);
+  const status = typeof req.query.status === "string" ? (req.query.status as "pending" | "approved" | "rejected") : undefined;
+  const listed = await rcmStore.listApprovals(t, status === "pending" ? undefined : status);
+  // `pending` means "still needs an operator": not-yet-decided, or approved but the
+  // money-moving tool has not actually succeeded (Approve retries execution).
+  const approvals = status === "pending" ? listed.filter((a) => a.status === "pending" || (a.status === "approved" && !a.executedAt)) : listed;
+  res.json({ success: true, approvals });
+}));
 rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
   const p = z.object({ decision: z.enum(["approved", "rejected"]) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
-  const t = tenantOf(req);
-  const before = (await rcmStore.listApprovals(t)).find((x) => x.id === req.params.id);
-  if (!before) return fail(res, 404, "approval not found");
-  const a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req));
-  if (!a) return fail(res, 409, `approval already ${before.status}`);
-  const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
-  if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
-  const exec = p.data.decision === "approved" ? await agentRuntime.executeApproved(t, a.id, actorOf(req)) : undefined;
-  res.json({ success: true, approval: a, executed: exec });
+  const result = await agentRuntime.applyDecision(tenantOf(req), req.params.id, p.data.decision, actorOf(req));
+  if (!result.ok) return fail(res, result.status, result.error);
+  res.json({ success: true, approval: result.approval, executed: result.executed });
 }));
 
 export default rcmRouter;

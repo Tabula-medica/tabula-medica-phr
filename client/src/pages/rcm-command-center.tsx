@@ -162,7 +162,7 @@ export default function RcmCommandCenter() {
                   </div>
                   <div className="flex gap-1">
                     <Button size="sm" disabled={decide.isPending && decide.variables?.id === a.id} onClick={() => decide.mutate({ id: a.id, decision: "approved" })} data-testid={`button-approve-${a.id}`}>Approve</Button>
-                    <Button size="sm" variant="outline" disabled={decide.isPending && decide.variables?.id === a.id} onClick={() => decide.mutate({ id: a.id, decision: "rejected" })}>Reject</Button>
+                    <Button size="sm" variant="outline" disabled={a.status !== "pending" || (decide.isPending && decide.variables?.id === a.id)} onClick={() => decide.mutate({ id: a.id, decision: "rejected" })}>Reject</Button>
                   </div>
                 </div>
               ))}

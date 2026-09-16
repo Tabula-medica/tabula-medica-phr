@@ -9,7 +9,7 @@
 //   4. AI (planner/polish) is optional: with `RCM_AI_ENABLED!=true` every agent runs its
 //      deterministic plan. When enabled, PHI-bearing prompts go through ai-provider (Vertex).
 //   5. No PHI in agent audit `detail` beyond ids and amounts.
-import { rcmStore, type RcmStore } from "../store";
+import { rcmStore, type Approval, type RcmStore } from "../store";
 import { makeWorkItem } from "../worklists";
 
 // Shared, mutable step budget: the orchestrator's `run-agent` tool passes its own `ctx.budget`
@@ -132,6 +132,26 @@ export class AgentRuntime {
     } finally {
       this.executing.delete(approvalId);
     }
+  }
+
+  // Production path for POST /api/rcm/approvals/:id. A first decision still requires a
+  // pending row (single-use). An already-approved row whose tool has not succeeded is
+  // retried in place — that is the only way operators can finish a failed submit/refund/
+  // write-off, since decideApproval will not accept a second decision.
+  async applyDecision(tenantId: string, approvalId: string, decision: "approved" | "rejected", by: string): Promise<{ ok: true; approval: Approval; executed?: { ok: boolean; output?: unknown; error?: string } } | { ok: false; status: 404 | 409; error: string }> {
+    const before = (await this.store.listApprovals(tenantId)).find((x) => x.id === approvalId);
+    if (!before) return { ok: false, status: 404, error: "approval not found" };
+    const retryExec = before.status === "approved" && !before.executedAt && decision === "approved";
+    const a = retryExec ? before : await this.store.decideApproval(tenantId, approvalId, decision, by);
+    if (!a) return { ok: false, status: 409, error: `approval already ${before.status}` };
+    const executed = decision === "approved" ? await this.executeApproved(tenantId, a.id, by) : undefined;
+    // Close the work item only once the operator action is finished: a rejection, or an
+    // approval whose tool succeeded. A failed execution stays queued so it can be retried.
+    if (decision === "rejected" || executed?.ok) {
+      const wi = await this.store.findOpenWorkItem(tenantId, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
+      if (wi) await this.store.updateWorkItem(tenantId, wi.id, { status: "done" });
+    }
+    return { ok: true, approval: a, executed };
   }
 }
 

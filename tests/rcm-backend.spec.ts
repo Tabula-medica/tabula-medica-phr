@@ -261,6 +261,23 @@ describe("agents", () => {
     const auth = await rcmStore.getAuth(T, (opened.output as { authId: string }).authId);
     expect(auth?.units).toBe(3); // not the createAuthRequest default of 1
   });
+  it("prior-auth agent merges same-DOS duplicate lines but opens a separate 278 per date of service", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const sameVisit = buildClaim({ encounterId: "e-pt-same", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [
+      { cpt: "97110", modifiers: [], units: 2, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" },
+      { cpt: "97110", modifiers: [], units: 2, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" },
+    ] });
+    const laterVisit = buildClaim({ encounterId: "e-pt-later", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [
+      { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-22", placeOfService: "11" },
+    ] });
+    await rcmStore.upsertClaim(T, sameVisit);
+    await rcmStore.upsertClaim(T, laterVisit);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opened = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(opened).toHaveLength(2);
+    expect(opened.map((s) => s.input.units).sort()).toEqual([1, 4]);
+  });
   it("scrubber flags the missing -25 modifier for a human instead of auto-fixing it, and never stages an unclean claim for submission", async () => {
     const r = await agentRuntime.run("claim-scrubber", T);
     const scrub = r.steps.find((s) => s.tool === "scrub-claim")!;
@@ -314,6 +331,32 @@ describe("agents", () => {
     const exec2 = await agentRuntime.executeApproved(T, approval.id, "biller");
     expect(exec2.ok).toBe(true);
     expect((await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!.executedAt).toBeDefined();
+  });
+  it("POST /approvals/:id retries a failed execution instead of 409ing, and keeps the work item open until the tool succeeds", async () => {
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "missing-denial", patientId: "pt-demo-1", amount: 10, reason: "test" }, reason: "test" });
+    await rcmStore.addWorkItems(T, [{ id: "wi-apr-retry", queue: "agent-approval", title: "write-off", priority: 70, source: "agent", status: "open", createdAt: "2026-09-01T00:00:00.000Z", slaHours: 24, context: { approvalId: approval.id } }]);
+    const first = await agentRuntime.applyDecision(T, approval.id, "approved", "biller");
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.executed?.ok).toBe(false);
+    expect((await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!.executedAt).toBeUndefined();
+    expect((await rcmStore.listWorkItems(T)).find((w) => w.id === "wi-apr-retry")!.status).toBe("open");
+    // Replaying Approve through the same production path must retry, not 409.
+    const replay = await agentRuntime.applyDecision(T, approval.id, "approved", "biller");
+    expect(replay.ok).toBe(true);
+    if (!replay.ok) return;
+    expect(replay.executed?.ok).toBe(false);
+    await rcmStore.upsertDenial(T, { id: "missing-denial", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const retry = await agentRuntime.applyDecision(T, approval.id, "approved", "biller");
+    expect(retry.ok).toBe(true);
+    if (!retry.ok) return;
+    expect(retry.executed?.ok).toBe(true);
+    expect((await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!.executedAt).toBeDefined();
+    expect((await rcmStore.listWorkItems(T)).find((w) => w.id === "wi-apr-retry")!.status).toBe("done");
+    const afterSuccess = await agentRuntime.applyDecision(T, approval.id, "approved", "biller");
+    expect(afterSuccess.ok).toBe(false);
+    if (afterSuccess.ok) return;
+    expect(afterSuccess.status).toBe(409);
   });
   it("denial agent triages and never executes any money-moving or patient-billing step without approval", async () => {
     const r = await agentRuntime.run("denials", T);
