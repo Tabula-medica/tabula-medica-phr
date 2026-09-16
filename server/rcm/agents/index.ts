@@ -3,7 +3,7 @@
 import { agentRuntime, type AgentDefinition, type AgentStep, type Tool, type ToolContext } from "./runtime";
 import { aiText } from "./ai";
 import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance } from "../eligibility";
-import { authCoversService, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
+import { authCoversService, authorizedCptsOnFile, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
@@ -51,7 +51,7 @@ const eligibilityAgent: AgentDefinition = {
 };
 
 // ---------- Prior-auth agent ----------
-const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number }, unknown> = {
+const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; dateOfService?: string; units?: number }, unknown> = {
   name: "open-auth-request",
   description: "Create and mark requested a prior-auth for an auth-required service",
   async run(input, ctx) {
@@ -79,10 +79,23 @@ const priorAuthAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     const auths = await ctx.store.listAuths(ctx.tenantId);
+    // Escalate existing auths, not just freshly-opened ones — an SLA-breached requested/pended
+    // auth or a soon-to-expire approved auth needs a work item on every scan, not only the run
+    // that first created it (openAuth's own itemsFromAuths call fires before any SLA deadline
+    // could have passed, so this is the only place that catches a breach or a renewal window).
+    if (!ctx.dryRun) {
+      const flagged = itemsFromAuths(auths);
+      const withoutOpenItem: typeof flagged = [];
+      for (const item of flagged) {
+        const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "prior-auth" && w.context?.authId === item.context?.authId);
+        if (!existing) withoutOpenItem.push(item);
+      }
+      if (withoutOpenItem.length) await ctx.store.addWorkItems(ctx.tenantId, withoutOpenItem);
+    }
     // Merge duplicate auth-required lines (same patient/coverage/CPT, possibly across several
     // draft claims) into a single 278 request with combined units, instead of opening one per
     // line — otherwise two identical lines on a claim would each open their own auth record.
-    const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units: number; why: string }>();
+    const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; dateOfService: string; units: number; why: string }>();
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
@@ -92,7 +105,9 @@ const priorAuthAgent: AgentDefinition = {
         const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt);
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
-        if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
+        // A pending request only covers this line if it was opened for at least as many units —
+        // a 1-unit request already in flight must not silently swallow a line that needs 3.
+        if (matches.some((a) => ["requested", "pended"].includes(a.status) && a.units >= line.units)) continue;
         // Include the date of service in the key — merging lines from different dates would
         // combine unrelated visits into one request/validity window, rejecting the visit that
         // falls outside it (or reusing one authorization for dates it was never approved for).
@@ -101,7 +116,7 @@ const priorAuthAgent: AgentDefinition = {
         // Request enough units for the line itself — otherwise a fresh 1-unit-default auth can
         // never satisfy a multi-unit line and the agent re-opens a request every run.
         if (existing) existing.units += line.units;
-        else pendingOpens.set(key, { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code), units: line.units, why: check.reason ?? "auth required" });
+        else pendingOpens.set(key, { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code), dateOfService: line.dateOfService, units: line.units, why: check.reason ?? "auth required" });
       }
     }
     for (const { why, ...input } of Array.from(pendingOpens.values())) steps.push({ tool: "open-auth-request", input, why });
@@ -123,10 +138,14 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     const others = (await ctx.store.listClaims(ctx.tenantId, { patientId: claim.patientId })).filter((c) => c.id !== claim.id);
     // The full payer-aware auth requirement (contract list + DEFAULT_AUTH_RULES + gold-carding).
     const authRequiredCpts = linesNeedingAuth(claim.lines, contract).map((x) => x.line.cpt);
-    const first = scrubClaim(claim, { patient, coverage, authRequiredCpts, authOnFile: !!claim.priorAuthNumber, priorClaimsSameDos: others });
+    const auths = await ctx.store.listAuths(ctx.tenantId);
+    // applyAutoFixes never touches priorAuthNumber, so the same validated flag holds for both
+    // the pre-fix and post-fix scrub passes.
+    const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, authRequiredCpts, auths);
+    const first = scrubClaim(claim, { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
     await ctx.store.recordScrub(ctx.tenantId, first.clean);
     const fixed = applyAutoFixes(claim, first.edits);
-    const second = scrubClaim(fixed.claim, { patient, coverage, authRequiredCpts, authOnFile: !!fixed.claim.priorAuthNumber, priorClaimsSameDos: others });
+    const second = scrubClaim(fixed.claim, { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
     let next = claim.status === "draft" ? transitionClaim(fixed.claim, "scrubbed", ctx.actor, `score ${second.score}`) : fixed.claim;
     if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
     await ctx.store.upsertClaim(ctx.tenantId, next);
@@ -226,10 +245,13 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
     const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
     const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
     const draft = correctedClaim(orig, {});
-    const scrubCtx = { patient, coverage, authRequiredCpts: linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt), authOnFile: !!draft.priorAuthNumber };
+    const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
+    const auths = await ctx.store.listAuths(ctx.tenantId);
+    const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, authRequiredCpts, auths);
+    const scrubCtx = { patient, coverage, authRequiredCpts, authorizedCpts };
     const first = scrubClaim(draft, scrubCtx);
     const fixed = applyAutoFixes(draft, first.edits);
-    const second = scrubClaim(fixed.claim, { ...scrubCtx, authOnFile: !!fixed.claim.priorAuthNumber });
+    const second = scrubClaim(fixed.claim, scrubCtx);
     // A clean corrected claim should actually be staged for resubmission (the same draft →
     // scrubbed → ready lifecycle scrub-claim uses), not just persisted as a permanent draft.
     let next = fixed.claim;
@@ -295,7 +317,15 @@ const denialAgent: AgentDefinition = {
     const open = (await ctx.store.listDenials(ctx.tenantId, "open")).sort((a, b) => b.priorityScore - a.priorityScore);
     // Planning must stay read-only under dryRun — this queue write is a real side effect, not
     // a step the runtime's own dryRun branch can intercept (planning runs before that branch).
-    if (!ctx.dryRun) await ctx.store.addWorkItems(ctx.tenantId, itemsFromDenials(open.filter((d) => d.priorityScore >= 60)));
+    if (!ctx.dryRun) {
+      const highPriority = open.filter((d) => d.priorityScore >= 60);
+      const withoutOpenItem: typeof highPriority = [];
+      for (const d of highPriority) {
+        const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "denials" && w.context?.denialId === d.id);
+        if (!existing) withoutOpenItem.push(d);
+      }
+      if (withoutOpenItem.length) await ctx.store.addWorkItems(ctx.tenantId, itemsFromDenials(withoutOpenItem));
+    }
     for (const d of open) {
       steps.push({ tool: "triage-denial", input: { denialId: d.id }, why: `${d.category} CARC ${d.carc}` });
       const rec = recommendAction(d);

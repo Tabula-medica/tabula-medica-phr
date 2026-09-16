@@ -22,7 +22,11 @@ export interface ScrubContext {
   patient?: Patient;
   coverage?: Coverage;
   today?: string;
-  authOnFile?: boolean;
+  // The CPTs the claim's single on-file priorAuthNumber actually authorizes (validated against a
+  // real approved PriorAuth record — see authorizedCptsOnFile in prior-auth.ts). A single auth
+  // number only ever covers one CPT, so a claim with several auth-required lines must not have
+  // its whole auth-missing check cleared just because one of them is covered.
+  authorizedCpts?: string[];
   authRequiredCpts?: string[];
   priorClaimsSameDos?: Claim[]; // duplicate detection
 }
@@ -127,8 +131,14 @@ const rules: Record<string, Rule> = {
   }),
   "auth-missing": (c, ctx) => {
     const need = new Set((ctx.authRequiredCpts ?? []).map((x) => x.toUpperCase()));
-    if (!need.size || ctx.authOnFile || c.priorAuthNumber) return [];
-    return c.lines.flatMap((l, i) => (need.has(l.cpt) ? [{ id: "auth-missing", category: "authorization", severity: "error" as const, lineNumber: i + 1, message: `${l.cpt} requires prior authorization; none on claim`, fix: "Attach the auth number (box 23) or obtain retro-auth" }] : []));
+    if (!need.size) return [];
+    // ctx.authorizedCpts must be computed by the caller against a real approved PriorAuth record
+    // — a non-empty claim.priorAuthNumber alone is not proof of authorization (it could be stale,
+    // for the wrong payer/coverage, or simply typed in). It's evaluated per-line, not as one
+    // claim-wide flag: a single auth number only ever covers one CPT, so a claim with several
+    // auth-required lines must still flag the ones that number doesn't cover.
+    const covered = new Set((ctx.authorizedCpts ?? []).map((x) => x.toUpperCase()));
+    return c.lines.flatMap((l, i) => (need.has(l.cpt.toUpperCase()) && !covered.has(l.cpt.toUpperCase()) ? [{ id: "auth-missing", category: "authorization", severity: "error" as const, lineNumber: i + 1, message: `${l.cpt} requires prior authorization; none on claim`, fix: "Attach the auth number (box 23) or obtain retro-auth" }] : []));
   },
   "timely-filing": (c, ctx) => {
     const dos = c.lines[0]?.dateOfService;

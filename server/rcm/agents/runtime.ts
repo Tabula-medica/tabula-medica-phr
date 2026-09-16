@@ -84,11 +84,19 @@ export class AgentRuntime {
         continue;
       }
       if (tool.requiresApproval) {
-        const approval = await this.store.requestApproval(tenantId, { agent: name, action: tool.name, payload: step.input, reason: `${step.why} — ${tool.approvalReason ?? "human approval required"}` });
-        await this.store.addWorkItems(tenantId, [makeWorkItem({ queue: "agent-approval", title: `${name}: ${tool.name} — ${step.why}`, patientId: typeof step.input.patientId === "string" ? step.input.patientId : undefined, claimId: typeof step.input.claimId === "string" ? step.input.claimId : undefined, amount: typeof step.input.amount === "number" ? step.input.amount : undefined, priority: 70, source: "agent", context: { approvalId: approval.id } })]);
+        // A re-plan of the same still-unresolved state (a denial that hasn't been decided on
+        // yet, a claim still awaiting submission) must not queue a second, distinct approval for
+        // the identical action — approving both would run a money-moving tool (write-off,
+        // refund, transfer-to-patient) twice against the same record. Dedupe on the exact same
+        // agent/action/payload having a still-live approval (pending, or approved but not yet
+        // executed) before minting a new one.
+        const payloadKey = JSON.stringify(step.input);
+        const live = (await this.store.listApprovals(tenantId)).find((a) => a.agent === name && a.action === tool.name && JSON.stringify(a.payload) === payloadKey && (a.status === "pending" || (a.status === "approved" && !a.executedAt)));
+        const approval = live ?? (await this.store.requestApproval(tenantId, { agent: name, action: tool.name, payload: step.input, reason: `${step.why} — ${tool.approvalReason ?? "human approval required"}` }));
+        if (!live) await this.store.addWorkItems(tenantId, [makeWorkItem({ queue: "agent-approval", title: `${name}: ${tool.name} — ${step.why}`, patientId: typeof step.input.patientId === "string" ? step.input.patientId : undefined, claimId: typeof step.input.claimId === "string" ? step.input.claimId : undefined, amount: typeof step.input.amount === "number" ? step.input.amount : undefined, priority: 70, source: "agent", context: { approvalId: approval.id } })]);
         approvals++;
         steps.push({ ...step, outcome: "needs-approval", approvalId: approval.id });
-        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { approvalId: approval.id }, outcome: "needs-approval" });
+        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { approvalId: approval.id, deduped: !!live }, outcome: "needs-approval" });
         continue;
       }
       try {

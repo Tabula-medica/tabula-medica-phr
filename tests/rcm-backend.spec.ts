@@ -9,10 +9,14 @@ import { agingByPayer, computeKpis } from "../server/rcm/analytics";
 import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
+import { authCoversService, authorizedCptsOnFile, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
+import { scrubClaim } from "../server/rcm/scrubber";
+import { estimatePatientResponsibility } from "../server/rcm/eligibility";
+import { parseCodingSuggestion } from "../server/rcm/coding";
 import { agentRuntime } from "../server/rcm/agents";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
-import type { Coverage, LedgerEntry, Patient } from "../server/rcm/types";
+import type { BenefitSnapshot, Coverage, LedgerEntry, Patient } from "../server/rcm/types";
 
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
 const coverage: Coverage = { id: "c1", patientId: "p1", payerId: "BCBS", payerName: "BCBS PPO", memberId: "XYZ123", priority: "primary", subscriberRelationship: "self", timelyFilingDays: 90 };
@@ -403,5 +407,147 @@ describe("agents", () => {
     const exec = await agentRuntime.executeApproved(T, refundStep.approvalId!, "biller");
     expect(exec.ok).toBe(true);
     expect((exec.output as { refunded: number }).refunded).toBe(60);
+  });
+  it("re-planning the same still-unresolved state does not queue a second, distinct approval for the same money-moving action", async () => {
+    // patient-financial's duplicate-credit refund keeps being re-detected on every plan() call
+    // until it's actually refunded — nothing marks it "in progress" the way denial triage does.
+    // Without a dedup guard, running the agent twice before the first refund is decided would
+    // queue two separate approvals for the same $150 credit; approving both would refund it twice.
+    const r1 = await agentRuntime.run("patient-financial", T);
+    const step1 = r1.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const afterFirst = await rcmStore.listApprovals(T, "pending");
+    expect(afterFirst.some((a) => a.id === step1.approvalId)).toBe(true);
+    const r2 = await agentRuntime.run("patient-financial", T);
+    const step2 = r2.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    expect(step2.approvalId).toBe(step1.approvalId);
+    expect(await rcmStore.listApprovals(T, "pending")).toHaveLength(afterFirst.length);
+  });
+  it("denial agent does not duplicate a denials-queue work item that's already open for the same denial", async () => {
+    const before = await rcmStore.listWorkItems(T, "denials");
+    expect(before.length).toBeGreaterThan(0); // seed already queued items for these denials
+    await agentRuntime.run("denials", T);
+    const after = await rcmStore.listWorkItems(T, "denials");
+    expect(after.length).toBe(before.length); // re-scanning the same still-open denials must not pile up duplicates
+  });
+  it("prior-auth agent escalates an existing SLA-breached or soon-to-expire auth, not just newly-opened ones", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const breached = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "system" });
+    await rcmStore.upsertAuth(T, { ...breached, slaDeadline: "2020-01-01T00:00:00.000Z" }); // already breached
+    const r = await agentRuntime.run("prior-auth", T);
+    expect(r.dryRun).toBeFalsy();
+    const items = await rcmStore.listWorkItems(T, "prior-auth");
+    expect(items.some((w) => w.context?.authId === breached.id)).toBe(true);
+    // Re-running must not open a second escalation item for the same still-breached auth.
+    const before = items.length;
+    await agentRuntime.run("prior-auth", T);
+    expect((await rcmStore.listWorkItems(T, "prior-auth")).length).toBe(before);
+  });
+  it("prior-auth agent opens a request anchored to the visit's date, so approving it later still covers that visit", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const visitDate = "2026-11-01"; // well in the future relative to when this request is approved below
+    const claim = buildClaim({ encounterId: "e-dos", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "70450", modifiers: [], units: 1, charge: 500, dxPointers: [1], dateOfService: visitDate, placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opened = r.steps.find((s) => s.tool === "open-auth-request" && s.input.cpt === "70450")!;
+    const authId = (opened.output as { authId: string }).authId;
+    // Approved "today" (well before the visit) with no explicit validFrom — must anchor to the
+    // visit date it was actually requested for, not to today, so the visit itself is covered.
+    const pending = await rcmStore.getAuth(T, authId);
+    const approved = transitionAuth(pending!, "approved", { actor: "biller", authNumber: "AUTH-DOS-1" });
+    expect(approved.validFrom).toBe(visitDate);
+    expect(authCoversService(approved, "70450", visitDate).ok).toBe(true);
+  });
+  it("prior-auth agent still opens a new request when an existing pending one has too few units", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = buildClaim({ encounterId: "e-units", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 3, charge: 300, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim);
+    // A pending request for only 1 unit is already in flight — it cannot cover a 3-unit line.
+    const insufficient = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", units: 1, diagnoses: ["M54.16"] }), "requested", { actor: "system" });
+    await rcmStore.upsertAuth(T, insufficient);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opened = r.steps.find((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(opened).toBeDefined(); // must not be skipped just because *some* request is pending
+  });
+});
+
+describe("round 4 hardening", () => {
+  it("authCoversService requires an actual authorization number, not just an 'approved' status", () => {
+    const approvedNoNumber = transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    const approved = { ...transitionAuth(approvedNoNumber, "approved", { actor: "t", validFrom: "2026-01-01", validTo: "2026-12-31" }), authNumber: undefined };
+    expect(authCoversService(approved, "70450", "2026-09-01").ok).toBe(false);
+    const withNumber = { ...approved, authNumber: "AUTH123" };
+    expect(authCoversService(withNumber, "70450", "2026-09-01").ok).toBe(true);
+  });
+  it("authorizedCptsOnFile validates the claim's priorAuthNumber against a real approved auth, not just its presence", () => {
+    const auths = [{ ...transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" }) }];
+    const approved = transitionAuth(auths[0], "approved", { actor: "t", authNumber: "AUTH999" });
+    expect(authorizedCptsOnFile("MADE-UP-NUMBER", "p1", "c1", ["70450"], [approved])).toEqual([]);
+    expect(authorizedCptsOnFile(undefined, "p1", "c1", ["70450"], [approved])).toEqual([]);
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", ["70450"], [approved])).toEqual(["70450"]);
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", ["72148"], [approved])).toEqual([]); // wrong CPT
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c2", ["70450"], [approved])).toEqual([]); // wrong coverage
+  });
+  it("scrubber's auth-missing rule clears per-CPT, not the whole claim, and normalizes CPT case", () => {
+    const claim = { ...mkClaim(), priorAuthNumber: "SOME-STRING" };
+    const flagged = scrubClaim(claim, { authRequiredCpts: ["99214"], authorizedCpts: [] });
+    expect(flagged.edits.some((e) => e.id === "auth-missing")).toBe(true); // priorAuthNumber alone doesn't clear it
+    const cleared = scrubClaim(claim, { authRequiredCpts: ["99214"], authorizedCpts: ["99214"] });
+    expect(cleared.edits.some((e) => e.id === "auth-missing")).toBe(false);
+    const lowerCaseNeed = scrubClaim(claim, { authRequiredCpts: ["99214"], authorizedCpts: [] });
+    expect(lowerCaseNeed.edits.filter((e) => e.id === "auth-missing")).toHaveLength(1); // matched despite need-set casing
+    // A claim with two auth-required lines, only one of them covered by the on-file number,
+    // must still flag the other — a single auth number can't clear the whole claim.
+    const twoLineClaim = { ...mkClaim(), priorAuthNumber: "AUTH-1", lines: [mkClaim().lines[0], { ...mkClaim().lines[1], cpt: "72148" }] };
+    const partial = scrubClaim(twoLineClaim, { authRequiredCpts: ["99214", "72148"], authorizedCpts: ["99214"] });
+    const authMissingLines = partial.edits.filter((e) => e.id === "auth-missing").map((e) => e.lineNumber);
+    expect(authMissingLines).toEqual([2]); // only the uncovered 72148 line (index 2) is flagged
+  });
+  it("parseEra derives a stable fingerprint id (not a random one) when the payload has no id or check number", () => {
+    const payload = { payerid: "BCBS", check_amount: 100, check_date: "2026-08-01", claims: [{ pcn: "clm-1", billed: 100, paid: 100 }] };
+    const a = parseEra(payload);
+    const b = parseEra(payload);
+    expect(a.id).toBe(b.id); // same content → same id, so a retried post is recognized as a duplicate
+    expect(a.id).not.toMatch(/^era_/); // not the random fallback id generator
+  });
+  it("buildClaim falls back to the payer contract's timely-filing default before the generic 90 days", () => {
+    const c = buildClaim({ encounterId: "e", patient, coverage: { ...coverage, timelyFilingDays: undefined }, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }], contractTimelyFilingDays: 365 });
+    expect(c.timelyFilingDeadline).toBe("2027-07-01"); // 365 days, not the generic 90
+  });
+  it("correctedClaim caps diagnoses to 12 like buildClaim does", () => {
+    const c = mkClaim();
+    const tooMany = Array.from({ length: 15 }, (_, i) => ({ code: `A${String(i).padStart(2, "0")}` }));
+    const corr = correctedClaim(c, { diagnoses: tooMany });
+    expect(corr.diagnoses).toHaveLength(12);
+  });
+  it("coding: em.code accepts real E/M levels and the documented hint pattern, rejects garbage", () => {
+    const garbage = parseCodingSuggestion(JSON.stringify({ em: { code: "BAD", rationale: "x" }, icd: [], cptSuggestions: [], queries: [] }), "test");
+    expect(garbage.em.code).toBe("");
+    const junkNumeric = parseCodingSuggestion(JSON.stringify({ em: { code: "99999", rationale: "x" }, icd: [], cptSuggestions: [], queries: [] }), "test");
+    expect(junkNumeric.em.code).toBe("");
+    const hint = parseCodingSuggestion(JSON.stringify({ em: { code: "9921x", rationale: "x" }, icd: [], cptSuggestions: [], queries: [] }), "test");
+    expect(hint.em.code).toBe("9921X");
+    const real = parseCodingSuggestion(JSON.stringify({ em: { code: "99214", rationale: "x" }, icd: [], cptSuggestions: [], queries: [] }), "test");
+    expect(real.em.code).toBe("99214");
+  });
+  it("estimatePatientResponsibility caps the copay at the allowed amount so patient share never exceeds it", () => {
+    const benefits: BenefitSnapshot = { active: true, copayOfficeVisit: 75, deductibleRemaining: 0, coinsurancePct: 0, checkedAt: "2026-09-01", source: "stub" };
+    const est = estimatePatientResponsibility([{ cpt: "99214", units: 1 }], benefits, { "99214": 50 }); // allowed is only $50, copay quoted at $75
+    expect(est.copay).toBe(50);
+    expect(est.patientResponsibility).toBe(50);
+    expect(est.patientResponsibility + est.insuranceResponsibility).toBe(est.estimatedAllowed);
+  });
+  it("agingByPayer still ages a claim left 'adjudicated' by a zero-pay or reversed remittance", () => {
+    const c = transitionClaim(transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t"), "adjudicated", "t");
+    const rows = agingByPayer([c], [], "2026-09-05");
+    expect(rows.find((r) => r.payerId === "BCBS")?.total).toBeGreaterThan(0);
+  });
+  it("computeAccount keeps a self-pay charge on the patient side even with no transfer-to-patient entry", () => {
+    const selfPay: LedgerEntry[] = [{ id: "sp1", patientId: "p9", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "patient" }];
+    const s = computeAccount("p9", selfPay);
+    expect(s.patientBalance).toBe(200);
+    expect(s.insuranceBalance).toBe(0);
   });
 });

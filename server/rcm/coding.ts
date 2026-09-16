@@ -156,8 +156,12 @@ export function parseCodingSuggestion(text: string, source: string): AiCodingSug
   const cleaned = text.replace(/```json|```/g, "").trim();
   const parsed = JSON.parse(cleaned) as Partial<AiCodingSuggestion>;
   const okCode = (c: unknown) => typeof c === "string" && /^[A-Z0-9.]{3,8}$/i.test(c);
+  // em.code is either a real, submittable E/M level (9920[2-5] new patient, 9921[1-5] established)
+  // or the documented level-range hint ("9920x"/"9921x") — not any 3-8 char alnum string like
+  // "BAD" or "99999" that happens to pass the loose okCode shape check.
+  const validEmCode = (c: unknown) => typeof c === "string" && /^(9920[2-5]|9921[1-5]|9920x|9921x)$/i.test(c);
   return {
-    em: parsed.em && okCode(parsed.em.code) ? { code: parsed.em.code.toUpperCase(), rationale: String(parsed.em.rationale ?? "") } : { code: "", rationale: "no E/M suggested" },
+    em: parsed.em && validEmCode(parsed.em.code) ? { code: parsed.em.code.toUpperCase(), rationale: String(parsed.em.rationale ?? "") } : { code: "", rationale: "no E/M suggested" },
     icd: (parsed.icd ?? []).filter((x) => okCode(x.code) && isValidIcd10(x.code)).map((x) => ({ code: x.code.toUpperCase(), description: String(x.description ?? "") })),
     // Unlike em.code (a level-range hint like "9921x", not a submittable code), cptSuggestions
     // are meant to be real, billable CPT/HCPCS codes — validate them as such.

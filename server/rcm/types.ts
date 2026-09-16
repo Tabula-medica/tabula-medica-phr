@@ -151,6 +151,10 @@ export interface RemitClaim {
   paid: Money;
   patientResp: Money;
   lines: RemitLine[];
+  // 2100 CLP-level CAS — can appear alongside SVC-level lines. Optional because RemitClaim is
+  // also used as the shape of a client-supplied COB "primary remit" summary (secondaryClaim,
+  // POST /claims/:id/secondary) that only ever carries billed/paid/patientResp/lines.
+  claimAdjustments?: Adjustment[];
 }
 
 export interface Remittance {

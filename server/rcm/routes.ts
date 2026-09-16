@@ -5,7 +5,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { rcmStore } from "./store";
 import { checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271 } from "./eligibility";
-import { authCoversService, createAuthRequest, DEFAULT_AUTH_RULES, requiresPriorAuth, transitionAuth, type AuthStatus } from "./prior-auth";
+import { authCoversService, authorizedCptsOnFile, createAuthRequest, DEFAULT_AUTH_RULES, requiresPriorAuth, transitionAuth, type AuthStatus } from "./prior-auth";
 import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "./charge-capture";
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
@@ -24,6 +24,15 @@ import { daysBetween, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
+
+// In-process lock for /remittance/post: closes the check-then-post TOCTOU race between the
+// duplicate-ERA lookup and the eventual addRemittance call, which are separated by several
+// `await`s (ledger/claim writes) that let a second concurrent request slip through the same
+// "not yet posted" check. `await` always yields at least one microtask tick even for an
+// already-resolved value, so the lookup-then-write pair alone is not atomic; a synchronous
+// check-and-set on this Set, done before any `await`, is — mirroring the AgentRuntime's own
+// `executing` in-process lock for approval execution.
+const remittancePostInFlight = new Set<string>();
 
 interface AuthedRequest extends Request { user?: { claims?: { sub?: string } }; userRole?: string }
 function tenantOf(req: Request): string {
@@ -155,7 +164,8 @@ rcmRouter.post("/claims", wrap(async (req, res) => {
   const coverage = await rcmStore.getCoverage(t, p.data.coverageId);
   if (!patient || !coverage) return fail(res, 404, "patient or coverage not found");
   if (coverage.patientId !== patient.id) return fail(res, 400, "coverage does not belong to this patient");
-  const claim = buildClaim({ ...p.data, patient, coverage, diagnoses: p.data.diagnoses as Diagnosis[], lines: p.data.lines as ServiceLine[] });
+  const contract = await rcmStore.getContract(t, coverage.payerId);
+  const claim = buildClaim({ ...p.data, patient, coverage, diagnoses: p.data.diagnoses as Diagnosis[], lines: p.data.lines as ServiceLine[], contractTimelyFilingDays: contract?.timelyFilingDays });
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, claim) });
 }));
 rcmRouter.get("/claims", wrap(async (req, res) => { const status = typeof req.query.status === "string" ? (req.query.status as Claim["status"]) : undefined; res.json({ success: true, claims: await rcmStore.listClaims(tenantOf(req), { status }) }); }));
@@ -173,7 +183,9 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   // not just the contract's own explicit list — a contract with no explicit list (e.g. the
   // default Medicare contract) can still have default-rule codes like 72148 that need auth.
   const authRequiredCpts = claim.lines.filter((l) => requiresPriorAuth(l.cpt, contract).required).map((l) => l.cpt);
-  const ctx = { patient, coverage, authRequiredCpts, authOnFile: !!claim.priorAuthNumber, priorClaimsSameDos: others };
+  const auths = await rcmStore.listAuths(t);
+  const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, authRequiredCpts, auths);
+  const ctx = { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others };
   const result = scrubClaim(claim, ctx);
   await rcmStore.recordScrub(t, result.clean);
   // Auto-fixes rewrite claim data (modifiers, totals) — only safe to persist while the claim is
@@ -186,6 +198,10 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   if (applyFixes) { const f = applyAutoFixes(claim, result.edits); next = f.claim; applied = f.applied; finalResult = scrubClaim(next, ctx); }
   if (next.status === "draft") next = transitionClaim(next, "scrubbed", actorOf(req), `score ${finalResult.score}`);
   if (finalResult.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", actorOf(req), "clean");
+  // A "ready" claim can be dirtied by edits made after it was last marked clean (e.g. a
+  // corrected-claim line change) — a re-scrub that finds new errors must demote it back to
+  // "scrubbed" rather than leaving it falsely staged for submission.
+  if (!finalResult.clean && next.status === "ready") next = transitionClaim(next, "scrubbed", actorOf(req), `re-scrub found ${finalResult.errors.length} error(s)`);
   await rcmStore.upsertClaim(t, next);
   if (!finalResult.clean) await rcmStore.addWorkItems(t, itemsFromScrub(next, finalResult.errors.length));
   res.json({ success: true, result: finalResult, applied, claim: next });
@@ -231,31 +247,40 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   const t = tenantOf(req);
   const rem = parseEra(req.body?.era ?? req.body);
   // Idempotency: a clearinghouse retry or a duplicate click must not double-post the same ERA.
-  // Match on the ERA id when the payload carried one, and on payer + check number/amount
-  // (the standard 835 trace key) otherwise, before any ledger entries are written.
-  const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) => r.id === rem.id || (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount));
-  if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");
-  const claimsById = await rcmStore.claimsById(t);
-  const contracts = await rcmStore.contracts(t);
-  const result = postRemittance(rem, claimsById, contracts);
-  const created: string[] = [];
-  for (const p of result.postings) {
-    await rcmStore.postLedger(t, p.entries);
-    const claim = p.claimId ? claimsById[p.claimId] : undefined;
-    if (claim) {
-      const to = claimStatusFromPosting(p);
-      let next = claim;
-      for (const hop of [to] as Claim["status"][]) { try { next = transitionClaim(next, hop, "era-post"); } catch { /* keep current status when transition not allowed */ } }
-      await rcmStore.upsertClaim(t, next);
-      const contract = contracts[claim.payerId];
-      for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
-      if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);
+  // Identify it by payer + check number/amount (the standard 835 trace key) when present,
+  // otherwise by its own id (explicit, or a content fingerprint — see parseEra).
+  const identityKey = rem.checkNumber ? `cn:${rem.payerId ?? ""}:${rem.checkNumber}:${rem.checkAmount}` : `id:${rem.id}`;
+  const lockKey = `${t}:${identityKey}`;
+  // Synchronous check-and-set, before any `await` — see remittancePostInFlight's comment.
+  if (remittancePostInFlight.has(lockKey)) return fail(res, 409, "This remittance is already being posted");
+  remittancePostInFlight.add(lockKey);
+  try {
+    const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) => r.id === rem.id || (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount));
+    if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");
+    const claimsById = await rcmStore.claimsById(t);
+    const contracts = await rcmStore.contracts(t);
+    const result = postRemittance(rem, claimsById, contracts);
+    const created: string[] = [];
+    for (const p of result.postings) {
+      await rcmStore.postLedger(t, p.entries);
+      const claim = p.claimId ? claimsById[p.claimId] : undefined;
+      if (claim) {
+        const to = claimStatusFromPosting(p);
+        let next = claim;
+        for (const hop of [to] as Claim["status"][]) { try { next = transitionClaim(next, hop, "era-post"); } catch { /* keep current status when transition not allowed */ } }
+        await rcmStore.upsertClaim(t, next);
+        const contract = contracts[claim.payerId];
+        for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
+        if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);
+      }
     }
+    const denials = (await rcmStore.listDenials(t, "open")).filter((d) => created.includes(d.id));
+    await rcmStore.addWorkItems(t, itemsFromDenials(denials));
+    await rcmStore.addRemittance(t, { ...rem, postedAt: new Date().toISOString() });
+    res.json({ success: true, remittance: rem, postings: result.postings, unapplied: result.unapplied, balanced: result.balanced, denialsCreated: created });
+  } finally {
+    remittancePostInFlight.delete(lockKey);
   }
-  const denials = (await rcmStore.listDenials(t, "open")).filter((d) => created.includes(d.id));
-  await rcmStore.addWorkItems(t, itemsFromDenials(denials));
-  await rcmStore.addRemittance(t, { ...rem, postedAt: new Date().toISOString() });
-  res.json({ success: true, remittance: rem, postings: result.postings, unapplied: result.unapplied, balanced: result.balanced, denialsCreated: created });
 }));
 rcmRouter.get("/remittance", wrap(async (req, res) => res.json({ success: true, remittances: await rcmStore.listRemittances(tenantOf(req)) })));
 
@@ -282,7 +307,7 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => { const p = z.obj
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
 rcmRouter.get("/patients/:id/statement", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const cycle = (["1", "2", "3", "final"].includes(String(req.query.cycle)) ? (req.query.cycle === "final" ? "final" : Number(req.query.cycle)) : 1) as 1 | 2 | 3 | "final"; res.json({ success: true, statement: buildStatement(p, await rcmStore.ledger(t, p.id), cycle) }); }));
 rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const s = computeAccount(p.id, await rcmStore.ledger(t, p.id)); const fpl = p.annualHouseholdIncome !== undefined && p.householdSize ? fplPercent(p.annualHouseholdIncome, p.householdSize) : undefined; res.json({ success: true, propensity: propensityToPay({ balance: s.patientBalance, priorStatementsPaidOnTime: req.body?.paidOnTime ?? 0, priorStatementsLate: req.body?.late ?? 0, hasCardOnFile: !!req.body?.hasCardOnFile, fplPct: fpl }), fplPct: fpl, slidingFee: fpl !== undefined ? slidingFeeDiscount(fpl) : undefined }); }));
-rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => { const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay); res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(tenantOf(req), plan) }); }));
+rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => { const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay); res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) }); }));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
 rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().int().positive().default(1) })), selfPayRates: z.record(z.number().nonnegative()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
 // Direct posting is limited to entries that record something that already happened at the
@@ -305,6 +330,15 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
       if (!claim) return fail(res, 404, `claim ${e.claimId} not found`);
       if (claim.patientId !== e.patientId) return fail(res, 400, `claim ${e.claimId} does not belong to patient ${e.patientId}`);
     }
+  }
+  // A caller-supplied id lets a client (or a retried request after a dropped response) be posted
+  // idempotently — reject the whole batch if any id already exists rather than silently
+  // double-posting the same charge/payment against the ledger.
+  const suppliedIds = p.data.map((e) => e.id).filter((id): id is string => !!id);
+  if (suppliedIds.length) {
+    const existingIds = new Set((await rcmStore.ledger(t)).map((e) => e.id));
+    const dupe = suppliedIds.find((id) => existingIds.has(id));
+    if (dupe) return fail(res, 409, `ledger entry ${dupe} already posted`);
   }
   const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}` }));
   await rcmStore.postLedger(t, entries);

@@ -34,19 +34,28 @@ export function expectedAllowed(contract: PayerContract, cpt: string, units = 1,
   return round2(base * Math.max(1, units) * modifierMultiplier(modifiers));
 }
 
+// Multiple-procedure reduction (100% for the highest-valued surgical procedure, 50% for the
+// rest), returned per line in the same order as `lines` so callers needing a per-line
+// breakdown (variance reporting) and callers only needing the claim-level total can share it.
+function expectedPerLine(contract: PayerContract, lines: Pick<ServiceLine, "cpt" | "units" | "modifiers">[]): number[] {
+  const base = lines.map((l) => expectedAllowed(contract, l.cpt, l.units, l.modifiers));
+  const surgicalIdx = lines.map((l, i) => (/^[1-6]\d{4}$/.test(l.cpt) && !/^9\d{4}$/.test(l.cpt) ? i : -1)).filter((i) => i >= 0);
+  const rankedDesc = [...surgicalIdx].sort((a, b) => base[b] - base[a]);
+  return base.map((amt, i) => (surgicalIdx.includes(i) && rankedDesc.indexOf(i) > 0 ? round2(amt * 0.5) : amt));
+}
+
 export function expectedForLines(contract: PayerContract, lines: Pick<ServiceLine, "cpt" | "units" | "modifiers">[]): number {
-  // Multiple-procedure reduction: 100% for the highest-valued surgical procedure, 50% for others.
-  const surgical = lines.filter((l) => /^[1-6]\d{4}$/.test(l.cpt) && !/^9\d{4}$/.test(l.cpt));
-  const others = lines.filter((l) => !surgical.includes(l));
-  const surgicalAmounts = surgical.map((l) => expectedAllowed(contract, l.cpt, l.units, l.modifiers)).sort((a, b) => b - a);
-  const reduced = surgicalAmounts.map((a, i) => (i === 0 ? a : round2(a * 0.5)));
-  return sum([...reduced, ...others.map((l) => expectedAllowed(contract, l.cpt, l.units, l.modifiers))]);
+  return sum(expectedPerLine(contract, lines));
 }
 
 export interface VarianceRow { cpt: string; expected: number; actual: number; variance: number; pct: number }
 
 export function varianceReport(contract: PayerContract, lines: Array<{ cpt: string; units: number; modifiers: string[]; allowed: number }>): { rows: VarianceRow[]; totalVariance: number; underpaid: boolean } {
-  const rows = lines.map((l) => { const expected = expectedAllowed(contract, l.cpt, l.units, l.modifiers); const variance = round2(expected - l.allowed); return { cpt: l.cpt, expected, actual: l.allowed, variance, pct: expected ? round2((variance / expected) * 100) : 0 }; });
+  // Use the same multiple-procedure-reduced expected amount as expectedForLines — comparing
+  // against the unreduced per-line rate would flag a correctly-paid multi-procedure claim as
+  // underpaid.
+  const expectedPerLineAmounts = expectedPerLine(contract, lines);
+  const rows = lines.map((l, i) => { const expected = expectedPerLineAmounts[i]; const variance = round2(expected - l.allowed); return { cpt: l.cpt, expected, actual: l.allowed, variance, pct: expected ? round2((variance / expected) * 100) : 0 }; });
   const totalVariance = sum(rows.map((r) => r.variance));
   return { rows, totalVariance, underpaid: totalVariance > 1 };
 }

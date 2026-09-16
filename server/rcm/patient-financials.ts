@@ -25,18 +25,20 @@ export function computeAccount(patientId: string, entries: LedgerEntry[]): Accou
   const adjustments = sum([by("contractual-adjustment"), by("denial-adjustment"), by("write-off")]);
   const refunds = by("refund");
   const balance = round2(charges - insurancePaid - patientPaid - adjustments + refunds);
-  const transferred = by("transfer-to-patient");
 
   // Split the balance by who currently owes it, using each entry's own `responsibleParty`
-  // rather than approximating from transfers/payments alone. Charges start on the insurance
-  // side until `transfer-to-patient` moves them; every other entry (payment, contractual
-  // adjustment, denial write-off, patient-side write-off, refund) already carries the side
-  // it settles. This is what lets a patient-side write-off actually zero the copay it covers
-  // instead of only shrinking total A/R.
-  let insuranceSide = charges - transferred;
-  let patientSide = transferred;
+  // rather than approximating from transfers/payments alone. A charge starts on whichever side
+  // its own responsibleParty says (a self-pay charge starts on the patient side directly, an
+  // insurance-billed charge starts on the insurance side until transfer-to-patient moves it);
+  // every other entry (payment, contractual adjustment, denial write-off, patient-side
+  // write-off, refund) already carries the side it settles. transfer-to-patient only moves an
+  // amount that is actually still sitting on the insurance side, capped so it can never double
+  // count a charge that was already patient-side from the start or push insurance negative.
+  let insuranceSide = 0;
+  let patientSide = 0;
   for (const e of mine) {
-    if (e.type === "charge" || e.type === "transfer-to-patient") continue;
+    if (e.type === "charge") { if (e.responsibleParty === "patient") patientSide += e.amount; else insuranceSide += e.amount; continue; }
+    if (e.type === "transfer-to-patient") { const move = Math.min(e.amount, Math.max(0, insuranceSide)); insuranceSide -= move; patientSide += move; continue; }
     const amt = signedAmount(e);
     if (e.responsibleParty === "patient") patientSide += amt;
     else insuranceSide += amt;

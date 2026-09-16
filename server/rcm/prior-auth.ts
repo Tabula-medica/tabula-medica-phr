@@ -33,6 +33,10 @@ export interface PriorAuth {
   payerId: string;
   cpt: string;
   diagnoses: string[];
+  // The visit this request was actually opened for — used to anchor the approved validity
+  // window to the visit date rather than to whenever a human happens to decide it, so a request
+  // opened well before (or approved well after) the visit still covers the date it was for.
+  dateOfService?: string;
   units: number;
   unitsUsed: number;
   urgency: "standard" | "urgent";
@@ -86,7 +90,7 @@ export function build278(auth: PriorAuth, memberId: string, requesterNpi: string
   };
 }
 
-export function createAuthRequest(input: { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number; urgency?: "standard" | "urgent"; availableDocs?: string[] }, rules: AuthRule[] = DEFAULT_AUTH_RULES): PriorAuth {
+export function createAuthRequest(input: { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; dateOfService?: string; units?: number; urgency?: "standard" | "urgent"; availableDocs?: string[] }, rules: AuthRule[] = DEFAULT_AUTH_RULES): PriorAuth {
   const rule = rules.find((r) => r.cpt === input.cpt.toUpperCase());
   const documentation = rule?.documentation ?? ["Clinical note supporting medical necessity"];
   const have = new Set((input.availableDocs ?? []).map((d) => d.toLowerCase()));
@@ -99,6 +103,7 @@ export function createAuthRequest(input: { patientId: string; coverageId: string
     payerId: input.payerId,
     cpt: input.cpt.toUpperCase(),
     diagnoses: input.diagnoses,
+    dateOfService: input.dateOfService,
     units: input.units ?? 1,
     unitsUsed: 0,
     urgency: input.urgency ?? rule?.urgencyDefault ?? "standard",
@@ -140,7 +145,10 @@ export function transitionAuth(auth: PriorAuth, to: AuthStatus, opts: { actor: s
   if (to === "approved") {
     next.decidedAt = at;
     next.authNumber = opts.authNumber ?? next.authNumber;
-    next.validFrom = opts.validFrom ?? todayIso();
+    // Anchor validity to the visit this was actually requested for, not to whenever a human
+    // happens to approve it — otherwise an auth requested well ahead of (or decided well after)
+    // the visit can end up with a validity window that doesn't actually cover that visit's date.
+    next.validFrom = opts.validFrom ?? next.dateOfService ?? todayIso();
     next.validTo = opts.validTo ?? addDays(next.validFrom, 90);
     if (opts.approvedUnits !== undefined) next.units = opts.approvedUnits;
   }
@@ -157,12 +165,25 @@ export function consumeAuthUnit(auth: PriorAuth, units = 1): PriorAuth {
 export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: string, requestedUnits = 1): { ok: boolean; reason?: string } {
   if (auth.cpt !== cpt.toUpperCase()) return { ok: false, reason: "Auth is for a different code" };
   if (auth.status !== "approved") return { ok: false, reason: `Auth status is ${auth.status}` };
+  if (!auth.authNumber) return { ok: false, reason: "Auth approved but no authorization number on file" };
   if (auth.validFrom && dateOfService < auth.validFrom) return { ok: false, reason: "Service date before auth validity" };
   if (auth.validTo && dateOfService > auth.validTo) return { ok: false, reason: "Auth expired for this service date" };
   // Compare against the units this service actually needs, not just whether any unit remains —
   // an auth for 1 unit must not clear a line requesting many.
   if (auth.unitsUsed + Math.max(1, requestedUnits) > auth.units) return { ok: false, reason: "Authorized units exhausted" };
   return { ok: true };
+}
+
+// Which of the CPTs that need prior auth is `priorAuthNumber` actually backed by, per a real
+// approved PriorAuth record? A non-empty string alone isn't proof — it could be stale, for the
+// wrong payer/coverage, or hand-typed — and a single auth number only ever covers one CPT, so
+// this returns the (at most one, in practice) CPT it clears rather than a single claim-wide
+// boolean, so a claim with several auth-required lines doesn't get every one of them waved
+// through by an auth for just one of them.
+export function authorizedCptsOnFile(priorAuthNumber: string | undefined, patientId: string, coverageId: string, authRequiredCpts: string[], auths: PriorAuth[]): string[] {
+  if (!priorAuthNumber) return [];
+  const need = new Set(authRequiredCpts.map((c) => c.toUpperCase()));
+  return auths.filter((a) => a.status === "approved" && a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId && need.has(a.cpt.toUpperCase())).map((a) => a.cpt.toUpperCase());
 }
 
 export function slaBreached(auth: PriorAuth, now: string = nowIso()): boolean {

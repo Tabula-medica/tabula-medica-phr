@@ -1,7 +1,7 @@
 // Stage 10-11: ERA/835 normalization + auto-posting to the ledger, with underpayment detection
 // against the payer contract, take-back/reversal handling, and secondary crossover cues.
 import type { Adjustment, Claim, LedgerEntry, PayerContract, RemitClaim, Remittance } from "./types";
-import { expectedAllowed } from "./contracts";
+import { expectedForLines } from "./contracts";
 import { newId, nowIso, round2, sum } from "./util";
 
 const num = (v: unknown): number => (typeof v === "number" ? v : typeof v === "string" ? parseFloat(v.replace(/[^0-9.-]/g, "")) || 0 : 0);
@@ -39,12 +39,27 @@ export function parseEra(raw: unknown): Remittance {
       patientResp: round2(num(pick(l, "patient_resp", "patient_responsibility"))),
       adjustments: parseAdjustments(l),
     })),
+    // 2100 CLP-level CAS — an 835 can carry these *alongside* SVC-level line adjustments, not
+    // only when a claim has no lines, so this is captured unconditionally and posted separately
+    // by postRemittance instead of being folded into (or dropped for) the line loop.
+    claimAdjustments: parseAdjustments(c),
   }));
-  // Claim-level adjustments folded into lines when there are no lines.
-  for (const c of claims) if (!c.lines.length) c.lines.push({ billed: c.billed, allowed: c.allowed, paid: c.paid, patientResp: c.patientResp, adjustments: parseAdjustments(((arr(pick(r, "claims", "claim", "CLP")).find((x) => str(pick(x, "pcn", "patient_control_number", "claimid", "CLP01")) === c.claimId)) ?? {}) as Record<string, unknown>) });
   const method = (str(pick(r, "payment_method", "method", "BPR04")) ?? "").toUpperCase();
+  const explicitId = str(pick(r, "eraid", "era_id", "id"));
+  // No vendor-supplied id or check number to key off of — derive a stable fingerprint from the
+  // remittance's own content instead of a random id, so re-POSTing the identical payload (the
+  // vendor retrying a webhook, a duplicate upload) is still recognized as the same ERA by the
+  // idempotency check in routes.ts, rather than silently minting a new "unique" remittance each time.
+  const checkNumber = str(pick(r, "check_number", "checknumber", "trn", "TRN02"));
+  const fingerprintId = () => {
+    const payerId = str(pick(r, "payerid", "payer_id")) ?? "";
+    const checkAmount = round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02")));
+    const checkDate = str(pick(r, "check_date", "paid_date", "date")) ?? "";
+    const claimIds = arr(pick(r, "claims", "claim", "CLP")).map((c) => str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")) ?? "").join(",");
+    return `era-fp:${payerId}:${checkAmount}:${checkDate}:${claimIds}`;
+  };
   return {
-    id: str(pick(r, "eraid", "era_id", "id")) ?? newId("era"),
+    id: explicitId ?? (checkNumber ? undefined : fingerprintId()) ?? newId("era"),
     payerId: str(pick(r, "payerid", "payer_id")),
     payerName: str(pick(r, "payer_name", "payer")),
     checkNumber: str(pick(r, "check_number", "checknumber", "trn", "TRN02")),
@@ -91,7 +106,10 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     const denials: Adjustment[] = [];
     let contractual = 0, denied = 0;
     const isReversal = rc.statusCode === "22" || rc.paid < 0;
-    for (const l of rc.lines) for (const a of l.adjustments) {
+    // Claim-level (CLP) CAS can appear alongside SVC-level line CAS in the same 835 — process
+    // both instead of only the lines, so claim-level contractual/denial adjustments aren't
+    // silently dropped for a normal multi-line claim.
+    for (const a of [...(rc.claimAdjustments ?? []), ...rc.lines.flatMap((l) => l.adjustments)]) {
       if (a.group === "PR") continue; // patient responsibility handled via transfer below
       if (a.carc === "45" || a.carc === "CO-253" || a.carc === "253") { contractual += a.amount; entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "contractual-adjustment", amount: a.amount, date, memo: `CARC ${a.carc}`, responsibleParty: "insurance" }); }
       else { denied += a.amount; denials.push(a); }
@@ -103,7 +121,10 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     let underpayment: Posting["underpayment"];
     const contract = claim ? contracts[claim.payerId] : undefined;
     if (claim && contract) {
-      const expected = sum(claim.lines.map((l) => expectedAllowed(contract, l.cpt, l.units, l.modifiers)));
+      // Use the same claim-level multiple-procedure reduction the contract module defines
+      // (100% for the top-valued surgical line, 50% for the rest) — summing plain per-line
+      // rates would flag a correctly-paid multi-procedure claim as underpaid.
+      const expected = expectedForLines(contract, claim.lines);
       const actual = rc.allowed ?? round2(rc.paid + rc.patientResp);
       const variance = round2(expected - actual);
       if (variance > Math.max(1, expected * 0.02)) underpayment = { expectedAllowed: expected, actualAllowed: actual, variance };

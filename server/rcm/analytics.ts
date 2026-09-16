@@ -8,10 +8,10 @@ import { daysBetween, round2, sum, todayIso } from "./util";
 // already resolved it on the insurance side): what should actually age as payer A/R.
 function outstandingInsurance(claim: Claim, ledger: LedgerEntry[]): number {
   const entries = ledger.filter((e) => e.claimId === claim.id);
-  const transferred = sum(entries.filter((e) => e.type === "transfer-to-patient").map((e) => e.amount));
-  let insuranceSide = claim.totalCharge - transferred;
+  let insuranceSide = claim.totalCharge;
   for (const e of entries) {
-    if (e.type === "charge" || e.type === "transfer-to-patient") continue;
+    if (e.type === "charge") continue;
+    if (e.type === "transfer-to-patient") { insuranceSide -= Math.min(e.amount, Math.max(0, insuranceSide)); continue; }
     if (e.responsibleParty === "insurance") insuranceSide += signedAmount(e);
   }
   return round2(Math.max(0, insuranceSide));
@@ -94,7 +94,9 @@ export function computeKpis(i: KpiInputs): Kpi[] {
 export function agingByPayer(claims: Claim[], ledger: LedgerEntry[] = [], today: string = todayIso()): Array<{ payerId: string; payerName: string; buckets: { current: number; d31_60: number; d61_90: number; over90: number }; total: number; count: number }> {
   const map = new Map<string, { payerName: string; buckets: { current: number; d31_60: number; d61_90: number; over90: number }; total: number; count: number }>();
   for (const c of claims) {
-    if (!["submitted", "acknowledged", "pended", "partially-paid", "denied", "appealed"].includes(c.status)) continue;
+    // "adjudicated" is included too — a zero-pay remittance or a reversal can land a claim
+    // there while it still carries real insurance A/R.
+    if (!["submitted", "acknowledged", "pended", "adjudicated", "partially-paid", "denied", "appealed"].includes(c.status)) continue;
     // Age what's actually still open on the insurance side, not the full billed charge — a
     // partially-paid or already-adjusted claim has had some of that charge resolved already.
     const outstanding = outstandingInsurance(c, ledger);

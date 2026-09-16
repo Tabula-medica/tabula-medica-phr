@@ -162,7 +162,10 @@ export function estimatePatientResponsibility(lines: Pick<ServiceLine, "cpt" | "
     return { estimatedAllowed: allowed, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: allowed, insuranceResponsibility: 0, assumptions };
   }
   const hasEm = lines.some((l) => /^992(0[2-5]|1[1-5])$/.test(l.cpt));
-  const copay = hasEm ? benefits.copayOfficeVisit ?? 0 : 0;
+  // Cap the copay at the allowed amount itself — a copay larger than what the service is even
+  // worth (bad benefits data, or a copay quoted for a higher-level visit than what's billed)
+  // must not push total patient responsibility past the allowed amount.
+  const copay = round2(Math.min(hasEm ? benefits.copayOfficeVisit ?? 0 : 0, allowed));
   const remainingAfterCopay = Math.max(0, allowed - copay);
   const deductibleApplied = round2(Math.min(benefits.deductibleRemaining ?? 0, remainingAfterCopay));
   const afterDeductible = round2(remainingAfterCopay - deductibleApplied);

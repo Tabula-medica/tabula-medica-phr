@@ -16,12 +16,15 @@ export interface ClaimInput {
   lines: ServiceLine[];
   priorAuthNumber?: string;
   referralNumber?: string;
+  // Payer contract's own timely-filing window (Medicare 365, Medicaid 180, etc.) — falls back to
+  // the coverage record's value, then a generic 90 days, only when the contract wasn't looked up.
+  contractTimelyFilingDays?: number;
 }
 
 export function buildClaim(input: ClaimInput): Claim {
   const at = nowIso();
   const dos = input.lines[0]?.dateOfService;
-  const tf = input.coverage.timelyFilingDays ?? 90;
+  const tf = input.coverage.timelyFilingDays ?? input.contractTimelyFilingDays ?? 90;
   return {
     id: newId("clm"),
     encounterId: input.encounterId,
@@ -135,7 +138,10 @@ export function claimToCms1500Boxes(claim: Claim, patient: Patient, coverage: Co
 const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   draft: ["scrubbed", "closed"],
   scrubbed: ["ready", "draft", "closed"],
-  ready: ["submitted", "draft", "closed"],
+  // A re-scrub of a "ready" claim can surface a new error (e.g. new lines added via corrected-
+  // claim edits before resubmission) — it must be able to demote back to "scrubbed" instead of
+  // staying falsely marked ready.
+  ready: ["submitted", "scrubbed", "draft", "closed"],
   submitted: ["acknowledged", "rejected", "pended", "adjudicated", "paid", "partially-paid", "denied"],
   acknowledged: ["pended", "adjudicated", "paid", "partially-paid", "denied", "rejected"],
   rejected: ["draft", "closed"],
@@ -180,7 +186,7 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
   // explicit `undefined` in the patch (e.g. a request body key that was simply omitted) must
   // keep the original value, not blank it out.
   const lines = patch.lines ?? original.lines;
-  const diagnoses = patch.diagnoses ?? original.diagnoses;
+  const diagnoses = (patch.diagnoses ?? original.diagnoses).slice(0, 12);
   const priorAuthNumber = patch.priorAuthNumber ?? original.priorAuthNumber;
   const referralNumber = patch.referralNumber ?? original.referralNumber;
   const placeOfService = patch.placeOfService ?? original.placeOfService;
