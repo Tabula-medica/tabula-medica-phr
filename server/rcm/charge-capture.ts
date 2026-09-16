@@ -59,12 +59,18 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
   const allDx = facts.diagnoses.map((_, i) => i + 1).slice(0, 4);
   const primaryDx = allDx.length ? [1] : [];
   const out: ServiceLine[] = [];
-  // Count occurrences per CPT rather than deduping into a Set — an encounter can document the
-  // same procedure more than once (e.g. two separate injections), and collapsing those to a
-  // single instance would underbill by dropping the extra units.
+  // Count occurrences per CPT within each source rather than deduping into a Set — an
+  // encounter can document the same procedure more than once (e.g. two separate injections),
+  // and collapsing those to a single instance would underbill. The two arrays are overlapping
+  // views of the same encounter (note vs completed orders), so take the per-CPT max across
+  // sources instead of summing, or a procedure recorded in both would be billed twice.
   const procedureCounts = new Map<string, number>();
-  for (const c of [...facts.proceduresDocumented, ...facts.ordersCompleted].map((c) => c.toUpperCase())) {
-    if (isValidCpt(c)) procedureCounts.set(c, (procedureCounts.get(c) ?? 0) + 1);
+  for (const source of [facts.proceduresDocumented, facts.ordersCompleted]) {
+    const counts = new Map<string, number>();
+    for (const c of source.map((x) => x.toUpperCase())) {
+      if (isValidCpt(c)) counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    for (const [c, n] of counts) procedureCounts.set(c, Math.max(procedureCounts.get(c) ?? 0, n));
   }
   const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));
 

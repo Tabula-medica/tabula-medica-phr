@@ -116,6 +116,14 @@ describe("charge capture", () => {
     expect(injections).toHaveLength(1); // one line, aggregated...
     expect(injections[0].units).toBe(2); // ...covering both documented instances
   });
+  it("does not double-count a CPT that appears in both the note and completed orders", () => {
+    // proceduresDocumented and ordersCompleted are two views of the same encounter; a single
+    // injection recorded in both must bill as one unit, not two.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["20610"], ordersCompleted: ["20610"], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    const injections = lines.filter((l) => l.cpt === "20610");
+    expect(injections).toHaveLength(1);
+    expect(injections[0].units).toBe(1);
+  });
   it("uses telehealth POS + modifier 95", () => {
     const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: true, telehealth: true, emLevel: 3, proceduresDocumented: [], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "J06.9" }] });
     expect(lines[0]).toMatchObject({ cpt: "99203", placeOfService: "10", modifiers: ["95"] });
