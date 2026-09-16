@@ -132,6 +132,12 @@ describe("charge capture", () => {
     const cmds = parseVoiceCharge("Add 99214, diagnosis U07 point 1");
     expect(cmds[0].diagnoses).toEqual(["U07.1"]);
   });
+  it("scopes each command's diagnoses to its own segment instead of sharing every diagnosis in the transcript", () => {
+    const cmds = parseVoiceCharge("Add 99214 diagnosis E11.9, and 20610 diagnosis M17.11");
+    expect(cmds).toHaveLength(2);
+    expect(cmds[0]).toMatchObject({ cpt: "99214", diagnoses: ["E11.9"] });
+    expect(cmds[1]).toMatchObject({ cpt: "20610", diagnoses: ["M17.11"] }); // not ["E11.9", "M17.11"]
+  });
 });
 
 describe("coding", () => {

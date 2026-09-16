@@ -110,15 +110,18 @@ export function parseVoiceCharge(transcript: string): VoiceChargeCommand[] {
   const text = transcript.replace(/\s+/g, " ").trim();
   const upper = text.toUpperCase();
   const cptMatches = Array.from(upper.matchAll(/\b(\d{5}|[A-Z]\d{4})\b/g)).map((m) => ({ code: m[1], idx: m.index ?? 0 })).filter((m) => isValidCpt(m.code) && !isValidIcd10(m.code));
-  // ICD-10 codes may be spoken "E11 point 9" → normalize. Leading-letter range matches
-  // isValidIcd10's ([A-Z]) — U07.1/U09.9 (COVID-19) are valid codes a patient could report.
-  const normalizedForIcd = upper.replace(/\b([A-Z]\d{2})\s*(?:POINT|DOT|\.)\s*(\d[0-9A-Z]{0,3})\b/g, "$1.$2");
-  const icdMatches = Array.from(normalizedForIcd.matchAll(/\b([A-Z]\d{2}(?:\.\d[0-9A-Z]{0,3})?)\b/g)).map((m) => m[1]).filter((c) => isValidIcd10(c) && !/^\d/.test(c));
-  const diagnoses = Array.from(new Set(icdMatches));
   const out: VoiceChargeCommand[] = [];
   cptMatches.forEach((m, i) => {
     const segment = upper.slice(m.idx, cptMatches[i + 1]?.idx ?? upper.length);
     const before = upper.slice(cptMatches[i - 1]?.idx ?? 0, m.idx);
+    // Diagnoses are scoped to THIS command's own segment (from its CPT to the next one), not the
+    // whole transcript — a multi-command utterance like "99214 ... E11.9, 20610 ... M17.11" must
+    // not link M17.11 back to the 99214 line too. ICD-10 codes may be spoken "E11 point 9" →
+    // normalize. Leading-letter range matches isValidIcd10's ([A-Z]) — U07.1/U09.9 (COVID-19)
+    // are valid codes a patient could report.
+    const segmentNormalizedForIcd = segment.replace(/\b([A-Z]\d{2})\s*(?:POINT|DOT|\.)\s*(\d[0-9A-Z]{0,3})\b/g, "$1.$2");
+    const icdMatches = Array.from(segmentNormalizedForIcd.matchAll(/\b([A-Z]\d{2}(?:\.\d[0-9A-Z]{0,3})?)\b/g)).map((mm) => mm[1]).filter((c) => isValidIcd10(c) && !/^\d/.test(c));
+    const diagnoses = Array.from(new Set(icdMatches));
     const modifiers = Array.from(segment.matchAll(/MODIFIERS?\s+((?:[A-Z0-9]{2}(?:\s*(?:,|AND)\s*)?)+)/g)).flatMap((mm) => mm[1].split(/\s*(?:,|AND)\s*/).map((s: string) => s.trim()).filter((s: string) => /^[A-Z0-9]{2}$/.test(s)));
     let units = 1;
     // "two units of 90472" belongs to the NEXT code, so strip a trailing "N units of" phrase

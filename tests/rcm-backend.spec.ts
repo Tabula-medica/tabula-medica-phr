@@ -403,6 +403,50 @@ describe("agents", () => {
     expect(exec.ok).toBe(true);
     expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
   });
+  it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
+    // The guard used to be wrapped in `if (claim.priorAuthNumber && ...)`, so a claim needing
+    // auth with NO box-23 number at all skipped validation entirely instead of failing closed.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = buildClaim({ encounterId: "e-no-auth-at-all", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+  });
+  it("submit-claim revalidates every auth-required CPT on the claim, not only the one matching the attached priorAuthNumber", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    // Only 97110 has a covering approved auth; 70450 (also auth-required) has none at all.
+    const covered = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(covered, "approved", { actor: "t", authNumber: "AUTH-MULTI-1", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-multi-auth", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-MULTI-1", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "70450", modifiers: [], units: 1, charge: 500, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending2 = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending2.id, "approved", "biller");
+    const exec2 = await agentRuntime.executeApproved(T, pending2.id, "biller");
+    expect(exec2.ok).toBe(false); // 70450 has no covering auth, even though 97110 (the attached number) does
+    expect(exec2.error).toMatch(/70450/);
+  });
+  it("submit-claim's auth lookup requires a payer match, not just number/patient/coverage", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    // Same authNumber/patient/coverage, but issued for a DIFFERENT payer — must not be selected.
+    const wrongPayerAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "AETNA", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(wrongPayerAuth, "approved", { actor: "t", authNumber: "AUTH-CROSS-PAYER", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-cross-payer", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-CROSS-PAYER", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    expect(claim.payerId).toBe("BCBS"); // the claim itself is billed to BCBS, not AETNA
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending3 = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending3.id, "approved", "biller");
+    const exec3 = await agentRuntime.executeApproved(T, pending3.id, "biller");
+    expect(exec3.ok).toBe(false); // the AETNA auth must not cover a BCBS claim
+  });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
     const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
@@ -432,6 +476,20 @@ describe("agents", () => {
     const exec2 = await agentRuntime.executeApproved(T, approval.id, "biller");
     expect(exec2.ok).toBe(true);
     expect((await rcmStore.listApprovals(T)).find((a) => a.id === approval.id)!.executedAt).toBeDefined();
+  });
+  it("a tool's raw thrown error reaches the caller but is never persisted verbatim into the audit log", async () => {
+    // A tool's exception text isn't guaranteed to stay PHI-free forever, and /agents/audit
+    // exposes stored detail — the caller still gets the real message (for retry/UI purposes),
+    // but the durable audit row must only ever get a fixed, redacted marker.
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "missing-denial-for-audit-test", patientId: "pt-demo-1", amount: 10, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, approval.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, approval.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/denial not found/); // the direct caller still sees the real reason
+    const audit = await rcmStore.listAudit(T);
+    const errorRow = audit.find((a) => a.outcome === "error" && a.step === "write-off:approved-exec");
+    expect(errorRow).toBeDefined();
+    expect(JSON.stringify(errorRow!.detail)).not.toMatch(/denial not found/); // redacted in the persisted log
   });
   it("denial agent triages and never executes any money-moving or patient-billing step without approval", async () => {
     const r = await agentRuntime.run("denials", T);
@@ -960,6 +1018,19 @@ describe("round 11 hardening", () => {
     expect(pPatientResp.denials[0].amount).toBe(400); // 450 billed - 50 already transferred to patient
   });
 
+  it("postRemittance still starts the denial workflow for a CLP02 '4' claim whose only adjustment is contractual (CO-45), not a denial CARC", () => {
+    // The Round 13 fix's guard ("any adjustment present at all") was itself too broad — a denied
+    // ERA carrying ONLY a contractual/PR adjustment with no denial-classified CARC would then
+    // never synthesize anything, leaving `denials` empty and no route into the denial workflow.
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0, lines: [{ proc: "99214", billed: 300, paid: 0, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 100 }] }] }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.status).toBe("denied");
+    expect(p.denials).toHaveLength(1); // a real denial record still gets created
+    expect(p.denials[0].carc).toBe("16");
+    expect(p.denials[0].amount).toBe(350); // 450 billed - 100 already accounted for as contractual
+  });
+
   it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
     const c = mkClaim();
     // A large charge from well over a year ago must not inflate the 90-day average daily rate —
@@ -976,5 +1047,22 @@ describe("round 11 hardening", () => {
     const withRecent = computeKpis({ claims: [c], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 100000, date: "2024-01-01", responsibleParty: "insurance" }, { id: "2", patientId: "p1", type: "charge", amount: 900, date: "2026-08-01", responsibleParty: "insurance" }], remittances: [], today: "2026-09-05", periodDays: 90 });
     const withRecentK = Object.fromEntries(withRecent.map((x) => [x.key, x]));
     expect(withRecentK.days_in_ar.value).toBe(10090); // (100000+900 AR) / (900/90 daily rate)
+  });
+});
+
+describe("round 14 hardening", () => {
+  it("scrubber's ncci-bundling rule only flags a pair on the SAME date of service, and matches lowercase CPTs", () => {
+    // 20610/96372 is a seeded NCCI PTP pair (modifierIndicator 1).
+    const sameDate = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: [] }] };
+    expect(scrubClaim(sameDate).edits.some((e) => e.id === "ncci-bundling")).toBe(true);
+    const differentDates = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-05", modifiers: [] }] };
+    expect(scrubClaim(differentDates).edits.some((e) => e.id === "ncci-bundling")).toBe(false); // different visits — NCCI PTP doesn't apply across dates
+    const lowercase = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: [] }] };
+    expect(scrubClaim(lowercase).edits.some((e) => e.id === "ncci-bundling")).toBe(true); // still flags with mismatched CPT case
+  });
+  it("scrubber's ncci-bundling rule flags every occurrence of the component code on the pair's date, not just the first", () => {
+    const claim = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: [] }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: [] }] };
+    const flagged = scrubClaim(claim).edits.filter((e) => e.id === "ncci-bundling");
+    expect(flagged.map((e) => e.lineNumber).sort()).toEqual([2, 3]); // both 96372 lines flagged, not just the first
   });
 });

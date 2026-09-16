@@ -103,14 +103,20 @@ const rules: Record<string, Rule> = {
   "mue-units-exceeded": (c) => c.lines.flatMap((l, i) => { const max = feeRow(l.cpt)?.typicalUnitsMax; return max !== undefined && l.units > max ? [{ id: "mue-units-exceeded", category: "frequency", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: ${l.cpt} units ${l.units} exceed MUE ${max}`, fix: "Reduce units or split across dates with documentation" }] : []; }),
   "ncci-bundling": (c) => {
     const out: Edit[] = [];
-    const codes = c.lines.map((l) => l.cpt);
+    // NCCI PTP edits apply to services on the SAME date of service, and CPTs aren't guaranteed
+    // to arrive uppercased — normalize case and index every occurrence (not just the first, via
+    // indexOf) so a claim with more than one instance of either code on the pair's own date is
+    // still fully evaluated.
+    const indexed = c.lines.map((l, i) => ({ cpt: l.cpt.toUpperCase(), dateOfService: l.dateOfService, i }));
     for (const pair of NCCI_PTP_SEED) {
-      const i1 = codes.indexOf(pair.column1);
-      const i2 = codes.indexOf(pair.column2);
-      if (i1 < 0 || i2 < 0) continue;
-      const mods = c.lines[i2].modifiers.map((m) => m.toUpperCase());
-      const bypass = pair.modifierIndicator === 1 && mods.some((m) => NCCI_BYPASS_MODIFIERS.has(m));
-      if (!bypass) out.push({ id: "ncci-bundling", category: "bundling", severity: "error", lineNumber: i2 + 1, message: `${pair.column2} bundles into ${pair.column1} (NCCI PTP): ${pair.rationale}`, fix: pair.modifierIndicator === 1 ? "Remove the component line, or append 59/X{ESPU} only if a distinct service is documented" : "Remove the component line; this pair can never be unbundled" });
+      const col1Lines = indexed.filter((l) => l.cpt === pair.column1);
+      const col2Lines = indexed.filter((l) => l.cpt === pair.column2);
+      for (const col2 of col2Lines) {
+        if (!col1Lines.some((col1) => col1.dateOfService === col2.dateOfService)) continue;
+        const mods = c.lines[col2.i].modifiers.map((m) => m.toUpperCase());
+        const bypass = pair.modifierIndicator === 1 && mods.some((m) => NCCI_BYPASS_MODIFIERS.has(m));
+        if (!bypass) out.push({ id: "ncci-bundling", category: "bundling", severity: "error", lineNumber: col2.i + 1, message: `${pair.column2} bundles into ${pair.column1} (NCCI PTP): ${pair.rationale}`, fix: pair.modifierIndicator === 1 ? "Remove the component line, or append 59/X{ESPU} only if a distinct service is documented" : "Remove the component line; this pair can never be unbundled" });
+      }
     }
     return out;
   },

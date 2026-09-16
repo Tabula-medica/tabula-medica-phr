@@ -156,13 +156,16 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // leaving a denied claim with no denial record and no route into that workflow at all.
     // `denied === 0` is NOT the right guard here: a real CARC present with a missing/zero CAS
     // amount also nets to `denied === 0` after the loop above (and is already in `denials`), so
-    // that check would synthesize a SECOND, duplicate denial on top of it. Only synthesize when
-    // no adjustment was present at all, and only for the portion that isn't already accounted for
-    // by patient responsibility already transferred (or, in principle, a contractual write-off,
-    // though a fully-contractual claim reporting CLP02 "4" would itself be inconsistent vendor data).
-    const hadAnyAdjustment = (rc.claimAdjustments?.length ?? 0) > 0 || rc.lines.some((l) => l.adjustments.length > 0);
+    // that check would synthesize a SECOND, duplicate denial on top of it. Nor is "any adjustment
+    // present at all" right either: a denied ERA can carry ONLY a PR or contractual (CO-45/253)
+    // adjustment with no actual denial-classified CARC, and that must still get a denial record
+    // for its unexplained residual. The precise signal is whether the loop above actually
+    // classified anything as a denial (pushed to `denials`) — PR/contractual entries never are —
+    // and the synthesized amount only covers the portion not already accounted for by patient
+    // responsibility or a contractual adjustment elsewhere in this same posting.
+    const hadDenialCarc = denials.length > 0;
     const undocumentedDenied = round2(Math.max(0, rc.billed - rc.patientResp - contractual));
-    if (rc.statusCode === "4" && !hadAnyAdjustment && undocumentedDenied > 0) { denied += undocumentedDenied; denials.push({ group: "CO", carc: "16", amount: undocumentedDenied }); }
+    if (rc.statusCode === "4" && !hadDenialCarc && undocumentedDenied > 0) { denied += undocumentedDenied; denials.push({ group: "CO", carc: "16", amount: undocumentedDenied }); }
     const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
     postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && rc.patientResp > 0 });
   }

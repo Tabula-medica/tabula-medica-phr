@@ -131,7 +131,13 @@ export class AgentRuntime {
       } catch (e) {
         const error = e instanceof Error ? e.message : String(e);
         steps.push({ ...step, outcome: "error", error });
-        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { error }, outcome: "error" });
+        // The raw message is safe to hand straight back to the actor who triggered this run (it
+        // stays on the returned AgentStep above), but it must never be persisted verbatim into
+        // the durable, broadly-queryable audit log — a tool's thrown message isn't guaranteed to
+        // stay PHI-free forever (a future vendor adapter could echo back a patient name or raw
+        // payer response text), and `/agents/audit` exposes stored detail. Persist a fixed marker
+        // instead of the message itself.
+        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { error: "tool threw — see step result for detail (not persisted to audit)" }, outcome: "error" });
       }
     }
     const summary = def.summarize(steps);
@@ -160,7 +166,9 @@ export class AgentRuntime {
       return { ok: true, output };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      await this.store.audit(tenantId, { agent: a.agent, step: `${a.action}:approved-exec`, detail: { approvalId, error }, outcome: "error" });
+      // Same redaction as the plan-loop's error path — the raw message goes back to the caller
+      // (returned below) but never into the durable audit log.
+      await this.store.audit(tenantId, { agent: a.agent, step: `${a.action}:approved-exec`, detail: { approvalId, error: "tool threw — see execution result for detail (not persisted to audit)" }, outcome: "error" });
       return { ok: false, error };
     } finally {
       this.executing.delete(approvalId);

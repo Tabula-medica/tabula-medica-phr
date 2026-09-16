@@ -179,34 +179,40 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
-    const auth = claim.priorAuthNumber ? (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId) : undefined;
-    // A priorAuthNumber with no matching internal record isn't proof there's no real
-    // authorization (it could be a payer number obtained outside this app's own tracking) — but
-    // it's exactly the situation the auth-validation block below is meant to catch when a line on
-    // THIS claim actually needs it. Only block on it then: a box-23 number that's purely
-    // informational (gold-carded CPTs, or a number carried over onto a secondary/COB claim for a
-    // different payer/coverage that never required auth in the first place) scrubs clean and must
-    // not get stuck at "ready" forever just because it doesn't resolve to a record we track.
+    const auths = await ctx.store.listAuths(ctx.tenantId);
+    // Match on payerId too — an authNumber/patient/coverage collision (or a coverage record
+    // later reused/repointed at a different payer) must never let an unrelated payer's
+    // authorization be selected, revalidated, and consumed for this claim.
+    const auth = claim.priorAuthNumber ? auths.find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId) : undefined;
+    // Revalidate against the same rules a fresh prior-auth check uses (status, date of service,
+    // remaining units) right before submission — scrubbing happened earlier, and any auth could
+    // have expired, been denied, or been exhausted by another claim since. Check EVERY
+    // auth-required line against ALL matching auth records on file, not just whichever single
+    // line(s) happen to share the one priorAuthNumber attached to the claim — a claim can carry
+    // more than one auth-required CPT even though this schema only tracks one attached number,
+    // and a box-23 number that's purely informational (gold-carded CPTs, or one carried over onto
+    // a secondary/COB claim for a different payer/coverage) must not block a line that never
+    // needed it, while a DIFFERENT required CPT with no coverage at all must still block.
     const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
-    const claimNeedsAuth = linesNeedingAuth(claim.lines, contract).length > 0;
-    if (claim.priorAuthNumber && claimNeedsAuth && !auth) throw new Error(`Prior auth number ${claim.priorAuthNumber} on this claim has no matching authorization record for this patient/coverage — verify it before submitting`);
+    const requiredLines = linesNeedingAuth(claim.lines, contract);
+    for (const cpt of Array.from(new Set(requiredLines.map((r) => r.line.cpt.toUpperCase())))) {
+      const cptLines = requiredLines.filter((r) => r.line.cpt.toUpperCase() === cpt).map((r) => r.line);
+      const unitsForCpt = cptLines.reduce((s, l) => s + l.units, 0);
+      const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
+      if (!covering.some((a) => cptLines.every((l) => authCoversService(a, l.cpt, l.dateOfService, unitsForCpt).ok))) {
+        throw new Error(`No authorization on file covers ${cpt} on this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
+      }
+    }
     const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
     if (lockKey) {
       if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);
       submitAuthLocks.add(lockKey);
     }
     try {
-      let unitsNeeded = 0;
-      if (auth) {
-        // Revalidate against the same rules a fresh prior-auth check uses (status, date of
-        // service, remaining units) right before submission — scrubbing happened earlier, and
-        // the auth could have expired, been denied, or been exhausted by another claim since.
-        const relevantLines = claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt);
-        unitsNeeded = relevantLines.reduce((s, l) => s + l.units, 0);
-        if (unitsNeeded > 0 && !relevantLines.every((l) => authCoversService(auth, l.cpt, l.dateOfService, unitsNeeded).ok)) {
-          throw new Error(`Prior auth ${auth.authNumber} no longer covers this claim (expired, wrong date of service, or insufficient units)`);
-        }
-      }
+      // The per-CPT revalidation above already confirmed every auth-required line is covered;
+      // this just tallies how many units of the specific attached auth (if any) this submission
+      // actually consumes.
+      const unitsNeeded = auth ? claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0) : 0;
       // Consume the auth's units at the moment the claim actually goes out — attaching an auth
       // number never did, so a one-unit authorization stayed at zero units used and could be
       // reused indefinitely. Transition the claim FIRST: if this throws (the claim is no longer
