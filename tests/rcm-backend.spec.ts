@@ -1169,6 +1169,36 @@ describe("round 11 hardening", () => {
     expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
   });
 
+  it("two concurrent open-auth-request calls for the same patient/coverage/CPT/date can't both win — one opens the request, the other is rejected as in-flight", async () => {
+    // open-auth-request is deliberately not approval-gated (278 is an automated real-time
+    // transaction, unlike claim submission/appeals), so it gets none of the runtime's own
+    // approval-request dedup — without its own lock, two overlapping prior-auth runs planning
+    // from the same stale `auths` snapshot could each open a duplicate 278 for the same service.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
+    const input = { patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 };
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([tool.run(input, ctx), tool.run(input, ctx)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(1);
+  });
+
+  it("open-auth-request dedupes against an already-requested auth for the same patient/coverage/CPT/date instead of opening a second one", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
+    const input = { patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 };
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const first = (await tool.run(input, ctx)) as { authId: string };
+    const second = (await tool.run(input, ctx)) as { authId: string; deduped?: boolean };
+    expect(second.authId).toBe(first.authId);
+    expect(second.deduped).toBe(true);
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(1);
+  });
+
   it("patient-financial agent advances an old self-pay balance to agency referral instead of resetting to statement-1 every run", async () => {
     // A self-pay charge is patient-responsible from the moment it's charged — no transfer-to-
     // patient entry is ever posted for it — so the collections clock must derive from the

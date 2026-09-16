@@ -55,14 +55,32 @@ const eligibilityAgent: AgentDefinition = {
 };
 
 // ---------- Prior-auth agent ----------
+// Not approval-gated, unlike claim submission/appeals/write-offs/refunds: a 278 request is an
+// industry-standard automated real-time transaction, not a money-moving or payer-commitment
+// action needing human sign-off. That means it also gets none of the runtime's own approval-
+// request dedup (that check only runs for `requiresApproval` tools) — two concurrent prior-auth
+// runs can each plan an open-auth-request step from the same stale `auths` snapshot before
+// either has written its new request. Close that race the same way denial actions and remittance
+// posting do: a synchronous lock-then-recheck on the request's own identity.
+const openAuthLocks = new Set<string>();
 const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; dateOfService?: string; units?: number }, unknown> = {
   name: "open-auth-request",
   description: "Create and mark requested a prior-auth for an auth-required service",
   async run(input, ctx) {
-    const pa = transitionAuth(createAuthRequest(input), "requested", { actor: ctx.actor, note: "Agent-submitted 278 (stub)" });
-    await ctx.store.upsertAuth(ctx.tenantId, pa);
-    await ctx.store.addWorkItems(ctx.tenantId, itemsFromAuths([pa]));
-    return { authId: pa.id, slaDeadline: pa.slaDeadline, missingDocumentation: pa.missingDocumentation };
+    const cpt = input.cpt.toUpperCase();
+    const lockKey = `${ctx.tenantId}:${input.patientId}:${input.coverageId}:${input.payerId}:${cpt}:${input.dateOfService ?? ""}`;
+    if (openAuthLocks.has(lockKey)) throw new Error("Another auth request for this patient/coverage/CPT/date is already in flight");
+    openAuthLocks.add(lockKey);
+    try {
+      const existing = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).find((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended") && a.units >= (input.units ?? 1));
+      if (existing) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
+      const pa = transitionAuth(createAuthRequest(input), "requested", { actor: ctx.actor, note: "Agent-submitted 278 (stub)" });
+      await ctx.store.upsertAuth(ctx.tenantId, pa);
+      await ctx.store.addWorkItems(ctx.tenantId, itemsFromAuths([pa]));
+      return { authId: pa.id, slaDeadline: pa.slaDeadline, missingDocumentation: pa.missingDocumentation };
+    } finally {
+      openAuthLocks.delete(lockKey);
+    }
   },
 };
 const attachAuth: Tool<{ claimId: string; authId: string }, unknown> = {
