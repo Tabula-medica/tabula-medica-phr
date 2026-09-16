@@ -209,7 +209,7 @@ describe("scrubber", () => {
     expect(r.clean).toBe(false);
   });
   it("recognizes real CMS place-of-service codes the earlier seed-sized map omitted (assisted living, inpatient hospital, nursing facility, ambulance)", () => {
-    for (const pos of ["13", "21", "32", "41", "42"]) {
+    for (const pos of ["13", "21", "27", "32", "41", "42"]) {
       expect(PLACE_OF_SERVICE[pos], pos).toBeDefined();
       const claim = mk({ lines: [{ cpt: "99213", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: pos }] });
       const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
