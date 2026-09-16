@@ -605,14 +605,26 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
 // and each execute an offer-payment-plan step before either's insert lands — stacking two plans
 // against the same balance. plan()'s own hasActivePlan check can't prevent this by itself since
 // it only ever sees a snapshot taken before either run started.
+//
+// Shared with POST /patients/:id/payment-plan (routes.ts) via lockPaymentPlan / unlockPaymentPlan
+// — the same cross-module pattern as submitAuthLocks / isAuthSubmitLocked. A private Set in each
+// module would let an overlapping agent run and HTTP request both pass listPaymentPlans and both
+// upsert, since plans are keyed by generated id with no per-patient uniqueness.
 const paymentPlanLocks = new Set<string>();
+export function lockPaymentPlan(tenantId: string, patientId: string): boolean {
+  const key = `${tenantId}:${patientId}`;
+  if (paymentPlanLocks.has(key)) return false;
+  paymentPlanLocks.add(key);
+  return true;
+}
+export function unlockPaymentPlan(tenantId: string, patientId: string): void {
+  paymentPlanLocks.delete(`${tenantId}:${patientId}`);
+}
 const offerPlan: Tool<{ patientId: string; amount: number; months: number }, unknown> = {
   name: "offer-payment-plan",
   description: "Create a payment plan offer",
   async run(input, ctx) {
-    const lockKey = `${ctx.tenantId}:${input.patientId}`;
-    if (paymentPlanLocks.has(lockKey)) throw new Error("A payment plan action for this patient is already in flight");
-    paymentPlanLocks.add(lockKey);
+    if (!lockPaymentPlan(ctx.tenantId, input.patientId)) throw new Error("A payment plan action for this patient is already in flight");
     try {
       // Recheck at execution time, not just at plan() time — a plan offered or accepted by
       // another run between planning and this step's execution must block a duplicate here.
@@ -621,7 +633,7 @@ const offerPlan: Tool<{ patientId: string; amount: number; months: number }, unk
       const plan = await ctx.store.upsertPaymentPlan(ctx.tenantId, createPaymentPlan(input.patientId, input.amount, input.months));
       return { planId: plan.id, installment: plan.installment, months: plan.months };
     } finally {
-      paymentPlanLocks.delete(lockKey);
+      unlockPaymentPlan(ctx.tenantId, input.patientId);
     }
   },
 };

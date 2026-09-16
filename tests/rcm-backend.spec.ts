@@ -14,7 +14,7 @@ import { scrubClaim } from "../server/rcm/scrubber";
 import { estimatePatientResponsibility, financialClearance, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
 import { addDays, isValidIcd10, round2 } from "../server/rcm/util";
-import { agentRuntime } from "../server/rcm/agents";
+import { agentRuntime, lockPaymentPlan, unlockPaymentPlan } from "../server/rcm/agents";
 import { aiText } from "../server/rcm/agents/ai";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
@@ -838,6 +838,21 @@ describe("agents", () => {
     const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(rejected.reason.message).toMatch(/already in flight/);
     expect(await rcmStore.listPaymentPlans(T, "pt-plan-race")).toHaveLength(1);
+  });
+  it("offer-payment-plan and POST /patients/:id/payment-plan share one lock so they can't both insert", async () => {
+    // Each used to keep a private paymentPlanLocks Set, so an overlapping agent run and HTTP
+    // POST could both pass listPaymentPlans and both upsert. lockPaymentPlan is the same helper
+    // the HTTP route uses, so holding it here is equivalent to an in-flight POST.
+    await rcmStore.upsertPatient(T, { id: "pt-plan-shared-lock", firstName: "Shared", lastName: "Lock", dob: "1990-01-01" });
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    expect(lockPaymentPlan(T, "pt-plan-shared-lock")).toBe(true);
+    try {
+      await expect(tool.run({ patientId: "pt-plan-shared-lock", amount: 300, months: 6 }, ctx)).rejects.toThrow(/already in flight/);
+    } finally {
+      unlockPaymentPlan(T, "pt-plan-shared-lock");
+    }
+    expect(await rcmStore.listPaymentPlans(T, "pt-plan-shared-lock")).toHaveLength(0);
   });
   it("offer-payment-plan refuses to create a second plan once an active one already exists for the patient, even outside a concurrent race", async () => {
     await rcmStore.upsertPatient(T, { id: "pt-plan-dup", firstName: "Dup", lastName: "Plan", dob: "1990-01-01" });

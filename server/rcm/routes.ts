@@ -17,7 +17,7 @@ import { expectedAllowed, expectedForLines, modelContractChange, varianceReport 
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
-import { agentRuntime, isAuthSubmitLocked } from "./agents";
+import { agentRuntime, isAuthSubmitLocked, lockPaymentPlan, unlockPaymentPlan } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
 import { daysBetween, round2, sum, todayIso } from "./util";
@@ -535,17 +535,15 @@ rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = 
 // In-process lock closing the check-then-insert TOCTOU race below: the balance/active-plan
 // checks and the eventual upsertPaymentPlan are separated by `await`s a second concurrent
 // request for the same patient could slip through, both reading "no active plan" and each
-// creating its own schedule against the same balance.
-const paymentPlanLocks = new Set<string>();
+// creating its own schedule against the same balance. Uses the same Set as offer-payment-plan
+// (lockPaymentPlan / unlockPaymentPlan) so an overlapping agent run and HTTP POST serialize.
 rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
   const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const pt = await rcmStore.getPatient(t, req.params.id);
   if (!pt) return fail(res, 404, "patient not found");
-  const lockKey = `${t}:${req.params.id}`;
-  if (paymentPlanLocks.has(lockKey)) return fail(res, 409, "A payment plan action for this patient is already in progress — retry shortly");
-  paymentPlanLocks.add(lockKey);
+  if (!lockPaymentPlan(t, req.params.id)) return fail(res, 409, "A payment plan action for this patient is already in progress — retry shortly");
   try {
     // Same "any unpaid schedule = active" invariant the patient-financial agent uses
     // (agents/index.ts's hasActivePlan) — don't let a second plan stack on top of one the
@@ -559,7 +557,7 @@ rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
     const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay);
     res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) });
   } finally {
-    paymentPlanLocks.delete(lockKey);
+    unlockPaymentPlan(t, req.params.id);
   }
 }));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
