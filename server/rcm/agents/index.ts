@@ -11,7 +11,7 @@ import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, de
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
 import { computeKpis } from "../analytics";
 import { newId, round2, todayIso } from "../util";
-import type { Claim, Denial, LedgerEntry } from "../types";
+import type { Claim, LedgerEntry } from "../types";
 import { buildPayerCallScript } from "./payer-call";
 
 // ---------- Eligibility agent ----------
@@ -155,6 +155,10 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     return { clean: second.clean, score: second.score, autoFixed: fixed.applied, errors: second.errors.map((e) => e.id) };
   },
 };
+// In-process lock on the authorization actually being consumed, not the approval id — two
+// different claims can both carry the same priorAuthNumber, and without this two concurrent
+// submissions could both read the same stale unitsUsed and both decide they fit.
+const submitAuthLocks = new Set<string>();
 const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   name: "submit-claim",
   description: "Submit a ready claim to the clearinghouse (837P)",
@@ -163,22 +167,35 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
-    // Consume the auth's units at the moment the claim actually goes out — attaching an auth
-    // number never did, so a one-unit authorization stayed at zero units used and could be
-    // reused indefinitely. Fail closed if the claim needs more than what's left, rather than
-    // silently submitting over the authorized amount.
-    if (claim.priorAuthNumber) {
-      const auth = (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId);
+    const auth = claim.priorAuthNumber ? (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId) : undefined;
+    const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
+    if (lockKey) {
+      if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);
+      submitAuthLocks.add(lockKey);
+    }
+    try {
+      let unitsNeeded = 0;
       if (auth) {
-        const unitsNeeded = claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0);
-        if (unitsNeeded > 0) {
-          if (auth.unitsUsed + unitsNeeded > auth.units) throw new Error(`Prior auth ${auth.authNumber} has insufficient units remaining (${auth.units - auth.unitsUsed} left, ${unitsNeeded} needed)`);
-          await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+        // Revalidate against the same rules a fresh prior-auth check uses (status, date of
+        // service, remaining units) right before submission — scrubbing happened earlier, and
+        // the auth could have expired, been denied, or been exhausted by another claim since.
+        const relevantLines = claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt);
+        unitsNeeded = relevantLines.reduce((s, l) => s + l.units, 0);
+        if (unitsNeeded > 0 && !relevantLines.every((l) => authCoversService(auth, l.cpt, l.dateOfService, unitsNeeded).ok)) {
+          throw new Error(`Prior auth ${auth.authNumber} no longer covers this claim (expired, wrong date of service, or insufficient units)`);
         }
       }
+      // Consume the auth's units at the moment the claim actually goes out — attaching an auth
+      // number never did, so a one-unit authorization stayed at zero units used and could be
+      // reused indefinitely. Transition the claim FIRST: if this throws (the claim is no longer
+      // "ready"), the units must stay untouched so a retry doesn't burn more of them for a
+      // submission that never actually went out.
+      await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
+      if (auth && unitsNeeded > 0) await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+      return { submitted: claim.id };
+    } finally {
+      if (lockKey) submitAuthLocks.delete(lockKey);
     }
-    await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
-    return { submitted: claim.id };
   },
 };
 const scrubberAgent: AgentDefinition = {
@@ -240,8 +257,12 @@ const triageDenial: Tool<{ denialId: string }, unknown> = {
       const protectedFacts = [`CARC ${d.carc}`, `$${d.amount.toFixed(2)}`];
       appealDraft = protectedFacts.every((f) => polished.text.includes(f)) ? polished.text : base.letter;
     }
-    const updated: Denial = { ...d, status: "in-progress" };
-    await ctx.store.upsertDenial(ctx.tenantId, updated);
+    // Triage itself is read-only on the denial's own status: the recommended action is a
+    // separate, approval-gated step, and marking this "in-progress" unconditionally here would
+    // make the denial vanish from the next scan's `listDenials(..., "open")` if that action is
+    // later rejected or fails — with no way back into automatic triage. Only the tool that
+    // actually completes the remediation (write-off, appeal, corrected claim) should move it out
+    // of "open".
     return { denialId: d.id, recommendation: rec, appealDraft };
   },
 };

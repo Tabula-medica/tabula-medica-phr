@@ -9,7 +9,7 @@
 //   4. AI (planner/polish) is optional: with `RCM_AI_ENABLED!=true` every agent runs its
 //      deterministic plan. When enabled, PHI-bearing prompts go through ai-provider (Vertex).
 //   5. No PHI in agent audit `detail` beyond ids and amounts.
-import { rcmStore, type RcmStore } from "../store";
+import { rcmStore, type Approval, type RcmStore } from "../store";
 import { makeWorkItem } from "../worklists";
 
 // Shared, mutable step budget: the orchestrator's `run-agent` tool passes its own `ctx.budget`
@@ -52,6 +52,10 @@ export class AgentRuntime {
   // This is what lets a failed execution (tool threw, or was removed) be retried, while still
   // preventing two concurrent executeApproved calls for the same id from both running the tool.
   private executing = new Set<string>();
+  // In-process lock on the (tenant, agent, tool, payload) key of an approval request in
+  // progress — closes the check-then-create race between two concurrent run() calls that could
+  // otherwise both see no live approval yet and both mint one for the same money-moving action.
+  private approvalRequestInFlight = new Set<string>();
   constructor(private store: RcmStore = rcmStore) {}
 
   register(def: AgentDefinition): void { this.agents.set(def.name, def); }
@@ -94,14 +98,30 @@ export class AgentRuntime {
         // the identical action — approving both would run a money-moving tool (write-off,
         // refund, transfer-to-patient) twice against the same record. Dedupe on the exact same
         // agent/action/payload having a still-live approval (pending, or approved but not yet
-        // executed) before minting a new one.
+        // executed) before minting a new one. The check-then-create sequence below is separated
+        // by an `await`, so two concurrent runs could both see an empty result — close that with
+        // a synchronous pre-await lock on the same key, derivable here with no awaits yet spent.
         const payloadKey = JSON.stringify(step.input);
-        const live = (await this.store.listApprovals(tenantId)).find((a) => a.agent === name && a.action === tool.name && JSON.stringify(a.payload) === payloadKey && (a.status === "pending" || (a.status === "approved" && !a.executedAt)));
-        const approval = live ?? (await this.store.requestApproval(tenantId, { agent: name, action: tool.name, payload: step.input, reason: `${step.why} — ${tool.approvalReason ?? "human approval required"}` }));
-        if (!live) await this.store.addWorkItems(tenantId, [makeWorkItem({ queue: "agent-approval", title: `${name}: ${tool.name} — ${step.why}`, patientId: typeof step.input.patientId === "string" ? step.input.patientId : undefined, claimId: typeof step.input.claimId === "string" ? step.input.claimId : undefined, amount: typeof step.input.amount === "number" ? step.input.amount : undefined, priority: 70, source: "agent", context: { approvalId: approval.id } })]);
+        const dedupeKey = `${tenantId}:${name}:${tool.name}:${payloadKey}`;
+        if (this.approvalRequestInFlight.has(dedupeKey)) {
+          steps.push({ ...step, outcome: "blocked", error: "another in-flight run is already requesting this same approval" });
+          await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { blocked: "duplicate in-flight approval request" }, outcome: "blocked" });
+          continue;
+        }
+        this.approvalRequestInFlight.add(dedupeKey);
+        let approval: Approval;
+        let deduped = false;
+        try {
+          const live = (await this.store.listApprovals(tenantId)).find((a) => a.agent === name && a.action === tool.name && JSON.stringify(a.payload) === payloadKey && (a.status === "pending" || (a.status === "approved" && !a.executedAt)));
+          deduped = !!live;
+          approval = live ?? (await this.store.requestApproval(tenantId, { agent: name, action: tool.name, payload: step.input, reason: `${step.why} — ${tool.approvalReason ?? "human approval required"}` }));
+          if (!live) await this.store.addWorkItems(tenantId, [makeWorkItem({ queue: "agent-approval", title: `${name}: ${tool.name} — ${step.why}`, patientId: typeof step.input.patientId === "string" ? step.input.patientId : undefined, claimId: typeof step.input.claimId === "string" ? step.input.claimId : undefined, amount: typeof step.input.amount === "number" ? step.input.amount : undefined, priority: 70, source: "agent", context: { approvalId: approval.id } })]);
+        } finally {
+          this.approvalRequestInFlight.delete(dedupeKey);
+        }
         approvals++;
         steps.push({ ...step, outcome: "needs-approval", approvalId: approval.id });
-        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { approvalId: approval.id, deduped: !!live }, outcome: "needs-approval" });
+        await this.store.audit(tenantId, { agent: name, step: tool.name, detail: { approvalId: approval.id, deduped }, outcome: "needs-approval" });
         continue;
       }
       try {

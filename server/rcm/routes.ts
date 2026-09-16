@@ -272,7 +272,10 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const created: string[] = [];
     for (const p of result.postings) {
       await rcmStore.postLedger(t, p.entries);
-      const claim = p.claimId ? claimsById[p.claimId] : undefined;
+      // "unmatched" still carries the real claimId for reconciliation display, but this claim
+      // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
+      // means nothing was actually adjudicated against it.
+      const claim = p.claimId && p.status !== "unmatched" ? claimsById[p.claimId] : undefined;
       if (claim) {
         const to = claimStatusFromPosting(p);
         let next = claim;
@@ -338,6 +341,11 @@ const ledgerPostInFlight = new Set<string>();
 rcmRouter.post("/ledger", wrap(async (req, res) => {
   const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
   if (!p.success) return bad(res, p.error);
+  // insurance-payment/contractual-adjustment reduce A/R with no approval, remittance match, or
+  // contract validation behind them — restrict those two to admin, while point-of-care facts
+  // (charge, patient-payment, transfer-to-patient) stay open to the wider RCM role set.
+  const adjustmentTypes = new Set<(typeof directLedgerTypes)[number]>(["insurance-payment", "contractual-adjustment"]);
+  if (p.data.some((e) => adjustmentTypes.has(e.type)) && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting insurance-payment or contractual-adjustment entries directly requires an admin role");
   const t = tenantOf(req);
   const suppliedIds = p.data.map((e) => e.id).filter((id): id is string => !!id);
   const lockKeys = suppliedIds.map((id) => `${t}:${id}`);

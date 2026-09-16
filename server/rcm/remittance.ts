@@ -129,7 +129,11 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       // (100% for the top-valued surgical line, 50% for the rest) — summing plain per-line
       // rates would flag a correctly-paid multi-procedure claim as underpaid.
       const expected = expectedForLines(contract, claim.lines);
-      const actual = rc.allowed ?? round2(rc.paid + rc.patientResp);
+      // The allowed amount is what the payer's contract lets through: paid + patient
+      // responsibility + whatever was written off as contractual (CO-45/253) — leaving out the
+      // contractual adjustment here would misread a normally-paid claim (e.g. $80 paid + $20
+      // CO-45 against a $100 expected rate) as a variance-triggering underpayment.
+      const actual = rc.allowed ?? round2(rc.paid + rc.patientResp + contractual);
       const variance = round2(expected - actual);
       if (variance > Math.max(1, expected * 0.02)) underpayment = { expectedAllowed: expected, actualAllowed: actual, variance };
     }

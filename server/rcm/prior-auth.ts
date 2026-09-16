@@ -146,10 +146,13 @@ export function transitionAuth(auth: PriorAuth, to: AuthStatus, opts: { actor: s
     next.slaDeadline = slaDeadlineFor(at, auth.urgency);
     // Reopening a denied/expired request must not carry over its old decision — otherwise an
     // approval that doesn't explicitly supply a fresh authNumber (opts.authNumber undefined)
-    // would silently reuse the stale one from the prior, no-longer-valid attempt.
+    // would silently reuse the stale one from the prior, no-longer-valid attempt. Units consumed
+    // under that old cycle don't carry over either: a renewal is a fresh payer decision with its
+    // own allocation, not a continuation of the expired one's remaining balance.
     next.authNumber = undefined;
     next.validFrom = undefined;
     next.validTo = undefined;
+    next.unitsUsed = 0;
   }
   if (to === "approved") {
     next.decidedAt = at;

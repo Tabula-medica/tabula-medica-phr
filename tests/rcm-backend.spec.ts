@@ -9,7 +9,7 @@ import { agingByPayer, computeKpis } from "../server/rcm/analytics";
 import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
-import { authCoversService, authorizedCptsOnFile, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
+import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
 import { scrubClaim } from "../server/rcm/scrubber";
 import { estimatePatientResponsibility, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
@@ -83,6 +83,16 @@ describe("remittance posting", () => {
     expect(p.underpayment).toBeDefined(); // BCBS at 135% of Medicare: 99214 ≈ 172.8 + 20610 ≈ 97.2 = 270 expected vs 210 allowed
     expect(p.underpayment!.variance).toBeGreaterThan(50);
     expect(claimStatusFromPosting(p)).toBe("partially-paid");
+  });
+  it("underpayment check folds contractual CAS amounts into the derived allowed amount when the ERA omits an explicit allowed", () => {
+    const c = mkClaim(); // 99214 + 20610, expected ≈ 270 per BCBS contract
+    const rem = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 200, patient_resp: 20, lines: [{ proc: "99214", billed: 300, paid: 150, patient_resp: 20, adjustments: [{ group: "CO", carc: "45", amount: 30 }] }, { proc: "20610", billed: 150, paid: 50, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 20 }] }] }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    const p = r.postings[0];
+    expect(p.contractual).toBe(50);
+    // paid(200) + patientResp(20) + contractual(50) = 270 ≈ expected — a correctly-paid claim,
+    // not an underpayment, even though no explicit `allowed` was in the ERA.
+    expect(p.underpayment).toBeUndefined();
   });
   it("never posts cash against an unmatched claim id, and leaves it unapplied", () => {
     const rem = parseEra({ check_amount: 100, claims: [{ pcn: "x", status: "22", billed: 100, paid: -50, patient_resp: 0 }] });
@@ -397,6 +407,17 @@ describe("agents", () => {
     expect(audit.some((a) => a.outcome === "needs-approval")).toBe(true);
     expect(JSON.stringify(audit)).not.toMatch(/Asha|Miguel|Priya|Dana/);
   });
+  it("triaging a denial doesn't mark it in-progress — it stays open (and re-triageable) until its recommended action actually succeeds", async () => {
+    const before = (await rcmStore.listDenials(T, "open")).map((d) => d.id);
+    expect(before.length).toBeGreaterThan(0);
+    const r = await agentRuntime.run("denials", T);
+    // Every denial that was triaged must still show up as "open" — rejecting or never deciding
+    // the recommended action must not make it disappear from the next scan.
+    const stillOpen = (await rcmStore.listDenials(T, "open")).map((d) => d.id);
+    expect(stillOpen).toEqual(expect.arrayContaining(before));
+    const triaged = r.steps.filter((s) => s.tool === "triage-denial").map((s) => s.input.denialId);
+    for (const id of before) expect(triaged).toContain(id);
+  });
   it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
     const approvalsBefore = (await rcmStore.listApprovals(T)).length;
     const workItemsBefore = (await rcmStore.listWorkItems(T, "agent-approval")).length;
@@ -670,24 +691,32 @@ describe("round 7 hardening", () => {
     expect(isValidIcd10("U09.9")).toBe(true);
     expect(isValidIcd10("A00.0")).toBe(true); // still accepts an ordinary code
   });
-  it("scrubber's unlinked-service-line rule caps diagnosis pointers at 4 (box 24E), not the claim's 12-diagnosis limit", () => {
+  it("scrubber's unlinked-service-line rule caps the POINTER COUNT at 4 (box 24E) without capping which of up to 12 diagnoses a pointer may reference", () => {
     const c = mkClaim();
-    const tooManyPointers = { ...c, lines: [{ ...c.lines[0], dxPointers: [1, 1, 1, 1, 1] }] }; // 5 pointers
+    const tooManyPointers = { ...c, lines: [{ ...c.lines[0], dxPointers: [1, 1, 1, 1, 1] }] }; // 5 pointers — too many
     const result = scrubClaim(tooManyPointers);
     expect(result.edits.some((e) => e.id === "unlinked-service-line")).toBe(true);
+    // A line pointing only to the claim's 6th diagnosis (a valid box 21 slot, A-L) must NOT be
+    // rejected just because the pointer value exceeds 4 — only the pointer COUNT is capped there.
+    const manyDiagnoses = Array.from({ length: 8 }, (_, i) => ({ code: `A0${i}` }));
+    const validHighPointer = { ...c, diagnoses: manyDiagnoses, lines: [{ ...c.lines[0], dxPointers: [6] }] };
+    const validResult = scrubClaim(validHighPointer);
+    expect(validResult.edits.some((e) => e.id === "unlinked-service-line")).toBe(false);
   });
   it("computeKpis floors total A/R at zero instead of going negative on an overpaid account", () => {
     const kpis = computeKpis({ claims: [], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "patient" }, { id: "2", patientId: "p1", type: "patient-payment", amount: 250, date: "2026-08-02", responsibleParty: "patient" }], remittances: [] });
     const ar = kpis.find((k) => k.key === "total_ar")!;
     expect(ar.value).toBe(0); // not -150
   });
-  it("reopening a denied/expired auth clears its stale authNumber and validity window", () => {
-    const approved = transitionAuth(transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" }), "approved", { actor: "t", authNumber: "AUTH-OLD", validFrom: "2026-01-01", validTo: "2026-03-31" });
+  it("reopening a denied/expired auth clears its stale authNumber, validity window, and consumed units", () => {
+    const approvedFresh = transitionAuth(transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" }), "approved", { actor: "t", authNumber: "AUTH-OLD", validFrom: "2026-01-01", validTo: "2026-03-31", approvedUnits: 2 });
+    const approved = consumeAuthUnit(approvedFresh, 1); // one of two units already used
     const expired = transitionAuth(approved, "expired", { actor: "t" });
     const reopened = transitionAuth(expired, "requested", { actor: "t" });
     expect(reopened.authNumber).toBeUndefined();
     expect(reopened.validFrom).toBeUndefined();
     expect(reopened.validTo).toBeUndefined();
+    expect(reopened.unitsUsed).toBe(0); // the renewed cycle gets its own fresh allocation
     // A later approval that forgets to supply a fresh number must not silently inherit "AUTH-OLD".
     const reapproved = transitionAuth(reopened, "approved", { actor: "t" });
     expect(reapproved.authNumber).toBeUndefined();
