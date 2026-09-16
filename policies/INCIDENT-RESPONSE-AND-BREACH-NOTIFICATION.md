@@ -72,7 +72,7 @@ A "breach" is defined per 45 CFR 164.402 as impermissible use or disclosure of P
 | Notification Requirement | Deadline | Recipient | Method |
 |--------------------------|----------|-----------|--------|
 | Affected individuals | 60 calendar days from discovery | Each affected patient | Written notice (email where authorized; first-class mail otherwise) |
-| HHS Office for Civil Rights | 60 calendar days (< 500 individuals); annual report (≤ 500 individuals) | HHS OCR breach portal | Electronic submission |
+| HHS Office for Civil Rights | 60 calendar days (≥ 500 individuals); annual report (< 500 individuals) | HHS OCR breach portal | Electronic submission |
 | Media notice (if > 500 individuals in a state) | 60 calendar days | Prominent local media | Press release |
 
 Notification content must include: description of breach, types of PHI involved, steps individuals should take to protect themselves, steps PHR is taking, and contact information.
