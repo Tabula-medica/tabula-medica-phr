@@ -1213,6 +1213,25 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(1);
   });
 
+  it("open-auth-request does not drop a genuinely additional unit request just because an existing pending auth for the same key has enough raw units on paper", async () => {
+    // An existing 2-unit pending request whose capacity is already fully spoken for by other
+    // lines (tracked only in plan()'s own per-pass pendingUnitsClaimed, never persisted to the
+    // auth record) must not make open-auth-request think a distinct, smaller incremental need is
+    // already covered — that's exactly the bug in a units >= check.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const first = (await tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 2 }, ctx)) as { authId: string };
+    // A later pass determines 1 MORE unit is needed for the same key (its own 2-unit capacity is
+    // already claimed elsewhere) — this must open a real second request, not dedupe against the
+    // first just because its raw units (2) happens to be >= the new call's units (1).
+    const second = (await tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }, ctx)) as { authId: string; deduped?: boolean };
+    expect(second.authId).not.toBe(first.authId);
+    expect(second.deduped).toBeUndefined();
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(2);
+  });
+
   it("patient-financial agent advances an old self-pay balance to agency referral instead of resetting to statement-1 every run", async () => {
     // A self-pay charge is patient-responsible from the moment it's charged — no transfer-to-
     // patient entry is ever posted for it — so the collections clock must derive from the

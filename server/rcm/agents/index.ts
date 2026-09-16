@@ -72,7 +72,14 @@ const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; c
     if (openAuthLocks.has(lockKey)) throw new Error("Another auth request for this patient/coverage/CPT/date is already in flight");
     openAuthLocks.add(lockKey);
     try {
-      const existing = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).find((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended") && a.units >= (input.units ?? 1));
+      // Exact unit match only — plan()'s pendingUnitsClaimed already merges same-pass lines that
+      // fit within an existing pending auth's remaining capacity into a single request, so a step
+      // reaching this tool always represents a genuinely uncovered need. Treating ANY existing
+      // pending auth with units >= this call's as a duplicate (a prior version of this check)
+      // ignores that its capacity may already be fully claimed by other lines outside this call's
+      // knowledge, silently dropping a real incremental request. An exact match is only true for
+      // a second call carrying the identical, not-yet-fulfilled need — i.e. a genuine race/retry.
+      const existing = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).find((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended") && a.units === (input.units ?? 1));
       if (existing) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
       const pa = transitionAuth(createAuthRequest(input), "requested", { actor: ctx.actor, note: "Agent-submitted 278 (stub)" });
       await ctx.store.upsertAuth(ctx.tenantId, pa);
