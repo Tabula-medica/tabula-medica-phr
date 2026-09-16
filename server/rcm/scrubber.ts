@@ -70,9 +70,9 @@ const rules: Record<string, Rule> = {
   // Not autoFixable: guessing diagnosis 1 for a missing/invalid pointer can link a service to
   // a diagnosis it has nothing to do with, which is a medical-necessity/coding decision only a
   // provider or coder can make — never something to silently apply and submit.
-  // CMS-1500 box 24E has room for exactly 4 diagnosis-pointer letters (A-D) — both the per-line
-  // count and each individual pointer must respect that, not the claim's own 12-diagnosis cap.
-  "unlinked-service-line": (c) => c.lines.flatMap((l, i) => (l.dxPointers.length === 0 || l.dxPointers.length > 4 || l.dxPointers.some((p) => p < 1 || p > c.diagnoses.length || p > 4) ? [{ id: "unlinked-service-line", category: "required-field", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: diagnosis pointer missing or out of range`, fix: "Link the line to 1-4 valid diagnosis pointers (box 24E)" }] : [])),
+  // CMS-1500 box 24E / 837P SV1 allow at most 4 diagnosis pointers per line, but those
+  // pointers may reference diagnoses 1–12 (letters A–L), capped by the claim's diagnosis list.
+  "unlinked-service-line": (c) => c.lines.flatMap((l, i) => (l.dxPointers.length === 0 || l.dxPointers.length > 4 || l.dxPointers.some((p) => p < 1 || p > c.diagnoses.length || p > 12) ? [{ id: "unlinked-service-line", category: "required-field", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: diagnosis pointer missing or out of range`, fix: "Link the line to 1-4 valid diagnosis pointers (box 24E)" }] : [])),
   "pos-format": (c) => c.lines.flatMap((l, i) => (!PLACE_OF_SERVICE[l.placeOfService] ? [{ id: "pos-format", category: "format", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: unknown place of service ${l.placeOfService}`, fix: "Use a valid 2-digit POS (11 office, 10 telehealth home…)" }] : [])),
   "dos-in-future": (c, ctx) => {
     const today = ctx.today ?? new Date().toISOString().slice(0, 10);
