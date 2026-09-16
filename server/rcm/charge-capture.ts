@@ -61,10 +61,22 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
   const out: ServiceLine[] = [];
   // Count occurrences per CPT rather than deduping into a Set — an encounter can document the
   // same procedure more than once (e.g. two separate injections), and collapsing those to a
-  // single instance would underbill by dropping the extra units.
+  // single instance would underbill by dropping the extra units. But proceduresDocumented and
+  // ordersCompleted are two views of the SAME encounter (clinical note vs. completed orders), not
+  // two independent sources of units — a single injection recorded in both would be summed into
+  // two units if simply concatenated. Count each source separately and take the max per CPT, so a
+  // code repeated within one source still adds units, but the same code appearing once in each
+  // source is treated as one occurrence, not two.
+  const countByCpt = (codes: string[]): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const c of codes.map((x) => x.toUpperCase())) if (isValidCpt(c)) m.set(c, (m.get(c) ?? 0) + 1);
+    return m;
+  };
+  const documentedCounts = countByCpt(facts.proceduresDocumented);
+  const completedCounts = countByCpt(facts.ordersCompleted);
   const procedureCounts = new Map<string, number>();
-  for (const c of [...facts.proceduresDocumented, ...facts.ordersCompleted].map((c) => c.toUpperCase())) {
-    if (isValidCpt(c)) procedureCounts.set(c, (procedureCounts.get(c) ?? 0) + 1);
+  for (const cpt of Array.from(new Set([...Array.from(documentedCounts.keys()), ...Array.from(completedCounts.keys())]))) {
+    procedureCounts.set(cpt, Math.max(documentedCounts.get(cpt) ?? 0, completedCounts.get(cpt) ?? 0));
   }
   const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));
 
