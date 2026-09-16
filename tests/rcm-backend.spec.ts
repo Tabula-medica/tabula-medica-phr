@@ -13,7 +13,7 @@ import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthReq
 import { scrubClaim } from "../server/rcm/scrubber";
 import { estimatePatientResponsibility, financialClearance, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
-import { addDays, isValidIcd10 } from "../server/rcm/util";
+import { addDays, isValidIcd10, round2 } from "../server/rcm/util";
 import { agentRuntime } from "../server/rcm/agents";
 import { aiText } from "../server/rcm/agents/ai";
 import { rcmStore } from "../server/rcm/store";
@@ -291,6 +291,27 @@ describe("patient financials", () => {
     const s = computeAccount("p2", withWriteOff);
     expect(s.patientBalance).toBe(0); // the $4 copay was written off, not still outstanding
     expect(s.insuranceBalance).toBe(96); // the rest of the charge is still open on the insurance side
+  });
+  it("patientBalance/insuranceBalance can go negative (a credit) instead of clamping it away and losing consistency with the overall balance", () => {
+    // A takeback that reverses a copay the patient already paid: the patient now has a $20
+    // credit even though the claim's $100 charge isn't fully resolved (insurance's payment was
+    // also taken back, pending a new adjudication). Clamping either side to nonnegative would
+    // make patientBalance + insuranceBalance stop summing to the overall `balance`, and would
+    // silently discard the patient's refundable credit from the per-side view.
+    const entries: LedgerEntry[] = [
+      { id: "1", patientId: "p10", type: "charge", amount: 100, date: "2026-03-01", responsibleParty: "insurance" },
+      { id: "2", patientId: "p10", type: "insurance-payment", amount: 80, date: "2026-04-01", responsibleParty: "insurance" },
+      { id: "3", patientId: "p10", type: "transfer-to-patient", amount: 20, date: "2026-04-01", responsibleParty: "patient" },
+      { id: "4", patientId: "p10", type: "patient-payment", amount: 20, date: "2026-04-05", responsibleParty: "patient" },
+      // Takeback: insurance's $80 payment is reversed, and the $20 patient-responsibility
+      // obligation is unwound (a negative transfer-to-patient, per the earlier remittance fix).
+      { id: "5", patientId: "p10", type: "refund", amount: 80, date: "2026-05-01", responsibleParty: "insurance" },
+      { id: "6", patientId: "p10", type: "transfer-to-patient", amount: -20, date: "2026-05-01", responsibleParty: "patient" },
+    ];
+    const s = computeAccount("p10", entries);
+    expect(s.patientBalance).toBe(-20); // a refundable patient credit, not clamped to 0
+    expect(s.insuranceBalance).toBe(100); // insurance's obligation reset to the full charge
+    expect(round2(s.patientBalance + s.insuranceBalance)).toBe(s.balance);
   });
   it("propensity, plans, collections, FPL and GFE", () => {
     expect(propensityToPay({ balance: 50, priorStatementsPaidOnTime: 3, priorStatementsLate: 0, hasCardOnFile: true }).band).toBe("high");

@@ -52,8 +52,15 @@ export function computeAccount(patientId: string, entries: LedgerEntry[]): Accou
     if (e.responsibleParty === "patient") patientSide += amt;
     else insuranceSide += amt;
   }
-  const patientBalance = round2(Math.max(0, patientSide));
-  const insuranceBalance = round2(Math.max(0, insuranceSide));
+  // Not clamped to nonnegative: a reversal (or an outright overpayment) can leave one side with
+  // a credit rather than a balance owed. Clamping it away here would make patientBalance +
+  // insuranceBalance stop summing to the overall `balance` above, and would silently discard a
+  // patient-side credit — e.g. a takeback that reverses a copay obligation the patient already
+  // paid — that the account genuinely owes back. Every caller that expects a nonnegative "amount
+  // owed" already guards for that (a write-off/payment-plan cap that requires > 0, a statement
+  // that can reasonably show a negative "amount due" as a credit).
+  const patientBalance = round2(patientSide);
+  const insuranceBalance = round2(insuranceSide);
   return { patientId, charges, insurancePaid, patientPaid, adjustments, refunds, balance, patientBalance, insuranceBalance };
 }
 
