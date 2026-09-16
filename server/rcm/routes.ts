@@ -78,7 +78,13 @@ rcmRouter.use((req, res, next) => {
   const t = tenantOf(req);
   if (demoSeedInFlight.has(t)) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
   tenantMutationsInFlight.set(t, (tenantMutationsInFlight.get(t) ?? 0) + 1);
+  // Both "finish" and "close" fire for a normal completed response (not just for an aborted
+  // one) — without this guard, a single request would decrement the counter twice, letting it
+  // reach zero (and /demo/seed proceed to reset()) while a DIFFERENT request is still in flight.
+  let released = false;
   const release = () => {
+    if (released) return;
+    released = true;
     const remaining = (tenantMutationsInFlight.get(t) ?? 1) - 1;
     if (remaining <= 0) tenantMutationsInFlight.delete(t);
     else tenantMutationsInFlight.set(t, remaining);
