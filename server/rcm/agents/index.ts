@@ -155,6 +155,12 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     return { clean: second.clean, score: second.score, autoFixed: fixed.applied, errors: second.errors.map((e) => e.id) };
   },
 };
+// In-process lock so two concurrent submit-claim executions sharing a prior-auth
+// number cannot both pass a stale unitsUsed check. The runtime's executing set is
+// per approvalId, not per auth. Synchronous check-and-set before any await on this
+// key, mirroring remittancePostInFlight / AgentRuntime.executing.
+const authConsumeInFlight = new Set<string>();
+
 const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   name: "submit-claim",
   description: "Submit a ready claim to the clearinghouse (837P)",
@@ -163,21 +169,39 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
+    // Validate the transition *before* consuming auth units. executeApproved only
+    // sets executedAt after this tool returns, so a thrown transitionClaim (re-scrub
+    // demoted the claim, or it was already submitted) would otherwise leave the
+    // approval retryable while unitsUsed is already incremented.
+    const submitted = transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)");
     // Consume the auth's units at the moment the claim actually goes out — attaching an auth
     // number never did, so a one-unit authorization stayed at zero units used and could be
     // reused indefinitely. Fail closed if the claim needs more than what's left, rather than
     // silently submitting over the authorized amount.
     if (claim.priorAuthNumber) {
-      const auth = (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId);
-      if (auth) {
-        const unitsNeeded = claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0);
-        if (unitsNeeded > 0) {
+      const lockKey = `${ctx.tenantId}:${claim.patientId}:${claim.coverageId}:${claim.priorAuthNumber}`;
+      if (authConsumeInFlight.has(lockKey)) throw new Error(`Prior auth ${claim.priorAuthNumber} is being consumed by another submission`);
+      authConsumeInFlight.add(lockKey);
+      try {
+        const auth = (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId);
+        const unitsNeeded = auth ? claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0) : 0;
+        const consumed = !!(auth && unitsNeeded > 0);
+        if (consumed && auth) {
           if (auth.unitsUsed + unitsNeeded > auth.units) throw new Error(`Prior auth ${auth.authNumber} has insufficient units remaining (${auth.units - auth.unitsUsed} left, ${unitsNeeded} needed)`);
           await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
         }
+        try {
+          await ctx.store.upsertClaim(ctx.tenantId, submitted);
+        } catch (e) {
+          if (consumed && auth) await ctx.store.upsertAuth(ctx.tenantId, auth);
+          throw e;
+        }
+      } finally {
+        authConsumeInFlight.delete(lockKey);
       }
+    } else {
+      await ctx.store.upsertClaim(ctx.tenantId, submitted);
     }
-    await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
     return { submitted: claim.id };
   },
 };

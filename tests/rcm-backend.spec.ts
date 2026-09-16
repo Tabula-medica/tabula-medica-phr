@@ -96,8 +96,12 @@ describe("remittance posting", () => {
     const rem = parseEra({ payerid: "AETNA", check_amount: 100, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });
     const r = postRemittance(rem, { [c.id]: c });
     expect(r.postings[0].status).toBe("unmatched"); // wrong-payer ERA must not post against this claim
+    expect(r.postings[0].claimId).toBe(c.id); // kept so a human can reconcile the collision
     expect(r.postings[0].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100);
+    // Unmatched-with-a-real-claimId must not map to a lifecycle status — the post
+    // route would otherwise adjudicate (or reverse) the live claim without posting cash.
+    expect(claimStatusFromPosting(r.postings[0])).toBeUndefined();
   });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
@@ -107,8 +111,10 @@ describe("remittance posting", () => {
     expect(r.postings[0].entries[0].type).toBe("refund");
     expect(r.balanced).toBe(true);
     const paid = transitionClaim(c, "paid", "era-post");
-    expect(canTransition(paid.status, claimStatusFromPosting(r.postings[0]))).toBe(true);
-    expect(transitionClaim(paid, claimStatusFromPosting(r.postings[0]), "era-post").status).toBe("adjudicated");
+    const fromReversal = claimStatusFromPosting(r.postings[0]);
+    expect(fromReversal).toBe("adjudicated");
+    expect(canTransition(paid.status, fromReversal!)).toBe(true);
+    expect(transitionClaim(paid, fromReversal!, "era-post").status).toBe("adjudicated");
   });
 });
 
@@ -354,6 +360,48 @@ describe("agents", () => {
     const exec2 = await agentRuntime.executeApproved(T, pending2.id, "biller");
     expect(exec2.ok).toBe(false);
     expect((await rcmStore.getClaim(T, ready2.id))?.status).toBe("ready"); // never actually submitted
+  });
+  it("does not consume auth units when submit fails because the claim is no longer ready", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-UNIT-RETRY", approvedUnits: 2, validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-u-retry", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 2, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "AUTH-UNIT-RETRY" });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    // Re-scrub demoted the claim off "ready" after approval was granted.
+    await rcmStore.upsertClaim(T, { ...ready, status: "scrubbed" });
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect((await rcmStore.getAuth(T, approvedAuth.id))?.unitsUsed).toBe(0);
+    expect((await rcmStore.listApprovals(T)).find((a) => a.id === pending.id)!.executedAt).toBeUndefined();
+  });
+  it("two concurrent submits against the same auth cannot both consume from a stale unitsUsed snapshot", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-UNIT-RACE", approvedUnits: 1, validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const mkReady = (enc: string) => {
+      const c = buildClaim({ encounterId: enc, patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "AUTH-UNIT-RACE" });
+      return transitionClaim(transitionClaim(c, "scrubbed", "t"), "ready", "t");
+    };
+    const a = mkReady("e-race-1");
+    const b = mkReady("e-race-2");
+    await rcmStore.upsertClaim(T, a);
+    await rcmStore.upsertClaim(T, b);
+    await agentRuntime.run("claim-scrubber", T);
+    const pA = (await rcmStore.listApprovals(T, "pending")).find((x) => x.payload.claimId === a.id)!;
+    const pB = (await rcmStore.listApprovals(T, "pending")).find((x) => x.payload.claimId === b.id)!;
+    await rcmStore.decideApproval(T, pA.id, "approved", "biller");
+    await rcmStore.decideApproval(T, pB.id, "approved", "biller");
+    const [r1, r2] = await Promise.all([agentRuntime.executeApproved(T, pA.id, "biller"), agentRuntime.executeApproved(T, pB.id, "biller")]);
+    expect([r1.ok, r2.ok].filter(Boolean)).toHaveLength(1);
+    expect((await rcmStore.getAuth(T, approvedAuth.id))?.unitsUsed).toBe(1);
+    const submitted = [await rcmStore.getClaim(T, a.id), await rcmStore.getClaim(T, b.id)].filter((c) => c?.status === "submitted");
+    expect(submitted).toHaveLength(1);
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);

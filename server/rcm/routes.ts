@@ -273,10 +273,14 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     for (const p of result.postings) {
       await rcmStore.postLedger(t, p.entries);
       const claim = p.claimId ? claimsById[p.claimId] : undefined;
-      if (claim) {
-        const to = claimStatusFromPosting(p);
+      // Unmatched postings may still carry a real claimId (a wrong-payer ERA, or an
+      // id that exists but was not actually posted against). Never treat those as
+      // an adjudication — unmatched used to map to `adjudicated` under the assumption
+      // that unmatched meant "id not in the map."
+      const to = p.status === "unmatched" ? undefined : claimStatusFromPosting(p);
+      if (claim && to) {
         let next = claim;
-        for (const hop of [to] as Claim["status"][]) { try { next = transitionClaim(next, hop, "era-post"); } catch { /* keep current status when transition not allowed */ } }
+        for (const hop of [to]) { try { next = transitionClaim(next, hop, "era-post"); } catch { /* keep current status when transition not allowed */ } }
         await rcmStore.upsertClaim(t, next);
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }

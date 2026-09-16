@@ -140,13 +140,15 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
   return { postings, unapplied, balanced: Math.abs(unapplied) < 0.01 };
 }
 
-export function claimStatusFromPosting(p: Posting): Claim["status"] {
+export function claimStatusFromPosting(p: Posting): Claim["status"] | undefined {
   switch (p.status) {
     case "paid": return "paid";
     case "partial": return "partially-paid";
     case "denied": return "denied";
     case "zero-pay": return "adjudicated";
     case "reversal": return "adjudicated";
-    case "unmatched": return "adjudicated"; // unreachable via routes.ts, which only calls this when a claim was found
+    // Unmatched can still carry a real claimId (wrong-payer ERA). That is not an
+    // adjudication — routes.ts must not write a claim status for this posting.
+    case "unmatched": return undefined;
   }
 }
