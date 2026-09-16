@@ -20,7 +20,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
 import { agentRuntime, isAuthSubmitLocked } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, round2, todayIso } from "./util";
+import { daysBetween, round2, sum, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
@@ -357,12 +357,18 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   // Derive the COB summary from the claim's own stored, posted primary remittance rather than
   // trusting a caller-supplied paid/patientResp/billed figure — an authenticated caller could
   // otherwise send the secondary payer an arbitrary primary payment amount unrelated to what the
-  // primary payer actually adjudicated. Pick the most recently posted matching row, in case this
-  // claim has more than one (a reversal-and-correction pair, for instance).
-  const posted = (await rcmStore.listRemittances(t)).filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === c.id).map((rc) => ({ rc, postedAt: r.postedAt! })));
-  const primary = posted.sort((a, b) => a.postedAt.localeCompare(b.postedAt)).at(-1)?.rc;
-  if (!primary) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
-  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: primary.billed, paid: primary.paid, patientResp: primary.patientResp, lines: [] })) });
+  // primary payer actually adjudicated. This claim can have more than one posted row (a reversal-
+  // and-correction pair, or several partial/installment remittances) — the most recent row alone
+  // could BE the reversal (or just one installment), so net every posted row's paid/patientResp
+  // instead, applying the same reversal-aware sign convention postRemittance itself uses (a
+  // reversal always subtracts its magnitude, whichever way the vendor signed it on the wire).
+  const primaryRows = (await rcmStore.listRemittances(t)).filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === c.id));
+  if (!primaryRows.length) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
+  const signed = (rc: (typeof primaryRows)[number], value: number) => (rc.statusCode === "22" || rc.paid < 0 ? -Math.abs(value) : value);
+  const netPaid = round2(sum(primaryRows.map((rc) => signed(rc, rc.paid))));
+  const netPatientResp = round2(sum(primaryRows.map((rc) => signed(rc, rc.patientResp))));
+  const billed = primaryRows[primaryRows.length - 1].billed;
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed, paid: netPaid, patientResp: netPatientResp, lines: [] })) });
 }));
 
 // ---------- Remittance ----------
@@ -423,7 +429,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
         // that skips every posting would come back reporting a fully reconciled $0 remittance even
         // though none of its money actually landed anywhere.
         needsReconciliation.push(p.claimId!);
-        skippedCash += p.paid;
+        // Match postRemittance's own sign convention for `applied` (a reversal always SUBTRACTS
+        // its magnitude, regardless of whether the vendor sent it as an already-negative value or
+        // a positive one relying on CLP02 "22" alone) — adding back the raw, possibly-positive
+        // `p.paid` here would move `unapplied` in the wrong direction for a skipped reversal.
+        skippedCash += p.status === "reversal" ? -Math.abs(p.paid) : p.paid;
         continue;
       }
       await rcmStore.postLedger(t, p.entries);
