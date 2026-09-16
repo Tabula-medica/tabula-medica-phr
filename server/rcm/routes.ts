@@ -329,9 +329,9 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const needsReconciliation: string[] = [];
     let skippedCash = 0;
     // Claim ids this SAME /remittance/post call has already transitioned — used below to scope
-    // the "adjudicated" self-transition to the same-ERA reversal-then-correction pattern it
-    // exists for, not any claim that merely already happens to be sitting in "adjudicated" from
-    // an earlier, separate remittance.
+    // the reversal self-transition to the same-ERA reversal-then-correction pattern it exists
+    // for, not a retried takeback against a claim already sitting in "adjudicated" from an
+    // earlier, separate remittance.
     const touchedThisRequest = new Set<string>();
     for (const p of result.postings) {
       // "unmatched" still carries the real claimId for reconciliation display, but this claim
@@ -340,15 +340,18 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       // `entries` empty).
       const claim = p.claimId && p.status !== "unmatched" ? claimsById[p.claimId] : undefined;
       const to = claim ? claimStatusFromPosting(p) : undefined;
-      // "adjudicated" is the one status allowed to self-transition purely so a same-ERA reversal
-      // can be immediately followed by a zero-pay correction (both map to "adjudicated"). Without
-      // the touchedThisRequest gate, that same leniency would also let an entirely separate,
-      // later ERA (e.g. a retried takeback resent under a different check number, bypassing the
-      // identity-based idempotency check above) post again against a claim that merely already
-      // happens to be "adjudicated" from a prior remittance — double-refunding or double-posting
-      // contractual/PR entries. "partially-paid" is deliberately NOT restricted this way: staggered
-      // installment remittances are expected to arrive as genuinely separate, legitimate ERAs.
-      const selfTransitionNeedsSameRequest = !!claim && to === "adjudicated" && claim.status === "adjudicated" && !touchedThisRequest.has(claim.id);
+      // "adjudicated" is allowed to self-transition so a same-ERA reversal can be immediately
+      // followed by a zero-pay correction (both map to "adjudicated"). A reversal against a
+      // claim that is already "adjudicated" from a prior remittance — e.g. a retried takeback
+      // resent under a different check number, bypassing the identity-based idempotency check
+      // above — would double-refund, so that self-transition is only allowed if this same
+      // request already touched the claim. A later zero-pay correction (full contractual
+      // write-off or full patient responsibility) must still post: after a takeback, A/R is
+      // restored and that follow-up 835 is what writes it off or transfers it. Payment and
+      // denial corrections already land via adjudicated → paid/denied. "partially-paid" is
+      // deliberately NOT restricted this way: staggered installment remittances are expected
+      // to arrive as genuinely separate, legitimate ERAs.
+      const selfTransitionNeedsSameRequest = !!claim && p.status === "reversal" && to === "adjudicated" && claim.status === "adjudicated" && !touchedThisRequest.has(claim.id);
       if (claim && to && (!canTransition(claim.status, to) || selfTransitionNeedsSameRequest)) {
         // A duplicate or erroneous ERA that slipped past the id/check-number idempotency check
         // above (e.g. the same payment resent under a different check number) must not silently
