@@ -78,7 +78,14 @@ rcmRouter.use((req, res, next) => {
   const t = tenantOf(req);
   if (demoSeedInFlight.has(t)) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
   tenantMutationsInFlight.set(t, (tenantMutationsInFlight.get(t) ?? 0) + 1);
+  // Both events are required: `finish` fires on a flushed body, `close` on abort
+  // (and also after `finish` on a completed response). `res.once` only dedupes
+  // the same event, so without this flag a normal `res.json()` path would
+  // decrement twice and let /demo/seed reset() under a still-running sibling.
+  let released = false;
   const release = () => {
+    if (released) return;
+    released = true;
     const remaining = (tenantMutationsInFlight.get(t) ?? 1) - 1;
     if (remaining <= 0) tenantMutationsInFlight.delete(t);
     else tenantMutationsInFlight.set(t, remaining);
