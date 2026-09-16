@@ -144,12 +144,45 @@ describe("remittance posting", () => {
     expect(r.postings[1].status).not.toBe("unmatched"); // the row right after the reversal is the correction, not a duplicate
     expect(r.postings[1].entries.length).toBeGreaterThan(0);
   });
+  it("treats a second reversal CLP for the same claimId as unmatched instead of double-refunding", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -200, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0 }, { pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[1].status).toBe("unmatched");
+    expect(r.postings[1].entries).toHaveLength(0);
+  });
   it("preserves a negative CAS amount on a reversal row so the original write-off actually gets unwound", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: -100, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -150 }] }] });
     expect(rem.claims[0].claimAdjustments![0].amount).toBe(-150); // not clamped to 0 — this negates the original write-off
     const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
     expect(r.postings[0].contractual).toBe(-150);
+  });
+  it("does not open denial records for negated CAS on a reversal", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -100, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0, adjustments: [{ group: "CO", carc: "97", amount: -30 }, { group: "CO", carc: "45", amount: -150 }] }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.status).toBe("reversal");
+    expect(p.contractual).toBe(-150);
+    expect(p.denials).toHaveLength(0);
+  });
+  it("a reversal-and-correction pair against an already-paid claim can legally transition paid→adjudicated→paid", () => {
+    let c = transitionClaim(transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t"), "paid", "era-post");
+    const rem = parseEra({ payerid: "BCBS", check_amount: 20, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -180, patient_resp: 0 }, { pcn: c.id, status: "1", billed: 450, paid: 200, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[1].status).toBe("paid");
+    // /remittance/post applies each posting against the claim as it stands after the previous
+    // one — not the original snapshot. paid cannot self-transition to paid, so a stale snapshot
+    // would skip the correction after the reversal has already moved the claim to adjudicated.
+    expect(canTransition("paid", "paid")).toBe(false);
+    expect(canTransition(c.status, claimStatusFromPosting(r.postings[0]))).toBe(true);
+    c = transitionClaim(c, claimStatusFromPosting(r.postings[0]), "era-post");
+    expect(c.status).toBe("adjudicated");
+    expect(canTransition(c.status, claimStatusFromPosting(r.postings[1]))).toBe(true);
+    c = transitionClaim(c, claimStatusFromPosting(r.postings[1]), "era-post");
+    expect(c.status).toBe("paid");
   });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
@@ -215,6 +248,19 @@ describe("patient financials", () => {
     expect(st.amountDue).toBe(60);
     expect(st.dueDate).toBe("2026-10-05");
     expect(st.message).toMatch(/past due/);
+  });
+  it("FIFO aging nets a reversing contractual-adjustment instead of leaving the original write-off outstanding", () => {
+    const reversed: LedgerEntry[] = [
+      { id: "1", patientId: "p1", type: "charge", amount: 450, date: "2026-03-01", responsibleParty: "insurance" },
+      { id: "2", patientId: "p1", type: "insurance-payment", amount: 180, date: "2026-04-01", responsibleParty: "insurance" },
+      { id: "3", patientId: "p1", type: "contractual-adjustment", amount: 150, date: "2026-04-01", responsibleParty: "insurance" },
+      { id: "4", patientId: "p1", type: "refund", amount: 180, date: "2026-05-01", responsibleParty: "insurance" },
+      { id: "5", patientId: "p1", type: "contractual-adjustment", amount: -150, date: "2026-05-01", responsibleParty: "insurance" },
+    ];
+    const s = computeAccount("p1", reversed);
+    expect(s.balance).toBe(450); // billed A/R restored
+    const a = computeAging(reversed, "2026-09-05");
+    expect(a.total).toBe(450); // must agree with computeAccount, not still count the original CO-45
   });
   it("a patient-side write-off actually zeroes the patient balance it covers", () => {
     const withWriteOff: LedgerEntry[] = [

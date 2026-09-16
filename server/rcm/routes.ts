@@ -331,6 +331,10 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       if (claim && to) {
         const next = transitionClaim(claim, to, "era-post");
         await rcmStore.upsertClaim(t, next);
+        // A reversal-and-correction pair shares one claimId in this loop. After a paid→adjudicated
+        // takeback, the following correction must see `adjudicated` — not the original `paid`
+        // snapshot — or `canTransition(paid, paid)` fails and the replacement payment is skipped.
+        claimsById[claim.id] = next;
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
         if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);
