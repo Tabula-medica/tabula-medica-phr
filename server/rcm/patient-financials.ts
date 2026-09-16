@@ -31,9 +31,12 @@ export function computeAccount(patientId: string, entries: LedgerEntry[]): Accou
   // its own responsibleParty says (a self-pay charge starts on the patient side directly, an
   // insurance-billed charge starts on the insurance side until transfer-to-patient moves it);
   // every other entry (payment, contractual adjustment, denial write-off, patient-side
-  // write-off, refund) already carries the side it settles. transfer-to-patient only moves an
-  // amount that is actually still sitting on the insurance side, capped so it can never double
-  // count a charge that was already patient-side from the start or push insurance negative.
+  // write-off, refund) already carries the side it settles. A positive transfer-to-patient only
+  // moves an amount that is actually still sitting on the insurance side, capped so it can never
+  // double count a charge that was already patient-side from the start or push insurance
+  // negative. A negative transfer (ERA status-22 unwind) moves it back; if the patient already
+  // paid that PR, patientSide goes negative — a credit that must stay visible so it can be
+  // refunded even while restored insurance A/R keeps net `balance` positive.
   // Two passes, not one: totaling every charge FIRST (order-independent — addition commutes)
   // before applying any transfer means a transfer's cap always sees the charge it's transferring
   // against, regardless of which one happens to come first in the ledger array (a caller-ordered
@@ -47,13 +50,21 @@ export function computeAccount(patientId: string, entries: LedgerEntry[]): Accou
   }
   for (const e of mine) {
     if (e.type === "charge") continue;
-    if (e.type === "transfer-to-patient") { const move = Math.min(e.amount, Math.max(0, insuranceSide)); insuranceSide -= move; patientSide += move; continue; }
+    if (e.type === "transfer-to-patient") {
+      const move = e.amount >= 0 ? Math.min(e.amount, Math.max(0, insuranceSide)) : e.amount;
+      insuranceSide -= move;
+      patientSide += move;
+      continue;
+    }
     const amt = signedAmount(e);
     if (e.responsibleParty === "patient") patientSide += amt;
     else insuranceSide += amt;
   }
-  const patientBalance = round2(Math.max(0, patientSide));
-  const insuranceBalance = round2(Math.max(0, insuranceSide));
+  // Leave credits signed (do not clamp at zero): otherwise a PR unwind after the copay was
+  // collected disappears from patientBalance, patientBalance + insuranceBalance no longer
+  // matches net balance, and issue-refund (which needs the patient-side credit) never fires.
+  const patientBalance = round2(patientSide);
+  const insuranceBalance = round2(insuranceSide);
   return { patientId, charges, insurancePaid, patientPaid, adjustments, refunds, balance, patientBalance, insuranceBalance };
 }
 
@@ -184,7 +195,11 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
   const out: CreditBalance[] = [];
   for (const [patientId, entries] of Object.entries(entriesByPatient)) {
     const s = computeAccount(patientId, entries);
-    if (s.balance < -threshold) {
+    // A patient-side credit (paid copay, then a reversal unwound PR) can exist while restored
+    // insurance A/R keeps net `balance` positive — overall-account credit would miss it.
+    if (s.patientBalance < -threshold) {
+      out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    } else if (s.balance < -threshold) {
       const patientPaid = sum(entries.filter((e) => e.type === "patient-payment").map((e) => e.amount));
       const source: CreditBalance["source"] = patientPaid >= -s.balance ? "overpayment-patient" : "overpayment-insurance";
       out.push({ patientId, amount: round2(-s.balance), source, refundTo: source === "overpayment-patient" ? "patient" : "payer", requiresApproval: -s.balance >= 25 });

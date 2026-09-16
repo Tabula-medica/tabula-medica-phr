@@ -632,7 +632,10 @@ const issueRefund: Tool<{ patientId: string; amount: number; refundTo: string },
       // activity on the account (a payment, another refund), and posting the stale planned amount
       // could refund money that's no longer there and turn the account into a debit.
       const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
-      const availableCredit = round2(Math.max(0, -computeAccount(input.patientId, entries).balance));
+      const summary = computeAccount(input.patientId, entries);
+      // Patient-side credit (e.g. copay collected, then a status-22 PR unwind) can exist while
+      // restored insurance A/R keeps net `balance` positive — key off both.
+      const availableCredit = round2(Math.max(0, -summary.balance, -summary.patientBalance));
       if (availableCredit <= 0) throw new Error("no credit balance remains to refund");
       const amount = round2(Math.min(input.amount, availableCredit));
       await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount, date: todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]);

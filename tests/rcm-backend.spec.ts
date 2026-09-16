@@ -292,6 +292,39 @@ describe("patient financials", () => {
     expect(s.patientBalance).toBe(0); // the $4 copay was written off, not still outstanding
     expect(s.insuranceBalance).toBe(96); // the rest of the charge is still open on the insurance side
   });
+  it("a reversal PR unwind after the copay was collected keeps the patient credit refundable", () => {
+    // Charge $100, insurance pays $80 and transfers $20 PR, patient pays the copay, then a
+    // status-22 takeback refunds the $80 and unwinds the original transfer. Net A/R is $80
+    // (insurance owes the full charge again) minus the $20 already collected from the patient.
+    const led: LedgerEntry[] = [
+      { id: "1", patientId: "p-rev", type: "charge", amount: 100, date: "2026-03-01", responsibleParty: "insurance" },
+      { id: "2", patientId: "p-rev", type: "insurance-payment", amount: 80, date: "2026-04-01", responsibleParty: "insurance" },
+      { id: "3", patientId: "p-rev", type: "transfer-to-patient", amount: 20, date: "2026-04-01", responsibleParty: "patient" },
+      { id: "4", patientId: "p-rev", type: "patient-payment", amount: 20, date: "2026-05-01", responsibleParty: "patient" },
+      { id: "5", patientId: "p-rev", type: "refund", amount: 80, date: "2026-06-01", responsibleParty: "insurance" },
+      { id: "6", patientId: "p-rev", type: "transfer-to-patient", amount: -20, date: "2026-06-01", responsibleParty: "patient" },
+    ];
+    const s = computeAccount("p-rev", led);
+    expect(s.balance).toBe(80);
+    expect(s.patientBalance).toBe(-20); // copay is now a credit, not clamped to zero
+    expect(s.insuranceBalance).toBe(100);
+    expect(s.patientBalance + s.insuranceBalance).toBe(s.balance);
+    expect(detectCreditBalances({ "p-rev": led })).toEqual([expect.objectContaining({ patientId: "p-rev", amount: 20, refundTo: "patient" })]);
+  });
+  it("a reversal PR unwind of still-unpaid patient responsibility cancels the original transfer", () => {
+    const led: LedgerEntry[] = [
+      { id: "1", patientId: "p-unpaid", type: "charge", amount: 100, date: "2026-03-01", responsibleParty: "insurance" },
+      { id: "2", patientId: "p-unpaid", type: "insurance-payment", amount: 80, date: "2026-04-01", responsibleParty: "insurance" },
+      { id: "3", patientId: "p-unpaid", type: "transfer-to-patient", amount: 20, date: "2026-04-01", responsibleParty: "patient" },
+      { id: "4", patientId: "p-unpaid", type: "refund", amount: 80, date: "2026-06-01", responsibleParty: "insurance" },
+      { id: "5", patientId: "p-unpaid", type: "transfer-to-patient", amount: -20, date: "2026-06-01", responsibleParty: "patient" },
+    ];
+    const s = computeAccount("p-unpaid", led);
+    expect(s.patientBalance).toBe(0);
+    expect(s.insuranceBalance).toBe(100);
+    expect(s.balance).toBe(100);
+    expect(detectCreditBalances({ "p-unpaid": led })).toEqual([]);
+  });
   it("propensity, plans, collections, FPL and GFE", () => {
     expect(propensityToPay({ balance: 50, priorStatementsPaidOnTime: 3, priorStatementsLate: 0, hasCardOnFile: true }).band).toBe("high");
     expect(propensityToPay({ balance: 50, priorStatementsPaidOnTime: 0, priorStatementsLate: 0, hasCardOnFile: false, fplPct: 150 }).band).toBe("assistance-eligible");
@@ -663,7 +696,7 @@ describe("agents", () => {
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
-    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval" && s.input.patientId === "pt-demo-4")!;
     const before = (await rcmStore.ledger(T, refundStep.input.patientId as string)).filter((e) => e.type === "refund").length;
     const first = await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
     expect(first).toBeDefined();
@@ -805,14 +838,14 @@ describe("agents", () => {
   });
   it("patient-financial agent finds the duplicate payment credit and queues a refund approval", async () => {
     const r = await agentRuntime.run("patient-financial", T);
-    const refund = r.steps.find((s) => s.tool === "issue-refund");
+    const refund = r.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-demo-4");
     expect(refund?.outcome).toBe("needs-approval");
     expect(refund?.input.patientId).toBe("pt-demo-4");
     expect(refund?.input.amount).toBe(150);
   });
   it("caps a refund to the credit still on the account at execution time, not the stale planned amount", async () => {
     const r = await agentRuntime.run("patient-financial", T);
-    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval" && s.input.patientId === "pt-demo-4")!;
     await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
     // Between planning and approval, part of the credit is already refunded through another
     // channel — only $60 of credit remains on the $150 that was planned.
@@ -860,11 +893,11 @@ describe("agents", () => {
     // Without a dedup guard, running the agent twice before the first refund is decided would
     // queue two separate approvals for the same $150 credit; approving both would refund it twice.
     const r1 = await agentRuntime.run("patient-financial", T);
-    const step1 = r1.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const step1 = r1.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval" && s.input.patientId === "pt-demo-4")!;
     const afterFirst = await rcmStore.listApprovals(T, "pending");
     expect(afterFirst.some((a) => a.id === step1.approvalId)).toBe(true);
     const r2 = await agentRuntime.run("patient-financial", T);
-    const step2 = r2.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const step2 = r2.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval" && s.input.patientId === "pt-demo-4")!;
     expect(step2.approvalId).toBe(step1.approvalId);
     expect(await rcmStore.listApprovals(T, "pending")).toHaveLength(afterFirst.length);
   });
