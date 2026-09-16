@@ -354,21 +354,19 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   if (cov.patientId !== c.patientId) return fail(res, 400, "coverage does not belong to this claim's patient");
   if (cov.priority === "primary") return fail(res, 400, "secondary claim requires a non-primary coverage");
   if (!primaryAdjudicatedStatuses.has(c.status)) return fail(res, 409, `Cannot create a secondary/COB claim from status "${c.status}" — the primary payer hasn't adjudicated this claim yet`);
-  // Derive the COB summary from the claim's own stored, posted primary remittance rather than
-  // trusting a caller-supplied paid/patientResp/billed figure — an authenticated caller could
-  // otherwise send the secondary payer an arbitrary primary payment amount unrelated to what the
-  // primary payer actually adjudicated. This claim can have more than one posted row (a reversal-
-  // and-correction pair, or several partial/installment remittances) — the most recent row alone
-  // could BE the reversal (or just one installment), so net every posted row's paid/patientResp
-  // instead, applying the same reversal-aware sign convention postRemittance itself uses (a
-  // reversal always subtracts its magnitude, whichever way the vendor signed it on the wire).
-  const primaryRows = (await rcmStore.listRemittances(t)).filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === c.id));
-  if (!primaryRows.length) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
-  const signed = (rc: (typeof primaryRows)[number], value: number) => (rc.statusCode === "22" || rc.paid < 0 ? -Math.abs(value) : value);
-  const netPaid = round2(sum(primaryRows.map((rc) => signed(rc, rc.paid))));
-  const netPatientResp = round2(sum(primaryRows.map((rc) => signed(rc, rc.patientResp))));
-  const billed = primaryRows[primaryRows.length - 1].billed;
-  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed, paid: netPaid, patientResp: netPatientResp, lines: [] })) });
+  // Derive the COB summary from the claim's own posted LEDGER entries — the actual record of what
+  // was applied — rather than a caller-supplied figure or the stored remittance's raw CLP rows.
+  // A Remittance can carry `postedAt` at the whole-ERA level while individual claim rows inside it
+  // were skipped into needsReconciliation (a duplicate/unmatched/illegal-transition row never
+  // reaches postLedger) — netting those raw rows can pull in a payment that never actually landed
+  // on this claim. The ledger has no such ambiguity: postLedger is only ever called for rows that
+  // weren't skipped, and it's also naturally net across however many remittances (reversal-and-
+  // correction pairs, partial/installment payments) touched this claim.
+  const claimLedger = (await rcmStore.ledger(t, c.patientId)).filter((e) => e.claimId === c.id);
+  if (!claimLedger.length) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
+  const netPaid = round2(sum(claimLedger.filter((e) => e.type === "insurance-payment").map((e) => e.amount)) - sum(claimLedger.filter((e) => e.type === "refund" && e.responsibleParty === "insurance").map((e) => e.amount)));
+  const netPatientResp = round2(sum(claimLedger.filter((e) => e.type === "transfer-to-patient").map((e) => e.amount)));
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: c.totalCharge, paid: netPaid, patientResp: netPatientResp, lines: [] })) });
 }));
 
 // ---------- Remittance ----------
