@@ -203,14 +203,13 @@ describe("coding", () => {
     expect(levelEm({ ...base, newPatient: true }).code).toBe("99204");
     expect(levelEm({ problems: [{ severity: "self-limited" }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: false, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "minimal", newPatient: false }).code).toBe("99212");
   });
-  it("requires a combination of 2 category-1 data elements for 'low' data — an independent historian alone isn't enough", () => {
-    // 2021 MDM: Category 1 ("limited"/low) data requires a COMBINATION OF 2 from unique tests
-    // ordered/reviewed, external notes reviewed, or an independent historian — not any single one
-    // of those alone.
-    const historianAlone = { problems: [{ severity: "stable-chronic" as const }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: true, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "low" as const, newPatient: false };
-    expect(mdmLevel(historianAlone).elements.data).toBe("straightforward");
-    // Adding one more category-1 element (a reviewed test) alongside the historian now meets the
-    // "combination of 2" requirement.
+  it("treats an independent historian as Limited Category 2 — it alone meets 'low' data", () => {
+    // At Limited, independent historian is its own Category 2 and alone satisfies that element;
+    // it only joins Category 1's combination-of-3 at Moderate/High. One stable chronic (low) +
+    // historian (low) + minimal risk would otherwise drop from 99213 to 99212.
+    const historianAlone = { problems: [{ severity: "stable-chronic" as const }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: true, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "minimal" as const, newPatient: false };
+    expect(mdmLevel(historianAlone).elements.data).toBe("low");
+    expect(levelEm(historianAlone).code).toBe("99213");
     expect(mdmLevel({ ...historianAlone, uniqueTestsOrderedOrReviewed: 1 }).elements.data).toBe("low");
   });
   it("reviews ICD specificity and HCC opportunities", () => {
