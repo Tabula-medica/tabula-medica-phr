@@ -261,6 +261,25 @@ describe("agents", () => {
     const auth = await rcmStore.getAuth(T, (opened.output as { authId: string }).authId);
     expect(auth?.units).toBe(3); // not the createAuthRequest default of 1
   });
+  it("prior-auth agent merges duplicate same-date lines but keeps different dates of service separate", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = buildClaim({
+      encounterId: "e-pt2", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }],
+      lines: [
+        { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" },
+        { cpt: "97110", modifiers: [], units: 2, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, // same date -> merge
+        { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-10-15", placeOfService: "11" }, // different date -> separate request
+      ],
+    });
+    await rcmStore.upsertClaim(T, claim);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(opens).toHaveLength(2); // one per distinct date of service, not one per line
+    expect(opens.map((s) => s.input.units).sort()).toEqual([1, 3]); // 2026-09-01's two lines merged (1+2); 2026-10-15 stayed separate
+    const auths = await rcmStore.listAuths(T, "p1");
+    expect(auths.filter((a) => a.cpt === "97110")).toHaveLength(2);
+  });
   it("scrubber flags the missing -25 modifier for a human instead of auto-fixing it, and never stages an unclean claim for submission", async () => {
     const r = await agentRuntime.run("claim-scrubber", T);
     const scrub = r.steps.find((s) => s.tool === "scrub-claim")!;

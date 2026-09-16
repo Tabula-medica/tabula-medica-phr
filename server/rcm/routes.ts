@@ -364,9 +364,28 @@ rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
   if (!before) return fail(res, 404, "approval not found");
   const a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req));
   if (!a) return fail(res, 409, `approval already ${before.status}`);
-  const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
-  if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
   const exec = p.data.decision === "approved" ? await agentRuntime.executeApproved(t, a.id, actorOf(req)) : undefined;
+  // Only clear the work item once the action is actually done (rejected, or approved AND
+  // executed) — a failed execution must stay visible in the queue so someone can retry it.
+  const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
+  if (wi && (p.data.decision === "rejected" || exec?.ok)) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
+  res.json({ success: true, approval: a, executed: exec });
+}));
+// Retries executing an approval that was approved but whose execution failed (tool threw, or
+// was temporarily unavailable) — decideApproval only accepts a still-pending row, so a failed
+// approved-but-unexecuted approval needs its own path back to execution instead of being
+// permanently stuck once POST /approvals/:id has already moved it out of "pending".
+rcmRouter.post("/approvals/:id/retry", wrap(async (req, res) => {
+  const t = tenantOf(req);
+  const a = (await rcmStore.listApprovals(t)).find((x) => x.id === req.params.id);
+  if (!a) return fail(res, 404, "approval not found");
+  if (a.status !== "approved") return fail(res, 409, `approval status is ${a.status}, not approved`);
+  if (a.executedAt) return fail(res, 409, "approval already executed");
+  const exec = await agentRuntime.executeApproved(t, a.id, actorOf(req));
+  if (exec.ok) {
+    const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
+    if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
+  }
   res.json({ success: true, approval: a, executed: exec });
 }));
 

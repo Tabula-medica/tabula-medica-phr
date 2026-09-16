@@ -12,7 +12,7 @@ import { Activity, AlertTriangle, Bot, CheckCircle2, DollarSign, FileWarning, Mi
 interface Kpi { key: string; name: string; value: number; unit: "days" | "pct" | "usd" | "count"; target: number; status: "good" | "warning" | "critical"; definition: string }
 interface WorkItem { id: string; queue: string; title: string; amount?: number; priority: number; dueAt?: string; status: string; source: string; context?: Record<string, unknown> }
 interface Denial { id: string; claimId: string; carc: string; rarc?: string; category: string; amount: number; rootCause: string; remediation: string; status: string; priorityScore: number; appealDeadline?: string }
-interface Approval { id: string; agent: string; action: string; reason: string; status: string; payload: Record<string, unknown>; createdAt: string }
+interface Approval { id: string; agent: string; action: string; reason: string; status: string; payload: Record<string, unknown>; createdAt: string; executedAt?: string }
 interface AgentInfo { name: string; description: string; tools: Array<{ name: string; requiresApproval: boolean }> }
 interface AgentRun { agent: string; summary: string; approvalsRequested: number; steps: Array<{ tool: string; why: string; outcome: string }> }
 
@@ -39,6 +39,9 @@ export default function RcmCommandCenter() {
   const worklist = useQuery<{ items: WorkItem[]; summary: Record<string, { open: number; overdue: number; amount: number }> }>({ queryKey: ["/api/rcm/worklist", queue], queryFn: async () => (await apiRequest("GET", `/api/rcm/worklist${queue ? `?queue=${queue}` : ""}`)).json() });
   const denials = useQuery<{ denials: Denial[] }>({ queryKey: ["/api/rcm/denials"] });
   const approvals = useQuery<{ approvals: Approval[] }>({ queryKey: ["/api/rcm/approvals", "pending"], queryFn: async () => (await apiRequest("GET", "/api/rcm/approvals?status=pending")).json() });
+  // Approved but never executed: the tool threw, or was temporarily unavailable, when this was
+  // last attempted — surface it so it isn't just silently stuck.
+  const failedApprovals = useQuery<{ approvals: Approval[] }>({ queryKey: ["/api/rcm/approvals", "approved"], queryFn: async () => (await apiRequest("GET", "/api/rcm/approvals?status=approved")).json(), select: (d) => ({ approvals: d.approvals.filter((a) => !a.executedAt) }) });
   const agents = useQuery<{ agents: AgentInfo[] }>({ queryKey: ["/api/rcm/agents"] });
 
   const invalidateAll = () => ["/api/rcm/analytics/kpis", "/api/rcm/worklist", "/api/rcm/denials", "/api/rcm/approvals", "/api/rcm/claims"].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
@@ -46,6 +49,7 @@ export default function RcmCommandCenter() {
   const seed = useMutation({ mutationFn: async () => (await apiRequest("POST", "/api/rcm/demo/seed")).json(), onSuccess: () => { invalidateAll(); toast({ title: "Demo data loaded", description: "Synthetic patients, claims, denials and ledger seeded for this tenant." }); } });
   const runAgent = useMutation({ mutationFn: async (name: string) => (await apiRequest("POST", `/api/rcm/agents/${name}/run`, { dryRun: false })).json() as Promise<{ result: AgentRun }>, onSuccess: (d) => { setLastRun(d.result); invalidateAll(); toast({ title: `${d.result.agent} finished`, description: d.result.summary }); } });
   const decide = useMutation({ mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" }) => (await apiRequest("POST", `/api/rcm/approvals/${id}`, { decision })).json(), onSuccess: () => { invalidateAll(); toast({ title: "Decision recorded" }); } });
+  const retry = useMutation({ mutationFn: async (id: string) => (await apiRequest("POST", `/api/rcm/approvals/${id}/retry`, {})).json() as Promise<{ executed?: { ok: boolean; error?: string } }>, onSuccess: (d) => { invalidateAll(); toast(d.executed?.ok ? { title: "Retried successfully" } : { title: "Retry failed", description: d.executed?.error, variant: "destructive" }); } });
   const voiceCmd = useMutation({ mutationFn: async (transcript: string) => (await apiRequest("POST", "/api/rcm/voice/command", { transcript })).json() as Promise<{ intent: { type: string; queue?: string }; speak: string }>, onSuccess: (d) => { setVoiceReply(d.speak); if (d.intent.type === "open-queue" && d.intent.queue) setQueue(d.intent.queue); if ("speechSynthesis" in window) { try { window.speechSynthesis.speak(new SpeechSynthesisUtterance(d.speak)); } catch { /* TTS optional */ } } } });
   const workItem = useMutation({ mutationFn: async ({ id, status }: { id: string; status: string }) => (await apiRequest("POST", `/api/rcm/worklist/${id}`, { status })).json(), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/rcm/worklist"] }) });
 
@@ -169,6 +173,22 @@ export default function RcmCommandCenter() {
               {!approvals.data?.approvals?.length && <div className="py-6 text-sm text-muted-foreground">Nothing pending.</div>}
             </CardContent>
           </Card>
+          {!!failedApprovals.data?.approvals?.length && (
+            <Card className="mt-3 border-destructive/50">
+              <CardHeader><CardTitle className="text-base">Approved but not yet executed</CardTitle><CardDescription>Execution failed last time (or the tool was briefly unavailable) — nothing was charged, refunded, or submitted. Retry once the issue is resolved.</CardDescription></CardHeader>
+              <CardContent className="divide-y">
+                {failedApprovals.data.approvals.map((a) => (
+                  <div key={a.id} className="py-2 flex flex-wrap justify-between gap-2" data-testid={`failed-approval-${a.id}`}>
+                    <div>
+                      <div className="text-sm font-medium">{a.agent} → {a.action}{typeof a.payload.amount === "number" ? ` · $${(a.payload.amount as number).toFixed(2)}` : ""}</div>
+                      <div className="text-xs text-muted-foreground">{a.reason}</div>
+                    </div>
+                    <Button size="sm" variant="outline" disabled={retry.isPending && retry.variables === a.id} onClick={() => retry.mutate(a.id)} data-testid={`button-retry-${a.id}`}>Retry</Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="agents" className="space-y-3">

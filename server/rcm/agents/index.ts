@@ -93,7 +93,10 @@ const priorAuthAgent: AgentDefinition = {
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
         if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
-        const key = `${claim.patientId}|${claim.coverageId}|${line.cpt}`;
+        // Include the date of service in the key — merging lines from different dates would
+        // combine unrelated visits into one request/validity window, rejecting the visit that
+        // falls outside it (or reusing one authorization for dates it was never approved for).
+        const key = `${claim.patientId}|${claim.coverageId}|${line.cpt}|${line.dateOfService}`;
         const existing = pendingOpens.get(key);
         // Request enough units for the line itself — otherwise a fresh 1-unit-default auth can
         // never satisfy a multi-unit line and the agent re-opens a request every run.
