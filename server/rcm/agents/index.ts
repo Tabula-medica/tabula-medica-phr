@@ -96,6 +96,11 @@ const priorAuthAgent: AgentDefinition = {
     // draft claims) into a single 278 request with combined units, instead of opening one per
     // line — otherwise two identical lines on a claim would each open their own auth record.
     const pendingOpens = new Map<string, { patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; dateOfService: string; units: number; why: string }>();
+    // Tracks how many units of each pending (requested/pended) auth record have already been
+    // attributed to an earlier line in this same plan() pass — without this, two independent
+    // 1-unit lines could each individually check against the same 1-unit pending request and both
+    // be (wrongly) skipped as "already covered", leaving the second line's units never requested.
+    const pendingUnitsClaimed = new Map<string, number>();
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
@@ -107,9 +112,11 @@ const priorAuthAgent: AgentDefinition = {
         const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt.toUpperCase());
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
-        // A pending request only covers this line if it was opened for at least as many units —
-        // a 1-unit request already in flight must not silently swallow a line that needs 3.
-        if (matches.some((a) => ["requested", "pended"].includes(a.status) && a.units >= line.units)) continue;
+        // A pending request only covers this line if its remaining (unclaimed-so-far-this-pass)
+        // capacity is at least as many units as the line needs — a 1-unit request already in
+        // flight must not silently swallow two different 1-unit lines.
+        const pendingMatch = matches.filter((a) => a.status === "requested" || a.status === "pended").find((a) => a.units - (pendingUnitsClaimed.get(a.id) ?? 0) >= line.units);
+        if (pendingMatch) { pendingUnitsClaimed.set(pendingMatch.id, (pendingUnitsClaimed.get(pendingMatch.id) ?? 0) + line.units); continue; }
         // Include the date of service in the key — merging lines from different dates would
         // combine unrelated visits into one request/validity window, rejecting the visit that
         // falls outside it (or reusing one authorization for dates it was never approved for).
@@ -151,7 +158,9 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     let next = claim.status === "draft" ? transitionClaim(fixed.claim, "scrubbed", ctx.actor, `score ${second.score}`) : fixed.claim;
     if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
     await ctx.store.upsertClaim(ctx.tenantId, next);
-    if (!second.clean) await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+    if (!second.clean && !(await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
+      await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+    }
     return { clean: second.clean, score: second.score, autoFixed: fixed.applied, errors: second.errors.map((e) => e.id) };
   },
 };
@@ -169,11 +178,15 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     if (!claim) throw new Error("claim not found");
     const auth = claim.priorAuthNumber ? (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId) : undefined;
     // A priorAuthNumber with no matching internal record isn't proof there's no real
-    // authorization (it could be a payer number obtained outside this app's own tracking), but
-    // it's exactly the situation the auth-validation block below is meant to catch — and being
-    // wrapped in `if (auth)` meant it silently skipped validation entirely instead of failing
-    // closed. Block submission rather than letting an unverifiable auth number through untouched.
-    if (claim.priorAuthNumber && !auth) throw new Error(`Prior auth number ${claim.priorAuthNumber} on this claim has no matching authorization record for this patient/coverage — verify it before submitting`);
+    // authorization (it could be a payer number obtained outside this app's own tracking) — but
+    // it's exactly the situation the auth-validation block below is meant to catch when a line on
+    // THIS claim actually needs it. Only block on it then: a box-23 number that's purely
+    // informational (gold-carded CPTs, or a number carried over onto a secondary/COB claim for a
+    // different payer/coverage that never required auth in the first place) scrubs clean and must
+    // not get stuck at "ready" forever just because it doesn't resolve to a record we track.
+    const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
+    const claimNeedsAuth = linesNeedingAuth(claim.lines, contract).length > 0;
+    if (claim.priorAuthNumber && claimNeedsAuth && !auth) throw new Error(`Prior auth number ${claim.priorAuthNumber} on this claim has no matching authorization record for this patient/coverage — verify it before submitting`);
     const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
     if (lockKey) {
       if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);
@@ -198,6 +211,13 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       // submission that never actually went out.
       await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
       if (auth && unitsNeeded > 0) await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+      // Only now — the corrected claim actually left for the payer — does the denial it was
+      // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved
+      // (overturned/written-off/re-appealed-elsewhere) denial isn't clobbered by a stale claim.
+      if (claim.resolvesDenialId) {
+        const d = await ctx.store.getDenial(ctx.tenantId, claim.resolvesDenialId);
+        if (d && d.status === "in-progress") await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
+      }
       return { submitted: claim.id };
     } finally {
       if (lockKey) submitAuthLocks.delete(lockKey);
@@ -291,7 +311,7 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
     const patient = await ctx.store.getPatient(ctx.tenantId, orig.patientId);
     const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
     const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
-    const draft = correctedClaim(orig, {});
+    const draft = { ...correctedClaim(orig, {}), resolvesDenialId: input.denialId };
     const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
     const auths = await ctx.store.listAuths(ctx.tenantId);
     const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.payerId, draft.lines, auths);
@@ -305,12 +325,16 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
     if (next.status === "draft") next = transitionClaim(next, "scrubbed", ctx.actor, `corrected claim score ${second.score}`);
     if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
     await ctx.store.upsertClaim(ctx.tenantId, next);
-    if (!second.clean) await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+    if (!second.clean && !(await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
+      await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+    }
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    // Only mark the denial resolved once the replacement is actually clean and staged for
-    // resubmission — a corrected claim that still needs edits hasn't fixed anything yet, and
-    // nothing has been submitted to the payer either way (submission is its own approved step).
-    if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: second.clean ? "appealed" : "in-progress" });
+    // Keep the denial "in-progress" (not "appealed") even when the corrected claim is clean:
+    // staging a claim for resubmission is not the same as the appeal actually reaching the
+    // payer, and the claim still has to clear its own approval-gated submit-claim step. The
+    // claim's resolvesDenialId lets submit-claim advance this denial to "appealed" once the
+    // corrected claim is actually submitted.
+    if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "in-progress" });
     return { correctedClaimId: next.id, clean: second.clean, autoFixed: fixed.applied };
   },
 };
@@ -470,8 +494,14 @@ const patientFinancialAgent: AgentDefinition = {
       const stmt = buildStatement(p, entries);
       if (stmt.amountDue <= 5) continue;
       const onPlan = hasActivePlan(patientId);
+      // A self-pay balance never gets a transfer-to-patient entry — responsibleParty puts it on
+      // the patient side from the charge itself (patient-financials.ts's computeAccount). Falling
+      // back straight to todayIso() here would reset the collections clock to "day zero" on every
+      // nightly run, permanently pinning these accounts at statement-1 and never escalating to
+      // later cycles or agency referral. Fall back to the earliest self-pay charge date instead.
       const firstTransfer = entries.filter((e) => e.type === "transfer-to-patient").sort((a, b) => a.date.localeCompare(b.date))[0];
-      const stage = collectionsStage(firstTransfer?.date ?? todayIso(), { onPaymentPlan: onPlan });
+      const firstSelfPayCharge = entries.filter((e) => e.type === "charge" && e.responsibleParty === "patient").sort((a, b) => a.date.localeCompare(b.date))[0];
+      const stage = collectionsStage(firstTransfer?.date ?? firstSelfPayCharge?.date ?? todayIso(), { onPaymentPlan: onPlan });
       if (stage.stage === "agency-referral") steps.push({ tool: "refer-to-agency", input: { patientId, amount: stmt.amountDue }, why: stage.reason });
       else if (stage.stage !== "hold") {
         const cycle: 1 | 2 | 3 | "final" = stage.stage === "statement-1" ? 1 : stage.stage === "statement-2" ? 2 : stage.stage === "statement-3" ? 3 : "final";

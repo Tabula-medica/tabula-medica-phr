@@ -6,7 +6,9 @@ import { newId, nowIso, round2, sum } from "./util";
 
 const num = (v: unknown): number => (typeof v === "number" ? v : typeof v === "string" ? parseFloat(v.replace(/[^0-9.-]/g, "")) || 0 : 0);
 const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v : typeof v === "number" ? String(v) : undefined);
-const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
+// Some vendors send a single object instead of a one-element array for "claim"/"service"/
+// "adjustment" when there's exactly one; normalize it instead of silently dropping it.
+const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : v && typeof v === "object" ? [v as Record<string, unknown>] : []);
 const pick = (r: Record<string, unknown>, ...keys: string[]) => keys.map((k) => r[k]).find((v) => v !== undefined && v !== null);
 
 function parseAdjustments(r: Record<string, unknown>): Adjustment[] {
@@ -56,10 +58,14 @@ export function parseEra(raw: unknown): Remittance {
     const checkAmount = round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02")));
     const checkDate = str(pick(r, "check_date", "paid_date", "date")) ?? "";
     const claimIds = arr(pick(r, "claims", "claim", "CLP")).map((c) => str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")) ?? "").join(",");
-    return `era-fp:${payerId}:${checkAmount}:${checkDate}:${claimIds}`;
+    // Fold the check number into the fingerprint (rather than skipping fingerprinting whenever
+    // one is present) so a re-POST of the same ERA gets the same deterministic id either way,
+    // instead of minting a fresh random id every time just because a check number happened to be
+    // on the payload.
+    return `era-fp:${payerId}:${checkNumber ?? ""}:${checkAmount}:${checkDate}:${claimIds}`;
   };
   return {
-    id: explicitId ?? (checkNumber ? undefined : fingerprintId()) ?? newId("era"),
+    id: explicitId ?? fingerprintId() ?? newId("era"),
     payerId: str(pick(r, "payerid", "payer_id")),
     payerName: str(pick(r, "payer_name", "payer")),
     checkNumber: str(pick(r, "check_number", "checknumber", "trn", "TRN02")),
@@ -115,7 +121,11 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // silently dropped for a normal multi-line claim.
     for (const a of [...(rc.claimAdjustments ?? []), ...rc.lines.flatMap((l) => l.adjustments)]) {
       if (a.group === "PR") continue; // patient responsibility handled via transfer below
-      if (a.carc === "45" || a.carc === "CO-253" || a.carc === "253") { contractual += a.amount; entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "contractual-adjustment", amount: a.amount, date, memo: `CARC ${a.carc}`, responsibleParty: "insurance" }); }
+      // A CARC can arrive group-prefixed (e.g. "CO-45") as well as bare ("45") — strip the same
+      // CO/PR/OA/PI prefix analyzeDenial already strips before comparing, so a group-prefixed
+      // contractual code isn't misclassified as a denial.
+      const bareCarc = a.carc.toUpperCase().replace(/^(CO|PR|OA|PI)-/, "");
+      if (bareCarc === "45" || bareCarc === "253") { contractual += a.amount; entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "contractual-adjustment", amount: a.amount, date, memo: `CARC ${a.carc}`, responsibleParty: "insurance" }); }
       else { denied += a.amount; denials.push(a); }
     }
     if (rc.paid !== 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: isReversal ? "refund" : "insurance-payment", amount: Math.abs(rc.paid), date, memo: `${rem.payerName ?? rem.payerId ?? "payer"} ${rem.checkNumber ?? ""}`.trim(), responsibleParty: "insurance" });
@@ -137,7 +147,10 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       const variance = round2(expected - actual);
       if (variance > Math.max(1, expected * 0.02)) underpayment = { expectedAllowed: expected, actualAllowed: actual, variance };
     }
-    const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && denied > 0 ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
+    // CLP02 "4" is the X12-defined denied-claim status code — honor it even when the vendor
+    // omitted a CARC adjustment alongside it, so a denied claim with zero paid and no parsed
+    // reason still lands in "denied" (with a denial workflow) instead of "zero-pay" (with none).
+    const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
     postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && rc.patientResp > 0 });
   }
   const unapplied = round2(rem.checkAmount - applied);

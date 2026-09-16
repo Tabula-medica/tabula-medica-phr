@@ -2,7 +2,7 @@
 // denial and clean-claim rates, charge lag, cost-to-collect proxy, and payer scorecards.
 import type { Claim, Denial, LedgerEntry, Remittance } from "./types";
 import { computeAging, signedAmount } from "./patient-financials";
-import { daysBetween, round2, sum, todayIso } from "./util";
+import { addDays, daysBetween, round2, sum, todayIso } from "./util";
 
 // The insurance side of a single claim's balance still open (billed minus whatever has
 // already resolved it on the insurance side): what should actually age as payer A/R.
@@ -53,7 +53,13 @@ export function computeKpis(i: KpiInputs): Kpi[] {
   // refunded — that's a credit balance (tracked separately), not negative open receivables, so
   // it must not pull the whole practice's A/R KPI below zero.
   const ar = Math.max(0, round2(charges - collected - contractual - writeOffs));
-  const avgDailyCharges = charges / Math.max(1, period);
+  // Days-in-AR's daily-charge rate must reflect actual recent volume, not the account's entire
+  // lifetime charges divided by the period length — a caller passing the full ledger (as the
+  // /analytics/kpis route does) would otherwise average years of billing into a 90-day rate and
+  // read a mature practice's AR turnover as far faster than it really is.
+  const periodStart = addDays(today, -period);
+  const chargesInPeriod = sum(i.ledger.filter((e) => e.type === "charge" && e.date >= periodStart && e.date <= today).map((e) => e.amount));
+  const avgDailyCharges = chargesInPeriod / Math.max(1, period);
   const daysInAr = avgDailyCharges > 0 ? round2(ar / avgDailyCharges) : 0;
   const aging = computeAging(i.ledger, today);
   const arOver90 = aging.total > 0 ? round2(((aging.d91_120 + aging.over120) / aging.total) * 100) : 0;

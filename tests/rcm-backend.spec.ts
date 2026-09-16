@@ -11,7 +11,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
 import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
 import { scrubClaim } from "../server/rcm/scrubber";
-import { estimatePatientResponsibility, parse271 } from "../server/rcm/eligibility";
+import { estimatePatientResponsibility, financialClearance, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
 import { isValidIcd10 } from "../server/rcm/util";
 import { agentRuntime } from "../server/rcm/agents";
@@ -227,7 +227,9 @@ describe("contracts + analytics + worklists", () => {
   });
   it("computes KPIs with targets and status", () => {
     const c = mkClaim();
-    const kpis = computeKpis({ claims: [c], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 9000, date: "2026-06-01", responsibleParty: "insurance" }, { id: "2", patientId: "p1", type: "insurance-payment", amount: 5000, date: "2026-07-01", responsibleParty: "insurance" }], remittances: [], today: "2026-09-05", periodDays: 90, scrubTotal: 10, scrubFirstPassClean: 9 });
+    // The charge must actually fall within the 90-day period window — days-in-AR's daily-charge
+    // rate is derived from charges in that window, not the lifetime ledger.
+    const kpis = computeKpis({ claims: [c], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 9000, date: "2026-07-01", responsibleParty: "insurance" }, { id: "2", patientId: "p1", type: "insurance-payment", amount: 5000, date: "2026-07-01", responsibleParty: "insurance" }], remittances: [], today: "2026-09-05", periodDays: 90, scrubTotal: 10, scrubFirstPassClean: 9 });
     const k = Object.fromEntries(kpis.map((x) => [x.key, x]));
     expect(k.days_in_ar.value).toBe(40);
     expect(k.days_in_ar.status).toBe("warning");
@@ -322,10 +324,14 @@ describe("agents", () => {
     expect((scrub.output as { autoFixed: string[] }).autoFixed).not.toContain("missing-em-25-modifier");
     expect((scrub.output as { clean: boolean }).clean).toBe(false);
     expect(await rcmStore.listClaims(T, { status: "ready" })).toHaveLength(0);
-    expect((await rcmStore.listWorkItems(T, "claim-edits")).length).toBeGreaterThan(0);
+    const claimEditsAfterFirstRun = await rcmStore.listWorkItems(T, "claim-edits");
+    expect(claimEditsAfterFirstRun.length).toBeGreaterThan(0);
     // With no claim reaching "ready", a second run must not queue any submission for approval.
     const r2 = await agentRuntime.run("claim-scrubber", T);
     expect(r2.approvalsRequested).toBe(0);
+    // Nor should re-scrubbing the same still-dirty claims pile a second claim-edits work item onto
+    // the queue for a claim that already has one open — one open item per claim, not one per run.
+    expect(await rcmStore.listWorkItems(T, "claim-edits")).toHaveLength(claimEditsAfterFirstRun.length);
   });
   it("stages an already-clean claim for submission and executes it once approved", async () => {
     await rcmStore.upsertPatient(T, patient);
@@ -380,6 +386,22 @@ describe("agents", () => {
     const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
     expect(exec.ok).toBe(false);
     expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+  });
+  it("submit-claim does not block on an unresolvable priorAuthNumber when none of the claim's lines actually require auth", async () => {
+    // A box-23 number that's purely informational (gold-carded CPTs, or one carried over onto a
+    // secondary/COB claim for a different payer/coverage that never required auth) scrubs clean
+    // — submission must not get stuck just because it doesn't resolve to a tracked auth record.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-informational-auth", priorAuthNumber: "INFO-ONLY-NOT-TRACKED" }; // 99214/20610 need no auth
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(true);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
@@ -778,5 +800,142 @@ describe("round 7 hardening", () => {
     } finally {
       process.env.RCM_AI_ENABLED = originalEnabled;
     }
+  });
+});
+
+describe("round 11 hardening", () => {
+  const T = "t-r11";
+  beforeEach(() => rcmStore.reset(T));
+
+  it("financialClearance also blocks on an unrecognized ('unknown') network status, not just an explicit out-of-network", () => {
+    const benefits: BenefitSnapshot = { active: true, networkStatus: "unknown", checkedAt: "2026-09-01T00:00:00Z", source: "stub" };
+    const estimate = { estimatedAllowed: 100, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 20, insuranceResponsibility: 80, assumptions: [] };
+    const decision = financialClearance(benefits, estimate, []);
+    expect(decision.cleared).toBe(false);
+    expect(decision.reasons.join(" ")).toMatch(/network status/i);
+    // A confirmed in-network status must still clear normally.
+    expect(financialClearance({ ...benefits, networkStatus: "in-network" }, estimate, []).cleared).toBe(true);
+  });
+
+  it("parseEra normalizes a vendor payload that sends a single claim/service object instead of a one-element array", () => {
+    const rem = parseEra({ payerid: "BCBS", check_amount: 100, claims: { pcn: "clm-solo", billed: 100, paid: 100, lines: { proc: "99214", billed: 100, paid: 100 } } });
+    expect(rem.claims).toHaveLength(1);
+    expect(rem.claims[0].claimId).toBe("clm-solo");
+    expect(rem.claims[0].lines).toHaveLength(1);
+    expect(rem.claims[0].lines[0].cpt).toBe("99214");
+  });
+
+  it("parseEra folds the check number into its fingerprint instead of skipping fingerprinting whenever one is present", () => {
+    const base = { payerid: "BCBS", check_amount: 100, check_date: "2026-08-01", check_number: "CHK-100", claims: [{ pcn: "clm-1", billed: 100, paid: 100 }] };
+    const a = parseEra(base);
+    const b = parseEra(base);
+    expect(a.id).toBe(b.id); // same content including check number -> same id, so a retry is recognized as a duplicate
+    // A different check number on an otherwise-identical payload must get a different id.
+    const c = parseEra({ ...base, check_number: "CHK-200" });
+    expect(c.id).not.toBe(a.id);
+  });
+
+  it("scrubber's missing-em-25-modifier rule is scoped to the E/M line's own date of service on a multi-date claim", () => {
+    const multiDate = {
+      ...mkClaim(),
+      lines: [
+        { ...mkClaim().lines[0], dateOfService: "2026-07-01", modifiers: [] }, // E/M on day 1, no other same-day procedure
+        { ...mkClaim().lines[1], dateOfService: "2026-07-05" }, // procedure on a different day
+      ],
+    };
+    const result = scrubClaim(multiDate);
+    expect(result.edits.some((e) => e.id === "missing-em-25-modifier")).toBe(false);
+    // But a same-day procedure still correctly triggers the rule.
+    const sameDate = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], modifiers: [] }, mkClaim().lines[1]] };
+    expect(scrubClaim(sameDate).edits.some((e) => e.id === "missing-em-25-modifier")).toBe(true);
+  });
+
+  it("a corrected claim's denial only becomes 'appealed' once it is actually submitted to the payer, not merely staged clean", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const orig = mkClaim();
+    await rcmStore.upsertClaim(T, orig);
+    await rcmStore.upsertDenial(T, { id: "den-fc-1", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-1", amount: 300 }, reason: "test" });
+    await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
+    const fcExec = await agentRuntime.executeApproved(T, fcApproval.id, "biller");
+    expect(fcExec.ok).toBe(true);
+    const correctedClaimId = (fcExec.output as { correctedClaimId: string }).correctedClaimId;
+    // Staging a clean replacement claim for resubmission is not the same as the appeal actually
+    // reaching the payer — the denial must stay "in-progress", not jump straight to "appealed".
+    expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("in-progress");
+    let corrected = (await rcmStore.getClaim(T, correctedClaimId))!;
+    expect(corrected.resolvesDenialId).toBe("den-fc-1");
+    if (corrected.status !== "ready") { corrected = { ...corrected, status: "ready" }; await rcmStore.upsertClaim(T, corrected); }
+    const submitApproval = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: correctedClaimId, amount: corrected.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, submitApproval.id, "approved", "biller");
+    const submitExec = await agentRuntime.executeApproved(T, submitApproval.id, "biller");
+    expect(submitExec.ok).toBe(true);
+    // Only now, with the corrected claim actually submitted, does the denial become "appealed".
+    expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("appealed");
+  });
+
+  it("patient-financial agent advances an old self-pay balance to agency referral instead of resetting to statement-1 every run", async () => {
+    // A self-pay charge is patient-responsible from the moment it's charged — no transfer-to-
+    // patient entry is ever posted for it — so the collections clock must derive from the
+    // charge's own date, not fall back to "today" (which would pin every self-pay account at
+    // statement-1 forever and it would never reach agency referral).
+    await rcmStore.upsertPatient(T, { id: "p-selfpay", firstName: "Self", lastName: "Pay", dob: "1980-01-01", sex: "F" });
+    await rcmStore.postLedger(T, [{ id: "led-sp-1", patientId: "p-selfpay", type: "charge", amount: 500, date: "2026-01-01", responsibleParty: "patient" }]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const referral = r.steps.find((s) => s.tool === "refer-to-agency" && s.input.patientId === "p-selfpay");
+    expect(referral).toBeDefined();
+  });
+
+  it("prior-auth agent tracks cumulative units claimed against one pending request across lines in the same pass", async () => {
+    // Two independent 1-unit lines (different dates, so they don't merge into one new request)
+    // must not both be silently skipped against the SAME 1-unit pending auth — the second line's
+    // units still need their own request.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const pending = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, { ...pending, units: 1 });
+    const claim1 = buildClaim({ encounterId: "e-pend-1", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const claim2 = buildClaim({ encounterId: "e-pend-2", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-10", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim1);
+    await rcmStore.upsertClaim(T, claim2);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(opens).toHaveLength(1); // the first line's unit was claimed by the existing pending auth
+    expect(opens[0].input.dateOfService).toBe("2026-09-10"); // the second line still needs its own request
+  });
+
+  it("postRemittance recognizes a group-prefixed CO-45 CARC as a contractual adjustment, not a denial", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 240, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 240, patient_resp: 60, lines: [{ proc: "99214", billed: 300, paid: 150, patient_resp: 60, adjustments: [{ group: "CO", carc: "CO-45", amount: 90 }] }, { proc: "20610", billed: 150, paid: 90, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 60 }] }] }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.contractual).toBe(150); // both the "CO-45" and bare "45" forms counted as contractual
+    expect(p.denied).toBe(0);
+    expect(p.denials).toHaveLength(0);
+  });
+
+  it("postRemittance treats CLP02 status '4' as denied even when the vendor omitted a CARC adjustment", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0 }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.status).toBe("denied"); // not the generic "zero-pay" a missing CARC would otherwise produce
+  });
+
+  it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
+    const c = mkClaim();
+    // A large charge from well over a year ago must not inflate the 90-day average daily rate —
+    // with no charges in the trailing 90 days, the rate (and thus days-in-AR) must reflect that.
+    const staleOnly = computeKpis({ claims: [c], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 100000, date: "2024-01-01", responsibleParty: "insurance" }], remittances: [], today: "2026-09-05", periodDays: 90 });
+    const staleK = Object.fromEntries(staleOnly.map((x) => [x.key, x]));
+    expect(staleK.days_in_ar.value).toBe(0); // no charges in the period => no rate to divide by
+    // The same lifetime charge plus a small recent one must use only the recent one for the
+    // daily rate — a huge, mostly-uncollected legacy balance against a thin recent billing rate
+    // should correctly read as a very high days-in-AR (a real backlog signal), not the
+    // artificially low number the old lifetime-average bug produced by treating the entire
+    // $100,900 lifetime total as if it were representative of a 90-day billing rate (which would
+    // have understated this to roughly 90 days instead of the true ~10,090).
+    const withRecent = computeKpis({ claims: [c], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 100000, date: "2024-01-01", responsibleParty: "insurance" }, { id: "2", patientId: "p1", type: "charge", amount: 900, date: "2026-08-01", responsibleParty: "insurance" }], remittances: [], today: "2026-09-05", periodDays: 90 });
+    const withRecentK = Object.fromEntries(withRecent.map((x) => [x.key, x]));
+    expect(withRecentK.days_in_ar.value).toBe(10090); // (100000+900 AR) / (900/90 daily rate)
   });
 });

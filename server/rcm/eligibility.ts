@@ -221,6 +221,7 @@ export function financialClearance(benefits: BenefitSnapshot, estimate: Responsi
   if (benefits.requiresReferral && !opts.referralOnFile) { reasons.push("Plan requires PCP referral; none on file"); actions.push("Obtain referral number from PCP"); }
   if (opts.requiresAuth && !opts.authOnFile) { reasons.push("Prior authorization required; none on file"); actions.push("Submit 278 prior authorization request"); }
   if (benefits.networkStatus === "out-of-network") { reasons.push("Provider out of network"); actions.push("Deliver No Surprises Act notice and consent, or reschedule with in-network provider"); }
+  else if (benefits.networkStatus === "unknown") { reasons.push("Network status could not be determined from payer response"); actions.push("Verify network status manually before clearing the patient financially"); }
   const collectAtVisit = estimate.patientResponsibility;
   if (collectAtVisit > 0) actions.push(`Collect estimated $${collectAtVisit.toFixed(2)} at check-in`);
   return { cleared: reasons.length === 0, reasons, actions, collectAtVisit };

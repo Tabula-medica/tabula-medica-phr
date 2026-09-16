@@ -84,8 +84,10 @@ Legend: ✅ EHR has it · 🟡 EHR partial · ⛌ EHR missing · ➕ added here 
 ## 2. Voice layer
 
 - **Input:** existing GCP medical Speech-to-Text (BAA) in the EHR/PHR for encounter and
-  dictation audio; browser SpeechRecognition only for short command phrases on the Command Center
-  (no PHI persisted). `POST /api/rcm/voice/command` → `parseVoiceIntent` → action + `speak`.
+  dictation audio. The Command Center's voice-command box is typed text only — browser
+  SpeechRecognition ships audio to a non-BAA vendor and was removed; voice input returns once
+  server-side BAA-covered STT is wired up for short command phrases. `POST /api/rcm/voice/command`
+  → `parseVoiceIntent` → action + `speak`.
 - **Intents:** charge capture (codes, modifiers, units, spoken ICD-10 "E11 point 9"), level
   visit, check eligibility, start prior auth, open queue / next item, denial note, appeal,
   collect copay, payment plan, KPI readout, run agent.

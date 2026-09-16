@@ -1,7 +1,7 @@
 // Stage 7: claim scrubbing — deterministic pre-submission edits with stable rule ids
 // (compatible with omnihealth-ehr `rcm/scrubbing.ts` ids so denial→prevention mapping works
 // across both codebases). Every edit says what is wrong AND the human fix.
-import type { Claim, Coverage, Patient } from "./types";
+import type { Claim, Coverage, Patient, ServiceLine } from "./types";
 import { CPT_DEMOGRAPHIC_RULES, ICD_SEX_RULES, KNOWN_MODIFIERS, NCCI_BYPASS_MODIFIERS, NCCI_PTP_SEED, PLACE_OF_SERVICE, TELEHEALTH_CPTS, feeRow } from "./reference-data";
 import { ageOn, daysBetween, isValidCpt, isValidIcd10, isValidNpi } from "./util";
 
@@ -86,8 +86,10 @@ const rules: Record<string, Rule> = {
   // establish that. Auto-appending it risks unsupported coding and a payer audit.
   "missing-em-25-modifier": (c) => {
     const em = c.lines.map((l, i) => ({ l, i })).filter(({ l }) => /^992(0[2-5]|1[1-5])$/.test(l.cpt));
-    const proc = c.lines.some((l) => { const r = feeRow(l.cpt); return r ? r.category === "procedure" : /^[1-6]\d{4}$/.test(l.cpt); });
-    return em.filter(({ l }) => proc && !l.modifiers.includes("25")).map(({ l, i }) => ({ id: "missing-em-25-modifier", category: "modifier", severity: "error" as const, lineNumber: i + 1, message: `E/M ${l.cpt} billed with a same-day procedure without modifier 25`, fix: "Append modifier 25 to the E/M if a significant, separately identifiable service was documented" }));
+    const isProcedure = (l: ServiceLine) => { const r = feeRow(l.cpt); return r ? r.category === "procedure" : /^[1-6]\d{4}$/.test(l.cpt); };
+    // Scope "same-day procedure" to the E/M line's own date of service — a multi-date claim's
+    // E/M on one day must not be flagged against a procedure billed on a different day.
+    return em.filter(({ l }) => c.lines.some((other) => other.dateOfService === l.dateOfService && isProcedure(other)) && !l.modifiers.includes("25")).map(({ l, i }) => ({ id: "missing-em-25-modifier", category: "modifier", severity: "error" as const, lineNumber: i + 1, message: `E/M ${l.cpt} billed with a same-day procedure without modifier 25`, fix: "Append modifier 25 to the E/M if a significant, separately identifiable service was documented" }));
   },
   "duplicate-line": (c) => {
     const seen = new Map<string, number>();

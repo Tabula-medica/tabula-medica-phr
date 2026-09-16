@@ -41,7 +41,7 @@ export default function RcmCommandCenter() {
 
   const invalidateAll = () => ["/api/rcm/analytics/kpis", "/api/rcm/worklist", "/api/rcm/denials", "/api/rcm/approvals", "/api/rcm/claims"].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
 
-  const seed = useMutation({ mutationFn: async () => (await apiRequest("POST", "/api/rcm/demo/seed")).json(), onSuccess: () => { invalidateAll(); toast({ title: "Demo data loaded", description: "Synthetic patients, claims, denials and ledger seeded for this tenant." }); } });
+  const seed = useMutation({ mutationFn: async () => (await apiRequest("POST", "/api/rcm/demo/seed", { confirm: true })).json(), onSuccess: () => { invalidateAll(); toast({ title: "Demo data loaded", description: "Synthetic patients, claims, denials and ledger seeded for this tenant." }); } });
   const runAgent = useMutation({ mutationFn: async (name: string) => (await apiRequest("POST", `/api/rcm/agents/${name}/run`, { dryRun: false })).json() as Promise<{ result: AgentRun }>, onSuccess: (d) => { setLastRun(d.result); invalidateAll(); toast({ title: `${d.result.agent} finished`, description: d.result.summary }); } });
   const decide = useMutation({ mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" }) => (await apiRequest("POST", `/api/rcm/approvals/${id}`, { decision })).json(), onSuccess: () => { invalidateAll(); toast({ title: "Decision recorded" }); } });
   const retry = useMutation({ mutationFn: async (id: string) => (await apiRequest("POST", `/api/rcm/approvals/${id}/retry`, {})).json() as Promise<{ executed?: { ok: boolean; error?: string } }>, onSuccess: (d) => { invalidateAll(); toast(d.executed?.ok ? { title: "Retried successfully" } : { title: "Retry failed", description: d.executed?.error, variant: "destructive" }); } });
@@ -59,7 +59,7 @@ export default function RcmCommandCenter() {
           <p className="text-sm text-muted-foreground">World EHR outpatient revenue cycle: eligibility → auth → charges → coding → scrub → claim → ERA → denials → patient A/R. Voice + agents, human approval on anything that moves money.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => seed.mutate()} disabled={seed.isPending} data-testid="button-seed-demo"><RefreshCw className="h-4 w-4 mr-1" /> Load demo data</Button>
+          <Button variant="outline" size="sm" onClick={() => { if (window.confirm("This permanently deletes all existing RCM data for this account and replaces it with demo data. Continue?")) seed.mutate(); }} disabled={seed.isPending} data-testid="button-seed-demo"><RefreshCw className="h-4 w-4 mr-1" /> Load demo data</Button>
           <Button size="sm" onClick={() => runAgent.mutate("rcm-orchestrator")} disabled={runAgent.isPending} data-testid="button-run-orchestrator"><Play className="h-4 w-4 mr-1" /> Run nightly cycle now</Button>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function RcmCommandCenter() {
               an acceptable path for anything that can carry PHI (diagnosis codes, patient names
               in eligibility/billing phrases). Voice input will return once it's wired through the
               app's BAA-covered server-side STT instead. */}
-          <Input value={voice} onChange={(e) => setVoice(e.target.value)} placeholder='Try: "add 99214 with modifier 25, diagnosis E11 point 9" · "open the denials queue" · "what are our days in AR" · "run the denials agent"' onKeyDown={(e) => { if (e.key === "Enter" && voice.trim()) voiceCmd.mutate(voice); }} data-testid="input-voice" />
+          <Input aria-label="RCM voice command" value={voice} onChange={(e) => setVoice(e.target.value)} placeholder='Try: "add 99214 with modifier 25, diagnosis E11 point 9" · "open the denials queue" · "what are our days in AR" · "run the denials agent"' onKeyDown={(e) => { if (e.key === "Enter" && voice.trim()) voiceCmd.mutate(voice); }} data-testid="input-voice" />
           <Button onClick={() => voice.trim() && voiceCmd.mutate(voice)} disabled={voiceCmd.isPending} data-testid="button-voice-send">Send</Button>
         </CardContent>
         {voiceReply && <CardContent className="pt-0 text-sm flex items-start gap-2"><Sparkles className="h-4 w-4 mt-0.5 text-primary" /><span data-testid="text-voice-reply">{voiceReply}</span></CardContent>}

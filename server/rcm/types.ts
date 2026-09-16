@@ -115,6 +115,7 @@ export interface Claim {
   status: ClaimStatus;
   frequencyCode: "1" | "7" | "8"; // original / replacement / void
   originalClaimId?: string;
+  resolvesDenialId?: string; // set on a corrected/replacement claim filed to resolve a denial
   priorAuthNumber?: string;
   referralNumber?: string;
   cobPrimaryPaid?: Money; // for secondary claims

@@ -60,6 +60,10 @@ rcmRouter.post("/demo/seed", wrap(async (req, res) => {
   // just production (staging/demo deployments hold real-looking financial state too), so this
   // always requires admin rather than gating only on NODE_ENV.
   if ((req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Demo seeding requires an admin role");
+  // This deletes every patient, claim, ledger entry, denial, and approval this account has ever
+  // recorded before reseeding — an explicit confirmation flag is required so a stray retry,
+  // scripted call, or CSRF-less replay can't wipe real data with a bare POST.
+  if (req.body?.confirm !== true) return fail(res, 400, 'Resend with { "confirm": true } to acknowledge this permanently deletes all existing RCM data for this account before reseeding demo data');
   const t = tenantOf(req);
   rcmStore.reset(t);
   const r = await seedDemoTenant(rcmStore, t);
@@ -129,6 +133,11 @@ rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
   const p = z.object({ to: z.enum(["not-required", "required", "requested", "pended", "approved", "denied", "expired", "exhausted"]), note: z.string().optional(), authNumber: z.string().optional(), validFrom: z.string().optional(), validTo: z.string().optional(), approvedUnits: z.number().int().positive().optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
+  // This stub environment has no real payer/278-response integration behind "approved" — the
+  // caller supplies authNumber/validFrom/validTo by hand. Nothing here can actually verify those
+  // came from the payer, so at minimum restrict who can fabricate an approval to admins, the same
+  // trust boundary already applied to other financially/clinically consequential direct writes.
+  if (p.data.to === "approved" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Transitioning a prior auth to approved requires an admin role");
   const auth = await rcmStore.getAuth(t, req.params.id);
   if (!auth) return fail(res, 404, "auth not found");
   try { res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
@@ -213,7 +222,9 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   // "scrubbed" rather than leaving it falsely staged for submission.
   if (!finalResult.clean && next.status === "ready") next = transitionClaim(next, "scrubbed", actorOf(req), `re-scrub found ${finalResult.errors.length} error(s)`);
   await rcmStore.upsertClaim(t, next);
-  if (!finalResult.clean) await rcmStore.addWorkItems(t, itemsFromScrub(next, finalResult.errors.length));
+  if (!finalResult.clean && !(await rcmStore.findOpenWorkItem(t, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
+    await rcmStore.addWorkItems(t, itemsFromScrub(next, finalResult.errors.length));
+  }
   res.json({ success: true, result: finalResult, applied, claim: next });
 }));
 // Manual/staging transitions only — anything that finalizes a payer-facing state (submitted
@@ -315,10 +326,24 @@ rcmRouter.post("/denials/:id/appeal", wrap(async (req, res) => {
   const letter = generateAppealLetter({ denial: d, claim, patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient", providerName: claim.renderingProviderName ?? "Rendering Provider", practiceName: req.body?.practiceName ?? "World EHR Outpatient", clinicalSummary: req.body?.clinicalSummary, policyCitation: req.body?.policyCitation, attachments: req.body?.attachments });
   res.json({ success: true, ...letter, recommendation: recommendAction(d) });
 }));
-// "written-off" is deliberately excluded: only the approval-gated write-off tool may set it,
-// since that tool also posts the matching denial-adjustment ledger entry — setting the status
-// alone here would clear the denial from the open queue while leaving the receivable untouched.
-rcmRouter.post("/denials/:id/status", wrap(async (req, res) => { const p = z.object({ status: z.enum(["open", "in-progress", "appealed", "overturned", "upheld"]) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const d = await rcmStore.getDenial(t, req.params.id); if (!d) return fail(res, 404, "denial not found"); res.json({ success: true, denial: await rcmStore.upsertDenial(t, { ...d, status: p.data.status }) }); }));
+// "written-off" and "appealed" are deliberately excluded: only the approval-gated write-off and
+// send-appeal tools may set those, since each also does the matching real work (posting the
+// denial-adjustment ledger entry; generating and sending the appeal letter) — setting the status
+// alone here would clear the denial from the open queue while skipping that work and the approval
+// gate entirely. "overturned"/"upheld" stay directly settable because nothing else in this app
+// can set them: they record the payer's actual decision on an appeal that already went out,
+// which arrives outside the system (a letter, a portal, a phone call) with no automated signal to
+// gate behind — a human recording a real external outcome, not bypassing an approval for one.
+rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
+  const p = z.object({ status: z.enum(["open", "in-progress", "overturned", "upheld"]) }).safeParse(req.body);
+  if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  const d = await rcmStore.getDenial(t, req.params.id);
+  if (!d) return fail(res, 404, "denial not found");
+  // A payer can only overturn or uphold a denial that was actually appealed to it.
+  if ((p.data.status === "overturned" || p.data.status === "upheld") && d.status !== "appealed") return fail(res, 409, `Denial ${d.id} is not in "appealed" status (currently: ${d.status}) — a payer decision only applies to a denial that was actually appealed`);
+  res.json({ success: true, denial: await rcmStore.upsertDenial(t, { ...d, status: p.data.status }) });
+}));
 
 // ---------- Patient financials ----------
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
@@ -346,11 +371,14 @@ const ledgerPostInFlight = new Set<string>();
 rcmRouter.post("/ledger", wrap(async (req, res) => {
   const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
   if (!p.success) return bad(res, p.error);
-  // insurance-payment/contractual-adjustment reduce A/R with no approval, remittance match, or
-  // contract validation behind them — restrict those two to admin, while point-of-care facts
-  // (charge, patient-payment, transfer-to-patient) stay open to the wider RCM role set.
-  const adjustmentTypes = new Set<(typeof directLedgerTypes)[number]>(["insurance-payment", "contractual-adjustment"]);
-  if (p.data.some((e) => adjustmentTypes.has(e.type)) && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting insurance-payment or contractual-adjustment entries directly requires an admin role");
+  // insurance-payment/contractual-adjustment reduce A/R, and transfer-to-patient shifts
+  // responsibility for a caller-supplied amount onto the patient — none of the three have an
+  // approval, remittance match, or contract validation behind them on this raw endpoint, so
+  // restrict all three to admin. Point-of-care facts (charge, patient-payment) — receipts of
+  // something that actually happened rather than a financial-responsibility decision — stay
+  // open to the wider RCM role set.
+  const adjustmentTypes = new Set<(typeof directLedgerTypes)[number]>(["insurance-payment", "contractual-adjustment", "transfer-to-patient"]);
+  if (p.data.some((e) => adjustmentTypes.has(e.type)) && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting insurance-payment, contractual-adjustment, or transfer-to-patient entries directly requires an admin role");
   const t = tenantOf(req);
   const suppliedIds = p.data.map((e) => e.id).filter((id): id is string => !!id);
   // The store-lookup dedup check below only catches ids already posted in a PRIOR request — a
@@ -408,7 +436,24 @@ rcmRouter.get("/analytics/kpis", wrap(async (req, res) => { const t = tenantOf(r
 
 // ---------- Work queues ----------
 rcmRouter.get("/worklist", wrap(async (req, res) => { const t = tenantOf(req); const q = typeof req.query.queue === "string" ? (req.query.queue as WorkQueue) : undefined; const items = await rcmStore.listWorkItems(t, q); res.json({ success: true, items: sortQueue(items), summary: queueSummary(await rcmStore.listWorkItems(t)) }); }));
-rcmRouter.post("/worklist/:id", wrap(async (req, res) => { const p = z.object({ status: z.enum(["open", "in-progress", "waiting", "done", "cancelled"]).optional(), assignedTo: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const w = await rcmStore.updateWorkItem(tenantOf(req), req.params.id, p.data); return w ? res.json({ success: true, item: w }) : fail(res, 404, "work item not found"); }));
+rcmRouter.post("/worklist/:id", wrap(async (req, res) => {
+  const p = z.object({ status: z.enum(["open", "in-progress", "waiting", "done", "cancelled"]).optional(), assignedTo: z.string().optional() }).safeParse(req.body);
+  if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  if (p.data.status === "done" || p.data.status === "cancelled") {
+    const items = await rcmStore.listWorkItems(t);
+    const w = items.find((x) => x.id === req.params.id);
+    // An "agent-approval" item tracks a specific approval's disposition — completing it by hand
+    // must not be possible while that approval is still pending, or the queue would go quiet on
+    // an action nobody actually approved, rejected, or executed.
+    if (w?.queue === "agent-approval" && w.context?.approvalId) {
+      const approval = (await rcmStore.listApprovals(t)).find((a) => a.id === w.context?.approvalId);
+      if (approval && approval.status === "pending") return fail(res, 409, `Linked approval ${approval.id} is still pending — decide it via POST /approvals/:id instead of closing the work item directly`);
+    }
+  }
+  const w = await rcmStore.updateWorkItem(t, req.params.id, p.data);
+  return w ? res.json({ success: true, item: w }) : fail(res, 404, "work item not found");
+}));
 
 // ---------- Voice ----------
 rcmRouter.post("/voice/command", wrap(async (req, res) => {
