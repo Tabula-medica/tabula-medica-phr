@@ -253,6 +253,14 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
+    // input.amount is the claim's totalCharge captured at plan()/approval-request time — what an
+    // admin actually reviewed and approved. A provider/clinician could transition this claim back
+    // to "draft", patch its charges/lines, and re-scrub it to "ready" again before this approved
+    // step executes; canTransition alone wouldn't catch that (ready → submitted is legal either
+    // way), so the claim that actually goes out could silently differ in dollar amount from the
+    // one the approval was granted for. Fail closed on any drift and require a fresh approval
+    // instead of submitting a claim the approver never actually reviewed.
+    if (round2(claim.totalCharge) !== round2(input.amount)) throw new Error(`Claim total ($${claim.totalCharge.toFixed(2)}) no longer matches the amount ($${input.amount.toFixed(2)}) this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
     // /coverage can upsert (replace) an existing record by id — the same check the /claims/:id/837p
     // route already makes before exporting. Without it, a coverage record replaced with a
     // different patient's or payer's data after this claim was created/scrubbed could be marked

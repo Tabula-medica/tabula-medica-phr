@@ -621,6 +621,27 @@ describe("agents", () => {
     expect(exec.error).toMatch(/no longer matches/);
     expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
   });
+  it("submit-claim refuses to submit once the claim's total has drifted from the amount its approval was requested for", async () => {
+    // The approval payload's `amount` is a snapshot of the claim's totalCharge at plan() time —
+    // what an admin actually reviewed. A provider could revert this claim to draft, patch its
+    // charges, and re-scrub it back to "ready" (a legal ready→submitted transition either way)
+    // before the approved step executes, letting a claim worth a different amount go out under an
+    // approval granted for the original one.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-amount-drift" }; // 99214/20610 need no auth
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    // Claim's total changes after the approval was requested but before execution.
+    await rcmStore.upsertClaim(T, { ...ready, totalCharge: ready.totalCharge + 500 });
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/no longer matches the amount/);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
+  });
   it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
     // The guard used to be wrapped in `if (claim.priorAuthNumber && ...)`, so a claim needing
     // auth with NO box-23 number at all skipped validation entirely instead of failing closed.
