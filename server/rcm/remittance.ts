@@ -66,7 +66,11 @@ export function parseEra(raw: unknown): Remittance {
     };
   });
   const method = (str(pick(r, "method", "payment_method", "BPR04")) ?? "").toUpperCase();
-  const explicitId = str(pick(r, "id", "eraid", "era_id"));
+  // "eraid"/"era_id" (the stable domain identifier) must be checked before the generic "id" — a
+  // payload can carry both (e.g. a webhook envelope's own "id" alongside the actual ERA's
+  // "eraid"), and preferring the wrapper's non-stable id here would break idempotency for a later
+  // retry that only resends "eraid" with no check number.
+  const explicitId = str(pick(r, "eraid", "era_id", "id"));
   // Computed once (with the canonical camelCase name checked first, alongside the vendor-JSON
   // aliases) and reused by both the fingerprint below and the returned Remittance, so a caller
   // round-tripping this module's own output shape back through parseEra (a resend of an

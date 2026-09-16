@@ -252,6 +252,13 @@ describe("remittance posting", () => {
     expect(r.postings[0].status).not.toBe("unmatched");
     expect(r.postings[0].contractual).toBe(350);
   });
+  it("prefers the stable eraid/era_id over a generic wrapper id when a payload carries both", () => {
+    // A payload can carry a webhook envelope's own "id" alongside the actual ERA's stable
+    // "eraid" — preferring the wrapper's id would break idempotency for a later retry that only
+    // resends "eraid" with no check number, since it would no longer match this remittance's id.
+    const rem = parseEra({ id: "webhook-evt-999", eraid: "ERA-STABLE-1", payerid: "BCBS", check_amount: 100, claims: [{ pcn: "clm-1", billed: 100, paid: 100 }] });
+    expect(rem.id).toBe("ERA-STABLE-1");
+  });
 });
 
 describe("denials", () => {
