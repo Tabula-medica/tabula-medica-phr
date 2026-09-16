@@ -422,6 +422,43 @@ describe("agents", () => {
     expect(exec2.ok).toBe(false);
     expect((await rcmStore.getClaim(T, ready2.id))?.status).toBe("ready"); // never actually submitted
   });
+  it("submit-claim rolls the claim back to ready when auth is invalidated after the submitted write", async () => {
+    // The consume loop re-fetches after upsertClaim(..., "submitted"). If that re-check throws
+    // with no compensating rollback, the claim is stuck (submitted → submitted is illegal) while
+    // executeApproved stays retryable and units stay unused — or, in a multi-auth loop, only
+    // partly consumed.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-RACE-1", approvedUnits: 2, validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-auth-recheck-rollback", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "AUTH-RACE-1" });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const origGetAuth = rcmStore.getAuth.bind(rcmStore);
+    rcmStore.getAuth = async (tid, id) => {
+      const a = await origGetAuth(tid, id);
+      if (a && a.id === approvedAuth.id && a.status === "approved") {
+        const expired = transitionAuth(a, "expired", { actor: "admin" });
+        await rcmStore.upsertAuth(tid, expired);
+        return expired;
+      }
+      return a;
+    };
+    try {
+      const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+      expect(exec.ok).toBe(false);
+      expect(exec.error).toMatch(/no longer approved/);
+      expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+      expect((await rcmStore.getAuth(T, approvedAuth.id))?.status).toBe("expired");
+      expect((await rcmStore.getAuth(T, approvedAuth.id))?.unitsUsed).toBe(0);
+      const approval = (await rcmStore.listApprovals(T)).find((a) => a.id === pending.id)!;
+      expect(approval.executedAt).toBeUndefined();
+    } finally {
+      rcmStore.getAuth = origGetAuth;
+    }
+  });
   it("submit-claim fails closed when the claim's priorAuthNumber has no matching internal authorization record", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
