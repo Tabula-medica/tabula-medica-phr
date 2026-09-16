@@ -661,9 +661,11 @@ describe("agents", () => {
     const r = await agentRuntime.run("denials", T);
     expect(r.steps.filter((s) => s.tool === "triage-denial" && s.outcome === "ok")).toHaveLength(3);
     // write-off, send-appeal, file-corrected-claim, and transfer-to-patient all require approval —
-    // triage-denial is the only step that should ever come back "ok" on its own.
+    // triage-denial is the only step that should ever come back "ok" on its own. file-corrected-claim
+    // is only queued when a denial-specific patch can be produced (e.g. an approved auth number),
+    // so seeded remediable denials may stay open rather than mint a doomed patchless approval.
     expect(r.steps.filter((s) => s.tool !== "triage-denial" && s.outcome === "ok")).toHaveLength(0);
-    expect(r.steps.filter((s) => s.outcome === "needs-approval").length).toBeGreaterThanOrEqual(2);
+    expect(r.steps.filter((s) => s.outcome === "needs-approval").length).toBeGreaterThanOrEqual(1);
     const audit = await rcmStore.listAudit(T);
     expect(audit.some((a) => a.outcome === "needs-approval")).toBe(true);
     expect(JSON.stringify(audit)).not.toMatch(/Asha|Miguel|Priya|Dana/);
@@ -1098,7 +1100,7 @@ describe("round 11 hardening", () => {
     const orig = mkClaim();
     await rcmStore.upsertClaim(T, orig);
     await rcmStore.upsertDenial(T, { id: "den-fc-1", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
-    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-1", amount: 300 }, reason: "test" });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-1", amount: 300, patch: { priorAuthNumber: "PA-FC-1" } }, reason: "test" });
     await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
     const fcExec = await agentRuntime.executeApproved(T, fcApproval.id, "biller");
     expect(fcExec.ok).toBe(true);
@@ -1106,9 +1108,9 @@ describe("round 11 hardening", () => {
     // Staging a clean replacement claim for resubmission is not the same as the appeal actually
     // reaching the payer — the denial must stay "in-progress", not jump straight to "appealed".
     expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("in-progress");
-    let corrected = (await rcmStore.getClaim(T, correctedClaimId))!;
+    const corrected = (await rcmStore.getClaim(T, correctedClaimId))!;
     expect(corrected.resolvesDenialId).toBe("den-fc-1");
-    if (corrected.status !== "ready") { corrected = { ...corrected, status: "ready" }; await rcmStore.upsertClaim(T, corrected); }
+    expect(corrected.status).toBe("ready");
     const submitApproval = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: correctedClaimId, amount: corrected.totalCharge }, reason: "test" });
     await rcmStore.decideApproval(T, submitApproval.id, "approved", "biller");
     const submitExec = await agentRuntime.executeApproved(T, submitApproval.id, "biller");
@@ -1117,13 +1119,53 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("appealed");
   });
 
+  it("file-corrected-claim without a denial-specific patch leaves the denial open and does not clone the claim", async () => {
+    // A patchless frequency-7 clone is identical to the already-scrubbed original, so execute
+    // must refuse rather than persist a "scrubbed" replacement (the submit path never picks
+    // that status) and move the denial to "in-progress" (which drops it off the open queue
+    // with no way to attach a patch on approve/retry).
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const orig = mkClaim();
+    await rcmStore.upsertClaim(T, orig);
+    await rcmStore.upsertDenial(T, { id: "den-fc-nopatch", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-nopatch", amount: 300 }, reason: "test" });
+    await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
+    const fcExec = await agentRuntime.executeApproved(T, fcApproval.id, "biller");
+    expect(fcExec.ok).toBe(false);
+    expect(fcExec.error).toMatch(/denial-specific patch/);
+    expect((await rcmStore.getDenial(T, "den-fc-nopatch"))!.status).toBe("open");
+    expect((await rcmStore.listClaims(T)).filter((c) => c.originalClaimId === orig.id)).toHaveLength(0);
+  });
+
+  it("denials agent queues file-corrected-claim only when it can attach a real patch", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const coding = mkClaim();
+    await rcmStore.upsertClaim(T, coding);
+    await rcmStore.upsertDenial(T, { id: "den-coding", claimId: coding.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const authMissing = mkClaim();
+    await rcmStore.upsertClaim(T, authMissing);
+    await rcmStore.upsertDenial(T, { id: "den-auth", claimId: authMissing.id, patientId: patient.id, payerId: "BCBS", carc: "197", group: "CO", amount: 300, category: "auth-missing", rootCause: "test", remediable: true, remediation: "add auth", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const requested = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: authMissing.lines[0].cpt, diagnoses: authMissing.diagnoses.map((dx) => dx.code), dateOfService: authMissing.lines[0].dateOfService }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(requested, "approved", { actor: "t", authNumber: "AUTH-DEN-1", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const r = await agentRuntime.run("denials", T);
+    expect(r.steps.some((s) => s.tool === "file-corrected-claim" && s.input.denialId === "den-coding")).toBe(false);
+    const fc = r.steps.find((s) => s.tool === "file-corrected-claim" && s.input.denialId === "den-auth");
+    expect(fc).toBeDefined();
+    expect(fc!.outcome).toBe("needs-approval");
+    expect((fc!.input.patch as { priorAuthNumber?: string }).priorAuthNumber).toBe("AUTH-DEN-1");
+    expect((await rcmStore.getDenial(T, "den-coding"))!.status).toBe("open");
+    expect((await rcmStore.getDenial(T, "den-auth"))!.status).toBe("open");
+  });
+
   it("file-corrected-claim and write-off can't both win a race against the same open denial", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
     const orig = mkClaim();
     await rcmStore.upsertClaim(T, orig);
     await rcmStore.upsertDenial(T, { id: "den-race-2", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
-    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-race-2", amount: 300 }, reason: "test" });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-race-2", amount: 300, patch: { priorAuthNumber: "PA-RACE-2" } }, reason: "test" });
     const woApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-race-2", patientId: patient.id, amount: 300, reason: "test" }, reason: "test" });
     await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
     await rcmStore.decideApproval(T, woApproval.id, "approved", "biller");
