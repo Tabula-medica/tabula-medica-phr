@@ -85,7 +85,14 @@ export function parse271(raw: unknown): BenefitSnapshot {
   const r = (raw ?? {}) as Record<string, unknown>;
   const num = (v: unknown): number | undefined => {
     if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
-    if (typeof v === "string") { const n = parseFloat(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : undefined; }
+    if (typeof v === "string") {
+      // Strip everything except digits/dot (currency symbols, commas) before parsing, but keep a
+      // leading minus — stripping it unconditionally silently flips a malformed/malicious negative
+      // string value (e.g. "-30") positive instead of letting money()/pct() clamp it to 0.
+      const negative = /^\s*-/.test(v);
+      const n = parseFloat(v.replace(/[^0-9.]/g, ""));
+      return Number.isFinite(n) ? (negative ? -n : n) : undefined;
+    }
     return undefined;
   };
   // Payer data is untrusted input — a malformed or malicious 271 payload (a negative deductible,

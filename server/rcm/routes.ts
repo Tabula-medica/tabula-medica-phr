@@ -323,6 +323,12 @@ rcmRouter.post("/claims/:id/corrected", wrap(async (req, res) => {
   const next = correctedClaim(c, { diagnoses: p.data.diagnoses as Diagnosis[] | undefined, lines: p.data.lines as ServiceLine[] | undefined, priorAuthNumber: p.data.priorAuthNumber }, p.data.kind);
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, next) });
 }));
+// A secondary/COB claim carries the PRIMARY payer's actual adjudication outcome (paid,
+// patient responsibility, adjustments) to the secondary payer — that outcome can't exist before
+// the primary claim has actually been adjudicated. Without this, any authenticated caller could
+// fabricate primaryRemit data for a claim still sitting in draft/submitted and send it to the
+// secondary payer as if the primary had already responded.
+const primaryAdjudicatedStatuses = new Set<Claim["status"]>(["adjudicated", "paid", "partially-paid", "denied"]);
 rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   const p = z.object({ secondaryCoverageId: z.string(), primaryRemit: z.object({ paid: z.number(), patientResp: z.number(), billed: z.number(), lines: z.array(z.any()).default([]) }) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
@@ -332,6 +338,7 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   if (!c || !cov) return fail(res, 404, "claim or coverage not found");
   if (cov.patientId !== c.patientId) return fail(res, 400, "coverage does not belong to this claim's patient");
   if (cov.priority === "primary") return fail(res, 400, "secondary claim requires a non-primary coverage");
+  if (!primaryAdjudicatedStatuses.has(c.status)) return fail(res, 409, `Cannot create a secondary/COB claim from status "${c.status}" — the primary payer hasn't adjudicated this claim yet`);
   res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { ...p.data.primaryRemit, lines: [] })) });
 }));
 

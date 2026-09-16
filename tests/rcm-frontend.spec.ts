@@ -53,6 +53,11 @@ describe("eligibility", () => {
     expect(negative.coinsurancePct).toBe(0);
     const overRange = parse271({ eligible: "1", coinsurance: 250 });
     expect(overRange.coinsurancePct).toBe(100);
+    // A string-valued negative amount must clamp to 0 too, not lose its sign during parsing and
+    // come out positive — the digit-only strip used to also strip the leading "-".
+    const negativeString = parse271({ eligible: "1", copay: "-$30", coinsurance: "-20%" });
+    expect(negativeString.copayOfficeVisit).toBe(0);
+    expect(negativeString.coinsurancePct).toBe(0);
   });
   it("estimates patient responsibility: copay + deductible + coinsurance, capped at OOP", () => {
     const benefits = { active: true, copayOfficeVisit: 30, coinsurancePct: 20, deductibleRemaining: 50, oopMaxRemaining: 1000, checkedAt: new Date().toISOString(), source: "stub" as const };

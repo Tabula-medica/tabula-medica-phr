@@ -108,12 +108,16 @@ export function claimTo837P(claim: Claim, patient: Patient, coverage: Coverage):
 
 // CMS-1500 box map (for the paper/PDF path and for the existing /cms-1500 page).
 export function claimToCms1500Boxes(claim: Claim, patient: Patient, coverage: Coverage): Record<string, string> {
+  // Box 6 (patient relationship to insured) follows the NUCC 1500 instructions' own code set —
+  // "18"/"01"/"19"/"21" — which is distinct from the 837P transaction's SBR relationship
+  // qualifiers used in claimTo837P (which uses "G8" for other, not a valid box 6 value).
+  const box6Relationship: Record<Coverage["subscriberRelationship"], string> = { self: "18", spouse: "01", child: "19", other: "21" };
   const boxes: Record<string, string> = {
     "1a": coverage.memberId,
     "2": `${patient.lastName}, ${patient.firstName}`,
     "3": `${patient.dob} ${patient.sex ?? ""}`.trim(),
     "4": coverage.subscriberRelationship === "self" ? `${patient.lastName}, ${patient.firstName}` : `${coverage.subscriberLastName ?? ""}, ${coverage.subscriberFirstName ?? ""}`,
-    "6": coverage.subscriberRelationship,
+    "6": box6Relationship[coverage.subscriberRelationship],
     "11": coverage.groupNumber ?? "",
     "11c": coverage.payerName,
     "22": claim.frequencyCode === "1" ? "" : `${claim.frequencyCode} ${claim.originalClaimId ?? ""}`,

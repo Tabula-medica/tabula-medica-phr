@@ -35,9 +35,21 @@ describe("claims", () => {
     expect(x.claim.diagnoses[0]).toEqual({ qualifier: "ABK", code: "M1711" });
     expect(x.claim.subscriber.relationshipCode).toBe("18");
     const boxes = claimToCms1500Boxes(c, patient, coverage);
+    expect(boxes["6"]).toBe("18"); // box 6 uses the NUCC 1500 code set, not the raw "self" string
     expect(boxes["24D-1"]).toBe("99214 25");
     expect(boxes["24E-2"]).toBe("A");
     expect(boxes["28"]).toBe("450.00");
+  });
+  it("maps box 6 (patient relationship) to the NUCC 1500 code set, not the 837P transaction's own SBR qualifiers", () => {
+    // The 837P's own subscriber.relationshipCode uses "G8" for a non-spouse/child dependent —
+    // a valid X12 SBR02 qualifier, but not a valid CMS-1500 box 6 value (which uses "21").
+    // claimToCms1500Boxes must not just reuse the 837P code.
+    const otherCoverage: Coverage = { ...coverage, subscriberRelationship: "other" };
+    const c = mkClaim();
+    expect(claimTo837P(c, patient, otherCoverage).claim.subscriber.relationshipCode).toBe("G8");
+    expect(claimToCms1500Boxes(c, patient, otherCoverage)["6"]).toBe("21");
+    expect(claimToCms1500Boxes(c, patient, { ...coverage, subscriberRelationship: "spouse" })["6"]).toBe("01");
+    expect(claimToCms1500Boxes(c, patient, { ...coverage, subscriberRelationship: "child" })["6"]).toBe("19");
   });
   it("enforces the lifecycle state machine", () => {
     let c = mkClaim();
