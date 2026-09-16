@@ -942,6 +942,25 @@ describe("round 11 hardening", () => {
     expect(p.denials[0].amount).toBe(450);
     expect(p.denied).toBe(450);
   });
+  it("postRemittance does not synthesize a second CLP4 denial when a CARC is present with a missing/zero CAS amount", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0, adjustments: [{ group: "CO", carc: "50" }] }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.status).toBe("denied");
+    expect(p.denials).toHaveLength(1);
+    expect(p.denials[0].carc).toBe("50");
+    expect(p.denials.some((d) => d.carc === "16")).toBe(false);
+  });
+  it("postRemittance synthesizes a CLP4 denial only for the unresolved remainder after contractual and patientResp", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 50, adjustments: [{ group: "CO", carc: "45", amount: 100 }] }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.status).toBe("denied");
+    expect(p.contractual).toBe(100);
+    expect(p.denials).toHaveLength(1);
+    expect(p.denials[0]).toMatchObject({ carc: "16", amount: 300 });
+    expect(p.denied).toBe(300);
+  });
 
   it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
     const c = mkClaim();

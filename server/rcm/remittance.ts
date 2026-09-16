@@ -154,8 +154,13 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // deadline/triage/follow-up) from an entry in `denials`, so synthesize a generic one (CARC 16,
     // the same "lacks information" fallback parseAdjustments already uses elsewhere) rather than
     // leaving a denied claim with no denial record and no route into that workflow at all.
-    const clp4WithNoCarc = rc.statusCode === "4" && denied === 0;
-    if (clp4WithNoCarc) { denied += rc.billed; denials.push({ group: "CO", carc: "16", amount: rc.billed }); }
+    // Guard on an empty `denials` list, not the dollar total: a present CARC with a missing/zero
+    // CAS amount is still a reason code (parseAdjustments defaults amount to 0), and stacking
+    // CARC 16 on top would open a second conflicting denial. Amount is the ERA's unresolved
+    // remainder so contractual/PR already posted on this claim isn't counted again.
+    const unresolved = round2(Math.max(0, rc.billed - rc.paid - contractual - rc.patientResp));
+    const clp4WithNoCarc = rc.statusCode === "4" && denials.length === 0;
+    if (clp4WithNoCarc && unresolved > 0) { denied += unresolved; denials.push({ group: "CO", carc: "16", amount: unresolved }); }
     const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
     postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && rc.patientResp > 0 });
   }
