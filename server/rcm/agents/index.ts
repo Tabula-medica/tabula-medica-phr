@@ -112,10 +112,12 @@ const priorAuthAgent: AgentDefinition = {
         const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt.toUpperCase());
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
-        // A pending request only covers this line if its remaining (unclaimed-so-far-this-pass)
-        // capacity is at least as many units as the line needs — a 1-unit request already in
-        // flight must not silently swallow two different 1-unit lines.
-        const pendingMatch = matches.filter((a) => a.status === "requested" || a.status === "pended").find((a) => a.units - (pendingUnitsClaimed.get(a.id) ?? 0) >= line.units);
+        // A pending request only covers this line if it was opened for this date of service
+        // (when the record has one — open-auth-request always does) and its remaining
+        // (unclaimed-so-far-this-pass) capacity is at least as many units as the line needs —
+        // a 1-unit request already in flight must not silently swallow two different 1-unit
+        // lines, and a 278 opened for one visit must not consume units for a different date.
+        const pendingMatch = matches.filter((a) => a.status === "requested" || a.status === "pended").find((a) => (!a.dateOfService || a.dateOfService === line.dateOfService) && a.units - (pendingUnitsClaimed.get(a.id) ?? 0) >= line.units);
         if (pendingMatch) { pendingUnitsClaimed.set(pendingMatch.id, (pendingUnitsClaimed.get(pendingMatch.id) ?? 0) + line.units); continue; }
         // Include the date of service in the key — merging lines from different dates would
         // combine unrelated visits into one request/validity window, rejecting the visit that

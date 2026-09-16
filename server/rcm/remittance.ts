@@ -150,6 +150,15 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // CLP02 "4" is the X12-defined denied-claim status code — honor it even when the vendor
     // omitted a CARC adjustment alongside it, so a denied claim with zero paid and no parsed
     // reason still lands in "denied" (with a denial workflow) instead of "zero-pay" (with none).
+    // Denial rows are created from p.denials, which is otherwise filled only from CAS, so
+    // synthesize a CARC-16 adjustment (the same default parseAdjustments uses for a missing
+    // reason) for the billed amount — otherwise the claim flips to denied with no Denial,
+    // appeal deadline, or denials-queue item.
+    if (rc.statusCode === "4" && rc.paid === 0 && denials.length === 0) {
+      const amount = round2(rc.billed || claim.totalCharge);
+      denials.push({ group: "CO", carc: "16", amount });
+      denied += amount;
+    }
     const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
     postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && rc.patientResp > 0 });
   }

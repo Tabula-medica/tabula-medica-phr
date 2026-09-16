@@ -905,6 +905,23 @@ describe("round 11 hardening", () => {
     expect(opens[0].input.dateOfService).toBe("2026-09-10"); // the second line still needs its own request
   });
 
+  it("prior-auth agent does not attribute a pending request to a line on a different date of service", async () => {
+    // A 278 opened for one visit must not consume units for a later-dated line just because
+    // listClaims happens to yield that later draft first.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const pending = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, pending);
+    const later = buildClaim({ encounterId: "e-pend-later", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-10", placeOfService: "11" }] });
+    const earlier = buildClaim({ encounterId: "e-pend-earlier", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, later);
+    await rcmStore.upsertClaim(T, earlier);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(opens).toHaveLength(1);
+    expect(opens[0].input.dateOfService).toBe("2026-09-10"); // later visit opens its own request; earlier visit keeps the pending 278
+  });
+
   it("postRemittance recognizes a group-prefixed CO-45 CARC as a contractual adjustment, not a denial", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: 240, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 240, patient_resp: 60, lines: [{ proc: "99214", billed: 300, paid: 150, patient_resp: 60, adjustments: [{ group: "CO", carc: "CO-45", amount: 90 }] }, { proc: "20610", billed: 150, paid: 90, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 60 }] }] }] });
@@ -919,6 +936,9 @@ describe("round 11 hardening", () => {
     const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0 }] });
     const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
     expect(p.status).toBe("denied"); // not the generic "zero-pay" a missing CARC would otherwise produce
+    expect(p.denials).toHaveLength(1); // synthesized so posting still creates a Denial / denials-queue item
+    expect(p.denials[0]).toMatchObject({ group: "CO", carc: "16", amount: 450 });
+    expect(p.denied).toBe(450);
   });
 
   it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
