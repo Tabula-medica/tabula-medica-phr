@@ -2,11 +2,11 @@
 // require human approval (enforced by the runtime). Register all on the shared runtime.
 import { agentRuntime, type AgentDefinition, type AgentStep, type Tool, type ToolContext } from "./runtime";
 import { aiText } from "./ai";
-import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance } from "../eligibility";
+import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance, payerDemographics } from "../eligibility";
 import { authCoversService, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
-import { generateAppealLetter, recommendAction } from "../denials";
+import { generateAppealLetter, recommendAction, remediateClaim } from "../denials";
 import { buildStatement, collectionsStage, createPaymentPlan, detectCreditBalances, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
 import { computeKpis } from "../analytics";
@@ -25,7 +25,7 @@ const runEligibility: Tool<{ coverageId: string; patientId: string; dateOfServic
     const benefits = await checkEligibility({ patient, coverage, dateOfService: input.dateOfService, providerNpi: "1234567893" });
     await ctx.store.setBenefits(ctx.tenantId, coverage.id, benefits);
     const est = estimatePatientResponsibility([{ cpt: "99213", units: 1 }], benefits);
-    const disc = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, {});
+    const disc = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, payerDemographics(benefits));
     const clearance = financialClearance(benefits, est, disc);
     if (!clearance.cleared) await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "eligibility", title: `Not cleared: ${clearance.reasons.join("; ")}`, patientId: patient.id, priority: 75, source: "agent", context: { coverageId: coverage.id, actions: clearance.actions } })]);
     return { active: benefits.active, cleared: clearance.cleared, collectAtVisit: clearance.collectAtVisit };
@@ -82,9 +82,10 @@ const priorAuthAgent: AgentDefinition = {
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
-        const existing = auths.find((a) => a.patientId === claim.patientId && a.cpt === line.cpt);
-        if (existing && authCoversService(existing, line.cpt, line.dateOfService).ok) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: existing.id }, why: "approved auth on file" }); continue; }
-        if (existing && ["requested", "pended"].includes(existing.status)) continue;
+        const covering = auths.find((a) => a.patientId === claim.patientId && authCoversService(a, line.cpt, line.dateOfService).ok);
+        if (covering) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: covering.id }, why: "approved auth on file" }); continue; }
+        const inFlight = auths.find((a) => a.patientId === claim.patientId && a.cpt === line.cpt && ["requested", "pended"].includes(a.status));
+        if (inFlight) continue;
         steps.push({ tool: "open-auth-request", input: { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code) }, why: check.reason ?? "auth required" });
       }
     }
@@ -195,11 +196,24 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
   async run(input, ctx) {
     const orig = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!orig) throw new Error("claim not found");
-    const next = correctedClaim(orig, {});
-    await ctx.store.upsertClaim(ctx.tenantId, next);
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+    let priorAuthNumber: string | undefined;
+    if (d && (d.category === "auth-missing" || d.carc === "15" || d.carc === "197")) {
+      const auths = await ctx.store.listAuths(ctx.tenantId, orig.patientId);
+      const covering = auths.find((a) => orig.lines.some((l) => authCoversService(a, l.cpt, l.dateOfService).ok) && a.authNumber);
+      priorAuthNumber = covering?.authNumber;
+    }
+    const patch = d ? remediateClaim(orig, d, { priorAuthNumber }) : {};
+    const next = correctedClaim(orig, patch);
+    const patient = await ctx.store.getPatient(ctx.tenantId, orig.patientId);
+    const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
+    const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
+    const others = (await ctx.store.listClaims(ctx.tenantId, { patientId: orig.patientId })).filter((c) => c.id !== orig.id);
+    const scrub = scrubClaim(next, { patient, coverage, authRequiredCpts: contract?.requiresAuth, authOnFile: !!next.priorAuthNumber, priorClaimsSameDos: others });
+    const fixed = applyAutoFixes(next, scrub.edits);
+    await ctx.store.upsertClaim(ctx.tenantId, fixed.claim);
     if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
-    return { correctedClaimId: next.id };
+    return { correctedClaimId: fixed.claim.id, applied: [...(d ? Object.keys(patch) : []), ...fixed.applied] };
   },
 };
 const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, unknown> = {

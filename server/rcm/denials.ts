@@ -1,8 +1,9 @@
 // Stage 12: denial management — CARC/RARC root cause, prevention mapping back to scrubber rule
 // ids, deterministic appeal letters (facts from data, never from the model), appeal deadlines,
 // worklist prioritization, and write-off recommendation.
-import type { Adjustment, Claim, Denial, DenialCategory } from "./types";
-import { addDays, daysBetween, newId, nowIso, todayIso } from "./util";
+import type { Adjustment, Claim, Denial, DenialCategory, ServiceLine } from "./types";
+import { feeRow } from "./reference-data";
+import { addDays, daysBetween, newId, nowIso, round2, todayIso } from "./util";
 
 export interface CarcInfo { category: DenialCategory; rootCause: string; remediable: boolean; remediation: string; preventionRuleIds: string[]; appealable: boolean }
 
@@ -159,6 +160,37 @@ export function recommendAction(d: Denial, opts: { smallBalanceThreshold?: numbe
   if (d.remediable && ["modifier", "coding-mismatch", "missing-info", "bundling", "frequency", "eligibility", "auth-missing"].includes(d.category)) return { action: "corrected-claim", reason: d.remediation, requiresApproval: true };
   if (d.category === "medical-necessity" || d.category === "non-covered") return d.amount > cost ? { action: "appeal", reason: "Appealable with clinical documentation", requiresApproval: true } : { action: "write-off", reason: "Appeal cost exceeds recoverable amount", requiresApproval: true };
   return { action: "manual", reason: d.rootCause, requiresApproval: true };
+}
+
+const BYPASS_MODIFIERS = new Set(["59", "XE", "XS", "XP", "XU", "76", "77"]);
+
+/** Apply the denial's recommended remediation (auth #, modifier, units, dx pointers) onto a clone-ready patch. */
+export function remediateClaim(claim: Claim, denial: Denial, opts: { priorAuthNumber?: string } = {}): Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber">> {
+  let lines: ServiceLine[] = claim.lines.map((l) => ({ ...l, modifiers: [...l.modifiers], dxPointers: [...l.dxPointers] }));
+  const patch: Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber">> = {};
+  if ((denial.category === "auth-missing" || denial.carc === "15" || denial.carc === "197") && opts.priorAuthNumber) {
+    patch.priorAuthNumber = opts.priorAuthNumber;
+  }
+  if (denial.category === "modifier" || denial.carc === "4") {
+    const hasProc = lines.some((l) => { const r = feeRow(l.cpt); return r ? r.category === "procedure" : /^[1-6]\d{4}$/.test(l.cpt); });
+    lines = lines.map((l) => (hasProc && /^992(0[2-5]|1[1-5])$/.test(l.cpt) && !l.modifiers.includes("25") ? { ...l, modifiers: [...l.modifiers, "25"] } : l));
+  }
+  if (denial.category === "bundling") {
+    lines = lines.map((l, i) => (i === 0 || l.modifiers.some((m) => BYPASS_MODIFIERS.has(m.toUpperCase())) ? l : { ...l, modifiers: [...l.modifiers, "59"] }));
+  }
+  if (denial.category === "frequency") {
+    lines = lines.map((l) => {
+      const max = feeRow(l.cpt)?.typicalUnitsMax;
+      if (max === undefined || l.units <= max) return l;
+      const perUnit = l.units ? l.charge / l.units : l.charge;
+      return { ...l, units: max, charge: round2(perUnit * max) };
+    });
+  }
+  if (denial.category === "coding-mismatch" || denial.category === "missing-info") {
+    lines = lines.map((l) => (l.dxPointers.length === 0 && claim.diagnoses.length ? { ...l, dxPointers: [1] } : l));
+  }
+  patch.lines = lines;
+  return patch;
 }
 
 export function denialTrends(denials: Denial[]): { byCategory: Record<string, { count: number; amount: number }>; byPayer: Record<string, { count: number; amount: number }>; preventable: { count: number; amount: number }; topPreventionRules: Array<{ ruleId: string; count: number }> } {

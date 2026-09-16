@@ -3,7 +3,7 @@
 // No Surprises Act Good Faith Estimate, credit balances & refunds, small-balance write-off.
 import type { LedgerEntry, Patient, ServiceLine } from "./types";
 import { FPL_BASE, FPL_PER_ADDITIONAL, feeRow } from "./reference-data";
-import { addDays, daysBetween, newId, round2, sum, todayIso } from "./util";
+import { addBusinessDays, addDays, businessDaysBetween, daysBetween, newId, round2, sum, todayIso } from "./util";
 
 const CREDIT_TYPES = new Set<LedgerEntry["type"]>(["insurance-payment", "patient-payment", "contractual-adjustment", "denial-adjustment", "write-off"]);
 
@@ -19,6 +19,7 @@ export interface AccountSummary { patientId: string; charges: number; insuranceP
 export function computeAccount(patientId: string, entries: LedgerEntry[]): AccountSummary {
   const mine = entries.filter((e) => e.patientId === patientId);
   const by = (t: LedgerEntry["type"]) => sum(mine.filter((e) => e.type === t).map((e) => e.amount));
+  const byParty = (t: LedgerEntry["type"], party: LedgerEntry["responsibleParty"]) => sum(mine.filter((e) => e.type === t && e.responsibleParty === party).map((e) => e.amount));
   const charges = by("charge");
   const insurancePaid = by("insurance-payment");
   const patientPaid = by("patient-payment");
@@ -26,8 +27,13 @@ export function computeAccount(patientId: string, entries: LedgerEntry[]): Accou
   const refunds = by("refund");
   const balance = round2(charges - insurancePaid - patientPaid - adjustments + refunds);
   const transferred = by("transfer-to-patient");
-  const patientBalance = round2(Math.max(0, transferred - patientPaid + refunds > balance ? balance : transferred - patientPaid + refunds));
-  return { patientId, charges, insurancePaid, patientPaid, adjustments, refunds, balance, patientBalance: Math.max(patientBalance, 0), insuranceBalance: round2(Math.max(0, balance - Math.max(patientBalance, 0))) };
+  const patientAdjustments = sum([byParty("contractual-adjustment", "patient"), byParty("denial-adjustment", "patient"), byParty("write-off", "patient")]);
+  const patientRefunds = byParty("refund", "patient");
+  const patientCharges = byParty("charge", "patient");
+  // Patient slice: patient-party charges + transfers − payments − patient-party write-offs.
+  // Left unclamped so an overpayment stays a patient credit instead of eating insurance A/R.
+  const patientNet = round2(patientCharges + transferred - patientPaid + patientRefunds - patientAdjustments);
+  return { patientId, charges, insurancePaid, patientPaid, adjustments, refunds, balance, patientBalance: Math.max(patientNet, 0), insuranceBalance: round2(Math.max(0, balance - patientNet)) };
 }
 
 export interface Aging { current: number; d31_60: number; d61_90: number; d91_120: number; over120: number; total: number }
@@ -116,8 +122,10 @@ export interface GoodFaithEstimate { id: string; patientId: string; scheduledDat
 export function goodFaithEstimate(patient: Patient, lines: Pick<ServiceLine, "cpt" | "units">[], selfPayRates: Record<string, number>, scheduledDate?: string, today: string = todayIso()): GoodFaithEstimate {
   const items = lines.map((l) => { const rate = selfPayRates[l.cpt] ?? feeRow(l.cpt)?.medicareAllowed ?? 0; return { cpt: l.cpt, description: feeRow(l.cpt)?.description ?? l.cpt, units: l.units, amount: round2(rate * l.units) }; });
   const total = sum(items.map((i) => i.amount));
-  const lead = scheduledDate ? daysBetween(today, scheduledDate) : 0;
-  const deliverBy = scheduledDate ? (lead >= 10 ? addDays(scheduledDate, -3) : lead >= 3 ? addDays(today, 1) : today) : addDays(today, 3);
+  // NSA: 3 business days of the request when the visit is ≥10 business days out; 1 business
+  // day when it is 3–9 business days out; same day when the visit is <3 business days away.
+  const lead = scheduledDate ? businessDaysBetween(today, scheduledDate) : 0;
+  const deliverBy = scheduledDate ? (lead >= 10 ? addBusinessDays(today, 3) : lead >= 3 ? addBusinessDays(today, 1) : today) : addBusinessDays(today, 3);
   return {
     id: newId("gfe"),
     patientId: patient.id,

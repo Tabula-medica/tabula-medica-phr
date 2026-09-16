@@ -1,6 +1,6 @@
 // RCM front-end + mid-cycle: eligibility, prior auth, charge capture, coding, scrubber.
 import { describe, it, expect } from "vitest";
-import { build270, checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271, eligibilityIsStale } from "../server/rcm/eligibility";
+import { build270, checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271, eligibilityIsStale, payerDemographics } from "../server/rcm/eligibility";
 import { authCoversService, build278, consumeAuthUnit, createAuthRequest, requiresPriorAuth, slaBreached, transitionAuth } from "../server/rcm/prior-auth";
 import { deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "../server/rcm/charge-capture";
 import { levelEm, mdmLevel, parseCodingSuggestion, reviewIcd } from "../server/rcm/coding";
@@ -29,13 +29,18 @@ describe("eligibility", () => {
     const term = await checkEligibility({ patient, coverage: { ...coverage, terminationDate: "2026-06-30" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
     expect(term.active).toBe(false);
     expect(term.source).toBe("manual");
+    const notYet = await checkEligibility({ patient, coverage: { ...coverage, effectiveDate: "2026-10-01" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(notYet.active).toBe(false);
+    expect(notYet.source).toBe("manual");
   });
   it("parses a vendor 271 defensively", () => {
-    const b = parse271({ eligible: "1", plan_name: "Gold PPO", copay: "$30", deductible_remaining: "250.00", coinsurance: 20 });
+    const b = parse271({ eligible: "1", plan_name: "Gold PPO", copay: "$30", deductible_remaining: "250.00", coinsurance: 20, member_id: "OTHER99", last_name: "Demo-Kumar", first_name: "Asha", dob: "1968-03-14" });
     expect(b.active).toBe(true);
     expect(b.copayOfficeVisit).toBe(30);
     expect(b.deductibleRemaining).toBe(250);
     expect(b.source).toBe("clearinghouse");
+    expect(payerDemographics(b)).toMatchObject({ memberId: "OTHER99", lastName: "Demo-Kumar", firstName: "Asha", dob: "1968-03-14" });
+    expect(detectDiscrepancies({ firstName: "Asha", lastName: "Demo", dob: "1968-03-14", memberId: "XYZ123" }, payerDemographics(b)).map((d) => d.field)).toEqual(expect.arrayContaining(["memberId", "lastName"]));
   });
   it("estimates patient responsibility: copay + deductible + coinsurance, capped at OOP", () => {
     const benefits = { active: true, copayOfficeVisit: 30, coinsurancePct: 20, deductibleRemaining: 50, oopMaxRemaining: 1000, checkedAt: new Date().toISOString(), source: "stub" as const };

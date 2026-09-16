@@ -66,6 +66,10 @@ export const stubEligibilityVendor: EligibilityVendor = {
       networkStatus: "in-network",
       checkedAt: new Date().toISOString(),
       source: "stub",
+      payerMemberId: payload.subscriber.memberId,
+      payerFirstName: payload.subscriber.firstName,
+      payerLastName: payload.subscriber.lastName,
+      payerDob: payload.subscriber.dob,
     };
   },
 };
@@ -98,12 +102,23 @@ export function parse271(raw: unknown): BenefitSnapshot {
     checkedAt: new Date().toISOString(),
     source: "clearinghouse",
     raw,
+    payerMemberId: str(pick("member_id", "memberId", "subscriber_id", "subscriberId", "subscriber_member_id")),
+    payerFirstName: str(pick("first_name", "firstName", "subscriber_first_name", "patient_first_name")),
+    payerLastName: str(pick("last_name", "lastName", "subscriber_last_name", "patient_last_name")),
+    payerDob: str(pick("dob", "date_of_birth", "subscriber_dob", "patient_dob")),
   };
+}
+
+export function payerDemographics(b: BenefitSnapshot): Partial<{ firstName: string; lastName: string; dob: string; memberId: string }> {
+  return { firstName: b.payerFirstName, lastName: b.payerLastName, dob: b.payerDob, memberId: b.payerMemberId };
 }
 
 export async function checkEligibility(req: EligibilityRequest, vendor: EligibilityVendor = stubEligibilityVendor): Promise<BenefitSnapshot> {
   const c = req.coverage;
   if (c.terminationDate && c.terminationDate < req.dateOfService) {
+    return { active: false, planName: c.planType, checkedAt: new Date().toISOString(), source: "manual" };
+  }
+  if (c.effectiveDate && c.effectiveDate > req.dateOfService) {
     return { active: false, planName: c.planType, checkedAt: new Date().toISOString(), source: "manual" };
   }
   if (c.planType === "SelfPay") {

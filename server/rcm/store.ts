@@ -7,7 +7,7 @@ import { DEFAULT_CONTRACTS } from "./contracts";
 import { newId, nowIso } from "./util";
 
 export interface AgentAuditRow { id: string; at: string; tenantId: string; agent: string; step: string; detail: Record<string, unknown>; outcome: "ok" | "blocked" | "needs-approval" | "error" }
-export interface Approval { id: string; tenantId: string; agent: string; action: string; payload: Record<string, unknown>; reason: string; status: "pending" | "approved" | "rejected"; createdAt: string; decidedAt?: string; decidedBy?: string }
+export interface Approval { id: string; tenantId: string; agent: string; action: string; payload: Record<string, unknown>; reason: string; status: "pending" | "approved" | "rejected" | "executed"; createdAt: string; decidedAt?: string; decidedBy?: string }
 
 interface Tenant {
   patients: Map<string, Patient>;
@@ -55,6 +55,7 @@ export class RcmStore {
   async listDenials(tid: string, status?: Denial["status"]): Promise<Denial[]> { return Array.from(this.t(tid).denials.values()).filter((d) => !status || d.status === status); }
 
   async addRemittance(tid: string, r: Remittance): Promise<Remittance> { this.t(tid).remittances.set(r.id, r); return r; }
+  async getRemittance(tid: string, id: string): Promise<Remittance | undefined> { return this.t(tid).remittances.get(id); }
   async listRemittances(tid: string): Promise<Remittance[]> { return Array.from(this.t(tid).remittances.values()); }
 
   async postLedger(tid: string, entries: LedgerEntry[]): Promise<void> { this.t(tid).ledger.push(...entries); }
@@ -78,7 +79,25 @@ export class RcmStore {
   async listAudit(tid: string, limit = 200): Promise<AgentAuditRow[]> { return this.t(tid).agentAudit.slice(-limit).reverse(); }
 
   async requestApproval(tid: string, a: Omit<Approval, "id" | "tenantId" | "status" | "createdAt">): Promise<Approval> { const r: Approval = { id: newId("apr"), tenantId: tid, status: "pending", createdAt: nowIso(), ...a }; this.t(tid).approvals.set(r.id, r); return r; }
-  async decideApproval(tid: string, id: string, status: "approved" | "rejected", by: string): Promise<Approval | undefined> { const t = this.t(tid); const a = t.approvals.get(id); if (!a) return undefined; const n: Approval = { ...a, status, decidedAt: nowIso(), decidedBy: by }; t.approvals.set(id, n); return n; }
+  async getApproval(tid: string, id: string): Promise<Approval | undefined> { return this.t(tid).approvals.get(id); }
+  async decideApproval(tid: string, id: string, status: "approved" | "rejected", by: string): Promise<Approval | undefined> {
+    const t = this.t(tid);
+    const a = t.approvals.get(id);
+    if (!a) return undefined;
+    if (a.status !== "pending") throw new Error("approval already decided");
+    const n: Approval = { ...a, status, decidedAt: nowIso(), decidedBy: by };
+    t.approvals.set(id, n);
+    return n;
+  }
+  /** CAS approved → executed. Returns the row when this caller won the race; undefined otherwise. */
+  async markApprovalExecuted(tid: string, id: string): Promise<Approval | undefined> {
+    const t = this.t(tid);
+    const a = t.approvals.get(id);
+    if (!a || a.status !== "approved") return undefined;
+    const n: Approval = { ...a, status: "executed" };
+    t.approvals.set(id, n);
+    return n;
+  }
   async listApprovals(tid: string, status?: Approval["status"]): Promise<Approval[]> { return Array.from(this.t(tid).approvals.values()).filter((a) => !status || a.status === status); }
 
   async recordScrub(tid: string, clean: boolean): Promise<void> { const s = this.t(tid).scrubStats; s.total++; if (clean) s.firstPassClean++; }

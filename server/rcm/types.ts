@@ -57,6 +57,11 @@ export interface BenefitSnapshot {
   checkedAt: string;
   source: "stub" | "clearinghouse" | "manual";
   raw?: unknown;
+  // Demographics the payer returned (271) — used for registration-vs-payer discrepancy checks.
+  payerMemberId?: string;
+  payerFirstName?: string;
+  payerLastName?: string;
+  payerDob?: string;
 }
 
 export interface ServiceLine {

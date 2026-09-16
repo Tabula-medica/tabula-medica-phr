@@ -1,8 +1,8 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
 import { describe, it, expect, beforeEach } from "vitest";
-import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
-import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
-import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
+import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim, transitionClaimTo, transitionPath } from "../server/rcm/claims";
+import { parseEra, postRemittance, claimStatusFromPosting, findDuplicateRemittance } from "../server/rcm/remittance";
+import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction, remediateClaim } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
 import { agingByPayer, computeKpis } from "../server/rcm/analytics";
@@ -12,6 +12,7 @@ import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/pay
 import { agentRuntime } from "../server/rcm/agents";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
+import { createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
 import type { Coverage, LedgerEntry, Patient } from "../server/rcm/types";
 
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
@@ -41,6 +42,11 @@ describe("claims", () => {
     expect(mapStatusCategory("A1")).toBe("acknowledged");
     expect(mapStatusCategory("F2")).toBe("denied");
     expect(mapStatusCategory("P1")).toBe("pended");
+    const paid = transitionClaimTo(mkClaim(), "paid", "t");
+    expect(paid.status).toBe("paid");
+    expect(paid.history.map((h) => h.status)).toEqual(["draft", "scrubbed", "ready", "submitted", "paid"]);
+    expect(transitionClaimTo(paid, "adjudicated", "era-post").status).toBe("adjudicated");
+    expect(transitionPath("paid", "adjudicated")).toEqual(["adjudicated"]);
   });
   it("creates corrected (freq 7) and secondary (COB) claims", () => {
     const c = mkClaim();
@@ -84,6 +90,12 @@ describe("remittance posting", () => {
     expect(r.unapplied).toBe(150);
     expect(r.balanced).toBe(false);
   });
+  it("treats a replayed ERA (same id or check) as a duplicate", () => {
+    const first = { ...parseEra({ eraid: "E1", payerid: "BCBS", check_number: "CHK1", check_amount: 180, claims: [] }), postedAt: "2026-08-01T00:00:00Z" };
+    expect(findDuplicateRemittance([first], parseEra({ eraid: "E1", payerid: "BCBS", check_number: "CHK9", check_amount: 1, claims: [] }))?.id).toBe("E1");
+    expect(findDuplicateRemittance([first], parseEra({ eraid: "E2", payerid: "BCBS", check_number: "CHK1", check_amount: 180, claims: [] }))?.id).toBe("E1");
+    expect(findDuplicateRemittance([first], parseEra({ eraid: "E3", payerid: "AETNA", check_number: "CHK1", check_amount: 180, claims: [] }))).toBeUndefined();
+  });
 });
 
 describe("denials", () => {
@@ -113,6 +125,10 @@ describe("denials", () => {
     const t = denialTrends([d50, denialFromAdjustment(c, { group: "CO", carc: "197", amount: 900 })]);
     expect(t.preventable.count).toBe(2);
     expect(t.topPreventionRules[0].ruleId).toBeDefined();
+    const authPatch = remediateClaim(c, denialFromAdjustment(c, { group: "CO", carc: "197", amount: 900 }), { priorAuthNumber: "AUTH-9" });
+    expect(authPatch.priorAuthNumber).toBe("AUTH-9");
+    const modPatch = remediateClaim(c, denialFromAdjustment(c, { group: "CO", carc: "4", amount: 100 }));
+    expect(modPatch.lines?.find((l) => l.cpt === "99214")?.modifiers).toContain("25");
   });
 });
 
@@ -150,13 +166,36 @@ describe("patient financials", () => {
     expect(slidingFeeDiscount(120).discountPct).toBe(80);
     const gfe = goodFaithEstimate(patient, [{ cpt: "99203", units: 1 }, { cpt: "80053", units: 1 }], { "99203": 150 }, "2026-09-20", "2026-09-05");
     expect(gfe.total).toBe(160.5);
-    expect(gfe.deliverBy).toBe("2026-09-17");
+    expect(gfe.deliverBy).toBe("2026-09-09"); // 3 business days from Sat 2026-09-05 (visit is 10+ business days out)
+    expect(goodFaithEstimate(patient, [{ cpt: "99203", units: 1 }], { "99203": 150 }, "2026-09-11", "2026-09-05").deliverBy).toBe("2026-09-07"); // 3–9 business days → 1 business day
     expect(gfe.disclaimers.length).toBeGreaterThan(1);
   });
   it("detects credit balances and small balances", () => {
     const credit = detectCreditBalances({ p2: [{ id: "a", patientId: "p2", type: "charge", amount: 50, date: "2026-08-01", responsibleParty: "patient" }, { id: "b", patientId: "p2", type: "patient-payment", amount: 80, date: "2026-08-02", responsibleParty: "patient" }] });
     expect(credit[0]).toMatchObject({ amount: 30, refundTo: "patient", requiresApproval: true });
-    expect(smallBalanceWriteOffs({ p3: [{ id: "a", patientId: "p3", type: "charge", amount: 4, date: "2026-08-01", responsibleParty: "patient" }, { id: "b", patientId: "p3", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" }] })).toEqual([{ patientId: "p3", amount: 4 }]);
+    expect(smallBalanceWriteOffs({ p3: [{ id: "a", patientId: "p3", type: "charge", amount: 4, date: "2026-08-01", responsibleParty: "insurance" }, { id: "b", patientId: "p3", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" }] })).toEqual([{ patientId: "p3", amount: 4 }]);
+    const afterWriteOff = computeAccount("p3", [
+      { id: "a", patientId: "p3", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b", patientId: "p3", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" },
+      { id: "c", patientId: "p3", type: "write-off", amount: 4, date: "2026-08-02", responsibleParty: "patient" },
+    ]);
+    expect(afterWriteOff.patientBalance).toBe(0);
+    expect(afterWriteOff.insuranceBalance).toBe(196);
+    expect(smallBalanceWriteOffs({ p3: [
+      { id: "a", patientId: "p3", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b", patientId: "p3", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" },
+      { id: "c", patientId: "p3", type: "write-off", amount: 4, date: "2026-08-02", responsibleParty: "patient" },
+    ] })).toEqual([]);
+    const overpay = computeAccount("p4", [
+      { id: "a", patientId: "p4", type: "charge", amount: 500, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b", patientId: "p4", type: "insurance-payment", amount: 200, date: "2026-08-02", responsibleParty: "insurance" },
+      { id: "c", patientId: "p4", type: "contractual-adjustment", amount: 100, date: "2026-08-02", responsibleParty: "insurance" },
+      { id: "d", patientId: "p4", type: "transfer-to-patient", amount: 100, date: "2026-08-02", responsibleParty: "patient" },
+      { id: "e", patientId: "p4", type: "patient-payment", amount: 150, date: "2026-08-03", responsibleParty: "patient" },
+    ]);
+    expect(overpay.patientBalance).toBe(0);
+    expect(overpay.insuranceBalance).toBe(100);
+    expect(overpay.balance).toBe(50);
   });
 });
 
@@ -237,7 +276,10 @@ describe("agents", () => {
     await rcmStore.decideApproval(T, pending[0].id, "approved", "biller");
     const exec = await agentRuntime.executeApproved(T, pending[0].id, "biller");
     expect(exec.ok).toBe(true);
+    const exec2 = await agentRuntime.executeApproved(T, pending[0].id, "biller");
+    expect(exec2.output).toMatchObject({ alreadyExecuted: true });
     expect(await rcmStore.listClaims(T, { status: "submitted" })).toHaveLength(2);
+    await expect(rcmStore.decideApproval(T, pending[0].id, "approved", "biller")).rejects.toThrow(/already decided/);
   });
   it("denial agent triages, never executes money-moving steps without approval, and moves PR to patient", async () => {
     const r = await agentRuntime.run("denials", T);
@@ -260,5 +302,18 @@ describe("agents", () => {
     expect(refund?.outcome).toBe("needs-approval");
     expect(refund?.input.patientId).toBe("pt-demo-4");
     expect(refund?.input.amount).toBe(150);
+  });
+  it("prior-auth agent attaches a later approved auth instead of the leftover denied row", async () => {
+    const drafts = await rcmStore.listClaims(T, { status: "draft" });
+    const claim = { ...drafts[0], lines: [...drafts[0].lines, { cpt: "72148", modifiers: [], units: 1, charge: 900, dxPointers: [1], dateOfService: drafts[0].lines[0].dateOfService, placeOfService: "11" }] };
+    await rcmStore.upsertClaim(T, claim);
+    const denied = transitionAuth(createAuthRequest({ patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: "72148", diagnoses: ["M54.16"] }), "denied", { actor: "t" });
+    await rcmStore.upsertAuth(T, denied);
+    const approved = transitionAuth(createAuthRequest({ patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: "72148", diagnoses: ["M54.16"] }), "approved", { actor: "t", authNumber: "AUTH-RETRO", validFrom: claim.lines[0].dateOfService });
+    await rcmStore.upsertAuth(T, approved);
+    const r = await agentRuntime.run("prior-auth", T);
+    expect(r.steps.some((s) => s.tool === "attach-auth-to-claim" && s.outcome === "ok")).toBe(true);
+    expect(r.steps.filter((s) => s.tool === "open-auth-request" && (s.input as { cpt?: string }).cpt === "72148")).toHaveLength(0);
+    expect((await rcmStore.getClaim(T, claim.id))?.priorAuthNumber).toBe("AUTH-RETRO");
   });
 });

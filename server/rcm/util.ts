@@ -16,6 +16,40 @@ export function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function utcDay(iso: string): Date {
+  return new Date(iso.slice(0, 10) + "T00:00:00Z");
+}
+
+function isWeekendUtc(d: Date): boolean {
+  const day = d.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/** Count weekdays strictly after `fromIso` through `toIso` (inclusive of `toIso` if a weekday). */
+export function businessDaysBetween(fromIso: string, toIso: string): number {
+  const end = utcDay(toIso);
+  let n = 0;
+  const d = utcDay(fromIso);
+  while (true) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (d > end) break;
+    if (!isWeekendUtc(d)) n++;
+  }
+  return n;
+}
+
+/** Advance `days` weekdays after `iso` (weekends do not count). */
+export function addBusinessDays(iso: string, days: number): string {
+  if (days <= 0) return iso.slice(0, 10);
+  const d = utcDay(iso);
+  let added = 0;
+  while (added < days) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (!isWeekendUtc(d)) added++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
 export function ageOn(dob: string, onIso: string): number {
   const d = new Date(dob);
   const t = new Date(onIso);

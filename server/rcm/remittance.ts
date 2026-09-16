@@ -108,6 +108,15 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
   return { postings, unapplied, balanced: Math.abs(unapplied) < 0.01 };
 }
 
+/** ERA redelivery key: same remittance id, or the same payer check (TRN02 + amount). */
+export function findDuplicateRemittance(existing: Remittance[], incoming: Remittance): Remittance | undefined {
+  const posted = existing.filter((r) => r.postedAt);
+  const byId = posted.find((r) => r.id === incoming.id);
+  if (byId) return byId;
+  if (!incoming.checkNumber) return undefined;
+  return posted.find((r) => r.checkNumber === incoming.checkNumber && (r.payerId ?? "") === (incoming.payerId ?? "") && r.checkAmount === incoming.checkAmount);
+}
+
 export function claimStatusFromPosting(p: Posting): Claim["status"] {
   switch (p.status) {
     case "paid": return "paid";

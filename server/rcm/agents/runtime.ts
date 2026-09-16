@@ -82,22 +82,25 @@ export class AgentRuntime {
     return { agent: name, steps, summary, approvalsRequested: approvals, dryRun: ctx.dryRun };
   }
 
-  // Execute a previously approved action (called from the approvals route).
+  // Execute a previously approved action (called from the approvals route). Idempotent: a second
+  // call after the CAS to `executed` returns the prior success and does not re-run the tool.
   async executeApproved(tenantId: string, approvalId: string, by: string): Promise<{ ok: boolean; output?: unknown; error?: string }> {
-    const approvals = await this.store.listApprovals(tenantId);
-    const a = approvals.find((x) => x.id === approvalId);
+    const a = await this.store.getApproval(tenantId, approvalId);
     if (!a) return { ok: false, error: "approval not found" };
+    if (a.status === "executed") return { ok: true, output: { alreadyExecuted: true } };
     if (a.status !== "approved") return { ok: false, error: `approval status is ${a.status}` };
-    const def = this.agents.get(a.agent);
-    const tool = def?.tools.find((t) => t.name === a.action);
+    const claimed = await this.store.markApprovalExecuted(tenantId, approvalId);
+    if (!claimed) return { ok: true, output: { alreadyExecuted: true } };
+    const def = this.agents.get(claimed.agent);
+    const tool = def?.tools.find((t) => t.name === claimed.action);
     if (!tool) return { ok: false, error: "tool no longer available" };
     try {
-      const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false });
-      await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, by }, outcome: "ok" });
+      const output = await tool.run(claimed.payload, { tenantId, store: this.store, actor: by, dryRun: false });
+      await this.store.audit(tenantId, { agent: claimed.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, by }, outcome: "ok" });
       return { ok: true, output };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, error }, outcome: "error" });
+      await this.store.audit(tenantId, { agent: claimed.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, error }, outcome: "error" });
       return { ok: false, error };
     }
   }

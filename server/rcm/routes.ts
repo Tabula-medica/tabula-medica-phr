@@ -1,36 +1,168 @@
-// /api/rcm — the outpatient RCM API. Zod-validated, tenant-scoped (header x-tenant-id or the
-// authenticated user's sub), stub-by-default vendors, agents gated behind approvals.
+// /api/rcm — the outpatient RCM API. Zod-validated, tenant-scoped to the authenticated
+// user's sub (x-tenant-id is ignored unless it matches), stub-by-default vendors, agents gated behind approvals.
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { rcmStore } from "./store";
-import { checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271 } from "./eligibility";
+import { checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271, payerDemographics } from "./eligibility";
 import { authCoversService, createAuthRequest, DEFAULT_AUTH_RULES, requiresPriorAuth, transitionAuth, type AuthStatus } from "./prior-auth";
 import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "./charge-capture";
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
-import { buildClaim, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
-import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
+import { buildClaim, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim, transitionClaimTo } from "./claims";
+import { claimStatusFromPosting, findDuplicateRemittance, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedForLines, modelContractChange, varianceReport } from "./contracts";
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
-import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
+import { parseVoiceIntent, speakIntent, speakKpis, type VoiceIntent } from "./voice";
 import { agentRuntime } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, todayIso } from "./util";
-import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
+import { daysBetween, newId, todayIso } from "./util";
+import type { Claim, Diagnosis, Patient, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
 
 interface AuthedRequest extends Request { user?: { claims?: { sub?: string } } }
 function tenantOf(req: Request): string {
-  const h = req.header("x-tenant-id");
-  if (h && /^[A-Za-z0-9_-]{1,64}$/.test(h)) return h;
+  // Always the authenticated principal. A caller-supplied x-tenant-id is not a tenancy switch.
   return (req as AuthedRequest).user?.claims?.sub ?? "demo";
 }
 function actorOf(req: Request): string { return (req as AuthedRequest).user?.claims?.sub ?? "anonymous"; }
+
+async function matchPatient(tid: string, ref?: string): Promise<Patient | undefined> {
+  const all = await rcmStore.listPatients(tid);
+  if (!all.length) return undefined;
+  if (ref) {
+    const n = ref.trim().toLowerCase();
+    return all.find((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(n) || p.id.toLowerCase() === n || (p.mrn ?? "").toLowerCase() === n);
+  }
+  return all.length === 1 ? all[0] : undefined;
+}
+
+async function executeVoiceCommand(tid: string, intent: VoiceIntent, actor: string): Promise<{ speak: string; result?: unknown }> {
+  const spoken = speakIntent(intent);
+  switch (intent.type) {
+    case "kpi-readout": {
+      const stats = await rcmStore.scrubStats(tid);
+      const kpis = computeKpis({ claims: await rcmStore.listClaims(tid), denials: await rcmStore.listDenials(tid), ledger: await rcmStore.ledger(tid), remittances: await rcmStore.listRemittances(tid), scrubTotal: stats.total, scrubFirstPassClean: stats.firstPassClean });
+      return { speak: speakKpis(kpis, intent.kpi), result: kpis };
+    }
+    case "run-agent": {
+      try {
+        const result = await agentRuntime.run(intent.agent, tid, {}, { actor });
+        return { speak: result.summary || spoken, result };
+      } catch (e) {
+        return { speak: e instanceof Error ? e.message : "Unknown agent.", result: { error: true } };
+      }
+    }
+    case "check-eligibility": {
+      const patients = await rcmStore.listPatients(tid);
+      const patient = intent.patientRef ? await matchPatient(tid, intent.patientRef) : patients.length === 1 ? patients[0] : undefined;
+      const targets = patient ? [patient] : intent.patientRef ? [] : patients;
+      if (!targets.length) return { speak: "Which patient should I check eligibility for?" };
+      const results: Array<{ patientId: string; cleared: boolean; reasons: string[] }> = [];
+      for (const pt of targets) {
+        const coverages = await rcmStore.coveragesForPatient(tid, pt.id);
+        const coverage = coverages[0];
+        if (!coverage) { results.push({ patientId: pt.id, cleared: false, reasons: ["No coverage on file"] }); continue; }
+        const benefits = await checkEligibility({ patient: pt, coverage, dateOfService: todayIso(), providerNpi: "1234567893" });
+        await rcmStore.setBenefits(tid, coverage.id, benefits);
+        const contract = await rcmStore.getContract(tid, coverage.payerId);
+        const estimate = estimatePatientResponsibility([{ cpt: "99213", units: 1 }], benefits, contract?.feeSchedule);
+        const discrepancies = detectDiscrepancies({ firstName: pt.firstName, lastName: pt.lastName, dob: pt.dob, memberId: coverage.memberId }, payerDemographics(benefits));
+        const needAuth = requiresPriorAuth("99213", contract).required;
+        const auths = await rcmStore.listAuths(tid, pt.id);
+        const authOnFile = !needAuth || auths.some((a) => authCoversService(a, "99213", todayIso()).ok);
+        const clearance = financialClearance(benefits, estimate, discrepancies, { requiresAuth: needAuth, authOnFile });
+        if (!clearance.cleared) await rcmStore.addWorkItems(tid, [makeWorkItem({ queue: "eligibility", title: `Not cleared: ${clearance.reasons.join("; ")}`, patientId: pt.id, priority: 75, source: "voice", context: { coverageId: coverage.id } })]);
+        results.push({ patientId: pt.id, cleared: clearance.cleared, reasons: clearance.reasons });
+      }
+      const blocked = results.filter((r) => !r.cleared);
+      const speak = targets.length === 1
+        ? (blocked[0] ? `Not cleared: ${blocked[0].reasons.join("; ")}.` : "Eligibility is active.")
+        : `Ran eligibility for ${results.length} patient${results.length === 1 ? "" : "s"}${blocked.length ? `, ${blocked.length} not cleared` : ""}.`;
+      return { speak, result: { results } };
+    }
+    case "charge-capture": {
+      const built = voiceCommandsToLines(intent.commands, { dateOfService: todayIso(), placeOfService: "11", renderingNpi: "1234567893", diagnoses: [] });
+      const items = await rcmStore.addWorkItems(tid, [makeWorkItem({ queue: "charge-review", title: `Voice charges: ${intent.commands.map((c) => c.cpt).join(", ")}`, priority: 55, source: "voice", context: { commands: intent.commands, lines: built.lines, diagnoses: built.diagnoses } })]);
+      return { speak: `Queued ${intent.commands.length} charge${intent.commands.length === 1 ? "" : "s"} for review: ${intent.commands.map((c) => c.cpt).join(", ")}.`, result: { workItemId: items[0]?.id, ...built } };
+    }
+    case "start-prior-auth": {
+      if (!intent.cpt) return { speak: spoken };
+      const patient = await matchPatient(tid);
+      if (!patient) return { speak: "Which patient needs prior authorization?" };
+      const coverage = (await rcmStore.coveragesForPatient(tid, patient.id))[0];
+      if (!coverage) return { speak: "No coverage on file to request authorization against." };
+      const auth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: coverage.payerId, cpt: intent.cpt, diagnoses: [] }), "requested", { actor, note: "Voice-submitted 278" });
+      await rcmStore.upsertAuth(tid, auth);
+      return { speak: `Prior authorization requested for ${intent.cpt}.`, result: { authId: auth.id } };
+    }
+    case "denial-note": {
+      const open = (await rcmStore.listDenials(tid, "open")).sort((a, b) => b.priorityScore - a.priorityScore)[0];
+      const wi = await rcmStore.findOpenWorkItem(tid, (w) => w.queue === "denials" && (!open || w.claimId === open.claimId));
+      if (wi) await rcmStore.updateWorkItem(tid, wi.id, { context: { ...wi.context, note: intent.note } });
+      else await rcmStore.addWorkItems(tid, [makeWorkItem({ queue: "denials", title: `Note: ${intent.note.slice(0, 80)}`, claimId: open?.claimId, patientId: open?.patientId, priority: 50, source: "voice", context: { note: intent.note, denialId: open?.id } })]);
+      return { speak: spoken, result: { denialId: open?.id, note: intent.note } };
+    }
+    case "appeal-denial": {
+      const denials = await rcmStore.listDenials(tid);
+      const d = intent.claimRef ? denials.find((x) => x.claimId === intent.claimRef || x.id === intent.claimRef) : denials.filter((x) => x.status === "open" || x.status === "in-progress").sort((a, b) => b.priorityScore - a.priorityScore)[0];
+      if (!d) return { speak: "I could not find a denial to appeal." };
+      const claim = await rcmStore.getClaim(tid, d.claimId);
+      const patient = await rcmStore.getPatient(tid, d.patientId);
+      if (!claim) return { speak: "The claim for that denial is missing." };
+      const letter = generateAppealLetter({ denial: d, claim, patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient", providerName: claim.renderingProviderName ?? "Rendering Provider", practiceName: "World EHR Outpatient" });
+      await rcmStore.upsertDenial(tid, { ...d, status: "in-progress" });
+      await rcmStore.addWorkItems(tid, [makeWorkItem({ queue: "denials", title: `Appeal draft CARC ${d.carc}`, patientId: d.patientId, claimId: d.claimId, amount: d.amount, priority: 80, source: "voice", context: { denialId: d.id, letter: letter.letter } })]);
+      return { speak: spoken, result: { denialId: d.id, recommendation: recommendAction(d), ...letter } };
+    }
+    case "collect-copay": {
+      if (intent.amount === undefined) return { speak: spoken };
+      const patients = await rcmStore.listPatients(tid);
+      const withBalance: Patient[] = [];
+      for (const pt of patients) {
+        const s = computeAccount(pt.id, await rcmStore.ledger(tid, pt.id));
+        if (s.patientBalance > 0) withBalance.push(pt);
+      }
+      const patient = withBalance.length === 1 ? withBalance[0] : await matchPatient(tid);
+      if (!patient) return { speak: "Which patient should I collect from?" };
+      await rcmStore.postLedger(tid, [{ id: newId("led"), patientId: patient.id, type: "patient-payment", amount: intent.amount, date: todayIso(), memo: "Voice copay collection", responsibleParty: "patient" }]);
+      return { speak: `Collected ${intent.amount.toFixed(2)} dollars.`, result: { patientId: patient.id, amount: intent.amount } };
+    }
+    case "payment-plan": {
+      if (!intent.months) return { speak: spoken };
+      const patients = await rcmStore.listPatients(tid);
+      let patient: Patient | undefined;
+      let due = intent.amount ?? 0;
+      if (patients.length === 1) {
+        patient = patients[0];
+        if (!due) due = computeAccount(patient.id, await rcmStore.ledger(tid, patient.id)).patientBalance;
+      } else {
+        for (const pt of patients) {
+          const s = computeAccount(pt.id, await rcmStore.ledger(tid, pt.id));
+          if (s.patientBalance > 0) { if (patient) { patient = undefined; break; } patient = pt; due = due || s.patientBalance; }
+        }
+      }
+      if (!patient || due <= 0) return { speak: "Which patient and amount for the payment plan?" };
+      const plan = createPaymentPlan(patient.id, due, intent.months);
+      await rcmStore.addWorkItems(tid, [makeWorkItem({ queue: "patient-balance", title: `${plan.months}-month plan $${plan.installment.toFixed(2)}/mo`, patientId: patient.id, amount: due, priority: 40, source: "voice", context: { planId: plan.id } })]);
+      return { speak: `Set up a ${plan.months} month payment plan at ${plan.installment.toFixed(2)} dollars per month.`, result: { plan } };
+    }
+    case "next-item": {
+      const items = sortQueue(await rcmStore.listWorkItems(tid)).filter((w) => w.status === "open" || w.status === "in-progress");
+      const current = items.find((w) => w.status === "in-progress");
+      if (current) await rcmStore.updateWorkItem(tid, current.id, { status: "done" });
+      const next = items.find((w) => w.id !== current?.id && w.status === "open") ?? items.find((w) => w.id !== current?.id);
+      if (next) await rcmStore.updateWorkItem(tid, next.id, { status: "in-progress" });
+      return { speak: next ? `Next: ${next.title}` : "The worklist is empty.", result: { workItemId: next?.id } };
+    }
+    default:
+      return { speak: spoken };
+  }
+}
 
 function fail(res: Response, status: number, error: string, details?: unknown) { return res.status(status).json({ success: false, error, details }); }
 function bad(res: Response, e: z.ZodError) { return fail(res, 400, "Validation failed", e.flatten()); }
@@ -64,7 +196,7 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   await rcmStore.setBenefits(t, coverage.id, benefits);
   const contract = await rcmStore.getContract(t, coverage.payerId);
   const estimate = estimatePatientResponsibility(p.data.plannedLines, benefits, contract?.feeSchedule);
-  const discrepancies = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, {});
+  const discrepancies = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, payerDemographics(benefits));
   const needAuth = p.data.plannedLines.some((l) => requiresPriorAuth(l.cpt, contract).required);
   const auths = await rcmStore.listAuths(t, patient.id);
   const authOnFile = p.data.plannedLines.every((l) => !requiresPriorAuth(l.cpt, contract).required || auths.some((a) => authCoversService(a, l.cpt, p.data.dateOfService).ok));
@@ -182,6 +314,8 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
 rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   const t = tenantOf(req);
   const rem = parseEra(req.body?.era ?? req.body);
+  const already = findDuplicateRemittance(await rcmStore.listRemittances(t), rem);
+  if (already) return res.json({ success: true, remittance: already, postings: [], unapplied: 0, balanced: true, denialsCreated: [], duplicate: true });
   const claimsById = await rcmStore.claimsById(t);
   const contracts = await rcmStore.contracts(t);
   const result = postRemittance(rem, claimsById, contracts);
@@ -192,10 +326,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     if (claim) {
       const to = claimStatusFromPosting(p);
       let next = claim;
-      for (const hop of [to] as Claim["status"][]) { try { next = transitionClaim(next, hop, "era-post"); } catch { /* keep current status when transition not allowed */ } }
+      try { next = transitionClaimTo(claim, to, "era-post"); } catch { /* keep current status when no legal path */ }
       await rcmStore.upsertClaim(t, next);
+      claimsById[claim.id] = next;
       const contract = contracts[claim.payerId];
-      for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
+      for (const adj of p.denials) { const d = denialFromAdjustment(next, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
       if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);
     }
   }
@@ -249,26 +384,27 @@ rcmRouter.post("/voice/command", wrap(async (req, res) => {
   const p = z.object({ transcript: z.string().min(1) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const intent = parseVoiceIntent(p.data.transcript);
-  let speak = speakIntent(intent);
-  if (intent.type === "kpi-readout") { const t = tenantOf(req); const stats = await rcmStore.scrubStats(t); const kpis = computeKpis({ claims: await rcmStore.listClaims(t), denials: await rcmStore.listDenials(t), ledger: await rcmStore.ledger(t), remittances: await rcmStore.listRemittances(t), scrubTotal: stats.total, scrubFirstPassClean: stats.firstPassClean }); speak = speakKpis(kpis, intent.kpi); }
-  res.json({ success: true, intent, speak });
+  const t = tenantOf(req);
+  const acted = await executeVoiceCommand(t, intent, actorOf(req));
+  res.json({ success: true, intent, speak: acted.speak, result: acted.result });
 }));
 
 // ---------- Agents & approvals ----------
 rcmRouter.get("/agents", (_req, res) => res.json({ success: true, agents: agentRuntime.list() }));
 rcmRouter.post("/agents/:name/run", wrap(async (req, res) => { try { res.json({ success: true, result: await agentRuntime.run(req.params.name, tenantOf(req), req.body?.args ?? {}, { actor: actorOf(req), dryRun: req.body?.dryRun === true }) }); } catch (e) { fail(res, 404, e instanceof Error ? e.message : "agent error"); } }));
 rcmRouter.get("/agents/audit", wrap(async (req, res) => res.json({ success: true, audit: await rcmStore.listAudit(tenantOf(req)) })));
-rcmRouter.get("/approvals", wrap(async (req, res) => res.json({ success: true, approvals: await rcmStore.listApprovals(tenantOf(req), typeof req.query.status === "string" ? (req.query.status as "pending" | "approved" | "rejected") : undefined) })));
+rcmRouter.get("/approvals", wrap(async (req, res) => res.json({ success: true, approvals: await rcmStore.listApprovals(tenantOf(req), typeof req.query.status === "string" ? (req.query.status as "pending" | "approved" | "rejected" | "executed") : undefined) })));
 rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
   const p = z.object({ decision: z.enum(["approved", "rejected"]) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
-  const a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req));
+  let a;
+  try { a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req)); } catch (e) { return fail(res, 409, e instanceof Error ? e.message : "approval already decided"); }
   if (!a) return fail(res, 404, "approval not found");
   const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
   if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
   const exec = p.data.decision === "approved" ? await agentRuntime.executeApproved(t, a.id, actorOf(req)) : undefined;
-  res.json({ success: true, approval: a, executed: exec });
+  res.json({ success: true, approval: exec && p.data.decision === "approved" ? (await rcmStore.getApproval(t, a.id)) ?? a : a, executed: exec });
 }));
 
 export default rcmRouter;

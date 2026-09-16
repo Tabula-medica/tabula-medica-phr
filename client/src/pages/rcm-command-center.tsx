@@ -46,7 +46,7 @@ export default function RcmCommandCenter() {
   const seed = useMutation({ mutationFn: async () => (await apiRequest("POST", "/api/rcm/demo/seed")).json(), onSuccess: () => { invalidateAll(); toast({ title: "Demo data loaded", description: "Synthetic patients, claims, denials and ledger seeded for this tenant." }); } });
   const runAgent = useMutation({ mutationFn: async (name: string) => (await apiRequest("POST", `/api/rcm/agents/${name}/run`, { dryRun: false })).json() as Promise<{ result: AgentRun }>, onSuccess: (d) => { setLastRun(d.result); invalidateAll(); toast({ title: `${d.result.agent} finished`, description: d.result.summary }); } });
   const decide = useMutation({ mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" }) => (await apiRequest("POST", `/api/rcm/approvals/${id}`, { decision })).json(), onSuccess: () => { invalidateAll(); toast({ title: "Decision recorded" }); } });
-  const voiceCmd = useMutation({ mutationFn: async (transcript: string) => (await apiRequest("POST", "/api/rcm/voice/command", { transcript })).json() as Promise<{ intent: { type: string; queue?: string }; speak: string }>, onSuccess: (d) => { setVoiceReply(d.speak); if (d.intent.type === "open-queue" && d.intent.queue) setQueue(d.intent.queue); if ("speechSynthesis" in window) { try { window.speechSynthesis.speak(new SpeechSynthesisUtterance(d.speak)); } catch { /* TTS optional */ } } } });
+  const voiceCmd = useMutation({ mutationFn: async (transcript: string) => (await apiRequest("POST", "/api/rcm/voice/command", { transcript })).json() as Promise<{ intent: { type: string; queue?: string }; speak: string }>, onSuccess: (d) => { setVoiceReply(d.speak); if (d.intent.type === "open-queue" && d.intent.queue) setQueue(d.intent.queue); invalidateAll(); if ("speechSynthesis" in window) { try { window.speechSynthesis.speak(new SpeechSynthesisUtterance(d.speak)); } catch { /* TTS optional */ } } } });
   const workItem = useMutation({ mutationFn: async ({ id, status }: { id: string; status: string }) => (await apiRequest("POST", `/api/rcm/worklist/${id}`, { status })).json(), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/rcm/worklist"] }) });
 
   const headline = useMemo(() => (kpis.data?.kpis ?? []).filter((k) => ["days_in_ar", "clean_claim_rate", "denial_rate", "net_collection_rate", "ar_over_90", "total_ar"].includes(k.key)), [kpis.data]);
@@ -161,8 +161,8 @@ export default function RcmCommandCenter() {
                     <div className="text-xs text-muted-foreground">{a.reason}</div>
                   </div>
                   <div className="flex gap-1">
-                    <Button size="sm" onClick={() => decide.mutate({ id: a.id, decision: "approved" })} data-testid={`button-approve-${a.id}`}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={() => decide.mutate({ id: a.id, decision: "rejected" })}>Reject</Button>
+                    <Button size="sm" onClick={() => decide.mutate({ id: a.id, decision: "approved" })} disabled={decide.isPending} data-testid={`button-approve-${a.id}`}>Approve</Button>
+                    <Button size="sm" variant="outline" onClick={() => decide.mutate({ id: a.id, decision: "rejected" })} disabled={decide.isPending}>Reject</Button>
                   </div>
                 </div>
               ))}

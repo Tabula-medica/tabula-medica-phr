@@ -141,8 +141,8 @@ const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   rejected: ["draft", "closed"],
   pended: ["adjudicated", "paid", "partially-paid", "denied"],
   adjudicated: ["paid", "partially-paid", "denied"],
-  paid: ["closed", "appealed"],
-  "partially-paid": ["appealed", "closed"],
+  paid: ["closed", "appealed", "adjudicated"],
+  "partially-paid": ["appealed", "closed", "adjudicated"],
   denied: ["appealed", "draft", "closed"],
   appealed: ["paid", "partially-paid", "denied", "closed"],
   closed: [],
@@ -152,10 +152,38 @@ export function canTransition(from: ClaimStatus, to: ClaimStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+/** Shortest legal hop list from `from` to `to` (empty when already there, null when unreachable). */
+export function transitionPath(from: ClaimStatus, to: ClaimStatus): ClaimStatus[] | null {
+  if (from === to) return [];
+  if (canTransition(from, to)) return [to];
+  const q: Array<{ status: ClaimStatus; path: ClaimStatus[] }> = [{ status: from, path: [] }];
+  const seen = new Set<ClaimStatus>([from]);
+  while (q.length) {
+    const cur = q.shift()!;
+    for (const next of TRANSITIONS[cur.status] ?? []) {
+      if (seen.has(next)) continue;
+      const path = [...cur.path, next];
+      if (next === to) return path;
+      seen.add(next);
+      q.push({ status: next, path });
+    }
+  }
+  return null;
+}
+
 export function transitionClaim(claim: Claim, to: ClaimStatus, actor: string, note?: string): Claim {
   if (!canTransition(claim.status, to)) throw new Error(`Illegal claim transition ${claim.status} → ${to}`);
   const at = nowIso();
   return { ...claim, status: to, lastStatusAt: at, submittedAt: to === "submitted" ? at : claim.submittedAt, history: [...claim.history, { at, status: to, actor, note }] };
+}
+
+/** Walk the shortest legal path so ERA posting can move e.g. submitted → paid or paid → adjudicated. */
+export function transitionClaimTo(claim: Claim, to: ClaimStatus, actor: string, note?: string): Claim {
+  const path = transitionPath(claim.status, to);
+  if (!path) throw new Error(`Illegal claim transition ${claim.status} → ${to}`);
+  let next = claim;
+  path.forEach((hop, i) => { next = transitionClaim(next, hop, actor, i === path.length - 1 ? note : undefined); });
+  return next;
 }
 
 // 277 claim status category codes → our lifecycle.
