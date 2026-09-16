@@ -241,6 +241,12 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
 export function applyClaimPatch(claim: Claim, patch: Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber" | "referralNumber" | "placeOfService">>): Claim {
   const lines = patch.lines ?? claim.lines;
   const diagnoses = (patch.diagnoses ?? claim.diagnoses).slice(0, 12);
+  // Same re-anchor as correctedClaim: a DOS correction (CARC 26/27/181) must not keep a
+  // deadline computed from the old first-line date of service. Reuse the original day-count.
+  const originalDos = claim.lines[0]?.dateOfService;
+  const timelyFilingDays = originalDos && claim.timelyFilingDeadline ? daysBetween(originalDos, claim.timelyFilingDeadline) : 90;
+  const newDos = lines[0]?.dateOfService;
+  const timelyFilingDeadline = newDos ? addDays(newDos, timelyFilingDays) : claim.timelyFilingDeadline;
   return {
     ...claim,
     lines,
@@ -249,6 +255,7 @@ export function applyClaimPatch(claim: Claim, patch: Partial<Pick<Claim, "diagno
     referralNumber: patch.referralNumber ?? claim.referralNumber,
     placeOfService: patch.placeOfService ?? claim.placeOfService,
     totalCharge: sum(lines.map((l) => l.charge)),
+    timelyFilingDeadline,
   };
 }
 

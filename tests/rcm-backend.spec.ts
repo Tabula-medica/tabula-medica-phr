@@ -942,6 +942,12 @@ describe("round 4 hardening", () => {
     const corr = correctedClaim(c, { lines: patchedLines });
     expect(corr.timelyFilingDeadline).toBe("2026-10-30"); // same 90-day window, anchored to the new DOS
   });
+  it("applyClaimPatch recomputes the timely-filing deadline when a patched line changes the date of service", () => {
+    const c = mkClaim(); // timelyFilingDeadline "2026-09-29" (90 days from 2026-07-01)
+    const patchedLines = c.lines.map((l) => ({ ...l, dateOfService: "2026-08-01" }));
+    const patched = applyClaimPatch(c, { lines: patchedLines });
+    expect(patched.timelyFilingDeadline).toBe("2026-10-30"); // same 90-day window, anchored to the new DOS
+  });
   it("coding: em.code accepts real E/M levels and the documented hint pattern, rejects garbage", () => {
     const garbage = parseCodingSuggestion(JSON.stringify({ em: { code: "BAD", rationale: "x" }, icd: [], cptSuggestions: [], queries: [] }), "test");
     expect(garbage.em.code).toBe("");
