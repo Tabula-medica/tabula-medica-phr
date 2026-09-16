@@ -3,7 +3,7 @@
 import { agentRuntime, type AgentDefinition, type AgentStep, type Tool, type ToolContext } from "./runtime";
 import { aiText } from "./ai";
 import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance } from "../eligibility";
-import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth, type PriorAuth } from "../prior-auth";
+import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
@@ -173,8 +173,10 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
 };
 // In-process lock on the authorization actually being consumed, not the approval id — two
 // different claims can both carry the same priorAuthNumber, and without this two concurrent
-// submissions could both read the same stale unitsUsed and both decide they fit.
-const submitAuthLocks = new Set<string>();
+// submissions could both read the same stale unitsUsed and both decide they fit. Shared with
+// POST /prior-auth/:id/transition so an admin deny/expire/exhaust cannot land in the window
+// between submit-claim's re-validation and its replace-style consume upsert.
+export const submitAuthLocks = new Set<string>();
 // In-process lock on a denial id: send-appeal/write-off/transfer-to-patient/file-corrected-claim
 // each read the denial's status, act on it, and only then write the resolved status back — two
 // different approved actions on the same denial (e.g. write-off and transfer-to-patient, or two
@@ -252,17 +254,16 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       // Re-fetch and re-validate every auth we're about to consume BEFORE transitioning the claim
       // — not reusing the `auths` snapshot taken before the lock above, since that only guards
       // against another concurrent submission, not an admin independently expiring/exhausting/
-      // voiding this same auth (via the separate auth transition route, which shares no lock with
-      // submissions). This validation pass must complete before the claim transition below: a
-      // throw AFTER the claim is already "submitted" would leave it stuck, since "submitted" has
-      // no legal self-transition and a retry's very first step would immediately fail closed.
-      const currentAuths = new Map<string, PriorAuth>();
+      // voiding this same auth (the transition route shares this lock, but a writer that does
+      // not share it still needs to be caught here). This validation pass must complete before
+      // the claim transition below: a throw AFTER the claim is already "submitted" would leave
+      // it stuck, since "submitted" has no legal self-transition and a retry's very first step
+      // would immediately fail closed.
       for (const [authId, units] of Array.from(consumption.entries())) {
         const current = await ctx.store.getAuth(ctx.tenantId, authId);
         if (!current || current.status !== "approved" || current.unitsUsed + units > current.units) {
           throw new Error(`Authorization ${authId} is no longer approved or lacks enough remaining units — it changed after this submission began; re-verify before resubmitting`);
         }
-        currentAuths.set(authId, current);
       }
       // Consume each matched auth's units at the moment the claim actually goes out — attaching
       // an auth number never did, so a one-unit authorization stayed at zero units used and could
@@ -272,7 +273,15 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       // actually went out.
       await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
       for (const [authId, units] of Array.from(consumption.entries())) {
-        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(currentAuths.get(authId)!, units));
+        // Re-read immediately before the replace-style upsert rather than writing back the
+        // pre-transition snapshot: consumeAuthUnit only increments unitsUsed on the object it
+        // is given and does not re-check store status, so a cached `approved` copy would
+        // resurrect an auth an admin just denied/expired/exhausted. The fresh read (plus the
+        // lock shared with the transition route) means we increment whatever is currently
+        // stored; consumeAuthUnit preserves that status unless this consumption itself
+        // exhausts remaining units.
+        const latest = await ctx.store.getAuth(ctx.tenantId, authId);
+        if (latest) await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(latest, units));
       }
       // Only now — the corrected claim actually left for the payer — does the denial it was
       // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved

@@ -17,7 +17,7 @@ import { expectedAllowed, expectedForLines, modelContractChange, varianceReport 
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
-import { agentRuntime } from "./agents";
+import { agentRuntime, submitAuthLocks } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
 import { daysBetween, newId, round2, todayIso } from "./util";
@@ -143,9 +143,20 @@ rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
   // came from the payer, so at minimum restrict who can fabricate an approval to admins, the same
   // trust boundary already applied to other financially/clinically consequential direct writes.
   if (p.data.to === "approved" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Transitioning a prior auth to approved requires an admin role");
-  const auth = await rcmStore.getAuth(t, req.params.id);
-  if (!auth) return fail(res, 404, "auth not found");
-  try { res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
+  // Same lock submit-claim holds across validate → claim-transition → consume. upsertAuth is a
+  // full replace, so an admin deny/expire/exhaust in that window would otherwise be clobbered
+  // by the submission writing back its pre-transition `approved` snapshot. Synchronous
+  // check-and-set, before any `await` — see remittancePostInFlight's comment.
+  const lockKey = `${t}:${req.params.id}`;
+  if (submitAuthLocks.has(lockKey)) return fail(res, 409, "This authorization is currently being consumed by a claim submission");
+  submitAuthLocks.add(lockKey);
+  try {
+    const auth = await rcmStore.getAuth(t, req.params.id);
+    if (!auth) return fail(res, 404, "auth not found");
+    try { res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
+  } finally {
+    submitAuthLocks.delete(lockKey);
+  }
 }));
 
 // ---------- Charge capture & coding ----------

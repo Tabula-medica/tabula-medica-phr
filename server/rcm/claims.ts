@@ -148,7 +148,12 @@ const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   acknowledged: ["pended", "adjudicated", "paid", "partially-paid", "denied", "rejected"],
   rejected: ["draft", "closed"],
   pended: ["adjudicated", "paid", "partially-paid", "denied"],
-  adjudicated: ["paid", "partially-paid", "denied"],
+  // "adjudicated" is included as its own target: a standard 835 takeback followed by a $0
+  // re-adjudication (full contractual write-off, or the balance transferred to the patient)
+  // lands back on "adjudicated" after the reversal already moved the claim there. Without
+  // allowing that self-transition, /remittance/post would skip the correction as illegal
+  // (while still recording the ERA as posted) and never post its contractual/PR entries.
+  adjudicated: ["paid", "partially-paid", "denied", "adjudicated"],
   // A takeback/reversal ERA (CLP02 22) unwinds a prior payment and puts the claim back up for
   // adjudication — without this, `claimStatusFromPosting` has no legal transition to land on
   // and the claim silently stays "paid" while the ledger records the refund.

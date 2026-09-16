@@ -177,6 +177,24 @@ describe("remittance posting", () => {
     expect(canTransition(paid.status, claimStatusFromPosting(r.postings[0]))).toBe(true);
     expect(transitionClaim(paid, claimStatusFromPosting(r.postings[0]), "era-post").status).toBe("adjudicated");
   });
+  it("allows a zero-pay correction after a reversal (adjudicated → adjudicated)", () => {
+    const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
+    const paid = transitionClaim(c, "paid", "era-post");
+    const rem = parseEra({ payerid: "BCBS", check_amount: -180, claims: [
+      { pcn: c.id, status: "22", billed: 450, paid: -180, patient_resp: 0 },
+      { pcn: c.id, status: "1", billed: 450, paid: 0, patient_resp: 0, lines: [{ proc: "99214", billed: 300, paid: 0, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 300 }] }, { proc: "20610", billed: 150, paid: 0, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 150 }] }] },
+    ] });
+    const r = postRemittance(rem, { [c.id]: paid }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[1].status).toBe("zero-pay");
+    expect(r.postings[1].entries.some((e) => e.type === "contractual-adjustment")).toBe(true);
+    // /remittance/post updates the local snapshot after the reversal, so the correction sees
+    // "adjudicated" — without allowing that self-transition the $0 CO-45 row would skip.
+    const afterReversal = transitionClaim(paid, claimStatusFromPosting(r.postings[0]), "era-post");
+    expect(afterReversal.status).toBe("adjudicated");
+    expect(canTransition(afterReversal.status, claimStatusFromPosting(r.postings[1]))).toBe(true);
+    expect(transitionClaim(afterReversal, claimStatusFromPosting(r.postings[1]), "era-post").status).toBe("adjudicated");
+  });
 });
 
 describe("denials", () => {
@@ -1323,5 +1341,8 @@ describe("round 18 hardening", () => {
     // as illegal and silently never post its cash (while still recording the ERA as posted,
     // making the payment unretryable).
     expect(canTransition("partially-paid", "partially-paid")).toBe(true);
+    // Same hole for a reversal-then-zero-pay correction: the snapshot update leaves the claim
+    // "adjudicated", and a $0 CO-45 / PR re-adjudication maps back to "adjudicated".
+    expect(canTransition("adjudicated", "adjudicated")).toBe(true);
   });
 });
