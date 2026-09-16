@@ -141,6 +141,20 @@ describe("remittance posting", () => {
     expect(r.postings[0].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100);
   });
+  it("accepts the canonical payerId field, not only vendor payerid/payer_id keys", () => {
+    // parseEra returns { payerId } and a round-tripped remittance uses that key — treating it as
+    // missing would leave every CLP unmatched even though the payer is present and correct.
+    const c = mkClaim(); // payerId BCBS
+    const rem = parseEra({ payerId: "BCBS", check_amount: 100, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });
+    expect(rem.payerId).toBe("BCBS");
+    const r = postRemittance(rem, { [c.id]: c });
+    expect(r.postings[0].status).not.toBe("unmatched");
+    expect(r.postings[0].entries.length).toBeGreaterThan(0);
+    expect(r.unapplied).toBe(0);
+    const vendor = parseEra({ payerid: "BCBS", check_amount: 100, check_date: "2026-08-01", claims: [{ pcn: "clm-1", billed: 100, paid: 100 }] });
+    const canonical = parseEra({ payerId: "BCBS", check_amount: 100, check_date: "2026-08-01", claims: [{ pcn: "clm-1", billed: 100, paid: 100 }] });
+    expect(canonical.id).toBe(vendor.id); // same ERA keyed with either alias must fingerprint identically
+  });
   it("clamps a negative CAS adjustment amount to zero instead of posting a negative-dollar ledger entry", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: 300, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 300, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -150 }] }] });
