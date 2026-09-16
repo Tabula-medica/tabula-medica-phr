@@ -119,6 +119,23 @@ describe("remittance posting", () => {
     expect(r.postings[0].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100);
   });
+  it("clamps a negative CAS adjustment amount to zero instead of posting a negative-dollar ledger entry", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 300, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 300, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -150 }] }] });
+    expect(rem.claims[0].claimAdjustments![0].amount).toBe(0);
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].contractual).toBe(0);
+    expect(r.postings[0].entries.every((e) => e.amount >= 0)).toBe(true);
+  });
+  it("treats a second CLP row for the same claimId within one ERA as unmatched instead of double-posting it", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }, { pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).not.toBe("unmatched");
+    expect(r.postings[1].status).toBe("unmatched"); // duplicate row for the same claim, flagged for manual reconciliation
+    expect(r.postings[1].entries).toHaveLength(0);
+    expect(r.unapplied).toBe(100); // only the first row's $100 counted as applied
+  });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
     const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
@@ -283,6 +300,15 @@ describe("agents", () => {
     const list = agentRuntime.list();
     expect(list.map((a) => a.name)).toEqual(expect.arrayContaining(["eligibility", "prior-auth", "claim-scrubber", "claim-followup", "denials", "patient-financial", "payer-call", "rcm-orchestrator"]));
     expect(list.find((a) => a.name === "denials")!.tools.find((t) => t.name === "send-appeal")!.requiresApproval).toBe(true);
+  });
+  it("run-eligibility rejects a patientId/coverageId pair that don't belong to the same patient", async () => {
+    // pt-demo-1 and cov-demo-2 (which belongs to pt-demo-2) are both real, independently valid
+    // ids — patientId and coverageId are looked up separately, so nothing but this check stops a
+    // caller from pairing one patient's demographics with another patient's member coverage.
+    const tool = agentRuntime.get("eligibility")!.tools.find((t) => t.name === "run-eligibility")!;
+    await expect(
+      tool.run({ patientId: "pt-demo-1", coverageId: "cov-demo-2", dateOfService: "2026-09-01" }, { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } }),
+    ).rejects.toThrow(/does not belong/);
   });
   it("prior-auth agent requests enough units for a multi-unit line", async () => {
     await rcmStore.upsertPatient(T, patient);

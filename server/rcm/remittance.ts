@@ -16,7 +16,11 @@ function parseAdjustments(r: Record<string, unknown>): Adjustment[] {
   for (const a of arr(pick(r, "adjustments", "adjustment", "cas", "CAS"))) {
     const group = (str(pick(a, "group", "group_code", "CAS01")) ?? "CO").toUpperCase();
     const g: Adjustment["group"] = group === "PR" || group === "OA" || group === "PI" ? group : "CO";
-    out.push({ group: g, carc: str(pick(a, "carc", "reason", "reason_code", "CAS02")) ?? "16", rarc: str(pick(a, "rarc", "remark")), amount: round2(num(pick(a, "amount", "adj_amount", "CAS03"))) });
+    // CAS amounts are always a nonnegative magnitude on the wire (negative-paid reversals are
+    // expressed via CLP04/SVC03, not a negative adjustment) — a malformed or admin-supplied ERA
+    // with a negative CAS amount would otherwise flow straight into postRemittance's contractual/
+    // denied totals and post a negative-dollar ledger entry, corrupting A/R.
+    out.push({ group: g, carc: str(pick(a, "carc", "reason", "reason_code", "CAS02")) ?? "16", rarc: str(pick(a, "rarc", "remark")), amount: Math.max(0, round2(num(pick(a, "amount", "adj_amount", "CAS03")))) });
   }
   return out;
 }
@@ -109,19 +113,28 @@ export interface Posting {
 export function postRemittance(rem: Remittance, claimsById: Record<string, Claim>, contracts: Record<string, PayerContract> = {}): { postings: Posting[]; unapplied: number; balanced: boolean } {
   const postings: Posting[] = [];
   let applied = 0;
+  // A single malformed/duplicated ERA can carry the same claimId in more than one CLP row. Every
+  // row below is independently checked and posted against the SAME claimsById snapshot (the
+  // caller applies postings sequentially, and a second row for a claim already handled by an
+  // earlier row in this same batch would still see the claim's pre-posting status) — so without
+  // this, a duplicate row can double-apply payment/adjustments to one claim before it's ever
+  // re-fetched from the store.
+  const seenClaimIds = new Set<string>();
   for (const rc of rem.claims) {
     const claim = rc.claimId ? claimsById[rc.claimId] : undefined;
     // A claim id match alone isn't enough: an ERA carrying the wrong payer id (malformed vendor
     // payload, or a claim id that happens to collide across payers) must not be allowed to post
     // payment/adjustments or move claim status for a different payer's claim.
     const payerMismatch = !!claim && !!rem.payerId && claim.payerId !== rem.payerId;
-    if (!claim || payerMismatch) {
+    const duplicateInBatch = !!rc.claimId && seenClaimIds.has(rc.claimId);
+    if (!claim || payerMismatch || duplicateInBatch) {
       // Never post cash against a fabricated "unknown" patient and never count it as applied —
       // that would make an unreconciled payment look balanced and the money unrecoverable.
       // Leave it unmatched for a human to reconcile against the real patient/claim.
       postings.push({ claimId: rc.claimId, status: "unmatched", billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: 0, denied: 0, entries: [], denials: [], crossoverToSecondary: false });
       continue;
     }
+    seenClaimIds.add(rc.claimId!);
     const patientId = claim.patientId;
     const date = rem.checkDate ?? rem.receivedAt.slice(0, 10);
     const entries: LedgerEntry[] = [];

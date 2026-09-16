@@ -22,6 +22,10 @@ const runEligibility: Tool<{ coverageId: string; patientId: string; dateOfServic
     const coverage = await ctx.store.getCoverage(ctx.tenantId, input.coverageId);
     const patient = await ctx.store.getPatient(ctx.tenantId, input.patientId);
     if (!coverage || !patient) throw new Error("coverage or patient not found");
+    // patientId and coverageId are looked up independently — without this, a caller could pair
+    // one patient's demographics with another patient's member coverage, sending mismatched PHI
+    // in the 270 request and attaching the resulting benefit snapshot to the wrong coverage.
+    if (coverage.patientId !== patient.id) throw new Error("coverage does not belong to this patient");
     const benefits = await checkEligibility({ patient, coverage, dateOfService: input.dateOfService, providerNpi: "1234567893" });
     await ctx.store.setBenefits(ctx.tenantId, coverage.id, benefits);
     const est = estimatePatientResponsibility([{ cpt: "99213", units: 1 }], benefits);
