@@ -156,7 +156,11 @@ const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   // A second (or later) ERA can pay the remainder of a partially-paid claim to completion, or
   // deny what's left outstanding — without "paid"/"denied" here, a legitimate multi-ERA claim
   // lifecycle would get silently stuck at "partially-paid" forever once the balance resolves.
-  "partially-paid": ["appealed", "closed", "adjudicated", "paid", "denied"],
+  // "partially-paid" is also included as its own target: staggered installment remittances that
+  // each pay down more of the balance without fully resolving it land on this same status again
+  // and again — without allowing that self-transition, every remittance after the first one would
+  // be rejected as an "illegal transition" and its cash silently never posted.
+  "partially-paid": ["appealed", "closed", "adjudicated", "paid", "denied", "partially-paid"],
   denied: ["appealed", "draft", "closed"],
   appealed: ["paid", "partially-paid", "denied", "closed"],
   closed: [],

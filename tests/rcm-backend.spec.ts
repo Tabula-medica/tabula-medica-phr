@@ -1181,5 +1181,11 @@ describe("round 18 hardening", () => {
   it("claims state machine allows a partially-paid claim to complete to paid or resolve to denied via a later ERA", () => {
     expect(canTransition("partially-paid", "paid")).toBe(true);
     expect(canTransition("partially-paid", "denied")).toBe(true);
+    // A staggered installment remittance that pays down more of the balance without fully
+    // resolving it lands on "partially-paid" again — without allowing this self-transition, the
+    // canTransition-based skip in /remittance/post would treat every remittance after the first
+    // as illegal and silently never post its cash (while still recording the ERA as posted,
+    // making the payment unretryable).
+    expect(canTransition("partially-paid", "partially-paid")).toBe(true);
   });
 });
