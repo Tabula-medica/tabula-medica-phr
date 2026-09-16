@@ -943,6 +943,23 @@ describe("round 11 hardening", () => {
     expect(p.denied).toBe(450);
   });
 
+  it("postRemittance's CLP02 '4' fallback does not duplicate a real CARC that happened to net to zero, or double-count patient responsibility already transferred", () => {
+    const c = mkClaim();
+    // A real CARC IS present here (amount 0, e.g. a vendor sending an informational adjustment
+    // with no dollar impact) — `denied` nets to 0 after the loop, but this must not be confused
+    // with "no CARC at all" and trigger a second, synthetic denial on top of the real one.
+    const remWithZeroCarc = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0, lines: [{ proc: "99214", billed: 300, paid: 0, patient_resp: 0, adjustments: [{ group: "CO", carc: "197", amount: 0 }] }] }] });
+    const pZeroCarc = postRemittance(remWithZeroCarc, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(pZeroCarc.denials).toHaveLength(1); // the real CARC 197, not a synthesized second one
+    expect(pZeroCarc.denials[0].carc).toBe("197");
+    // With genuinely no CARC at all but real patient responsibility already transferred, the
+    // synthesized denial must only cover the undocumented portion, not double-count the transfer.
+    const remWithPatientResp = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 50 }] });
+    const pPatientResp = postRemittance(remWithPatientResp, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(pPatientResp.denials).toHaveLength(1);
+    expect(pPatientResp.denials[0].amount).toBe(400); // 450 billed - 50 already transferred to patient
+  });
+
   it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
     const c = mkClaim();
     // A large charge from well over a year ago must not inflate the 90-day average daily rate —
