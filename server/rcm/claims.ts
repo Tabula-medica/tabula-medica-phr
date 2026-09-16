@@ -190,6 +190,11 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
   const priorAuthNumber = patch.priorAuthNumber ?? original.priorAuthNumber;
   const referralNumber = patch.referralNumber ?? original.referralNumber;
   const placeOfService = patch.placeOfService ?? original.placeOfService;
+  // Recompute from the (possibly patched) DOS using the original window length — spreading the
+  // original claim would otherwise keep a stale deadline after a frequency-7 date-of-service fix.
+  const dos = lines[0]?.dateOfService;
+  const originalDos = original.lines[0]?.dateOfService;
+  const tfDays = originalDos && original.timelyFilingDeadline !== undefined ? daysBetween(originalDos, original.timelyFilingDeadline) : undefined;
   return {
     ...original,
     id: newId("clm"),
@@ -205,6 +210,7 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
     createdAt: at,
     submittedAt: undefined,
     lastStatusAt: at,
+    timelyFilingDeadline: dos && tfDays !== undefined ? addDays(dos, tfDays) : undefined,
     history: [{ at, status: "draft", actor: "system", note: `${kind === "7" ? "Replacement" : "Void"} of ${original.id}` }],
   };
 }

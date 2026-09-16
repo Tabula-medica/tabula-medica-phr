@@ -50,6 +50,10 @@ describe("claims", () => {
     const c = mkClaim();
     const corr = correctedClaim(c, { lines: c.lines.slice(0, 1) });
     expect(corr).toMatchObject({ frequencyCode: "7", originalClaimId: c.id, totalCharge: 300, status: "draft" });
+    expect(corr.timelyFilingDeadline).toBe(c.timelyFilingDeadline); // same DOS keeps the original window
+    const newDos = { ...c.lines[0], dateOfService: "2026-08-01" };
+    const corrNewDos = correctedClaim(c, { lines: [newDos] });
+    expect(corrNewDos.timelyFilingDeadline).toBe("2026-10-30"); // 90 days from the replacement DOS, not the original
     expect(corr.diagnoses).toEqual(c.diagnoses); // an omitted patch key must not blank the original field
     const withUndefinedKeys = correctedClaim(c, { diagnoses: undefined, priorAuthNumber: undefined });
     expect(withUndefinedKeys.diagnoses).toEqual(c.diagnoses);
@@ -488,6 +492,8 @@ describe("round 4 hardening", () => {
     expect(authorizedCptsOnFile("MADE-UP-NUMBER", "p1", "c1", [line], [approved])).toEqual([]);
     expect(authorizedCptsOnFile(undefined, "p1", "c1", [line], [approved])).toEqual([]);
     expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [line], [approved])).toEqual(["70450"]);
+    const expiredLeftover = { ...approved, status: "expired" as const, validTo: "2026-06-01" };
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [line], [expiredLeftover, approved])).toEqual(["70450"]); // leftover with the same number must not shadow the later covering row
     expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [{ ...line, cpt: "72148" }], [approved])).toEqual([]); // wrong CPT
     expect(authorizedCptsOnFile("AUTH999", "p1", "c2", [line], [approved])).toEqual([]); // wrong coverage
     expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [{ ...line, dateOfService: "2027-01-15" }], [approved])).toEqual([]); // outside validTo

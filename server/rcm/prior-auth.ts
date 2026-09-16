@@ -184,9 +184,11 @@ export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: s
 // waved through by an auth that's only good for one of them.
 export function authorizedCptsOnFile(priorAuthNumber: string | undefined, patientId: string, coverageId: string, lines: Array<Pick<ServiceLine, "cpt" | "dateOfService" | "units">>, auths: PriorAuth[]): string[] {
   if (!priorAuthNumber) return [];
-  const auth = auths.find((a) => a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId);
-  if (!auth) return [];
-  return lines.filter((l) => authCoversService(auth, l.cpt, l.dateOfService, l.units).ok).map((l) => l.cpt.toUpperCase());
+  // Scan every matching row, not just the first: a leftover expired/exhausted record that
+  // reused the payer's auth number must not shadow a later still-covering approval.
+  const matches = auths.filter((a) => a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId);
+  if (!matches.length) return [];
+  return lines.filter((l) => matches.some((a) => authCoversService(a, l.cpt, l.dateOfService, l.units).ok)).map((l) => l.cpt.toUpperCase());
 }
 
 export function slaBreached(auth: PriorAuth, now: string = nowIso()): boolean {
