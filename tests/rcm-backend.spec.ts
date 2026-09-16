@@ -1232,6 +1232,26 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(2);
   });
 
+  it("open-auth-request does not drop leftover demand that happens to equal an existing pending row's units", async () => {
+    // The production path: a 1-unit requested auth is already on file, then a second 1-unit
+    // draft line lands for the same key. plan() attributes the pending row to the first line
+    // (pendingUnitsClaimed is not persisted) and emits units: 1 for the leftover. Exact-match
+    // dedupe would treat that leftover as a retry of the original row and never open a second 278.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const first = (await tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }, ctx)) as { authId: string };
+    const claim1 = buildClaim({ encounterId: "e-eq-1", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const claim2 = buildClaim({ encounterId: "e-eq-2", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim1);
+    await rcmStore.upsertClaim(T, claim2);
+    const second = (await tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }, ctx)) as { authId: string; deduped?: boolean };
+    expect(second.authId).not.toBe(first.authId);
+    expect(second.deduped).toBeUndefined();
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(2);
+  });
+
   it("patient-financial agent advances an old self-pay balance to agency referral instead of resetting to statement-1 every run", async () => {
     // A self-pay charge is patient-responsible from the moment it's charged — no transfer-to-
     // patient entry is ever posted for it — so the collections clock must derive from the
@@ -1261,6 +1281,9 @@ describe("round 11 hardening", () => {
     const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
     expect(opens).toHaveLength(1); // the first line's unit was claimed by the existing pending auth
     expect(opens[0].input.units).toBe(1); // only the second line's still-unclaimed unit is requested
+    expect(opens[0].outcome).toBe("ok");
+    expect((opens[0].output as { deduped?: boolean }).deduped).toBeUndefined();
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(2);
   });
   it("prior-auth agent does not let a pending request opened for one date of service cover a different date's line", async () => {
     // A pending 278 opened for one visit must not be silently attributed to a different visit —

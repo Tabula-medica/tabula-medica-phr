@@ -72,15 +72,25 @@ const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; c
     if (openAuthLocks.has(lockKey)) throw new Error("Another auth request for this patient/coverage/CPT/date is already in flight");
     openAuthLocks.add(lockKey);
     try {
-      // Exact unit match only — plan()'s pendingUnitsClaimed already merges same-pass lines that
-      // fit within an existing pending auth's remaining capacity into a single request, so a step
-      // reaching this tool always represents a genuinely uncovered need. Treating ANY existing
-      // pending auth with units >= this call's as a duplicate (a prior version of this check)
-      // ignores that its capacity may already be fully claimed by other lines outside this call's
-      // knowledge, silently dropping a real incremental request. An exact match is only true for
-      // a second call carrying the identical, not-yet-fulfilled need — i.e. a genuine race/retry.
-      const existing = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).find((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended") && a.units === (input.units ?? 1));
-      if (existing) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
+      // Exact unit match only — a units >= check treats leftover demand as already covered
+      // whenever some pending row has enough raw units, even if plan() already attributed that
+      // capacity via in-memory pendingUnitsClaimed. An exact match is a genuine retry UNLESS
+      // draft-line demand for this key already exceeds pending capacity: leftover units often
+      // equal an existing row (default 1), and that incremental 278 must go out.
+      const requestedUnits = input.units ?? 1;
+      const pending = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).filter((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended"));
+      const existing = pending.find((a) => a.units === requestedUnits);
+      if (existing) {
+        let demand = 0;
+        const contract = await ctx.store.getContract(ctx.tenantId, input.payerId);
+        for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
+          if (claim.patientId !== input.patientId || claim.coverageId !== input.coverageId || claim.payerId !== input.payerId) continue;
+          for (const { line } of linesNeedingAuth(claim.lines, contract)) {
+            if (line.cpt.toUpperCase() === cpt && line.dateOfService === input.dateOfService) demand += line.units;
+          }
+        }
+        if (demand <= pending.reduce((n, a) => n + a.units, 0)) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
+      }
       const pa = transitionAuth(createAuthRequest(input), "requested", { actor: ctx.actor, note: "Agent-submitted 278 (stub)" });
       await ctx.store.upsertAuth(ctx.tenantId, pa);
       await ctx.store.addWorkItems(ctx.tenantId, itemsFromAuths([pa]));
