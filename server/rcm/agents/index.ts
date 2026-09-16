@@ -51,7 +51,7 @@ const eligibilityAgent: AgentDefinition = {
 };
 
 // ---------- Prior-auth agent ----------
-const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[] }, unknown> = {
+const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; units?: number }, unknown> = {
   name: "open-auth-request",
   description: "Create and mark requested a prior-auth for an auth-required service",
   async run(input, ctx) {
@@ -88,7 +88,7 @@ const priorAuthAgent: AgentDefinition = {
         const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
         if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
         if (matches.some((a) => ["requested", "pended"].includes(a.status))) continue;
-        steps.push({ tool: "open-auth-request", input: { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code) }, why: check.reason ?? "auth required" });
+        steps.push({ tool: "open-auth-request", input: { patientId: claim.patientId, coverageId: claim.coverageId, payerId: claim.payerId, cpt: line.cpt, diagnoses: claim.diagnoses.map((d) => d.code), units: line.units }, why: check.reason ?? "auth required" });
       }
     }
     return steps;
@@ -301,7 +301,11 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
 const offerPlan: Tool<{ patientId: string; amount: number; months: number }, unknown> = {
   name: "offer-payment-plan",
   description: "Create a payment plan offer",
-  async run(input, ctx) { const plan = await ctx.store.upsertPaymentPlan(ctx.tenantId, createPaymentPlan(input.patientId, input.amount, input.months)); return { planId: plan.id, installment: plan.installment, months: plan.months }; },
+  async run(input, ctx) {
+    const existing = (await ctx.store.listPaymentPlans(ctx.tenantId, input.patientId)).find((p) => p.schedule.some((s) => s.status !== "paid"));
+    const plan = existing ?? await ctx.store.upsertPaymentPlan(ctx.tenantId, createPaymentPlan(input.patientId, input.amount, input.months));
+    return { planId: plan.id, installment: plan.installment, months: plan.months };
+  },
 };
 const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   name: "refer-to-agency",
@@ -331,6 +335,7 @@ const patientFinancialAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     const byPatient = await ctx.store.ledgerByPatient(ctx.tenantId);
+    const plans = await ctx.store.listPaymentPlans(ctx.tenantId);
     for (const w of smallBalanceWriteOffs(byPatient)) steps.push({ tool: "small-balance-write-off", input: w, why: "below $5 policy threshold" });
     for (const c of detectCreditBalances(byPatient)) steps.push({ tool: "issue-refund", input: { patientId: c.patientId, amount: c.amount, refundTo: c.refundTo }, why: `${c.source} credit balance` });
     for (const [patientId, entries] of Object.entries(byPatient)) {
@@ -339,7 +344,8 @@ const patientFinancialAgent: AgentDefinition = {
       const stmt = buildStatement(p, entries);
       if (stmt.amountDue <= 5) continue;
       const firstTransfer = entries.filter((e) => e.type === "transfer-to-patient").sort((a, b) => a.date.localeCompare(b.date))[0];
-      const stage = collectionsStage(firstTransfer?.date ?? todayIso());
+      const onPaymentPlan = plans.some((pl) => pl.patientId === patientId && pl.schedule.some((s) => s.status !== "paid"));
+      const stage = collectionsStage(firstTransfer?.date ?? todayIso(), { onPaymentPlan });
       if (stage.stage === "agency-referral") steps.push({ tool: "refer-to-agency", input: { patientId, amount: stmt.amountDue }, why: stage.reason });
       else if (stage.stage !== "hold") {
         const cycle: 1 | 2 | 3 | "final" = stage.stage === "statement-1" ? 1 : stage.stage === "statement-2" ? 2 : stage.stage === "statement-3" ? 3 : "final";

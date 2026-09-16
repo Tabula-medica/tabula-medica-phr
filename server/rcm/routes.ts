@@ -309,11 +309,16 @@ rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
   const t = tenantOf(req);
   const before = (await rcmStore.listApprovals(t)).find((x) => x.id === req.params.id);
   if (!before) return fail(res, 404, "approval not found");
-  const a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req));
+  const a = await rcmStore.decideApproval(t, req.params.id, p.data.decision, actorOf(req))
+    ?? (p.data.decision === "approved" && before.status === "approved" && !before.executedAt ? before : undefined);
   if (!a) return fail(res, 409, `approval already ${before.status}`);
-  const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
-  if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
   const exec = p.data.decision === "approved" ? await agentRuntime.executeApproved(t, a.id, actorOf(req)) : undefined;
+  // Close the work item only after a successful execution (or a rejection). A failed run
+  // leaves the item open so the already-approved action can be retried.
+  if (p.data.decision === "rejected" || exec?.ok) {
+    const wi = await rcmStore.findOpenWorkItem(t, (w) => w.queue === "agent-approval" && w.context?.approvalId === a.id);
+    if (wi) await rcmStore.updateWorkItem(t, wi.id, { status: "done" });
+  }
   res.json({ success: true, approval: a, executed: exec });
 }));
 

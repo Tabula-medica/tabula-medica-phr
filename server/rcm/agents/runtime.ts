@@ -107,15 +107,16 @@ export class AgentRuntime {
     const a = approvals.find((x) => x.id === approvalId);
     if (!a) return { ok: false, error: "approval not found" };
     if (a.status !== "approved") return { ok: false, error: `approval status is ${a.status}` };
-    if (!(await this.store.claimApprovalExecution(tenantId, approvalId))) return { ok: false, error: "approval already executed" };
     const def = this.agents.get(a.agent);
     const tool = def?.tools.find((t) => t.name === a.action);
     if (!tool) return { ok: false, error: "tool no longer available" };
+    if (!(await this.store.claimApprovalExecution(tenantId, approvalId))) return { ok: false, error: "approval already executed" };
     try {
       const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false, budget: { remaining: MAX_STEPS } });
       await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, by }, outcome: "ok" });
       return { ok: true, output };
     } catch (e) {
+      await this.store.releaseApprovalExecution(tenantId, approvalId);
       const error = e instanceof Error ? e.message : String(e);
       await this.store.audit(tenantId, { agent: a.agent, step: `${tool.name}:approved-exec`, detail: { approvalId, error }, outcome: "error" });
       return { ok: false, error };
