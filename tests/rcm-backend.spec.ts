@@ -131,6 +131,16 @@ describe("remittance posting", () => {
     expect(r.postings[0].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100);
   });
+  it("treats a matched claim id as unmatched when the ERA carries no payer id at all, not just a wrong one", () => {
+    // Omitting payerId entirely must not be a way to bypass the wrong-payer check above — a claim
+    // id match alone is exactly as unverifiable with no payer id as it is with the wrong one.
+    const c = mkClaim(); // payerId BCBS
+    const rem = parseEra({ check_amount: 100, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c });
+    expect(r.postings[0].status).toBe("unmatched");
+    expect(r.postings[0].entries).toHaveLength(0);
+    expect(r.unapplied).toBe(100);
+  });
   it("clamps a negative CAS adjustment amount to zero instead of posting a negative-dollar ledger entry", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: 300, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 300, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -150 }] }] });
@@ -207,7 +217,7 @@ describe("remittance posting", () => {
   });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
-    const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
+    const rem = parseEra({ payerid: "BCBS", check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
     const r = postRemittance(rem, { [c.id]: c });
     expect(r.postings[0].status).toBe("reversal");
     expect(r.postings[0].entries[0].type).toBe("refund");
@@ -431,6 +441,38 @@ describe("agents", () => {
     expect(opened.outcome).toBe("ok");
     const auth = await rcmStore.getAuth(T, (opened.output as { authId: string }).authId);
     expect(auth?.units).toBe(3); // not the createAuthRequest default of 1
+  });
+  it("prior-auth planner doesn't let two draft claims both claim the same one-unit approved auth in one pass", async () => {
+    // authCoversService alone only checks the auth's own stored unitsUsed, which doesn't advance
+    // until a claim is actually submitted — so within a single plan() pass, two different
+    // one-unit lines could both independently pass against the SAME one-unit approved auth. The
+    // second claim must instead get its own new 278 request opened.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-SHARED-1", approvedUnits: 1, validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claimA = buildClaim({ encounterId: "e-share-a", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const claimB = buildClaim({ encounterId: "e-share-b", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-02", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claimA);
+    await rcmStore.upsertClaim(T, claimB);
+    const r = await agentRuntime.run("prior-auth", T);
+    const attachSteps = r.steps.filter((s) => s.tool === "attach-auth-to-claim");
+    expect(attachSteps).toHaveLength(1); // only the first claim gets the already-approved auth
+    const openSteps = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(openSteps).toHaveLength(1); // the second claim opens its own new request instead of being silently skipped
+  });
+  it("attach-auth-to-claim refuses to attach an auth whose patient/coverage/payer no longer matches the claim at execution time", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    const auth = await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-MISMATCH-1", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-mismatch", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim);
+    // Simulate the claim's coverage having changed after plan() saw it but before this step runs.
+    await rcmStore.upsertClaim(T, { ...claim, coverageId: "some-other-coverage" });
+    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "attach-auth-to-claim")!;
+    await expect(tool.run({ claimId: claim.id, authId: auth.id }, { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } })).rejects.toThrow(/no longer matches/);
+    expect((await rcmStore.getClaim(T, claim.id))?.priorAuthNumber).toBeUndefined();
   });
   it("prior-auth agent matches an existing auth even when the claim line's CPT case differs", async () => {
     await rcmStore.upsertPatient(T, patient);
@@ -1543,7 +1585,7 @@ describe("round 18 hardening", () => {
     expect(pDenied.status).toBe("denied");
     expect(pDenied.underpayment).toBeUndefined();
     // A reversal (takeback) is also not a fee-schedule underpayment.
-    const reversal = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
+    const reversal = parseEra({ payerid: "BCBS", check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
     const pReversal = postRemittance(reversal, { [c.id]: c }, { BCBS: bcbs }).postings[0];
     expect(pReversal.status).toBe("reversal");
     expect(pReversal.underpayment).toBeUndefined();

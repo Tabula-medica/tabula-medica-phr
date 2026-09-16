@@ -28,11 +28,21 @@ const runEligibility: Tool<{ coverageId: string; patientId: string; dateOfServic
     if (coverage.patientId !== patient.id) throw new Error("coverage does not belong to this patient");
     const benefits = await checkEligibility({ patient, coverage, dateOfService: input.dateOfService, providerNpi: "1234567893" });
     await ctx.store.setBenefits(ctx.tenantId, coverage.id, benefits);
-    const est = estimatePatientResponsibility([{ cpt: "99213", units: 1 }], benefits);
+    // This agent only re-verifies eligibility ahead of a visit — there's no scheduling/appointment
+    // model here to tell it which CPT will actually be billed, so it must not fabricate an
+    // estimate for one. A hardcoded placeholder (previously 99213) would silently pass a fixed
+    // set of assumptions into financialClearance regardless of the real service — worse, it never
+    // even checked auth/referral requirements here (opts.requiresAuth/authOnFile were never
+    // passed), so an auth-required visit could still be reported "cleared" no matter what CPT was
+    // guessed. Pass no lines and no auth/referral opts: this only surfaces the coverage-level
+    // blockers that hold regardless of which service gets billed (inactive coverage, demographic
+    // mismatch, network status, stub vendor). The front desk still runs the CPT-specific
+    // /eligibility/check with the actual planned lines once those are known, which is where a
+    // real per-visit collectAtVisit estimate and auth/referral check belong.
     const disc = detectDiscrepancies({ firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob, memberId: coverage.memberId }, benefits.payerSubscriber ?? {});
-    const clearance = financialClearance(benefits, est, disc);
+    const clearance = financialClearance(benefits, estimatePatientResponsibility([], benefits), disc);
     if (!clearance.cleared) await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "eligibility", title: `Not cleared: ${clearance.reasons.join("; ")}`, patientId: patient.id, priority: 75, source: "agent", context: { coverageId: coverage.id, actions: clearance.actions } })]);
-    return { active: benefits.active, cleared: clearance.cleared, collectAtVisit: clearance.collectAtVisit };
+    return { active: benefits.active, cleared: clearance.cleared };
   },
 };
 
@@ -100,6 +110,13 @@ const attachAuth: Tool<{ claimId: string; authId: string }, unknown> = {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     const auth = await ctx.store.getAuth(ctx.tenantId, input.authId);
     if (!claim || !auth?.authNumber) throw new Error("claim or approved auth missing");
+    // Re-verify identity at execution time, not just what plan() saw — this tool isn't
+    // approval-gated (a 278 attach is automated, not a money-moving/payer-commitment action), so
+    // nothing else rechecks the auth/claim relationship between planning and this step actually
+    // running. Either record can change in that window; attaching a mismatched auth would send
+    // the wrong authorization number in box 23.
+    if (auth.patientId !== claim.patientId || auth.coverageId !== claim.coverageId || auth.payerId !== claim.payerId) throw new Error("authorization no longer matches this claim's patient/coverage/payer");
+    if (!claim.lines.some((l) => authCoversService(auth, l.cpt, l.dateOfService, l.units).ok)) throw new Error("authorization no longer covers any line on this claim");
     await ctx.store.upsertClaim(ctx.tenantId, { ...claim, priorAuthNumber: auth.authNumber });
     return { attached: auth.authNumber };
   },
@@ -133,6 +150,13 @@ const priorAuthAgent: AgentDefinition = {
     // 1-unit lines could each individually check against the same 1-unit pending request and both
     // be (wrongly) skipped as "already covered", leaving the second line's units never requested.
     const pendingUnitsClaimed = new Map<string, number>();
+    // Same idea for APPROVED auths: authCoversService only checks the auth's own stored
+    // unitsUsed, which doesn't advance until a claim is actually submitted (consumeAuthUnit)
+    // — so within a single plan() pass, two different draft claims' one-unit lines could both
+    // independently pass authCoversService against the SAME one-unit approved auth and both get
+    // attach-auth-to-claim steps, leaving the second claim to fail at submission with no new
+    // request ever opened for it. Track claimed units the same way pendingUnitsClaimed does.
+    const approvedUnitsClaimed = new Map<string, number>();
     for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) {
       const contract = await ctx.store.getContract(ctx.tenantId, claim.payerId);
       for (const { line, check } of linesNeedingAuth(claim.lines, contract)) {
@@ -142,8 +166,12 @@ const priorAuthAgent: AgentDefinition = {
         // auth.cpt is always uppercased (createAuthRequest normalizes it) but a claim line's CPT
         // isn't guaranteed to be — normalize both sides so e.g. "j0135" still matches "J0135".
         const matches = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === line.cpt.toUpperCase());
-        const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok);
-        if (usable) { if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" }); continue; }
+        const usable = matches.find((a) => authCoversService(a, line.cpt, line.dateOfService, line.units).ok && a.units - a.unitsUsed - (approvedUnitsClaimed.get(a.id) ?? 0) >= line.units);
+        if (usable) {
+          approvedUnitsClaimed.set(usable.id, (approvedUnitsClaimed.get(usable.id) ?? 0) + line.units);
+          if (!claim.priorAuthNumber) steps.push({ tool: "attach-auth-to-claim", input: { claimId: claim.id, authId: usable.id }, why: "approved auth on file" });
+          continue;
+        }
         // A pending request only covers this line if it was opened for the SAME date of service
         // (a request opened for one visit must not silently absorb a different visit's units,
         // leaving the original visit to open a duplicate request while the later one is wrongly

@@ -70,14 +70,20 @@ rcmRouter.use((req, res, next) => {
   next();
 });
 
-const patientSchema = z.object({ id: z.string().min(1), mrn: z.string().optional(), firstName: z.string().min(1), lastName: z.string().min(1), dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sex: z.enum(["M", "F", "U"]).optional(), phone: z.string().optional(), email: z.string().optional(), preferredLanguage: z.string().optional(), householdSize: z.number().int().positive().optional(), annualHouseholdIncome: z.number().nonnegative().optional() });
-const coverageSchema = z.object({ id: z.string().min(1), patientId: z.string().min(1), payerId: z.string().min(1), payerName: z.string().min(1), memberId: z.string().min(1), groupNumber: z.string().optional(), planType: z.enum(["HMO", "PPO", "EPO", "POS", "Medicare", "Medicaid", "Commercial", "SelfPay", "Other"]).optional(), priority: z.enum(["primary", "secondary", "tertiary"]), subscriberRelationship: z.enum(["self", "spouse", "child", "other"]), subscriberFirstName: z.string().optional(), subscriberLastName: z.string().optional(), subscriberDob: z.string().optional(), effectiveDate: z.string().optional(), terminationDate: z.string().optional(), timelyFilingDays: z.number().int().positive().optional() });
+// Every DOS/effective/termination/scheduled date this router accepts eventually gets compared as
+// a plain string (coverage effective/termination windows, auth validFrom/validTo, timely-filing
+// deadlines) rather than parsed as a Date — a non-ISO value like "09/01/2026" would sort wrong
+// against a stored "YYYY-MM-DD" and could silently bypass a termination/effective-date or
+// timely-filing check instead of failing validation up front. One shared schema for all of them.
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be an ISO date (YYYY-MM-DD)");
+const patientSchema = z.object({ id: z.string().min(1), mrn: z.string().optional(), firstName: z.string().min(1), lastName: z.string().min(1), dob: isoDate, sex: z.enum(["M", "F", "U"]).optional(), phone: z.string().optional(), email: z.string().optional(), preferredLanguage: z.string().optional(), householdSize: z.number().int().positive().optional(), annualHouseholdIncome: z.number().nonnegative().optional() });
+const coverageSchema = z.object({ id: z.string().min(1), patientId: z.string().min(1), payerId: z.string().min(1), payerName: z.string().min(1), memberId: z.string().min(1), groupNumber: z.string().optional(), planType: z.enum(["HMO", "PPO", "EPO", "POS", "Medicare", "Medicaid", "Commercial", "SelfPay", "Other"]).optional(), priority: z.enum(["primary", "secondary", "tertiary"]), subscriberRelationship: z.enum(["self", "spouse", "child", "other"]), subscriberFirstName: z.string().optional(), subscriberLastName: z.string().optional(), subscriberDob: isoDate.optional(), effectiveDate: isoDate.optional(), terminationDate: isoDate.optional(), timelyFilingDays: z.number().int().positive().optional() });
 // CPT/HCPCS codes and modifiers are canonically upper-case; several scrubber rules and the
 // 837P/CMS-1500 mapping compare or emit `line.cpt`/`line.modifiers` case-sensitively, so a
 // lower-case value accepted here could silently bypass E/M, duplicate, or telehealth edits and
 // go out in a non-canonical form. Normalize at this schema boundary rather than patching every
 // downstream comparison site.
-const lineSchema = z.object({ id: z.string().optional(), cpt: z.string().min(4).max(7).transform((v) => v.toUpperCase()), description: z.string().optional(), modifiers: z.array(z.string()).default([]).transform((mods) => mods.map((m) => m.toUpperCase())), units: z.number().positive().default(1), charge: z.number().nonnegative(), dxPointers: z.array(z.number().int()).default([1]), dateOfService: z.string(), placeOfService: z.string().default("11"), renderingNpi: z.string().optional(), ndc: z.string().optional() });
+const lineSchema = z.object({ id: z.string().optional(), cpt: z.string().min(4).max(7).transform((v) => v.toUpperCase()), description: z.string().optional(), modifiers: z.array(z.string()).default([]).transform((mods) => mods.map((m) => m.toUpperCase())), units: z.number().positive().default(1), charge: z.number().nonnegative(), dxPointers: z.array(z.number().int()).default([1]), dateOfService: isoDate, placeOfService: z.string().default("11"), renderingNpi: z.string().optional(), ndc: z.string().optional() });
 const dxSchema = z.object({ code: z.string().min(3), description: z.string().optional(), hcc: z.boolean().optional() });
 
 // ---------- Demo / health ----------
@@ -111,7 +117,7 @@ rcmRouter.get("/patients/:id/coverage", wrap(async (req, res) => res.json({ succ
 
 // ---------- Eligibility & clearance ----------
 rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
-  const p = z.object({ coverageId: z.string(), dateOfService: z.string().default(todayIso()), providerNpi: z.string().default("1234567893"), plannedLines: z.array(z.object({ cpt: z.string(), units: z.number().default(1) })).default([{ cpt: "99213", units: 1 }]), payerResponse: z.unknown().optional() }).safeParse(req.body);
+  const p = z.object({ coverageId: z.string(), dateOfService: isoDate.default(todayIso()), providerNpi: z.string().default("1234567893"), plannedLines: z.array(z.object({ cpt: z.string(), units: z.number().default(1) })).default([{ cpt: "99213", units: 1 }]), payerResponse: z.unknown().optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const coverage = await rcmStore.getCoverage(t, p.data.coverageId);
@@ -155,7 +161,7 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
 rcmRouter.get("/prior-auth/rules", (_req, res) => res.json({ success: true, rules: DEFAULT_AUTH_RULES }));
 rcmRouter.get("/prior-auth", wrap(async (req, res) => res.json({ success: true, auths: await rcmStore.listAuths(tenantOf(req), typeof req.query.patientId === "string" ? req.query.patientId : undefined) })));
 rcmRouter.post("/prior-auth", wrap(async (req, res) => {
-  const p = z.object({ patientId: z.string(), coverageId: z.string(), payerId: z.string(), cpt: z.string(), diagnoses: z.array(z.string()).default([]), dateOfService: z.string().optional(), units: z.number().int().positive().optional(), urgency: z.enum(["standard", "urgent"]).optional(), availableDocs: z.array(z.string()).optional(), submit: z.boolean().default(false) }).safeParse(req.body);
+  const p = z.object({ patientId: z.string(), coverageId: z.string(), payerId: z.string(), cpt: z.string(), diagnoses: z.array(z.string()).default([]), dateOfService: isoDate.optional(), units: z.number().int().positive().optional(), urgency: z.enum(["standard", "urgent"]).optional(), availableDocs: z.array(z.string()).optional(), submit: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   // Independently-supplied ids must actually belong together — otherwise this can persist an
@@ -171,7 +177,7 @@ rcmRouter.post("/prior-auth", wrap(async (req, res) => {
   res.json({ success: true, auth: await rcmStore.upsertAuth(t, auth) });
 }));
 rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
-  const p = z.object({ to: z.enum(["not-required", "required", "requested", "pended", "approved", "denied", "expired", "exhausted"]), note: z.string().optional(), authNumber: z.string().optional(), validFrom: z.string().optional(), validTo: z.string().optional(), approvedUnits: z.number().int().positive().optional() }).safeParse(req.body);
+  const p = z.object({ to: z.enum(["not-required", "required", "requested", "pended", "approved", "denied", "expired", "exhausted"]), note: z.string().optional(), authNumber: z.string().optional(), validFrom: isoDate.optional(), validTo: isoDate.optional(), approvedUnits: z.number().int().positive().optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   // This stub environment has no real payer/278-response integration behind "approved" — the
@@ -193,7 +199,7 @@ rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
 // ---------- Charge capture & coding ----------
 rcmRouter.get("/charge-master", (_req, res) => res.json({ success: true, catalog: chargeMasterCatalog() }));
 rcmRouter.post("/charges/derive", wrap(async (req, res) => {
-  const p = z.object({ encounterId: z.string(), patientId: z.string(), dateOfService: z.string(), placeOfService: z.string().default("11"), renderingNpi: z.string(), newPatient: z.boolean().default(false), telehealth: z.boolean().optional(), emLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(), proceduresDocumented: z.array(z.string()).default([]), ordersCompleted: z.array(z.string()).default([]), vaccinesGiven: z.number().int().nonnegative().default(0), diagnoses: z.array(dxSchema).default([]), visitComplexityAddOn: z.boolean().optional(), enteredAt: z.string().optional() }).safeParse(req.body);
+  const p = z.object({ encounterId: z.string(), patientId: z.string(), dateOfService: isoDate, placeOfService: z.string().default("11"), renderingNpi: z.string(), newPatient: z.boolean().default(false), telehealth: z.boolean().optional(), emLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(), proceduresDocumented: z.array(z.string()).default([]), ordersCompleted: z.array(z.string()).default([]), vaccinesGiven: z.number().int().nonnegative().default(0), diagnoses: z.array(dxSchema).default([]), visitComplexityAddOn: z.boolean().optional(), enteredAt: isoDate.optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const lines = deriveCharges(p.data);
   const gaps = detectChargeGaps(p.data, lines, { enteredAt: p.data.enteredAt });
@@ -201,7 +207,7 @@ rcmRouter.post("/charges/derive", wrap(async (req, res) => {
   res.json({ success: true, lines, gaps, total: lines.reduce((s, l) => s + l.charge, 0) });
 }));
 rcmRouter.post("/charges/voice", wrap(async (req, res) => {
-  const p = z.object({ transcript: z.string().min(1), dateOfService: z.string().default(todayIso()), placeOfService: z.string().default("11"), renderingNpi: z.string().default("1234567893"), diagnoses: z.array(dxSchema).default([]), telehealth: z.boolean().optional() }).safeParse(req.body);
+  const p = z.object({ transcript: z.string().min(1), dateOfService: isoDate.default(todayIso()), placeOfService: z.string().default("11"), renderingNpi: z.string().default("1234567893"), diagnoses: z.array(dxSchema).default([]), telehealth: z.boolean().optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const commands = parseVoiceCharge(p.data.transcript);
   const built = voiceCommandsToLines(commands, p.data);
@@ -403,6 +409,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   if ((req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting a remittance requires an admin role");
   const t = tenantOf(req);
   const rem = parseEra(req.body?.era ?? req.body);
+  // parseEra tolerates arbitrary/malformed JSON by normalizing missing fields to empty defaults
+  // (claims: [], checkAmount: 0) rather than throwing — appropriate for a lenient vendor-field
+  // parser, but this route must not then persist that as a successfully posted, fully-reconciled
+  // ($0, balanced) remittance. Reject a payload with no claim rows before doing any work.
+  if (!rem.claims.length) return fail(res, 400, "ERA has no claim rows to post — check the uploaded payload");
   // Idempotency: a clearinghouse retry or a duplicate click must not double-post the same ERA.
   // Identify it by payer + check number/amount (the standard 835 trace key) when present,
   // otherwise by its own id (explicit, or a content fingerprint — see parseEra).
@@ -539,7 +550,7 @@ rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = 
 // by `await`s a second concurrent request could slip through, both reading "no active plan" and
 // each creating its own schedule against the same balance.
 rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
-  const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
+  const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: isoDate.optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const pt = await rcmStore.getPatient(t, req.params.id);

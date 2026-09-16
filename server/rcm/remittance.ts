@@ -141,12 +141,17 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     const claim = rc.claimId ? claimsById[rc.claimId] : undefined;
     // A claim id match alone isn't enough: an ERA carrying the wrong payer id (malformed vendor
     // payload, or a claim id that happens to collide across payers) must not be allowed to post
-    // payment/adjustments or move claim status for a different payer's claim.
-    const payerMismatch = !!claim && !!rem.payerId && claim.payerId !== rem.payerId;
+    // payment/adjustments or move claim status for a different payer's claim. An ERA with NO
+    // payer id at all is just as unverifiable as a wrong one — treating a missing payerId as "no
+    // mismatch possible" would let any caller-supplied ERA move money against any claim id it
+    // happens to know or guess, by simply omitting the one field this check keys off. Require a
+    // real payer id to accept a match at all.
+    const payerVerified = !!rem.payerId;
+    const payerMismatch = !!claim && payerVerified && claim.payerId !== rem.payerId;
     const isReversal = rc.statusCode === "22" || rc.paid < 0;
     const priorState = rc.claimId ? lastWasReversal.get(rc.claimId) : undefined;
     const duplicateInBatch = priorState !== undefined && !(priorState && !isReversal);
-    if (!claim || payerMismatch || duplicateInBatch) {
+    if (!claim || !payerVerified || payerMismatch || duplicateInBatch) {
       // Never post cash against a fabricated "unknown" patient and never count it as applied —
       // that would make an unreconciled payment look balanced and the money unrecoverable.
       // Leave it unmatched for a human to reconcile against the real patient/claim.
