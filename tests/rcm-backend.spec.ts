@@ -958,6 +958,21 @@ describe("round 11 hardening", () => {
     const pPatientResp = postRemittance(remWithPatientResp, { [c.id]: c }, { BCBS: bcbs }).postings[0];
     expect(pPatientResp.denials).toHaveLength(1);
     expect(pPatientResp.denials[0].amount).toBe(400); // 450 billed - 50 already transferred to patient
+    // PR is skipped (handled via transfer) and CO-45 goes to contractual — neither lands in
+    // `denials`. A denied ERA that only has those still needs a synthesized CARC 16 for the
+    // unexplained remainder, or routes.ts never creates a Denial (no appeal deadline/triage).
+    const remPrOnly = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 50, lines: [{ proc: "99214", billed: 450, paid: 0, patient_resp: 50, adjustments: [{ group: "PR", carc: "1", amount: 50 }] }] }] });
+    const pPrOnly = postRemittance(remPrOnly, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(pPrOnly.status).toBe("denied");
+    expect(pPrOnly.denials).toHaveLength(1);
+    expect(pPrOnly.denials[0].carc).toBe("16");
+    expect(pPrOnly.denials[0].amount).toBe(400); // 450 billed - 50 already transferred to patient
+    const remContractual = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0, lines: [{ proc: "99214", billed: 450, paid: 0, adjustments: [{ group: "CO", carc: "45", amount: 100 }] }] }] });
+    const pContractual = postRemittance(remContractual, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(pContractual.status).toBe("denied");
+    expect(pContractual.denials).toHaveLength(1);
+    expect(pContractual.denials[0].carc).toBe("16");
+    expect(pContractual.denials[0].amount).toBe(350); // 450 billed - 100 contractual
   });
 
   it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
