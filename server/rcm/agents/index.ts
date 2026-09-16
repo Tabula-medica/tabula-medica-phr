@@ -255,7 +255,7 @@ const denialActionLocks = new Set<string>();
 // (box 24b, box 23, box 17a) versus what the approver reviewed.
 function claimContentFingerprint(c: Pick<Claim, "lines" | "diagnoses" | "placeOfService" | "priorAuthNumber" | "referralNumber">): string {
   return JSON.stringify({
-    lines: c.lines.map((l) => ({ cpt: l.cpt, units: l.units, modifiers: [...l.modifiers].sort(), dxPointers: l.dxPointers, dateOfService: l.dateOfService, placeOfService: l.placeOfService })),
+    lines: c.lines.map((l) => ({ cpt: l.cpt, units: l.units, charge: l.charge, ndc: l.ndc, renderingNpi: l.renderingNpi, modifiers: [...l.modifiers].sort(), dxPointers: l.dxPointers, dateOfService: l.dateOfService, placeOfService: l.placeOfService })),
     diagnoses: c.diagnoses.map((d) => d.code),
     claimPlaceOfService: c.placeOfService,
     priorAuthNumber: c.priorAuthNumber,

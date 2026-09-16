@@ -719,6 +719,26 @@ describe("agents", () => {
     expect(exec.error).toMatch(/content .* no longer matches/);
     expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
   });
+  it("submit-claim refuses to submit once a line's own charge/NDC/renderingNpi have drifted, even when a same-total swap between lines keeps totalCharge unchanged", async () => {
+    // A change to one line's charge offset by an equal-and-opposite change to another line's
+    // charge leaves totalCharge identical — the amount check alone can never catch it. This is
+    // exactly the "content swap at an unchanged total" scenario the fingerprint exists for.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-line-charge-swap" }; // 99214 ($300) + 20610 ($150)
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const drifted = { ...ready, lines: [{ ...ready.lines[0], charge: 350 }, { ...ready.lines[1], charge: 100 }] }; // 300/150 -> 350/100
+    expect(drifted.totalCharge).toBe(ready.totalCharge); // same $450 total, different per-line split
+    await rcmStore.upsertClaim(T, drifted);
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/content .* no longer matches/);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
+  });
   it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
     // The guard used to be wrapped in `if (claim.priorAuthNumber && ...)`, so a claim needing
     // auth with NO box-23 number at all skipped validation entirely instead of failing closed.
