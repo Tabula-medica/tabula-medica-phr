@@ -1160,6 +1160,22 @@ describe("round 11 hardening", () => {
     expect(noLineChange.timelyFilingDeadline).toBe(c.timelyFilingDeadline);
   });
 
+  it("send-appeal actually generates and stages the appeal letter as a work item instead of just flipping statuses with nothing produced", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), status: "denied" as const };
+    await rcmStore.upsertClaim(T, claim);
+    await rcmStore.upsertDenial(T, { id: "den-appeal-1", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "50", group: "CO", amount: 300, category: "medical-necessity", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const tool = agentRuntime.get("denials")!.tools.find((t) => t.name === "send-appeal")!;
+    const output = (await tool.run({ denialId: "den-appeal-1", claimId: claim.id, amount: 300 }, { tenantId: T, store: rcmStore, actor: "biller", dryRun: false, budget: { remaining: 5 } })) as { appealed: string; level: string };
+    expect(output.appealed).toBe("den-appeal-1");
+    expect((await rcmStore.getDenial(T, "den-appeal-1"))!.status).toBe("appealed");
+    expect((await rcmStore.getClaim(T, claim.id))!.status).toBe("appealed");
+    const item = await rcmStore.findOpenWorkItem(T, (w) => w.queue === "denials" && w.claimId === claim.id && w.context?.letter !== undefined);
+    expect(item).toBeDefined();
+    expect(String(item!.context!.letter)).toContain(claim.id);
+  });
+
   it("file-corrected-claim and write-off can't both win a race against the same open denial", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);

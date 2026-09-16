@@ -17,7 +17,7 @@ import { expectedAllowed, expectedForLines, modelContractChange, varianceReport 
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
-import { agentRuntime } from "./agents";
+import { agentRuntime, isAuthSubmitLocked } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
 import { daysBetween, round2, todayIso } from "./util";
@@ -153,6 +153,12 @@ rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
   if (p.data.to === "approved" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Transitioning a prior auth to approved requires an admin role");
   const auth = await rcmStore.getAuth(t, req.params.id);
   if (!auth) return fail(res, 404, "auth not found");
+  // A submit-claim run holds this same lock from its own re-validation through final unit
+  // consumption — changing the auth's status mid-flight (expire/exhaust/deny) is exactly the race
+  // that validation is there to prevent. Reject and let the caller retry once the submission
+  // finishes, rather than risk the claim being marked submitted against an auth invalidated out
+  // from under it.
+  if (isAuthSubmitLocked(t, req.params.id)) return fail(res, 409, "This authorization is currently being consumed by an in-flight claim submission — retry shortly");
   try { res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
 
@@ -462,7 +468,19 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
 rcmRouter.get("/patients/:id/statement", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const cycle = (["1", "2", "3", "final"].includes(String(req.query.cycle)) ? (req.query.cycle === "final" ? "final" : Number(req.query.cycle)) : 1) as 1 | 2 | 3 | "final"; res.json({ success: true, statement: buildStatement(p, await rcmStore.ledger(t, p.id), cycle) }); }));
 rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const s = computeAccount(p.id, await rcmStore.ledger(t, p.id)); const fpl = p.annualHouseholdIncome !== undefined && p.householdSize ? fplPercent(p.annualHouseholdIncome, p.householdSize) : undefined; res.json({ success: true, propensity: propensityToPay({ balance: s.patientBalance, priorStatementsPaidOnTime: req.body?.paidOnTime ?? 0, priorStatementsLate: req.body?.late ?? 0, hasCardOnFile: !!req.body?.hasCardOnFile, fplPct: fpl }), fplPct: fpl, slidingFee: fpl !== undefined ? slidingFeeDiscount(fpl) : undefined }); }));
-rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => { const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay); res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) }); }));
+rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
+  const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
+  if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  const pt = await rcmStore.getPatient(t, req.params.id);
+  if (!pt) return fail(res, 404, "patient not found");
+  // Without this, a caller-supplied total with no relation to what the patient actually owes
+  // could authorize/collect an installment plan for more than the real balance.
+  const balance = computeAccount(req.params.id, await rcmStore.ledger(t, req.params.id)).patientBalance;
+  if (p.data.total > balance + 0.01) return fail(res, 400, `Plan total $${p.data.total.toFixed(2)} exceeds the patient's outstanding balance $${balance.toFixed(2)}`);
+  const plan = createPaymentPlan(req.params.id, p.data.total, p.data.months, p.data.startDate, p.data.autoPay);
+  res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) });
+}));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));
 rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.object({ lines: z.array(z.object({ cpt: z.string(), units: z.number().int().positive().default(1) })), selfPayRates: z.record(z.number().nonnegative()).default({}), scheduledDate: z.string().optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error); const t = tenantOf(req); const pt = await rcmStore.getPatient(t, req.params.id); if (!pt) return fail(res, 404, "patient not found"); res.json({ success: true, gfe: goodFaithEstimate(pt, p.data.lines, p.data.selfPayRates, p.data.scheduledDate) }); }));
 // Direct posting is limited to entries that record something that already happened at the

@@ -84,10 +84,16 @@ function normalizeNetworkStatus(raw: string | undefined): BenefitSnapshot["netwo
 export function parse271(raw: unknown): BenefitSnapshot {
   const r = (raw ?? {}) as Record<string, unknown>;
   const num = (v: unknown): number | undefined => {
-    if (typeof v === "number") return v;
+    if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
     if (typeof v === "string") { const n = parseFloat(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : undefined; }
     return undefined;
   };
+  // Payer data is untrusted input — a malformed or malicious 271 payload (a negative deductible,
+  // 250% coinsurance) must never flow through unclamped, since estimatePatientResponsibility and
+  // financialClearance trust these fields directly and could otherwise produce a negative or
+  // greater-than-allowed patient share.
+  const money = (v: unknown): number | undefined => { const n = num(v); return n === undefined ? undefined : Math.max(0, n); };
+  const pct = (v: unknown): number | undefined => { const n = num(v); return n === undefined ? undefined : Math.min(100, Math.max(0, n)); };
   const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v : undefined);
   const pick = (...keys: string[]) => keys.map((k) => r[k]).find((v) => v !== undefined && v !== null);
   const activeRaw = pick("active", "coverage_active", "eligible", "status");
@@ -102,13 +108,13 @@ export function parse271(raw: unknown): BenefitSnapshot {
   return {
     active,
     planName: str(pick("plan_name", "planName", "plan")),
-    copayOfficeVisit: num(pick("copay", "copay_office", "office_copay")),
-    copaySpecialist: num(pick("copay_specialist", "specialist_copay")),
-    coinsurancePct: num(pick("coinsurance", "coinsurance_pct")),
-    deductibleTotal: num(pick("deductible", "deductible_total")),
-    deductibleRemaining: num(pick("deductible_remaining", "remaining_deductible")),
-    oopMaxTotal: num(pick("oop_max", "out_of_pocket_max")),
-    oopMaxRemaining: num(pick("oop_remaining", "out_of_pocket_remaining")),
+    copayOfficeVisit: money(pick("copay", "copay_office", "office_copay")),
+    copaySpecialist: money(pick("copay_specialist", "specialist_copay")),
+    coinsurancePct: pct(pick("coinsurance", "coinsurance_pct")),
+    deductibleTotal: money(pick("deductible", "deductible_total")),
+    deductibleRemaining: money(pick("deductible_remaining", "remaining_deductible")),
+    oopMaxTotal: money(pick("oop_max", "out_of_pocket_max")),
+    oopMaxRemaining: money(pick("oop_remaining", "out_of_pocket_remaining")),
     requiresReferral: typeof r.requires_referral === "boolean" ? r.requires_referral : undefined,
     pcpName: str(pick("pcp", "pcp_name")),
     networkStatus: normalizeNetworkStatus(str(pick("network", "network_status"))),

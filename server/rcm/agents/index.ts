@@ -200,6 +200,14 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
 // different claims can both carry the same priorAuthNumber, and without this two concurrent
 // submissions could both read the same stale unitsUsed and both decide they fit.
 const submitAuthLocks = new Set<string>();
+// Exposed so /prior-auth/:id/transition (routes.ts) can refuse to change an auth's status while
+// a submission is mid-flight consuming it — otherwise an admin transition (expire/exhaust/deny)
+// landing in the window this lock covers (validation through final unit consumption) would let
+// submit-claim mark the claim "submitted" against an authorization the payer-facing send no
+// longer actually has, with only a best-effort reconciliation work item as the fallback.
+export function isAuthSubmitLocked(tenantId: string, authId: string): boolean {
+  return submitAuthLocks.has(`${tenantId}:${authId}`);
+}
 // In-process lock on a denial id: send-appeal/write-off/transfer-to-patient/file-corrected-claim
 // each read the denial's status, act on it, and only then write the resolved status back — two
 // different approved actions on the same denial (e.g. write-off and transfer-to-patient, or two
@@ -475,10 +483,19 @@ const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, un
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       if (!d) throw new Error("denial not found");
       if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
       const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
-      if (claim && ["denied", "partially-paid", "paid"].includes(claim.status)) await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "appealed", ctx.actor));
-      return { appealed: d.id };
+      if (!claim) throw new Error("claim not found");
+      // There's no real payer/clearinghouse adapter behind this stub environment (the same
+      // boundary submit-claim documents as "837P sent (stub clearinghouse)") — but unlike
+      // submit-claim, nothing here previously left ANY artifact of what was supposedly sent, so
+      // an approval could move a denial out of the open queue with literally nothing produced to
+      // mail/fax/upload. Actually generate the letter and stage it as a durable, visible work item.
+      const patient = await ctx.store.getPatient(ctx.tenantId, claim.patientId);
+      const letter = generateAppealLetter({ denial: d, claim, patientName: patient ? `${patient.firstName} ${patient.lastName}` : "Patient", providerName: claim.renderingProviderName ?? "Rendering Provider", practiceName: "World EHR Outpatient" });
+      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
+      if (["denied", "partially-paid", "paid"].includes(claim.status)) await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "appealed", ctx.actor));
+      await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "denials", title: `Appeal packet ready to send — denial ${d.id} (${letter.level})`, patientId: claim.patientId, claimId: claim.id, amount: d.amount, priority: 70, source: "system", context: { letter: letter.letter, level: letter.level, deadline: letter.deadline } })]);
+      return { appealed: d.id, level: letter.level };
     } finally {
       denialActionLocks.delete(lockKey);
     }

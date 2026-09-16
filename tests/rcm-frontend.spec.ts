@@ -41,6 +41,19 @@ describe("eligibility", () => {
     expect(b.deductibleRemaining).toBe(250);
     expect(b.source).toBe("clearinghouse");
   });
+  it("clamps malformed payer-supplied monetary/percentage fields instead of passing them through unvalidated", () => {
+    // A negative dollar figure or an out-of-range coinsurance percentage from a malformed (or
+    // malicious) 271 payload must never reach estimatePatientResponsibility/financialClearance
+    // unclamped — that could produce a negative or greater-than-allowed patient share.
+    const negative = parse271({ eligible: "1", copay: -30, deductible: -1500, deductible_remaining: -600, oop_max: -6000, coinsurance: -20 });
+    expect(negative.copayOfficeVisit).toBe(0);
+    expect(negative.deductibleTotal).toBe(0);
+    expect(negative.deductibleRemaining).toBe(0);
+    expect(negative.oopMaxTotal).toBe(0);
+    expect(negative.coinsurancePct).toBe(0);
+    const overRange = parse271({ eligible: "1", coinsurance: 250 });
+    expect(overRange.coinsurancePct).toBe(100);
+  });
   it("estimates patient responsibility: copay + deductible + coinsurance, capped at OOP", () => {
     const benefits = { active: true, copayOfficeVisit: 30, coinsurancePct: 20, deductibleRemaining: 50, oopMaxRemaining: 1000, checkedAt: new Date().toISOString(), source: "stub" as const };
     const est = estimatePatientResponsibility([{ cpt: "99214", units: 1 }], benefits, { "99214": 150 });
