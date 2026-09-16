@@ -233,6 +233,25 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
   };
 }
 
+// In-place edit of a pre-submission claim's billed data (lines/diagnoses/auth/POS) — keeps the
+// same id, status, and frequency, unlike correctedClaim (which stamps out a new frequency-7/8
+// claim). This is the only way to actually resolve a "claim-edits" work item: a claim staged by
+// file-corrected-claim with no denial-specific patch, or one that simply failed its own scrub,
+// has no route back to "ready" until its data is genuinely changed and re-scrubbed.
+export function applyClaimPatch(claim: Claim, patch: Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber" | "referralNumber" | "placeOfService">>): Claim {
+  const lines = patch.lines ?? claim.lines;
+  const diagnoses = (patch.diagnoses ?? claim.diagnoses).slice(0, 12);
+  return {
+    ...claim,
+    lines,
+    diagnoses,
+    priorAuthNumber: patch.priorAuthNumber ?? claim.priorAuthNumber,
+    referralNumber: patch.referralNumber ?? claim.referralNumber,
+    placeOfService: patch.placeOfService ?? claim.placeOfService,
+    totalCharge: sum(lines.map((l) => l.charge)),
+  };
+}
+
 // Secondary claim from the primary remittance (COB) — carries primary paid + adjustments.
 export function secondaryClaim(primary: Claim, secondary: Coverage, primaryRemit: RemitClaim): Claim {
   const at = nowIso();

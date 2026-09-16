@@ -9,7 +9,7 @@ import { authCoversService, authorizedCptsOnFile, createAuthRequest, DEFAULT_AUT
 import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "./charge-capture";
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
-import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
+import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
 import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
@@ -239,6 +239,21 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
     await rcmStore.addWorkItems(t, itemsFromScrub(next, finalResult.errors.length));
   }
   res.json({ success: true, result: finalResult, applied, claim: next });
+}));
+// Edit a pre-submission claim's billed data in place (diagnoses/lines/auth/POS) — the only way
+// to actually resolve a "claim-edits" work item, whether it came from an ordinary failed scrub
+// or from file-corrected-claim staging an unpatched clone of a denied claim. A submitted/
+// adjudicated/paid claim's historical bill must go through a corrected claim (frequency 7/8)
+// instead, same boundary applyAutoFixes' own persistence check already enforces.
+rcmRouter.patch("/claims/:id", wrap(async (req, res) => {
+  const p = z.object({ diagnoses: z.array(dxSchema).optional(), lines: z.array(lineSchema).optional(), priorAuthNumber: z.string().optional(), referralNumber: z.string().optional(), placeOfService: z.string().optional() }).safeParse(req.body ?? {});
+  if (!p.success) return bad(res, p.error);
+  const t = tenantOf(req);
+  const c = await rcmStore.getClaim(t, req.params.id);
+  if (!c) return fail(res, 404, "claim not found");
+  if (c.status !== "draft" && c.status !== "scrubbed") return fail(res, 409, `Cannot edit billed data on a claim in status "${c.status}" directly — file a corrected claim instead`);
+  const next = applyClaimPatch(c, { diagnoses: p.data.diagnoses as Diagnosis[] | undefined, lines: p.data.lines as ServiceLine[] | undefined, priorAuthNumber: p.data.priorAuthNumber, referralNumber: p.data.referralNumber, placeOfService: p.data.placeOfService });
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, next) });
 }));
 // Manual/staging transitions only — anything that finalizes a payer-facing state (submitted
 // and beyond) must go through the approval-gated submit-claim tool or an actual ERA posting,

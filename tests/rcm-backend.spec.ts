@@ -1,6 +1,6 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
 import { describe, it, expect, beforeEach } from "vitest";
-import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
+import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
 import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
@@ -1115,6 +1115,35 @@ describe("round 11 hardening", () => {
     expect(submitExec.ok).toBe(true);
     // Only now, with the corrected claim actually submitted, does the denial become "appealed".
     expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("appealed");
+  });
+
+  it("a corrected claim staged with no denial-specific patch is stranded at 'scrubbed' with a claim-edits work item, and applyClaimPatch is the real way back to 'ready'", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const orig = mkClaim();
+    await rcmStore.upsertClaim(T, orig);
+    await rcmStore.upsertDenial(T, { id: "den-fc-3", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "11", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-3", amount: 300 }, reason: "test" });
+    await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
+    const fcExec = await agentRuntime.executeApproved(T, fcApproval.id, "biller");
+    expect(fcExec.ok).toBe(true);
+    const correctedClaimId = (fcExec.output as { correctedClaimId: string }).correctedClaimId;
+    let corrected = (await rcmStore.getClaim(T, correctedClaimId))!;
+    // No patch was supplied, so even though the unmodified clone re-scrubs clean, it must not be
+    // auto-advanced to "ready" — that would silently resubmit the exact bill the payer denied.
+    expect(corrected.status).toBe("scrubbed");
+    expect(await rcmStore.findOpenWorkItem(T, (w) => w.queue === "claim-edits" && w.claimId === correctedClaimId)).toBeDefined();
+    // A human now supplies the actual denial-specific correction (here: a corrected diagnosis
+    // linkage for CARC 11) and re-scrubs — the same draft/scrubbed → ready path any edited claim
+    // goes through, and the only real way to close out this work item.
+    corrected = applyClaimPatch(corrected, { diagnoses: [{ code: "M25.561" }] });
+    await rcmStore.upsertClaim(T, corrected);
+    expect(corrected.totalCharge).toBe(orig.totalCharge);
+    const result = scrubClaim(corrected);
+    let next = corrected;
+    if (result.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", "biller", "clean after edit");
+    await rcmStore.upsertClaim(T, next);
+    expect(next.status).toBe("ready");
   });
 
   it("file-corrected-claim and write-off can't both win a race against the same open denial", async () => {
