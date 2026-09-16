@@ -148,12 +148,11 @@ const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   acknowledged: ["pended", "adjudicated", "paid", "partially-paid", "denied", "rejected"],
   rejected: ["draft", "closed"],
   pended: ["adjudicated", "paid", "partially-paid", "denied"],
-  // Both a reversal and a zero-pay posting (a full contractual write-off or full patient
-  // responsibility with nothing denied) map to "adjudicated" — a reversal-and-correction pair
-  // within one ERA where the correction is itself zero-pay would otherwise need the illegal
-  // self-transition adjudicated -> adjudicated and get skipped, exactly like "partially-paid"
-  // needed its own self-transition for staggered installments.
-  adjudicated: ["paid", "partially-paid", "denied", "adjudicated"],
+  // No self-transition. Both a reversal and a zero-pay map to "adjudicated", so allowing
+  // adjudicated -> adjudicated would let a later remittance (different check number) re-post a
+  // takeback or write-off against a claim already sitting there. The legitimate within-ERA
+  // reversal-then-zero-pay pair is allowed by canApplyPosting in remittance.ts instead.
+  adjudicated: ["paid", "partially-paid", "denied"],
   // A takeback/reversal ERA (CLP02 22) unwinds a prior payment and puts the claim back up for
   // adjudication — without this, `claimStatusFromPosting` has no legal transition to land on
   // and the claim silently stays "paid" while the ledger records the refund.

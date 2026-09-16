@@ -1,6 +1,7 @@
 // Stage 10-11: ERA/835 normalization + auto-posting to the ledger, with underpayment detection
 // against the payer contract, take-back/reversal handling, and secondary crossover cues.
 import type { Adjustment, Claim, LedgerEntry, PayerContract, RemitClaim, Remittance } from "./types";
+import { canTransition } from "./claims";
 import { expectedForLines } from "./contracts";
 import { newId, nowIso, round2, sum } from "./util";
 
@@ -241,4 +242,17 @@ export function claimStatusFromPosting(p: Posting): Claim["status"] {
     case "reversal": return "adjudicated";
     case "unmatched": return "adjudicated"; // unreachable via routes.ts, which only calls this when a claim was found
   }
+}
+
+// /remittance/post uses this (not raw canTransition) to decide whether a posting's ledger may
+// write. A reversal-then-zero-pay pair in ONE ERA both map to "adjudicated"; after the reversal
+// updates the local snapshot, the zero-pay correction is a no-op status change that must still
+// post. A later remittance (different check number) hitting an already-adjudicated claim with
+// another reversal or zero-pay is a duplicate — canTransition("adjudicated","adjudicated") is
+// false, and reversedAlreadyThisRemittance is also false — so this returns false and the skip
+// in routes.ts flags it for reconciliation without another refund or contractual/PR write.
+export function canApplyPosting(claimStatus: Claim["status"], posting: Pick<Posting, "status">, reversedAlreadyThisRemittance: boolean): boolean {
+  const to = claimStatusFromPosting(posting);
+  if (reversedAlreadyThisRemittance && posting.status === "zero-pay" && claimStatus === "adjudicated" && to === "adjudicated") return true;
+  return canTransition(claimStatus, to);
 }

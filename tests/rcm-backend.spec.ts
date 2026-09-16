@@ -1,7 +1,7 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
 import { describe, it, expect, beforeEach } from "vitest";
 import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
-import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
+import { parseEra, postRemittance, claimStatusFromPosting, canApplyPosting } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
@@ -1324,11 +1324,20 @@ describe("round 18 hardening", () => {
     // making the payment unretryable).
     expect(canTransition("partially-paid", "partially-paid")).toBe(true);
   });
-  it("claims state machine allows a zero-pay correction to land on 'adjudicated' right after a reversal already did", () => {
-    // Both a reversal and a zero-pay posting (full contractual write-off or full patient
-    // responsibility, nothing denied) map to "adjudicated" — a reversal-and-correction pair
-    // within one ERA where the correction is itself zero-pay needs this self-transition, same as
-    // "partially-paid" needed one for staggered installments.
-    expect(canTransition("adjudicated", "adjudicated")).toBe(true);
+  it("does not allow a blanket adjudicated -> adjudicated self-transition (that would re-post a later reversal or zero-pay)", () => {
+    // Both a reversal and a zero-pay posting map to "adjudicated". A later remittance with a
+    // different check number that is itself another reversal or zero-pay must hit the
+    // canTransition skip in /remittance/post, or it writes a second refund / duplicate
+    // contractual-PR entries. The within-ERA reversal-then-zero-pay pair is allowed by
+    // canApplyPosting instead of a state-machine self-transition.
+    expect(canTransition("adjudicated", "adjudicated")).toBe(false);
+    expect(canApplyPosting("adjudicated", { status: "reversal" }, false)).toBe(false);
+    expect(canApplyPosting("adjudicated", { status: "zero-pay" }, false)).toBe(false);
+  });
+  it("still applies a zero-pay correction in the same ERA after a reversal has already moved the claim to adjudicated", () => {
+    expect(canApplyPosting("paid", { status: "reversal" }, false)).toBe(true);
+    expect(canApplyPosting("adjudicated", { status: "zero-pay" }, true)).toBe(true);
+    // A later remittance's zero-pay (not preceded by a reversal in THAT remittance) stays blocked.
+    expect(canApplyPosting("adjudicated", { status: "zero-pay" }, false)).toBe(false);
   });
 });

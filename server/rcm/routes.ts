@@ -10,7 +10,7 @@ import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge,
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
 import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
-import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
+import { canApplyPosting, claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
@@ -315,6 +315,10 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const created: string[] = [];
     const needsReconciliation: string[] = [];
     let skippedCash = 0;
+    // Claims reversed earlier in THIS remittance. Used so a following zero-pay correction in the
+    // same ERA can still post after the snapshot has moved to "adjudicated", without legalizing
+    // a later remittance that is itself a second reversal or zero-pay against that status.
+    const reversedThisRemittance = new Set<string>();
     for (const p of result.postings) {
       // "unmatched" still carries the real claimId for reconciliation display, but this claim
       // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
@@ -322,7 +326,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       // `entries` empty).
       const claim = p.claimId && p.status !== "unmatched" ? claimsById[p.claimId] : undefined;
       const to = claim ? claimStatusFromPosting(p) : undefined;
-      if (claim && to && !canTransition(claim.status, to)) {
+      if (claim && to && !canApplyPosting(claim.status, p, reversedThisRemittance.has(claim.id))) {
         // A duplicate or erroneous ERA that slipped past the id/check-number idempotency check
         // above (e.g. the same payment resent under a different check number) must not silently
         // inject cash into the ledger for a claim that can't legally receive this outcome from
@@ -338,19 +342,24 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       }
       await rcmStore.postLedger(t, p.entries);
       if (claim && to) {
-        const next = transitionClaim(claim, to, "era-post");
-        await rcmStore.upsertClaim(t, next);
-        // A reversal-and-correction pair (or any other legitimate multi-row sequence for the same
-        // claim) posts as two separate postings within this SAME loop — update the local snapshot
-        // so the correction's `canTransition` check above sees the reversal's own status change
-        // instead of the claim's pre-ERA status. Without this, e.g. a reversal moving a "paid"
-        // claim to "adjudicated" would leave the very next row still reading "paid" from the
-        // stale snapshot, and `canTransition("paid", "paid")` is false — the correction skips
-        // and gets flagged for reconciliation even though it's exactly what should post.
-        claimsById[claim.id] = next;
+        // A within-ERA zero-pay after a reversal is already at "adjudicated" — skip the no-op
+        // transitionClaim (illegal without a self-transition) but still post its ledger above.
+        if (canTransition(claim.status, to)) {
+          const next = transitionClaim(claim, to, "era-post");
+          await rcmStore.upsertClaim(t, next);
+          // A reversal-and-correction pair (or any other legitimate multi-row sequence for the same
+          // claim) posts as two separate postings within this SAME loop — update the local snapshot
+          // so the correction's `canApplyPosting` check above sees the reversal's own status change
+          // instead of the claim's pre-ERA status. Without this, e.g. a reversal moving a "paid"
+          // claim to "adjudicated" would leave the very next row still reading "paid" from the
+          // stale snapshot, and `canTransition("paid", "paid")` is false — the correction skips
+          // and gets flagged for reconciliation even though it's exactly what should post.
+          claimsById[claim.id] = next;
+        }
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
         if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);
+        if (p.status === "reversal") reversedThisRemittance.add(claim.id);
       }
     }
     const denials = (await rcmStore.listDenials(t, "open")).filter((d) => created.includes(d.id));
