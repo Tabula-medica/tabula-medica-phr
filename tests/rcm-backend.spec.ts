@@ -1216,36 +1216,32 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(1);
   });
 
-  it("open-auth-request dedupes against an already-requested auth for the same patient/coverage/CPT/date instead of opening a second one", async () => {
-    await rcmStore.upsertPatient(T, patient);
-    await rcmStore.upsertCoverage(T, coverage);
-    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
-    const input = { patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 };
-    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
-    const first = (await tool.run(input, ctx)) as { authId: string };
-    const second = (await tool.run(input, ctx)) as { authId: string; deduped?: boolean };
-    expect(second.authId).toBe(first.authId);
-    expect(second.deduped).toBe(true);
-    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(1);
-  });
-
-  it("open-auth-request does not drop a genuinely additional unit request just because an existing pending auth for the same key has enough raw units on paper", async () => {
-    // An existing 2-unit pending request whose capacity is already fully spoken for by other
-    // lines (tracked only in plan()'s own per-pass pendingUnitsClaimed, never persisted to the
-    // auth record) must not make open-auth-request think a distinct, smaller incremental need is
-    // already covered — that's exactly the bug in a units >= check.
+  it("open-auth-request never second-guesses plan()'s own decision with a business-state dedup — two sequential calls for the same key each open their own request, whatever their units", async () => {
+    // Two different attempts at a "smart" recheck here (a raw units >= comparison, then an exact
+    // units === match) each wrongly treated a pre-existing pending auth for the same key as
+    // already covering a distinct, genuinely additional need — because a pending auth's capacity
+    // can already be fully spoken for by a different line via plan()'s own pendingUnitsClaimed
+    // accounting, which is pass-local and never persisted to the auth record itself. Nothing at
+    // this tool's level can reliably tell that apart from a true duplicate, so it must not try:
+    // plan() alone is responsible for deciding whether a step is needed at all, and every step
+    // that reaches this tool must actually open a request. The in-process lock (tested separately
+    // above) remains the only protection, and only against true concurrent overlap.
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
     const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
     const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
-    const first = (await tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 2 }, ctx)) as { authId: string };
-    // A later pass determines 1 MORE unit is needed for the same key (its own 2-unit capacity is
-    // already claimed elsewhere) — this must open a real second request, not dedupe against the
-    // first just because its raw units (2) happens to be >= the new call's units (1).
-    const second = (await tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }, ctx)) as { authId: string; deduped?: boolean };
-    expect(second.authId).not.toBe(first.authId);
-    expect(second.deduped).toBeUndefined();
-    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(2);
+    const base = { patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" };
+    // Identical repeated input (same units) — still must not dedupe.
+    const identicalFirst = (await tool.run({ ...base, units: 1 }, ctx)) as { authId: string; deduped?: boolean };
+    const identicalSecond = (await tool.run({ ...base, units: 1 }, ctx)) as { authId: string; deduped?: boolean };
+    expect(identicalSecond.authId).not.toBe(identicalFirst.authId);
+    expect(identicalFirst.deduped).toBeUndefined();
+    expect(identicalSecond.deduped).toBeUndefined();
+    // A different (smaller) incremental need for the same key — must also open its own request.
+    const incremental = (await tool.run({ ...base, units: 2 }, ctx)) as { authId: string; deduped?: boolean };
+    expect([identicalFirst.authId, identicalSecond.authId]).not.toContain(incremental.authId);
+    expect(incremental.deduped).toBeUndefined();
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(3);
   });
 
   it("patient-financial agent advances an old self-pay balance to agency referral instead of resetting to statement-1 every run", async () => {

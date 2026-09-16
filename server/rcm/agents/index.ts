@@ -61,7 +61,8 @@ const eligibilityAgent: AgentDefinition = {
 // request dedup (that check only runs for `requiresApproval` tools) — two concurrent prior-auth
 // runs can each plan an open-auth-request step from the same stale `auths` snapshot before
 // either has written its new request. Close that race the same way denial actions and remittance
-// posting do: a synchronous lock-then-recheck on the request's own identity.
+// posting do: a synchronous, per-request-identity in-process lock (see the tool body for why
+// there is no additional business-state dedup on top of it).
 const openAuthLocks = new Set<string>();
 const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; cpt: string; diagnoses: string[]; dateOfService?: string; units?: number }, unknown> = {
   name: "open-auth-request",
@@ -72,15 +73,17 @@ const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; c
     if (openAuthLocks.has(lockKey)) throw new Error("Another auth request for this patient/coverage/CPT/date is already in flight");
     openAuthLocks.add(lockKey);
     try {
-      // Exact unit match only — plan()'s pendingUnitsClaimed already merges same-pass lines that
-      // fit within an existing pending auth's remaining capacity into a single request, so a step
-      // reaching this tool always represents a genuinely uncovered need. Treating ANY existing
-      // pending auth with units >= this call's as a duplicate (a prior version of this check)
-      // ignores that its capacity may already be fully claimed by other lines outside this call's
-      // knowledge, silently dropping a real incremental request. An exact match is only true for
-      // a second call carrying the identical, not-yet-fulfilled need — i.e. a genuine race/retry.
-      const existing = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).find((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended") && a.units === (input.units ?? 1));
-      if (existing) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
+      // No business-state "is this already covered" recheck here, deliberately — two attempts
+      // (first a raw units >= comparison, then an exact units === match) both wrongly treated a
+      // pre-existing pending auth for the same key as covering THIS call's need, when that auth's
+      // capacity may already be fully spoken for by a different line via plan()'s own
+      // pendingUnitsClaimed accounting, which is pass-local and never persisted — nothing at this
+      // tool's level can reliably tell "an identical concurrent duplicate of MY OWN call" apart
+      // from "a distinct, genuinely additional need that happens to look the same from here". The
+      // lock above already fully closes the concurrency race this was meant to guard (two
+      // overlapping runs can't both create a request for the same key at the same time — the
+      // loser fails closed and gets picked up on the next scheduled pass); it is deliberately the
+      // ONLY protection here.
       const pa = transitionAuth(createAuthRequest(input), "requested", { actor: ctx.actor, note: "Agent-submitted 278 (stub)" });
       await ctx.store.upsertAuth(ctx.tenantId, pa);
       await ctx.store.addWorkItems(ctx.tenantId, itemsFromAuths([pa]));
