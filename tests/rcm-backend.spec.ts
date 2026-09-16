@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
 import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
-import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
+import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, paymentPlanLocks, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
 import { agingByPayer, computeKpis, payerScorecard } from "../server/rcm/analytics";
 import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklists";
@@ -846,6 +846,24 @@ describe("agents", () => {
     await tool.run({ patientId: "pt-plan-dup", amount: 300, months: 6 }, ctx);
     await expect(tool.run({ patientId: "pt-plan-dup", amount: 300, months: 6 }, ctx)).rejects.toThrow(/already has an active payment plan/);
     expect(await rcmStore.listPaymentPlans(T, "pt-plan-dup")).toHaveLength(1);
+  });
+  it("offer-payment-plan and the direct payment-plan route share the same lock, not two independent ones", async () => {
+    // A private lock in each module would let a route-level creation and an offer-payment-plan
+    // tool run for the same patient interleave freely — each passing its own "no active plan"
+    // check before the other's insert lands. Simulate the route already holding the lock (as
+    // POST /patients/:id/payment-plan does before its own check-and-insert) and confirm the tool
+    // sees the very same Set instance as busy, rather than a lock scoped only to agents/index.ts.
+    await rcmStore.upsertPatient(T, { id: "pt-plan-shared", firstName: "Shared", lastName: "Plan", dob: "1990-01-01" });
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const lockKey = `${T}:pt-plan-shared`;
+    paymentPlanLocks.add(lockKey);
+    try {
+      await expect(tool.run({ patientId: "pt-plan-shared", amount: 300, months: 6 }, ctx)).rejects.toThrow(/already in flight/);
+      expect(await rcmStore.listPaymentPlans(T, "pt-plan-shared")).toHaveLength(0);
+    } finally {
+      paymentPlanLocks.delete(lockKey);
+    }
   });
   it("patient-financial agent finds the duplicate payment credit and queues a refund approval", async () => {
     const r = await agentRuntime.run("patient-financial", T);

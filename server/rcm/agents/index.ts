@@ -7,7 +7,7 @@ import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthReq
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
-import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, detectCreditBalances, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
+import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, detectCreditBalances, paymentPlanLocks, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
 import { computeKpis } from "../analytics";
 import { newId, round2, todayIso } from "../util";
@@ -599,13 +599,15 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
     return { amountDue: stmt.amountDue, channel: ptp.recommendedChannel, cycle: stmt.cycle };
   },
 };
-// In-process lock closing the check-then-insert TOCTOU race in run() below: two concurrent runs
-// (a manual trigger overlapping the nightly cycle, or two nightly triggers) could each plan()
-// against the same pre-run snapshot of existingPlans, both see "no active plan" for a patient,
-// and each execute an offer-payment-plan step before either's insert lands — stacking two plans
-// against the same balance. plan()'s own hasActivePlan check can't prevent this by itself since
-// it only ever sees a snapshot taken before either run started.
-const paymentPlanLocks = new Set<string>();
+// Uses the shared paymentPlanLocks lock from patient-financials.ts (also used by the direct
+// POST /patients/:id/payment-plan route) — a lock private to just this tool wouldn't serialize
+// against that route creating a plan for the same patient at the same time. Closes the
+// check-then-insert TOCTOU race in run() below: two concurrent runs (a manual trigger overlapping
+// the nightly cycle, or two nightly triggers) could each plan() against the same pre-run snapshot
+// of existingPlans, both see "no active plan" for a patient, and each execute an
+// offer-payment-plan step before either's insert lands — stacking two plans against the same
+// balance. plan()'s own hasActivePlan check can't prevent this by itself since it only ever sees
+// a snapshot taken before either run started.
 const offerPlan: Tool<{ patientId: string; amount: number; months: number }, unknown> = {
   name: "offer-payment-plan",
   description: "Create a payment plan offer",

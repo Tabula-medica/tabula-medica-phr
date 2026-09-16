@@ -12,7 +12,7 @@ import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
 import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
-import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
+import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, paymentPlanLocks, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
@@ -532,11 +532,12 @@ rcmRouter.post("/denials/:id/status", wrap(async (req, res) => {
 rcmRouter.get("/patients/:id/account", wrap(async (req, res) => { const t = tenantOf(req); const entries = await rcmStore.ledger(t, req.params.id); res.json({ success: true, summary: computeAccount(req.params.id, entries), aging: computeAging(entries), entries }); }));
 rcmRouter.get("/patients/:id/statement", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const cycle = (["1", "2", "3", "final"].includes(String(req.query.cycle)) ? (req.query.cycle === "final" ? "final" : Number(req.query.cycle)) : 1) as 1 | 2 | 3 | "final"; res.json({ success: true, statement: buildStatement(p, await rcmStore.ledger(t, p.id), cycle) }); }));
 rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = tenantOf(req); const p = await rcmStore.getPatient(t, req.params.id); if (!p) return fail(res, 404, "patient not found"); const s = computeAccount(p.id, await rcmStore.ledger(t, p.id)); const fpl = p.annualHouseholdIncome !== undefined && p.householdSize ? fplPercent(p.annualHouseholdIncome, p.householdSize) : undefined; res.json({ success: true, propensity: propensityToPay({ balance: s.patientBalance, priorStatementsPaidOnTime: req.body?.paidOnTime ?? 0, priorStatementsLate: req.body?.late ?? 0, hasCardOnFile: !!req.body?.hasCardOnFile, fplPct: fpl }), fplPct: fpl, slidingFee: fpl !== undefined ? slidingFeeDiscount(fpl) : undefined }); }));
-// In-process lock closing the check-then-insert TOCTOU race below: the balance/active-plan
-// checks and the eventual upsertPaymentPlan are separated by `await`s a second concurrent
-// request for the same patient could slip through, both reading "no active plan" and each
-// creating its own schedule against the same balance.
-const paymentPlanLocks = new Set<string>();
+// Uses the shared paymentPlanLocks lock from patient-financials.ts (also used by the
+// offer-payment-plan agent tool) — a lock private to just this route wouldn't serialize against
+// that tool creating a plan for the same patient at the same time. Closes the check-then-insert
+// TOCTOU below: the balance/active-plan checks and the eventual upsertPaymentPlan are separated
+// by `await`s a second concurrent request could slip through, both reading "no active plan" and
+// each creating its own schedule against the same balance.
 rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
   const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: z.string().optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);

@@ -114,6 +114,15 @@ export function propensityToPay(input: { balance: number; priorStatementsPaidOnT
 
 export interface PaymentPlan { id: string; patientId: string; total: number; installment: number; months: number; startDate: string; schedule: Array<{ dueDate: string; amount: number; status: "scheduled" | "paid" | "missed" }>; autoPay: boolean }
 
+// Shared in-process lock, keyed `${tenantId}:${patientId}`, for every entry point that can create
+// a payment plan for a patient: the offer-payment-plan agent tool and the direct
+// POST /patients/:id/payment-plan route. A plan can be created from either one, so a lock private
+// to just one of those modules (as each originally had) doesn't serialize the other — both could
+// pass their own "no active plan" check and each insert a schedule before either's write lands.
+// Exported from here, rather than declared separately in routes.ts/agents/index.ts, specifically
+// so both share the same Set instance.
+export const paymentPlanLocks = new Set<string>();
+
 export function createPaymentPlan(patientId: string, total: number, months: number, startDate: string = todayIso(), autoPay = false, minInstallment = 25): PaymentPlan {
   const m = Math.max(1, Math.min(months, Math.floor(total / minInstallment) || 1));
   const installment = round2(total / m);
