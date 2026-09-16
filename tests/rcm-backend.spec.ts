@@ -1181,5 +1181,8 @@ describe("round 18 hardening", () => {
   it("claims state machine allows a partially-paid claim to complete to paid or resolve to denied via a later ERA", () => {
     expect(canTransition("partially-paid", "paid")).toBe(true);
     expect(canTransition("partially-paid", "denied")).toBe(true);
+    // A second check that itself remains partial must also be legal, or /remittance/post skips
+    // ledger posting and then records the ERA so the same payment cannot be retried.
+    expect(canTransition("partially-paid", "partially-paid")).toBe(true);
   });
 });

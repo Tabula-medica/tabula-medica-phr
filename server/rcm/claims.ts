@@ -153,10 +153,10 @@ const TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   // adjudication — without this, `claimStatusFromPosting` has no legal transition to land on
   // and the claim silently stays "paid" while the ledger records the refund.
   paid: ["closed", "appealed", "adjudicated"],
-  // A second (or later) ERA can pay the remainder of a partially-paid claim to completion, or
-  // deny what's left outstanding — without "paid"/"denied" here, a legitimate multi-ERA claim
-  // lifecycle would get silently stuck at "partially-paid" forever once the balance resolves.
-  "partially-paid": ["appealed", "closed", "adjudicated", "paid", "denied"],
+  // A later ERA can pay more of a remaining balance (still partial), complete the claim to
+  // paid, or deny what's left — without those targets, staggered remittances would be rejected
+  // by the /remittance/post canTransition gate and never post cash.
+  "partially-paid": ["appealed", "closed", "adjudicated", "paid", "denied", "partially-paid"],
   denied: ["appealed", "draft", "closed"],
   appealed: ["paid", "partially-paid", "denied", "closed"],
   closed: [],
