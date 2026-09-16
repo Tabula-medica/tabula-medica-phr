@@ -1095,7 +1095,7 @@ describe("round 11 hardening", () => {
     await rcmStore.upsertCoverage(T, coverage);
     const orig = mkClaim();
     await rcmStore.upsertClaim(T, orig);
-    await rcmStore.upsertDenial(T, { id: "den-fc-1", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    await rcmStore.upsertDenial(T, { id: "den-fc-1", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
     const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-1", amount: 300 }, reason: "test" });
     await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
     const fcExec = await agentRuntime.executeApproved(T, fcApproval.id, "biller");
@@ -1120,7 +1120,7 @@ describe("round 11 hardening", () => {
     await rcmStore.upsertCoverage(T, coverage);
     const orig = mkClaim();
     await rcmStore.upsertClaim(T, orig);
-    await rcmStore.upsertDenial(T, { id: "den-race-2", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    await rcmStore.upsertDenial(T, { id: "den-race-2", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
     const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-race-2", amount: 300 }, reason: "test" });
     const woApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-race-2", patientId: patient.id, amount: 300, reason: "test" }, reason: "test" });
     await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");

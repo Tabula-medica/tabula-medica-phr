@@ -255,7 +255,20 @@ rcmRouter.post("/claims/:id/transition", wrap(async (req, res) => {
   if (p.data.to === "closed" && (claim.status === "denied" || claim.status === "appealed")) return fail(res, 409, `Cannot close a claim directly out of "${claim.status}" — resolve it via write-off, a corrected claim, or the denial's actual payer outcome first`);
   try { res.json({ success: true, claim: await rcmStore.upsertClaim(t, transitionClaim(claim, p.data.to as Claim["status"], actorOf(req), p.data.note)) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
-rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => { const t = tenantOf(req); const c = await rcmStore.getClaim(t, req.params.id); if (!c) return fail(res, 404, "claim not found"); const p = await rcmStore.getPatient(t, c.patientId); const cov = await rcmStore.getCoverage(t, c.coverageId); if (!p || !cov) return fail(res, 404, "patient/coverage missing"); res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) }); }));
+rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => {
+  const t = tenantOf(req);
+  const c = await rcmStore.getClaim(t, req.params.id);
+  if (!c) return fail(res, 404, "claim not found");
+  const p = await rcmStore.getPatient(t, c.patientId);
+  const cov = await rcmStore.getCoverage(t, c.coverageId);
+  if (!p || !cov) return fail(res, 404, "patient/coverage missing");
+  // /coverage can upsert (replace) an existing record by id — if the coverage this claim points
+  // to was since replaced with a different patient's or payer's data, mapping it here without
+  // this check would emit an 837P/CMS-1500 mixing this claim's patientId/payerId with another
+  // patient's subscriber data or another payer's member data.
+  if (cov.patientId !== c.patientId || cov.payerId !== c.payerId) return fail(res, 409, "coverage on file no longer matches this claim's patient/payer — re-verify before exporting");
+  res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) });
+}));
 // Frequency-7 (replacement)/8 (void) only make sense once the original actually reached the
 // payer — that's the entire premise of "correcting"/"voiding" a prior submission. A claim still
 // pre-submission (draft/scrubbed/ready) or front-end-rejected (never accepted into adjudication,

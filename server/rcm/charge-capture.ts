@@ -59,8 +59,14 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
   const allDx = facts.diagnoses.map((_, i) => i + 1).slice(0, 4);
   const primaryDx = allDx.length ? [1] : [];
   const out: ServiceLine[] = [];
-  const procedures = Array.from(new Set([...facts.proceduresDocumented, ...facts.ordersCompleted].map((c) => c.toUpperCase()))).filter(isValidCpt);
-  const hasProcedure = procedures.some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));
+  // Count occurrences per CPT rather than deduping into a Set — an encounter can document the
+  // same procedure more than once (e.g. two separate injections), and collapsing those to a
+  // single instance would underbill by dropping the extra units.
+  const procedureCounts = new Map<string, number>();
+  for (const c of [...facts.proceduresDocumented, ...facts.ordersCompleted].map((c) => c.toUpperCase())) {
+    if (isValidCpt(c)) procedureCounts.set(c, (procedureCounts.get(c) ?? 0) + 1);
+  }
+  const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));
 
   if (facts.emLevel) {
     const mods: string[] = [];
@@ -69,7 +75,7 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
     out.push(line(emCodeFor(facts.emLevel, facts.newPatient), facts, cm, allDx.length ? allDx : primaryDx, mods));
     if (facts.visitComplexityAddOn && !facts.newPatient) out.push(line("G2211", facts, cm, primaryDx));
   }
-  for (const p of procedures) out.push(line(p, facts, cm, primaryDx));
+  for (const [p, units] of Array.from(procedureCounts)) out.push(line(p, facts, cm, primaryDx, [], units));
   if (facts.vaccinesGiven > 0) {
     out.push(line("90471", facts, cm, primaryDx));
     if (facts.vaccinesGiven > 1) out.push(line("90472", facts, cm, primaryDx, [], facts.vaccinesGiven - 1));
