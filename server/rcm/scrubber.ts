@@ -70,7 +70,9 @@ const rules: Record<string, Rule> = {
   // Not autoFixable: guessing diagnosis 1 for a missing/invalid pointer can link a service to
   // a diagnosis it has nothing to do with, which is a medical-necessity/coding decision only a
   // provider or coder can make — never something to silently apply and submit.
-  "unlinked-service-line": (c) => c.lines.flatMap((l, i) => (l.dxPointers.length === 0 || l.dxPointers.some((p) => p < 1 || p > c.diagnoses.length || p > 12) ? [{ id: "unlinked-service-line", category: "required-field", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: diagnosis pointer missing or out of range`, fix: "Link the line to 1-4 valid diagnosis pointers (box 24E)" }] : [])),
+  // CMS-1500 box 24E has room for exactly 4 diagnosis-pointer letters (A-D) — both the per-line
+  // count and each individual pointer must respect that, not the claim's own 12-diagnosis cap.
+  "unlinked-service-line": (c) => c.lines.flatMap((l, i) => (l.dxPointers.length === 0 || l.dxPointers.length > 4 || l.dxPointers.some((p) => p < 1 || p > c.diagnoses.length || p > 4) ? [{ id: "unlinked-service-line", category: "required-field", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: diagnosis pointer missing or out of range`, fix: "Link the line to 1-4 valid diagnosis pointers (box 24E)" }] : [])),
   "pos-format": (c) => c.lines.flatMap((l, i) => (!PLACE_OF_SERVICE[l.placeOfService] ? [{ id: "pos-format", category: "format", severity: "error" as const, lineNumber: i + 1, message: `Line ${i + 1}: unknown place of service ${l.placeOfService}`, fix: "Use a valid 2-digit POS (11 office, 10 telehealth home…)" }] : [])),
   "dos-in-future": (c, ctx) => {
     const today = ctx.today ?? new Date().toISOString().slice(0, 10);
@@ -155,7 +157,10 @@ const rules: Record<string, Rule> = {
     return [];
   },
   "duplicate-claim": (c, ctx) => {
-    const dup = (ctx.priorClaimsSameDos ?? []).find((p) => p.id !== c.id && p.patientId === c.patientId && p.status !== "closed" && p.lines.some((pl) => c.lines.some((l) => l.cpt === pl.cpt && l.dateOfService === pl.dateOfService)));
+    // Scope to the same payer/coverage (a legitimate secondary claim to a different payer for
+    // the same visit isn't a duplicate) and exclude the very claim this one replaces/voids — a
+    // frequency-7/8 claim always legitimately overlaps its own originalClaimId.
+    const dup = (ctx.priorClaimsSameDos ?? []).find((p) => p.id !== c.id && p.id !== c.originalClaimId && p.patientId === c.patientId && p.payerId === c.payerId && p.coverageId === c.coverageId && p.status !== "closed" && p.lines.some((pl) => c.lines.some((l) => l.cpt === pl.cpt && l.dateOfService === pl.dateOfService)));
     return dup ? [{ id: "duplicate-claim", category: "frequency", severity: "error", message: `Overlaps existing claim ${dup.id} (${dup.status})`, fix: "Send as corrected claim (frequency 7) referencing the original, or cancel" }] : [];
   },
   "total-mismatch": (c) => { const t = Math.round(c.lines.reduce((s, l) => s + l.charge, 0) * 100) / 100; return Math.abs(t - c.totalCharge) > 0.01 ? [{ id: "total-mismatch", category: "format", severity: "error", message: `Total charge ${c.totalCharge} ≠ sum of lines ${t}`, fix: "Recalculate box 28", autoFixable: true }] : []; },

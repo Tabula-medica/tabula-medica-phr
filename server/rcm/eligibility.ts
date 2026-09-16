@@ -70,6 +70,16 @@ export const stubEligibilityVendor: EligibilityVendor = {
   },
 };
 
+// Vendor 271 payloads spell network status inconsistently ("OON", "out_of_network", "Tier 1",
+// etc.) — whitelist the values we actually understand instead of casting an arbitrary vendor
+// string into our 3-value type, which would silently bypass the out-of-network NSA notice.
+function normalizeNetworkStatus(raw: string | undefined): BenefitSnapshot["networkStatus"] {
+  const v = (raw ?? "").trim().toLowerCase().replace(/[\s_-]+/g, "-");
+  if (["in-network", "innetwork", "in", "participating", "par"].includes(v)) return "in-network";
+  if (["out-of-network", "outofnetwork", "oon", "out", "non-participating", "nonpar"].includes(v)) return "out-of-network";
+  return "unknown";
+}
+
 // Defensive 271 normalizer for clearinghouse JSON (Claim.MD-style keys with fallbacks).
 export function parse271(raw: unknown): BenefitSnapshot {
   const r = (raw ?? {}) as Record<string, unknown>;
@@ -101,7 +111,7 @@ export function parse271(raw: unknown): BenefitSnapshot {
     oopMaxRemaining: num(pick("oop_remaining", "out_of_pocket_remaining")),
     requiresReferral: typeof r.requires_referral === "boolean" ? r.requires_referral : undefined,
     pcpName: str(pick("pcp", "pcp_name")),
-    networkStatus: (str(pick("network", "network_status")) as BenefitSnapshot["networkStatus"]) ?? "unknown",
+    networkStatus: normalizeNetworkStatus(str(pick("network", "network_status"))),
     checkedAt: new Date().toISOString(),
     source: "clearinghouse",
     raw,

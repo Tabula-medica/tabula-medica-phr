@@ -71,7 +71,9 @@ export function isValidNpi(npi: string): boolean {
 }
 
 export function isValidIcd10(code: string): boolean {
-  return /^[A-TV-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$/.test(code.toUpperCase());
+  // The leading-letter range must include U — CDC-added provisional codes (U07.1 COVID-19,
+  // U09.9 post-COVID condition) are valid, billable ICD-10-CM codes.
+  return /^[A-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$/.test(code.toUpperCase());
 }
 
 export function isValidCpt(code: string): boolean {

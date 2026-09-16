@@ -192,6 +192,15 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
   const priorAuthNumber = patch.priorAuthNumber ?? original.priorAuthNumber;
   const referralNumber = patch.referralNumber ?? original.referralNumber;
   const placeOfService = patch.placeOfService ?? original.placeOfService;
+  // Re-derive the deadline from the (possibly patched) lines' own date of service — spreading
+  // `...original` alone would carry over a deadline computed for the OLD date of service if the
+  // patch changed it, scrubbing the replacement claim against the wrong window. Reuse the same
+  // day-count the original claim was given (from a payer contract or coverage override we don't
+  // have direct access to here) rather than re-deriving from a generic default.
+  const originalDos = original.lines[0]?.dateOfService;
+  const timelyFilingDays = originalDos && original.timelyFilingDeadline ? daysBetween(originalDos, original.timelyFilingDeadline) : 90;
+  const newDos = lines[0]?.dateOfService;
+  const timelyFilingDeadline = newDos ? addDays(newDos, timelyFilingDays) : original.timelyFilingDeadline;
   return {
     ...original,
     id: newId("clm"),
@@ -200,6 +209,7 @@ export function correctedClaim(original: Claim, patch: Partial<Pick<Claim, "diag
     priorAuthNumber,
     referralNumber,
     placeOfService,
+    timelyFilingDeadline,
     totalCharge: sum(lines.map((l) => l.charge)),
     status: "draft",
     frequencyCode: kind,

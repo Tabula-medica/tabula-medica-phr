@@ -143,7 +143,7 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     const auths = await ctx.store.listAuths(ctx.tenantId);
     // applyAutoFixes never touches priorAuthNumber, so the same validated flag holds for both
     // the pre-fix and post-fix scrub passes.
-    const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.lines, auths);
+    const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.payerId, claim.lines, auths);
     const first = scrubClaim(claim, { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
     await ctx.store.recordScrub(ctx.tenantId, first.clean);
     const fixed = applyAutoFixes(claim, first.edits);
@@ -263,7 +263,7 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
     const draft = correctedClaim(orig, {});
     const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
     const auths = await ctx.store.listAuths(ctx.tenantId);
-    const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.lines, auths);
+    const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.payerId, draft.lines, auths);
     const scrubCtx = { patient, coverage, authRequiredCpts, authorizedCpts };
     const first = scrubClaim(draft, scrubCtx);
     const fixed = applyAutoFixes(draft, first.edits);
@@ -402,7 +402,17 @@ const smallBalanceWriteOff: Tool<{ patientId: string; amount: number }, unknown>
   description: "Write off balances under the policy threshold",
   requiresApproval: true,
   approvalReason: "adjustment forgives a patient receivable",
-  async run(input, ctx) { await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount: input.amount, date: todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]); return { writtenOff: input.amount }; },
+  async run(input, ctx) {
+    // Recompute the balance at execution, same as issue-refund — a payment or another
+    // adjustment can land between planning and approval, and posting the stale planned amount
+    // could write off more than the patient actually still owes.
+    const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
+    const currentBalance = computeAccount(input.patientId, entries).patientBalance;
+    if (currentBalance <= 0) throw new Error("no patient balance remains to write off");
+    const amount = round2(Math.min(input.amount, currentBalance));
+    await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount, date: todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]);
+    return { writtenOff: amount };
+  },
 };
 const patientFinancialAgent: AgentDefinition = {
   name: "patient-financial",

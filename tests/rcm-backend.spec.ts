@@ -11,8 +11,9 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
 import { authCoversService, authorizedCptsOnFile, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
 import { scrubClaim } from "../server/rcm/scrubber";
-import { estimatePatientResponsibility } from "../server/rcm/eligibility";
+import { estimatePatientResponsibility, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
+import { isValidIcd10 } from "../server/rcm/util";
 import { agentRuntime } from "../server/rcm/agents";
 import { rcmStore } from "../server/rcm/store";
 import { seedDemoTenant } from "../server/rcm/demo-seed";
@@ -416,6 +417,15 @@ describe("agents", () => {
     expect(r.steps.filter((s) => s.outcome === "ok")).toHaveLength(8);
     expect((await rcmStore.listClaims(T)).map((c) => c.status)).toEqual(before);
   });
+  it("agent runtime stops executing further steps once a nested run-agent call has exhausted the shared budget", async () => {
+    // Budget 2: the top-level plan is sliced to its first 2 "run-agent" steps. The first one's
+    // nested child run consumes the (shared) budget down to 0 before the parent loop reaches its
+    // second step — that second step must be blocked, not executed anyway.
+    const r = await agentRuntime.run("rcm-orchestrator", T, {}, { budget: { remaining: 2 } });
+    const runAgentSteps = r.steps.filter((s) => s.tool === "run-agent");
+    expect(runAgentSteps).toHaveLength(2);
+    expect(runAgentSteps[1].outcome).toBe("blocked");
+  });
   it("payment plans are persisted, not just returned once and forgotten", async () => {
     const plan = await rcmStore.upsertPaymentPlan(T, createPaymentPlan("pt-demo-1", 300, 6));
     expect((await rcmStore.listPaymentPlans(T, "pt-demo-1"))[0]?.id).toBe(plan.id);
@@ -454,6 +464,21 @@ describe("agents", () => {
     const exec = await agentRuntime.executeApproved(T, refundStep.approvalId!, "biller");
     expect(exec.ok).toBe(true);
     expect((exec.output as { refunded: number }).refunded).toBe(60);
+  });
+  it("small-balance write-off recomputes the balance at execution time and blocks once it's already been paid", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-small-bal", firstName: "Small", lastName: "Bal", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-sb-1", patientId: "pt-small-bal", type: "charge", amount: 4, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "led-sb-2", patientId: "pt-small-bal", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" },
+    ]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const step = r.steps.find((s) => s.tool === "small-balance-write-off" && s.input.patientId === "pt-small-bal")!;
+    expect(step.outcome).toBe("needs-approval");
+    await rcmStore.decideApproval(T, step.approvalId!, "approved", "biller");
+    // The patient pays it off between planning and approval.
+    await rcmStore.postLedger(T, [{ id: "led-sb-3", patientId: "pt-small-bal", type: "patient-payment", amount: 4, date: "2026-08-10", responsibleParty: "patient" }]);
+    const exec = await agentRuntime.executeApproved(T, step.approvalId!, "biller");
+    expect(exec.ok).toBe(false); // must not write off a balance that's already gone
   });
   it("re-planning the same still-unresolved state does not queue a second, distinct approval for the same money-moving action", async () => {
     // patient-financial's duplicate-credit refund keeps being re-detected on every plan() call
@@ -532,12 +557,16 @@ describe("round 4 hardening", () => {
     const auths = [{ ...transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" }) }];
     const approved = transitionAuth(auths[0], "approved", { actor: "t", authNumber: "AUTH999", validFrom: "2026-01-01", validTo: "2026-12-31" });
     const line = { cpt: "70450", dateOfService: "2026-09-01", units: 1 };
-    expect(authorizedCptsOnFile("MADE-UP-NUMBER", "p1", "c1", [line], [approved])).toEqual([]);
-    expect(authorizedCptsOnFile(undefined, "p1", "c1", [line], [approved])).toEqual([]);
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [line], [approved])).toEqual(["70450"]);
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [{ ...line, cpt: "72148" }], [approved])).toEqual([]); // wrong CPT
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c2", [line], [approved])).toEqual([]); // wrong coverage
-    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", [{ ...line, dateOfService: "2027-01-15" }], [approved])).toEqual([]); // outside validTo
+    expect(authorizedCptsOnFile("MADE-UP-NUMBER", "p1", "c1", "BCBS", [line], [approved])).toEqual([]);
+    expect(authorizedCptsOnFile(undefined, "p1", "c1", "BCBS", [line], [approved])).toEqual([]);
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", "BCBS", [line], [approved])).toEqual(["70450"]);
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", "BCBS", [{ ...line, cpt: "72148" }], [approved])).toEqual([]); // wrong CPT
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c2", "BCBS", [line], [approved])).toEqual([]); // wrong coverage
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", "AETNA", [line], [approved])).toEqual([]); // wrong payer
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", "BCBS", [{ ...line, dateOfService: "2027-01-15" }], [approved])).toEqual([]); // outside validTo
+    // A leftover expired row sharing the same auth number must not shadow a later valid one.
+    const expired = { ...approved, id: "pa-expired", status: "expired" as const, validTo: "2026-06-30" };
+    expect(authorizedCptsOnFile("AUTH999", "p1", "c1", "BCBS", [line], [expired, approved])).toEqual(["70450"]);
   });
   it("scrubber's auth-missing rule clears per-CPT, not the whole claim, and normalizes CPT case", () => {
     const claim = { ...mkClaim(), priorAuthNumber: "SOME-STRING" };
@@ -599,6 +628,12 @@ describe("round 4 hardening", () => {
     const corr = correctedClaim(c, { diagnoses: tooMany });
     expect(corr.diagnoses).toHaveLength(12);
   });
+  it("correctedClaim recomputes the timely-filing deadline when a patched line changes the date of service", () => {
+    const c = mkClaim(); // timelyFilingDeadline "2026-09-29" (90 days from 2026-07-01)
+    const patchedLines = c.lines.map((l) => ({ ...l, dateOfService: "2026-08-01" }));
+    const corr = correctedClaim(c, { lines: patchedLines });
+    expect(corr.timelyFilingDeadline).toBe("2026-10-30"); // same 90-day window, anchored to the new DOS
+  });
   it("coding: em.code accepts real E/M levels and the documented hint pattern, rejects garbage", () => {
     const garbage = parseCodingSuggestion(JSON.stringify({ em: { code: "BAD", rationale: "x" }, icd: [], cptSuggestions: [], queries: [] }), "test");
     expect(garbage.em.code).toBe("");
@@ -626,5 +661,56 @@ describe("round 4 hardening", () => {
     const s = computeAccount("p9", selfPay);
     expect(s.patientBalance).toBe(200);
     expect(s.insuranceBalance).toBe(0);
+  });
+});
+
+describe("round 7 hardening", () => {
+  it("isValidIcd10 accepts U-category codes (COVID-19 provisional codes)", () => {
+    expect(isValidIcd10("U07.1")).toBe(true);
+    expect(isValidIcd10("U09.9")).toBe(true);
+    expect(isValidIcd10("A00.0")).toBe(true); // still accepts an ordinary code
+  });
+  it("scrubber's unlinked-service-line rule caps diagnosis pointers at 4 (box 24E), not the claim's 12-diagnosis limit", () => {
+    const c = mkClaim();
+    const tooManyPointers = { ...c, lines: [{ ...c.lines[0], dxPointers: [1, 1, 1, 1, 1] }] }; // 5 pointers
+    const result = scrubClaim(tooManyPointers);
+    expect(result.edits.some((e) => e.id === "unlinked-service-line")).toBe(true);
+  });
+  it("computeKpis floors total A/R at zero instead of going negative on an overpaid account", () => {
+    const kpis = computeKpis({ claims: [], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "patient" }, { id: "2", patientId: "p1", type: "patient-payment", amount: 250, date: "2026-08-02", responsibleParty: "patient" }], remittances: [] });
+    const ar = kpis.find((k) => k.key === "total_ar")!;
+    expect(ar.value).toBe(0); // not -150
+  });
+  it("reopening a denied/expired auth clears its stale authNumber and validity window", () => {
+    const approved = transitionAuth(transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" }), "approved", { actor: "t", authNumber: "AUTH-OLD", validFrom: "2026-01-01", validTo: "2026-03-31" });
+    const expired = transitionAuth(approved, "expired", { actor: "t" });
+    const reopened = transitionAuth(expired, "requested", { actor: "t" });
+    expect(reopened.authNumber).toBeUndefined();
+    expect(reopened.validFrom).toBeUndefined();
+    expect(reopened.validTo).toBeUndefined();
+    // A later approval that forgets to supply a fresh number must not silently inherit "AUTH-OLD".
+    const reapproved = transitionAuth(reopened, "approved", { actor: "t" });
+    expect(reapproved.authNumber).toBeUndefined();
+  });
+  it("parse271 normalizes vendor network-status aliases instead of passing through an arbitrary string", () => {
+    expect(parse271({ network_status: "OON" }).networkStatus).toBe("out-of-network");
+    expect(parse271({ network: "in_network" }).networkStatus).toBe("in-network");
+    expect(parse271({ network_status: "Tier 1" }).networkStatus).toBe("unknown"); // not a status we understand — never silently treated as in-network
+  });
+  it("scrubber's duplicate-claim rule excludes the claim's own original (corrected-claim linkage) and scopes to the same payer/coverage", () => {
+    const original = mkClaim();
+    const corrected = correctedClaim(original, {});
+    // The corrected claim legitimately overlaps its own original — must not flag as a duplicate.
+    const resultVsOwnOriginal = scrubClaim(corrected, { priorClaimsSameDos: [original] });
+    expect(resultVsOwnOriginal.edits.some((e) => e.id === "duplicate-claim")).toBe(false);
+    // A claim to a DIFFERENT payer/coverage for the same visit (e.g. a legitimate secondary) must
+    // not be flagged either.
+    const otherPayerClaim = { ...mkClaim(), id: "other-payer-claim", payerId: "AETNA", coverageId: "c-aetna" };
+    const resultVsOtherPayer = scrubClaim(original, { priorClaimsSameDos: [otherPayerClaim] });
+    expect(resultVsOtherPayer.edits.some((e) => e.id === "duplicate-claim")).toBe(false);
+    // But an unrelated claim for the SAME payer/coverage/CPT/date is still a real duplicate.
+    const realDup = { ...mkClaim(), id: "real-dup" };
+    const resultVsRealDup = scrubClaim(original, { priorClaimsSameDos: [realDup] });
+    expect(resultVsRealDup.edits.some((e) => e.id === "duplicate-claim")).toBe(true);
   });
 });

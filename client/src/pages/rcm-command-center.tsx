@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, AlertTriangle, Bot, CheckCircle2, DollarSign, FileWarning, Mic, Play, RefreshCw, ShieldCheck, Sparkles, Stethoscope } from "lucide-react";
+import { Activity, AlertTriangle, Bot, CheckCircle2, DollarSign, FileWarning, Play, RefreshCw, ShieldCheck, Sparkles, Stethoscope } from "lucide-react";
 
 interface Kpi { key: string; name: string; value: number; unit: "days" | "pct" | "usd" | "count"; target: number; status: "good" | "warning" | "critical"; definition: string }
 interface WorkItem { id: string; queue: string; title: string; amount?: number; priority: number; dueAt?: string; status: string; source: string; context?: Record<string, unknown> }
@@ -15,11 +15,6 @@ interface Denial { id: string; claimId: string; carc: string; rarc?: string; cat
 interface Approval { id: string; agent: string; action: string; reason: string; status: string; payload: Record<string, unknown>; createdAt: string; executedAt?: string }
 interface AgentInfo { name: string; description: string; tools: Array<{ name: string; requiresApproval: boolean }> }
 interface AgentRun { agent: string; summary: string; approvalsRequested: number; steps: Array<{ tool: string; why: string; outcome: string }> }
-
-// Minimal browser SpeechRecognition typing (not in lib.dom for all TS targets). Used only for
-// short command phrases on this page; encounter audio goes through server-side GCP medical STT.
-interface MinimalSpeechRecognition { lang: string; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; start(): void }
-type SpeechRecognitionCtor = new () => MinimalSpeechRecognition;
 
 function fmt(k: Kpi): string {
   if (k.unit === "usd") return `$${k.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -56,16 +51,6 @@ export default function RcmCommandCenter() {
   const headline = useMemo(() => (kpis.data?.kpis ?? []).filter((k) => ["days_in_ar", "clean_claim_rate", "denial_rate", "net_collection_rate", "ar_over_90", "total_ar"].includes(k.key)), [kpis.data]);
   const queues = Object.entries(worklist.data?.summary ?? {});
 
-  const startDictation = () => {
-    const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
-    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!SR) { toast({ title: "Voice not available", description: "Type the command instead; server-side GCP medical STT is used for encounter audio.", variant: "destructive" }); return; }
-    const rec = new SR();
-    rec.lang = "en-US";
-    rec.onresult = (e) => { const t = e.results[0][0].transcript; setVoice(t); voiceCmd.mutate(t); };
-    rec.start();
-  };
-
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto" data-testid="rcm-command-center">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -81,7 +66,11 @@ export default function RcmCommandCenter() {
 
       <Card>
         <CardContent className="pt-4 flex flex-col md:flex-row gap-2 md:items-center">
-          <Button variant="secondary" onClick={startDictation} data-testid="button-voice"><Mic className="h-4 w-4 mr-1" /> Speak</Button>
+          {/* Typed commands only — no client-side speech-to-text. Browser SpeechRecognition
+              ships audio to the browser vendor's own (non-BAA) cloud STT service, which is not
+              an acceptable path for anything that can carry PHI (diagnosis codes, patient names
+              in eligibility/billing phrases). Voice input will return once it's wired through the
+              app's BAA-covered server-side STT instead. */}
           <Input value={voice} onChange={(e) => setVoice(e.target.value)} placeholder='Try: "add 99214 with modifier 25, diagnosis E11 point 9" · "open the denials queue" · "what are our days in AR" · "run the denials agent"' onKeyDown={(e) => { if (e.key === "Enter" && voice.trim()) voiceCmd.mutate(voice); }} data-testid="input-voice" />
           <Button onClick={() => voice.trim() && voiceCmd.mutate(voice)} disabled={voiceCmd.isPending} data-testid="button-voice-send">Send</Button>
         </CardContent>

@@ -49,7 +49,10 @@ export function computeKpis(i: KpiInputs): Kpi[] {
   const writeOffs = sum(i.ledger.filter((e) => e.type === "write-off" || e.type === "denial-adjustment").map((e) => e.amount));
   const refunds = sum(i.ledger.filter((e) => e.type === "refund").map((e) => e.amount));
   const collected = round2(insurancePaid + patientPaid - refunds);
-  const ar = round2(charges - collected - contractual - writeOffs);
+  // An overpaid/duplicate-payment account can make this go negative before its credit is
+  // refunded — that's a credit balance (tracked separately), not negative open receivables, so
+  // it must not pull the whole practice's A/R KPI below zero.
+  const ar = Math.max(0, round2(charges - collected - contractual - writeOffs));
   const avgDailyCharges = charges / Math.max(1, period);
   const daysInAr = avgDailyCharges > 0 ? round2(ar / avgDailyCharges) : 0;
   const aging = computeAging(i.ledger, today);

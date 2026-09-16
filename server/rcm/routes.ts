@@ -193,7 +193,7 @@ rcmRouter.post("/claims/:id/scrub", wrap(async (req, res) => {
   // default Medicare contract) can still have default-rule codes like 72148 that need auth.
   const authRequiredCpts = claim.lines.filter((l) => requiresPriorAuth(l.cpt, contract).required).map((l) => l.cpt);
   const auths = await rcmStore.listAuths(t);
-  const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.lines, auths);
+  const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.payerId, claim.lines, auths);
   const ctx = { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others };
   const result = scrubClaim(claim, ctx);
   await rcmStore.recordScrub(t, result.clean);
@@ -325,33 +325,52 @@ rcmRouter.post("/patients/:id/gfe", wrap(async (req, res) => { const p = z.objec
 // approval-gated agent tools (issue-refund, write-off, small-balance-write-off) instead of a
 // raw client-supplied post.
 const directLedgerTypes = ["charge", "insurance-payment", "patient-payment", "contractual-adjustment", "transfer-to-patient"] as const;
+// insurance-payment/contractual-adjustment only ever settle the insurance side, and
+// patient-payment/transfer-to-patient only ever settle the patient side — the type itself
+// determines responsibleParty for these, so an omitted field can't silently default to the
+// wrong side of computeAccount's split (the Zod schema's own "patient" default is only actually
+// ambiguous for "charge", which can legitimately be either self-pay or insurance-billed).
+const impliedLedgerParty: Partial<Record<(typeof directLedgerTypes)[number], "insurance" | "patient">> = { "insurance-payment": "insurance", "contractual-adjustment": "insurance", "patient-payment": "patient", "transfer-to-patient": "patient" };
+// In-process lock closing the same check-then-append TOCTOU race as remittance posting: two
+// concurrent retries carrying the same caller-supplied id could both pass the "not yet posted"
+// check (separated from it by several awaits) before either finishes appending.
+const ledgerPostInFlight = new Set<string>();
 rcmRouter.post("/ledger", wrap(async (req, res) => {
   const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
-  // Even the allowed direct-posting types must reference a real patient (and, if given, a real
-  // claim actually belonging to that patient) — otherwise this can fabricate A/R against ids
-  // that don't exist or cross-link a payment to the wrong patient's claim.
-  for (const e of p.data) {
-    if (!(await rcmStore.getPatient(t, e.patientId))) return fail(res, 404, `patient ${e.patientId} not found`);
-    if (e.claimId) {
-      const claim = await rcmStore.getClaim(t, e.claimId);
-      if (!claim) return fail(res, 404, `claim ${e.claimId} not found`);
-      if (claim.patientId !== e.patientId) return fail(res, 400, `claim ${e.claimId} does not belong to patient ${e.patientId}`);
-    }
-  }
-  // A caller-supplied id lets a client (or a retried request after a dropped response) be posted
-  // idempotently — reject the whole batch if any id already exists rather than silently
-  // double-posting the same charge/payment against the ledger.
   const suppliedIds = p.data.map((e) => e.id).filter((id): id is string => !!id);
-  if (suppliedIds.length) {
-    const existingIds = new Set((await rcmStore.ledger(t)).map((e) => e.id));
-    const dupe = suppliedIds.find((id) => existingIds.has(id));
-    if (dupe) return fail(res, 409, `ledger entry ${dupe} already posted`);
+  const lockKeys = suppliedIds.map((id) => `${t}:${id}`);
+  // Synchronous check-and-set, before any `await` — see ledgerPostInFlight's comment.
+  const inFlightDupe = lockKeys.find((k) => ledgerPostInFlight.has(k));
+  if (inFlightDupe) return fail(res, 409, "one or more of these ledger entries is already being posted");
+  lockKeys.forEach((k) => ledgerPostInFlight.add(k));
+  try {
+    // Even the allowed direct-posting types must reference a real patient (and, if given, a real
+    // claim actually belonging to that patient) — otherwise this can fabricate A/R against ids
+    // that don't exist or cross-link a payment to the wrong patient's claim.
+    for (const e of p.data) {
+      if (!(await rcmStore.getPatient(t, e.patientId))) return fail(res, 404, `patient ${e.patientId} not found`);
+      if (e.claimId) {
+        const claim = await rcmStore.getClaim(t, e.claimId);
+        if (!claim) return fail(res, 404, `claim ${e.claimId} not found`);
+        if (claim.patientId !== e.patientId) return fail(res, 400, `claim ${e.claimId} does not belong to patient ${e.patientId}`);
+      }
+    }
+    // A caller-supplied id lets a client (or a retried request after a dropped response) be
+    // posted idempotently — reject the whole batch if any id already exists rather than silently
+    // double-posting the same charge/payment against the ledger.
+    if (suppliedIds.length) {
+      const existingIds = new Set((await rcmStore.ledger(t)).map((e) => e.id));
+      const dupe = suppliedIds.find((id) => existingIds.has(id));
+      if (dupe) return fail(res, 409, `ledger entry ${dupe} already posted`);
+    }
+    const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}`, responsibleParty: impliedLedgerParty[e.type] ?? e.responsibleParty }));
+    await rcmStore.postLedger(t, entries);
+    res.json({ success: true, posted: entries.length });
+  } finally {
+    lockKeys.forEach((k) => ledgerPostInFlight.delete(k));
   }
-  const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}` }));
-  await rcmStore.postLedger(t, entries);
-  res.json({ success: true, posted: entries.length });
 }));
 rcmRouter.get("/credit-balances", wrap(async (req, res) => res.json({ success: true, credits: detectCreditBalances(await rcmStore.ledgerByPatient(tenantOf(req))) })));
 

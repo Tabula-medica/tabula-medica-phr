@@ -48,7 +48,7 @@ Legend: ✅ EHR has it · 🟡 EHR partial · ⛌ EHR missing · ➕ added here 
 | 18 | E/M leveling (2021 MDM: problems/data/risk; time; prolonged 99417) | 🟡 AI suggestion | ➕ `levelEm` deterministic calculator + rationale; AI is advisory only | "level this visit, 35 minutes established" | — |
 | 19 | ICD-10 specificity, laterality, HCC / risk-adjustment capture | 🟡 | ➕ `reviewIcd` (unspecified, needs-laterality, hcc-opportunity from problem list) | — | coding queue |
 | 20 | AI coding suggestion + CDI queries (Vertex, strict JSON, canonical codes) | ✅ | ➕ `CODING_SYSTEM_PROMPT`, `parseCodingSuggestion` (drops invalid codes), stub when AI off | — | — |
-| 21 | Claim scrubbing (NCCI PTP / MUE, modifiers, POS, demographics, dx pointers, timely filing, auth, duplicates, telehealth) | ✅ 20 rules | ➕ `scrubber.ts`: 25 rules, same ids + `timely-filing`, `auth-missing`, `telehealth-modifier-pos`, `coverage-not-effective`, `duplicate-claim`, `total-mismatch`; clean-claim score; `applyAutoFixes` | — | `claim-scrubber` auto-fixes safe edits, stages clean claims |
+| 21 | Claim scrubbing (NCCI PTP / MUE, modifiers, POS, demographics, dx pointers, timely filing, auth, duplicates, telehealth) | ✅ 20 rules | ➕ `scrubber.ts`: 26 rules, same ids + `timely-filing`, `auth-missing`, `telehealth-modifier-pos`, `coverage-not-effective`, `duplicate-claim`, `total-mismatch`; clean-claim score; `applyAutoFixes` | — | `claim-scrubber` auto-fixes safe edits, stages clean claims |
 
 ### Back end (claim → cash)
 

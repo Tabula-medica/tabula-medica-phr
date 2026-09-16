@@ -71,6 +71,11 @@ export class AgentRuntime {
     await this.store.audit(tenantId, { agent: name, step: "start", detail: { args: Object.keys(args), dryRun: ctx.dryRun }, outcome: "ok" });
     const plan = (await def.plan(ctx, args)).slice(0, Math.max(0, budget.remaining));
     for (const step of plan) {
+      // The initial slice only bounds THIS call's own plan — a step earlier in that same plan
+      // can itself be a nested run-agent call sharing this budget object, and can exhaust it
+      // before this loop reaches its own later steps. Re-check before spending (and executing)
+      // another step, rather than only slicing once up front.
+      if (budget.remaining <= 0) { steps.push({ ...step, outcome: "blocked", error: "step budget exhausted" }); await this.store.audit(tenantId, { agent: name, step: step.tool, detail: { blocked: "step budget exhausted" }, outcome: "blocked" }); continue; }
       budget.remaining--;
       const tool = tools.get(step.tool);
       if (!tool) { steps.push({ ...step, outcome: "blocked", error: "unknown tool" }); await this.store.audit(tenantId, { agent: name, step: step.tool, detail: { blocked: "unknown tool" }, outcome: "blocked" }); continue; }

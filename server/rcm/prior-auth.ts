@@ -141,7 +141,16 @@ export function transitionAuth(auth: PriorAuth, to: AuthStatus, opts: { actor: s
   if (!canTransitionAuth(auth.status, to)) throw new Error(`Illegal auth transition ${auth.status} → ${to}`);
   const at = nowIso();
   const next: PriorAuth = { ...auth, status: to, history: [...auth.history, { at, status: to, actor: opts.actor, note: opts.note }] };
-  if (to === "requested") { next.requestedAt = at; next.slaDeadline = slaDeadlineFor(at, auth.urgency); }
+  if (to === "requested") {
+    next.requestedAt = at;
+    next.slaDeadline = slaDeadlineFor(at, auth.urgency);
+    // Reopening a denied/expired request must not carry over its old decision — otherwise an
+    // approval that doesn't explicitly supply a fresh authNumber (opts.authNumber undefined)
+    // would silently reuse the stale one from the prior, no-longer-valid attempt.
+    next.authNumber = undefined;
+    next.validFrom = undefined;
+    next.validTo = undefined;
+  }
   if (to === "approved") {
     next.decidedAt = at;
     next.authNumber = opts.authNumber ?? next.authNumber;
@@ -182,11 +191,14 @@ export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: s
 // returns the (at most one, in practice — a single auth number only ever covers one CPT) CPT it
 // actually clears, so a claim with several auth-required lines doesn't get every one of them
 // waved through by an auth that's only good for one of them.
-export function authorizedCptsOnFile(priorAuthNumber: string | undefined, patientId: string, coverageId: string, lines: Array<Pick<ServiceLine, "cpt" | "dateOfService" | "units">>, auths: PriorAuth[]): string[] {
+export function authorizedCptsOnFile(priorAuthNumber: string | undefined, patientId: string, coverageId: string, payerId: string, lines: Array<Pick<ServiceLine, "cpt" | "dateOfService" | "units">>, auths: PriorAuth[]): string[] {
   if (!priorAuthNumber) return [];
-  const auth = auths.find((a) => a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId);
-  if (!auth) return [];
-  return lines.filter((l) => authCoversService(auth, l.cpt, l.dateOfService, l.units).ok).map((l) => l.cpt.toUpperCase());
+  // Consider every record sharing this auth number for this patient/coverage/payer, not just the
+  // first one found — a leftover expired/exhausted row with the same number must never shadow a
+  // later valid approval for the same request.
+  const candidates = auths.filter((a) => a.authNumber === priorAuthNumber && a.patientId === patientId && a.coverageId === coverageId && a.payerId === payerId);
+  if (!candidates.length) return [];
+  return lines.filter((l) => candidates.some((a) => authCoversService(a, l.cpt, l.dateOfService, l.units).ok)).map((l) => l.cpt.toUpperCase());
 }
 
 export function slaBreached(auth: PriorAuth, now: string = nowIso()): boolean {
