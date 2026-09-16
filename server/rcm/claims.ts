@@ -233,6 +233,14 @@ export function secondaryClaim(primary: Claim, secondary: Coverage, primaryRemit
     status: "draft",
     frequencyCode: "1",
     originalClaimId: undefined,
+    // Payer-specific fields from the primary claim must never carry over to a different payer's
+    // claim: a primary auth number in box 23 (claimTo837P emits it) would misrepresent the
+    // secondary payer's own authorization, a primary referral number is similarly payer-specific,
+    // and resolvesDenialId pointing at a denial against the PRIMARY claim would incorrectly mark
+    // that denial "appealed" once this unrelated secondary claim is submitted.
+    priorAuthNumber: undefined,
+    referralNumber: undefined,
+    resolvesDenialId: undefined,
     cobPrimaryPaid: primaryRemit.paid,
     createdAt: at,
     submittedAt: undefined,

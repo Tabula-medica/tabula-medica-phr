@@ -57,12 +57,21 @@ export function parseEra(raw: unknown): Remittance {
     const payerId = str(pick(r, "payerid", "payer_id")) ?? "";
     const checkAmount = round2(num(pick(r, "check_amount", "total_paid", "amount", "BPR02")));
     const checkDate = str(pick(r, "check_date", "paid_date", "date")) ?? "";
-    const claimIds = arr(pick(r, "claims", "claim", "CLP")).map((c) => str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")) ?? "").join(",");
+    // Per-claim billed/paid/patient-resp, not just the claim id list — two distinct ERAs for the
+    // same payer/total/date/claim-id set but a different actual allocation across those claims
+    // (or the same claims paid differently) must not collide on the same fingerprint.
+    const claimSummaries = arr(pick(r, "claims", "claim", "CLP")).map((c) => {
+      const id = str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")) ?? "";
+      const billed = round2(num(pick(c, "billed", "total_charge", "CLP03")));
+      const paid = round2(num(pick(c, "paid", "amount_paid", "CLP04")));
+      const patientResp = round2(num(pick(c, "patient_resp", "patient_responsibility", "CLP05")));
+      return `${id}/${billed}/${paid}/${patientResp}`;
+    }).join(",");
     // Fold the check number into the fingerprint (rather than skipping fingerprinting whenever
     // one is present) so a re-POST of the same ERA gets the same deterministic id either way,
     // instead of minting a fresh random id every time just because a check number happened to be
     // on the payload.
-    return `era-fp:${payerId}:${checkNumber ?? ""}:${checkAmount}:${checkDate}:${claimIds}`;
+    return `era-fp:${payerId}:${checkNumber ?? ""}:${checkAmount}:${checkDate}:${claimSummaries}`;
   };
   return {
     id: explicitId ?? fingerprintId() ?? newId("era"),
@@ -134,7 +143,13 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
 
     let underpayment: Posting["underpayment"];
     const contract = claim ? contracts[claim.payerId] : undefined;
-    if (claim && contract) {
+    // A denied or reversed claim isn't "underpaid" in the fee-schedule-variance sense this check
+    // is for — it's zero-paid because it was denied (its own denial workflow already covers it)
+    // or because a prior payment was just taken back, not because the payer paid less than the
+    // contracted rate for an otherwise-adjudicated claim. Without this, a routine denial would
+    // also open a spurious underpayments work item for the claim's entire expected allowed amount.
+    const isDeniedOrReversal = isReversal || (rc.paid === 0 && (denied > 0 || rc.statusCode === "4"));
+    if (claim && contract && !isDeniedOrReversal) {
       // Use the same claim-level multiple-procedure reduction the contract module defines
       // (100% for the top-valued surgical line, 50% for the rest) — summing plain per-line
       // rates would flag a correctly-paid multi-procedure claim as underpaid.

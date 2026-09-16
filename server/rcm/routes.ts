@@ -243,6 +243,11 @@ rcmRouter.post("/claims/:id/transition", wrap(async (req, res) => {
   const t = tenantOf(req);
   const claim = await rcmStore.getClaim(t, req.params.id);
   if (!claim) return fail(res, 404, "claim not found");
+  // "closed" is reachable (per the state machine) from denied/appealed/paid/partially-paid as
+  // well as pre-submission states — but closing directly out of an unresolved denial or appeal
+  // would hide an unpaid claim without ever going through write-off, a corrected claim, or a
+  // recorded payer outcome. Block that specific path; every other "closed" target stays direct.
+  if (p.data.to === "closed" && (claim.status === "denied" || claim.status === "appealed")) return fail(res, 409, `Cannot close a claim directly out of "${claim.status}" — resolve it via write-off, a corrected claim, or the denial's actual payer outcome first`);
   try { res.json({ success: true, claim: await rcmStore.upsertClaim(t, transitionClaim(claim, p.data.to as Claim["status"], actorOf(req), p.data.note)) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
 rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => { const t = tenantOf(req); const c = await rcmStore.getClaim(t, req.params.id); if (!c) return fail(res, 404, "claim not found"); const p = await rcmStore.getPatient(t, c.patientId); const cov = await rcmStore.getCoverage(t, c.coverageId); if (!p || !cov) return fail(res, 404, "patient/coverage missing"); res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) }); }));
@@ -489,6 +494,11 @@ rcmRouter.get("/approvals", wrap(async (req, res) => res.json({ success: true, a
 rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
   const p = z.object({ decision: z.enum(["approved", "rejected"]) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
+  // The mount only requires admin/provider/clinician, but approving here immediately executes
+  // a refund, write-off, agency referral, or claim submission — the same class of direct
+  // financial/payer-facing action already restricted to admin elsewhere in this router.
+  // Rejecting isn't money-moving, so it stays open to the wider role set.
+  if (p.data.decision === "approved" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Approving an agent action requires an admin role");
   const t = tenantOf(req);
   const before = (await rcmStore.listApprovals(t)).find((x) => x.id === req.params.id);
   if (!before) return fail(res, 404, "approval not found");
@@ -506,6 +516,9 @@ rcmRouter.post("/approvals/:id", wrap(async (req, res) => {
 // approved-but-unexecuted approval needs its own path back to execution instead of being
 // permanently stuck once POST /approvals/:id has already moved it out of "pending".
 rcmRouter.post("/approvals/:id/retry", wrap(async (req, res) => {
+  // Same admin gate as the approval decision itself — a retry only ever re-executes an already-
+  // approved money-moving/payer-facing action.
+  if ((req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Retrying an approved agent action requires an admin role");
   const t = tenantOf(req);
   const a = (await rcmStore.listApprovals(t)).find((x) => x.id === req.params.id);
   if (!a) return fail(res, 404, "approval not found");

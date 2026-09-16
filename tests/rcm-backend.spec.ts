@@ -59,6 +59,13 @@ describe("claims", () => {
     const sec = secondaryClaim(c, { ...coverage, id: "c2", payerId: "AETNA", payerName: "Aetna", priority: "secondary", timelyFilingDays: 120 }, { billed: 450, paid: 200, patientResp: 50, lines: [] });
     expect(sec).toMatchObject({ payerId: "AETNA", cobPrimaryPaid: 200, timelyFilingDeadline: "2026-10-29" });
   });
+  it("secondaryClaim clears the primary's payer-specific auth/referral/denial-resolution fields instead of carrying them to the new payer", () => {
+    const primaryWithAuth = { ...mkClaim(), priorAuthNumber: "PRIMARY-AUTH-1", referralNumber: "PRIMARY-REF-1", resolvesDenialId: "den-on-primary" };
+    const sec = secondaryClaim(primaryWithAuth, { ...coverage, id: "c2", payerId: "AETNA", payerName: "Aetna", priority: "secondary" }, { billed: 450, paid: 200, patientResp: 50, lines: [] });
+    expect(sec.priorAuthNumber).toBeUndefined(); // must not emit the primary payer's auth in box 23
+    expect(sec.referralNumber).toBeUndefined();
+    expect(sec.resolvesDenialId).toBeUndefined(); // must not mark a denial on the PRIMARY claim "appealed" when this claim submits
+  });
   it("flags stale submitted claims for follow-up", () => {
     let c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
     c = { ...c, submittedAt: "2026-07-05T00:00:00.000Z" };
@@ -453,6 +460,30 @@ describe("agents", () => {
     // auth (auth1) absorbing both dates' units while auth2 goes untouched.
     expect((await rcmStore.getAuth(T, auth1.id))?.unitsUsed).toBe(1);
     expect((await rcmStore.getAuth(T, auth2.id))?.unitsUsed).toBe(1);
+  });
+  it("submit-claim prefers each bucket's own dateOfService-matched auth over a greedy array-order pick, even when the line order and auth-exhaustion state would otherwise mis-assign them", async () => {
+    // The later-dated line appears FIRST in the claim, and the earlier-dated auth is first in
+    // store order — a greedy "first covering auth in array order" pick (ignoring which auth was
+    // actually requested for which date) would hand the later visit's bucket the EARLIER visit's
+    // auth first, then find the later visit's own (already-exhausted) auth has nothing left for
+    // the earlier visit, failing a submission that a correct, date-aware assignment would allow.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const authForEarlyVisit = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(authForEarlyVisit, "approved", { actor: "t", authNumber: "AUTH-EARLY", validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const authForLateVisitExhausted = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-10" }), "requested", { actor: "t" });
+    const approvedLate = transitionAuth(authForLateVisitExhausted, "approved", { actor: "t", authNumber: "AUTH-LATE", validFrom: "2026-01-01", validTo: "2026-12-31" });
+    await rcmStore.upsertAuth(T, { ...approvedLate, unitsUsed: approvedLate.units }); // already fully used elsewhere
+    const claim = buildClaim({ encounterId: "e-order-sensitive", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-EARLY", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-10", placeOfService: "11" }, { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false); // 2026-09-10's own auth is genuinely exhausted — that visit alone must fail
+    expect(exec.error).toMatch(/2026-09-10/);
+    // The early visit's own auth must be untouched by the failed attempt to cover the late visit.
+    expect((await rcmStore.getAuth(T, authForEarlyVisit.id))?.unitsUsed).toBe(0);
   });
   it("submit-claim does not let two different dates both pass against the SAME auth's static remaining-units count", async () => {
     // A single 1-unit auth whose validity window happens to span both visit dates must not clear
@@ -1102,5 +1133,39 @@ describe("round 14 hardening", () => {
     const claim = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: [] }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: [] }] };
     const flagged = scrubClaim(claim).edits.filter((e) => e.id === "ncci-bundling");
     expect(flagged.map((e) => e.lineNumber).sort()).toEqual([2, 3]); // both 96372 lines flagged, not just the first
+  });
+});
+
+describe("round 18 hardening", () => {
+  it("scrubber's ncci-bundling rule no longer accepts global-period/E-M modifiers (57/24/78/79/91) as a PTP bypass", () => {
+    const claim = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: ["57"] }] };
+    expect(scrubClaim(claim).edits.some((e) => e.id === "ncci-bundling")).toBe(true); // modifier 57 doesn't establish a distinct service
+    // A genuine distinct-service modifier still bypasses.
+    const withBypass = { ...mkClaim(), lines: [{ ...mkClaim().lines[0], cpt: "20610", dateOfService: "2026-07-01" }, { ...mkClaim().lines[1], cpt: "96372", dateOfService: "2026-07-01", modifiers: ["59"] }] };
+    expect(scrubClaim(withBypass).edits.some((e) => e.id === "ncci-bundling")).toBe(false);
+  });
+
+  it("postRemittance does not flag an underpayment for a denied or reversed claim", () => {
+    const c = mkClaim();
+    // Fully denied: zero paid, a real denial CARC, and a contract — must not also open an
+    // underpayments work item for the whole expected allowed amount.
+    const denied = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 0, patient_resp: 0, lines: [{ proc: "99214", billed: 300, paid: 0, patient_resp: 0, adjustments: [{ group: "CO", carc: "50", amount: 300 }] }] }] });
+    const pDenied = postRemittance(denied, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(pDenied.status).toBe("denied");
+    expect(pDenied.underpayment).toBeUndefined();
+    // A reversal (takeback) is also not a fee-schedule underpayment.
+    const reversal = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
+    const pReversal = postRemittance(reversal, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(pReversal.status).toBe("reversal");
+    expect(pReversal.underpayment).toBeUndefined();
+  });
+
+  it("parseEra's fingerprint distinguishes two ERAs that share payer/total/date/claim-ids but allocate the money differently", () => {
+    const base = { payerid: "BCBS", check_amount: 200, check_date: "2026-08-01", claims: [{ pcn: "clm-1", billed: 300, paid: 100, patient_resp: 20 }, { pcn: "clm-2", billed: 200, paid: 100, patient_resp: 0 }] };
+    const a = parseEra(base);
+    // Same payer/total/date/claim-id-set, but the $200 is split differently across the two claims.
+    const differentAllocation = { ...base, claims: [{ pcn: "clm-1", billed: 300, paid: 150, patient_resp: 0 }, { pcn: "clm-2", billed: 200, paid: 50, patient_resp: 20 }] };
+    const b = parseEra(differentAllocation);
+    expect(a.id).not.toBe(b.id);
   });
 });

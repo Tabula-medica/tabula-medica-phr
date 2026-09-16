@@ -209,12 +209,29 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     }
     const reservedByAuthId = new Map<string, number>();
     const consumption = new Map<string, number>();
-    for (const { cpt, dateOfService, units } of Array.from(byCptAndDate.values())) {
-      const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
-      const match = covering.find((a) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedByAuthId.get(a.id) ?? 0) }, cpt, dateOfService, units).ok);
-      if (!match) throw new Error(`No authorization on file covers ${cpt} on ${dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
-      reservedByAuthId.set(match.id, (reservedByAuthId.get(match.id) ?? 0) + units);
-      consumption.set(match.id, (consumption.get(match.id) ?? 0) + units);
+    const buckets = Array.from(byCptAndDate.values());
+    const assigned = new Map<string, (typeof auths)[number]>();
+    const coveringFor = (cpt: string) => auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
+    const stillCovers = (a: (typeof auths)[number], cpt: string, dateOfService: string, units: number) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedByAuthId.get(a.id) ?? 0) }, cpt, dateOfService, units).ok;
+    // Two passes, not one: every bucket gets first dibs on the auth actually requested FOR its
+    // own exact date of service before ANY bucket is allowed to fall back to a differently-dated
+    // auth that merely happens to also cover it (e.g. a broader validity window). A single greedy
+    // pass processed in claim-line order could otherwise let a later visit's bucket "steal" an
+    // earlier visit's own dedicated authorization before the earlier visit ever gets to claim it,
+    // failing a submission that a correct, date-aware assignment would have allowed.
+    for (const bucket of buckets) {
+      const exact = coveringFor(bucket.cpt).find((a) => a.dateOfService === bucket.dateOfService && stillCovers(a, bucket.cpt, bucket.dateOfService, bucket.units));
+      if (exact) { assigned.set(`${bucket.cpt}|${bucket.dateOfService}`, exact); reservedByAuthId.set(exact.id, (reservedByAuthId.get(exact.id) ?? 0) + bucket.units); }
+    }
+    for (const bucket of buckets) {
+      const key = `${bucket.cpt}|${bucket.dateOfService}`;
+      let match = assigned.get(key);
+      if (!match) {
+        match = coveringFor(bucket.cpt).find((a) => stillCovers(a, bucket.cpt, bucket.dateOfService, bucket.units));
+        if (!match) throw new Error(`No authorization on file covers ${bucket.cpt} on ${bucket.dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
+        reservedByAuthId.set(match.id, (reservedByAuthId.get(match.id) ?? 0) + bucket.units);
+      }
+      consumption.set(match.id, (consumption.get(match.id) ?? 0) + bucket.units);
     }
     // Lock every auth this submission is about to consume from — a submission spanning two
     // auths must not let a concurrent submission race either one individually.
