@@ -217,6 +217,11 @@ export function financialClearance(benefits: BenefitSnapshot, estimate: Responsi
   const reasons: string[] = [];
   const actions: string[] = [];
   if (!benefits.active) { reasons.push("Coverage inactive on date of service"); actions.push("Ask patient for updated insurance or convert to self-pay with Good Faith Estimate"); }
+  // The stub vendor is a deterministic placeholder for demo/test environments — it always
+  // reports "active" and never actually contacted a payer. Letting that clear a patient
+  // financially would be indistinguishable from real, verified eligibility once no vendor is
+  // configured in a live deployment.
+  if (benefits.source === "stub") { reasons.push("Eligibility check used the demo/stub vendor — no real payer eligibility was verified"); actions.push("Configure a real eligibility vendor and re-verify before collecting an estimate or proceeding"); }
   if (discrepancies.some((d) => d.severity === "error")) { reasons.push("Registration data does not match payer"); actions.push("Correct demographics/member ID to match the payer record before claim submission"); }
   if (benefits.requiresReferral && !opts.referralOnFile) { reasons.push("Plan requires PCP referral; none on file"); actions.push("Obtain referral number from PCP"); }
   if (opts.requiresAuth && !opts.authOnFile) { reasons.push("Prior authorization required; none on file"); actions.push("Submit 278 prior authorization request"); }

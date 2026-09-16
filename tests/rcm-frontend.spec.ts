@@ -63,10 +63,22 @@ describe("eligibility", () => {
   it("detects registration/payer discrepancies and blocks clearance", () => {
     const disc = detectDiscrepancies({ firstName: "Asha", lastName: "Demo", dob: "1968-03-14", memberId: "XYZ123" }, { lastName: "Demo-Kumar", memberId: "xyz 123" });
     expect(disc.map((d) => d.field)).toEqual(["lastName"]);
-    const clearance = financialClearance({ active: true, checkedAt: "", source: "stub" }, { estimatedAllowed: 0, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 25, insuranceResponsibility: 0, assumptions: [] }, disc, { requiresAuth: true, authOnFile: false });
+    // source: "clearinghouse" isolates this test from the separate stub-vendor block covered below.
+    const clearance = financialClearance({ active: true, checkedAt: "", source: "clearinghouse" }, { estimatedAllowed: 0, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 25, insuranceResponsibility: 0, assumptions: [] }, disc, { requiresAuth: true, authOnFile: false });
     expect(clearance.cleared).toBe(false);
     expect(clearance.reasons).toHaveLength(2);
     expect(clearance.collectAtVisit).toBe(25);
+  });
+  it("never financially clears a patient on stub-vendor (unverified) eligibility, even with otherwise-clean benefits", () => {
+    // The stub vendor always reports active:true and is only a deterministic placeholder for
+    // demo/test environments — if no real eligibility vendor is configured, "active" here means
+    // nothing was actually verified with the payer, and financialClearance must not treat that
+    // as clearance to collect and proceed.
+    const clean = financialClearance({ active: true, networkStatus: "in-network", checkedAt: "", source: "stub" }, { estimatedAllowed: 100, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 0, insuranceResponsibility: 100, assumptions: [] }, []);
+    expect(clean.cleared).toBe(false);
+    expect(clean.reasons.join(" ")).toMatch(/stub/i);
+    // A real (non-stub) source with otherwise identical, clean inputs clears normally.
+    expect(financialClearance({ active: true, networkStatus: "in-network", checkedAt: "", source: "clearinghouse" }, { estimatedAllowed: 100, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 0, insuranceResponsibility: 100, assumptions: [] }, []).cleared).toBe(true);
   });
   it("flags stale snapshots", () => {
     expect(eligibilityIsStale(undefined)).toBe(true);

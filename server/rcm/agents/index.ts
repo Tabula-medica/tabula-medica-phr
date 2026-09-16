@@ -366,7 +366,7 @@ const triageDenial: Tool<{ denialId: string }, unknown> = {
     return { denialId: d.id, recommendation: rec, appealDraft };
   },
 };
-const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: number }, unknown> = {
+const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: number; patch?: Partial<Pick<Claim, "diagnoses" | "lines" | "priorAuthNumber" | "referralNumber" | "placeOfService">> }, unknown> = {
   name: "file-corrected-claim",
   description: "Create a frequency-7 replacement claim for a remediable denial, re-scrubbed and auto-fixed before it goes to approval",
   requiresApproval: true,
@@ -394,7 +394,14 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
       const patient = await ctx.store.getPatient(ctx.tenantId, orig.patientId);
       const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
       const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
-      const draft = { ...correctedClaim(orig, {}), resolvesDenialId: input.denialId };
+      // A bare clone (no patch) carries the exact diagnoses/lines/auth/POS that were already
+      // clean per our own scrubber at original submission time — otherwise the claim could never
+      // have reached "ready"/submitted in the first place. Re-scrubbing that identical clone will
+      // therefore also report clean regardless of why the payer denied it, so scrub cleanliness
+      // alone can't be used as evidence the denial's actual cause was addressed. Only a caller-
+      // supplied, denial-specific patch counts as a real correction.
+      const hasCorrection = !!input.patch && Object.keys(input.patch).length > 0;
+      const draft = { ...correctedClaim(orig, input.patch ?? {}), resolvesDenialId: input.denialId };
       const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
       const auths = await ctx.store.listAuths(ctx.tenantId);
       const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.payerId, draft.lines, auths);
@@ -402,14 +409,20 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
       const first = scrubClaim(draft, scrubCtx);
       const fixed = applyAutoFixes(draft, first.edits);
       const second = scrubClaim(fixed.claim, scrubCtx);
-      // A clean corrected claim should actually be staged for resubmission (the same draft →
-      // scrubbed → ready lifecycle scrub-claim uses), not just persisted as a permanent draft.
+      // A clean, actually-corrected claim should be staged for resubmission (the same draft →
+      // scrubbed → ready lifecycle scrub-claim uses); an uncorrected clone stays capped at
+      // "scrubbed" even when clean, so it can't be auto-resubmitted as though the denial's cause
+      // had been fixed.
       let next = fixed.claim;
       if (next.status === "draft") next = transitionClaim(next, "scrubbed", ctx.actor, `corrected claim score ${second.score}`);
-      if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
+      if (second.clean && hasCorrection && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
       await ctx.store.upsertClaim(ctx.tenantId, next);
-      if (!second.clean && !(await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
-        await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+      const needsHumanEdit = !hasCorrection || !second.clean;
+      if (needsHumanEdit && !(await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
+        const items = !second.clean
+          ? itemsFromScrub(next, second.errors.length)
+          : [makeWorkItem({ queue: "claim-edits", title: `Corrected claim ${next.id} needs a denial-specific fix before resubmission (CARC ${denialBefore.carc})`, patientId: next.patientId, claimId: next.id, amount: next.totalCharge, priority: 60, source: "system" })];
+        await ctx.store.addWorkItems(ctx.tenantId, items);
       }
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       // Keep the denial "in-progress" (not "appealed") even when the corrected claim is clean:

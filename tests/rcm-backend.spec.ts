@@ -1048,7 +1048,9 @@ describe("round 11 hardening", () => {
   beforeEach(() => rcmStore.reset(T));
 
   it("financialClearance also blocks on an unrecognized ('unknown') network status, not just an explicit out-of-network", () => {
-    const benefits: BenefitSnapshot = { active: true, networkStatus: "unknown", checkedAt: "2026-09-01T00:00:00Z", source: "stub" };
+    // source: "clearinghouse" isolates this test from the separate stub-vendor block below —
+    // a stub-sourced snapshot would fail for that reason regardless of network status.
+    const benefits: BenefitSnapshot = { active: true, networkStatus: "unknown", checkedAt: "2026-09-01T00:00:00Z", source: "clearinghouse" };
     const estimate = { estimatedAllowed: 100, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 20, insuranceResponsibility: 80, assumptions: [] };
     const decision = financialClearance(benefits, estimate, []);
     expect(decision.cleared).toBe(false);
