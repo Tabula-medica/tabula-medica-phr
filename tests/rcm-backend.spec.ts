@@ -888,21 +888,37 @@ describe("round 11 hardening", () => {
   });
 
   it("prior-auth agent tracks cumulative units claimed against one pending request across lines in the same pass", async () => {
-    // Two independent 1-unit lines (different dates, so they don't merge into one new request)
-    // must not both be silently skipped against the SAME 1-unit pending auth — the second line's
-    // units still need their own request.
+    // Two independent 1-unit lines on the SAME date of service (so they don't merge into one new
+    // request before the pending-match check runs) must not both be silently skipped against the
+    // SAME 1-unit pending auth for that date — the second line's units still need their own
+    // request, merged with the first's leftover need since they share a date.
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
-    const pending = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    const pending = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
     await rcmStore.upsertAuth(T, { ...pending, units: 1 });
     const claim1 = buildClaim({ encounterId: "e-pend-1", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
-    const claim2 = buildClaim({ encounterId: "e-pend-2", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-10", placeOfService: "11" }] });
+    const claim2 = buildClaim({ encounterId: "e-pend-2", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
     await rcmStore.upsertClaim(T, claim1);
     await rcmStore.upsertClaim(T, claim2);
     const r = await agentRuntime.run("prior-auth", T);
     const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
     expect(opens).toHaveLength(1); // the first line's unit was claimed by the existing pending auth
-    expect(opens[0].input.dateOfService).toBe("2026-09-10"); // the second line still needs its own request
+    expect(opens[0].input.units).toBe(1); // only the second line's still-unclaimed unit is requested
+  });
+  it("prior-auth agent does not let a pending request opened for one date of service cover a different date's line", async () => {
+    // A pending 278 opened for one visit must not be silently attributed to a different visit —
+    // otherwise the original visit's own request could be starved while an unrelated later visit
+    // is wrongly treated as already covered.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const pending = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, { ...pending, units: 1 });
+    const claim = buildClaim({ encounterId: "e-pend-3", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-10-15", placeOfService: "11" }] });
+    await rcmStore.upsertClaim(T, claim);
+    const r = await agentRuntime.run("prior-auth", T);
+    const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
+    expect(opens).toHaveLength(1); // the 2026-09-01 pending request doesn't cover the 2026-10-15 line
+    expect(opens[0].input.dateOfService).toBe("2026-10-15");
   });
 
   it("postRemittance recognizes a group-prefixed CO-45 CARC as a contractual adjustment, not a denial", () => {
@@ -914,11 +930,17 @@ describe("round 11 hardening", () => {
     expect(p.denials).toHaveLength(0);
   });
 
-  it("postRemittance treats CLP02 status '4' as denied even when the vendor omitted a CARC adjustment", () => {
+  it("postRemittance treats CLP02 status '4' as denied even when the vendor omitted a CARC adjustment, and actually starts the denial workflow", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: c.id, status: "4", billed: 450, paid: 0, patient_resp: 0 }] });
     const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
     expect(p.status).toBe("denied"); // not the generic "zero-pay" a missing CARC would otherwise produce
+    // A status of "denied" with no entry in `denials` would never actually create a Denial record
+    // (routes.ts only builds one per entry in this array) — synthesize a generic one so the claim
+    // doesn't go "denied" with no appeal deadline, triage, or follow-up ever created for it.
+    expect(p.denials).toHaveLength(1);
+    expect(p.denials[0].amount).toBe(450);
+    expect(p.denied).toBe(450);
   });
 
   it("computeKpis derives days-in-AR from charges actually inside the period window, not the lifetime ledger", () => {
