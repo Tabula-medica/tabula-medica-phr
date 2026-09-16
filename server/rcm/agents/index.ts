@@ -3,7 +3,7 @@
 import { agentRuntime, type AgentDefinition, type AgentStep, type Tool, type ToolContext } from "./runtime";
 import { aiText } from "./ai";
 import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance } from "../eligibility";
-import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth, type PriorAuth } from "../prior-auth";
+import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
@@ -256,13 +256,11 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       // submissions). This validation pass must complete before the claim transition below: a
       // throw AFTER the claim is already "submitted" would leave it stuck, since "submitted" has
       // no legal self-transition and a retry's very first step would immediately fail closed.
-      const currentAuths = new Map<string, PriorAuth>();
       for (const [authId, units] of Array.from(consumption.entries())) {
         const current = await ctx.store.getAuth(ctx.tenantId, authId);
         if (!current || current.status !== "approved" || current.unitsUsed + units > current.units) {
           throw new Error(`Authorization ${authId} is no longer approved or lacks enough remaining units — it changed after this submission began; re-verify before resubmitting`);
         }
-        currentAuths.set(authId, current);
       }
       // Consume each matched auth's units at the moment the claim actually goes out — attaching
       // an auth number never did, so a one-unit authorization stayed at zero units used and could
@@ -272,7 +270,20 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       // actually went out.
       await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
       for (const [authId, units] of Array.from(consumption.entries())) {
-        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(currentAuths.get(authId)!, units));
+        // Re-fetch again here rather than reusing the validation pass's snapshot: writing that
+        // snapshot back via consumeAuthUnit would silently resurrect an "approved" auth an admin
+        // invalidated in the (tiny, but real) window between validation and this write. The claim
+        // has already been transitioned by this point, so — unlike the validation pass above —
+        // this must never throw (that would leave the claim stuck at "submitted" with no legal
+        // self-transition); if the auth changed in that window, skip consuming it and flag the
+        // mismatch for manual reconciliation instead of either overwriting fresh state with stale
+        // data or stranding an already-sent claim.
+        const fresh = await ctx.store.getAuth(ctx.tenantId, authId);
+        if (fresh && fresh.status === "approved" && fresh.unitsUsed + units <= fresh.units) {
+          await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(fresh, units));
+        } else {
+          await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "prior-auth", title: `Authorization ${authId} changed while claim ${claim.id} was being submitted — units may be unreconciled`, patientId: claim.patientId, claimId: claim.id, priority: 80, source: "system" })]);
+        }
       }
       // Only now — the corrected claim actually left for the payer — does the denial it was
       // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved

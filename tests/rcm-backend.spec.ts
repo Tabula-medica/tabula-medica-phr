@@ -1324,4 +1324,11 @@ describe("round 18 hardening", () => {
     // making the payment unretryable).
     expect(canTransition("partially-paid", "partially-paid")).toBe(true);
   });
+  it("claims state machine allows a zero-pay correction to land on 'adjudicated' right after a reversal already did", () => {
+    // Both a reversal and a zero-pay posting (full contractual write-off or full patient
+    // responsibility, nothing denied) map to "adjudicated" — a reversal-and-correction pair
+    // within one ERA where the correction is itself zero-pay needs this self-transition, same as
+    // "partially-paid" needed one for staggered installments.
+    expect(canTransition("adjudicated", "adjudicated")).toBe(true);
+  });
 });
