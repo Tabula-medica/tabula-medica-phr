@@ -20,7 +20,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
 import { agentRuntime } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, newId, todayIso } from "./util";
+import { daysBetween, newId, round2, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
@@ -292,6 +292,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const result = postRemittance(rem, claimsById, contracts);
     const created: string[] = [];
     const needsReconciliation: string[] = [];
+    let skippedCash = 0;
     for (const p of result.postings) {
       // "unmatched" still carries the real claimId for reconciliation display, but this claim
       // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
@@ -304,8 +305,13 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
         // above (e.g. the same payment resent under a different check number) must not silently
         // inject cash into the ledger for a claim that can't legally receive this outcome from
         // its current status — that would double-count money with no corresponding state change.
-        // Skip the whole posting; flag it for manual reconciliation instead.
+        // Skip the whole posting; flag it for manual reconciliation instead. The cash this posting
+        // would have applied (postRemittance already counted it toward `applied`/`unapplied`) must
+        // be added back to `unapplied` and `balanced` forced false, or a duplicate/erroneous ERA
+        // that skips every posting would come back reporting a fully reconciled $0 remittance even
+        // though none of its money actually landed anywhere.
         needsReconciliation.push(p.claimId!);
+        skippedCash += p.paid;
         continue;
       }
       await rcmStore.postLedger(t, p.entries);
@@ -320,7 +326,9 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const denials = (await rcmStore.listDenials(t, "open")).filter((d) => created.includes(d.id));
     await rcmStore.addWorkItems(t, itemsFromDenials(denials));
     await rcmStore.addRemittance(t, { ...rem, postedAt: new Date().toISOString() });
-    res.json({ success: true, remittance: rem, postings: result.postings, unapplied: result.unapplied, balanced: result.balanced, denialsCreated: created, needsReconciliation });
+    const unapplied = round2(result.unapplied + skippedCash);
+    const balanced = needsReconciliation.length === 0 && result.balanced;
+    res.json({ success: true, remittance: rem, postings: result.postings, unapplied, balanced, denialsCreated: created, needsReconciliation });
   } finally {
     remittancePostInFlight.delete(lockKey);
   }

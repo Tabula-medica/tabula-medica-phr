@@ -60,13 +60,16 @@ export function parseEra(raw: unknown): Remittance {
     // Per-claim billed/paid/patient-resp, not just the claim id list — two distinct ERAs for the
     // same payer/total/date/claim-id set but a different actual allocation across those claims
     // (or the same claims paid differently) must not collide on the same fingerprint.
+    // Sorted, not left in payload order — the same ERA retried with its claims array reordered
+    // (a vendor quirk, or a lossy round-trip through some intermediate system) must still produce
+    // the same fingerprint, or the duplicate check below would never catch the retry.
     const claimSummaries = arr(pick(r, "claims", "claim", "CLP")).map((c) => {
       const id = str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")) ?? "";
       const billed = round2(num(pick(c, "billed", "total_charge", "CLP03")));
       const paid = round2(num(pick(c, "paid", "amount_paid", "CLP04")));
       const patientResp = round2(num(pick(c, "patient_resp", "patient_responsibility", "CLP05")));
       return `${id}/${billed}/${paid}/${patientResp}`;
-    }).join(",");
+    }).sort().join(",");
     // Fold the check number into the fingerprint (rather than skipping fingerprinting whenever
     // one is present) so a re-POST of the same ERA gets the same deterministic id either way,
     // instead of minting a fresh random id every time just because a check number happened to be
