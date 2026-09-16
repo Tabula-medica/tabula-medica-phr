@@ -449,6 +449,30 @@ describe("agents", () => {
     await rcmStore.decideApproval(T, pending.id, "approved", "biller");
     const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
     expect(exec.ok).toBe(true);
+    const after1 = await rcmStore.getAuth(T, auth1.id);
+    const after2 = await rcmStore.getAuth(T, auth2.id);
+    expect(after1?.unitsUsed).toBe(1);
+    expect(after1?.status).toBe("exhausted");
+    expect(after2?.unitsUsed).toBe(1);
+    expect(after2?.status).toBe("exhausted");
+  });
+  it("submit-claim does not let one auth's remaining units cover two different dates independently", async () => {
+    // Grouping by (cpt, date) is correct for two distinct auths, but a single 1-unit approval
+    // whose validity window spans both visits must not independently clear each 1-unit date
+    // against the original unitsUsed (that would submit over-authorized — CARC 198).
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const approvedAuth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(approvedAuth, "approved", { actor: "t", authNumber: "AUTH-SPAN-1", approvedUnits: 1, validFrom: "2026-01-01", validTo: "2026-12-31" }));
+    const claim = buildClaim({ encounterId: "e-span-dates", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-SPAN-1", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-10", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+    expect((await rcmStore.getAuth(T, approvedAuth.id))?.unitsUsed).toBe(0);
   });
   it("submit-claim's auth lookup requires a payer match, not just number/patient/coverage", async () => {
     await rcmStore.upsertPatient(T, patient);

@@ -207,29 +207,49 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       if (existing) existing.units += line.units;
       else byCptAndDate.set(key, { cpt: line.cpt.toUpperCase(), dateOfService: line.dateOfService, units: line.units });
     }
+    // Tracks units of each covering auth already attributed to an earlier (cpt, date) bucket in
+    // this same submission — without this, a 1-unit year-long approval independently satisfies
+    // every 1-unit date in its validity window (authCoversService only checks validFrom/validTo,
+    // not remaining-this-pass capacity). The same map is the consumption ledger: each date's
+    // units are decremented from the record that actually covered it, not dumped onto the single
+    // attached box-23 auth.
+    const reservedUnits = new Map<string, number>();
+    const coveringById = new Map<string, (typeof auths)[number]>();
     for (const { cpt, dateOfService, units } of Array.from(byCptAndDate.values())) {
       const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
-      if (!covering.some((a) => authCoversService(a, cpt, dateOfService, units).ok)) {
+      const usable = covering.filter((a) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedUnits.get(a.id) ?? 0) }, cpt, dateOfService, units).ok);
+      // Prefer the auth opened for this visit, then the attached box-23 record, then any other
+      // covering approval with remaining (unreserved-so-far) capacity.
+      const match = usable.find((a) => a.dateOfService === dateOfService) ?? usable.find((a) => a.id === auth?.id) ?? usable[0];
+      if (!match) {
         throw new Error(`No authorization on file covers ${cpt} on ${dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
       }
+      reservedUnits.set(match.id, (reservedUnits.get(match.id) ?? 0) + units);
+      coveringById.set(match.id, match);
     }
-    const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
-    if (lockKey) {
-      if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);
-      submitAuthLocks.add(lockKey);
+    const lockIds = Array.from(reservedUnits.keys());
+    if (auth && !reservedUnits.has(auth.id)) lockIds.push(auth.id);
+    for (const id of lockIds) {
+      if (submitAuthLocks.has(`${ctx.tenantId}:${id}`)) {
+        const lockedAuth = coveringById.get(id) ?? auth;
+        throw new Error(`Prior auth ${lockedAuth?.authNumber} is already being consumed by another in-flight submission`);
+      }
     }
+    for (const id of lockIds) submitAuthLocks.add(`${ctx.tenantId}:${id}`);
     try {
-      // The per-CPT revalidation above already confirmed every auth-required line is covered;
-      // this just tallies how many units of the specific attached auth (if any) this submission
-      // actually consumes.
-      const unitsNeeded = auth ? claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0) : 0;
-      // Consume the auth's units at the moment the claim actually goes out — attaching an auth
-      // number never did, so a one-unit authorization stayed at zero units used and could be
-      // reused indefinitely. Transition the claim FIRST: if this throws (the claim is no longer
-      // "ready"), the units must stay untouched so a retry doesn't burn more of them for a
-      // submission that never actually went out.
+      // Consume units from each covering auth this submission actually used. Transition the
+      // claim FIRST: if this throws (the claim is no longer "ready"), the units must stay
+      // untouched so a retry doesn't burn more of them for a submission that never actually
+      // went out.
       await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
-      if (auth && unitsNeeded > 0) await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+      if (reservedUnits.size > 0) {
+        for (const [id, units] of Array.from(reservedUnits.entries())) {
+          await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(coveringById.get(id)!, units));
+        }
+      } else if (auth) {
+        const unitsNeeded = claim.lines.filter((l) => l.cpt.toUpperCase() === auth.cpt).reduce((s, l) => s + l.units, 0);
+        if (unitsNeeded > 0) await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(auth, unitsNeeded));
+      }
       // Only now — the corrected claim actually left for the payer — does the denial it was
       // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved
       // (overturned/written-off/re-appealed-elsewhere) denial isn't clobbered by a stale claim.
@@ -239,7 +259,7 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
       }
       return { submitted: claim.id };
     } finally {
-      if (lockKey) submitAuthLocks.delete(lockKey);
+      for (const id of lockIds) submitAuthLocks.delete(`${ctx.tenantId}:${id}`);
     }
   },
 };
