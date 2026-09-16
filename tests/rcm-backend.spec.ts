@@ -584,6 +584,35 @@ describe("agents", () => {
     const exec3 = await agentRuntime.executeApproved(T, pending3.id, "biller");
     expect(exec3.ok).toBe(false); // the AETNA auth must not cover a BCBS claim
   });
+  it("submit-claim leaves the claim retryable (not stuck at 'submitted') when an auth is invalidated after approval but before execution", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const auth = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    const approvedAuth = transitionAuth(auth, "approved", { actor: "t", authNumber: "AUTH-INVALIDATED-1", validFrom: "2026-01-01", validTo: "2026-12-31" });
+    await rcmStore.upsertAuth(T, approvedAuth);
+    const claim = buildClaim({ encounterId: "e-auth-invalidated", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-INVALIDATED-1", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    // Simulate an admin independently invalidating the auth (via the separate auth transition
+    // route) after this approval was granted but before it executes. This lands before run()'s
+    // own auth lookup, so it's actually caught by the earlier selection-time check rather than
+    // the post-lock re-validation added alongside this ordering fix — a true race landing inside
+    // that narrower window isn't deterministically reproducible without artificial interleaving
+    // hooks in this single-threaded harness (see the reply on the original re-validation fix).
+    // What this test guarantees regardless of which check catches it: failing closed on an
+    // invalid auth must never leave the claim stuck.
+    await rcmStore.upsertAuth(T, { ...approvedAuth, status: "denied" });
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/no authorization on file covers|no longer approved/i);
+    // Critically, the claim must NOT have been advanced to "submitted" — the auth revalidation
+    // happens before the claim transition specifically so a failure here leaves the claim exactly
+    // where a retry can pick it back up, instead of stuck in "submitted" (which has no legal
+    // self-transition and would make every retry attempt fail immediately).
+    expect((await rcmStore.getClaim(T, ready.id))!.status).toBe("ready");
+  });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
     const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;

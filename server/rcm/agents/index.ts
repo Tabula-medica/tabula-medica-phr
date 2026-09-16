@@ -3,7 +3,7 @@
 import { agentRuntime, type AgentDefinition, type AgentStep, type Tool, type ToolContext } from "./runtime";
 import { aiText } from "./ai";
 import { checkEligibility, detectDiscrepancies, eligibilityIsStale, estimatePatientResponsibility, financialClearance } from "../eligibility";
-import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth } from "../prior-auth";
+import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, linesNeedingAuth, transitionAuth, type PriorAuth } from "../prior-auth";
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
@@ -249,24 +249,30 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     if (lockKeys.some((k) => submitAuthLocks.has(k))) throw new Error("An authorization needed for this claim is already being consumed by another in-flight submission");
     lockKeys.forEach((k) => submitAuthLocks.add(k));
     try {
-      // Consume each matched auth's units at the moment the claim actually goes out — attaching
-      // an auth number never did, so a one-unit authorization stayed at zero units used and could
-      // be reused indefinitely. Transition the claim FIRST: if this throws (the claim is no
-      // longer "ready"), the units must stay untouched so a retry doesn't burn more of them for a
-      // submission that never actually went out.
-      await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
+      // Re-fetch and re-validate every auth we're about to consume BEFORE transitioning the claim
+      // — not reusing the `auths` snapshot taken before the lock above, since that only guards
+      // against another concurrent submission, not an admin independently expiring/exhausting/
+      // voiding this same auth (via the separate auth transition route, which shares no lock with
+      // submissions). This validation pass must complete before the claim transition below: a
+      // throw AFTER the claim is already "submitted" would leave it stuck, since "submitted" has
+      // no legal self-transition and a retry's very first step would immediately fail closed.
+      const currentAuths = new Map<string, PriorAuth>();
       for (const [authId, units] of Array.from(consumption.entries())) {
-        // Re-fetch and re-validate rather than reusing the `auths` snapshot taken before the
-        // lock above: that snapshot only guards against another concurrent submission, not an
-        // admin independently expiring/exhausting/voiding this same auth (via the separate auth
-        // transition route, which shares no lock with submissions) in the window between
-        // selection and this write. Writing back the stale snapshot in that case would silently
-        // resurrect an auth someone else just invalidated.
         const current = await ctx.store.getAuth(ctx.tenantId, authId);
         if (!current || current.status !== "approved" || current.unitsUsed + units > current.units) {
           throw new Error(`Authorization ${authId} is no longer approved or lacks enough remaining units — it changed after this submission began; re-verify before resubmitting`);
         }
-        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(current, units));
+        currentAuths.set(authId, current);
+      }
+      // Consume each matched auth's units at the moment the claim actually goes out — attaching
+      // an auth number never did, so a one-unit authorization stayed at zero units used and could
+      // be reused indefinitely. Transition the claim only after every auth has already been
+      // validated above: if the claim transition itself throws (e.g. it's no longer "ready"), the
+      // units must stay untouched so a retry doesn't burn more of them for a submission that never
+      // actually went out.
+      await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "submitted", ctx.actor, "837P sent (stub clearinghouse)"));
+      for (const [authId, units] of Array.from(consumption.entries())) {
+        await ctx.store.upsertAuth(ctx.tenantId, consumeAuthUnit(currentAuths.get(authId)!, units));
       }
       // Only now — the corrected claim actually left for the payer — does the denial it was
       // filed to resolve become "appealed". Guard on "in-progress" so an already-resolved
