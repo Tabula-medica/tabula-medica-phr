@@ -1168,4 +1168,18 @@ describe("round 18 hardening", () => {
     const b = parseEra(differentAllocation);
     expect(a.id).not.toBe(b.id);
   });
+
+  it("postRemittance's CLP02 '4' fallback excludes the actual payment from the synthesized denial residual", () => {
+    // A partially-denied claim: $20 paid on a $100 billed line, no parsed CARC for the remainder.
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 20, claims: [{ pcn: c.id, status: "4", billed: 100, paid: 20, patient_resp: 0 }] });
+    const p = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs }).postings[0];
+    expect(p.denials).toHaveLength(1);
+    expect(p.denials[0].amount).toBe(80); // 100 billed - 20 paid, not the full 100
+  });
+
+  it("claims state machine allows a partially-paid claim to complete to paid or resolve to denied via a later ERA", () => {
+    expect(canTransition("partially-paid", "paid")).toBe(true);
+    expect(canTransition("partially-paid", "denied")).toBe(true);
+  });
 });

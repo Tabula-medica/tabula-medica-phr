@@ -179,7 +179,11 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // and the synthesized amount only covers the portion not already accounted for by patient
     // responsibility or a contractual adjustment elsewhere in this same posting.
     const hadDenialCarc = denials.length > 0;
-    const undocumentedDenied = round2(Math.max(0, rc.billed - rc.patientResp - contractual));
+    // CLP02 "4" can appear on a claim that's only PARTIALLY denied (some lines paid, others
+    // denied) — the residual must exclude whatever was actually paid too, not just patient
+    // responsibility and contractual write-offs, or the synthesized denial plus the real payment
+    // would add up to more than the claim was ever billed for.
+    const undocumentedDenied = round2(Math.max(0, rc.billed - rc.paid - rc.patientResp - contractual));
     if (rc.statusCode === "4" && !hadDenialCarc && undocumentedDenied > 0) { denied += undocumentedDenied; denials.push({ group: "CO", carc: "16", amount: undocumentedDenied }); }
     const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
     postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && rc.patientResp > 0 });

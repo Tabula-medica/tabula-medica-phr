@@ -9,7 +9,7 @@ import { authCoversService, authorizedCptsOnFile, createAuthRequest, DEFAULT_AUT
 import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "./charge-capture";
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
-import { buildClaim, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
+import { buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
 import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, propensityToPay, slidingFeeDiscount } from "./patient-financials";
@@ -291,16 +291,26 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const contracts = await rcmStore.contracts(t);
     const result = postRemittance(rem, claimsById, contracts);
     const created: string[] = [];
+    const needsReconciliation: string[] = [];
     for (const p of result.postings) {
-      await rcmStore.postLedger(t, p.entries);
       // "unmatched" still carries the real claimId for reconciliation display, but this claim
       // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
-      // means nothing was actually adjudicated against it.
+      // means nothing was actually adjudicated against it (postRemittance already leaves its
+      // `entries` empty).
       const claim = p.claimId && p.status !== "unmatched" ? claimsById[p.claimId] : undefined;
-      if (claim) {
-        const to = claimStatusFromPosting(p);
-        let next = claim;
-        for (const hop of [to] as Claim["status"][]) { try { next = transitionClaim(next, hop, "era-post"); } catch { /* keep current status when transition not allowed */ } }
+      const to = claim ? claimStatusFromPosting(p) : undefined;
+      if (claim && to && !canTransition(claim.status, to)) {
+        // A duplicate or erroneous ERA that slipped past the id/check-number idempotency check
+        // above (e.g. the same payment resent under a different check number) must not silently
+        // inject cash into the ledger for a claim that can't legally receive this outcome from
+        // its current status — that would double-count money with no corresponding state change.
+        // Skip the whole posting; flag it for manual reconciliation instead.
+        needsReconciliation.push(p.claimId!);
+        continue;
+      }
+      await rcmStore.postLedger(t, p.entries);
+      if (claim && to) {
+        const next = transitionClaim(claim, to, "era-post");
         await rcmStore.upsertClaim(t, next);
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
@@ -310,7 +320,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const denials = (await rcmStore.listDenials(t, "open")).filter((d) => created.includes(d.id));
     await rcmStore.addWorkItems(t, itemsFromDenials(denials));
     await rcmStore.addRemittance(t, { ...rem, postedAt: new Date().toISOString() });
-    res.json({ success: true, remittance: rem, postings: result.postings, unapplied: result.unapplied, balanced: result.balanced, denialsCreated: created });
+    res.json({ success: true, remittance: rem, postings: result.postings, unapplied: result.unapplied, balanced: result.balanced, denialsCreated: created, needsReconciliation });
   } finally {
     remittancePostInFlight.delete(lockKey);
   }
