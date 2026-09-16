@@ -37,11 +37,15 @@ function dataLevel(i: MdmInputs): MdmLevel {
   const categoriesMet = [cat1 >= 3, i.independentInterpretation, i.discussionWithExternalPhysician].filter(Boolean).length;
   if (categoriesMet >= 2) return "high";
   if (categoriesMet >= 1 || cat1 >= 3) return "moderate";
-  // 2021 MDM Category 1 ("limited"/low) requires a COMBINATION OF 2 from: unique tests ordered/
-  // reviewed, external notes reviewed, or an independent historian — independentHistorian is
-  // already one of the three inputs summed into cat1 above, so it must not ALSO qualify on its
-  // own; that would let a visit meet "low" data with only 1 of the 2 required elements.
-  if (cat1 >= 2) return "low";
+  // At "Limited" (low), the AMA table has TWO separate categories and only one needs to be met:
+  // Category 1 (tests/documents) needs a combination of 2 from tests ordered/reviewed and
+  // external notes reviewed; Category 2 is simply "assessment requiring an independent
+  // historian" — on its own, with no combination requirement. An independent historian only
+  // folds into a single combined "any combination of 3" category alongside tests/notes at
+  // Moderate/High (the cat1 >= 3 check above), which is why cat1 sums it in for that purpose.
+  // A Round 49 "fix" mistakenly treated the Low-level historian criterion as needing to combine
+  // with tests/notes the same way it does at Moderate/High — reverting that misreading here.
+  if (cat1 >= 2 || i.independentHistorian) return "low";
   return "straightforward";
 }
 

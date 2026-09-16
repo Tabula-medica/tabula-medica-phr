@@ -203,15 +203,19 @@ describe("coding", () => {
     expect(levelEm({ ...base, newPatient: true }).code).toBe("99204");
     expect(levelEm({ problems: [{ severity: "self-limited" }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: false, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "minimal", newPatient: false }).code).toBe("99212");
   });
-  it("requires a combination of 2 category-1 data elements for 'low' data — an independent historian alone isn't enough", () => {
-    // 2021 MDM: Category 1 ("limited"/low) data requires a COMBINATION OF 2 from unique tests
-    // ordered/reviewed, external notes reviewed, or an independent historian — not any single one
-    // of those alone.
+  it("an independent historian alone meets 'low' data (its own Category 2 at Limited), and also counts toward the combined 'any 3' category at Moderate/High", () => {
+    // 2021 MDM "Limited" (low) data has TWO separate categories and only one needs to be met:
+    // Category 1 (tests/documents) needs a combination of 2 from tests ordered/reviewed and
+    // external notes reviewed; Category 2 is simply "assessment requiring an independent
+    // historian" on its own, with no combination requirement at this level.
     const historianAlone = { problems: [{ severity: "stable-chronic" as const }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: true, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "low" as const, newPatient: false };
-    expect(mdmLevel(historianAlone).elements.data).toBe("straightforward");
-    // Adding one more category-1 element (a reviewed test) alongside the historian now meets the
-    // "combination of 2" requirement.
-    expect(mdmLevel({ ...historianAlone, uniqueTestsOrderedOrReviewed: 1 }).elements.data).toBe("low");
+    expect(mdmLevel(historianAlone).elements.data).toBe("low");
+    // No historian and only 1 test/note doesn't meet Category 1's combination of 2.
+    expect(mdmLevel({ ...historianAlone, independentHistorian: false, uniqueTestsOrderedOrReviewed: 1 }).elements.data).toBe("straightforward");
+    // At Moderate/High, an independent historian only folds into a single combined "any
+    // combination of 3" category alongside tests/notes — 2 tests + a historian (3 total) reaches
+    // that combination, unlike at Limited where it never needs to combine with tests at all.
+    expect(mdmLevel({ ...historianAlone, uniqueTestsOrderedOrReviewed: 2 }).elements.data).toBe("moderate");
   });
   it("reviews ICD specificity and HCC opportunities", () => {
     const f = reviewIcd(["E11.9", "M17.11", "ZZZ"], ["I50.22"]);
