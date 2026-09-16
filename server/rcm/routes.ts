@@ -185,13 +185,19 @@ rcmRouter.post("/prior-auth/:id/transition", wrap(async (req, res) => {
   // came from the payer, so at minimum restrict who can fabricate an approval to admins, the same
   // trust boundary already applied to other financially/clinically consequential direct writes.
   if (p.data.to === "approved" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Transitioning a prior auth to approved requires an admin role");
-  const auth = await rcmStore.getAuth(t, req.params.id);
-  if (!auth) return fail(res, 404, "auth not found");
+  if (!(await rcmStore.getAuth(t, req.params.id))) return fail(res, 404, "auth not found");
   // A submit-claim run holds this same lock from its own re-validation through final unit
   // consumption — changing the auth's status mid-flight (expire/exhaust/deny) is exactly the race
-  // that validation is there to prevent. Reject and let the caller retry once the submission
-  // finishes, rather than risk the claim being marked submitted against an auth invalidated out
-  // from under it.
+  // that validation is there to prevent. This is only a check, not a real lock acquisition (this
+  // route makes no competing claim on the auth, so there's nothing of its own to hold the lock
+  // for) — a submission could still start during this check's own `getAuth` await. Re-fetch and
+  // re-check again immediately below, in the same synchronous stretch as the write itself, rather
+  // than reusing the auth object fetched for the 404 check above: that narrows (though, without a
+  // real store transaction, can't fully close) the window where this could silently overwrite a
+  // submission's just-consumed unitsUsed/status with stale data.
+  if (isAuthSubmitLocked(t, req.params.id)) return fail(res, 409, "This authorization is currently being consumed by an in-flight claim submission — retry shortly");
+  const auth = await rcmStore.getAuth(t, req.params.id);
+  if (!auth) return fail(res, 404, "auth not found");
   if (isAuthSubmitLocked(t, req.params.id)) return fail(res, 409, "This authorization is currently being consumed by an in-flight claim submission — retry shortly");
   try { res.json({ success: true, auth: await rcmStore.upsertAuth(t, transitionAuth(auth, p.data.to as AuthStatus, { actor: actorOf(req), ...p.data })) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
@@ -428,6 +434,13 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const claimsById = await rcmStore.claimsById(t);
     const contracts = await rcmStore.contracts(t);
     const result = postRemittance(rem, claimsById, contracts);
+    // A negative unapplied means the ERA's claim rows sum to MORE than the check itself covers
+    // (e.g. a $150 claim payment inside a $100 check) — internally inconsistent, and posting it
+    // anyway would inject more cash into the ledger than this remittance actually carried. Nothing
+    // has been written yet at this point (postRemittance is pure), so reject the whole payload
+    // before any postLedger/upsertClaim call rather than posting it and merely reporting
+    // `balanced: false` after the fact.
+    if (result.unapplied < -0.01) return fail(res, 400, `ERA claim rows total $${(-result.unapplied).toFixed(2)} more than the check amount ($${rem.checkAmount.toFixed(2)}) accounts for — reject and re-verify the payload before posting`);
     const created: string[] = [];
     const needsReconciliation: string[] = [];
     let skippedCash = 0;

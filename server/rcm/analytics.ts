@@ -1,8 +1,24 @@
 // Stage 17: revenue-cycle analytics — MGMA/HFMA-style KPIs with targets, A/R aging by payer,
 // denial and clean-claim rates, charge lag, cost-to-collect proxy, and payer scorecards.
 import type { Claim, Denial, LedgerEntry, Remittance } from "./types";
-import { computeAging, signedAmount } from "./patient-financials";
+import { type Aging, computeAging, signedAmount } from "./patient-financials";
 import { addDays, daysBetween, round2, sum, todayIso } from "./util";
+
+// computeAging pools its credits and applies FIFO against ITS WHOLE input as though it were one
+// account — correct for a single patient's entries (every other caller pre-filters to one
+// patient), but calling it with the practice-wide ledger directly would let one patient's payment
+// retire a DIFFERENT, older patient's charge, distorting the age buckets both patients actually
+// carry. Run it per patient and sum the resulting buckets instead.
+function aggregateAgingByPatient(ledger: LedgerEntry[], today: string): Aging {
+  const byPatient = new Map<string, LedgerEntry[]>();
+  for (const e of ledger) byPatient.set(e.patientId, [...(byPatient.get(e.patientId) ?? []), e]);
+  const total: Aging = { current: 0, d31_60: 0, d61_90: 0, d91_120: 0, over120: 0, total: 0 };
+  for (const entries of Array.from(byPatient.values())) {
+    const a = computeAging(entries, today);
+    for (const k of Object.keys(total) as (keyof Aging)[]) total[k] = round2(total[k] + a[k]);
+  }
+  return total;
+}
 
 // The insurance side of a single claim's balance still open (billed minus whatever has
 // already resolved it on the insurance side): what should actually age as payer A/R.
@@ -61,7 +77,7 @@ export function computeKpis(i: KpiInputs): Kpi[] {
   const chargesInPeriod = sum(i.ledger.filter((e) => e.type === "charge" && e.date >= periodStart && e.date <= today).map((e) => e.amount));
   const avgDailyCharges = chargesInPeriod / Math.max(1, period);
   const daysInAr = avgDailyCharges > 0 ? round2(ar / avgDailyCharges) : 0;
-  const aging = computeAging(i.ledger, today);
+  const aging = aggregateAgingByPatient(i.ledger, today);
   const arOver90 = aging.total > 0 ? round2(((aging.d91_120 + aging.over120) / aging.total) * 100) : 0;
   const submitted = i.claims.filter((c) => c.submittedAt).length;
   const deniedClaims = new Set(i.denials.map((d) => d.claimId)).size;

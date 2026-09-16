@@ -253,6 +253,12 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
+    // /coverage can upsert (replace) an existing record by id — the same check the /claims/:id/837p
+    // route already makes before exporting. Without it, a coverage record replaced with a
+    // different patient's or payer's data after this claim was created/scrubbed could be marked
+    // "submitted" (837P sent) here despite no longer actually matching this claim.
+    const coverage = await ctx.store.getCoverage(ctx.tenantId, claim.coverageId);
+    if (!coverage || coverage.patientId !== claim.patientId || coverage.payerId !== claim.payerId) throw new Error("coverage on file no longer matches this claim's patient/payer — re-verify before submitting");
     const auths = await ctx.store.listAuths(ctx.tenantId);
     // Revalidate against the same rules a fresh prior-auth check uses (status, date of service,
     // remaining units) right before submission — scrubbing happened earlier, and any auth could

@@ -600,6 +600,27 @@ describe("agents", () => {
     expect(exec.ok).toBe(true);
     expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("submitted");
   });
+  it("submit-claim refuses to submit once the claim's coverage record has been replaced with a different patient's/payer's data", async () => {
+    // /coverage upserts (replaces) an existing record by id — the same check /claims/:id/837p
+    // already makes before exporting. Without it here too, a coverage swapped out from under an
+    // already-scrubbed, approved claim could be marked "submitted" (837P sent) mixing this claim's
+    // patient/payer with whatever the coverage record now actually belongs to.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-coverage-swap" }; // 99214/20610 need no auth
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    // Replace the coverage record (same id) with one belonging to a different payer, after
+    // scrubbing/approval but before execution.
+    await rcmStore.upsertCoverage(T, { ...coverage, payerId: "AETNA", payerName: "Aetna" });
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/no longer matches/);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
+  });
   it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
     // The guard used to be wrapped in `if (claim.priorAuthNumber && ...)`, so a claim needing
     // auth with NO box-23 number at all skipped validation entirely instead of failing closed.
@@ -1558,6 +1579,28 @@ describe("round 11 hardening", () => {
     const withRecent = computeKpis({ claims: [c], denials: [], ledger: [{ id: "1", patientId: "p1", type: "charge", amount: 100000, date: "2024-01-01", responsibleParty: "insurance" }, { id: "2", patientId: "p1", type: "charge", amount: 900, date: "2026-08-01", responsibleParty: "insurance" }], remittances: [], today: "2026-09-05", periodDays: 90 });
     const withRecentK = Object.fromEntries(withRecent.map((x) => [x.key, x]));
     expect(withRecentK.days_in_ar.value).toBe(10090); // (100000+900 AR) / (900/90 daily rate)
+  });
+
+  it("computeKpis ages each patient's charges against only that patient's own credits, not the whole tenant ledger pooled together", () => {
+    // Patient A has a very old, never-paid charge. Patient B has a payment but no charge of its
+    // own at all. Pooling both patients' entries into one FIFO run (as computeAging does when
+    // handed the raw entries list) would let patient B's payment retire patient A's unrelated old
+    // charge, since computeAging sorts every charge by date and applies credits oldest-first with
+    // no regard for whose entry is whose.
+    const kpis = computeKpis({
+      claims: [],
+      denials: [],
+      ledger: [
+        { id: "chg-a", patientId: "pt-aging-a", type: "charge", amount: 500, date: "2025-01-01", responsibleParty: "insurance" },
+        { id: "pay-b", patientId: "pt-aging-b", type: "insurance-payment", amount: 500, date: "2026-09-01", responsibleParty: "insurance" },
+      ],
+      remittances: [],
+      today: "2026-09-05",
+    });
+    const k = Object.fromEntries(kpis.map((x) => [x.key, x]));
+    // If patient B's payment wrongly retired patient A's charge, ar_over_90 would read 0% instead
+    // of 100% (patient A's $500 is well past 120 days old and was never actually paid).
+    expect(k.ar_over_90.value).toBe(100);
   });
 });
 
