@@ -328,7 +328,11 @@ rcmRouter.post("/claims/:id/corrected", wrap(async (req, res) => {
 // the primary claim has actually been adjudicated. Without this, any authenticated caller could
 // fabricate primaryRemit data for a claim still sitting in draft/submitted and send it to the
 // secondary payer as if the primary had already responded.
-const primaryAdjudicatedStatuses = new Set<Claim["status"]>(["adjudicated", "paid", "partially-paid", "denied"]);
+// "appealed" is only reachable from paid/partially-paid/denied (see TRANSITIONS in claims.ts) —
+// a claim sitting there already has a real primary EOB behind it, same as correctableClaimStatuses
+// already treats it. Omitting it would block a legitimate secondary/COB claim the moment the
+// primary appeal is filed, even though nothing about the primary's adjudication changed.
+const primaryAdjudicatedStatuses = new Set<Claim["status"]>(["adjudicated", "paid", "partially-paid", "denied", "appealed"]);
 rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   const p = z.object({ secondaryCoverageId: z.string(), primaryRemit: z.object({ paid: z.number(), patientResp: z.number(), billed: z.number(), lines: z.array(z.any()).default([]) }) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
