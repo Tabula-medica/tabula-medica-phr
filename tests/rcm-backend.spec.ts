@@ -1242,6 +1242,9 @@ describe("round 11 hardening", () => {
     const opens = r.steps.filter((s) => s.tool === "open-auth-request" && s.input.cpt === "97110");
     expect(opens).toHaveLength(1); // the first line's unit was claimed by the existing pending auth
     expect(opens[0].input.units).toBe(1); // only the second line's still-unclaimed unit is requested
+    expect(opens[0].outcome).toBe("ok");
+    expect((opens[0].output as { deduped?: boolean }).deduped).not.toBe(true);
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(2);
   });
   it("prior-auth agent does not let a pending request opened for one date of service cover a different date's line", async () => {
     // A pending 278 opened for one visit must not be silently attributed to a different visit —

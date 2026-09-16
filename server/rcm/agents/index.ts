@@ -72,8 +72,22 @@ const openAuth: Tool<{ patientId: string; coverageId: string; payerId: string; c
     if (openAuthLocks.has(lockKey)) throw new Error("Another auth request for this patient/coverage/CPT/date is already in flight");
     openAuthLocks.add(lockKey);
     try {
-      const existing = (await ctx.store.listAuths(ctx.tenantId, input.patientId)).find((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended") && a.units >= (input.units ?? 1));
-      if (existing) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
+      const requestedUnits = input.units ?? 1;
+      const auths = await ctx.store.listAuths(ctx.tenantId, input.patientId);
+      const matchingPending = auths.filter((a) => a.coverageId === input.coverageId && a.payerId === input.payerId && a.cpt === cpt && a.dateOfService === input.dateOfService && (a.status === "requested" || a.status === "pended"));
+      const existing = matchingPending.find((a) => a.units >= requestedUnits);
+      if (existing) {
+        // plan() attributes pending rows to draft lines via pendingUnitsClaimed — a 1-unit
+        // requested/pended auth must not swallow a later independent 1-unit line. Only treat the
+        // row as a duplicate when pending units already cover current draft demand for this identity.
+        let demand = 0;
+        for (const claim of await ctx.store.listClaims(ctx.tenantId, { status: "draft", patientId: input.patientId })) {
+          if (claim.coverageId !== input.coverageId || claim.payerId !== input.payerId) continue;
+          for (const line of claim.lines) if (line.cpt.toUpperCase() === cpt && line.dateOfService === input.dateOfService) demand += line.units;
+        }
+        const pendingUnits = matchingPending.reduce((n, a) => n + a.units, 0);
+        if (pendingUnits >= demand) return { authId: existing.id, slaDeadline: existing.slaDeadline, missingDocumentation: existing.missingDocumentation, deduped: true };
+      }
       const pa = transitionAuth(createAuthRequest(input), "requested", { actor: ctx.actor, note: "Agent-submitted 278 (stub)" });
       await ctx.store.upsertAuth(ctx.tenantId, pa);
       await ctx.store.addWorkItems(ctx.tenantId, itemsFromAuths([pa]));
