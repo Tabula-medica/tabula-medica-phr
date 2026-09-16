@@ -1018,6 +1018,29 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.getDenial(T, "den-fc-1"))!.status).toBe("appealed");
   });
 
+  it("file-corrected-claim and write-off can't both win a race against the same open denial", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const orig = mkClaim();
+    await rcmStore.upsertClaim(T, orig);
+    await rcmStore.upsertDenial(T, { id: "den-race-2", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "4", group: "CO", amount: 300, category: "coding", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-race-2", amount: 300 }, reason: "test" });
+    const woApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-race-2", patientId: patient.id, amount: 300, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
+    await rcmStore.decideApproval(T, woApproval.id, "approved", "biller");
+    // file-corrected-claim's own run does much longer async work (scrub/auth lookups) between
+    // reading the denial and writing "in-progress" back than write-off's does — without holding
+    // the lock for its whole run, a write-off that starts and finishes entirely inside that
+    // window could have its "written-off" status silently overwritten by file-corrected-claim's
+    // unconditional final write.
+    const results = await Promise.all([
+      agentRuntime.executeApproved(T, fcApproval.id, "biller"),
+      agentRuntime.executeApproved(T, woApproval.id, "biller"),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
+  });
+
   it("patient-financial agent advances an old self-pay balance to agency referral instead of resetting to statement-1 every run", async () => {
     // A self-pay charge is patient-responsible from the moment it's charged — no transfer-to-
     // patient entry is ever posted for it — so the collections clock must derive from the

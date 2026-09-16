@@ -171,10 +171,10 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
 // different claims can both carry the same priorAuthNumber, and without this two concurrent
 // submissions could both read the same stale unitsUsed and both decide they fit.
 const submitAuthLocks = new Set<string>();
-// In-process lock on a denial id: send-appeal/write-off/transfer-to-patient each read the
-// denial's status, act on it, and only then write the resolved status back — two different
-// approved actions on the same denial (e.g. write-off and transfer-to-patient, or two stale
-// approvals for the same action) can otherwise both observe "open" before either posts its
+// In-process lock on a denial id: send-appeal/write-off/transfer-to-patient/file-corrected-claim
+// each read the denial's status, act on it, and only then write the resolved status back — two
+// different approved actions on the same denial (e.g. write-off and transfer-to-patient, or two
+// stale approvals for the same action) can otherwise both observe "open" before either posts its
 // ledger entry, causing duplicate or conflicting financial actions on the same denial.
 const denialActionLocks = new Set<string>();
 const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
@@ -342,44 +342,56 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
   requiresApproval: true,
   approvalReason: "resubmission to payer",
   async run(input, ctx) {
-    const orig = await ctx.store.getClaim(ctx.tenantId, input.claimId);
-    if (!orig) throw new Error("claim not found");
-    const denialBefore = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    // Revalidate before staging a replacement claim — an approval can sit pending for a while,
-    // and another action (or a human) may have already resolved this denial in the meantime.
-    if (!denialBefore || denialBefore.status !== "open") throw new Error(`Denial ${input.denialId} is no longer open — this approval is stale`);
-    // A bare frequency-7 clone with no remediation would carry the exact same errors that
-    // triggered the denial (and would trip the same CARC again). Re-scrub the clone and apply
-    // safe auto-fixes; anything not auto-fixable goes to a claim-edits work item for a human
-    // instead of silently resubmitting a claim that will just be denied again.
-    const patient = await ctx.store.getPatient(ctx.tenantId, orig.patientId);
-    const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
-    const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
-    const draft = { ...correctedClaim(orig, {}), resolvesDenialId: input.denialId };
-    const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
-    const auths = await ctx.store.listAuths(ctx.tenantId);
-    const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.payerId, draft.lines, auths);
-    const scrubCtx = { patient, coverage, authRequiredCpts, authorizedCpts };
-    const first = scrubClaim(draft, scrubCtx);
-    const fixed = applyAutoFixes(draft, first.edits);
-    const second = scrubClaim(fixed.claim, scrubCtx);
-    // A clean corrected claim should actually be staged for resubmission (the same draft →
-    // scrubbed → ready lifecycle scrub-claim uses), not just persisted as a permanent draft.
-    let next = fixed.claim;
-    if (next.status === "draft") next = transitionClaim(next, "scrubbed", ctx.actor, `corrected claim score ${second.score}`);
-    if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
-    await ctx.store.upsertClaim(ctx.tenantId, next);
-    if (!second.clean && !(await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
-      await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+    // Held for the whole run, not just the initial check — this action's scrub/auth-lookup work
+    // between reading the denial and writing "in-progress" back is much longer than the other
+    // denial actions', so without holding the lock the whole time, a locked write-off/appeal/
+    // transfer that starts and finishes entirely inside that window could have its resolved
+    // status silently overwritten by this action's unconditional final write below.
+    const lockKey = `${ctx.tenantId}:${input.denialId}`;
+    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
+    denialActionLocks.add(lockKey);
+    try {
+      const orig = await ctx.store.getClaim(ctx.tenantId, input.claimId);
+      if (!orig) throw new Error("claim not found");
+      const denialBefore = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      // Revalidate before staging a replacement claim — an approval can sit pending for a while,
+      // and another action (or a human) may have already resolved this denial in the meantime.
+      if (!denialBefore || denialBefore.status !== "open") throw new Error(`Denial ${input.denialId} is no longer open — this approval is stale`);
+      // A bare frequency-7 clone with no remediation would carry the exact same errors that
+      // triggered the denial (and would trip the same CARC again). Re-scrub the clone and apply
+      // safe auto-fixes; anything not auto-fixable goes to a claim-edits work item for a human
+      // instead of silently resubmitting a claim that will just be denied again.
+      const patient = await ctx.store.getPatient(ctx.tenantId, orig.patientId);
+      const coverage = await ctx.store.getCoverage(ctx.tenantId, orig.coverageId);
+      const contract = await ctx.store.getContract(ctx.tenantId, orig.payerId);
+      const draft = { ...correctedClaim(orig, {}), resolvesDenialId: input.denialId };
+      const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
+      const auths = await ctx.store.listAuths(ctx.tenantId);
+      const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.payerId, draft.lines, auths);
+      const scrubCtx = { patient, coverage, authRequiredCpts, authorizedCpts };
+      const first = scrubClaim(draft, scrubCtx);
+      const fixed = applyAutoFixes(draft, first.edits);
+      const second = scrubClaim(fixed.claim, scrubCtx);
+      // A clean corrected claim should actually be staged for resubmission (the same draft →
+      // scrubbed → ready lifecycle scrub-claim uses), not just persisted as a permanent draft.
+      let next = fixed.claim;
+      if (next.status === "draft") next = transitionClaim(next, "scrubbed", ctx.actor, `corrected claim score ${second.score}`);
+      if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
+      await ctx.store.upsertClaim(ctx.tenantId, next);
+      if (!second.clean && !(await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-edits" && w.claimId === next.id))) {
+        await ctx.store.addWorkItems(ctx.tenantId, itemsFromScrub(next, second.errors.length));
+      }
+      const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      // Keep the denial "in-progress" (not "appealed") even when the corrected claim is clean:
+      // staging a claim for resubmission is not the same as the appeal actually reaching the
+      // payer, and the claim still has to clear its own approval-gated submit-claim step. The
+      // claim's resolvesDenialId lets submit-claim advance this denial to "appealed" once the
+      // corrected claim is actually submitted.
+      if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "in-progress" });
+      return { correctedClaimId: next.id, clean: second.clean, autoFixed: fixed.applied };
+    } finally {
+      denialActionLocks.delete(lockKey);
     }
-    const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    // Keep the denial "in-progress" (not "appealed") even when the corrected claim is clean:
-    // staging a claim for resubmission is not the same as the appeal actually reaching the
-    // payer, and the claim still has to clear its own approval-gated submit-claim step. The
-    // claim's resolvesDenialId lets submit-claim advance this denial to "appealed" once the
-    // corrected claim is actually submitted.
-    if (d) await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "in-progress" });
-    return { correctedClaimId: next.id, clean: second.clean, autoFixed: fixed.applied };
   },
 };
 const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, unknown> = {
