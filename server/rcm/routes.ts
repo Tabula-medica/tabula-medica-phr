@@ -328,6 +328,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const created: string[] = [];
     const needsReconciliation: string[] = [];
     let skippedCash = 0;
+    // Claim ids this SAME /remittance/post call has already transitioned — used below to scope
+    // the "adjudicated" self-transition to the same-ERA reversal-then-correction pattern it
+    // exists for, not any claim that merely already happens to be sitting in "adjudicated" from
+    // an earlier, separate remittance.
+    const touchedThisRequest = new Set<string>();
     for (const p of result.postings) {
       // "unmatched" still carries the real claimId for reconciliation display, but this claim
       // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
@@ -335,7 +340,16 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       // `entries` empty).
       const claim = p.claimId && p.status !== "unmatched" ? claimsById[p.claimId] : undefined;
       const to = claim ? claimStatusFromPosting(p) : undefined;
-      if (claim && to && !canTransition(claim.status, to)) {
+      // "adjudicated" is the one status allowed to self-transition purely so a same-ERA reversal
+      // can be immediately followed by a zero-pay correction (both map to "adjudicated"). Without
+      // the touchedThisRequest gate, that same leniency would also let an entirely separate,
+      // later ERA (e.g. a retried takeback resent under a different check number, bypassing the
+      // identity-based idempotency check above) post again against a claim that merely already
+      // happens to be "adjudicated" from a prior remittance — double-refunding or double-posting
+      // contractual/PR entries. "partially-paid" is deliberately NOT restricted this way: staggered
+      // installment remittances are expected to arrive as genuinely separate, legitimate ERAs.
+      const selfTransitionNeedsSameRequest = !!claim && to === "adjudicated" && claim.status === "adjudicated" && !touchedThisRequest.has(claim.id);
+      if (claim && to && (!canTransition(claim.status, to) || selfTransitionNeedsSameRequest)) {
         // A duplicate or erroneous ERA that slipped past the id/check-number idempotency check
         // above (e.g. the same payment resent under a different check number) must not silently
         // inject cash into the ledger for a claim that can't legally receive this outcome from
@@ -361,6 +375,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
         // stale snapshot, and `canTransition("paid", "paid")` is false — the correction skips
         // and gets flagged for reconciliation even though it's exactly what should post.
         claimsById[claim.id] = next;
+        touchedThisRequest.add(claim.id);
         const contract = contracts[claim.payerId];
         for (const adj of p.denials) { const d = denialFromAdjustment(claim, adj, { appealDays: contract?.appealDays, receivedAt: rem.receivedAt }); await rcmStore.upsertDenial(t, d); created.push(d.id); }
         if (p.underpayment) await rcmStore.addWorkItems(t, [makeWorkItem({ queue: "underpayments", title: `Underpaid $${p.underpayment.variance.toFixed(2)} vs contract (${claim.payerName})`, patientId: claim.patientId, claimId: claim.id, amount: p.underpayment.variance, priority: 65, source: "system", context: { ...p.underpayment } })]);
