@@ -211,7 +211,15 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     const consumption = new Map<string, number>();
     for (const { cpt, dateOfService, units } of Array.from(byCptAndDate.values())) {
       const covering = auths.filter((a) => a.patientId === claim.patientId && a.coverageId === claim.coverageId && a.payerId === claim.payerId && a.cpt === cpt);
-      const match = covering.find((a) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedByAuthId.get(a.id) ?? 0) }, cpt, dateOfService, units).ok);
+      const usable = covering.filter((a) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedByAuthId.get(a.id) ?? 0) }, cpt, dateOfService, units).ok);
+      // Prefer the auth opened for this visit, then the box-23 number, then the tightest
+      // remaining window — `find()` is insertion order, and an approved auth defaults to 90
+      // days from its own visit date, so a later visit is also covered by an earlier visit's
+      // still-open window and would otherwise exhaust it.
+      const forThisVisit = usable.filter((a) => a.dateOfService === dateOfService);
+      const pool = forThisVisit.length ? forThisVisit : usable;
+      const match = pool.find((a) => !!claim.priorAuthNumber && a.authNumber === claim.priorAuthNumber)
+        ?? [...pool].sort((a, b) => (b.validFrom ?? "").localeCompare(a.validFrom ?? "") || (a.validTo ?? "9999-12-31").localeCompare(b.validTo ?? "9999-12-31"))[0];
       if (!match) throw new Error(`No authorization on file covers ${cpt} on ${dateOfService} for this claim (never obtained, expired, wrong date of service, or insufficient units) — verify before submitting`);
       reservedByAuthId.set(match.id, (reservedByAuthId.get(match.id) ?? 0) + units);
       consumption.set(match.id, (consumption.get(match.id) ?? 0) + units);

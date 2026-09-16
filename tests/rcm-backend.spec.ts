@@ -454,6 +454,51 @@ describe("agents", () => {
     expect((await rcmStore.getAuth(T, auth1.id))?.unitsUsed).toBe(1);
     expect((await rcmStore.getAuth(T, auth2.id))?.unitsUsed).toBe(1);
   });
+  it("submit-claim consumes the auth opened for each visit, not the first covering 90-day window", async () => {
+    // Approved auths default to 90 days from their own visit date, so a later visit is also
+    // covered by an earlier visit's still-open window. Insertion-order first-match would
+    // exhaust the earlier auth when the later visit is submitted first (or listed first).
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const authEarly = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(authEarly, "approved", { actor: "t", authNumber: "AUTH-EARLY" }));
+    const authLate = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-08" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(authLate, "approved", { actor: "t", authNumber: "AUTH-LATE" }));
+    const laterClaim = buildClaim({ encounterId: "e-late-visit", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-LATE", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-08", placeOfService: "11" }] });
+    const readyLate = transitionClaim(transitionClaim(laterClaim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, readyLate);
+    const pendingLate = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: readyLate.id, amount: readyLate.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pendingLate.id, "approved", "biller");
+    const execLate = await agentRuntime.executeApproved(T, pendingLate.id, "biller");
+    expect(execLate.ok).toBe(true);
+    expect((await rcmStore.getAuth(T, authEarly.id))?.unitsUsed).toBe(0);
+    expect((await rcmStore.getAuth(T, authLate.id))?.unitsUsed).toBe(1);
+    const earlierClaim = buildClaim({ encounterId: "e-early-visit", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-EARLY", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const readyEarly = transitionClaim(transitionClaim(earlierClaim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, readyEarly);
+    const pendingEarly = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: readyEarly.id, amount: readyEarly.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pendingEarly.id, "approved", "biller");
+    const execEarly = await agentRuntime.executeApproved(T, pendingEarly.id, "biller");
+    expect(execEarly.ok).toBe(true);
+    expect((await rcmStore.getAuth(T, authEarly.id))?.unitsUsed).toBe(1);
+  });
+  it("submit-claim matches each split-visit date to its own 90-day auth even when the later date is listed first", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const authEarly = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-01" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(authEarly, "approved", { actor: "t", authNumber: "AUTH-EARLY-SPLIT" }));
+    const authLate = transitionAuth(createAuthRequest({ patientId: patient.id, coverageId: coverage.id, payerId: "BCBS", cpt: "97110", diagnoses: ["M54.16"], dateOfService: "2026-09-08" }), "requested", { actor: "t" });
+    await rcmStore.upsertAuth(T, transitionAuth(authLate, "approved", { actor: "t", authNumber: "AUTH-LATE-SPLIT" }));
+    const claim = buildClaim({ encounterId: "e-split-later-first", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], priorAuthNumber: "AUTH-EARLY-SPLIT", lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-08", placeOfService: "11" }, { cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    const pending = await rcmStore.requestApproval(T, { agent: "claim-scrubber", action: "submit-claim", payload: { claimId: ready.id, amount: ready.totalCharge }, reason: "test" });
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(true);
+    expect((await rcmStore.getAuth(T, authEarly.id))?.unitsUsed).toBe(1);
+    expect((await rcmStore.getAuth(T, authLate.id))?.unitsUsed).toBe(1);
+  });
   it("submit-claim does not let two different dates both pass against the SAME auth's static remaining-units count", async () => {
     // A single 1-unit auth whose validity window happens to span both visit dates must not clear
     // two independent 1-unit visits just because each is checked against the same unconsumed
