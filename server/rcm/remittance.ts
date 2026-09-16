@@ -11,16 +11,19 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v 
 const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : v && typeof v === "object" ? [v as Record<string, unknown>] : []);
 const pick = (r: Record<string, unknown>, ...keys: string[]) => keys.map((k) => r[k]).find((v) => v !== undefined && v !== null);
 
-function parseAdjustments(r: Record<string, unknown>): Adjustment[] {
+function parseAdjustments(r: Record<string, unknown>, isReversal = false): Adjustment[] {
   const out: Adjustment[] = [];
   for (const a of arr(pick(r, "adjustments", "adjustment", "cas", "CAS"))) {
     const group = (str(pick(a, "group", "group_code", "CAS01")) ?? "CO").toUpperCase();
     const g: Adjustment["group"] = group === "PR" || group === "OA" || group === "PI" ? group : "CO";
-    // CAS amounts are always a nonnegative magnitude on the wire (negative-paid reversals are
-    // expressed via CLP04/SVC03, not a negative adjustment) — a malformed or admin-supplied ERA
-    // with a negative CAS amount would otherwise flow straight into postRemittance's contractual/
-    // denied totals and post a negative-dollar ledger entry, corrupting A/R.
-    out.push({ group: g, carc: str(pick(a, "carc", "reason", "reason_code", "CAS02")) ?? "16", rarc: str(pick(a, "rarc", "remark")), amount: Math.max(0, round2(num(pick(a, "amount", "adj_amount", "CAS03")))) });
+    const amount = round2(num(pick(a, "amount", "adj_amount", "CAS03")));
+    // CAS amounts are a nonnegative magnitude on the wire for a normal adjudication — a
+    // malformed or admin-supplied ERA with a negative CAS amount would otherwise flow straight
+    // into postRemittance's contractual/denied totals and post a negative-dollar ledger entry,
+    // corrupting A/R. But an X12 835 reversal (CLP02 "22" or a negative paid amount) legitimately
+    // negates its original CAS amounts to unwind them — clamping those to zero would leave the
+    // original write-offs on the ledger forever and understate A/R instead.
+    out.push({ group: g, carc: str(pick(a, "carc", "reason", "reason_code", "CAS02")) ?? "16", rarc: str(pick(a, "rarc", "remark")), amount: isReversal ? amount : Math.max(0, amount) });
   }
   return out;
 }
@@ -28,28 +31,33 @@ function parseAdjustments(r: Record<string, unknown>): Adjustment[] {
 // Defensive vendor-JSON → normalized Remittance. Claim.MD era-style keys with fallbacks.
 export function parseEra(raw: unknown): Remittance {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const claims: RemitClaim[] = arr(pick(r, "claims", "claim", "CLP")).map((c) => ({
-    claimId: str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")),
-    payerClaimNumber: str(pick(c, "payer_claim_id", "icn", "CLP07")),
-    patientName: str(pick(c, "patient_name", "patient")),
-    statusCode: str(pick(c, "status", "claim_status", "CLP02")),
-    billed: round2(num(pick(c, "billed", "total_charge", "CLP03"))),
-    allowed: pick(c, "allowed", "allowed_amount") !== undefined ? round2(num(pick(c, "allowed", "allowed_amount"))) : undefined,
-    paid: round2(num(pick(c, "paid", "amount_paid", "CLP04"))),
-    patientResp: round2(num(pick(c, "patient_resp", "patient_responsibility", "CLP05"))),
-    lines: arr(pick(c, "lines", "services", "service", "SVC")).map((l) => ({
-      cpt: str(pick(l, "proc", "proc_code", "procedure_code", "cpt"))?.replace(/^HC:/, ""),
-      billed: round2(num(pick(l, "billed", "charge", "SVC02"))),
-      allowed: pick(l, "allowed", "allowed_amount") !== undefined ? round2(num(pick(l, "allowed", "allowed_amount"))) : undefined,
-      paid: round2(num(pick(l, "paid", "amount_paid", "SVC03"))),
-      patientResp: round2(num(pick(l, "patient_resp", "patient_responsibility"))),
-      adjustments: parseAdjustments(l),
-    })),
-    // 2100 CLP-level CAS — an 835 can carry these *alongside* SVC-level line adjustments, not
-    // only when a claim has no lines, so this is captured unconditionally and posted separately
-    // by postRemittance instead of being folded into (or dropped for) the line loop.
-    claimAdjustments: parseAdjustments(c),
-  }));
+  const claims: RemitClaim[] = arr(pick(r, "claims", "claim", "CLP")).map((c) => {
+    const statusCode = str(pick(c, "status", "claim_status", "CLP02"));
+    const paid = round2(num(pick(c, "paid", "amount_paid", "CLP04")));
+    const isReversal = statusCode === "22" || paid < 0;
+    return {
+      claimId: str(pick(c, "pcn", "patient_control_number", "claimid", "CLP01")),
+      payerClaimNumber: str(pick(c, "payer_claim_id", "icn", "CLP07")),
+      patientName: str(pick(c, "patient_name", "patient")),
+      statusCode,
+      billed: round2(num(pick(c, "billed", "total_charge", "CLP03"))),
+      allowed: pick(c, "allowed", "allowed_amount") !== undefined ? round2(num(pick(c, "allowed", "allowed_amount"))) : undefined,
+      paid,
+      patientResp: round2(num(pick(c, "patient_resp", "patient_responsibility", "CLP05"))),
+      lines: arr(pick(c, "lines", "services", "service", "SVC")).map((l) => ({
+        cpt: str(pick(l, "proc", "proc_code", "procedure_code", "cpt"))?.replace(/^HC:/, ""),
+        billed: round2(num(pick(l, "billed", "charge", "SVC02"))),
+        allowed: pick(l, "allowed", "allowed_amount") !== undefined ? round2(num(pick(l, "allowed", "allowed_amount"))) : undefined,
+        paid: round2(num(pick(l, "paid", "amount_paid", "SVC03"))),
+        patientResp: round2(num(pick(l, "patient_resp", "patient_responsibility"))),
+        adjustments: parseAdjustments(l, isReversal),
+      })),
+      // 2100 CLP-level CAS — an 835 can carry these *alongside* SVC-level line adjustments, not
+      // only when a claim has no lines, so this is captured unconditionally and posted separately
+      // by postRemittance instead of being folded into (or dropped for) the line loop.
+      claimAdjustments: parseAdjustments(c, isReversal),
+    };
+  });
   const method = (str(pick(r, "payment_method", "method", "BPR04")) ?? "").toUpperCase();
   const explicitId = str(pick(r, "eraid", "era_id", "id"));
   // No vendor-supplied id or check number to key off of — derive a stable fingerprint from the
@@ -118,15 +126,20 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
   // caller applies postings sequentially, and a second row for a claim already handled by an
   // earlier row in this same batch would still see the claim's pre-posting status) — so without
   // this, a duplicate row can double-apply payment/adjustments to one claim before it's ever
-  // re-fetched from the store.
-  const seenClaimIds = new Set<string>();
+  // re-fetched from the store. But a standard 835 reversal-and-correction pair legitimately
+  // shares one claimId within a single ERA (a status-22 reversal immediately followed by the
+  // corrected adjudication), so only the row immediately AFTER a non-reversal row for the same
+  // claim is treated as a duplicate — a row that follows a reversal for that claim is the
+  // expected correction and must still post.
+  const lastWasReversal = new Map<string, boolean>();
   for (const rc of rem.claims) {
     const claim = rc.claimId ? claimsById[rc.claimId] : undefined;
     // A claim id match alone isn't enough: an ERA carrying the wrong payer id (malformed vendor
     // payload, or a claim id that happens to collide across payers) must not be allowed to post
     // payment/adjustments or move claim status for a different payer's claim.
     const payerMismatch = !!claim && !!rem.payerId && claim.payerId !== rem.payerId;
-    const duplicateInBatch = !!rc.claimId && seenClaimIds.has(rc.claimId);
+    const priorState = rc.claimId ? lastWasReversal.get(rc.claimId) : undefined;
+    const duplicateInBatch = priorState !== undefined && !priorState;
     if (!claim || payerMismatch || duplicateInBatch) {
       // Never post cash against a fabricated "unknown" patient and never count it as applied —
       // that would make an unreconciled payment look balanced and the money unrecoverable.
@@ -134,13 +147,13 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       postings.push({ claimId: rc.claimId, status: "unmatched", billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: 0, denied: 0, entries: [], denials: [], crossoverToSecondary: false });
       continue;
     }
-    seenClaimIds.add(rc.claimId!);
     const patientId = claim.patientId;
     const date = rem.checkDate ?? rem.receivedAt.slice(0, 10);
     const entries: LedgerEntry[] = [];
     const denials: Adjustment[] = [];
     let contractual = 0, denied = 0;
     const isReversal = rc.statusCode === "22" || rc.paid < 0;
+    lastWasReversal.set(rc.claimId!, isReversal);
     // Claim-level (CLP) CAS can appear alongside SVC-level line CAS in the same 835 — process
     // both instead of only the lines, so claim-level contractual/denial adjustments aren't
     // silently dropped for a normal multi-line claim.

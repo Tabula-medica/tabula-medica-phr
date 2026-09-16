@@ -136,6 +136,21 @@ describe("remittance posting", () => {
     expect(r.postings[1].entries).toHaveLength(0);
     expect(r.unapplied).toBe(100); // only the first row's $100 counted as applied
   });
+  it("does not treat a standard 835 reversal-and-correction pair (same claimId, reversal then new adjudication) as a duplicate", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0 }, { pcn: c.id, status: "1", billed: 450, paid: 200, patient_resp: 0 }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].status).toBe("reversal");
+    expect(r.postings[1].status).not.toBe("unmatched"); // the row right after the reversal is the correction, not a duplicate
+    expect(r.postings[1].entries.length).toBeGreaterThan(0);
+  });
+  it("preserves a negative CAS amount on a reversal row so the original write-off actually gets unwound", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -100, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -100, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: -150 }] }] });
+    expect(rem.claims[0].claimAdjustments![0].amount).toBe(-150); // not clamped to 0 — this negates the original write-off
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].contractual).toBe(-150);
+  });
   it("handles a reversal on a matched, already-paid claim and unwinds it to adjudicated", () => {
     const c = transitionClaim(transitionClaim(transitionClaim(mkClaim(), "scrubbed", "t"), "ready", "t"), "submitted", "t");
     const rem = parseEra({ check_amount: -50, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
