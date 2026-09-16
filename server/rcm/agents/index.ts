@@ -171,6 +171,12 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
 // different claims can both carry the same priorAuthNumber, and without this two concurrent
 // submissions could both read the same stale unitsUsed and both decide they fit.
 const submitAuthLocks = new Set<string>();
+// In-process lock on a denial id: send-appeal/write-off/transfer-to-patient each read the
+// denial's status, act on it, and only then write the resolved status back — two different
+// approved actions on the same denial (e.g. write-off and transfer-to-patient, or two stale
+// approvals for the same action) can otherwise both observe "open" before either posts its
+// ledger entry, causing duplicate or conflicting financial actions on the same denial.
+const denialActionLocks = new Set<string>();
 const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
   name: "submit-claim",
   description: "Submit a ready claim to the clearinghouse (837P)",
@@ -382,13 +388,20 @@ const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, un
   requiresApproval: true,
   approvalReason: "payer-facing appeal",
   async run(input, ctx) {
-    const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    if (!d) throw new Error("denial not found");
-    if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-    await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
-    const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
-    if (claim && ["denied", "partially-paid", "paid"].includes(claim.status)) await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "appealed", ctx.actor));
-    return { appealed: d.id };
+    const lockKey = `${ctx.tenantId}:${input.denialId}`;
+    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
+    denialActionLocks.add(lockKey);
+    try {
+      const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      if (!d) throw new Error("denial not found");
+      if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
+      const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
+      if (claim && ["denied", "partially-paid", "paid"].includes(claim.status)) await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "appealed", ctx.actor));
+      return { appealed: d.id };
+    } finally {
+      denialActionLocks.delete(lockKey);
+    }
   },
 };
 const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number; reason: string }, unknown> = {
@@ -397,16 +410,23 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
   requiresApproval: true,
   approvalReason: "adjustment reduces receivable",
   async run(input, ctx) {
-    const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    if (!d) throw new Error("denial not found");
-    // An approval can sit pending/approved-but-unexecuted for a while — revalidate the denial is
-    // still open right before posting, so a stale approval can't double-adjust a denial that
-    // another action (or a human) already resolved in the meantime.
-    if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-    const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount: d.amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
-    await ctx.store.postLedger(ctx.tenantId, [e]);
-    await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
-    return { writtenOff: d.amount };
+    const lockKey = `${ctx.tenantId}:${input.denialId}`;
+    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
+    denialActionLocks.add(lockKey);
+    try {
+      const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      if (!d) throw new Error("denial not found");
+      // An approval can sit pending/approved-but-unexecuted for a while — revalidate the denial is
+      // still open right before posting, so a stale approval can't double-adjust a denial that
+      // another action (or a human) already resolved in the meantime.
+      if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+      const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount: d.amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
+      await ctx.store.postLedger(ctx.tenantId, [e]);
+      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
+      return { writtenOff: d.amount };
+    } finally {
+      denialActionLocks.delete(lockKey);
+    }
   },
 };
 const transferToPatient: Tool<{ denialId: string; patientId: string; amount: number }, unknown> = {
@@ -415,12 +435,19 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
   requiresApproval: true,
   approvalReason: "increases what the patient owes",
   async run(input, ctx) {
-    const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    if (!d) throw new Error("denial not found");
-    if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-    await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount: d.amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
-    await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
-    return { transferred: d.amount };
+    const lockKey = `${ctx.tenantId}:${input.denialId}`;
+    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
+    denialActionLocks.add(lockKey);
+    try {
+      const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      if (!d) throw new Error("denial not found");
+      if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount: d.amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
+      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
+      return { transferred: d.amount };
+    } finally {
+      denialActionLocks.delete(lockKey);
+    }
   },
 };
 const denialAgent: AgentDefinition = {

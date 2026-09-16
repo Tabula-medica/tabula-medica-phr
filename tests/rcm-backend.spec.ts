@@ -592,6 +592,22 @@ describe("agents", () => {
     expect(exec.ok).toBe(false);
     expect(exec.error).toMatch(/no longer open/);
   });
+  it("write-off and transfer-to-patient can't both win a race against the same open denial", async () => {
+    await rcmStore.upsertDenial(T, { id: "den-race-1", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const writeOffApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-race-1", patientId: "pt-demo-1", amount: 10, reason: "test" }, reason: "test" });
+    const transferApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "transfer-to-patient", payload: { denialId: "den-race-1", patientId: "pt-demo-1", amount: 10 }, reason: "test" });
+    await rcmStore.decideApproval(T, writeOffApproval.id, "approved", "biller");
+    await rcmStore.decideApproval(T, transferApproval.id, "approved", "biller");
+    // Two different approved actions on the SAME denial, executed concurrently: without a
+    // per-denial lock, both could observe status "open" before either writes back a resolved
+    // status, posting duplicate/conflicting ledger entries for one denial.
+    const results = await Promise.all([
+      agentRuntime.executeApproved(T, writeOffApproval.id, "biller"),
+      agentRuntime.executeApproved(T, transferApproval.id, "biller"),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
+  });
   it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
     const approvalsBefore = (await rcmStore.listApprovals(T)).length;
     const workItemsBefore = (await rcmStore.listWorkItems(T, "agent-approval")).length;
