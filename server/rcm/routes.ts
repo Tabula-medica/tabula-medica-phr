@@ -60,6 +60,11 @@ const dxSchema = z.object({ code: z.string().min(3), description: z.string().opt
 
 // ---------- Demo / health ----------
 rcmRouter.get("/health", (_req, res) => res.json({ success: true, module: "rcm", aiEnabled: (process.env.RCM_AI_ENABLED ?? "false") === "true", vendors: { eligibility: "stub", clearinghouse: "stub" }, agents: agentRuntime.list().map((a) => a.name) }));
+// Synchronous check-and-set, before any `await` (mirrors remittancePostInFlight/the other
+// in-process locks in this module) — reset() is synchronous but seedDemoTenant() isn't, so a
+// second /demo/seed call for the same tenant landing in that window would write into (or reseed
+// on top of) a tenant this call had already emptied, interleaving two seeds into one dataset.
+const demoSeedInFlight = new Set<string>();
 rcmRouter.post("/demo/seed", wrap(async (req, res) => {
   // Resets and reseeds the tenant's whole RCM partition — destructive in any environment, not
   // just production (staging/demo deployments hold real-looking financial state too), so this
@@ -70,9 +75,15 @@ rcmRouter.post("/demo/seed", wrap(async (req, res) => {
   // scripted call, or CSRF-less replay can't wipe real data with a bare POST.
   if (req.body?.confirm !== true) return fail(res, 400, 'Resend with { "confirm": true } to acknowledge this permanently deletes all existing RCM data for this account before reseeding demo data');
   const t = tenantOf(req);
-  rcmStore.reset(t);
-  const r = await seedDemoTenant(rcmStore, t);
-  res.json({ success: true, ...r });
+  if (demoSeedInFlight.has(t)) return fail(res, 409, "A demo reseed is already in progress for this account — wait for it to finish");
+  demoSeedInFlight.add(t);
+  try {
+    rcmStore.reset(t);
+    const r = await seedDemoTenant(rcmStore, t);
+    res.json({ success: true, ...r });
+  } finally {
+    demoSeedInFlight.delete(t);
+  }
 }));
 
 // ---------- Patients & coverage ----------
@@ -334,7 +345,7 @@ rcmRouter.post("/claims/:id/corrected", wrap(async (req, res) => {
 // primary appeal is filed, even though nothing about the primary's adjudication changed.
 const primaryAdjudicatedStatuses = new Set<Claim["status"]>(["adjudicated", "paid", "partially-paid", "denied", "appealed"]);
 rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
-  const p = z.object({ secondaryCoverageId: z.string(), primaryRemit: z.object({ paid: z.number(), patientResp: z.number(), billed: z.number(), lines: z.array(z.any()).default([]) }) }).safeParse(req.body);
+  const p = z.object({ secondaryCoverageId: z.string() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
   const t = tenantOf(req);
   const c = await rcmStore.getClaim(t, req.params.id);
@@ -343,7 +354,15 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   if (cov.patientId !== c.patientId) return fail(res, 400, "coverage does not belong to this claim's patient");
   if (cov.priority === "primary") return fail(res, 400, "secondary claim requires a non-primary coverage");
   if (!primaryAdjudicatedStatuses.has(c.status)) return fail(res, 409, `Cannot create a secondary/COB claim from status "${c.status}" — the primary payer hasn't adjudicated this claim yet`);
-  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { ...p.data.primaryRemit, lines: [] })) });
+  // Derive the COB summary from the claim's own stored, posted primary remittance rather than
+  // trusting a caller-supplied paid/patientResp/billed figure — an authenticated caller could
+  // otherwise send the secondary payer an arbitrary primary payment amount unrelated to what the
+  // primary payer actually adjudicated. Pick the most recently posted matching row, in case this
+  // claim has more than one (a reversal-and-correction pair, for instance).
+  const posted = (await rcmStore.listRemittances(t)).filter((r) => r.postedAt).flatMap((r) => r.claims.filter((rc) => rc.claimId === c.id).map((rc) => ({ rc, postedAt: r.postedAt! })));
+  const primary = posted.sort((a, b) => a.postedAt.localeCompare(b.postedAt)).at(-1)?.rc;
+  if (!primary) return fail(res, 409, "No posted primary remittance on file for this claim — post the primary ERA before creating a secondary/COB claim");
+  res.json({ success: true, claim: await rcmStore.upsertClaim(t, secondaryClaim(c, cov, { billed: primary.billed, paid: primary.paid, patientResp: primary.patientResp, lines: [] })) });
 }));
 
 // ---------- Remittance ----------

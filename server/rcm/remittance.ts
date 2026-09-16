@@ -20,10 +20,14 @@ function parseAdjustments(r: Record<string, unknown>, isReversal = false): Adjus
     // CAS amounts are a nonnegative magnitude on the wire for a normal adjudication — a
     // malformed or admin-supplied ERA with a negative CAS amount would otherwise flow straight
     // into postRemittance's contractual/denied totals and post a negative-dollar ledger entry,
-    // corrupting A/R. But an X12 835 reversal (CLP02 "22" or a negative paid amount) legitimately
-    // negates its original CAS amounts to unwind them — clamping those to zero would leave the
-    // original write-offs on the ledger forever and understate A/R instead.
-    out.push({ group: g, carc: str(pick(a, "carc", "reason", "reason_code", "CAS02")) ?? "16", rarc: str(pick(a, "rarc", "remark")), amount: isReversal ? amount : Math.max(0, amount) });
+    // corrupting A/R. An X12 835 reversal (CLP02 "22" or a negative paid amount) legitimately
+    // needs to unwind its original CAS amounts, but vendors don't consistently pre-negate them on
+    // the wire — some send an already-negative amount, others send the same positive magnitude
+    // and rely solely on CLP02 to signal direction. Trusting the wire's sign either double-clamps
+    // a genuine negative to itself (fine) or, for a positive-magnitude reversal, would post it
+    // as a NEW positive adjustment instead of unwinding the original one. Force the sign
+    // ourselves instead of trusting either convention.
+    out.push({ group: g, carc: str(pick(a, "carc", "reason", "reason_code", "CAS02")) ?? "16", rarc: str(pick(a, "rarc", "remark")), amount: isReversal ? -Math.abs(amount) : Math.max(0, amount) });
   }
   return out;
 }
@@ -179,7 +183,12 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     }
     if (rc.paid !== 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: isReversal ? "refund" : "insurance-payment", amount: Math.abs(rc.paid), date, memo: `${rem.payerName ?? rem.payerId ?? "payer"} ${rem.checkNumber ?? ""}`.trim(), responsibleParty: "insurance" });
     if (rc.patientResp > 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "transfer-to-patient", amount: rc.patientResp, date, memo: "Patient responsibility per ERA", responsibleParty: "patient" });
-    applied += rc.paid;
+    // Same wire-sign ambiguity as the CAS amounts above: a reversal must always SUBTRACT its
+    // magnitude from the batch's applied total, whether the vendor sent `paid` as an already-
+    // negative value or the same positive magnitude relying on CLP02 alone to signal a take-back
+    // — trusting the raw sign here would double-count a positive-magnitude reversal as new cash
+    // and throw off `unapplied`/`balanced`.
+    applied += isReversal ? -Math.abs(rc.paid) : rc.paid;
 
     let underpayment: Posting["underpayment"];
     const contract = claim ? contracts[claim.payerId] : undefined;

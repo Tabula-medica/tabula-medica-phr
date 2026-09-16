@@ -163,6 +163,19 @@ describe("remittance posting", () => {
     const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
     expect(r.postings[0].contractual).toBe(-150);
   });
+  it("unwinds a reversal correctly even when the vendor sends paid/CAS as positive magnitudes and relies solely on status '22' for direction", () => {
+    // Not every vendor pre-negates a reversal's wire values the way the other reversal tests'
+    // fixtures do — some send the same positive magnitude as the original adjudication and rely
+    // entirely on CLP02 "22" to signal a take-back. Trusting the wire's sign in that case would
+    // post the "unwind" as a brand-new positive adjustment instead of reversing the original one.
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: -100, claims: [{ pcn: c.id, status: "22", billed: 450, paid: 100, patient_resp: 0, adjustments: [{ group: "CO", carc: "45", amount: 150 }] }] });
+    expect(rem.claims[0].claimAdjustments![0].amount).toBe(-150); // normalized negative regardless of the wire's positive sign
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    expect(r.postings[0].contractual).toBe(-150);
+    expect(r.postings[0].entries.find((e) => e.type === "refund")?.amount).toBe(100);
+    expect(r.balanced).toBe(true); // applied must be -100 (unwound), not +100 (counted as new cash)
+  });
   it("does not spawn a new (negative-amount) denial record from a reversal's negated denial-CARC", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: -30, claims: [{ pcn: c.id, status: "22", billed: 450, paid: -30, patient_resp: 0, adjustments: [{ group: "CO", carc: "97", amount: -30 }] }] });
