@@ -101,9 +101,27 @@ export interface ChargeGap { kind: "missing-charge" | "orphan-charge" | "charge-
 // documentation; charge lag beyond the target (days between DOS and charge entry).
 export function detectChargeGaps(facts: EncounterFacts, charges: ServiceLine[], opts: { chargeLagTargetDays?: number; enteredAt?: string } = {}): ChargeGap[] {
   const gaps: ChargeGap[] = [];
-  const charged = new Set(charges.map((c) => c.cpt));
-  for (const c of [...facts.proceduresDocumented, ...facts.ordersCompleted]) {
-    if (!charged.has(c.toUpperCase())) gaps.push({ kind: "missing-charge", cpt: c, detail: `${c} documented/performed but not charged`, severity: "error" });
+  // Compare documented occurrence counts against charged units, not just CPT presence — a Set
+  // would treat two documented instances of the same CPT as fully covered by a single 1-unit
+  // charge line, hiding a real under-capture (the same distinction deriveCharges makes between
+  // genuine repeat occurrences and one service recorded through both proceduresDocumented and
+  // ordersCompleted).
+  const countByCpt = (codes: string[]): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const c of codes.map((x) => x.toUpperCase())) m.set(c, (m.get(c) ?? 0) + 1);
+    return m;
+  };
+  const documentedCounts = countByCpt(facts.proceduresDocumented);
+  const completedCounts = countByCpt(facts.ordersCompleted);
+  const neededUnits = new Map<string, number>();
+  for (const cpt of Array.from(new Set([...Array.from(documentedCounts.keys()), ...Array.from(completedCounts.keys())]))) {
+    neededUnits.set(cpt, Math.max(documentedCounts.get(cpt) ?? 0, completedCounts.get(cpt) ?? 0));
+  }
+  const chargedUnits = new Map<string, number>();
+  for (const ch of charges) chargedUnits.set(ch.cpt, (chargedUnits.get(ch.cpt) ?? 0) + ch.units);
+  for (const [cpt, needed] of Array.from(neededUnits)) {
+    const got = chargedUnits.get(cpt) ?? 0;
+    if (got < needed) gaps.push({ kind: "missing-charge", cpt, detail: got > 0 ? `${cpt} documented/performed ${needed} time(s) but only ${got} unit(s) charged` : `${cpt} documented/performed but not charged`, severity: "error" });
   }
   const documented = new Set([...facts.proceduresDocumented, ...facts.ordersCompleted].map((c) => c.toUpperCase()));
   for (const ch of charges) {

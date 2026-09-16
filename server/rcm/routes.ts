@@ -261,6 +261,13 @@ rcmRouter.post("/claims/:id/transition", wrap(async (req, res) => {
   // would hide an unpaid claim without ever going through write-off, a corrected claim, or a
   // recorded payer outcome. Block that specific path; every other "closed" target stays direct.
   if (p.data.to === "closed" && (claim.status === "denied" || claim.status === "appealed")) return fail(res, 409, `Cannot close a claim directly out of "${claim.status}" — resolve it via write-off, a corrected claim, or the denial's actual payer outcome first`);
+  // The state machine legally allows denied -> draft (distinct from "rejected", the front-end/
+  // clearinghouse-level rejection that's meant to be fixed and resubmitted this way) — but a
+  // claim that was actually ADJUDICATED denied and reset to draft here would then flow through
+  // the normal draft -> scrubbed -> ready -> submitted pipeline as if it were a brand-new original
+  // claim, silently bypassing the frequency-7 corrected-claim workflow (and its
+  // correctableClaimStatuses guard above) that a real payer-adjudicated denial requires.
+  if (p.data.to === "draft" && correctableClaimStatuses.has(claim.status)) return fail(res, 409, `Cannot reset "${claim.status}" directly to draft — file a corrected claim (POST /claims/:id/corrected) instead of resubmitting it as a new original`);
   try { res.json({ success: true, claim: await rcmStore.upsertClaim(t, transitionClaim(claim, p.data.to as Claim["status"], actorOf(req), p.data.note)) }); } catch (e) { fail(res, 409, e instanceof Error ? e.message : "illegal transition"); }
 }));
 rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => {

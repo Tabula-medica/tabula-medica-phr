@@ -5,6 +5,7 @@ import { authCoversService, build278, consumeAuthUnit, createAuthRequest, requir
 import { deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "../server/rcm/charge-capture";
 import { levelEm, mdmLevel, parseCodingSuggestion, reviewIcd } from "../server/rcm/coding";
 import { applyAutoFixes, scrubClaim } from "../server/rcm/scrubber";
+import { PLACE_OF_SERVICE } from "../server/rcm/reference-data";
 import { buildClaim } from "../server/rcm/claims";
 import { DEFAULT_CONTRACTS } from "../server/rcm/contracts";
 import { isValidNpi, round2 } from "../server/rcm/util";
@@ -133,6 +134,13 @@ describe("charge capture", () => {
     const gaps = detectChargeGaps(facts, [{ id: "x", cpt: "12001", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], { enteredAt: "2026-09-10" });
     expect(gaps.map((g) => g.kind).sort()).toEqual(["charge-lag", "missing-charge", "no-em", "orphan-charge"]);
   });
+  it("flags a missing-charge gap when a procedure is documented twice but only one unit was charged", () => {
+    // A Set-based presence check would treat the single 1-unit charge line as fully covering both
+    // documented instances, hiding a real under-capture.
+    const facts = { encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3 as const, proceduresDocumented: ["20610", "20610"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] };
+    const gaps = detectChargeGaps(facts, [{ id: "x", cpt: "20610", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }]);
+    expect(gaps.some((g) => g.kind === "missing-charge" && g.cpt === "20610")).toBe(true);
+  });
   it("parses voice charge commands with modifiers, units and spoken ICD-10", () => {
     const cmds = parseVoiceCharge("Add 99214 with modifier 25 and 95, diagnosis E11 point 9 and I10, and two units of 90472");
     expect(cmds).toHaveLength(2);
@@ -194,11 +202,19 @@ describe("scrubber", () => {
     expect(r2.clean).toBe(false); // still needs a human to confirm and add the modifier
   });
   it("catches bundling, timely filing, coverage, auth and demographic edits", () => {
-    const claim = mk({ diagnoses: [{ code: "N40.1" }, { code: "E11" }], lines: [{ cpt: "99397", modifiers: ["25"], units: 1, charge: 200, dxPointers: [1, 2], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12001", modifiers: [], units: 1, charge: 120, dxPointers: [9], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "72148", modifiers: ["ZZ"], units: 1, charge: 900, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "99" }] });
+    const claim = mk({ diagnoses: [{ code: "N40.1" }, { code: "E11" }], lines: [{ cpt: "99397", modifiers: ["25"], units: 1, charge: 200, dxPointers: [1, 2], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12001", modifiers: [], units: 1, charge: 120, dxPointers: [9], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "72148", modifiers: ["ZZ"], units: 1, charge: 900, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "88" }] });
     const r = scrubClaim(claim, { patient, coverage: { ...coverage, terminationDate: "2026-02-01" }, today: "2026-09-05", authRequiredCpts: ["72148"] });
     const ids = new Set(r.edits.map((e) => e.id));
     for (const id of ["ncci-bundling", "timely-filing", "coverage-terminated", "auth-missing", "age-inappropriate-cpt", "sex-inappropriate-icd", "unknown-modifier", "pos-format", "unlinked-service-line", "icd-specificity"]) expect(ids.has(id), id).toBe(true);
     expect(r.clean).toBe(false);
+  });
+  it("recognizes real CMS place-of-service codes the earlier seed-sized map omitted (assisted living, inpatient hospital, nursing facility, ambulance)", () => {
+    for (const pos of ["13", "21", "32", "41", "42"]) {
+      expect(PLACE_OF_SERVICE[pos], pos).toBeDefined();
+      const claim = mk({ lines: [{ cpt: "99213", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: pos }] });
+      const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
+      expect(r.edits.map((e) => e.id), pos).not.toContain("pos-format");
+    }
   });
   it("modifier 25 alone does not bypass an NCCI PTP edit (it is an E/M modifier, not a bypass)", () => {
     const claim = mk({ lines: [{ cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "12001", modifiers: ["25"], units: 1, charge: 120, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
