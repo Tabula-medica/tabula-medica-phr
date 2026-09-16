@@ -20,7 +20,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
 import { agentRuntime } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, newId, round2, todayIso } from "./util";
+import { daysBetween, round2, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
@@ -90,6 +90,14 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   if (!coverage) return fail(res, 404, "coverage not found");
   const patient = await rcmStore.getPatient(t, coverage.patientId);
   if (!patient) return fail(res, 404, "patient not found");
+  // payerResponse lets a caller supply a 271 payload directly instead of going through
+  // checkEligibility — with no real vendor behind either path today, that's indistinguishable
+  // from any authenticated provider/clinician fabricating "active" benefits (e.g. { eligible: "1"
+  // }) and having it persisted with source: "clearinghouse" as if a real payer said so, clearing
+  // financial responsibility on data nobody verified. Restrict the override to admin, the same
+  // boundary already used for other caller-supplied-truth risks on this router (/ledger's direct
+  // insurance-side entries, /remittance/post).
+  if (p.data.payerResponse !== undefined && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Supplying a payer response directly requires an admin role");
   // A supplied payerResponse must not bypass the local coverage safeguards (effective/
   // termination date, self-pay) that checkEligibility applies — otherwise an arbitrary request
   // body could be stored as "active" benefits for coverage that was never actually in force.
@@ -456,7 +464,11 @@ const impliedLedgerParty: Partial<Record<(typeof directLedgerTypes)[number], "in
 // check (separated from it by several awaits) before either finishes appending.
 const ledgerPostInFlight = new Set<string>();
 rcmRouter.post("/ledger", wrap(async (req, res) => {
-  const p = z.array(z.object({ id: z.string().optional(), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
+  // `id` is REQUIRED (not defaulted server-side) specifically so it can double as a client
+  // idempotency key: every dupe/lock/already-posted check below keys off caller-supplied ids, so
+  // a caller that omitted one would get a fresh newId() minted on every retry and silently post
+  // the same charge/payment twice after a dropped response, with nothing here able to catch it.
+  const p = z.array(z.object({ id: z.string().min(1), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
   if (!p.success) return bad(res, p.error);
   // insurance-payment/contractual-adjustment reduce A/R, and transfer-to-patient shifts
   // responsibility for a caller-supplied amount onto the patient — none of the three have an
@@ -467,7 +479,7 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
   const adjustmentTypes = new Set<(typeof directLedgerTypes)[number]>(["insurance-payment", "contractual-adjustment", "transfer-to-patient"]);
   if (p.data.some((e) => adjustmentTypes.has(e.type)) && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Posting insurance-payment, contractual-adjustment, or transfer-to-patient entries directly requires an admin role");
   const t = tenantOf(req);
-  const suppliedIds = p.data.map((e) => e.id).filter((id): id is string => !!id);
+  const suppliedIds = p.data.map((e) => e.id);
   // The store-lookup dedup check below only catches ids already posted in a PRIOR request — a
   // single batch repeating the same caller-supplied id would pass that check for both and post
   // both, since neither exists yet. Reject that within-batch collision up front.
@@ -500,10 +512,7 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
       const dupe = suppliedIds.find((id) => existingIds.has(id));
       if (dupe) return fail(res, 409, `ledger entry ${dupe} already posted`);
     }
-    // newId's monotonic in-process counter (not just Date.now()) guarantees uniqueness even
-    // across two concurrent requests landing in the same millisecond — a plain timestamp + a
-    // per-request batch index could collide across requests, not just within one.
-    const entries = p.data.map((e) => ({ ...e, id: e.id ?? newId("led"), responsibleParty: impliedLedgerParty[e.type] ?? e.responsibleParty }));
+    const entries = p.data.map((e) => ({ ...e, responsibleParty: impliedLedgerParty[e.type] ?? e.responsibleParty }));
     await rcmStore.postLedger(t, entries);
     res.json({ success: true, posted: entries.length });
   } finally {
