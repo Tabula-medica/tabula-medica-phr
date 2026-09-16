@@ -5,6 +5,10 @@ server/public
 vite.config.ts.*
 *.tar.gz
 google-service-account.json
+test-results
+playwright-report
+blob-report
+playwright/.cache
 # --- PHI / secrets hardening (added during migration) ---
 DATABASE_URL
 cookies.txt
