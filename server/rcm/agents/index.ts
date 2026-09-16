@@ -168,6 +168,12 @@ const submitClaim: Tool<{ claimId: string; amount: number }, unknown> = {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
     const auth = claim.priorAuthNumber ? (await ctx.store.listAuths(ctx.tenantId)).find((a) => a.authNumber === claim.priorAuthNumber && a.patientId === claim.patientId && a.coverageId === claim.coverageId) : undefined;
+    // A priorAuthNumber with no matching internal record isn't proof there's no real
+    // authorization (it could be a payer number obtained outside this app's own tracking), but
+    // it's exactly the situation the auth-validation block below is meant to catch — and being
+    // wrapped in `if (auth)` meant it silently skipped validation entirely instead of failing
+    // closed. Block submission rather than letting an unverifiable auth number through untouched.
+    if (claim.priorAuthNumber && !auth) throw new Error(`Prior auth number ${claim.priorAuthNumber} on this claim has no matching authorization record for this patient/coverage — verify it before submitting`);
     const lockKey = auth ? `${ctx.tenantId}:${auth.id}` : undefined;
     if (lockKey) {
       if (submitAuthLocks.has(lockKey)) throw new Error(`Prior auth ${auth!.authNumber} is already being consumed by another in-flight submission`);
@@ -274,6 +280,10 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
   async run(input, ctx) {
     const orig = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!orig) throw new Error("claim not found");
+    const denialBefore = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+    // Revalidate before staging a replacement claim — an approval can sit pending for a while,
+    // and another action (or a human) may have already resolved this denial in the meantime.
+    if (!denialBefore || denialBefore.status !== "open") throw new Error(`Denial ${input.denialId} is no longer open — this approval is stale`);
     // A bare frequency-7 clone with no remediation would carry the exact same errors that
     // triggered the denial (and would trip the same CARC again). Re-scrub the clone and apply
     // safe auto-fixes; anything not auto-fixable goes to a claim-edits work item for a human
@@ -312,6 +322,7 @@ const sendAppeal: Tool<{ denialId: string; claimId: string; amount: number }, un
   async run(input, ctx) {
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
     if (!d) throw new Error("denial not found");
+    if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
     await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "appealed" });
     const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
     if (claim && ["denied", "partially-paid", "paid"].includes(claim.status)) await ctx.store.upsertClaim(ctx.tenantId, transitionClaim(claim, "appealed", ctx.actor));
@@ -326,6 +337,10 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
   async run(input, ctx) {
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
     if (!d) throw new Error("denial not found");
+    // An approval can sit pending/approved-but-unexecuted for a while — revalidate the denial is
+    // still open right before posting, so a stale approval can't double-adjust a denial that
+    // another action (or a human) already resolved in the meantime.
+    if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
     const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount: d.amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
     await ctx.store.postLedger(ctx.tenantId, [e]);
     await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
@@ -340,6 +355,7 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
   async run(input, ctx) {
     const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
     if (!d) throw new Error("denial not found");
+    if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
     await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount: d.amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
     await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
     return { transferred: d.amount };

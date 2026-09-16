@@ -368,6 +368,19 @@ describe("agents", () => {
     expect(exec2.ok).toBe(false);
     expect((await rcmStore.getClaim(T, ready2.id))?.status).toBe("ready"); // never actually submitted
   });
+  it("submit-claim fails closed when the claim's priorAuthNumber has no matching internal authorization record", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = buildClaim({ encounterId: "e-bogus-auth", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M54.16" }], lines: [{ cpt: "97110", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], priorAuthNumber: "NEVER-ISSUED-BY-US" });
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).toBe("ready");
+  });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
     const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
@@ -419,6 +432,16 @@ describe("agents", () => {
     expect(stillOpen).toEqual(expect.arrayContaining(before));
     const triaged = r.steps.filter((s) => s.tool === "triage-denial").map((s) => s.input.denialId);
     for (const id of before) expect(triaged).toContain(id);
+  });
+  it("write-off/appeal/transfer actions fail closed if the denial was resolved another way while the approval was pending", async () => {
+    await rcmStore.upsertDenial(T, { id: "den-stale-1", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-stale-1", patientId: "pt-demo-1", amount: 10, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, approval.id, "approved", "biller");
+    // Another workflow (or a human) resolves the denial a different way before this approval executes.
+    await rcmStore.upsertDenial(T, { id: "den-stale-1", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "appealed", priorityScore: 10 });
+    const exec = await agentRuntime.executeApproved(T, approval.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/no longer open/);
   });
   it("dry run on an agent with approval-gated tools never creates approval rows or work items", async () => {
     const approvalsBefore = (await rcmStore.listApprovals(T)).length;

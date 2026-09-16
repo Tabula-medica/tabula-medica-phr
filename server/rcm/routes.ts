@@ -20,7 +20,7 @@ import { parseVoiceIntent, speakIntent, speakKpis } from "./voice";
 import { agentRuntime } from "./agents";
 import { aiJson } from "./agents/ai";
 import { seedDemoTenant } from "./demo-seed";
-import { daysBetween, todayIso } from "./util";
+import { daysBetween, newId, todayIso } from "./util";
 import type { Claim, Diagnosis, ServiceLine, WorkQueue } from "./types";
 
 export const rcmRouter = Router();
@@ -56,9 +56,10 @@ const dxSchema = z.object({ code: z.string().min(3), description: z.string().opt
 // ---------- Demo / health ----------
 rcmRouter.get("/health", (_req, res) => res.json({ success: true, module: "rcm", aiEnabled: (process.env.RCM_AI_ENABLED ?? "false") === "true", vendors: { eligibility: "stub", clearinghouse: "stub" }, agents: agentRuntime.list().map((a) => a.name) }));
 rcmRouter.post("/demo/seed", wrap(async (req, res) => {
-  // Resets and reseeds the tenant's whole RCM partition, so keep it out of reach of everyday
-  // production traffic even though the route itself is authenticated.
-  if (process.env.NODE_ENV === "production" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Demo seeding requires an admin role in production");
+  // Resets and reseeds the tenant's whole RCM partition — destructive in any environment, not
+  // just production (staging/demo deployments hold real-looking financial state too), so this
+  // always requires admin rather than gating only on NODE_ENV.
+  if ((req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Demo seeding requires an admin role");
   const t = tenantOf(req);
   rcmStore.reset(t);
   const r = await seedDemoTenant(rcmStore, t);
@@ -384,7 +385,10 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
       const dupe = suppliedIds.find((id) => existingIds.has(id));
       if (dupe) return fail(res, 409, `ledger entry ${dupe} already posted`);
     }
-    const entries = p.data.map((e, i) => ({ ...e, id: e.id ?? `led_${Date.now().toString(36)}_${i}`, responsibleParty: impliedLedgerParty[e.type] ?? e.responsibleParty }));
+    // newId's monotonic in-process counter (not just Date.now()) guarantees uniqueness even
+    // across two concurrent requests landing in the same millisecond — a plain timestamp + a
+    // per-request batch index could collide across requests, not just within one.
+    const entries = p.data.map((e) => ({ ...e, id: e.id ?? newId("led"), responsibleParty: impliedLedgerParty[e.type] ?? e.responsibleParty }));
     await rcmStore.postLedger(t, entries);
     res.json({ success: true, posted: entries.length });
   } finally {
