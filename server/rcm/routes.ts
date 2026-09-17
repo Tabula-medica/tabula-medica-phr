@@ -424,6 +424,14 @@ rcmRouter.post("/claims/:id/secondary", wrap(async (req, res) => {
   if (!c || !cov) return fail(res, 404, "claim or coverage not found");
   if (cov.patientId !== c.patientId) return fail(res, 400, "coverage does not belong to this claim's patient");
   if (cov.priority === "primary") return fail(res, 400, "secondary claim requires a non-primary coverage");
+  // A COB claim only makes sense as "what the PRIMARY payer already adjudicated, forwarded to a
+  // secondary payer" — without these two checks, a claim whose own coverage isn't actually primary
+  // (or was changed since), or a target coverage that's the same record as the claim's own, could
+  // be passed off as a legitimate secondary/COB claim with no real primary-adjudication
+  // relationship behind it.
+  if (p.data.secondaryCoverageId === c.coverageId) return fail(res, 400, "secondary coverage must be different from the claim's own coverage");
+  const sourceCov = await rcmStore.getCoverage(t, c.coverageId);
+  if (!sourceCov || sourceCov.priority !== "primary") return fail(res, 400, "this claim's own coverage is no longer on file as primary — a secondary/COB claim can only be filed from a primary claim");
   if (!primaryAdjudicatedStatuses.has(c.status)) return fail(res, 409, `Cannot create a secondary/COB claim from status "${c.status}" — the primary payer hasn't adjudicated this claim yet`);
   // Derive the COB summary from the claim's own posted LEDGER entries — the actual record of what
   // was applied — rather than a caller-supplied figure or the stored remittance's raw CLP rows.
@@ -629,7 +637,10 @@ rcmRouter.post("/patients/:id/propensity", wrap(async (req, res) => { const t = 
 // that tool creating a plan for the same patient at the same time. Closes the check-then-insert
 // TOCTOU below: the balance/active-plan checks and the eventual upsertPaymentPlan are separated
 // by `await`s a second concurrent request could slip through, both reading "no active plan" and
-// each creating its own schedule against the same balance.
+// each creating its own schedule against the same balance. ALSO takes the shared patientLedgerLocks
+// lock (see its comment in patient-financials.ts) — paymentPlanLocks alone doesn't serialize against
+// a concurrent refund/write-off/direct-ledger-post/remittance-post for the same patient, which
+// could change the balance this route caps against between the check and the upsert.
 rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
   const p = z.object({ total: z.number().positive(), months: z.number().int().positive().max(36), startDate: isoDate.optional(), autoPay: z.boolean().default(false) }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
@@ -638,7 +649,15 @@ rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
   if (!pt) return fail(res, 404, "patient not found");
   const lockKey = `${t}:${req.params.id}`;
   if (paymentPlanLocks.has(lockKey)) return fail(res, 409, "A payment plan action for this patient is already in progress — retry shortly");
+  // Also take the shared patientLedgerLocks lock (the same one /ledger, /remittance/post, and the
+  // refund/write-off agent tools use) — paymentPlanLocks alone only serializes this route against
+  // OTHER payment-plan actions, not against a concurrent refund/write-off/direct-ledger-post/
+  // remittance-post for the same patient. Without it, the balance this route reads below could
+  // change out from under it between the check and the plan upsert, authorizing a plan total
+  // against a balance the patient no longer actually owes.
+  if (patientLedgerLocks.has(lockKey)) return fail(res, 409, "Another ledger action for this patient is already in flight — retry shortly");
   paymentPlanLocks.add(lockKey);
+  patientLedgerLocks.add(lockKey);
   try {
     // Same "any unpaid schedule = active" invariant the patient-financial agent uses
     // (agents/index.ts's hasActivePlan) — don't let a second plan stack on top of one the
@@ -653,6 +672,7 @@ rcmRouter.post("/patients/:id/payment-plan", wrap(async (req, res) => {
     res.json({ success: true, plan: await rcmStore.upsertPaymentPlan(t, plan) });
   } finally {
     paymentPlanLocks.delete(lockKey);
+    patientLedgerLocks.delete(lockKey);
   }
 }));
 rcmRouter.get("/patients/:id/payment-plan", wrap(async (req, res) => res.json({ success: true, plans: await rcmStore.listPaymentPlans(tenantOf(req), req.params.id) })));

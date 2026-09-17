@@ -140,6 +140,18 @@ describe("charge capture", () => {
     expect(lines.find((l) => l.cpt === "90472")!.units).toBe(1);
     expect(lines.every((l) => l.charge > 0)).toBe(true);
   });
+  it("adds modifier 25 for a same-day ECG or spirometry, but not for a bundled pulse-oximetry reading", () => {
+    // 93000 (ECG) and 94010 (spirometry) are genuinely separate, billable same-day diagnostics
+    // that typically warrant modifier 25 on the E/M — they must not be treated as incidental just
+    // because they share a CPT prefix with pulse oximetry (94760), which IS CMS status-B/bundled
+    // and correctly stays excluded.
+    const withEcg = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["93000"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(withEcg.find((l) => l.cpt === "99213")!.modifiers).toContain("25");
+    const withSpirometry = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["94010"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(withSpirometry.find((l) => l.cpt === "99213")!.modifiers).toContain("25");
+    const withPulseOx = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["94760"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(withPulseOx.find((l) => l.cpt === "99213")!.modifiers).not.toContain("25");
+  });
   it("aggregates a procedure documented more than once into units instead of collapsing it to a single instance", () => {
     // Two separate injections of the same CPT must not be deduped away — that would underbill.
     const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["20610", "20610"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });

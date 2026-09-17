@@ -17,7 +17,17 @@ export function signedAmount(e: LedgerEntry): number {
 export interface AccountSummary { patientId: string; charges: number; insurancePaid: number; patientPaid: number; adjustments: number; refunds: number; balance: number; patientBalance: number; insuranceBalance: number }
 
 export function computeAccount(patientId: string, entries: LedgerEntry[]): AccountSummary {
-  const mine = entries.filter((e) => e.patientId === patientId);
+  // Sorted by date, not left in whatever order the store returns them (insertion/append order,
+  // which can diverge from chronological order — e.g. a remittance posted today can carry an
+  // older `date` than an entry already in the ledger). The totals below don't care about order
+  // (addition commutes), but the transfer-to-patient cap in the second pass does: it caps against
+  // whatever `insuranceSide` happens to be AT THAT POINT in the iteration, so an insurance-payment
+  // processed before its own remittance's transfer-to-patient (purely because of insertion order)
+  // would shrink the pool the transfer caps against before the transfer ever sees it, silently
+  // capping a legitimate patient-responsibility transfer to less than it should be. Array.sort is
+  // a stable sort, so same-date entries keep their original relative (insertion) order as the
+  // deterministic tie-break.
+  const mine = entries.filter((e) => e.patientId === patientId).sort((a, b) => a.date.localeCompare(b.date));
   const by = (t: LedgerEntry["type"]) => sum(mine.filter((e) => e.type === t).map((e) => e.amount));
   const charges = by("charge");
   const insurancePaid = by("insurance-payment");
@@ -124,11 +134,14 @@ export interface PaymentPlan { id: string; patientId: string; total: number; ins
 export const paymentPlanLocks = new Set<string>();
 
 // Shared in-process lock, keyed `${tenantId}:${patientId}`, for every entry point that reads a
-// patient's current ledger balance/credit and then posts an entry derived from it: the
-// patient-financial agent tools (issue-refund, small-balance-write-off), the denials agent tools
-// (write-off, transfer-to-patient — their own denialActionLocks only serializes actions on the
-// SAME denial, not two different open denials racing on the same claim/patient), and the direct
-// POST /ledger and POST /remittance/post routes. Any two of these racing for the SAME patient can
+// patient's current ledger balance/credit and then posts an entry (or authorizes a schedule)
+// derived from it: the patient-financial agent tools (issue-refund, small-balance-write-off,
+// offer-payment-plan), the denials agent tools (write-off, transfer-to-patient — their own
+// denialActionLocks only serializes actions on the SAME denial, not two different open denials
+// racing on the same claim/patient), and the direct POST /ledger, POST /remittance/post, and
+// POST /patients/:id/payment-plan routes (the last of these is ALSO keyed into paymentPlanLocks
+// above, for the same-key reason paymentPlanLocks itself exists). Any two of these racing for the
+// SAME patient can
 // each read the same pre-mutation balance before either writes, and each proceed as if the full
 // amount were still available — over-refunding, over-forgiving, or double-applying a payment
 // against a balance that already moved. Exported from here, rather than declared separately in
@@ -222,6 +235,11 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
   return out;
 }
 
-export function smallBalanceWriteOffs(entriesByPatient: Record<string, LedgerEntry[]>, threshold = 5): Array<{ patientId: string; amount: number }> {
+// Exported so the small-balance-write-off tool's execution-time recheck (agents/index.ts) uses the
+// exact same policy threshold this planner filters against, instead of a second hardcoded number
+// that could drift from it.
+export const SMALL_BALANCE_THRESHOLD = 5;
+
+export function smallBalanceWriteOffs(entriesByPatient: Record<string, LedgerEntry[]>, threshold = SMALL_BALANCE_THRESHOLD): Array<{ patientId: string; amount: number }> {
   return Object.entries(entriesByPatient).map(([patientId, entries]) => ({ patientId, amount: computeAccount(patientId, entries).patientBalance })).filter((x) => x.amount > 0 && x.amount <= threshold);
 }

@@ -344,6 +344,23 @@ describe("patient financials", () => {
     expect(st.dueDate).toBe("2026-10-05");
     expect(st.message).toMatch(/past due/);
   });
+  it("computeAccount's transfer-to-patient cap follows chronological date order, not whatever array/insertion order the store returns the entries in", () => {
+    // A deliberately inconsistent/stale pair (as could arise from entries posted across separate
+    // corrections rather than one clean remittance): the payment plus the transfer together exceed
+    // what the charge's insurance side actually has left. The transfer is dated BEFORE the payment
+    // (2026-04-01 vs. 2026-04-05), so it must always be processed first regardless of which literal
+    // array order (insertion order) the store happens to return — before this fix, the two array
+    // orderings below produced two different results depending purely on array position.
+    const charge: LedgerEntry = { id: "1", patientId: "p3", type: "charge", amount: 400, date: "2026-03-01", responsibleParty: "insurance" };
+    const transfer: LedgerEntry = { id: "2", patientId: "p3", type: "transfer-to-patient", amount: 50, date: "2026-04-01", responsibleParty: "patient" };
+    const payment: LedgerEntry = { id: "3", patientId: "p3", type: "insurance-payment", amount: 390, date: "2026-04-05", responsibleParty: "insurance" };
+    // Chronologically correct: transfer (04-01) sees the full $400 insurance side before the later
+    // payment (04-05) draws it down — the patient gets the full $50 transferred, and the payment
+    // (larger than what's left) pushes insuranceBalance negative rather than being silently capped.
+    const expected = { patientId: "p3", charges: 400, insurancePaid: 390, patientPaid: 0, adjustments: 0, refunds: 0, balance: 10, patientBalance: 50, insuranceBalance: -40 };
+    expect(computeAccount("p3", [charge, payment, transfer])).toEqual(expected); // array order: payment before transfer
+    expect(computeAccount("p3", [charge, transfer, payment])).toEqual(expected); // array order: transfer before payment
+  });
   it("a patient-side write-off actually zeroes the patient balance it covers", () => {
     const withWriteOff: LedgerEntry[] = [
       { id: "1", patientId: "p2", type: "charge", amount: 100, date: "2026-03-01", responsibleParty: "insurance" },
@@ -473,6 +490,20 @@ describe("voice", () => {
     expect(parseVoiceIntent("collect the 30 dollar copay")).toMatchObject({ type: "collect-copay", amount: 30 });
     expect(speakIntent(parseVoiceIntent("gibberish"))).toMatch(/did not catch/);
     expect(speakKpis([{ key: "denial_rate", name: "Initial denial rate", value: 4, unit: "pct", status: "good" }])).toBe("Initial denial rate is 4 percent.");
+  });
+  it("never tells the caller to say \"confirm\" for an intent /voice/command can't actually execute from a follow-up utterance", () => {
+    // parseVoiceIntent has no confirmation state at all — a follow-up "confirm" just falls through
+    // to "unknown" and /voice/command only ever dispatches kpi-readout and run-agent for real.
+    // Every other spoken response must point at the actual UI step instead of promising a spoken
+    // "confirm" will finish the job.
+    const recognitionOnly = [
+      parseVoiceIntent("Add 99214 with modifier 25 diagnosis E11 point 9"),
+      parseVoiceIntent("start a prior auth for 72148"),
+      parseVoiceIntent("appeal claim c1"),
+      parseVoiceIntent("collect the 30 dollar copay"),
+      parseVoiceIntent("set up a payment plan over six months for $300"),
+    ];
+    for (const intent of recognitionOnly) expect(speakIntent(intent)).not.toMatch(/say "confirm"/i);
   });
   it("builds payer call scripts and maps dispositions", () => {
     const s = buildPayerCallScript(mkClaim(), coverage, patient);
@@ -1147,6 +1178,7 @@ describe("agents", () => {
     // offer-payment-plan step for the same patient before either's insert lands. The tool's own
     // lock + execution-time recheck is the only thing that can actually prevent a duplicate.
     await rcmStore.upsertPatient(T, { id: "pt-plan-race", firstName: "Race", lastName: "Plan", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-plan-race", patientId: "pt-plan-race", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "patient" }]);
     const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
     const input = { patientId: "pt-plan-race", amount: 300, months: 6 };
     const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
@@ -1158,11 +1190,21 @@ describe("agents", () => {
   });
   it("offer-payment-plan refuses to create a second plan once an active one already exists for the patient, even outside a concurrent race", async () => {
     await rcmStore.upsertPatient(T, { id: "pt-plan-dup", firstName: "Dup", lastName: "Plan", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-plan-dup", patientId: "pt-plan-dup", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "patient" }]);
     const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
     const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
     await tool.run({ patientId: "pt-plan-dup", amount: 300, months: 6 }, ctx);
     await expect(tool.run({ patientId: "pt-plan-dup", amount: 300, months: 6 }, ctx)).rejects.toThrow(/already has an active payment plan/);
     expect(await rcmStore.listPaymentPlans(T, "pt-plan-dup")).toHaveLength(1);
+  });
+  it("offer-payment-plan rejects a plan amount that exceeds the patient's current outstanding balance", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-plan-overshoot", firstName: "Over", lastName: "Shoot", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-po-1", patientId: "pt-plan-overshoot", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "patient" }]);
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "offer-payment-plan")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    // Only $100 is actually owed — a $300 plan (the stale plan()-time amount) must not go through.
+    await expect(tool.run({ patientId: "pt-plan-overshoot", amount: 300, months: 6 }, ctx)).rejects.toThrow(/exceeds the patient's current outstanding balance/);
+    expect(await rcmStore.listPaymentPlans(T, "pt-plan-overshoot")).toHaveLength(0);
   });
   it("offer-payment-plan and the direct payment-plan route share the same lock, not two independent ones", async () => {
     // A private lock in each module would let a route-level creation and an offer-payment-plan
@@ -1240,6 +1282,25 @@ describe("agents", () => {
     // came from the lock and not some other validation failure.
     await expect(tool.run(input, ctx)).resolves.toEqual({ refunded: 50 });
   });
+  it("issue-refund caps against the side actually being refunded, not the combined balance — a patient credit offset by an unrelated insurance debit must still refund", async () => {
+    // $100 self-pay charge + $150 patient payment = a genuine $50 patient-side credit. A separate,
+    // unrelated $100 insurance-side charge that's never been paid nets the COMBINED balance to
+    // +$50 (not a credit) even though the patient side alone clearly has one. Capping against the
+    // combined balance would wrongly reject this refund.
+    await rcmStore.upsertPatient(T, { id: "pt-side-credit", firstName: "Side", lastName: "Credit", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-sc-1", patientId: "pt-side-credit", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "patient" },
+      { id: "led-sc-2", patientId: "pt-side-credit", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "led-sc-3", patientId: "pt-side-credit", type: "patient-payment", amount: 150, date: "2026-08-05", responsibleParty: "patient" },
+    ]);
+    const account = computeAccount("pt-side-credit", await rcmStore.ledger(T, "pt-side-credit"));
+    expect(account.balance).toBe(50); // combined balance looks like money is owed...
+    expect(account.patientBalance).toBe(-50); // ...but the patient side alone is a genuine $50 credit
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "issue-refund")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const result = await tool.run({ patientId: "pt-side-credit", amount: 50, refundTo: "patient" }, ctx);
+    expect(result).toEqual({ refunded: 50 });
+  });
   it("small-balance write-off recomputes the balance at execution time and blocks once it's already been paid", async () => {
     await rcmStore.upsertPatient(T, { id: "pt-small-bal", firstName: "Small", lastName: "Bal", dob: "1990-01-01" });
     await rcmStore.postLedger(T, [
@@ -1254,6 +1315,24 @@ describe("agents", () => {
     await rcmStore.postLedger(T, [{ id: "led-sb-3", patientId: "pt-small-bal", type: "patient-payment", amount: 4, date: "2026-08-10", responsibleParty: "patient" }]);
     const exec = await agentRuntime.executeApproved(T, step.approvalId!, "biller");
     expect(exec.ok).toBe(false); // must not write off a balance that's already gone
+  });
+  it("small-balance write-off rejects (rather than just capping) once a new charge raises the account above the policy threshold", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-small-bal-grown", firstName: "Grown", lastName: "Bal", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-sbg-1", patientId: "pt-small-bal-grown", type: "charge", amount: 4, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "led-sbg-2", patientId: "pt-small-bal-grown", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" },
+    ]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const step = r.steps.find((s) => s.tool === "small-balance-write-off" && s.input.patientId === "pt-small-bal-grown")!;
+    expect(step.outcome).toBe("needs-approval");
+    await rcmStore.decideApproval(T, step.approvalId!, "approved", "biller");
+    // A brand-new $100 self-pay charge lands between planning and approval — capping the stale $4
+    // against the new $104 balance would still write off $4, even though this account no longer
+    // qualifies for the small-balance policy at all.
+    await rcmStore.postLedger(T, [{ id: "led-sbg-3", patientId: "pt-small-bal-grown", type: "charge", amount: 100, date: "2026-08-10", responsibleParty: "patient" }]);
+    const exec = await agentRuntime.executeApproved(T, step.approvalId!, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/exceeds the small-balance policy threshold/);
   });
   it("re-planning the same still-unresolved state does not queue a second, distinct approval for the same money-moving action", async () => {
     // patient-financial's duplicate-credit refund keeps being re-detected on every plan() call
@@ -1275,6 +1354,16 @@ describe("agents", () => {
     await agentRuntime.run("denials", T);
     const after = await rcmStore.listWorkItems(T, "denials");
     expect(after.length).toBe(before.length); // re-scanning the same still-open denials must not pile up duplicates
+  });
+  it("two concurrent denials agent runs can't both enqueue a duplicate high-priority work item for the same denial", async () => {
+    // findOpenWorkItem-then-addWorkItems is two store calls separated by an await, and the runtime
+    // permits concurrent runs of the same agent for the same tenant — without a lock, two
+    // overlapping plan() calls could each see no existing item for this brand-new high-priority
+    // denial and each enqueue one.
+    await rcmStore.upsertDenial(T, { id: "den-race-plan", claimId: "c1", patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 500, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 90 });
+    await Promise.all([agentRuntime.run("denials", T), agentRuntime.run("denials", T)]);
+    const items = (await rcmStore.listWorkItems(T, "denials")).filter((w) => w.context?.denialId === "den-race-plan");
+    expect(items).toHaveLength(1);
   });
   it("prior-auth agent escalates an existing SLA-breached or soon-to-expire auth, not just newly-opened ones", async () => {
     await rcmStore.upsertPatient(T, patient);
@@ -1702,6 +1791,32 @@ describe("round 11 hardening", () => {
     expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97110")).toHaveLength(1);
   });
 
+  it("prepare-payer-call fails closed when the claim's coverage was replaced with a different patient/payer's data", async () => {
+    // /coverage can upsert (replace) an existing record by id — the same check submit-claim and
+    // /claims/:id/837p already make before using a claim's coverage for something payer-facing.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = mkClaim();
+    await rcmStore.upsertClaim(T, claim);
+    // Replace the same coverage id with a different patient's data.
+    await rcmStore.upsertCoverage(T, { ...coverage, patientId: "some-other-patient" });
+    const tool = agentRuntime.get("payer-call")!.tools.find((t) => t.name === "prepare-payer-call")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    await expect(tool.run({ claimId: claim.id }, ctx)).rejects.toThrow(/no longer matches this claim's patient\/payer/);
+  });
+  it("open-auth-request revalidates the coverage at execution, the same way attach-auth-to-claim already does", async () => {
+    // plan() captures patientId/coverageId/payerId as a snapshot; /coverage can upsert (replace) an
+    // existing record by id between planning and this step actually running. A payerId that no
+    // longer matches the coverage on file must not be trusted just because it matched at plan time.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage); // payerId BCBS
+    const tool = agentRuntime.get("prior-auth")!.tools.find((t) => t.name === "open-auth-request")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    await expect(
+      tool.run({ patientId: patient.id, coverageId: coverage.id, payerId: "AETNA", cpt: "97112", diagnoses: ["M54.16"], dateOfService: "2026-09-01", units: 1 }, ctx),
+    ).rejects.toThrow(/no longer matches/);
+    expect((await rcmStore.listAuths(T, patient.id)).filter((a) => a.cpt === "97112")).toHaveLength(0);
+  });
   it("open-auth-request never second-guesses plan()'s own decision with a business-state dedup — two sequential calls for the same key each open their own request, whatever their units", async () => {
     // Two different attempts at a "smart" recheck here (a raw units >= comparison, then an exact
     // units === match) each wrongly treated a pre-existing pending auth for the same key as
@@ -1740,6 +1855,20 @@ describe("round 11 hardening", () => {
     const r = await agentRuntime.run("patient-financial", T);
     const referral = r.steps.find((s) => s.tool === "refer-to-agency" && s.input.patientId === "p-selfpay");
     expect(referral).toBeDefined();
+  });
+  it("refer-to-agency recomputes the balance at execution time and refuses to refer an account that's already been paid off", async () => {
+    // Previously this tool never re-read the account at all and just posted the plan()-time
+    // amount verbatim — a payment landing between planning and approval execution must not still
+    // send an already-settled balance to collections.
+    await rcmStore.upsertPatient(T, { id: "pt-agency-paid", firstName: "Agency", lastName: "Paid", dob: "1980-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-ap-1", patientId: "pt-agency-paid", type: "charge", amount: 500, date: "2026-01-01", responsibleParty: "patient" }]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const step = r.steps.find((s) => s.tool === "refer-to-agency" && s.input.patientId === "pt-agency-paid" && s.outcome === "needs-approval")!;
+    await rcmStore.decideApproval(T, step.approvalId!, "approved", "biller");
+    await rcmStore.postLedger(T, [{ id: "led-ap-2", patientId: "pt-agency-paid", type: "patient-payment", amount: 500, date: "2026-08-01", responsibleParty: "patient" }]);
+    const exec = await agentRuntime.executeApproved(T, step.approvalId!, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/No patient balance remains/);
   });
 
   it("prior-auth agent tracks cumulative units claimed against one pending request across lines in the same pass", async () => {

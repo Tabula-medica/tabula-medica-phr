@@ -88,7 +88,15 @@ export function deriveCharges(facts: EncounterFacts, cm: ChargeMaster = DEFAULT_
   if (facts.emLevel && facts.visitComplexityAddOn && !facts.newPatient) generatedCodes.add("G2211");
   if (facts.vaccinesGiven > 0) { generatedCodes.add("90471"); if (facts.vaccinesGiven > 1) generatedCodes.add("90472"); }
   for (const code of Array.from(generatedCodes)) procedureCounts.delete(code);
-  const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9[3-4]\d{3}|G2211)$/.test(c));
+  // Codes that never justify modifier 25 on the E/M because they aren't a distinct "procedure" in
+  // the sense that modifier matters for: 36415 (venipuncture) and the 8xxxx lab range are ordered
+  // diagnostic tests, not a same-day procedure competing with the E/M for separate identification;
+  // pulse oximetry (94760-94762) is CMS status-B, bundled/not separately payable at all. This must
+  // NOT be widened to the whole 9[3-4]xxx range — that also covers genuinely separate, billable
+  // same-day diagnostics like 93000 (ECG) and 94010 (spirometry), which DO typically warrant
+  // modifier 25 on the E/M when performed alongside it; excluding them here previously understated
+  // hasProcedure and dropped modifier 25 from claims that needed it.
+  const hasProcedure = Array.from(procedureCounts.keys()).some((c) => !/^(36415|8\d{4}|9476[0-2]|G2211)$/.test(c));
 
   if (facts.emLevel) {
     const mods: string[] = [];

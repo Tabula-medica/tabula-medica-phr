@@ -66,19 +66,21 @@ export function parseVoiceIntent(transcript: string): VoiceIntent {
 // Speakable confirmations (≤ 2 sentences; TTS-friendly; never reads back full PHI).
 export function speakIntent(intent: VoiceIntent): string {
   switch (intent.type) {
-    case "charge-capture": return `Captured ${intent.commands.length} charge${intent.commands.length === 1 ? "" : "s"}: ${intent.commands.map((c) => `${c.cpt}${c.modifiers.length ? " with modifier " + c.modifiers.join(" and ") : ""}${c.units > 1 ? ` times ${c.units}` : ""}`).join(", ")}. Say "confirm" to add them to the claim.`;
+    case "charge-capture": return `Captured ${intent.commands.length} charge${intent.commands.length === 1 ? "" : "s"}: ${intent.commands.map((c) => `${c.cpt}${c.modifiers.length ? " with modifier " + c.modifiers.join(" and ") : ""}${c.units > 1 ? ` times ${c.units}` : ""}`).join(", ")}. Review and save them to add them to the claim.`;
     case "level-visit": return intent.timeMinutes ? `Leveling by total time of ${intent.timeMinutes} minutes.` : "Leveling by medical decision making from the note.";
-    // These intents still need a confirmed patient/claim match or an explicit "confirm" before
-    // anything is posted — say so rather than claiming the action already ran (this endpoint
-    // only dispatches kpi-readout and run-agent for real; everything else is recognition only).
+    // These intents are recognition-only — /voice/command only actually dispatches kpi-readout and
+    // run-agent (see its own comment). None of the wording below promises that saying "confirm" (or
+    // anything else spoken) will execute the action: parseVoiceIntent has no confirmation state at
+    // all, so a follow-up "confirm" would just fall through to "unknown" and nothing would happen.
+    // Each response instead points at the actual UI step that finishes the job.
     case "check-eligibility": return "Got it — confirm the patient and I will run a real-time eligibility check.";
-    case "start-prior-auth": return intent.cpt ? `Ready to open a prior authorization request for ${intent.cpt}. Say "confirm" to submit.` : "Which procedure code needs authorization?";
+    case "start-prior-auth": return intent.cpt ? `Ready to open a prior authorization request for ${intent.cpt} — review and submit it from the prior-auth queue.` : "Which procedure code needs authorization?";
     case "open-queue": return `Opening the ${intent.queue.replace(/-/g, " ")} queue.`;
     case "next-item": return "Moving to the next item.";
-    case "denial-note": return "Heard it — open the denial to confirm and save that note.";
-    case "appeal-denial": return "Say \"confirm\" and I will draft the appeal letter from the claim and denial facts for your review.";
-    case "collect-copay": return intent.amount ? `Ready to record a $${intent.amount.toFixed(2)} payment. Say "confirm" to post it.` : "How much should I collect?";
-    case "payment-plan": return intent.months ? `Ready to set up a ${intent.months} month payment plan. Say "confirm" to create it.` : "How many months for the payment plan?";
+    case "denial-note": return "Heard it — open the denial to review and save that note.";
+    case "appeal-denial": return "I can draft the appeal letter from the claim and denial facts — open the denial to review and send it.";
+    case "collect-copay": return intent.amount ? `Ready to record a $${intent.amount.toFixed(2)} payment — review and post it from the patient's account.` : "How much should I collect?";
+    case "payment-plan": return intent.months ? `Ready to set up a ${intent.months} month payment plan — review and create it from the patient's account.` : "How many months for the payment plan?";
     case "kpi-readout": return "Reading the revenue cycle numbers.";
     case "run-agent": return `Running the ${intent.agent.replace(/-/g, " ")} agent. Actions that move money will wait for your approval.`;
     default: return "I did not catch that. You can say things like: add 99214 with modifier 25, open the denials queue, or check eligibility.";
