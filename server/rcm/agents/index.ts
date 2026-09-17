@@ -580,49 +580,59 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
   approvalReason: "adjustment reduces receivable",
   async run(input, ctx) {
     const lockKey = `${ctx.tenantId}:${input.denialId}`;
+    // Check-and-set this BEFORE any `await` (mirrors ledgerPostInFlight/remittancePostInFlight
+    // elsewhere) — an await between the check and the add here would let a concurrent send-appeal
+    // or file-corrected-claim call on the same denial slip in during the gap, add its own lock
+    // as a no-op collision, and then have this call's `finally` delete the lock the OTHER action
+    // still holds, letting both mutate the same denial.
     if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
-    // Look the denial up BEFORE locking so the patient lock below can key off the denial's own
-    // recorded patientId, not `input.patientId` — a caller-supplied approval-payload field that's
-    // never checked against the denial it's actually attached to. Locking on the payload value
-    // instead would let a mismatched/stale payload lock the wrong patient's key while the actual
-    // mutation below still lands on `d.patientId`, leaving the real account unprotected and
-    // defeating the very race this lock exists to close.
-    const d0 = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    if (!d0) throw new Error("denial not found");
-    // denialActionLocks alone only serializes actions on THIS denial — two different open denials
-    // on the SAME claim (e.g. two separate CARC lines from one ERA) can each hold their own denial
-    // lock and both read the same pre-mutation outstandingInsurance balance before either posts,
-    // together writing off more than the claim's one actual receivable. Also take the shared
-    // patientLedgerLocks lock (same one /ledger, /remittance/post, and issue-refund/
-    // small-balance-write-off use) so any two balance-read-then-ledger-write actions for this
-    // patient — including two denials on the same claim — serialize against each other too.
-    const patientLockKey = `${ctx.tenantId}:${d0.patientId}`;
-    if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
     denialActionLocks.add(lockKey);
-    patientLedgerLocks.add(patientLockKey);
     try {
-      const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-      if (!d) throw new Error("denial not found");
-      // An approval can sit pending/approved-but-unexecuted for a while — revalidate the denial is
-      // still open right before posting, so a stale approval can't double-adjust a denial that
-      // another action (or a human) already resolved in the meantime.
-      if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-      const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
-      if (!claim) throw new Error("claim not found");
-      // d.amount is captured when the denial was created and can be stale by execution time (a
-      // malformed/duplicated CAS, or other postings against this claim since) — cap it against
-      // what's actually still outstanding on the insurance side so this can never post more than
-      // the claim genuinely owes and turn a write-off into a fabricated insurance credit.
-      const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
-      const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
-      if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to write off`);
-      const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
-      await ctx.store.postLedger(ctx.tenantId, [e]);
-      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
-      return { writtenOff: amount };
+      // Only safe to look the denial up here, now that the per-denial lock is already held: no
+      // concurrent action on this SAME denial can run this same await concurrently. The patient
+      // lock below keys off this denial's own recorded patientId, not `input.patientId` — a
+      // caller-supplied approval-payload field that's never checked against the denial it's
+      // actually attached to. Locking on the payload value instead would let a mismatched/stale
+      // payload lock the wrong patient's key while the actual mutation below still lands on
+      // `d.patientId`, leaving the real account unprotected.
+      const d0 = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      if (!d0) throw new Error("denial not found");
+      // denialActionLocks alone only serializes actions on THIS denial — two different open
+      // denials on the SAME claim (e.g. two separate CARC lines from one ERA) can each hold their
+      // own denial lock and both read the same pre-mutation outstandingInsurance balance before
+      // either posts, together writing off more than the claim's one actual receivable. Also take
+      // the shared patientLedgerLocks lock (same one /ledger, /remittance/post, and issue-refund/
+      // small-balance-write-off use) so any two balance-read-then-ledger-write actions for this
+      // patient — including two denials on the same claim — serialize against each other too.
+      // Check-and-set stays synchronous here too, for the same reason as denialActionLocks above.
+      const patientLockKey = `${ctx.tenantId}:${d0.patientId}`;
+      if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
+      patientLedgerLocks.add(patientLockKey);
+      try {
+        const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+        if (!d) throw new Error("denial not found");
+        // An approval can sit pending/approved-but-unexecuted for a while — revalidate the denial
+        // is still open right before posting, so a stale approval can't double-adjust a denial
+        // that another action (or a human) already resolved in the meantime.
+        if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+        const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
+        if (!claim) throw new Error("claim not found");
+        // d.amount is captured when the denial was created and can be stale by execution time (a
+        // malformed/duplicated CAS, or other postings against this claim since) — cap it against
+        // what's actually still outstanding on the insurance side so this can never post more than
+        // the claim genuinely owes and turn a write-off into a fabricated insurance credit.
+        const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
+        const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
+        if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to write off`);
+        const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
+        await ctx.store.postLedger(ctx.tenantId, [e]);
+        await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
+        return { writtenOff: amount };
+      } finally {
+        patientLedgerLocks.delete(patientLockKey);
+      }
     } finally {
       denialActionLocks.delete(lockKey);
-      patientLedgerLocks.delete(patientLockKey);
     }
   },
 };
@@ -633,42 +643,48 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
   approvalReason: "increases what the patient owes",
   async run(input, ctx) {
     const lockKey = `${ctx.tenantId}:${input.denialId}`;
+    // Check-and-set BEFORE any `await` — same reasoning as write-off above: an await between the
+    // check and the add would let a concurrent send-appeal/file-corrected-claim call on this same
+    // denial slip in during the gap and have this call's `finally` delete the lock it still holds.
     if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
-    // Look the denial up BEFORE locking, same reasoning as write-off above: the patient lock must
-    // key off the denial's own recorded patientId, not the caller-supplied (and never
-    // cross-checked) `input.patientId` — locking the wrong key would leave the actual mutation
-    // below, which always uses `d.patientId`, unprotected.
-    const d0 = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-    if (!d0) throw new Error("denial not found");
-    // denialActionLocks doesn't cover a second, different open denial racing on the same claim, so
-    // also take the shared patientLedgerLocks lock.
-    const patientLockKey = `${ctx.tenantId}:${d0.patientId}`;
-    if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
     denialActionLocks.add(lockKey);
-    patientLedgerLocks.add(patientLockKey);
     try {
-      const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
-      if (!d) throw new Error("denial not found");
-      if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
-      // This tool only moves genuine patient-responsibility (CARC group "PR") amounts onto the
-      // patient — a CO/OA/PI adjustment is a contractual write-off or other insurance-side
-      // outcome, never something the patient actually owes, and approving this action must not be
-      // able to convert one into a patient balance.
-      if (d.group !== "PR") throw new Error(`Denial ${d.id} is group "${d.group}", not patient responsibility (PR) — use write-off instead`);
-      const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
-      if (!claim) throw new Error("claim not found");
-      // Same reasoning as write-off above: d.amount can be stale by execution time, so cap it
-      // against what's actually still outstanding on the insurance side before moving it to the
-      // patient — otherwise this could transfer more than the claim genuinely still owes.
-      const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
-      const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
-      if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to transfer`);
-      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
-      await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
-      return { transferred: amount };
+      // Only safe to look the denial up here, now that the per-denial lock is held. The patient
+      // lock below keys off the denial's own recorded patientId, not the caller-supplied (and
+      // never cross-checked) `input.patientId` — locking the wrong key would leave the actual
+      // mutation below, which always uses `d.patientId`, unprotected.
+      const d0 = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+      if (!d0) throw new Error("denial not found");
+      // denialActionLocks doesn't cover a second, different open denial racing on the same claim,
+      // so also take the shared patientLedgerLocks lock — check-and-set stays synchronous here too.
+      const patientLockKey = `${ctx.tenantId}:${d0.patientId}`;
+      if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
+      patientLedgerLocks.add(patientLockKey);
+      try {
+        const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
+        if (!d) throw new Error("denial not found");
+        if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+        // This tool only moves genuine patient-responsibility (CARC group "PR") amounts onto the
+        // patient — a CO/OA/PI adjustment is a contractual write-off or other insurance-side
+        // outcome, never something the patient actually owes, and approving this action must not
+        // be able to convert one into a patient balance.
+        if (d.group !== "PR") throw new Error(`Denial ${d.id} is group "${d.group}", not patient responsibility (PR) — use write-off instead`);
+        const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
+        if (!claim) throw new Error("claim not found");
+        // Same reasoning as write-off above: d.amount can be stale by execution time, so cap it
+        // against what's actually still outstanding on the insurance side before moving it to the
+        // patient — otherwise this could transfer more than the claim genuinely still owes.
+        const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
+        const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
+        if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to transfer`);
+        await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
+        await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
+        return { transferred: amount };
+      } finally {
+        patientLedgerLocks.delete(patientLockKey);
+      }
     } finally {
       denialActionLocks.delete(lockKey);
-      patientLedgerLocks.delete(patientLockKey);
     }
   },
 };

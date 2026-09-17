@@ -1035,6 +1035,25 @@ describe("agents", () => {
     const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(rejected.reason.message).toMatch(/already in flight/);
   });
+  it("write-off and send-appeal on the SAME denial can't both proceed, even though looking the denial up now happens after acquiring the per-denial lock", async () => {
+    // denialActionLocks' check-and-add must stay synchronous (no `await` in between) even though
+    // write-off/transfer-to-patient now look the denial up (an async store call) to derive the
+    // patient lock key. An await between the check and the add would let a concurrent action on
+    // this SAME denial slip in during the gap, add its own lock as a no-op collision on the Set,
+    // and then have one call's `finally` delete the lock the other still holds.
+    const realClaimId = (await rcmStore.listClaims(T)).find((c) => c.patientId === "pt-demo-1")!.id;
+    await rcmStore.upsertDenial(T, { id: "den-await-race-1", claimId: realClaimId, patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const writeOffTool = agentRuntime.get("denials")!.tools.find((t) => t.name === "write-off")!;
+    const sendAppealTool = agentRuntime.get("denials")!.tools.find((t) => t.name === "send-appeal")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([
+      writeOffTool.run({ denialId: "den-await-race-1", patientId: "pt-demo-1", amount: 10, reason: "test" }, ctx),
+      sendAppealTool.run({ denialId: "den-await-race-1", claimId: realClaimId, amount: 10 }, ctx),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+  });
   it("write-off caps a stale denial amount against the claim's actual outstanding insurance balance instead of creating a credit", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
