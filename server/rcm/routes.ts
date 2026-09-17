@@ -46,15 +46,22 @@ function actorOf(req: Request): string { return (req as AuthedRequest).user?.cla
 
 function fail(res: Response, status: number, error: string, details?: unknown) { return res.status(status).json({ success: false, error, details }); }
 function bad(res: Response, e: z.ZodError) { return fail(res, 400, "Validation failed", e.flatten()); }
-const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => { fn(req, res).catch((e) => { console.error("[rcm]", e); if (!res.headersSent) fail(res, 500, e instanceof Error ? e.message : "Internal error"); }); };
 
 // Synchronous check-and-set, before any `await` (mirrors remittancePostInFlight/the other
 // in-process locks in this module) — reset() is synchronous but seedDemoTenant() isn't, so a
 // second /demo/seed call for the same tenant landing in that window would write into (or reseed
 // on top of) a tenant this call had already emptied, interleaving two seeds into one dataset.
-// Declared here (rather than by the /demo/seed route below) so the tenant-wide maintenance
-// middleware that follows can also read it.
 const demoSeedInFlight = new Set<string>();
+// How many admitted mutating requests are currently executing per tenant — /demo/seed waits for
+// this to drain to zero (see wrap() below for where it's tracked) before it actually resets the
+// store, so a request already admitted before demoSeedInFlight was set can't write into the
+// tenant after reset() clears it. Tracked around the handler function's OWN promise settling
+// (inside wrap), not an Express response event: `res`'s "close" event fires as soon as the
+// underlying connection drops, which for an aborted request can happen while the async handler
+// is still awaiting a store call and will still resume and write afterward — using it as the
+// release signal would let the seed loop see a false "zero in flight" while that write is still
+// to come. The handler's own promise only settles once its code has actually finished running.
+const tenantMutationsInFlight = new Map<string, number>();
 // Tenant-wide maintenance lock, set only around /demo/seed's reset()-to-reseed-complete window.
 // demoSeedInFlight alone only serializes /demo/seed calls against each other; it does nothing to
 // stop an unrelated patient/claim/ledger write or an agent run (POST /agents/:name/run) from
@@ -64,35 +71,28 @@ const demoSeedInFlight = new Set<string>();
 // each one individually. GETs stay open (read-only, and blocking them would make the UI look
 // broken during a routine reseed); /demo/seed itself is exempted so its own concurrent-call check
 // below can return its more specific 409.
-//
-// This alone still leaves a gap: a mutation that was ALREADY ADMITTED past this same check (it
-// read demoSeedInFlight as empty, then suspended at an `await` inside its own handler) can resume
-// and write into the tenant after /demo/seed's reset() has already cleared it — this middleware
-// only stops NEW requests from being admitted, it says nothing about ones already in flight.
-// Track how many admitted mutations are still running per tenant, and have /demo/seed wait for
-// that count to drain to zero (no new one can be admitted once demoSeedInFlight is set) before it
-// actually resets the store.
-const tenantMutationsInFlight = new Map<string, number>();
 rcmRouter.use((req, res, next) => {
   if (req.method === "GET" || req.path === "/demo/seed") return next();
-  const t = tenantOf(req);
-  if (demoSeedInFlight.has(t)) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
-  tenantMutationsInFlight.set(t, (tenantMutationsInFlight.get(t) ?? 0) + 1);
-  // Both "finish" and "close" fire for a normal completed response (not just for an aborted
-  // one) — without this guard, a single request would decrement the counter twice, letting it
-  // reach zero (and /demo/seed proceed to reset()) while a DIFFERENT request is still in flight.
-  let released = false;
-  const release = () => {
-    if (released) return;
-    released = true;
-    const remaining = (tenantMutationsInFlight.get(t) ?? 1) - 1;
-    if (remaining <= 0) tenantMutationsInFlight.delete(t);
-    else tenantMutationsInFlight.set(t, remaining);
-  };
-  res.once("finish", release);
-  res.once("close", release);
+  if (demoSeedInFlight.has(tenantOf(req))) return fail(res, 503, "This account's RCM data is currently being reseeded — retry once the reseed completes");
   next();
 });
+
+const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => {
+  // Track every mutating request's actual handler execution (see tenantMutationsInFlight above
+  // for why this lives here, tied to the handler's own promise, rather than on a `res` event).
+  // Excludes /demo/seed itself: it would otherwise wait on its own in-flight count and deadlock.
+  const track = req.method !== "GET" && req.path !== "/demo/seed";
+  const t = track ? tenantOf(req) : undefined;
+  if (track && t) tenantMutationsInFlight.set(t, (tenantMutationsInFlight.get(t) ?? 0) + 1);
+  fn(req, res)
+    .catch((e) => { console.error("[rcm]", e); if (!res.headersSent) fail(res, 500, e instanceof Error ? e.message : "Internal error"); })
+    .finally(() => {
+      if (!track || !t) return;
+      const remaining = (tenantMutationsInFlight.get(t) ?? 1) - 1;
+      if (remaining <= 0) tenantMutationsInFlight.delete(t);
+      else tenantMutationsInFlight.set(t, remaining);
+    });
+};
 
 // Every DOS/effective/termination/scheduled date this router accepts eventually gets compared as
 // a plain string (coverage effective/termination windows, auth validFrom/validTo, timely-filing
@@ -380,6 +380,11 @@ rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => {
   // requires — exporting a real, downloadable 837P/CMS-1500 for one would let a caller manually
   // send a claim that bypassed the clean-scrub and approval gates entirely.
   if (c.status === "draft" || c.status === "scrubbed") return fail(res, 409, `Claim ${c.id} hasn't passed scrubbing yet (status: ${c.status}) — it isn't payer-ready to export`);
+  // "closed" is reachable directly from "draft"/"scrubbed" too (an abandoned/voided claim that
+  // never actually passed scrubbing) — every OTHER non-draft/non-scrubbed status is only
+  // reachable via "ready" (see TRANSITIONS in claims.ts), so "closed" is the one case that needs
+  // its own check: did this claim's history ever actually record reaching "ready"?
+  if (c.status === "closed" && !c.history.some((h) => h.status === "ready")) return fail(res, 409, `Claim ${c.id} was closed before ever passing a clean scrub — nothing payer-ready to export`);
   res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) });
 }));
 // Frequency-7 (replacement)/8 (void) only make sense once the original actually reached the
