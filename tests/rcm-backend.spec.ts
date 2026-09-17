@@ -1015,6 +1015,26 @@ describe("agents", () => {
     const entries = await rcmStore.ledger(T, patient.id);
     expect(entries.filter((e) => e.type === "denial-adjustment")).toHaveLength(1);
   });
+  it("the patient lock keys off the denial's own recorded patientId, not a mismatched patientId in the approval payload", async () => {
+    // The approval payload's `patientId` is caller-supplied and never cross-checked against the
+    // denial it's attached to — locking on that value instead of the denial's own `patientId`
+    // would let a mismatched payload lock the wrong key while the actual write-off still lands on
+    // the denial's real patient, leaving that account unprotected against the same-claim race the
+    // lock exists to close. Both denials below genuinely belong to "pt-demo-1", but their approval
+    // payloads (as if fabricated or drifted) carry a bogus, DIFFERENT patientId each.
+    const realClaimId = (await rcmStore.listClaims(T)).find((c) => c.patientId === "pt-demo-1")!.id;
+    await rcmStore.upsertDenial(T, { id: "den-mismatch-1", claimId: realClaimId, patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    await rcmStore.upsertDenial(T, { id: "den-mismatch-2", claimId: realClaimId, patientId: "pt-demo-1", payerId: "BCBS", carc: "1", group: "PR", amount: 10, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const tool = agentRuntime.get("denials")!.tools.find((t) => t.name === "write-off")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([
+      tool.run({ denialId: "den-mismatch-1", patientId: "bogus-payload-patient-a", amount: 10, reason: "test" }, ctx),
+      tool.run({ denialId: "den-mismatch-2", patientId: "bogus-payload-patient-b", amount: 10, reason: "test" }, ctx),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+  });
   it("write-off caps a stale denial amount against the claim's actual outstanding insurance balance instead of creating a credit", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
