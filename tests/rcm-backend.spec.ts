@@ -1134,6 +1134,20 @@ describe("agents", () => {
     const entries = await rcmStore.ledger(T, patient.id);
     expect(entries.find((e) => e.type === "denial-adjustment")?.amount).toBe(50);
   });
+  it("write-off caps at the amount actually approved, not a denial amount that grew after approval", async () => {
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = mkClaim(); // totalCharge 450, no other postings yet — full $450 outstanding
+    await rcmStore.upsertClaim(T, claim);
+    await rcmStore.upsertDenial(T, { id: "den-approved-cap", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "1", group: "PR", amount: 100, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const approval = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-approved-cap", patientId: patient.id, amount: 100, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, approval.id, "approved", "biller");
+    // The denial is corrected to a much larger amount after the admin already approved $100.
+    await rcmStore.upsertDenial(T, { id: "den-approved-cap", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "1", group: "PR", amount: 400, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const exec = await agentRuntime.executeApproved(T, approval.id, "biller");
+    expect(exec.ok).toBe(true);
+    expect((exec.output as { writtenOff: number }).writtenOff).toBe(100); // capped at what was approved, not the new $400
+  });
   it("transfer-to-patient refuses to move a non-PR-group denial onto the patient", async () => {
     // recommendAction only ever routes a denial to transfer-to-patient when group is "PR" — this
     // guards the tool itself against a direct approval request that skips that recommendation

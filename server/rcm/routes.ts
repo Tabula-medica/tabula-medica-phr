@@ -709,7 +709,7 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
   // idempotency key: every dupe/lock/already-posted check below keys off caller-supplied ids, so
   // a caller that omitted one would get a fresh newId() minted on every retry and silently post
   // the same charge/payment twice after a dropped response, with nothing here able to catch it.
-  const p = z.array(z.object({ id: z.string().min(1), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: z.string(), memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
+  const p = z.array(z.object({ id: z.string().min(1), patientId: z.string(), claimId: z.string().optional(), type: z.enum(directLedgerTypes), amount: z.number().nonnegative(), date: isoDate, memo: z.string().optional(), responsibleParty: z.enum(["insurance", "patient"]).default("patient") })).safeParse(req.body?.entries ?? req.body);
   if (!p.success) return bad(res, p.error);
   // insurance-payment/contractual-adjustment reduce A/R, and transfer-to-patient shifts
   // responsibility for a caller-supplied amount onto the patient — none of the three have an

@@ -632,9 +632,13 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
         // d.amount is captured when the denial was created and can be stale by execution time (a
         // malformed/duplicated CAS, or other postings against this claim since) — cap it against
         // what's actually still outstanding on the insurance side so this can never post more than
-        // the claim genuinely owes and turn a write-off into a fabricated insurance credit.
+        // the claim genuinely owes and turn a write-off into a fabricated insurance credit. Also
+        // cap against `input.amount` — the amount actually shown to and approved by the admin —
+        // so a denial corrected/replaced to a LARGER amount after approval can't execute for more
+        // than what was actually reviewed (the same drift-protection submit-claim's totalCharge
+        // check already gives payer-facing submissions).
         const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
-        const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
+        const amount = round2(Math.min(input.amount, d.amount, Math.max(0, outstanding)));
         if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to write off`);
         const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
         await ctx.store.postLedger(ctx.tenantId, [e]);
@@ -685,9 +689,11 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
         if (!claim) throw new Error("claim not found");
         // Same reasoning as write-off above: d.amount can be stale by execution time, so cap it
         // against what's actually still outstanding on the insurance side before moving it to the
-        // patient — otherwise this could transfer more than the claim genuinely still owes.
+        // patient — otherwise this could transfer more than the claim genuinely still owes. Also
+        // cap against `input.amount`, the amount actually approved, so a denial corrected/replaced
+        // to a LARGER amount after approval can't move more than what was actually reviewed.
         const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
-        const amount = round2(Math.min(d.amount, Math.max(0, outstanding)));
+        const amount = round2(Math.min(input.amount, d.amount, Math.max(0, outstanding)));
         if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to transfer`);
         await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
         await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
