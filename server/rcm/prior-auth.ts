@@ -186,6 +186,46 @@ export function authCoversService(auth: PriorAuth, cpt: string, dateOfService: s
   return { ok: true };
 }
 
+// Does an open search of the auths on file for this coverage/payer cover ALL of the given lines
+// together, reserving units per CPT+date-of-service bucket as they're assigned — so two lines
+// sharing one CPT can't each independently "pass" against the very same auth's static
+// `unitsUsed` when it only actually has enough units for one of them. Mirrors submit-claim's own
+// execution-time reservation in agents/index.ts (kept separate rather than shared code, since that
+// version also needs patientId scoping, per-tenant auth locking, and a real store lookup this pure
+// function has no business doing) — this is the earlier "preview" version of the same question,
+// for financial clearance to answer before a visit; submit-claim re-fetches and re-verifies for
+// real at submission time regardless of what this reports, so a false "clearance" here can
+// disappoint at check-in but never actually let a claim submit with insufficient units.
+export function authUnitsReserved(lines: Array<{ cpt: string; dateOfService: string; units: number }>, coverageId: string, payerId: string, auths: PriorAuth[]): boolean {
+  const byCptAndDate = new Map<string, { cpt: string; dateOfService: string; units: number }>();
+  for (const l of lines) {
+    const key = `${l.cpt.toUpperCase()}|${l.dateOfService}`;
+    const existing = byCptAndDate.get(key);
+    if (existing) existing.units += l.units;
+    else byCptAndDate.set(key, { cpt: l.cpt.toUpperCase(), dateOfService: l.dateOfService, units: l.units });
+  }
+  const reservedByAuthId = new Map<string, number>();
+  const coveringFor = (cpt: string) => auths.filter((a) => a.coverageId === coverageId && a.payerId === payerId && a.cpt === cpt);
+  const stillCovers = (a: PriorAuth, cpt: string, dateOfService: string, units: number) => authCoversService({ ...a, unitsUsed: a.unitsUsed + (reservedByAuthId.get(a.id) ?? 0) }, cpt, dateOfService, units).ok;
+  const buckets = Array.from(byCptAndDate.values());
+  // Same two-pass, date-exact-first assignment as submit-claim: give every bucket first dibs on
+  // an auth actually dated for its own service before any bucket falls back to a differently-dated
+  // auth that merely happens to also cover it.
+  const assigned = new Map<string, PriorAuth>();
+  for (const bucket of buckets) {
+    const exact = coveringFor(bucket.cpt).find((a) => a.dateOfService === bucket.dateOfService && stillCovers(a, bucket.cpt, bucket.dateOfService, bucket.units));
+    if (exact) { assigned.set(`${bucket.cpt}|${bucket.dateOfService}`, exact); reservedByAuthId.set(exact.id, (reservedByAuthId.get(exact.id) ?? 0) + bucket.units); }
+  }
+  for (const bucket of buckets) {
+    const key = `${bucket.cpt}|${bucket.dateOfService}`;
+    if (assigned.has(key)) continue;
+    const match = coveringFor(bucket.cpt).find((a) => stillCovers(a, bucket.cpt, bucket.dateOfService, bucket.units));
+    if (!match) return false;
+    reservedByAuthId.set(match.id, (reservedByAuthId.get(match.id) ?? 0) + bucket.units);
+  }
+  return true;
+}
+
 // Which of a claim's service lines is `priorAuthNumber` actually backed by, per a real approved
 // PriorAuth record? A non-empty string alone isn't proof — it could be stale, for the wrong
 // payer/coverage, or hand-typed — and neither is a bare "approved" status: the auth could have

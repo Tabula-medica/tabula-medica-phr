@@ -11,7 +11,7 @@ import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, de
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
 import { computeKpis, outstandingInsurance } from "../analytics";
 import { newId, round2, todayIso } from "../util";
-import type { Claim, LedgerEntry } from "../types";
+import type { Claim, Coverage, LedgerEntry } from "../types";
 import { buildPayerCallScript } from "./payer-call";
 
 // ---------- Eligibility agent ----------
@@ -265,13 +265,23 @@ const denialWorkItemLocks = new Set<string>();
 // an amount change. Includes the claim-level placeOfService/priorAuthNumber/referralNumber too —
 // none of those affect totalCharge, but each changes what actually goes out on the 837P/CMS-1500
 // (box 24b, box 23, box 17a) versus what the approver reviewed.
-function claimContentFingerprint(c: Pick<Claim, "lines" | "diagnoses" | "placeOfService" | "priorAuthNumber" | "referralNumber">): string {
+//
+// The claim's own fields aren't the only payer-facing data in play, though: claimTo837P and
+// claimToCms1500Boxes also read the CURRENT coverage record's memberId/groupNumber/subscriber
+// identity/payerName — /coverage can upsert (replace) an existing record by id, so an admin could
+// approve a submission against one coverage snapshot and have a since-swapped memberId or
+// subscriber identity go out instead, without the claim itself changing at all (the patientId/
+// payerId-only check elsewhere doesn't catch this, since both can stay the same while the
+// member/subscriber details underneath them change). `coverage` is optional so a caller/test that
+// predates this field still gets a stable (if less complete) fingerprint.
+function claimContentFingerprint(c: Pick<Claim, "lines" | "diagnoses" | "placeOfService" | "priorAuthNumber" | "referralNumber">, coverage?: Pick<Coverage, "memberId" | "groupNumber" | "subscriberRelationship" | "subscriberFirstName" | "subscriberLastName" | "subscriberDob" | "payerName">): string {
   return JSON.stringify({
     lines: c.lines.map((l) => ({ cpt: l.cpt, units: l.units, charge: l.charge, ndc: l.ndc, renderingNpi: l.renderingNpi, modifiers: [...l.modifiers].sort(), dxPointers: l.dxPointers, dateOfService: l.dateOfService, placeOfService: l.placeOfService })),
     diagnoses: c.diagnoses.map((d) => d.code),
     claimPlaceOfService: c.placeOfService,
     priorAuthNumber: c.priorAuthNumber,
     referralNumber: c.referralNumber,
+    coverage: coverage ? { memberId: coverage.memberId, groupNumber: coverage.groupNumber, subscriberRelationship: coverage.subscriberRelationship, subscriberFirstName: coverage.subscriberFirstName, subscriberLastName: coverage.subscriberLastName, subscriberDob: coverage.subscriberDob, payerName: coverage.payerName } : undefined,
   });
 }
 const submitClaim: Tool<{ claimId: string; amount: number; contentFingerprint?: string }, unknown> = {
@@ -290,17 +300,19 @@ const submitClaim: Tool<{ claimId: string; amount: number; contentFingerprint?: 
     // one the approval was granted for. Fail closed on any drift and require a fresh approval
     // instead of submitting a claim the approver never actually reviewed.
     if (round2(claim.totalCharge) !== round2(input.amount)) throw new Error(`Claim total ($${claim.totalCharge.toFixed(2)}) no longer matches the amount ($${input.amount.toFixed(2)}) this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
-    // Catches a content swap (lines/modifiers/diagnoses/dates) that happens to land on the same
-    // total, which the amount check above can't see. Optional/best-effort: only enforced when a
-    // fingerprint was actually captured at plan() time, so a caller/test that predates this field
-    // isn't blocked — every real plan()-driven approval request always includes one.
-    if (input.contentFingerprint !== undefined && input.contentFingerprint !== claimContentFingerprint(claim)) throw new Error(`This claim's content (lines, diagnoses, place of service, prior auth, or referral) no longer matches what this approval was requested for — the claim changed since approval; re-scrub and request a fresh approval`);
     // /coverage can upsert (replace) an existing record by id — the same check the /claims/:id/837p
-    // route already makes before exporting. Without it, a coverage record replaced with a
-    // different patient's or payer's data after this claim was created/scrubbed could be marked
-    // "submitted" (837P sent) here despite no longer actually matching this claim.
+    // route already makes before exporting. Fetched before the content-fingerprint check below (not
+    // after) so that check can also compare the coverage-derived payer-facing fields it reads, not
+    // just the claim's own — see claimContentFingerprint's comment.
     const coverage = await ctx.store.getCoverage(ctx.tenantId, claim.coverageId);
     if (!coverage || coverage.patientId !== claim.patientId || coverage.payerId !== claim.payerId) throw new Error("coverage on file no longer matches this claim's patient/payer — re-verify before submitting");
+    // Catches a content swap (lines/modifiers/diagnoses/dates, or now the coverage's own
+    // memberId/subscriber identity/group/payer name) that happens to land on the same total and
+    // the same coverage patientId/payerId, which the checks above can't see. Optional/best-effort:
+    // only enforced when a fingerprint was actually captured at plan() time, so a caller/test that
+    // predates this field isn't blocked — every real plan()-driven approval request always includes
+    // one.
+    if (input.contentFingerprint !== undefined && input.contentFingerprint !== claimContentFingerprint(claim, coverage)) throw new Error(`This claim's content (lines, diagnoses, place of service, prior auth, referral, or coverage/subscriber identity) no longer matches what this approval was requested for — the claim or its coverage changed since approval; re-scrub and request a fresh approval`);
     const auths = await ctx.store.listAuths(ctx.tenantId);
     // Revalidate against the same rules a fresh prior-auth check uses (status, date of service,
     // remaining units) right before submission — scrubbing happened earlier, and any auth could
@@ -417,7 +429,13 @@ const scrubberAgent: AgentDefinition = {
   async plan(ctx) {
     const steps: AgentStep[] = [];
     for (const c of await ctx.store.listClaims(ctx.tenantId, { status: "draft" })) steps.push({ tool: "scrub-claim", input: { claimId: c.id }, why: "draft claim" });
-    for (const c of await ctx.store.listClaims(ctx.tenantId, { status: "ready" })) steps.push({ tool: "submit-claim", input: { claimId: c.id, patientId: c.patientId, amount: c.totalCharge, contentFingerprint: claimContentFingerprint(c) }, why: `clean claim $${c.totalCharge.toFixed(2)} to ${c.payerName}` });
+    for (const c of await ctx.store.listClaims(ctx.tenantId, { status: "ready" })) {
+      // Fetch this claim's current coverage so the fingerprint the approver reviews already
+      // reflects its memberId/subscriber identity, not just the claim's own fields — see
+      // claimContentFingerprint's comment.
+      const cov = await ctx.store.getCoverage(ctx.tenantId, c.coverageId);
+      steps.push({ tool: "submit-claim", input: { claimId: c.id, patientId: c.patientId, amount: c.totalCharge, contentFingerprint: claimContentFingerprint(c, cov ?? undefined) }, why: `clean claim $${c.totalCharge.toFixed(2)} to ${c.payerName}` });
+    }
     return steps;
   },
   summarize: (s) => `Scrubber: ${s.filter((x) => x.tool === "scrub-claim" && x.outcome === "ok").length} scrubbed, ${s.filter((x) => x.tool === "scrub-claim" && (x.output as { clean?: boolean })?.clean).length} clean, ${s.filter((x) => x.outcome === "needs-approval").length} submissions awaiting approval.`,

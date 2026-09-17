@@ -9,7 +9,7 @@ import { agingByPayer, computeKpis, payerScorecard } from "../server/rcm/analyti
 import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklists";
 import { parseVoiceIntent, speakIntent, speakKpis } from "../server/rcm/voice";
 import { applyDisposition, buildPayerCallScript } from "../server/rcm/agents/payer-call";
-import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
+import { authCoversService, authorizedCptsOnFile, authUnitsReserved, consumeAuthUnit, createAuthRequest, transitionAuth } from "../server/rcm/prior-auth";
 import { scrubClaim } from "../server/rcm/scrubber";
 import { estimatePatientResponsibility, financialClearance, parse271 } from "../server/rcm/eligibility";
 import { parseCodingSuggestion } from "../server/rcm/coding";
@@ -851,6 +851,28 @@ describe("agents", () => {
     expect(exec.error).toMatch(/content .* no longer matches/);
     expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
   });
+  it("submit-claim refuses to submit once the coverage's memberId/subscriber identity has drifted, even though the claim itself and its coverage's patientId/payerId are unchanged", async () => {
+    // /coverage upserts (replaces) an existing record by id — the same patientId/payerId can stay
+    // intact while the memberId or subscriber identity underneath changes, which the
+    // patientId/payerId-only coverage check can't see. claimTo837P/claimToCms1500Boxes both read
+    // these fields directly, so this is exactly the kind of drift the approver never reviewed.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = { ...mkClaim(), encounterId: "e-coverage-identity-drift" }; // 99214/20610 need no auth
+    const ready = transitionClaim(transitionClaim(claim, "scrubbed", "t"), "ready", "t");
+    await rcmStore.upsertClaim(T, ready);
+    await agentRuntime.run("claim-scrubber", T);
+    const pending = (await rcmStore.listApprovals(T, "pending")).find((a) => a.payload.claimId === ready.id)!;
+    await rcmStore.decideApproval(T, pending.id, "approved", "biller");
+    // Same id, same patientId/payerId — only the memberId changes (e.g. corrected after a data
+    // entry error, or a plan-year renewal that reissued the member number).
+    await rcmStore.upsertCoverage(T, { ...coverage, memberId: "XYZ999-DIFFERENT" });
+    const exec = await agentRuntime.executeApproved(T, pending.id, "biller");
+    expect(exec.ok).toBe(false);
+    expect(exec.error).toMatch(/content .* no longer matches/);
+    expect(exec.error).toMatch(/coverage\/subscriber identity/);
+    expect((await rcmStore.getClaim(T, ready.id))?.status).not.toBe("submitted");
+  });
   it("submit-claim fails closed when a claim needs auth but carries no priorAuthNumber at all", async () => {
     // The guard used to be wrapped in `if (claim.priorAuthNumber && ...)`, so a claim needing
     // auth with NO box-23 number at all skipped validation entirely instead of failing closed.
@@ -1510,6 +1532,24 @@ describe("round 4 hardening", () => {
     // A leftover expired row sharing the same auth number must not shadow a later valid one.
     const expired = { ...approved, id: "pa-expired", status: "expired" as const, validTo: "2026-06-30" };
     expect(authorizedCptsOnFile("AUTH999", "p1", "c1", "BCBS", [line], [expired, approved])).toEqual(["70450"]);
+  });
+  it("authUnitsReserved reserves units across all lines together, so two one-unit lines sharing a single one-unit auth aren't both independently reported as covered", () => {
+    const requested = transitionAuth(createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "70450", diagnoses: ["M54.16"] }), "requested", { actor: "t" });
+    const oneUnitAuth = transitionAuth(requested, "approved", { actor: "t", authNumber: "AUTH1", validFrom: "2026-01-01", validTo: "2026-12-31", approvedUnits: 1 });
+    const oneLine = [{ cpt: "70450", dateOfService: "2026-09-01", units: 1 }];
+    const twoLines = [{ cpt: "70450", dateOfService: "2026-09-01", units: 1 }, { cpt: "70450", dateOfService: "2026-09-01", units: 1 }];
+    expect(authUnitsReserved(oneLine, "c1", "BCBS", [oneUnitAuth])).toBe(true);
+    // Naively checking each line independently against the same auth's static unitsUsed would
+    // report both as covered; reserving units across the pair must report the second as
+    // uncovered since only one unit actually exists.
+    expect(authUnitsReserved(twoLines, "c1", "BCBS", [oneUnitAuth])).toBe(false);
+    // Two lines on DIFFERENT dates of service each get their own bucket (not combined into one),
+    // so two separate one-unit auths — each dated for its own visit — DO cover them together.
+    const twoVisits = [{ cpt: "70450", dateOfService: "2026-09-01", units: 1 }, { cpt: "70450", dateOfService: "2026-09-08", units: 1 }];
+    const secondVisitAuth = { ...oneUnitAuth, id: "pa-second", authNumber: "AUTH2", dateOfService: "2026-09-08" };
+    expect(authUnitsReserved(twoVisits, "c1", "BCBS", [oneUnitAuth, secondVisitAuth])).toBe(true);
+    // But the same single one-unit auth can't cover both visits — it only has one unit total.
+    expect(authUnitsReserved(twoVisits, "c1", "BCBS", [oneUnitAuth])).toBe(false);
   });
   it("scrubber's auth-missing rule clears per-CPT, not the whole claim, and normalizes CPT case", () => {
     const claim = { ...mkClaim(), priorAuthNumber: "SOME-STRING" };

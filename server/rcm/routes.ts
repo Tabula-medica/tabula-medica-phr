@@ -5,7 +5,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { rcmStore } from "./store";
 import { checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271 } from "./eligibility";
-import { authCoversService, authorizedCptsOnFile, createAuthRequest, DEFAULT_AUTH_RULES, requiresPriorAuth, transitionAuth, type AuthStatus } from "./prior-auth";
+import { authorizedCptsOnFile, authUnitsReserved, createAuthRequest, DEFAULT_AUTH_RULES, requiresPriorAuth, transitionAuth, type AuthStatus } from "./prior-auth";
 import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "./charge-capture";
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
@@ -188,8 +188,13 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   const needAuth = p.data.plannedLines.some((l) => requiresPriorAuth(l.cpt, contract).required);
   const auths = await rcmStore.listAuths(t, patient.id);
   // Scope the match to this coverage/payer — an approved auth from a different plan for the
-  // same patient and CPT must not clear this coverage's authorization requirement.
-  const authOnFile = p.data.plannedLines.every((l) => !requiresPriorAuth(l.cpt, contract).required || auths.some((a) => a.coverageId === coverage.id && a.payerId === coverage.payerId && authCoversService(a, l.cpt, p.data.dateOfService, l.units).ok));
+  // same patient and CPT must not clear this coverage's authorization requirement. Reserves units
+  // across every auth-required line TOGETHER (see authUnitsReserved) rather than checking each
+  // line independently against the same auth's static unitsUsed — two same-CPT one-unit lines
+  // sharing a single one-unit authorization would otherwise both independently "pass" here even
+  // though only one of them can actually be covered, reporting clearance the visit can't back up.
+  const authRequiredLines = p.data.plannedLines.filter((l) => requiresPriorAuth(l.cpt, contract).required).map((l) => ({ cpt: l.cpt, dateOfService: p.data.dateOfService, units: l.units }));
+  const authOnFile = authUnitsReserved(authRequiredLines, coverage.id, coverage.payerId, auths);
   const clearance = financialClearance(benefits, estimate, discrepancies, { requiresAuth: needAuth, authOnFile });
   res.json({ success: true, benefits, estimate, discrepancies, clearance });
 }));
