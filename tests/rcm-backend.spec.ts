@@ -449,6 +449,23 @@ describe("patient financials", () => {
     const credits = detectCreditBalances({ p4: entries });
     expect(credits).toEqual([{ patientId: "p4", amount: 50, source: "overpayment-patient", refundTo: "patient", requiresApproval: true }]);
   });
+  it("does not treat an unapplied point-of-service copay as a refundable credit while insurance A/R is still open", () => {
+    // Front-desk copay posted at check-in: the visit charge is still on the insurance side
+    // because transfer-to-patient hasn't happened yet. patientBalance is a $40 credit only
+    // because the payment landed on the patient side with no matching patient-responsible
+    // charge — refunding it would send the copay back, then the ERA's PR transfer would
+    // recreate the balance.
+    const copay: LedgerEntry[] = [
+      { id: "a", patientId: "p5", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b", patientId: "p5", type: "patient-payment", amount: 40, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p5", copay)).toMatchObject({ patientBalance: -40, insuranceBalance: 200 });
+    expect(detectCreditBalances({ p5: copay })).toEqual([]);
+    // Once insurance has fully settled with $0 patient responsibility, the leftover copay
+    // is a real credit — nothing is left that a later transfer-to-patient could apply it to.
+    const settled = [...copay, { id: "c", patientId: "p5", type: "insurance-payment", amount: 200, date: "2026-08-20", responsibleParty: "insurance" }];
+    expect(detectCreditBalances({ p5: settled })).toEqual([{ patientId: "p5", amount: 40, source: "overpayment-patient", refundTo: "patient", requiresApproval: true }]);
+  });
 });
 
 describe("contracts + analytics + worklists", () => {

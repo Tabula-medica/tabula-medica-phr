@@ -232,7 +232,19 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
     // detector and /credit-balances. A patient can legitimately have a credit on both sides at
     // once (e.g. an insurance takeback alongside a separate patient overpayment); each is reported
     // and refunded independently rather than picking a single winning side via a heuristic.
-    if (s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    if (s.patientBalance < -threshold) {
+      // A patient-side credit with no established patient-responsible charge (a self-pay
+      // charge or a transfer-to-patient) is an unapplied point-of-service copay sitting
+      // against still-open insurance A/R. Combined-balance detection used to hide this
+      // because the insurance debit kept net A/R positive; refunding it would send the
+      // copay back, then a later ERA transfer-to-patient would recreate the balance.
+      // Genuine overpayment of an actual patient-side charge is still refundable even
+      // when unrelated insurance A/R keeps the combined balance positive.
+      const patientObligation = sum(entries.map((e) => ((e.type === "charge" && e.responsibleParty === "patient") || e.type === "transfer-to-patient") ? e.amount : 0));
+      if (patientObligation > 0 || s.insuranceBalance <= threshold) {
+        out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+      }
+    }
     if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
   return out;
