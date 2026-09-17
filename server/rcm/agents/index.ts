@@ -257,6 +257,10 @@ const denialActionLocks = new Set<string>();
 // step (see below) — separate from denialActionLocks above, which guards the money-moving TOOLS,
 // not the planner's own read-then-write on the worklist.
 const denialWorkItemLocks = new Set<string>();
+// In-process lock on a patient+cycle, scoped to send-statement's find-then-add — the runtime
+// permits concurrent runs of the same agent for the same tenant (see denialWorkItemLocks), and
+// send-statement is not approval-gated, so overlapping orchestrator and manual runs both execute.
+const statementWorkItemLocks = new Set<string>();
 // A matching totalCharge alone doesn't bind an approval to the actual claim content an admin
 // reviewed — a provider could revert to draft, swap lines/modifiers/diagnoses/dates of service to
 // something that happens to sum to the same total, then re-scrub back to ready. Fingerprint the
@@ -749,22 +753,34 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
   name: "send-statement",
   description: "Generate and deliver a patient statement via the propensity-recommended channel",
   async run(input, ctx) {
-    const p = await ctx.store.getPatient(ctx.tenantId, input.patientId);
-    if (!p) throw new Error("patient not found");
-    const stmt = buildStatement(p, await ctx.store.ledger(ctx.tenantId, p.id), input.cycle);
-    const ptp = propensityToPay({ balance: stmt.amountDue, priorStatementsPaidOnTime: 0, priorStatementsLate: 0, hasCardOnFile: false });
-    // No real statement-delivery vendor behind this stub environment (the same "stub
-    // clearinghouse" boundary submit-claim/send-appeal document elsewhere) — this previously only
-    // computed an in-memory summary and discarded it, so a "successful" run left nothing durable
-    // behind even though callers (the agent summary, this step's own outcome) count it as a sent
-    // statement. Stage the actual statement content as a durable, visible work item instead.
-    // Dedup on an already-open item for this patient+cycle so a repeated nightly run against an
-    // unchanged collections stage doesn't stack a fresh "ready to send" item every night.
-    const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "patient-balance" && w.context?.kind === "statement" && w.patientId === input.patientId && w.context?.cycle === stmt.cycle);
-    if (!existing) {
-      await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Statement cycle ${stmt.cycle} ready to send — $${stmt.amountDue.toFixed(2)} via ${ptp.recommendedChannel}`, patientId: input.patientId, amount: stmt.amountDue, priority: 20, source: "agent", context: { kind: "statement", cycle: stmt.cycle, channel: ptp.recommendedChannel, message: stmt.message, dueDate: stmt.dueDate } })]);
+    // The find-then-add below is two store calls separated by an await, and the runtime permits
+    // concurrent runs of the same agent for the same tenant — two overlapping send-statement
+    // calls could each find no existing work item for this patient+cycle before either has added
+    // one, and each enqueue a duplicate. A synchronous per-key check-and-set (no await between
+    // them) closes that race the same way denialWorkItemLocks does for the denials planner.
+    const itemLockKey = `${ctx.tenantId}:${input.patientId}:${input.cycle}`;
+    if (statementWorkItemLocks.has(itemLockKey)) throw new Error("A statement for this patient/cycle is already in flight");
+    statementWorkItemLocks.add(itemLockKey);
+    try {
+      const p = await ctx.store.getPatient(ctx.tenantId, input.patientId);
+      if (!p) throw new Error("patient not found");
+      const stmt = buildStatement(p, await ctx.store.ledger(ctx.tenantId, p.id), input.cycle);
+      const ptp = propensityToPay({ balance: stmt.amountDue, priorStatementsPaidOnTime: 0, priorStatementsLate: 0, hasCardOnFile: false });
+      // No real statement-delivery vendor behind this stub environment (the same "stub
+      // clearinghouse" boundary submit-claim/send-appeal document elsewhere) — this previously only
+      // computed an in-memory summary and discarded it, so a "successful" run left nothing durable
+      // behind even though callers (the agent summary, this step's own outcome) count it as a sent
+      // statement. Stage the actual statement content as a durable, visible work item instead.
+      // Dedup on an already-open item for this patient+cycle so a repeated nightly run against an
+      // unchanged collections stage doesn't stack a fresh "ready to send" item every night.
+      const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "patient-balance" && w.context?.kind === "statement" && w.patientId === input.patientId && w.context?.cycle === stmt.cycle);
+      if (!existing) {
+        await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Statement cycle ${stmt.cycle} ready to send — $${stmt.amountDue.toFixed(2)} via ${ptp.recommendedChannel}`, patientId: input.patientId, amount: stmt.amountDue, priority: 20, source: "agent", context: { kind: "statement", cycle: stmt.cycle, channel: ptp.recommendedChannel, message: stmt.message, dueDate: stmt.dueDate } })]);
+      }
+      return { amountDue: stmt.amountDue, channel: ptp.recommendedChannel, cycle: stmt.cycle };
+    } finally {
+      statementWorkItemLocks.delete(itemLockKey);
     }
-    return { amountDue: stmt.amountDue, channel: ptp.recommendedChannel, cycle: stmt.cycle };
   },
 };
 // Uses the shared paymentPlanLocks lock from patient-financials.ts (also used by the direct
@@ -814,16 +830,28 @@ const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   requiresApproval: true,
   approvalReason: "external collections referral",
   async run(input, ctx) {
-    // Recheck the current balance at execution — unlike issue-refund/small-balance-write-off,
-    // this tool previously never re-read the account at all and just posted the plan-time amount
-    // verbatim. A payment or adjustment landing on the account between planning and this approval
-    // executing must not still send an already-reduced or fully-paid balance to collections.
-    const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
-    const currentBalance = computeAccount(input.patientId, entries).patientBalance;
-    if (currentBalance <= 0) throw new Error(`No patient balance remains on ${input.patientId}'s account to refer to collections`);
-    const amount = round2(Math.min(input.amount, currentBalance));
-    await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Agency referral executed $${amount.toFixed(2)}`, patientId: input.patientId, amount, priority: 30, source: "agent" })]);
-    return { referred: amount };
+    const lockKey = `${ctx.tenantId}:${input.patientId}`;
+    // Check-and-set BEFORE any await — same as issue-refund/small-balance-write-off. A concurrent
+    // payment, refund, write-off, or remittance can otherwise land after the re-read below and
+    // still send a paid or reduced balance to collections; two in-flight approvals for the same
+    // account can also each enqueue a duplicate agency work item. The runtime's per-approval
+    // `executing` set does not serialize two different approvals for the same patient.
+    if (patientLedgerLocks.has(lockKey)) throw new Error("Another ledger action for this patient is already in flight");
+    patientLedgerLocks.add(lockKey);
+    try {
+      // Recheck the current balance at execution — unlike issue-refund/small-balance-write-off,
+      // this tool previously never re-read the account at all and just posted the plan-time amount
+      // verbatim. A payment or adjustment landing on the account between planning and this approval
+      // executing must not still send an already-reduced or fully-paid balance to collections.
+      const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
+      const currentBalance = computeAccount(input.patientId, entries).patientBalance;
+      if (currentBalance <= 0) throw new Error(`No patient balance remains on ${input.patientId}'s account to refer to collections`);
+      const amount = round2(Math.min(input.amount, currentBalance));
+      await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Agency referral executed $${amount.toFixed(2)}`, patientId: input.patientId, amount, priority: 30, source: "agent" })]);
+      return { referred: amount };
+    } finally {
+      patientLedgerLocks.delete(lockKey);
+    }
   },
 };
 // Uses the shared patientLedgerLocks lock from patient-financials.ts (also used by the direct
@@ -937,11 +965,12 @@ const prepareCall: Tool<{ claimId: string }, unknown> = {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
     const coverage = await ctx.store.getCoverage(ctx.tenantId, claim.coverageId);
-    // /coverage can upsert (replace) an existing record by id — the same check submit-claim and
-    // /claims/:id/837p already make. Without it, a coverage record replaced with a different
-    // patient's or payer's data since this claim was created could put another patient's member
-    // ID/DOB into a payer-facing call script.
-    if (coverage && (coverage.patientId !== claim.patientId || coverage.payerId !== claim.payerId)) throw new Error("coverage on file no longer matches this claim's patient/payer — re-verify before preparing a payer call");
+    // /coverage can upsert (replace) an existing record by id — the same check submit-claim,
+    // open-auth-request, and /claims/:id/837p already make (`!coverage ||` identity mismatch).
+    // Without it, a coverage record replaced with a different patient's or payer's data — or
+    // deleted entirely — since this claim was created could put another patient's member ID/DOB
+    // (or a placeholder) into a payer-facing call script.
+    if (!coverage || coverage.patientId !== claim.patientId || coverage.payerId !== claim.payerId) throw new Error("coverage on file no longer matches this claim's patient/payer — re-verify before preparing a payer call");
     const patient = await ctx.store.getPatient(ctx.tenantId, claim.patientId);
     return buildPayerCallScript(claim, coverage, patient);
   },

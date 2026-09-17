@@ -136,7 +136,7 @@ export const paymentPlanLocks = new Set<string>();
 // Shared in-process lock, keyed `${tenantId}:${patientId}`, for every entry point that reads a
 // patient's current ledger balance/credit and then posts an entry (or authorizes a schedule)
 // derived from it: the patient-financial agent tools (issue-refund, small-balance-write-off,
-// offer-payment-plan), the denials agent tools (write-off, transfer-to-patient — their own
+// offer-payment-plan, refer-to-agency), the denials agent tools (write-off, transfer-to-patient — their own
 // denialActionLocks only serializes actions on the SAME denial, not two different open denials
 // racing on the same claim/patient), and the direct POST /ledger, POST /remittance/post, and
 // POST /patients/:id/payment-plan routes (the last of these is ALSO keyed into paymentPlanLocks
@@ -226,10 +226,19 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
   const out: CreditBalance[] = [];
   for (const [patientId, entries] of Object.entries(entriesByPatient)) {
     const s = computeAccount(patientId, entries);
-    if (s.balance < -threshold) {
-      const patientPaid = sum(entries.filter((e) => e.type === "patient-payment").map((e) => e.amount));
-      const source: CreditBalance["source"] = patientPaid >= -s.balance ? "overpayment-patient" : "overpayment-insurance";
-      out.push({ patientId, amount: round2(-s.balance), source, refundTo: source === "overpayment-patient" ? "patient" : "payer", requiresApproval: -s.balance >= 25 });
+    // Key off each side independently, not the combined `balance` — a genuine patient-side
+    // credit can be offset by an insurance-side debit (or vice versa) and net the combined
+    // balance above the threshold, which would hide a refund issue-refund is willing to post.
+    // When BOTH sides are in credit, emit one record per side rather than a single combined
+    // amount with one `refundTo`; otherwise execution refunds only that side and later plans
+    // keep requesting the leftover combined credit against the already-refunded side.
+    if (s.patientBalance < -threshold) {
+      const amount = round2(-s.patientBalance);
+      out.push({ patientId, amount, source: "overpayment-patient", refundTo: "patient", requiresApproval: amount >= 25 });
+    }
+    if (s.insuranceBalance < -threshold) {
+      const amount = round2(-s.insuranceBalance);
+      out.push({ patientId, amount, source: "overpayment-insurance", refundTo: "payer", requiresApproval: amount >= 25 });
     }
   }
   return out;

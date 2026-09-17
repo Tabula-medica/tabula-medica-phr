@@ -435,6 +435,32 @@ describe("patient financials", () => {
     expect(credit[0]).toMatchObject({ amount: 30, refundTo: "patient", requiresApproval: true });
     expect(smallBalanceWriteOffs({ p3: [{ id: "a", patientId: "p3", type: "charge", amount: 4, date: "2026-08-01", responsibleParty: "patient" }, { id: "b", patientId: "p3", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" }] })).toEqual([{ patientId: "p3", amount: 4 }]);
   });
+  it("detects a one-sided credit even when the combined balance is not negative", () => {
+    // $100 self-pay charge + $150 patient payment = a $50 patient-side credit, offset by an
+    // unrelated unpaid $100 insurance charge. Combined balance is +$50, but the patient side
+    // alone is a genuine refundable credit that issue-refund will honor.
+    const credit = detectCreditBalances({
+      "p-side": [
+        { id: "a", patientId: "p-side", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "patient" },
+        { id: "b", patientId: "p-side", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "insurance" },
+        { id: "c", patientId: "p-side", type: "patient-payment", amount: 150, date: "2026-08-02", responsibleParty: "patient" },
+      ],
+    });
+    expect(credit).toEqual([expect.objectContaining({ patientId: "p-side", amount: 50, refundTo: "patient", source: "overpayment-patient" })]);
+  });
+  it("emits a separate refund per side when both patient and insurance are in credit", () => {
+    const credit = detectCreditBalances({
+      "p-both": [
+        { id: "a", patientId: "p-both", type: "patient-payment", amount: 40, date: "2026-08-01", responsibleParty: "patient" },
+        { id: "b", patientId: "p-both", type: "insurance-payment", amount: 60, date: "2026-08-01", responsibleParty: "insurance" },
+      ],
+    });
+    expect(credit).toHaveLength(2);
+    expect(credit).toEqual(expect.arrayContaining([
+      expect.objectContaining({ amount: 40, refundTo: "patient", source: "overpayment-patient" }),
+      expect.objectContaining({ amount: 60, refundTo: "payer", source: "overpayment-insurance" }),
+    ]));
+  });
 });
 
 describe("contracts + analytics + worklists", () => {
@@ -926,7 +952,7 @@ describe("agents", () => {
   });
   it("a second decision on the same approval is a no-op and never re-executes the action", async () => {
     const r = await agentRuntime.run("patient-financial", T);
-    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-demo-4" && s.outcome === "needs-approval")!;
     const before = (await rcmStore.ledger(T, refundStep.input.patientId as string)).filter((e) => e.type === "refund").length;
     const first = await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
     expect(first).toBeDefined();
@@ -1226,14 +1252,13 @@ describe("agents", () => {
   });
   it("patient-financial agent finds the duplicate payment credit and queues a refund approval", async () => {
     const r = await agentRuntime.run("patient-financial", T);
-    const refund = r.steps.find((s) => s.tool === "issue-refund");
+    const refund = r.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-demo-4");
     expect(refund?.outcome).toBe("needs-approval");
-    expect(refund?.input.patientId).toBe("pt-demo-4");
     expect(refund?.input.amount).toBe(150);
   });
   it("caps a refund to the credit still on the account at execution time, not the stale planned amount", async () => {
     const r = await agentRuntime.run("patient-financial", T);
-    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const refundStep = r.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-demo-4" && s.outcome === "needs-approval")!;
     await rcmStore.decideApproval(T, refundStep.approvalId!, "approved", "biller");
     // Between planning and approval, part of the credit is already refunded through another
     // channel — only $60 of credit remains on the $150 that was planned.
@@ -1301,6 +1326,29 @@ describe("agents", () => {
     const result = await tool.run({ patientId: "pt-side-credit", amount: 50, refundTo: "patient" }, ctx);
     expect(result).toEqual({ refunded: 50 });
   });
+  it("patient-financial agent queues a refund for a one-sided credit even when the combined balance is not negative", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-plan-side-credit", firstName: "Plan", lastName: "Side", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-psc-1", patientId: "pt-plan-side-credit", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "patient" },
+      { id: "led-psc-2", patientId: "pt-plan-side-credit", type: "charge", amount: 100, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "led-psc-3", patientId: "pt-plan-side-credit", type: "patient-payment", amount: 150, date: "2026-08-05", responsibleParty: "patient" },
+    ]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const refund = r.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-plan-side-credit");
+    expect(refund?.outcome).toBe("needs-approval");
+    expect(refund?.input).toMatchObject({ amount: 50, refundTo: "patient" });
+  });
+  it("patient-financial agent queues a separate refund for each side when both are in credit", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-both-credit", firstName: "Both", lastName: "Credit", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-bc-1", patientId: "pt-both-credit", type: "patient-payment", amount: 40, date: "2026-08-01", responsibleParty: "patient" },
+      { id: "led-bc-2", patientId: "pt-both-credit", type: "insurance-payment", amount: 60, date: "2026-08-01", responsibleParty: "insurance" },
+    ]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const refunds = r.steps.filter((s) => s.tool === "issue-refund" && s.input.patientId === "pt-both-credit");
+    expect(refunds).toHaveLength(2);
+    expect(refunds.map((s) => s.input.refundTo).sort()).toEqual(["patient", "payer"]);
+  });
   it("small-balance write-off recomputes the balance at execution time and blocks once it's already been paid", async () => {
     await rcmStore.upsertPatient(T, { id: "pt-small-bal", firstName: "Small", lastName: "Bal", dob: "1990-01-01" });
     await rcmStore.postLedger(T, [
@@ -1340,11 +1388,11 @@ describe("agents", () => {
     // Without a dedup guard, running the agent twice before the first refund is decided would
     // queue two separate approvals for the same $150 credit; approving both would refund it twice.
     const r1 = await agentRuntime.run("patient-financial", T);
-    const step1 = r1.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const step1 = r1.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-demo-4" && s.outcome === "needs-approval")!;
     const afterFirst = await rcmStore.listApprovals(T, "pending");
     expect(afterFirst.some((a) => a.id === step1.approvalId)).toBe(true);
     const r2 = await agentRuntime.run("patient-financial", T);
-    const step2 = r2.steps.find((s) => s.tool === "issue-refund" && s.outcome === "needs-approval")!;
+    const step2 = r2.steps.find((s) => s.tool === "issue-refund" && s.input.patientId === "pt-demo-4" && s.outcome === "needs-approval")!;
     expect(step2.approvalId).toBe(step1.approvalId);
     expect(await rcmStore.listApprovals(T, "pending")).toHaveLength(afterFirst.length);
   });
@@ -1804,6 +1852,16 @@ describe("round 11 hardening", () => {
     const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
     await expect(tool.run({ claimId: claim.id }, ctx)).rejects.toThrow(/no longer matches this claim's patient\/payer/);
   });
+  it("prepare-payer-call fails closed when the claim's coverage is missing", async () => {
+    // Same fail-closed as submit-claim / open-auth-request / /claims/:id/837p: a deleted
+    // coverage must not still build an IVR script with a placeholder member id.
+    await rcmStore.upsertPatient(T, patient);
+    const claim = mkClaim();
+    await rcmStore.upsertClaim(T, claim);
+    const tool = agentRuntime.get("payer-call")!.tools.find((t) => t.name === "prepare-payer-call")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    await expect(tool.run({ claimId: claim.id }, ctx)).rejects.toThrow(/no longer matches this claim's patient\/payer/);
+  });
   it("open-auth-request revalidates the coverage at execution, the same way attach-auth-to-claim already does", async () => {
     // plan() captures patientId/coverageId/payerId as a snapshot; /coverage can upsert (replace) an
     // existing record by id between planning and this step actually running. A payerId that no
@@ -1869,6 +1927,45 @@ describe("round 11 hardening", () => {
     const exec = await agentRuntime.executeApproved(T, step.approvalId!, "biller");
     expect(exec.ok).toBe(false);
     expect(exec.error).toMatch(/No patient balance remains/);
+  });
+  it("refer-to-agency is blocked by the shared patientLedgerLocks lock even when something else holds it", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-agency-lock", firstName: "Agency", lastName: "Lock", dob: "1980-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-al-1", patientId: "pt-agency-lock", type: "charge", amount: 500, date: "2026-01-01", responsibleParty: "patient" }]);
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "refer-to-agency")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const lockKey = `${T}:pt-agency-lock`;
+    patientLedgerLocks.add(lockKey);
+    try {
+      await expect(tool.run({ patientId: "pt-agency-lock", amount: 500 }, ctx)).rejects.toThrow(/already in flight/);
+    } finally {
+      patientLedgerLocks.delete(lockKey);
+    }
+  });
+  it("two concurrent refer-to-agency calls for the same patient can't both enqueue a work item", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-agency-race", firstName: "Agency", lastName: "Race", dob: "1980-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-ar-1", patientId: "pt-agency-race", type: "charge", amount: 500, date: "2026-01-01", responsibleParty: "patient" }]);
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "refer-to-agency")!;
+    const input = { patientId: "pt-agency-race", amount: 500 };
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([tool.run(input, ctx), tool.run(input, ctx)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+    const items = (await rcmStore.listWorkItems(T, "patient-balance")).filter((w) => w.patientId === "pt-agency-race" && w.title.startsWith("Agency referral executed"));
+    expect(items).toHaveLength(1);
+  });
+  it("two concurrent send-statement calls for the same patient/cycle can't both enqueue a work item", async () => {
+    await rcmStore.upsertPatient(T, { id: "pt-stmt-race", firstName: "Stmt", lastName: "Race", dob: "1980-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-sr-1", patientId: "pt-stmt-race", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "patient" }]);
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "send-statement")!;
+    const input = { patientId: "pt-stmt-race", cycle: 1 as const };
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const results = await Promise.allSettled([tool.run(input, ctx), tool.run(input, ctx)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason.message).toMatch(/already in flight/);
+    const items = (await rcmStore.listWorkItems(T, "patient-balance")).filter((w) => w.patientId === "pt-stmt-race" && w.context?.kind === "statement");
+    expect(items).toHaveLength(1);
   });
 
   it("prior-auth agent tracks cumulative units claimed against one pending request across lines in the same pass", async () => {
