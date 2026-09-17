@@ -160,6 +160,25 @@ describe("remittance posting", () => {
     expect(r.postings[0].contractual).toBe(0);
     expect(r.postings[0].entries.every((e) => e.amount >= 0)).toBe(true);
   });
+  it("falls back to CAS group PR when patientResp/CLP05 is left at its default 0, so a vendor that only reports patient responsibility via CAS doesn't silently drop it", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 400, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 400, patient_resp: 0, adjustments: [{ group: "PR", carc: "1", amount: 50 }] }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    const p = r.postings[0];
+    expect(p.patientResp).toBe(50);
+    const transfer = p.entries.find((e) => e.type === "transfer-to-patient");
+    expect(transfer?.amount).toBe(50);
+    expect(p.underpayment).toBeUndefined(); // paid(400) + patientResp(50, from CAS) = 450 ≈ billed, not underpaid
+  });
+  it("prefers an explicit patientResp/CLP05 over CAS group PR instead of double-counting both", () => {
+    const c = mkClaim();
+    const rem = parseEra({ payerid: "BCBS", check_amount: 400, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 400, patient_resp: 50, adjustments: [{ group: "PR", carc: "1", amount: 50 }] }] });
+    const r = postRemittance(rem, { [c.id]: c }, { BCBS: bcbs });
+    const p = r.postings[0];
+    expect(p.patientResp).toBe(50); // not 100 — the explicit field wins, the CAS PR amount isn't added on top
+    expect(p.entries.filter((e) => e.type === "transfer-to-patient")).toHaveLength(1);
+    expect(p.entries.find((e) => e.type === "transfer-to-patient")?.amount).toBe(50);
+  });
   it("treats a second CLP row for the same claimId within one ERA as unmatched instead of double-posting it", () => {
     const c = mkClaim();
     const rem = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }, { pcn: c.id, status: "1", billed: 450, paid: 100, patient_resp: 0 }] });

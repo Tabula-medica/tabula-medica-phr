@@ -177,12 +177,16 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     const date = rem.checkDate ?? rem.receivedAt.slice(0, 10);
     const entries: LedgerEntry[] = [];
     const denials: Adjustment[] = [];
-    let contractual = 0, denied = 0;
+    let contractual = 0, denied = 0, patientRespFromCas = 0;
     // Claim-level (CLP) CAS can appear alongside SVC-level line CAS in the same 835 — process
     // both instead of only the lines, so claim-level contractual/denial adjustments aren't
     // silently dropped for a normal multi-line claim.
     for (const a of [...(rc.claimAdjustments ?? []), ...rc.lines.flatMap((l) => l.adjustments)]) {
-      if (a.group === "PR") continue; // patient responsibility handled via transfer below
+      // Patient responsibility handled via the transfer entry below, from `patientResp` — but a
+      // vendor that reports it ONLY as CAS group PR (rather than rolling it up into CLP05) would
+      // otherwise have this money silently discarded here: neither posted to the patient nor
+      // counted as paid/contractual/denied. Tally it so `patientResp` below can fall back to it.
+      if (a.group === "PR") { patientRespFromCas += a.amount; continue; }
       // A CARC can arrive group-prefixed (e.g. "CO-45") as well as bare ("45") — strip the same
       // CO/PR/OA/PI prefix analyzeDenial already strips before comparing, so a group-prefixed
       // contractual code isn't misclassified as a denial.
@@ -201,12 +205,17 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       }
     }
     if (rc.paid !== 0) entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: isReversal ? "refund" : "insurance-payment", amount: Math.abs(rc.paid), date, memo: `${rem.payerName ?? rem.payerId ?? "payer"} ${rem.checkNumber ?? ""}`.trim(), responsibleParty: "insurance" });
+    // Prefer the explicit patientResp/CLP05 field when the vendor populated it — most payers roll
+    // CAS PR into that total already, and trusting both would double-count. Only a vendor that
+    // reports patient responsibility SOLELY via CAS group PR (leaving CLP05 at its default 0)
+    // falls back to the CAS-derived sum tallied above.
+    const patientResp = rc.patientResp !== 0 ? rc.patientResp : round2(patientRespFromCas);
     // A reversal must unwind the ORIGINAL transfer-to-patient, not add a new one — same
     // reversal-sign handling as the paid/CAS amounts above: force the sign ourselves (a negative
     // ledger amount here reduces the patient's balance) rather than trusting the vendor's wire
-    // convention, and allow a nonzero (not just positive) rc.patientResp to trigger it.
-    if (isReversal ? rc.patientResp !== 0 : rc.patientResp > 0) {
-      entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "transfer-to-patient", amount: isReversal ? -Math.abs(rc.patientResp) : rc.patientResp, date, memo: "Patient responsibility per ERA", responsibleParty: "patient" });
+    // convention, and allow a nonzero (not just positive) patientResp to trigger it.
+    if (isReversal ? patientResp !== 0 : patientResp > 0) {
+      entries.push({ id: newId("led"), patientId, claimId: rc.claimId, type: "transfer-to-patient", amount: isReversal ? -Math.abs(patientResp) : patientResp, date, memo: "Patient responsibility per ERA", responsibleParty: "patient" });
     }
     // Same wire-sign ambiguity as the CAS amounts above: a reversal must always SUBTRACT its
     // magnitude from the batch's applied total, whether the vendor sent `paid` as an already-
@@ -232,7 +241,7 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
       // responsibility + whatever was written off as contractual (CO-45/253) — leaving out the
       // contractual adjustment here would misread a normally-paid claim (e.g. $80 paid + $20
       // CO-45 against a $100 expected rate) as a variance-triggering underpayment.
-      const actual = rc.allowed ?? round2(rc.paid + rc.patientResp + contractual);
+      const actual = rc.allowed ?? round2(rc.paid + patientResp + contractual);
       const variance = round2(expected - actual);
       if (variance > Math.max(1, expected * 0.02)) underpayment = { expectedAllowed: expected, actualAllowed: actual, variance };
     }
@@ -257,10 +266,10 @@ export function postRemittance(rem: Remittance, claimsById: Record<string, Claim
     // denied) — the residual must exclude whatever was actually paid too, not just patient
     // responsibility and contractual write-offs, or the synthesized denial plus the real payment
     // would add up to more than the claim was ever billed for.
-    const undocumentedDenied = round2(Math.max(0, rc.billed - rc.paid - rc.patientResp - contractual));
+    const undocumentedDenied = round2(Math.max(0, rc.billed - rc.paid - patientResp - contractual));
     if (rc.statusCode === "4" && !hadDenialCarc && undocumentedDenied > 0) { denied += undocumentedDenied; denials.push({ group: "CO", carc: "16", amount: undocumentedDenied }); }
-    const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + rc.patientResp < rc.allowed - 0.01) ? "partial" : "paid";
-    postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp: rc.patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && rc.patientResp > 0 });
+    const status: PostingStatus = isReversal ? "reversal" : rc.paid === 0 && (denied > 0 || rc.statusCode === "4") ? "denied" : rc.paid === 0 ? "zero-pay" : denied > 0 || (rc.allowed !== undefined && rc.paid + patientResp < rc.allowed - 0.01) ? "partial" : "paid";
+    postings.push({ claimId: rc.claimId, status, billed: rc.billed, allowed: rc.allowed, paid: rc.paid, patientResp, contractual: round2(contractual), denied: round2(denied), entries, denials, underpayment, crossoverToSecondary: rc.statusCode === "1" && patientResp > 0 });
   }
   const unapplied = round2(rem.checkAmount - applied);
   return { postings, unapplied, balanced: Math.abs(unapplied) < 0.01 };
