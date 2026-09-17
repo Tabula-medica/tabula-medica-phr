@@ -10,7 +10,7 @@ import { chargeMasterCatalog, deriveCharges, detectChargeGaps, parseVoiceCharge,
 import { buildCodingPrompt, CODING_SYSTEM_PROMPT, levelEm, parseCodingSuggestion, reviewIcd, stubCodingSuggestion } from "./coding";
 import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
-import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
+import { claimContentSignature, claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
 import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, patientLedgerLocks, paymentPlanLocks, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
@@ -499,7 +499,17 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   // point still hits a defined, empty array.
   let patientLockKeys: string[] = [];
   try {
-    const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) => r.id === rem.id || (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount));
+    const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) =>
+      r.id === rem.id ||
+      (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount) ||
+      // A resend can arrive under a brand-new id/check number (a vendor trace-number bug, or a
+      // clearinghouse that mints a fresh id per delivery attempt) while still carrying
+      // byte-identical adjudication data for the same payer/check-date/check-amount — e.g. a
+      // duplicate reversal that would otherwise slip past the id/check-number comparison above and
+      // post a second refund/adjustment. Requiring the full claim-level content signature to match
+      // too (not just payer/amount/date) keeps this from false-positiving on two genuinely distinct
+      // remittances that happen to share a payer, date, and total.
+      (!!rem.payerId && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount && r.checkDate === rem.checkDate && claimContentSignature(r.claims) === claimContentSignature(rem.claims)));
     if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");
     const claimsById = await rcmStore.claimsById(t);
     const contracts = await rcmStore.contracts(t);
@@ -531,11 +541,17 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     const needsReconciliation: string[] = [];
     let skippedCash = 0;
     for (const p of result.postings) {
-      // "unmatched" still carries the real claimId for reconciliation display, but this claim
-      // must never be looked up and transitioned — a wrong-payer or otherwise-unmatched posting
-      // means nothing was actually adjudicated against it (postRemittance already leaves its
-      // `entries` empty).
-      const claim = p.claimId && p.status !== "unmatched" ? claimsById[p.claimId] : undefined;
+      // "unmatched" (unknown claim id, payer mismatch, or a duplicate row within this same batch)
+      // means postRemittance could not identify a claim to post against at all — it already
+      // leaves `entries` empty and excludes the row from `applied`, so a nonzero payment already
+      // surfaces as a nonzero `unapplied` (forcing `balanced: false`). But a $0 unmatched row (a
+      // zero-pay denial for a claim id we don't recognize, say) moves neither `applied` nor
+      // `unapplied`, so without flagging it explicitly here the whole ERA could come back
+      // `balanced: true` with no record that a row was never actually reconciled to anything.
+      // Flag every unmatched row regardless of dollar amount, same as the illegal-transition case
+      // below, and skip straight to the next posting — there's no claim to look up or transition.
+      if (p.status === "unmatched") { needsReconciliation.push(p.claimId ?? "(unrecognized claim id)"); continue; }
+      const claim = p.claimId ? claimsById[p.claimId] : undefined;
       const to = claim ? claimStatusFromPosting(p) : undefined;
       // "adjudicated" (like "partially-paid") is allowed to self-transition — both a reversal and
       // a zero-pay posting map to "adjudicated", so a same-ERA reversal-then-correction pair needs
@@ -546,8 +562,10 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       // failure — it also silently blocked every legitimate cross-request zero-pay re-adjudication,
       // with no retry path once flagged into needsReconciliation (see the still-open ERA-replay gap
       // noted elsewhere on this PR). Reverted. The narrow duplicate-under-a-different-check-number
-      // risk is the same already-acknowledged remittance-identity/fingerprint limitation raised
-      // (and deliberately not resolved unilaterally) multiple times earlier on this PR.
+      // risk this reopens is now caught upstream instead: the `alreadyPosted` check above also
+      // compares claim-content signatures (see claimContentSignature), so a resend with byte-
+      // identical adjudication data under a new id/check number is rejected before this loop ever
+      // runs, rather than relying on this self-transition restriction to guard against it.
       if (claim && to && !canTransition(claim.status, to)) {
         // A duplicate or erroneous ERA that slipped past the id/check-number idempotency check
         // above (e.g. the same payment resent under a different check number) must not silently

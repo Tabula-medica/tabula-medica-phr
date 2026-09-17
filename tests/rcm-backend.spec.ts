@@ -1,7 +1,7 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
 import { describe, it, expect, beforeEach } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
-import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
+import { parseEra, postRemittance, claimStatusFromPosting, claimContentSignature } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
 import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, patientLedgerLocks, paymentPlanLocks, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
@@ -2190,5 +2190,48 @@ describe("round 18 hardening", () => {
     // within one ERA where the correction is itself zero-pay needs this self-transition, same as
     // "partially-paid" needed one for staggered installments.
     expect(canTransition("adjudicated", "adjudicated")).toBe(true);
+  });
+
+  it("claimContentSignature is stable under reordering but sensitive to a changed claim id, dollar amount, or extra/missing row", () => {
+    const rows = [{ claimId: "clm-1", billed: 300, paid: 100, patientResp: 20 }, { claimId: "clm-2", billed: 200, paid: 100, patientResp: 0 }];
+    const reordered = [rows[1], rows[0]];
+    expect(claimContentSignature(rows as never)).toBe(claimContentSignature(reordered as never));
+    const differentAmount = [rows[0], { ...rows[1], paid: 99 }];
+    expect(claimContentSignature(rows as never)).not.toBe(claimContentSignature(differentAmount as never));
+    const differentId = [rows[0], { ...rows[1], claimId: "clm-3" }];
+    expect(claimContentSignature(rows as never)).not.toBe(claimContentSignature(differentId as never));
+    expect(claimContentSignature(rows as never)).not.toBe(claimContentSignature([rows[0]] as never));
+  });
+
+  it("a remittance resent under a brand-new id/check number, but with byte-identical claim-content, produces a matching content signature (the alreadyPosted duplicate check in routes.ts relies on this)", () => {
+    const c = mkClaim();
+    // Same payer, check date, check amount, and per-claim billed/paid/patientResp — only the
+    // check number (and therefore the derived remittance id) differs, as a vendor trace-number
+    // bug or a clearinghouse minting a fresh id per delivery attempt would produce for a genuine
+    // duplicate reversal resend.
+    const original = parseEra({ payerid: "BCBS", check_number: "CHK-1", check_amount: -50, check_date: "2026-08-01", claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
+    const resent = parseEra({ payerid: "BCBS", check_number: "CHK-2", check_amount: -50, check_date: "2026-08-01", claims: [{ pcn: c.id, status: "22", billed: 450, paid: -50, patient_resp: 0 }] });
+    expect(original.id).not.toBe(resent.id);
+    expect(original.checkNumber).not.toBe(resent.checkNumber);
+    expect(claimContentSignature(original.claims)).toBe(claimContentSignature(resent.claims));
+    // A genuinely distinct remittance for the same payer/date/amount, but with different
+    // per-claim dollar figures, must NOT collide — otherwise the duplicate check would false-
+    // positive and block a legitimate second remittance.
+    const distinct = parseEra({ payerid: "BCBS", check_number: "CHK-3", check_amount: -50, check_date: "2026-08-01", claims: [{ pcn: c.id, status: "22", billed: 450, paid: -49, patient_resp: -1 }] });
+    expect(claimContentSignature(original.claims)).not.toBe(claimContentSignature(distinct.claims));
+  });
+
+  it("postRemittance's 'unmatched' status carries the raw claim id through untouched, so routes.ts can flag it for reconciliation even at $0", () => {
+    // No claim in claimsById at all — the era references a claim id we don't recognize, with $0
+    // paid (e.g. a denial for a claim id we've never heard of). Nothing here moves `unapplied`
+    // away from 0, which is exactly the case routes.ts must separately flag via needsReconciliation
+    // rather than relying on `balanced`/`unapplied` alone (see the routes.ts comment at the
+    // `p.status === "unmatched"` check in POST /remittance/post).
+    const rem = parseEra({ payerid: "BCBS", check_amount: 0, claims: [{ pcn: "unknown-claim-id", status: "4", billed: 0, paid: 0, patient_resp: 0 }] });
+    const r = postRemittance(rem, {});
+    expect(r.postings[0].status).toBe("unmatched");
+    expect(r.postings[0].claimId).toBe("unknown-claim-id");
+    expect(r.unapplied).toBe(0);
+    expect(r.balanced).toBe(true);
   });
 });

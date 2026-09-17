@@ -11,6 +11,19 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v 
 const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : v && typeof v === "object" ? [v as Record<string, unknown>] : []);
 const pick = (r: Record<string, unknown>, ...keys: string[]) => keys.map((k) => r[k]).find((v) => v !== undefined && v !== null);
 
+// Per-claim billed/paid/patient-resp, not just the claim id list — two distinct remittances for
+// the same payer/total/claim-id set but a different actual allocation across those claims must
+// not collide on the same signature. Sorted, not left in array order — the same ERA retried with
+// its claims reordered (a vendor quirk, or a lossy round-trip through some intermediate system)
+// must still produce the same signature. Shared by parseEra's own content-fingerprint fallback id
+// and by routes.ts's duplicate-remittance check, so a resend that arrives under a brand-new id/
+// check number (a vendor trace-number bug, or a clearinghouse that mints a fresh id per delivery
+// attempt) but carries byte-identical adjudication data is still recognized as the same underlying
+// transaction, not just id/check-number matches.
+export function claimContentSignature(claims: RemitClaim[]): string {
+  return claims.map((c) => `${c.claimId ?? ""}/${c.billed}/${c.paid}/${c.patientResp}`).sort().join(",");
+}
+
 function parseAdjustments(r: Record<string, unknown>, isReversal = false): Adjustment[] {
   const out: Adjustment[] = [];
   // "claimAdjustments" is RemitClaim's own canonical field name (distinct from RemitLine's
@@ -86,26 +99,17 @@ export function parseEra(raw: unknown): Remittance {
   // remittance's own content instead of a random id, so re-POSTing the identical payload (the
   // vendor retrying a webhook, a duplicate upload) is still recognized as the same ERA by the
   // idempotency check in routes.ts, rather than silently minting a new "unique" remittance each time.
-  const fingerprintId = () => {
-    // Per-claim billed/paid/patient-resp, not just the claim id list — two distinct ERAs for the
-    // same payer/total/date/claim-id set but a different actual allocation across those claims
-    // (or the same claims paid differently) must not collide on the same fingerprint.
-    // Sorted, not left in payload order — the same ERA retried with its claims array reordered
-    // (a vendor quirk, or a lossy round-trip through some intermediate system) must still produce
-    // the same fingerprint, or the duplicate check below would never catch the retry.
-    const claimSummaries = arr(pick(r, "claims", "claim", "CLP")).map((c) => {
-      const id = str(pick(c, "claimId", "pcn", "patient_control_number", "claimid", "CLP01")) ?? "";
-      const billed = round2(num(pick(c, "billed", "total_charge", "CLP03")));
-      const paid = round2(num(pick(c, "paid", "amount_paid", "CLP04")));
-      const patientResp = round2(num(pick(c, "patientResp", "patient_resp", "patient_responsibility", "CLP05")));
-      return `${id}/${billed}/${paid}/${patientResp}`;
-    }).sort().join(",");
+  // Built from the already-normalized `claims` array (below) via the shared claimContentSignature
+  // helper, rather than re-deriving billed/paid/patientResp from the raw payload a second time —
+  // routes.ts's alreadyPosted check reuses the same helper against a STORED Remittance's `claims`
+  // (already normalized RemitClaim objects, not raw vendor JSON), so both call sites must compute
+  // the signature from the same normalized shape to actually agree on what counts as identical.
+  const fingerprintId = () =>
     // Fold the check number into the fingerprint (rather than skipping fingerprinting whenever
     // one is present) so a re-POST of the same ERA gets the same deterministic id either way,
     // instead of minting a fresh random id every time just because a check number happened to be
     // on the payload.
-    return `era-fp:${payerId ?? ""}:${checkNumber ?? ""}:${checkAmount}:${checkDate ?? ""}:${claimSummaries}`;
-  };
+    `era-fp:${payerId ?? ""}:${checkNumber ?? ""}:${checkAmount}:${checkDate ?? ""}:${claimContentSignature(claims)}`;
   return {
     id: explicitId ?? fingerprintId() ?? newId("era"),
     payerId,
