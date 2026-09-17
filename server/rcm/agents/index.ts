@@ -581,7 +581,17 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
   async run(input, ctx) {
     const lockKey = `${ctx.tenantId}:${input.denialId}`;
     if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
+    // denialActionLocks alone only serializes actions on THIS denial — two different open denials
+    // on the SAME claim (e.g. two separate CARC lines from one ERA) can each hold their own denial
+    // lock and both read the same pre-mutation outstandingInsurance balance before either posts,
+    // together writing off more than the claim's one actual receivable. Also take the shared
+    // patientLedgerLocks lock (same one /ledger, /remittance/post, and issue-refund/
+    // small-balance-write-off use) so any two balance-read-then-ledger-write actions for this
+    // patient — including two denials on the same claim — serialize against each other too.
+    const patientLockKey = `${ctx.tenantId}:${input.patientId}`;
+    if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
     denialActionLocks.add(lockKey);
+    patientLedgerLocks.add(patientLockKey);
     try {
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       if (!d) throw new Error("denial not found");
@@ -604,6 +614,7 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
       return { writtenOff: amount };
     } finally {
       denialActionLocks.delete(lockKey);
+      patientLedgerLocks.delete(patientLockKey);
     }
   },
 };
@@ -615,7 +626,12 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
   async run(input, ctx) {
     const lockKey = `${ctx.tenantId}:${input.denialId}`;
     if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
+    // Same reasoning as write-off above — denialActionLocks doesn't cover a second, different
+    // open denial racing on the same claim, so also take the shared patientLedgerLocks lock.
+    const patientLockKey = `${ctx.tenantId}:${input.patientId}`;
+    if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
     denialActionLocks.add(lockKey);
+    patientLedgerLocks.add(patientLockKey);
     try {
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       if (!d) throw new Error("denial not found");
@@ -638,6 +654,7 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
       return { transferred: amount };
     } finally {
       denialActionLocks.delete(lockKey);
+      patientLedgerLocks.delete(patientLockKey);
     }
   },
 };

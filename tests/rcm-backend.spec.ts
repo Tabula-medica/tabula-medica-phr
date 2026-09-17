@@ -990,6 +990,31 @@ describe("agents", () => {
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
   });
+  it("two different open denials on the SAME claim can't both win a write-off race — the shared patientLedgerLocks lock, not just the per-denial lock, serializes them", async () => {
+    // denialActionLocks alone is keyed by denialId, so two DIFFERENT denials (unlike the
+    // same-denial race above) would each get their own lock and could both read the same
+    // pre-mutation outstandingInsurance balance before either posts — together writing off more
+    // than the claim's one actual receivable. The shared patientLedgerLocks lock closes that gap.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = mkClaim(); // totalCharge 450, no other postings yet — full $450 outstanding
+    await rcmStore.upsertClaim(T, claim);
+    await rcmStore.upsertDenial(T, { id: "den-multi-1", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "1", group: "PR", amount: 300, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    await rcmStore.upsertDenial(T, { id: "den-multi-2", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "1", group: "PR", amount: 300, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const a1 = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-multi-1", patientId: patient.id, amount: 300, reason: "test" }, reason: "test" });
+    const a2 = await rcmStore.requestApproval(T, { agent: "denials", action: "write-off", payload: { denialId: "den-multi-2", patientId: patient.id, amount: 300, reason: "test" }, reason: "test" });
+    await rcmStore.decideApproval(T, a1.id, "approved", "biller");
+    await rcmStore.decideApproval(T, a2.id, "approved", "biller");
+    const results = await Promise.all([
+      agentRuntime.executeApproved(T, a1.id, "biller"),
+      agentRuntime.executeApproved(T, a2.id, "biller"),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)!.error).toMatch(/already in flight/);
+    // Only one write-off actually posted — the claim's $450 isn't over-forgiven by $600 combined.
+    const entries = await rcmStore.ledger(T, patient.id);
+    expect(entries.filter((e) => e.type === "denial-adjustment")).toHaveLength(1);
+  });
   it("write-off caps a stale denial amount against the claim's actual outstanding insurance balance instead of creating a credit", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);

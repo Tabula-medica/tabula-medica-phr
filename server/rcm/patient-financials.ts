@@ -125,12 +125,14 @@ export const paymentPlanLocks = new Set<string>();
 
 // Shared in-process lock, keyed `${tenantId}:${patientId}`, for every entry point that reads a
 // patient's current ledger balance/credit and then posts an entry derived from it: the
-// patient-financial agent tools (issue-refund, small-balance-write-off) and the direct
+// patient-financial agent tools (issue-refund, small-balance-write-off), the denials agent tools
+// (write-off, transfer-to-patient — their own denialActionLocks only serializes actions on the
+// SAME denial, not two different open denials racing on the same claim/patient), and the direct
 // POST /ledger and POST /remittance/post routes. Any two of these racing for the SAME patient can
 // each read the same pre-mutation balance before either writes, and each proceed as if the full
 // amount were still available — over-refunding, over-forgiving, or double-applying a payment
 // against a balance that already moved. Exported from here, rather than declared separately in
-// routes.ts/agents/index.ts, specifically so all three share the same Set instance (mirrors
+// routes.ts/agents/index.ts, specifically so all of them share the same Set instance (mirrors
 // paymentPlanLocks above, which closed the same class of gap for payment plans).
 export const patientLedgerLocks = new Set<string>();
 
