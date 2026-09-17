@@ -380,6 +380,17 @@ rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => {
   // requires — exporting a real, downloadable 837P/CMS-1500 for one would let a caller manually
   // send a claim that bypassed the clean-scrub and approval gates entirely.
   if (c.status === "draft" || c.status === "scrubbed") return fail(res, 409, `Claim ${c.id} hasn't passed scrubbing yet (status: ${c.status}) — it isn't payer-ready to export`);
+  // "ready" is the one status this endpoint allows through that has NOT yet passed through the
+  // approval-gated submit-claim tool (every other non-draft/non-scrubbed/non-"ready" status is
+  // only reachable by having already gone through it, or through an ERA posting — see
+  // directClaimTransitions/correctableClaimStatuses' own comments). The 837P here is the actual
+  // X12 electronic-submission payload (unlike the CMS-1500 boxes, which exist to support a
+  // legitimate PAPER workflow) — letting any provider/clinician download it for a claim that
+  // hasn't been approved to submit would let them feed it to a clearinghouse themselves, achieving
+  // exactly what the admin-gated submit-claim approval exists to prevent. Restrict to admin only
+  // for this one pre-submission case; every other status stays open to the wider role set since
+  // exporting it isn't a submission-approval bypass — the claim already went through the gate.
+  if (c.status === "ready" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Exporting a not-yet-submitted claim's payer-ready payload requires an admin role — approve and submit it instead, or have an admin export it for a paper workflow");
   // "closed" is reachable directly from "draft"/"scrubbed" too (an abandoned/voided claim that
   // never actually passed scrubbing) — every OTHER non-draft/non-scrubbed status is only
   // reachable via "ready" (see TRANSITIONS in claims.ts), so "closed" is the one case that needs
