@@ -482,13 +482,10 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   // ($0, balanced) remittance. Reject a payload with no claim rows before doing any work.
   if (!rem.claims.length) return fail(res, 400, "ERA has no claim rows to post — check the uploaded payload");
   // Idempotency: a clearinghouse retry or a duplicate click must not double-post the same ERA.
-  // Identify it by payer + check number (the standard 835 trace key) when present, otherwise by
-  // its own id (explicit, or a content fingerprint — see parseEra). The LOCK key deliberately
-  // excludes checkAmount: a retry or corrected resend can legitimately carry the same trace
-  // number with a different parsed amount, and keying the lock on amount would give it a
-  // different lock key than the original post, letting both run concurrently — defeating the
-  // lock. (The separate `alreadyPosted` duplicate check below still compares checkAmount too,
-  // which is fine there — it only makes duplicate DETECTION stricter, it doesn't gate the lock.)
+  // Identify it by payer + check number (the standard 835 trace key, meant to be unique per
+  // actual payment/EFT a payer issues) when present, otherwise by its own id (explicit, or a
+  // content fingerprint — see parseEra). The LOCK key deliberately excludes checkAmount — see the
+  // `alreadyPosted` check below for why amount is excluded there too, for the same reason.
   const identityKey = rem.checkNumber ? `cn:${rem.payerId ?? ""}:${rem.checkNumber}` : `id:${rem.id}`;
   const lockKey = `${t}:${identityKey}`;
   // Synchronous check-and-set, before any `await` — see remittancePostInFlight's comment.
@@ -501,13 +498,27 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   try {
     const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) =>
       r.id === rem.id ||
-      (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount) ||
-      // A resend can arrive under a brand-new id/check number (a vendor trace-number bug, or a
-      // clearinghouse that mints a fresh id per delivery attempt) while still carrying
-      // byte-identical adjudication data for the same payer/check-date/check-amount — e.g. a
-      // duplicate reversal that would otherwise slip past the id/check-number comparison above and
-      // post a second refund/adjustment. Requiring the full claim-level content signature to match
-      // too (not just payer/amount/date) keeps this from false-positiving on two genuinely distinct
+      // checkAmount is deliberately NOT part of this comparison. An earlier version of this
+      // check required it to match too, on the theory that a corrected resend could legitimately
+      // carry the same trace number with a different amount — but a genuine correction to an
+      // already-posted payment is represented as its own NEW remittance (a reversal row, CLP02
+      // "22", followed by the corrected re-adjudication; the claim state machine's
+      // "adjudicated"/"partially-paid" self-transitions exist specifically to let that pair
+      // post), never as a resend of the SAME trace number with a merely different amount. Trusting
+      // a changed amount as proof of a legitimate correction let a replay under the identical
+      // trace number slip straight past this check as an ordinary new remittance — and since the
+      // claim state machine tolerates repeat adjudication transitions, that could double-post
+      // cash for the same underlying payment. A payer trace/EFT number is specified to be unique
+      // per transaction; treating any resend of it as the same remittance regardless of amount is
+      // the correct read of that identity, not an overly strict one.
+      (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId) ||
+      // Covers the case the check above can't: a resend that arrives under a brand-new id AND
+      // check number (a vendor trace-number bug, or a clearinghouse that mints a fresh id per
+      // delivery attempt) while still carrying byte-identical adjudication data for the same
+      // payer/check-date/check-amount — e.g. a duplicate reversal that would otherwise slip past
+      // the id/check-number comparison above and post a second refund/adjustment. Requiring the
+      // full claim-level content signature to match too (not just payer/amount/date) keeps this
+      // from false-positiving on two genuinely distinct
       // remittances that happen to share a payer, date, and total.
       (!!rem.payerId && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount && r.checkDate === rem.checkDate && claimContentSignature(r.claims) === claimContentSignature(rem.claims)));
     if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");

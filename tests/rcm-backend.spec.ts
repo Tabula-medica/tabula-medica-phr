@@ -2221,6 +2221,18 @@ describe("round 18 hardening", () => {
     expect(claimContentSignature(original.claims)).not.toBe(claimContentSignature(distinct.claims));
   });
 
+  it("parseEra preserves payerId/checkNumber identity across a resend with a changed check amount (the alreadyPosted duplicate check in routes.ts keys on payer+checkNumber alone, not amount, for exactly this reason)", () => {
+    // Same trace/EFT number, same payer — but a different parsed amount, as a duplicate/replay
+    // disguised as a "corrected" resend under the identical trace number would look. A genuine
+    // correction is instead its own new remittance (a reversal row followed by the corrected
+    // re-adjudication, under its OWN trace number) — see the comment on the `alreadyPosted` check.
+    const original = parseEra({ payerid: "BCBS", check_number: "CHK-500", check_amount: 100, claims: [{ pcn: "clm-1", billed: 100, paid: 100 }] });
+    const replay = parseEra({ payerid: "BCBS", check_number: "CHK-500", check_amount: 150, claims: [{ pcn: "clm-1", billed: 100, paid: 150 }] });
+    expect(original.payerId).toBe(replay.payerId);
+    expect(original.checkNumber).toBe(replay.checkNumber);
+    expect(original.checkAmount).not.toBe(replay.checkAmount);
+  });
+
   it("postRemittance's 'unmatched' status carries the raw claim id through untouched, so routes.ts can flag it for reconciliation even at $0", () => {
     // No claim in claimsById at all — the era references a claim id we don't recognize, with $0
     // paid (e.g. a denial for a claim id we've never heard of). Nothing here moves `unapplied`
