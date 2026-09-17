@@ -499,9 +499,14 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     // read its balance before this remittance's cash lands, and cap itself against a balance
     // that's about to change out from under it. See patientLedgerLocks' comment in
     // patient-financials.ts.
-    patientLockKeys = Array.from(new Set(result.postings.flatMap((p) => p.entries.map((e) => `${t}:${e.patientId}`))));
-    const lockedPatient = patientLockKeys.find((k) => patientLedgerLocks.has(k));
+    // Computed into a local first, not the outer `patientLockKeys` — the `finally` below deletes
+    // whatever `patientLockKeys` holds, so assigning the full candidate list before the conflict
+    // check would make an early return here delete keys this request never actually added,
+    // releasing a lock a concurrent refund/write-off/other post still legitimately holds.
+    const candidateLockKeys = Array.from(new Set(result.postings.flatMap((p) => p.entries.map((e) => `${t}:${e.patientId}`))));
+    const lockedPatient = candidateLockKeys.find((k) => patientLedgerLocks.has(k));
     if (lockedPatient) return fail(res, 409, "A refund, write-off, or another ledger post for one of this remittance's patients is already in flight — retry shortly");
+    patientLockKeys = candidateLockKeys;
     patientLockKeys.forEach((k) => patientLedgerLocks.add(k));
     const created: string[] = [];
     const needsReconciliation: string[] = [];
