@@ -232,7 +232,18 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
     // detector and /credit-balances. A patient can legitimately have a credit on both sides at
     // once (e.g. an insurance takeback alongside a separate patient overpayment); each is reported
     // and refunded independently rather than picking a single winning side via a heuristic.
-    if (s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    //
+    // A negative patientBalance is only trustworthy as a REFUNDABLE credit once the patient's
+    // actual responsibility has been established at least once — by a transfer-to-patient (the
+    // payer adjudicated the claim and posted what the patient owes) or a self-pay charge (patient
+    // responsibility from the outset). Without that, a point-of-service copay collected BEFORE the
+    // claim is even submitted/adjudicated (an extremely common, correct workflow) would look
+    // identical to a genuine overpayment purely because nothing has posted to the patient side
+    // yet to offset it — refunding it now, only to have the ERA's eventual transfer-to-patient put
+    // the same amount right back on the patient's balance, having already returned money they
+    // legitimately owed.
+    const patientResponsibilityEstablished = entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
+    if (patientResponsibilityEstablished && s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
     if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
   return out;

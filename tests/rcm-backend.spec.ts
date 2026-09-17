@@ -449,6 +449,21 @@ describe("patient financials", () => {
     const credits = detectCreditBalances({ p4: entries });
     expect(credits).toEqual([{ patientId: "p4", amount: 50, source: "overpayment-patient", refundTo: "patient", requiresApproval: true }]);
   });
+  it("does not flag a point-of-service copay collected before the claim is adjudicated as a refundable credit", () => {
+    // A $20 copay collected at check-in against a $200 insurance-billed charge — completely normal,
+    // and the claim hasn't been adjudicated yet (no transfer-to-patient has posted, so the patient's
+    // actual responsibility isn't established at all). Without the patientResponsibilityEstablished
+    // guard, this reads as a $20 patient-side "credit" purely because nothing has posted to the
+    // patient side yet to offset the copay — refunding it now, only to have the eventual ERA's
+    // transfer-to-patient put the same $20 back on the patient's balance, having already returned
+    // money they legitimately owed.
+    const entries: LedgerEntry[] = [
+      { id: "a", patientId: "p5", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b", patientId: "p5", type: "patient-payment", amount: 20, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p5", entries).patientBalance).toBe(-20); // mechanically a "credit"...
+    expect(detectCreditBalances({ p5: entries })).toEqual([]); // ...but not a refundable one yet
+  });
 });
 
 describe("contracts + analytics + worklists", () => {
