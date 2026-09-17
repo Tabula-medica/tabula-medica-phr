@@ -745,6 +745,9 @@ const denialAgent: AgentDefinition = {
 };
 
 // ---------- Patient financial agent ----------
+// In-process lock closing the same find-then-add race denialWorkItemLocks closes for denials,
+// scoped to send-statement's own dedup key (patient+cycle).
+const statementWorkItemLocks = new Set<string>();
 const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unknown> = {
   name: "send-statement",
   description: "Generate and deliver a patient statement via the propensity-recommended channel",
@@ -759,10 +762,20 @@ const sendStatement: Tool<{ patientId: string; cycle: 1 | 2 | 3 | "final" }, unk
     // behind even though callers (the agent summary, this step's own outcome) count it as a sent
     // statement. Stage the actual statement content as a durable, visible work item instead.
     // Dedup on an already-open item for this patient+cycle so a repeated nightly run against an
-    // unchanged collections stage doesn't stack a fresh "ready to send" item every night.
-    const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "patient-balance" && w.context?.kind === "statement" && w.patientId === input.patientId && w.context?.cycle === stmt.cycle);
-    if (!existing) {
-      await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Statement cycle ${stmt.cycle} ready to send — $${stmt.amountDue.toFixed(2)} via ${ptp.recommendedChannel}`, patientId: input.patientId, amount: stmt.amountDue, priority: 20, source: "agent", context: { kind: "statement", cycle: stmt.cycle, channel: ptp.recommendedChannel, message: stmt.message, dueDate: stmt.dueDate } })]);
+    // unchanged collections stage doesn't stack a fresh "ready to send" item every night. The
+    // find-then-add is two store calls separated by an await, and concurrent patient-financial
+    // runs are permitted for the same tenant — guarded with the same synchronous per-key
+    // check-and-set lock used to close the identical race for denial work items.
+    const itemLockKey = `${ctx.tenantId}:statement:${input.patientId}:${stmt.cycle}`;
+    if (statementWorkItemLocks.has(itemLockKey)) return { amountDue: stmt.amountDue, channel: ptp.recommendedChannel, cycle: stmt.cycle };
+    statementWorkItemLocks.add(itemLockKey);
+    try {
+      const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "patient-balance" && w.context?.kind === "statement" && w.patientId === input.patientId && w.context?.cycle === stmt.cycle);
+      if (!existing) {
+        await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Statement cycle ${stmt.cycle} ready to send — $${stmt.amountDue.toFixed(2)} via ${ptp.recommendedChannel}`, patientId: input.patientId, amount: stmt.amountDue, priority: 20, source: "agent", context: { kind: "statement", cycle: stmt.cycle, channel: ptp.recommendedChannel, message: stmt.message, dueDate: stmt.dueDate } })]);
+      }
+    } finally {
+      statementWorkItemLocks.delete(itemLockKey);
     }
     return { amountDue: stmt.amountDue, channel: ptp.recommendedChannel, cycle: stmt.cycle };
   },
@@ -814,16 +827,27 @@ const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   requiresApproval: true,
   approvalReason: "external collections referral",
   async run(input, ctx) {
-    // Recheck the current balance at execution — unlike issue-refund/small-balance-write-off,
-    // this tool previously never re-read the account at all and just posted the plan-time amount
-    // verbatim. A payment or adjustment landing on the account between planning and this approval
-    // executing must not still send an already-reduced or fully-paid balance to collections.
-    const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
-    const currentBalance = computeAccount(input.patientId, entries).patientBalance;
-    if (currentBalance <= 0) throw new Error(`No patient balance remains on ${input.patientId}'s account to refer to collections`);
-    const amount = round2(Math.min(input.amount, currentBalance));
-    await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Agency referral executed $${amount.toFixed(2)}`, patientId: input.patientId, amount, priority: 30, source: "agent" })]);
-    return { referred: amount };
+    const lockKey = `${ctx.tenantId}:${input.patientId}`;
+    // Same shared patientLedgerLocks lock issue-refund/small-balance-write-off/offer-payment-plan
+    // use — without it, a concurrent payment/refund/write-off/remittance can land right after the
+    // balance read below (referring an already-paid balance), and two in-flight referral approvals
+    // for the same patient could each pass their own read before either posts its work item.
+    if (patientLedgerLocks.has(lockKey)) throw new Error("Another ledger action for this patient is already in flight");
+    patientLedgerLocks.add(lockKey);
+    try {
+      // Recheck the current balance at execution — unlike issue-refund/small-balance-write-off,
+      // this tool previously never re-read the account at all and just posted the plan-time amount
+      // verbatim. A payment or adjustment landing on the account between planning and this approval
+      // executing must not still send an already-reduced or fully-paid balance to collections.
+      const entries = await ctx.store.ledger(ctx.tenantId, input.patientId);
+      const currentBalance = computeAccount(input.patientId, entries).patientBalance;
+      if (currentBalance <= 0) throw new Error(`No patient balance remains on ${input.patientId}'s account to refer to collections`);
+      const amount = round2(Math.min(input.amount, currentBalance));
+      await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Agency referral executed $${amount.toFixed(2)}`, patientId: input.patientId, amount, priority: 30, source: "agent" })]);
+      return { referred: amount };
+    } finally {
+      patientLedgerLocks.delete(lockKey);
+    }
   },
 };
 // Uses the shared patientLedgerLocks lock from patient-financials.ts (also used by the direct
@@ -938,10 +962,13 @@ const prepareCall: Tool<{ claimId: string }, unknown> = {
     if (!claim) throw new Error("claim not found");
     const coverage = await ctx.store.getCoverage(ctx.tenantId, claim.coverageId);
     // /coverage can upsert (replace) an existing record by id — the same check submit-claim and
-    // /claims/:id/837p already make. Without it, a coverage record replaced with a different
-    // patient's or payer's data since this claim was created could put another patient's member
-    // ID/DOB into a payer-facing call script.
-    if (coverage && (coverage.patientId !== claim.patientId || coverage.payerId !== claim.payerId)) throw new Error("coverage on file no longer matches this claim's patient/payer — re-verify before preparing a payer call");
+    // /claims/:id/837p already make. `claim.coverageId` is a required field, so a claim's coverage
+    // legitimately missing entirely (not just mismatched) means the record was deleted since this
+    // claim was created — fail closed the same way submit-claim/837p/open-auth-request do (`!cov
+    // || mismatch`) rather than silently building a payer-facing script with a placeholder member
+    // ID. Without either check, a coverage replaced with a different patient's/payer's data, or
+    // removed outright, could put wrong or fabricated subscriber identity into the call script.
+    if (!coverage || coverage.patientId !== claim.patientId || coverage.payerId !== claim.payerId) throw new Error("coverage on file no longer matches this claim's patient/payer — re-verify before preparing a payer call");
     const patient = await ctx.store.getPatient(ctx.tenantId, claim.patientId);
     return buildPayerCallScript(claim, coverage, patient);
   },

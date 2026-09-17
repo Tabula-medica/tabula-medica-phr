@@ -226,11 +226,14 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
   const out: CreditBalance[] = [];
   for (const [patientId, entries] of Object.entries(entriesByPatient)) {
     const s = computeAccount(patientId, entries);
-    if (s.balance < -threshold) {
-      const patientPaid = sum(entries.filter((e) => e.type === "patient-payment").map((e) => e.amount));
-      const source: CreditBalance["source"] = patientPaid >= -s.balance ? "overpayment-patient" : "overpayment-insurance";
-      out.push({ patientId, amount: round2(-s.balance), source, refundTo: source === "overpayment-patient" ? "patient" : "payer", requiresApproval: -s.balance >= 25 });
-    }
+    // Checked per side (patientBalance/insuranceBalance), not the combined balance — a genuine
+    // one-sided credit can be fully offset by an unrelated debit on the OTHER side and net the
+    // combined balance to ~0, which would silently hide a real, refundable credit from both this
+    // detector and /credit-balances. A patient can legitimately have a credit on both sides at
+    // once (e.g. an insurance takeback alongside a separate patient overpayment); each is reported
+    // and refunded independently rather than picking a single winning side via a heuristic.
+    if (s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
   return out;
 }
