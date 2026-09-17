@@ -464,6 +464,25 @@ describe("patient financials", () => {
     expect(computeAccount("p5", entries).patientBalance).toBe(-20); // mechanically a "credit"...
     expect(detectCreditBalances({ p5: entries })).toEqual([]); // ...but not a refundable one yet
   });
+  it("does not let an OLD, fully-resolved claim unlock credit detection for a SEPARATE, still-unadjudicated claim's copay", () => {
+    // Claim A (self-pay, claimId "claim-a") is fully resolved and paid off. Claim B (insurance,
+    // claimId "claim-b") is a brand-new, unrelated claim with only a $20 copay collected so far —
+    // no transfer-to-patient has posted for it yet. Checking "has responsibility EVER been
+    // established anywhere on the account" (the first attempt at this fix) would see claim A's
+    // self-pay charge and wrongly treat claim B's copay as a refundable credit too.
+    const entries: LedgerEntry[] = [
+      { id: "a1", patientId: "p6", claimId: "claim-a", type: "charge", amount: 100, date: "2026-07-01", responsibleParty: "patient" },
+      { id: "a2", patientId: "p6", claimId: "claim-a", type: "patient-payment", amount: 100, date: "2026-07-02", responsibleParty: "patient" },
+      { id: "b1", patientId: "p6", claimId: "claim-b", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b2", patientId: "p6", claimId: "claim-b", type: "patient-payment", amount: 20, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p6", entries).patientBalance).toBe(-20); // mechanically a "credit"...
+    expect(detectCreditBalances({ p6: entries })).toEqual([]); // ...but claim B hasn't adjudicated yet
+    // Once claim B actually adjudicates (a transfer-to-patient posts for it), the account-wide
+    // credit becomes trustworthy again.
+    const adjudicated = [...entries, { id: "b3", patientId: "p6", claimId: "claim-b", type: "transfer-to-patient" as const, amount: 10, date: "2026-08-10", responsibleParty: "patient" as const }];
+    expect(detectCreditBalances({ p6: adjudicated })).toEqual([{ patientId: "p6", amount: 10, source: "overpayment-patient", refundTo: "patient", requiresApproval: false }]);
+  });
 });
 
 describe("contracts + analytics + worklists", () => {

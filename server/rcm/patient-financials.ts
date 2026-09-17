@@ -234,15 +234,29 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
     // and refunded independently rather than picking a single winning side via a heuristic.
     //
     // A negative patientBalance is only trustworthy as a REFUNDABLE credit once the patient's
-    // actual responsibility has been established at least once — by a transfer-to-patient (the
-    // payer adjudicated the claim and posted what the patient owes) or a self-pay charge (patient
-    // responsibility from the outset). Without that, a point-of-service copay collected BEFORE the
-    // claim is even submitted/adjudicated (an extremely common, correct workflow) would look
-    // identical to a genuine overpayment purely because nothing has posted to the patient side
-    // yet to offset it — refunding it now, only to have the ERA's eventual transfer-to-patient put
-    // the same amount right back on the patient's balance, having already returned money they
-    // legitimately owed.
-    const patientResponsibilityEstablished = entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
+    // actual responsibility has been established — by a transfer-to-patient (the payer adjudicated
+    // the claim and posted what the patient owes) or a self-pay charge (patient responsibility from
+    // the outset). Without that, a point-of-service copay collected BEFORE the claim is even
+    // submitted/adjudicated (an extremely common, correct workflow) would look identical to a
+    // genuine overpayment purely because nothing has posted to the patient side yet to offset it —
+    // refunding it now, only to have the ERA's eventual transfer-to-patient put the same amount
+    // right back on the patient's balance, having already returned money they legitimately owed.
+    //
+    // Checking that ANYWHERE on the account (the first attempt at this fix) isn't enough: a patient
+    // with one old, fully-resolved claim (self-pay or already transferred) and a SEPARATE, brand-new
+    // claim still awaiting adjudication would have that old claim "unlock" credit detection for the
+    // new claim's own not-yet-reconciled copay. The guard has to be aware of adjudication per claim,
+    // not just "has this ever happened anywhere on the account": if any claim with an insurance-side
+    // charge has no adjudication activity posted against it at all (no transfer-to-patient,
+    // insurance-payment, contractual-adjustment, or denial-adjustment for that claimId), there's a
+    // still-pending claim that could yet transfer more onto the patient side, and the account's
+    // credit isn't safe to trust regardless of what already happened on other, resolved claims.
+    // (Entries with no claimId at all — e.g. many patient-payments — can't be tied to a specific
+    // claim's adjudication state either way, so they don't affect this check.)
+    const insuranceChargeClaimIds = new Set(entries.filter((e) => e.type === "charge" && e.responsibleParty === "insurance" && e.claimId).map((e) => e.claimId!));
+    const adjudicatedClaimIds = new Set(entries.filter((e) => e.claimId && (e.type === "transfer-to-patient" || e.type === "insurance-payment" || e.type === "contractual-adjustment" || e.type === "denial-adjustment")).map((e) => e.claimId!));
+    const hasUnresolvedInsuranceClaim = Array.from(insuranceChargeClaimIds).some((id) => !adjudicatedClaimIds.has(id));
+    const patientResponsibilityEstablished = !hasUnresolvedInsuranceClaim && entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
     if (patientResponsibilityEstablished && s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
     if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
