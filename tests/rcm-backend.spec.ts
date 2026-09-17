@@ -483,6 +483,47 @@ describe("patient financials", () => {
     const adjudicated = [...entries, { id: "b3", patientId: "p6", claimId: "claim-b", type: "transfer-to-patient" as const, amount: 10, date: "2026-08-10", responsibleParty: "patient" as const }];
     expect(detectCreditBalances({ p6: adjudicated })).toEqual([{ patientId: "p6", amount: 10, source: "overpayment-patient", refundTo: "patient", requiresApproval: false }]);
   });
+  it("does not hide a genuine overpayment on a resolved claim just because a SEPARATE insurance charge is still unposted", () => {
+    // $100 self-pay paid twice ($50 genuine credit) plus a still-draft/unposted insurance charge
+    // that has a claimId and will never receive an ERA. An account-wide "any unresolved insurance
+    // claim kills every patient credit" guard would swallow the $50 until that other claim
+    // adjudicates — which, for a draft, is never.
+    const entries: LedgerEntry[] = [
+      { id: "a1", patientId: "p7", claimId: "claim-a", type: "charge", amount: 100, date: "2026-07-01", responsibleParty: "patient" },
+      { id: "a2", patientId: "p7", claimId: "claim-a", type: "patient-payment", amount: 150, date: "2026-07-02", responsibleParty: "patient" },
+      { id: "b1", patientId: "p7", claimId: "claim-b", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "insurance" },
+    ];
+    expect(computeAccount("p7", entries).patientBalance).toBe(-50);
+    expect(detectCreditBalances({ p7: entries })).toEqual([{ patientId: "p7", amount: 50, source: "overpayment-patient", refundTo: "patient", requiresApproval: true }]);
+  });
+  it("does not treat a partial ERA (insurance-payment, no transfer-to-patient) as unlocking a new visit's copay", () => {
+    // Claim A is a paid-off self-pay. Claim B got a first remittance that paid some of the
+    // insurance side but posted no patient responsibility — a later ERA can still transfer more
+    // onto the patient. Treating insurance-payment as "adjudicated" would let claim A's self-pay
+    // charge unlock claim B's $20 copay as a refundable credit.
+    const entries: LedgerEntry[] = [
+      { id: "a1", patientId: "p8", claimId: "claim-a", type: "charge", amount: 100, date: "2026-07-01", responsibleParty: "patient" },
+      { id: "a2", patientId: "p8", claimId: "claim-a", type: "patient-payment", amount: 100, date: "2026-07-02", responsibleParty: "patient" },
+      { id: "b1", patientId: "p8", claimId: "claim-b", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b2", patientId: "p8", claimId: "claim-b", type: "insurance-payment", amount: 100, date: "2026-08-10", responsibleParty: "insurance" },
+      { id: "b3", patientId: "p8", claimId: "claim-b", type: "patient-payment", amount: 20, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p8", entries).patientBalance).toBe(-20);
+    expect(detectCreditBalances({ p8: entries })).toEqual([]);
+  });
+  it("does not let an old self-pay unlock a copay sitting against an insurance charge that has no claimId", () => {
+    // POST /ledger allows charges without a claimId — those never enter a claimId-keyed
+    // unresolved set. Combined with an older resolved self-pay, the new visit's copay would
+    // otherwise look like a refundable credit even though nothing has established PR for it.
+    const entries: LedgerEntry[] = [
+      { id: "a1", patientId: "p9", claimId: "claim-a", type: "charge", amount: 100, date: "2026-07-01", responsibleParty: "patient" },
+      { id: "a2", patientId: "p9", claimId: "claim-a", type: "patient-payment", amount: 100, date: "2026-07-02", responsibleParty: "patient" },
+      { id: "b1", patientId: "p9", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "b2", patientId: "p9", type: "patient-payment", amount: 20, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p9", entries).patientBalance).toBe(-20);
+    expect(detectCreditBalances({ p9: entries })).toEqual([]);
+  });
 });
 
 describe("contracts + analytics + worklists", () => {

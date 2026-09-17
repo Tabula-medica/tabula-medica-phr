@@ -242,22 +242,47 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
     // refunding it now, only to have the ERA's eventual transfer-to-patient put the same amount
     // right back on the patient's balance, having already returned money they legitimately owed.
     //
-    // Checking that ANYWHERE on the account (the first attempt at this fix) isn't enough: a patient
-    // with one old, fully-resolved claim (self-pay or already transferred) and a SEPARATE, brand-new
-    // claim still awaiting adjudication would have that old claim "unlock" credit detection for the
-    // new claim's own not-yet-reconciled copay. The guard has to be aware of adjudication per claim,
-    // not just "has this ever happened anywhere on the account": if any claim with an insurance-side
-    // charge has no adjudication activity posted against it at all (no transfer-to-patient,
-    // insurance-payment, contractual-adjustment, or denial-adjustment for that claimId), there's a
-    // still-pending claim that could yet transfer more onto the patient side, and the account's
-    // credit isn't safe to trust regardless of what already happened on other, resolved claims.
-    // (Entries with no claimId at all — e.g. many patient-payments — can't be tied to a specific
-    // claim's adjudication state either way, so they don't affect this check.)
-    const insuranceChargeClaimIds = new Set(entries.filter((e) => e.type === "charge" && e.responsibleParty === "insurance" && e.claimId).map((e) => e.claimId!));
-    const adjudicatedClaimIds = new Set(entries.filter((e) => e.claimId && (e.type === "transfer-to-patient" || e.type === "insurance-payment" || e.type === "contractual-adjustment" || e.type === "denial-adjustment")).map((e) => e.claimId!));
-    const hasUnresolvedInsuranceClaim = Array.from(insuranceChargeClaimIds).some((id) => !adjudicatedClaimIds.has(id));
-    const patientResponsibilityEstablished = !hasUnresolvedInsuranceClaim && entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
-    if (patientResponsibilityEstablished && s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    // That decision is per claim, not an account-wide kill switch. An old resolved claim must not
+    // "unlock" a brand-new visit's not-yet-reconciled copay, and a still-pending insurance charge
+    // (including a draft that will never see an ERA) must not hide a genuine overpayment on a
+    // different, already-settled claim. Patient-payments often have no claimId, so unattributed
+    // credits are applied against established patient-side balances first; any leftover is held
+    // while some insurance charge still has a remaining balance and no transfer-to-patient.
+    // Partial ERA activity (an insurance-payment, contractual-adjustment, or denial-adjustment
+    // without a transfer) is not PR-final — a later remittance can still move more onto the
+    // patient. An insurance charge with no claimId is its own bucket, not skipped. Only a
+    // transfer, a self-pay charge, or a fully-settled insurance side (nothing left that could
+    // transfer) makes that bucket's patient credit trustworthy.
+    const groups = new Map<string, LedgerEntry[]>();
+    for (const e of entries) {
+      const key = e.claimId ?? "";
+      const group = groups.get(key);
+      if (group) group.push(e);
+      else groups.set(key, [e]);
+    }
+    let establishedOwed = 0;
+    let attributedUnresolvedCopay = 0;
+    let unattributedUnestablishedCredit = 0;
+    let hasUnresolvedInsurance = false;
+    for (const [key, group] of groups) {
+      const g = computeAccount(patientId, group);
+      const hasTransfer = group.some((e) => e.type === "transfer-to-patient");
+      const hasPatientCharge = group.some((e) => e.type === "charge" && e.responsibleParty === "patient");
+      const hasInsuranceCharge = group.some((e) => e.type === "charge" && e.responsibleParty === "insurance");
+      const prEstablished = hasTransfer || hasPatientCharge || (hasInsuranceCharge && g.insuranceBalance <= threshold);
+      if (hasInsuranceCharge && !hasTransfer && g.insuranceBalance > threshold) hasUnresolvedInsurance = true;
+      if (prEstablished) {
+        if (g.patientBalance > threshold) establishedOwed += g.patientBalance;
+      } else if (g.patientBalance < -threshold) {
+        if (key) attributedUnresolvedCopay += -g.patientBalance;
+        else unattributedUnestablishedCredit += -g.patientBalance;
+      }
+    }
+    const unattrLeftover = Math.max(0, unattributedUnestablishedCredit - establishedOwed);
+    const held = attributedUnresolvedCopay + (hasUnresolvedInsurance ? unattrLeftover : 0);
+    const accountCredit = s.patientBalance < -threshold ? -s.patientBalance : 0;
+    const refundable = round2(Math.max(0, accountCredit - held));
+    if (refundable > threshold) out.push({ patientId, amount: refundable, source: "overpayment-patient", refundTo: "patient", requiresApproval: refundable >= 25 });
     if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
   return out;
