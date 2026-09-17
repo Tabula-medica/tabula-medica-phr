@@ -599,6 +599,12 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
       // still open right before posting, so a stale approval can't double-adjust a denial that
       // another action (or a human) already resolved in the meantime.
       if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+      // The approval payload supplies patientId independently of denialId — without this, a
+      // mismatched or drifted payload would take patientLedgerLocks for the WRONG patient and
+      // still post against the denial's real account, bypassing the same-claim over-write-off
+      // race that lock is meant to close. Same class of check as file-corrected-claim's
+      // denial.claimId vs input.claimId.
+      if (d.patientId !== input.patientId) throw new Error(`Denial ${input.denialId} does not belong to patient ${input.patientId}`);
       const claim = await ctx.store.getClaim(ctx.tenantId, d.claimId);
       if (!claim) throw new Error("claim not found");
       // d.amount is captured when the denial was created and can be stale by execution time (a
@@ -636,6 +642,9 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
       const d = await ctx.store.getDenial(ctx.tenantId, input.denialId);
       if (!d) throw new Error("denial not found");
       if (d.status !== "open") throw new Error(`Denial ${d.id} is no longer open (status: ${d.status}) — this approval is stale`);
+      // Same check as write-off above: the lock is keyed on the payload's patientId, so a
+      // mismatch would serialize the wrong patient and still mutate the denial's account.
+      if (d.patientId !== input.patientId) throw new Error(`Denial ${input.denialId} does not belong to patient ${input.patientId}`);
       // This tool only moves genuine patient-responsibility (CARC group "PR") amounts onto the
       // patient — a CO/OA/PI adjustment is a contractual write-off or other insurance-side
       // outcome, never something the patient actually owes, and approving this action must not be

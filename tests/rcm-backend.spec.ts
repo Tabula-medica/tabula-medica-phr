@@ -1015,6 +1015,24 @@ describe("agents", () => {
     const entries = await rcmStore.ledger(T, patient.id);
     expect(entries.filter((e) => e.type === "denial-adjustment")).toHaveLength(1);
   });
+  it("write-off and transfer-to-patient reject a payload patientId that doesn't match the denial", async () => {
+    // The lock is keyed on the approval payload's patientId, but posting uses the denial's
+    // patientId. Without a cross-check, a mismatched/drifted payload would lock the wrong
+    // patient and still mutate the denial's account — bypassing the same-claim over-write-off
+    // race that lock is meant to close.
+    await rcmStore.upsertPatient(T, patient);
+    await rcmStore.upsertCoverage(T, coverage);
+    const claim = mkClaim();
+    await rcmStore.upsertClaim(T, claim);
+    await rcmStore.upsertDenial(T, { id: "den-pt-mismatch", claimId: claim.id, patientId: patient.id, payerId: "BCBS", carc: "1", group: "PR", amount: 100, category: "other", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const writeOff = agentRuntime.get("denials")!.tools.find((t) => t.name === "write-off")!;
+    const transfer = agentRuntime.get("denials")!.tools.find((t) => t.name === "transfer-to-patient")!;
+    await expect(writeOff.run({ denialId: "den-pt-mismatch", patientId: "pt-someone-else", amount: 100, reason: "test" }, ctx)).rejects.toThrow(/does not belong to patient/);
+    await expect(transfer.run({ denialId: "den-pt-mismatch", patientId: "pt-someone-else", amount: 100 }, ctx)).rejects.toThrow(/does not belong to patient/);
+    expect((await rcmStore.getDenial(T, "den-pt-mismatch"))!.status).toBe("open");
+    expect((await rcmStore.ledger(T, patient.id)).filter((e) => e.type === "denial-adjustment" || e.type === "transfer-to-patient")).toHaveLength(0);
+  });
   it("write-off caps a stale denial amount against the claim's actual outstanding insurance balance instead of creating a credit", async () => {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
