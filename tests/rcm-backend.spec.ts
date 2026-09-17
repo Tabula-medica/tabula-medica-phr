@@ -464,6 +464,35 @@ describe("patient financials", () => {
     expect(computeAccount("p5", entries).patientBalance).toBe(-20); // mechanically a "credit"...
     expect(detectCreditBalances({ p5: entries })).toEqual([]); // ...but not a refundable one yet
   });
+  it("does not flag a later visit's pre-adjudication copay just because an earlier visit already established responsibility", () => {
+    // Returning outpatient: visit 1 is fully settled (transfer + copay posted), visit 2 is a new
+    // insurance-billed encounter with only the point-of-service copay collected. Account-wide the
+    // new copay drives patientBalance negative, and an account-wide "responsibility established?"
+    // check would pass because of visit 1 — the same false-positive refund the copay guard exists
+    // to prevent. The visit-scoped check must hold the unadjudicated copay back.
+    const entries: LedgerEntry[] = [
+      { id: "v1-chg", patientId: "p6", type: "charge", amount: 200, date: "2026-01-01", responsibleParty: "insurance" },
+      { id: "v1-pay", patientId: "p6", type: "patient-payment", amount: 20, date: "2026-01-01", responsibleParty: "patient" },
+      { id: "v1-ins", patientId: "p6", type: "insurance-payment", amount: 180, date: "2026-01-15", responsibleParty: "insurance" },
+      { id: "v1-xfer", patientId: "p6", type: "transfer-to-patient", amount: 20, date: "2026-01-15", responsibleParty: "patient" },
+      { id: "v2-chg", patientId: "p6", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "v2-pay", patientId: "p6", type: "patient-payment", amount: 20, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p6", entries).patientBalance).toBe(-20);
+    expect(detectCreditBalances({ p6: entries })).toEqual([]);
+  });
+  it("still refunds an established-visit overpayment while holding a later unadjudicated copay", () => {
+    // Visit 1 self-pay was collected twice (genuine $30 credit). Visit 2 is a new insurance-billed
+    // encounter with only a $20 copay posted — that copay is not refundable yet, but the $30 is.
+    const entries: LedgerEntry[] = [
+      { id: "v1-chg", patientId: "p7", type: "charge", amount: 50, date: "2026-01-01", responsibleParty: "patient" },
+      { id: "v1-pay", patientId: "p7", type: "patient-payment", amount: 80, date: "2026-01-01", responsibleParty: "patient" },
+      { id: "v2-chg", patientId: "p7", type: "charge", amount: 200, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "v2-pay", patientId: "p7", type: "patient-payment", amount: 20, date: "2026-08-01", responsibleParty: "patient" },
+    ];
+    expect(computeAccount("p7", entries).patientBalance).toBe(-50); // $30 overpayment + $20 copay
+    expect(detectCreditBalances({ p7: entries })).toEqual([{ patientId: "p7", amount: 30, source: "overpayment-patient", refundTo: "patient", requiresApproval: true }]);
+  });
 });
 
 describe("contracts + analytics + worklists", () => {

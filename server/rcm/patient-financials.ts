@@ -234,19 +234,64 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
     // and refunded independently rather than picking a single winning side via a heuristic.
     //
     // A negative patientBalance is only trustworthy as a REFUNDABLE credit once the patient's
-    // actual responsibility has been established at least once — by a transfer-to-patient (the
-    // payer adjudicated the claim and posted what the patient owes) or a self-pay charge (patient
-    // responsibility from the outset). Without that, a point-of-service copay collected BEFORE the
-    // claim is even submitted/adjudicated (an extremely common, correct workflow) would look
-    // identical to a genuine overpayment purely because nothing has posted to the patient side
-    // yet to offset it — refunding it now, only to have the ERA's eventual transfer-to-patient put
-    // the same amount right back on the patient's balance, having already returned money they
-    // legitimately owed.
-    const patientResponsibilityEstablished = entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
-    if (patientResponsibilityEstablished && s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    // actual responsibility has been established on the visit that produced the credit — by a
+    // transfer-to-patient (the payer adjudicated that claim and posted what the patient owes) or
+    // a self-pay charge (patient responsibility from the outset). Without that, a point-of-service
+    // copay collected BEFORE the claim is even submitted/adjudicated (an extremely common, correct
+    // workflow) would look identical to a genuine overpayment purely because nothing has posted to
+    // the patient side yet to offset it — refunding it now, only to have the ERA's eventual
+    // transfer-to-patient put the same amount right back on the patient's balance, having already
+    // returned money they legitimately owed.
+    //
+    // The establishment check is visit-scoped, not account-wide: computeAccount nets every visit
+    // together, so a returning patient's settled history (a prior transfer or self-pay charge)
+    // would otherwise make a later unadjudicated copay look refundable. Copays sitting on visits
+    // that still have no established responsibility are held back; only the remaining
+    // account-wide patient credit is reported.
+    const refundablePatient = refundablePatientCredit(patientId, entries);
+    if (refundablePatient > threshold) out.push({ patientId, amount: refundablePatient, source: "overpayment-patient", refundTo: "patient", requiresApproval: refundablePatient >= 25 });
     if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
   return out;
+}
+
+function patientResponsibilityEstablished(entries: LedgerEntry[]): boolean {
+  return entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
+}
+
+// Group ledger rows by claim when claimId is present; otherwise attach each row to the most
+// recent charge on or before its date (and to that charge's claim when it has one). Same-date
+// unscoped charges stay in one bucket so a self-pay overpayment isn't split from an unrelated
+// same-day insurance charge. Used only by credit detection — computeAccount stays account-wide.
+function groupLedgerByVisit(entries: LedgerEntry[]): LedgerEntry[][] {
+  const charges = entries.filter((e) => e.type === "charge").sort((a, b) => a.date.localeCompare(b.date));
+  const buckets = new Map<string, LedgerEntry[]>();
+  for (const e of entries) {
+    let key: string;
+    if (e.claimId) {
+      key = `c:${e.claimId}`;
+    } else {
+      let host: LedgerEntry | undefined;
+      for (const c of charges) if (c.date <= e.date) host = c;
+      key = host?.claimId ? `c:${host.claimId}` : `d:${host?.date ?? e.date}`;
+    }
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(e);
+    else buckets.set(key, [e]);
+  }
+  return [...buckets.values()];
+}
+
+function refundablePatientCredit(patientId: string, entries: LedgerEntry[]): number {
+  const accountCredit = Math.max(0, -computeAccount(patientId, entries).patientBalance);
+  if (accountCredit === 0) return 0;
+  let heldCopay = 0;
+  for (const group of groupLedgerByVisit(entries)) {
+    if (patientResponsibilityEstablished(group)) continue;
+    const bal = computeAccount(patientId, group).patientBalance;
+    if (bal < 0) heldCopay += -bal;
+  }
+  return round2(Math.max(0, accountCredit - heldCopay));
 }
 
 // Exported so the small-balance-write-off tool's execution-time recheck (agents/index.ts) uses the
