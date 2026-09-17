@@ -580,7 +580,6 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
   approvalReason: "adjustment reduces receivable",
   async run(input, ctx) {
     const lockKey = `${ctx.tenantId}:${input.denialId}`;
-    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
     // Look the denial up BEFORE locking so the patient lock below can key off the denial's own
     // recorded patientId, not `input.patientId` — a caller-supplied approval-payload field that's
     // never checked against the denial it's actually attached to. Locking on the payload value
@@ -596,7 +595,11 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
     // patientLedgerLocks lock (same one /ledger, /remittance/post, and issue-refund/
     // small-balance-write-off use) so any two balance-read-then-ledger-write actions for this
     // patient — including two denials on the same claim — serialize against each other too.
+    // has+add on both locks must stay synchronous: an await between the denial-lock has and add
+    // would let send-appeal/file-corrected-claim take that key in the gap, this add become a
+    // no-op, and our finally then delete the lock the other action still holds.
     const patientLockKey = `${ctx.tenantId}:${d0.patientId}`;
+    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
     if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
     denialActionLocks.add(lockKey);
     patientLedgerLocks.add(patientLockKey);
@@ -633,7 +636,6 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
   approvalReason: "increases what the patient owes",
   async run(input, ctx) {
     const lockKey = `${ctx.tenantId}:${input.denialId}`;
-    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
     // Look the denial up BEFORE locking, same reasoning as write-off above: the patient lock must
     // key off the denial's own recorded patientId, not the caller-supplied (and never
     // cross-checked) `input.patientId` — locking the wrong key would leave the actual mutation
@@ -641,8 +643,10 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
     const d0 = await ctx.store.getDenial(ctx.tenantId, input.denialId);
     if (!d0) throw new Error("denial not found");
     // denialActionLocks doesn't cover a second, different open denial racing on the same claim, so
-    // also take the shared patientLedgerLocks lock.
+    // also take the shared patientLedgerLocks lock. has+add on both locks must stay synchronous
+    // (see write-off above) so we can't delete a denial-action lock another tool still holds.
     const patientLockKey = `${ctx.tenantId}:${d0.patientId}`;
+    if (denialActionLocks.has(lockKey)) throw new Error("Another action on this denial is already in flight");
     if (patientLedgerLocks.has(patientLockKey)) throw new Error("Another ledger action for this patient is already in flight");
     denialActionLocks.add(lockKey);
     patientLedgerLocks.add(patientLockKey);
