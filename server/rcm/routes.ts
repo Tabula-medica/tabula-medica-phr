@@ -171,7 +171,11 @@ rcmRouter.post("/eligibility/check", wrap(async (req, res) => {
   const coverageInactive = (coverage.effectiveDate && p.data.dateOfService < coverage.effectiveDate) || (coverage.terminationDate && coverage.terminationDate < p.data.dateOfService) || coverage.planType === "SelfPay";
   const benefits = coverageInactive
     ? { active: false, planName: coverage.planType, checkedAt: new Date().toISOString(), source: "manual" as const }
-    : p.data.payerResponse ? parse271(p.data.payerResponse) : await checkEligibility({ patient, coverage, dateOfService: p.data.dateOfService, providerNpi: p.data.providerNpi });
+    // parse271 always labels its own output "clearinghouse" — its correct label for an actual
+    // vendor 271 round-trip, but wrong here: this payload came from an admin typing it in by
+    // hand, not a payer. Relabel to "admin-override" so financialClearance distrusts it the same
+    // way it distrusts the stub vendor, instead of treating it as verified payer data.
+    : p.data.payerResponse ? { ...parse271(p.data.payerResponse), source: "admin-override" as const } : await checkEligibility({ patient, coverage, dateOfService: p.data.dateOfService, providerNpi: p.data.providerNpi });
   await rcmStore.setBenefits(t, coverage.id, benefits);
   const contract = await rcmStore.getContract(t, coverage.payerId);
   // Build the per-CPT rate from the contract's own pricing (explicit fee schedule, else
@@ -504,7 +508,8 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   // point still hits a defined, empty array.
   let patientLockKeys: string[] = [];
   try {
-    const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) =>
+    const existingRemittances = await rcmStore.listRemittances(t);
+    const alreadyPosted = existingRemittances.some((r) =>
       r.id === rem.id ||
       // checkAmount is deliberately NOT part of this comparison. An earlier version of this
       // check required it to match too, on the theory that a corrected resend could legitimately
@@ -519,17 +524,24 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       // cash for the same underlying payment. A payer trace/EFT number is specified to be unique
       // per transaction; treating any resend of it as the same remittance regardless of amount is
       // the correct read of that identity, not an overly strict one.
-      (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId) ||
-      // Covers the case the check above can't: a resend that arrives under a brand-new id AND
-      // check number (a vendor trace-number bug, or a clearinghouse that mints a fresh id per
-      // delivery attempt) while still carrying byte-identical adjudication data for the same
-      // payer/check-date/check-amount — e.g. a duplicate reversal that would otherwise slip past
-      // the id/check-number comparison above and post a second refund/adjustment. Requiring the
-      // full claim-level content signature to match too (not just payer/amount/date) keeps this
-      // from false-positiving on two genuinely distinct
-      // remittances that happen to share a payer, date, and total.
-      (!!rem.payerId && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount && r.checkDate === rem.checkDate && claimContentSignature(r.claims) === claimContentSignature(rem.claims)));
+      (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId));
     if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");
+    // A resend can still arrive under a brand-new id AND check number entirely (a vendor
+    // trace-number bug, or a clearinghouse that mints a fresh id per delivery attempt) while
+    // carrying byte-identical adjudication data for the same payer/check-date/check-amount — e.g.
+    // a duplicate reversal that would otherwise post a second refund/adjustment with nothing
+    // above to catch it. But the very same coarse signal (payer/date/amount/content match) can
+    // just as easily describe two genuinely DISTINCT, legitimate remittances that happen to
+    // coincide under their own real (and different) trace numbers — two installment payments, or
+    // two independent zero-pay re-adjudications, for the same claim. There is no way to tell
+    // those apart from content alone, so this must never hard-reject the way the checks above do:
+    // doing so would risk silently discarding a legitimate remittance's real cash — and every
+    // OTHER claim it covers, if more than one — over what might be pure coincidence, with no
+    // retry path (its id/check number are real and won't collide with anything on a resubmit).
+    // Flag it for reconciliation instead, the same accept-but-flag posture this route already
+    // takes for an unmatched row or an illegal-transition row below, so a human — with more
+    // context than a dollar-amount coincidence — decides, while the remittance still posts.
+    const possibleDuplicateOf = rem.payerId ? existingRemittances.find((r) => r.payerId === rem.payerId && r.checkAmount === rem.checkAmount && r.checkDate === rem.checkDate && claimContentSignature(r.claims) === claimContentSignature(rem.claims)) : undefined;
     const claimsById = await rcmStore.claimsById(t);
     const contracts = await rcmStore.contracts(t);
     const result = postRemittance(rem, claimsById, contracts);
@@ -558,6 +570,9 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     patientLockKeys.forEach((k) => patientLedgerLocks.add(k));
     const created: string[] = [];
     const needsReconciliation: string[] = [];
+    // See possibleDuplicateOf's own comment above — this remittance still posts, but a human
+    // needs to confirm it's not actually the same underlying payment as the one it matches.
+    if (possibleDuplicateOf) needsReconciliation.push(`possible duplicate of remittance ${possibleDuplicateOf.id} (same payer/date/amount/content, different check number) — verify before treating as new cash`);
     let skippedCash = 0;
     for (const p of result.postings) {
       // "unmatched" (unknown claim id, payer mismatch, or a duplicate row within this same batch)
@@ -581,10 +596,11 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
       // failure — it also silently blocked every legitimate cross-request zero-pay re-adjudication,
       // with no retry path once flagged into needsReconciliation (see the still-open ERA-replay gap
       // noted elsewhere on this PR). Reverted. The narrow duplicate-under-a-different-check-number
-      // risk this reopens is now caught upstream instead: the `alreadyPosted` check above also
-      // compares claim-content signatures (see claimContentSignature), so a resend with byte-
-      // identical adjudication data under a new id/check number is rejected before this loop ever
-      // runs, rather than relying on this self-transition restriction to guard against it.
+      // risk this reopens is now surfaced upstream instead, not blocked: `possibleDuplicateOf`
+      // above also compares claim-content signatures (see claimContentSignature) and flags a
+      // content match under a different check number into `needsReconciliation` for human review,
+      // rather than either silently letting it double-post unremarked or hard-rejecting it (which
+      // risks discarding a genuinely distinct remittance that only coincidentally matches).
       if (claim && to && !canTransition(claim.status, to)) {
         // A duplicate or erroneous ERA that slipped past the id/check-number idempotency check
         // above (e.g. the same payment resent under a different check number) must not silently

@@ -55,7 +55,11 @@ export interface BenefitSnapshot {
   pcpName?: string;
   networkStatus?: "in-network" | "out-of-network" | "unknown";
   checkedAt: string;
-  source: "stub" | "clearinghouse" | "manual";
+  // "admin-override" is distinct from "clearinghouse": both come from parse271's own normalizer,
+  // but "clearinghouse" means an actual vendor 271 round-trip, while "admin-override" means an
+  // admin typed the raw payload in by hand (POST /eligibility/check's payerResponse) — see
+  // financialClearance, which distrusts it the same way it distrusts "stub".
+  source: "stub" | "clearinghouse" | "manual" | "admin-override";
   raw?: unknown;
   // Subscriber identity as the payer/271 reported it (when available) — used to run
   // registration-vs-payer discrepancy checks. Absent for stub responses.

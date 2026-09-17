@@ -235,6 +235,12 @@ export function financialClearance(benefits: BenefitSnapshot, estimate: Responsi
   // financially would be indistinguishable from real, verified eligibility once no vendor is
   // configured in a live deployment.
   if (benefits.source === "stub") { reasons.push("Eligibility check used the demo/stub vendor — no real payer eligibility was verified"); actions.push("Configure a real eligibility vendor and re-verify before collecting an estimate or proceeding"); }
+  // An admin manually typing in a 271-shaped payload (POST /eligibility/check's payerResponse) is
+  // exactly as unverified as the stub vendor — nothing behind it actually contacted a payer — but
+  // parse271 itself always labels its output "clearinghouse" (its normal, correct label for an
+  // actual vendor round-trip). Trusting that label here for the manually-entered case would let an
+  // admin-fabricated { active: true } clear a patient financially as if a real payer confirmed it.
+  if (benefits.source === "admin-override") { reasons.push("Eligibility data was entered manually by an admin, not a verified payer response"); actions.push("Verify this manually-entered eligibility data against the payer before relying on it for financial clearance"); }
   if (discrepancies.some((d) => d.severity === "error")) { reasons.push("Registration data does not match payer"); actions.push("Correct demographics/member ID to match the payer record before claim submission"); }
   if (benefits.requiresReferral && !opts.referralOnFile) { reasons.push("Plan requires PCP referral; none on file"); actions.push("Obtain referral number from PCP"); }
   if (opts.requiresAuth && !opts.authOnFile) { reasons.push("Prior authorization required; none on file"); actions.push("Submit 278 prior authorization request"); }

@@ -2203,6 +2203,17 @@ describe("round 18 hardening", () => {
     expect(claimContentSignature(rows as never)).not.toBe(claimContentSignature([rows[0]] as never));
   });
 
+  it("claimContentSignature distinguishes two claims with identical billed/paid/patientResp totals but different status, allowed amount, or adjustments (so two distinct remittances with the same three totals aren't treated as the same one)", () => {
+    const base = { pcn: "clm-1", billed: 300, paid: 200, patient_resp: 0 };
+    const status1 = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ ...base, status: "1" }] });
+    const status4 = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ ...base, status: "4" }] });
+    expect(claimContentSignature(status1.claims)).not.toBe(claimContentSignature(status4.claims));
+    const withAllowed = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ ...base, status: "1", allowed: 250 }] });
+    expect(claimContentSignature(status1.claims)).not.toBe(claimContentSignature(withAllowed.claims));
+    const withAdjustment = parseEra({ payerid: "BCBS", check_amount: 200, claims: [{ ...base, status: "1", adjustments: [{ group: "CO", carc: "45", amount: 100 }] }] });
+    expect(claimContentSignature(status1.claims)).not.toBe(claimContentSignature(withAdjustment.claims));
+  });
+
   it("a remittance resent under a brand-new id/check number, but with byte-identical claim-content, produces a matching content signature (the alreadyPosted duplicate check in routes.ts relies on this)", () => {
     const c = mkClaim();
     // Same payer, check date, check amount, and per-claim billed/paid/patientResp — only the

@@ -1,6 +1,6 @@
 // Stage 10-11: ERA/835 normalization + auto-posting to the ledger, with underpayment detection
 // against the payer contract, take-back/reversal handling, and secondary crossover cues.
-import type { Adjustment, Claim, LedgerEntry, PayerContract, RemitClaim, Remittance } from "./types";
+import type { Adjustment, Claim, LedgerEntry, PayerContract, RemitClaim, RemitLine, Remittance } from "./types";
 import { expectedForLines } from "./contracts";
 import { newId, nowIso, round2, sum } from "./util";
 
@@ -11,17 +11,27 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v 
 const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : v && typeof v === "object" ? [v as Record<string, unknown>] : []);
 const pick = (r: Record<string, unknown>, ...keys: string[]) => keys.map((k) => r[k]).find((v) => v !== undefined && v !== null);
 
-// Per-claim billed/paid/patient-resp, not just the claim id list — two distinct remittances for
-// the same payer/total/claim-id set but a different actual allocation across those claims must
-// not collide on the same signature. Sorted, not left in array order — the same ERA retried with
-// its claims reordered (a vendor quirk, or a lossy round-trip through some intermediate system)
-// must still produce the same signature. Shared by parseEra's own content-fingerprint fallback id
-// and by routes.ts's duplicate-remittance check, so a resend that arrives under a brand-new id/
+const adjustmentSignature = (adjustments: Adjustment[] | undefined): string => (adjustments ?? []).map((a) => `${a.group}${a.carc}:${a.amount}`).sort().join("+");
+const lineSignature = (l: RemitLine): string => `${l.cpt ?? ""}/${l.billed}/${l.allowed ?? ""}/${l.paid}/${l.patientResp}/${adjustmentSignature(l.adjustments)}`;
+
+// Per-claim billed/paid/patient-resp ALONE isn't enough — two distinct remittances for the same
+// claim (a partial installment followed by another, or two independent zero-pay
+// re-adjudications) can land on the same three totals while actually representing different
+// adjudications with different status codes, allowed amounts, or line-level/claim-level
+// adjustments. Including those closes that collision risk, at the cost of a signature that would
+// no longer match a vendor resending the identical ERA with, say, its lines reordered — mitigated
+// by sorting both the per-claim and per-line signatures before joining, so an actual byte-for-byte
+// resend (just reordered) still produces the same signature; only a genuinely different
+// adjudication changes it. Shared by parseEra's own content-fingerprint fallback id and by
+// routes.ts's possible-duplicate-remittance check, so a resend that arrives under a brand-new id/
 // check number (a vendor trace-number bug, or a clearinghouse that mints a fresh id per delivery
-// attempt) but carries byte-identical adjudication data is still recognized as the same underlying
-// transaction, not just id/check-number matches.
+// attempt) but carries byte-identical adjudication data can still be recognized as the same
+// underlying transaction, distinct from two coincidentally-similar but genuinely separate ones.
 export function claimContentSignature(claims: RemitClaim[]): string {
-  return claims.map((c) => `${c.claimId ?? ""}/${c.billed}/${c.paid}/${c.patientResp}`).sort().join(",");
+  return claims
+    .map((c) => `${c.claimId ?? ""}/${c.statusCode ?? ""}/${c.billed}/${c.allowed ?? ""}/${c.paid}/${c.patientResp}/${adjustmentSignature(c.claimAdjustments)}/${(c.lines ?? []).map(lineSignature).sort().join("|")}`)
+    .sort()
+    .join(",");
 }
 
 function parseAdjustments(r: Record<string, unknown>, isReversal = false): Adjustment[] {
