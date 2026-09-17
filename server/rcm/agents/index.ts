@@ -7,7 +7,7 @@ import { authCoversService, authorizedCptsOnFile, consumeAuthUnit, createAuthReq
 import { applyAutoFixes, scrubClaim } from "../scrubber";
 import { claimsNeedingFollowUp, correctedClaim, transitionClaim } from "../claims";
 import { generateAppealLetter, recommendAction } from "../denials";
-import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, detectCreditBalances, paymentPlanLocks, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
+import { buildStatement, collectionsStage, computeAccount, createPaymentPlan, detectCreditBalances, patientLedgerLocks, paymentPlanLocks, propensityToPay, smallBalanceWriteOffs } from "../patient-financials";
 import { itemsFromAuths, itemsFromClaimFollowUp, itemsFromDenials, itemsFromScrub, makeWorkItem } from "../worklists";
 import { computeKpis, outstandingInsurance } from "../analytics";
 import { newId, round2, todayIso } from "../util";
@@ -720,13 +720,12 @@ const referToAgency: Tool<{ patientId: string; amount: number }, unknown> = {
   approvalReason: "external collections referral",
   async run(input, ctx) { await ctx.store.addWorkItems(ctx.tenantId, [makeWorkItem({ queue: "patient-balance", title: `Agency referral executed $${input.amount.toFixed(2)}`, patientId: input.patientId, amount: input.amount, priority: 30, source: "agent" })]); return { referred: input.amount }; },
 };
-// In-process lock on a patient's ledger, shared by every tool below that reads the current
-// balance/credit and then posts a ledger entry based on it — two distinct approved actions for
-// the SAME patient (two refunds, two write-offs, or one of each) can otherwise both read the same
-// pre-mutation balance before either posts, and each proceed as if the full amount were still
-// available, over-refunding or over-forgiving the account. The runtime's own `executing` lock is
-// keyed by approval id, not patient, so it doesn't close this gap.
-const patientLedgerLocks = new Set<string>();
+// Uses the shared patientLedgerLocks lock from patient-financials.ts (also used by the direct
+// POST /ledger and POST /remittance/post routes) — see its comment there for why a lock private to
+// just this module isn't enough: two approved actions for the SAME patient (two refunds, two
+// write-offs, one of each, or a race against a direct ledger/remittance post) could otherwise each
+// read the same pre-mutation balance before either writes. The runtime's own `executing` lock is
+// keyed by approval id, not patient, so it doesn't close this gap either.
 const issueRefund: Tool<{ patientId: string; amount: number; refundTo: string }, unknown> = {
   name: "issue-refund",
   description: "Refund a credit balance",

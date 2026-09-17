@@ -123,6 +123,17 @@ export interface PaymentPlan { id: string; patientId: string; total: number; ins
 // so both share the same Set instance.
 export const paymentPlanLocks = new Set<string>();
 
+// Shared in-process lock, keyed `${tenantId}:${patientId}`, for every entry point that reads a
+// patient's current ledger balance/credit and then posts an entry derived from it: the
+// patient-financial agent tools (issue-refund, small-balance-write-off) and the direct
+// POST /ledger and POST /remittance/post routes. Any two of these racing for the SAME patient can
+// each read the same pre-mutation balance before either writes, and each proceed as if the full
+// amount were still available — over-refunding, over-forgiving, or double-applying a payment
+// against a balance that already moved. Exported from here, rather than declared separately in
+// routes.ts/agents/index.ts, specifically so all three share the same Set instance (mirrors
+// paymentPlanLocks above, which closed the same class of gap for payment plans).
+export const patientLedgerLocks = new Set<string>();
+
 export function createPaymentPlan(patientId: string, total: number, months: number, startDate: string = todayIso(), autoPay = false, minInstallment = 25): PaymentPlan {
   const m = Math.max(1, Math.min(months, Math.floor(total / minInstallment) || 1));
   const installment = round2(total / m);

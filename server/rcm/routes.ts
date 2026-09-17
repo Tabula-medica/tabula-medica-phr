@@ -12,7 +12,7 @@ import { applyAutoFixes, scrubClaim, scrubRuleCatalog } from "./scrubber";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, secondaryClaim, transitionClaim } from "./claims";
 import { claimStatusFromPosting, parseEra, postRemittance } from "./remittance";
 import { analyzeDenial, CARC_MAP, denialFromAdjustment, denialTrends, generateAppealLetter, recommendAction } from "./denials";
-import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, paymentPlanLocks, propensityToPay, slidingFeeDiscount } from "./patient-financials";
+import { buildStatement, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, patientLedgerLocks, paymentPlanLocks, propensityToPay, slidingFeeDiscount } from "./patient-financials";
 import { expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "./contracts";
 import { agingByPayer, computeKpis, payerScorecard } from "./analytics";
 import { itemsFromDenials, itemsFromScrub, makeWorkItem, queueSummary, sortQueue } from "./worklists";
@@ -475,6 +475,10 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
   // Synchronous check-and-set, before any `await` — see remittancePostInFlight's comment.
   if (remittancePostInFlight.has(lockKey)) return fail(res, 409, "This remittance is already being posted");
   remittancePostInFlight.add(lockKey);
+  // Populated once this remittance's affected patients are known (below), and released in the
+  // `finally` alongside remittancePostInFlight — declared here so an early return before that
+  // point still hits a defined, empty array.
+  let patientLockKeys: string[] = [];
   try {
     const alreadyPosted = (await rcmStore.listRemittances(t)).some((r) => r.id === rem.id || (!!rem.checkNumber && r.checkNumber === rem.checkNumber && r.payerId === rem.payerId && r.checkAmount === rem.checkAmount));
     if (alreadyPosted) return fail(res, 409, "This remittance has already been posted (duplicate ERA id/check number)");
@@ -488,6 +492,17 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     // before any postLedger/upsertClaim call rather than posting it and merely reporting
     // `balanced: false` after the fact.
     if (result.unapplied < -0.01) return fail(res, 400, `ERA claim rows total $${(-result.unapplied).toFixed(2)} more than the check amount ($${rem.checkAmount.toFixed(2)}) accounts for — reject and re-verify the payload before posting`);
+    // Every entry this remittance is about to post carries the patientId it affects — take the
+    // same shared patientLedgerLocks lock the issue-refund/small-balance-write-off agent tools and
+    // the direct POST /ledger route use, for every patient this ERA touches, before posting any of
+    // it. Otherwise a refund or write-off approved concurrently for one of these patients could
+    // read its balance before this remittance's cash lands, and cap itself against a balance
+    // that's about to change out from under it. See patientLedgerLocks' comment in
+    // patient-financials.ts.
+    patientLockKeys = Array.from(new Set(result.postings.flatMap((p) => p.entries.map((e) => `${t}:${e.patientId}`))));
+    const lockedPatient = patientLockKeys.find((k) => patientLedgerLocks.has(k));
+    if (lockedPatient) return fail(res, 409, "A refund, write-off, or another ledger post for one of this remittance's patients is already in flight — retry shortly");
+    patientLockKeys.forEach((k) => patientLedgerLocks.add(k));
     const created: string[] = [];
     const needsReconciliation: string[] = [];
     let skippedCash = 0;
@@ -552,6 +567,7 @@ rcmRouter.post("/remittance/post", wrap(async (req, res) => {
     res.json({ success: true, remittance: rem, postings: result.postings, unapplied, balanced, denialsCreated: created, needsReconciliation });
   } finally {
     remittancePostInFlight.delete(lockKey);
+    patientLockKeys.forEach((k) => patientLedgerLocks.delete(k));
   }
 }));
 rcmRouter.get("/remittance", wrap(async (req, res) => res.json({ success: true, remittances: await rcmStore.listRemittances(tenantOf(req)) })));
@@ -677,10 +693,19 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
   const batchDupe = suppliedIds.find((id) => (idCounts.get(id) ?? 0) > 1);
   if (batchDupe) return fail(res, 400, `ledger entry id ${batchDupe} appears more than once in this batch`);
   const lockKeys = suppliedIds.map((id) => `${t}:${id}`);
+  // Every entry in this batch changes a patient's ledger balance — take the same shared
+  // patientLedgerLocks lock the issue-refund/small-balance-write-off agent tools use, so a direct
+  // post here can't land between one of those tools' balance snapshot and its own write (or vice
+  // versa) and leave a refund/write-off cap computed against a balance that already moved. See
+  // patientLedgerLocks' comment in patient-financials.ts.
+  const patientLockKeys = Array.from(new Set(p.data.map((e) => `${t}:${e.patientId}`)));
   // Synchronous check-and-set, before any `await` — see ledgerPostInFlight's comment.
   const inFlightDupe = lockKeys.find((k) => ledgerPostInFlight.has(k));
+  const lockedPatient = patientLockKeys.find((k) => patientLedgerLocks.has(k));
   if (inFlightDupe) return fail(res, 409, "one or more of these ledger entries is already being posted");
+  if (lockedPatient) return fail(res, 409, "a refund, write-off, or another ledger post for one of these patients is already in flight — retry shortly");
   lockKeys.forEach((k) => ledgerPostInFlight.add(k));
+  patientLockKeys.forEach((k) => patientLedgerLocks.add(k));
   try {
     // Even the allowed direct-posting types must reference a real patient (and, if given, a real
     // claim actually belonging to that patient) — otherwise this can fabricate A/R against ids
@@ -706,6 +731,7 @@ rcmRouter.post("/ledger", wrap(async (req, res) => {
     res.json({ success: true, posted: entries.length });
   } finally {
     lockKeys.forEach((k) => ledgerPostInFlight.delete(k));
+    patientLockKeys.forEach((k) => patientLedgerLocks.delete(k));
   }
 }));
 rcmRouter.get("/credit-balances", wrap(async (req, res) => res.json({ success: true, credits: detectCreditBalances(await rcmStore.ledgerByPatient(tenantOf(req))) })));

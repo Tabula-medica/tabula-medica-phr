@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
 import { parseEra, postRemittance, claimStatusFromPosting } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
-import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, paymentPlanLocks, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
+import { buildStatement, collectionsStage, computeAccount, computeAging, createPaymentPlan, detectCreditBalances, fplPercent, goodFaithEstimate, patientLedgerLocks, paymentPlanLocks, propensityToPay, slidingFeeDiscount, smallBalanceWriteOffs } from "../server/rcm/patient-financials";
 import { DEFAULT_CONTRACTS, expectedAllowed, expectedForLines, modelContractChange, varianceReport } from "../server/rcm/contracts";
 import { agingByPayer, computeKpis, payerScorecard } from "../server/rcm/analytics";
 import { itemsFromDenials, queueSummary, sortQueue } from "../server/rcm/worklists";
@@ -1135,6 +1135,28 @@ describe("agents", () => {
     expect(entries.filter((e) => e.type === "refund")).toHaveLength(1);
   });
 
+  it("issue-refund is blocked by the shared patientLedgerLocks lock even when something else (not this tool) holds it — proves the lock is truly shared, not a private Set", async () => {
+    // Before the fix, agents/index.ts declared its own private patientLedgerLocks Set, so a lock
+    // key added from outside that module (as the direct POST /ledger and POST /remittance/post
+    // routes now do) would never actually block issue-refund/small-balance-write-off — exactly the
+    // gap that let a direct ledger post race a refund's balance snapshot. Simulate that external
+    // holder here by locking the shared Set directly, without going through the tool at all.
+    await rcmStore.upsertPatient(T, { id: "pt-shared-lock", firstName: "Shared", lastName: "Lock", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [{ id: "led-shared-1", patientId: "pt-shared-lock", type: "patient-payment", amount: 50, date: "2026-08-01", responsibleParty: "patient" }]);
+    const tool = agentRuntime.get("patient-financial")!.tools.find((t) => t.name === "issue-refund")!;
+    const ctx = { tenantId: T, store: rcmStore, actor: "test", dryRun: false, budget: { remaining: 5 } };
+    const input = { patientId: "pt-shared-lock", amount: 50, refundTo: "patient" };
+    const lockKey = `${T}:pt-shared-lock`;
+    patientLedgerLocks.add(lockKey);
+    try {
+      await expect(tool.run(input, ctx)).rejects.toThrow(/already in flight/);
+    } finally {
+      patientLedgerLocks.delete(lockKey);
+    }
+    // Lock released — the identical call now succeeds, confirming the earlier rejection really
+    // came from the lock and not some other validation failure.
+    await expect(tool.run(input, ctx)).resolves.toEqual({ refunded: 50 });
+  });
   it("small-balance write-off recomputes the balance at execution time and blocks once it's already been paid", async () => {
     await rcmStore.upsertPatient(T, { id: "pt-small-bal", firstName: "Small", lastName: "Bal", dob: "1990-01-01" });
     await rcmStore.postLedger(T, [
