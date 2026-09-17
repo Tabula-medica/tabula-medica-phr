@@ -391,11 +391,19 @@ rcmRouter.get("/claims/:id/837p", wrap(async (req, res) => {
   // for this one pre-submission case; every other status stays open to the wider role set since
   // exporting it isn't a submission-approval bypass — the claim already went through the gate.
   if (c.status === "ready" && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Exporting a not-yet-submitted claim's payer-ready payload requires an admin role — approve and submit it instead, or have an admin export it for a paper workflow");
-  // "closed" is reachable directly from "draft"/"scrubbed" too (an abandoned/voided claim that
-  // never actually passed scrubbing) — every OTHER non-draft/non-scrubbed status is only
-  // reachable via "ready" (see TRANSITIONS in claims.ts), so "closed" is the one case that needs
-  // its own check: did this claim's history ever actually record reaching "ready"?
-  if (c.status === "closed" && !c.history.some((h) => h.status === "ready")) return fail(res, 409, `Claim ${c.id} was closed before ever passing a clean scrub — nothing payer-ready to export`);
+  // "closed" is reachable directly from "draft"/"scrubbed"/"ready" (an abandoned/voided claim, or
+  // one closed without ever being submitted) as well as from every post-submission state, so
+  // "history contains ready" alone is NOT proof this claim ever actually passed through the
+  // admin-gated submit-claim tool: POST /claims/:id/transition allows "closed" directly from
+  // "ready" (see directClaimTransitions), so a non-admin can scrub a claim clean, transition it
+  // straight to "closed", and its history still contains "ready" — walking right past the
+  // admin-only rule above for the exact same not-yet-submitted claim. Require history to also
+  // contain "submitted" (the one status only submit-claim's approval gate or an ERA posting can
+  // produce) before treating a closed claim as having already gone through that gate.
+  if (c.status === "closed") {
+    if (!c.history.some((h) => h.status === "ready")) return fail(res, 409, `Claim ${c.id} was closed before ever passing a clean scrub — nothing payer-ready to export`);
+    if (!c.history.some((h) => h.status === "submitted") && (req as AuthedRequest).userRole !== "admin") return fail(res, 403, "Exporting a not-yet-submitted claim's payer-ready payload requires an admin role — approve and submit it instead, or have an admin export it for a paper workflow");
+  }
   res.json({ success: true, x12: claimTo837P(c, p, cov), cms1500: claimToCms1500Boxes(c, p, cov) });
 }));
 // Frequency-7 (replacement)/8 (void) only make sense once the original actually reached the
