@@ -242,22 +242,27 @@ export function detectCreditBalances(entriesByPatient: Record<string, LedgerEntr
     // refunding it now, only to have the ERA's eventual transfer-to-patient put the same amount
     // right back on the patient's balance, having already returned money they legitimately owed.
     //
-    // Checking that ANYWHERE on the account (the first attempt at this fix) isn't enough: a patient
-    // with one old, fully-resolved claim (self-pay or already transferred) and a SEPARATE, brand-new
-    // claim still awaiting adjudication would have that old claim "unlock" credit detection for the
-    // new claim's own not-yet-reconciled copay. The guard has to be aware of adjudication per claim,
-    // not just "has this ever happened anywhere on the account": if any claim with an insurance-side
-    // charge has no adjudication activity posted against it at all (no transfer-to-patient,
-    // insurance-payment, contractual-adjustment, or denial-adjustment for that claimId), there's a
-    // still-pending claim that could yet transfer more onto the patient side, and the account's
-    // credit isn't safe to trust regardless of what already happened on other, resolved claims.
-    // (Entries with no claimId at all — e.g. many patient-payments — can't be tied to a specific
-    // claim's adjudication state either way, so they don't affect this check.)
+    // Checking that ANYWHERE on the account (the first attempt at this fix) isn't enough EITHER
+    // direction: an account-wide kill switch both (a) lets one unrelated unresolved claim mask a
+    // genuine, already-established credit on a DIFFERENT, fully-resolved claim (e.g. a literal
+    // duplicate payment against a claim that's already been paid off), and (b) can itself be
+    // bypassed by a claim whose insurance charge happens to lack a claimId. The fix isn't a single
+    // account-wide boolean — it's excluding, from the credit calculation, only the specific
+    // payments that are actually tied (via claimId) to a claim still awaiting adjudication.
     const insuranceChargeClaimIds = new Set(entries.filter((e) => e.type === "charge" && e.responsibleParty === "insurance" && e.claimId).map((e) => e.claimId!));
     const adjudicatedClaimIds = new Set(entries.filter((e) => e.claimId && (e.type === "transfer-to-patient" || e.type === "insurance-payment" || e.type === "contractual-adjustment" || e.type === "denial-adjustment")).map((e) => e.claimId!));
-    const hasUnresolvedInsuranceClaim = Array.from(insuranceChargeClaimIds).some((id) => !adjudicatedClaimIds.has(id));
-    const patientResponsibilityEstablished = !hasUnresolvedInsuranceClaim && entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
-    if (patientResponsibilityEstablished && s.patientBalance < -threshold) out.push({ patientId, amount: round2(-s.patientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -s.patientBalance >= 25 });
+    const unresolvedClaimIds = new Set(Array.from(insuranceChargeClaimIds).filter((id) => !adjudicatedClaimIds.has(id)));
+    const hasUnresolvedInsuranceClaim = unresolvedClaimIds.size > 0;
+    // A patient-payment tied to a still-unresolved claim can't be judged as a credit yet — exclude
+    // it (by adding its amount back) rather than blocking the whole account. A claimless payment
+    // can't be tied to any specific claim's adjudication state at all, so — conservatively, since
+    // we can't rule out that it's headed for whichever claim is still pending — it's excluded the
+    // same way whenever ANY claim on the account remains unresolved; once every insurance claim has
+    // actually adjudicated, claimless payments are trusted again, same as before this whole fix.
+    const unresolvedTiedPayments = sum(entries.filter((e) => e.type === "patient-payment" && ((e.claimId && unresolvedClaimIds.has(e.claimId)) || (!e.claimId && hasUnresolvedInsuranceClaim))).map((e) => e.amount));
+    const safePatientBalance = round2(s.patientBalance + unresolvedTiedPayments);
+    const patientResponsibilityEstablished = entries.some((e) => e.type === "transfer-to-patient" || (e.type === "charge" && e.responsibleParty === "patient"));
+    if (patientResponsibilityEstablished && safePatientBalance < -threshold) out.push({ patientId, amount: round2(-safePatientBalance), source: "overpayment-patient", refundTo: "patient", requiresApproval: -safePatientBalance >= 25 });
     if (s.insuranceBalance < -threshold) out.push({ patientId, amount: round2(-s.insuranceBalance), source: "overpayment-insurance", refundTo: "payer", requiresApproval: -s.insuranceBalance >= 25 });
   }
   return out;

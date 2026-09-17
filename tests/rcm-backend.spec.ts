@@ -483,6 +483,20 @@ describe("patient financials", () => {
     const adjudicated = [...entries, { id: "b3", patientId: "p6", claimId: "claim-b", type: "transfer-to-patient" as const, amount: 10, date: "2026-08-10", responsibleParty: "patient" as const }];
     expect(detectCreditBalances({ p6: adjudicated })).toEqual([{ patientId: "p6", amount: 10, source: "overpayment-patient", refundTo: "patient", requiresApproval: false }]);
   });
+  it("does not let a SEPARATE, still-unadjudicated claim mask a genuine duplicate-payment credit that's clearly tied to an already-resolved claim", () => {
+    // The inverse of the test above: claim A (self-pay, claimId "claim-a") is fully resolved and
+    // has a genuine duplicate payment against it. Claim C (insurance, claimId "claim-c") is a
+    // separate, brand-new claim still awaiting adjudication with no payments of its own. An
+    // account-wide kill switch (treating ANY unresolved claim as blocking ALL credits) would wrongly
+    // suppress claim A's clearly-attributable duplicate-payment credit just because claim C exists.
+    const entries: LedgerEntry[] = [
+      { id: "a1", patientId: "p7", claimId: "claim-a", type: "charge", amount: 100, date: "2026-07-01", responsibleParty: "patient" },
+      { id: "a2", patientId: "p7", claimId: "claim-a", type: "patient-payment", amount: 100, date: "2026-07-02", responsibleParty: "patient" },
+      { id: "a3", patientId: "p7", claimId: "claim-a", type: "patient-payment", amount: 20, date: "2026-07-03", memo: "duplicate card capture", responsibleParty: "patient" },
+      { id: "c1", patientId: "p7", claimId: "claim-c", type: "charge", amount: 300, date: "2026-08-01", responsibleParty: "insurance" },
+    ];
+    expect(detectCreditBalances({ p7: entries })).toEqual([{ patientId: "p7", amount: 20, source: "overpayment-patient", refundTo: "patient", requiresApproval: false }]);
+  });
 });
 
 describe("contracts + analytics + worklists", () => {
