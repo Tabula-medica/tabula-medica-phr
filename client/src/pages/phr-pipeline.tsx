@@ -155,7 +155,7 @@ export default function PHRPipelinePage() {
           </div>
           <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950 dark:text-green-400 px-3 py-1">
             <Shield className="w-3 h-3 mr-1" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </Badge>
         </div>
 

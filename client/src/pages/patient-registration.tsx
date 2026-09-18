@@ -337,7 +337,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         <div className="flex items-start gap-3 p-4 rounded-lg border bg-card">
           <Shield className="h-6 w-6 text-primary mt-0.5" />
           <div>
-            <h3 className="font-semibold">HIPAA Compliant</h3>
+            <h3 className="font-semibold">HIPAA-Aligned</h3>
             <p className="text-sm text-muted-foreground">Your data is encrypted and secure</p>
           </div>
         </div>

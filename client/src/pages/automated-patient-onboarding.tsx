@@ -1199,7 +1199,7 @@ export default function AutomatedPatientOnboarding() {
 
         <Alert className="mt-6" variant="default">
           <Shield className="h-4 w-4" />
-          <AlertTitle>Secure & HIPAA Compliant</AlertTitle>
+          <AlertTitle>Secure & HIPAA-Aligned</AlertTitle>
           <AlertDescription className="text-xs">
             {metadata?.noCdsDisclaimer || "Your information is protected and handled in compliance with healthcare privacy regulations."}
           </AlertDescription>

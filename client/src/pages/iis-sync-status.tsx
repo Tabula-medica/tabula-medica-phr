@@ -210,7 +210,7 @@ export default function IISSyncStatus() {
         </div>
         <Badge variant="outline" className="text-sm">
           <Shield className="h-4 w-4 mr-1" />
-          HIPAA Compliant
+          HIPAA-Aligned
         </Badge>
       </div>
 

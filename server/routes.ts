@@ -765,7 +765,7 @@ export async function registerRoutes(
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Privacy Policy - Tabula Medica</title></head><body style="font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 24px;color:#1a1a2e">
 <h1>Privacy Policy</h1>
-<p>Tabula Medica is HIPAA compliant. DPO: Rajiv Kumar Aggarwal.</p>
+<p>Tabula Medica is built with HIPAA-grade security. DPO: Rajiv Kumar Aggarwal.</p>
 <h2>Overview</h2>
 <p>Tabula Medica ("we", "us") is committed to protecting your privacy and complying with HIPAA, SOC 2, and applicable privacy regulations. This policy explains how we collect, use, and protect your personal and health information.</p>
 <h2>Information We Collect</h2>

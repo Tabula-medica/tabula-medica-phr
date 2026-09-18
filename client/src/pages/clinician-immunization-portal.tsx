@@ -476,7 +476,7 @@ export default function ClinicianImmunizationPortal() {
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </Badge>
           <Badge variant="secondary">NO-CDS Compliant</Badge>
         </div>

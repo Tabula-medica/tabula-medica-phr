@@ -63,7 +63,7 @@ const supportedSources = [
   { name: "Fasten Health", color: "#2563EB" },
   { name: "CMS Medicare", color: "#003366" },
   { name: "Blue Button 2.0", color: "#0071BC" },
-  { name: "HIPAA Compliant", color: "#FF6B35" },
+  { name: "HIPAA-Aligned", color: "#FF6B35" },
   { name: "FHIR R4", color: "#E44D26" },
   { name: "25K+ Providers", color: "#10B981" },
 ];
@@ -412,7 +412,7 @@ export default function Welcome() {
               <div className="absolute -bottom-4 -right-4 p-3 rounded-lg bg-background border shadow-lg" data-testid="card-security-badge">
                 <div className="flex items-center gap-2">
                   <Lock className="h-5 w-5 text-accent-foreground" />
-                  <span className="text-sm font-medium">HIPAA Compliant</span>
+                  <span className="text-sm font-medium">HIPAA-Aligned Security</span>
                 </div>
               </div>
             </div>
@@ -464,7 +464,7 @@ export default function Welcome() {
             <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Lock className="h-4 w-4" />
-                HIPAA Compliant
+                HIPAA-Aligned
               </span>
               <span className="flex items-center gap-1">
                 <Shield className="h-4 w-4" />

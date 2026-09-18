@@ -417,7 +417,7 @@ export default function PHIAnonymizationDashboard() {
                       <div className="flex gap-2">
                         <Badge variant={anonymizationResult.complianceStatus.hipaaCompliant ? "default" : "destructive"}>
                           {anonymizationResult.complianceStatus.hipaaCompliant ? (
-                            <><CheckCircle className="h-3 w-3 mr-1" /> HIPAA Compliant</>
+                            <><CheckCircle className="h-3 w-3 mr-1" /> HIPAA-Aligned</>
                           ) : (
                             <><AlertTriangle className="h-3 w-3 mr-1" /> Non-Compliant</>
                           )}

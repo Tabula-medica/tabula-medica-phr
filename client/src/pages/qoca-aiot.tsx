@@ -192,7 +192,7 @@ export default function QocaAIoTPage() {
           </Badge>
           <Badge variant="outline" className="gap-1" data-testid="badge-hipaa">
             <Shield className="h-3 w-3" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </Badge>
           <a href="https://www.qoca.net/" target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" data-testid="link-qoca-website">

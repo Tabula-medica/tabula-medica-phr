@@ -218,7 +218,7 @@ export default function AuditLogs() {
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" className="gap-1">
             <Shield className="h-3 w-3" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </Badge>
           <Button 
             variant="outline" 

@@ -99,7 +99,7 @@ function footerHtml(): string {
     </div>
   </div>
   <div style="text-align:center;color:#9ca3af;font-size:12px;">
-    &copy; ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved. HIPAA compliant. Not medical advice.
+    &copy; ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved. Built with HIPAA-grade security. Not medical advice.
   </div>
 </footer>`;
 }

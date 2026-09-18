@@ -289,7 +289,7 @@ function FastenConnectPage() {
           <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50" data-testid="info-hipaa">
             <Lock className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium">HIPAA Compliant</p>
+              <p className="text-sm font-medium">HIPAA-Aligned Security</p>
               <p className="text-xs text-muted-foreground">End-to-end encryption protects your health data</p>
             </div>
           </div>

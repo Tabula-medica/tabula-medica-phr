@@ -339,7 +339,7 @@ export default function SecurityDashboard() {
           value={`${metrics?.complianceScore || 0}%`}
           icon={ShieldCheck}
           trend="up"
-          trendLabel="HIPAA compliant"
+          trendLabel="HIPAA-aligned"
         />
         <MetricCard
           title="PHI Access Today"

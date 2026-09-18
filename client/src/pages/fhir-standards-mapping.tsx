@@ -142,7 +142,7 @@ export default function FhirStandardsMapping() {
         </div>
         <Badge variant="outline" className="flex items-center gap-1">
           <Shield className="h-3 w-3" />
-          HIPAA Compliant
+          HIPAA-Aligned
         </Badge>
       </div>
 

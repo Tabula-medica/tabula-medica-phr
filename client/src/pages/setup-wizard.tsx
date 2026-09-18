@@ -605,7 +605,7 @@ export default function SetupWizard() {
           </span>
           <span className="flex items-center gap-1.5">
             <Shield className="h-3.5 w-3.5" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </span>
         </div>
 

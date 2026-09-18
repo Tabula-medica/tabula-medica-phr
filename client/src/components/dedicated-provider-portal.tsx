@@ -313,7 +313,7 @@ export function DedicatedProviderPortal() {
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1">
               <Shield className="h-3 w-3" />
-              HIPAA Compliant
+              HIPAA-Aligned
             </Badge>
             <Badge variant="outline" className="gap-1">
               <Database className="h-3 w-3" />
