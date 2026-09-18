@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { logger } from "./phi-safe-logger";
+import { redactPath } from "./redact-path";
 
 function getSecurityHeaders(): Record<string, string> {
   const isProduction = process.env.NODE_ENV === "production";
@@ -67,7 +68,7 @@ export const requireHttps: RequestHandler = (req: Request, res: Response, next: 
   
   if (!isSecure) {
     logger.warn("Non-HTTPS request rejected", {
-      path: req.path,
+      path: redactPath(req.path),
       method: req.method,
       ip: req.ip,
     });
@@ -96,7 +97,7 @@ export const checkTlsVersion: RequestHandler = (req: Request, res: Response, nex
   if (tlsVersion) {
     const versionNum = parseFloat(tlsVersion.replace(/TLSv?/i, ""));
     if (!isNaN(versionNum) && versionNum < 1.3) {
-      logger.warn("TLS version too low - TLS 1.3 mandatory as of 2026", { tlsVersion, path: req.path });
+      logger.warn("TLS version too low - TLS 1.3 mandatory as of 2026", { tlsVersion, path: redactPath(req.path) });
       res.status(403).json({
         error: "TLS 1.3 required",
         message: "TLS 1.3 is mandatory for all connections as of 2026. Please upgrade your browser or client.",
@@ -171,7 +172,7 @@ export const sanitizeRequestLogger: RequestHandler = (req: Request, res: Respons
     
     const logData = {
       method: req.method,
-      path: req.path,
+      path: redactPath(req.path),
       statusCode,
       duration: `${duration}ms`,
       ...(Object.keys(safeQuery).length > 0 && { query: safeQuery }),

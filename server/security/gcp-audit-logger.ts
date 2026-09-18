@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { getRequestId } from "./production-logger";
 import { isPhiProtectedRoute } from "./tls-middleware";
+import { redactPath } from "./redact-path";
 
 const GCP_PROJECT = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT_ID;
 const LOG_NAME = "tabula-medica-audit";
@@ -153,7 +154,7 @@ export const gcpAuditMiddleware: RequestHandler = (req: Request, res: Response, 
       requestId: getRequestId(req),
       actor: extractActorId(req),
       method: req.method,
-      path: req.path,
+      path: redactPath(req.path),
       statusCode,
       durationMs: duration,
       ip: req.ip || req.socket?.remoteAddress || "unknown",
