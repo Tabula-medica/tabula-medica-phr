@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { logger } from "./lib/logger";
+import { handleDoseChange } from "./services/erx-cancellation-service";
 
 const createMedicationSchema = z.object({
   name: z.string().min(1, "Medication name is required"),
@@ -199,7 +200,51 @@ router.patch("/medications/:medicationId", requireAuth, enforceSessionUserId, as
       .returning();
     const medication = encMedication ? decryptPhiRow("medicationsTable", encMedication) : encMedication;
 
-    res.json({ success: true, medication });
+    // A dose change supersedes the prescription sitting at the pharmacy. Cancel
+    // the old one so the previous strength is not dispensed alongside the new.
+    // A failure here must not fail the medication update itself — the request is
+    // reconciled by the queue sweep instead.
+    let erxCancellation: Awaited<ReturnType<typeof handleDoseChange>> | null = null;
+    try {
+      erxCancellation = await handleDoseChange({
+        profileId,
+        medicationId,
+        medicationName: medication?.name ?? existingMed.name,
+        previousDose: existingMed.dose,
+        newDose: medication?.dose ?? existingMed.dose,
+        initiatedBy: profileId,
+        initiatorRole: "patient",
+        pharmacyNcpdpId: updates.pharmacyNcpdpId ?? null,
+        pharmacyName: updates.pharmacyName ?? null,
+        prescriberNpi: updates.prescriberNpi ?? null,
+        prescriberName: updates.prescriberName ?? null,
+        rxReferenceNumber: updates.rxReferenceNumber ?? null,
+        daysSupplyRemaining: updates.daysSupplyRemaining ?? null,
+      });
+    } catch (error) {
+      logger.error(
+        { component: "MedMgmt", err: error, medicationId: hashIdentifier(medicationId) },
+        "Dose-change eRx cancellation could not be created",
+      );
+    }
+
+    res.json({
+      success: true,
+      medication,
+      erxCancellation: erxCancellation?.triggered
+        ? {
+            triggered: true,
+            requestId: erxCancellation.request?.id,
+            status: erxCancellation.request?.status,
+            requiresPrescriberApproval: erxCancellation.request?.requiresPrescriberApproval,
+            reason: erxCancellation.assessment.reason,
+            message:
+              erxCancellation.request?.requiresPrescriberApproval
+                ? "The prior prescription's cancellation is awaiting prescriber approval. Nothing has been sent to the pharmacy yet."
+                : "A cancellation for the prior prescription has been queued for the pharmacy.",
+          }
+        : { triggered: false, reason: erxCancellation?.assessment.reason ?? "not_evaluated" },
+    });
   } catch (error) {
     logger.error({ component: "MedMgmt", err: error }, "Error updating medication");
     res.status(500).json({ success: false, error: "Failed to update medication" });

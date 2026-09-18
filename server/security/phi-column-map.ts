@@ -90,6 +90,39 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
     jsonb: [],
   },
 
+  // --- eRx cancellation / auto-discontinuation ---
+  // NOTE: `pharmacyNcpdpId`, `prescriberNpi` and `pharmacyName` are excluded —
+  // they identify the dispensing/prescribing organisation, not the patient, and
+  // the transmission queue filters on them. `idempotencyKey` is excluded: it is
+  // a one-way hash (see `buildIdempotencyKey`) used as a unique index.
+  erxCancellationRequestsTable: {
+    text: [
+      "medicationName",
+      "previousDose",
+      "newDose",
+      "rxReferenceNumber",
+      "reasonText",
+      "prescriberName",
+      "responseText",
+      "lastError",
+      "initiatedBy",
+    ],
+    jsonb: ["metadata"],
+  },
+  erxCancellationEventsTable: { text: ["detail", "actor"], jsonb: [] },
+  patientMortalityRecordsTable: {
+    text: [
+      "deceasedDate",
+      "reportedBy",
+      "reporterRelationship",
+      "verifiedBy",
+      "rescindedBy",
+      "rescindReason",
+      "notes",
+    ],
+    jsonb: [],
+  },
+
   // --- PHR sub-tables ---
   allergiesTable: { text: ["allergen", "reaction", "notes"], jsonb: [] },
   surgeriesTable: {
