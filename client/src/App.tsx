@@ -122,6 +122,7 @@ const CaregiverPortal = lazy(() => import("@/pages/caregiver-portal"));
 const FamilyVerification = lazy(() => import("@/pages/family-verification"));
 const MyFamily = lazy(() => import("@/pages/my-family"));
 const CMS1500ClaimForm = lazy(() => import("@/pages/cms-1500-claim-form"));
+const RcmCommandCenter = lazy(() => import("@/pages/rcm-command-center"));
 const ProviderDirectory = lazy(() => import("@/pages/provider-directory"));
 const NPILookup = lazy(() => import("@/pages/npi-lookup"));
 const ComplianceExport = lazy(() => import("@/pages/compliance-export"));
@@ -278,6 +279,7 @@ function Router() {
       <Route path="/family-verification" component={FamilyVerification} />
       <Route path="/my-family" component={MyFamily} />
       <Route path="/cms-1500" component={CMS1500ClaimForm} />
+      <Route path="/rcm" component={RcmCommandCenter} />
       <Route path="/find-provider" component={ProviderDirectory} />
       <Route path="/npi-lookup" component={NPILookup} />
       {tefcaEnabled && <Route path="/compliance-export" component={ComplianceExport} />}
@@ -412,6 +414,7 @@ const pageTitles: Record<string, string> = {
   "/family-verification": "Family Verification",
   "/my-family": "My Family",
   "/cms-1500": "Insurance Claim Forms",
+  "/rcm": "RCM Command Center",
   "/find-provider": "Find a Provider",
   "/npi-lookup": "Smart NPI Lookup",
   "/compliance-export": "Compliance Export",
