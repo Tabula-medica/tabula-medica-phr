@@ -27,6 +27,12 @@
  * clinical judgment. Disclaimer is returned with every response.
  */
 
+import {
+  SCREENING_RULES,
+  HYPERTENSION_INTERVAL_MONTHS_UNDER_40,
+  type USPSTFGrade,
+} from "@shared/longevity-protocol";
+
 export type BiologicalSex = "female" | "male";
 export type SmokingStatus = "current" | "former" | "never";
 export type CareGapStatus =
@@ -61,7 +67,7 @@ export interface CareGapPatientInput {
 export interface CareGapResult {
   code: string;
   title: string;
-  grade: "A" | "B";
+  grade: USPSTFGrade;
   status: CareGapStatus;
   intervalMonths: number;
   lastDate?: string;
@@ -167,13 +173,10 @@ export class CareGapsService {
 
   // 1. Colorectal cancer screening — ages 45–75, every 12mo (stool) / 120mo (colonoscopy)
   private evalColorectal(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-COLORECTAL-001";
-    const title = "Colorectal Cancer Screening";
-    const grade = "A" as const;
-    const intervalMonths = 12;
+    const { code, title, grade, intervalMonths, ageMin, ageMax } = SCREENING_RULES.colorectal;
 
-    if (p.age < 45 || p.age > 75) {
-      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the 45–75 screening window.`);
+    if (p.age < ageMin || p.age > ageMax) {
+      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
     if (containsAny(p.conditions, COLORECTAL_EXCLUDE) || containsAny(p.surgicalHistory, ["colectomy"])) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing colorectal cancer diagnosis or relevant surgical history.");
@@ -190,16 +193,13 @@ export class CareGapsService {
 
   // 2. Breast cancer screening — biological female, 40–74, every 24 months
   private evalBreast(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-BREAST-001";
-    const title = "Breast Cancer Screening (Mammography)";
-    const grade = "B" as const;
-    const intervalMonths = 24;
+    const { code, title, grade, intervalMonths, ageMin, ageMax } = SCREENING_RULES.breast;
 
     if (p.biologicalSex !== "female") {
       return this.notApplicable(code, title, grade, intervalMonths, "Recommendation applies to biological females.");
     }
-    if (p.age < 40 || p.age > 74) {
-      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the 40–74 screening window.`);
+    if (p.age < ageMin || p.age > ageMax) {
+      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
     if (containsAny(p.conditions, BREAST_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing breast cancer diagnosis or bilateral mastectomy history.");
@@ -216,16 +216,13 @@ export class CareGapsService {
 
   // 3. Cervical cancer screening — biological female, 21–65, every 36 months (Pap) / 60 months (HPV)
   private evalCervical(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-CERVICAL-001";
-    const title = "Cervical Cancer Screening";
-    const grade = "A" as const;
-    const intervalMonths = 36;
+    const { code, title, grade, intervalMonths, ageMin, ageMax } = SCREENING_RULES.cervical;
 
     if (p.biologicalSex !== "female") {
       return this.notApplicable(code, title, grade, intervalMonths, "Recommendation applies to biological females with a cervix.");
     }
-    if (p.age < 21 || p.age > 65) {
-      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the 21–65 screening window.`);
+    if (p.age < ageMin || p.age > ageMax) {
+      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
     if (containsAny(p.conditions, CERVICAL_EXCLUDE) || containsAny(p.surgicalHistory, ["hysterectomy"])) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing cervical cancer diagnosis or hysterectomy history.");
@@ -242,13 +239,10 @@ export class CareGapsService {
 
   // 4. Lung cancer screening — 50–80, ≥20 pack-years, current or quit ≤15 years, annual
   private evalLung(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-LUNG-001";
-    const title = "Lung Cancer Screening (Low-Dose CT)";
-    const grade = "B" as const;
-    const intervalMonths = 12;
+    const { code, title, grade, intervalMonths, ageMin, ageMax } = SCREENING_RULES.lung;
 
-    if (p.age < 50 || p.age > 80) {
-      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the 50–80 screening window.`);
+    if (p.age < ageMin || p.age > ageMax) {
+      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
     if (containsAny(p.conditions, LUNG_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing lung cancer diagnosis or is in palliative care.");
@@ -274,13 +268,10 @@ export class CareGapsService {
 
   // 5. Diabetes screening — 35–70 with BMI ≥25, every 36 months
   private evalDiabetes(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-DIABETES-001";
-    const title = "Type 2 Diabetes Screening";
-    const grade = "B" as const;
-    const intervalMonths = 36;
+    const { code, title, grade, intervalMonths, ageMin, ageMax } = SCREENING_RULES.diabetes;
 
-    if (p.age < 35 || p.age > 70) {
-      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the 35–70 screening window.`);
+    if (p.age < ageMin || p.age > ageMax) {
+      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
     if (containsAny(p.conditions, DIABETES_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient already has a diabetes or prediabetes diagnosis.");
@@ -303,12 +294,13 @@ export class CareGapsService {
 
   // 6. Hypertension screening — 18+; annual for 40+; every 36mo for 18–39 with normal BP
   private evalHypertension(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-HTN-001";
-    const title = "Hypertension Screening";
-    const grade = "A" as const;
-    const intervalMonths = p.age >= 40 ? 12 : 36;
+    const { code, title, grade, ageMin } = SCREENING_RULES.hypertension;
+    // 18–39 with normal BP screens less often than the 40+ annual cadence.
+    const intervalMonths = p.age >= 40
+      ? SCREENING_RULES.hypertension.intervalMonths
+      : HYPERTENSION_INTERVAL_MONTHS_UNDER_40;
 
-    if (p.age < 18) {
+    if (p.age < ageMin) {
       return this.notApplicable(code, title, grade, intervalMonths, "Recommendation applies to adults 18 and older.");
     }
     if (containsAny(p.conditions, HYPERTENSION_EXCLUDE)) {
@@ -326,12 +318,9 @@ export class CareGapsService {
 
   // 7. Depression screening — 18+, annual
   private evalDepression(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-DEPRESSION-001";
-    const title = "Depression Screening (PHQ-9)";
-    const grade = "B" as const;
-    const intervalMonths = 12;
+    const { code, title, grade, intervalMonths, ageMin } = SCREENING_RULES.depression;
 
-    if (p.age < 18) {
+    if (p.age < ageMin) {
       return this.notApplicable(code, title, grade, intervalMonths, "Recommendation applies to adults 18 and older.");
     }
     const lastIso = last[code];
@@ -346,13 +335,10 @@ export class CareGapsService {
 
   // 8. Statin use assessment — 40–75 with ≥1 CVD risk factor, every 60 months
   private evalStatinAssessment(p: CareGapPatientInput, last: Record<string, string>): CareGapResult {
-    const code = "USPSTF-STATIN-001";
-    const title = "Statin Use Assessment for Primary Prevention of CVD";
-    const grade = "B" as const;
-    const intervalMonths = 60;
+    const { code, title, grade, intervalMonths, ageMin, ageMax } = SCREENING_RULES.statin;
 
-    if (p.age < 40 || p.age > 75) {
-      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the 40–75 assessment window.`);
+    if (p.age < ageMin || p.age > ageMax) {
+      return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} assessment window.`);
     }
     if (containsAny(p.medications, STATIN_NAMES)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient is already on statin therapy.");
@@ -372,11 +358,11 @@ export class CareGapsService {
     };
   }
 
-  private notApplicable(code: string, title: string, grade: "A" | "B", intervalMonths: number, reason: string): CareGapResult {
+  private notApplicable(code: string, title: string, grade: USPSTFGrade, intervalMonths: number, reason: string): CareGapResult {
     return { code, title, grade, intervalMonths, status: "not_applicable", reasoning: reason };
   }
 
-  private excluded(code: string, title: string, grade: "A" | "B", intervalMonths: number, reason: string): CareGapResult {
+  private excluded(code: string, title: string, grade: USPSTFGrade, intervalMonths: number, reason: string): CareGapResult {
     return { code, title, grade, intervalMonths, status: "not_applicable", excluded: true, excludedReason: reason, reasoning: reason };
   }
 }
