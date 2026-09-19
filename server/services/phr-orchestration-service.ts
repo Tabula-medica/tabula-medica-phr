@@ -93,6 +93,30 @@ const pipelineRunHistory: Map<string, PipelineRunResult[]> = new Map();
 class PHROrchestrationService {
   private backgroundSyncIntervals: Map<string, NodeJS.Timeout> = new Map();
 
+  private async getActiveFastenConnectionsForUser(userId: string): Promise<any[]> {
+    const { db } = await import("../db");
+    const { fastenConnectionsTable, patientsTable } = await import("@shared/schema");
+    const { and, eq, inArray } = await import("drizzle-orm");
+
+    const ownedPatients = await db
+      .select({ saidPatientId: patientsTable.saidPatientId })
+      .from(patientsTable)
+      .where(eq(patientsTable.userId, userId));
+    const ownedSaidPatientIds = ownedPatients.map((p) => p.saidPatientId).filter(Boolean);
+
+    if (ownedSaidPatientIds.length === 0) {
+      return [];
+    }
+
+    return await db
+      .select()
+      .from(fastenConnectionsTable)
+      .where(and(
+        eq(fastenConnectionsTable.status, "active"),
+        inArray(fastenConnectionsTable.saidPatientId, ownedSaidPatientIds)
+      ));
+  }
+
   async runFullPipeline(userId: string, connectionIds?: string[]): Promise<PipelineRunResult> {
     const runId = `phr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startedAt = new Date().toISOString();
@@ -163,12 +187,8 @@ class PHROrchestrationService {
 
       let activeConnections: any[] = [];
       try {
-        const { db } = await import("../db");
-        const { fastenConnectionsTable } = await import("@shared/schema");
-        const { eq } = await import("drizzle-orm");
-        const rows = await db.select().from(fastenConnectionsTable).where(eq(fastenConnectionsTable.status, "active"));
-        activeConnections = rows;
-        console.log(`[PHR Pipeline] Found ${activeConnections.length} active Fasten connections in DB`);
+        activeConnections = await this.getActiveFastenConnectionsForUser(userId);
+        console.log(`[PHR Pipeline] Found ${activeConnections.length} active Fasten connections for user ${userId}`);
       } catch (dbErr) {
         console.log(`[PHR Pipeline] DB lookup skipped (${String(dbErr).slice(0, 80)}), using synthetic data`);
       }
@@ -977,11 +997,8 @@ ${JSON.stringify(fhirContext, null, 2)}`,
 
     let connectedSources = 3;
     try {
-      const { db } = await import("../db");
-      const { fastenConnectionsTable } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-      const rows = await db.select().from(fastenConnectionsTable).where(eq(fastenConnectionsTable.status, "active"));
-      connectedSources = Math.max(rows.length, 3);
+      const rows = await this.getActiveFastenConnectionsForUser(userId);
+      connectedSources = rows.length;
     } catch { }
 
     return {
