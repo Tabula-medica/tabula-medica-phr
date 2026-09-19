@@ -110,6 +110,21 @@ export async function generateText(
   return generateWithOpenAI(options);
 }
 
+// PHI SAFETY: the hard, non-configurable entry point for any call that touches patient
+// data (nudge/outreach copy, risk narratives, adherence summaries, anything sourced from a
+// patient record). Unlike generateText()/streamText(), this never consults
+// providerConfig.defaultProvider or featureOverrides — there is no environment variable,
+// setFeatureProvider() call, or per-feature override that can redirect it to OpenAI. Every
+// PHI-bearing caller must use this (or streamPhiSafeText below) instead of generateText(),
+// getOpenAIClient(), or the `openai` package directly.
+export async function generatePhiSafeText(options: AIGenerateOptions): Promise<string> {
+  return generateWithVertex(options);
+}
+
+export async function* streamPhiSafeText(options: AIGenerateOptions): AsyncGenerator<string, void, unknown> {
+  yield* streamWithVertex(options);
+}
+
 async function generateWithOpenAI(options: AIGenerateOptions): Promise<string> {
   const client = getOpenAIClient();
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
