@@ -70,9 +70,6 @@ const ROBLOX_BADGES: Badge[] = [
     isSecret: false,
     createdAt: new Date().toISOString(),
   },
-  // Phase 2 (roadmap): catalog entries with no mini-game wired up yet under
-  // roblox/src/ServerScriptService/MiniGames/. Kept here so the in-app
-  // "Roblox Rewards" list can preview what's coming without a client change.
   {
     id: "roblox-germ-buster",
     name: "Germ Buster",
@@ -84,14 +81,16 @@ const ROBLOX_BADGES: Badge[] = [
     isSecret: false,
     createdAt: new Date().toISOString(),
   },
+  // Awarded automatically by roblox-clinic-routes.ts once the Future Health
+  // scorecard reaches 4+ stars over 10+ visits — no direct client sync call.
   {
     id: "roblox-checkup-champion",
     name: "Checkup Champion",
-    description: "Completed the pretend annual checkup role-play from start to finish",
+    description: "Ran a Future Health clinic that hit 4+ stars over 10+ visits",
     icon: "stethoscope",
     category: "milestone",
     rarity: "uncommon",
-    criteria: "Finish the Checkup Champion role-play scene",
+    criteria: "Reach 4+ stars over 10+ visits in Future Health",
     isSecret: false,
     createdAt: new Date().toISOString(),
   },

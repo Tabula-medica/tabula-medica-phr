@@ -22,15 +22,16 @@ roblox/
     │       ├── HandwashingHero.server.lua         # ProximityPrompt, 20s hold
     │       ├── BodySystemsQuest.server.lua        # Touch 3 checkpoints
     │       ├── MedicationMatch.server.lua         # Server-validated matching puzzle
-    │       └── FutureHealth.server.lua       # HEDIS-concept NPC visits + Dr. Nova scorecard
+    │       ├── GermBuster.server.lua              # Timed round, clear every germ zone
+    │       └── FutureHealth.server.lua            # HEDIS-concept NPC visits + Dr. Nova scorecard
     └── StarterPlayer/StarterPlayerScripts/
         └── ClientUI.client.lua                    # Link panel, reward toast, Dr. Nova panel
 ```
 
-`roblox-germ-buster` is still Phase 2 (in the badge catalog, no scene yet).
-`roblox-checkup-champion` is awarded automatically by the backend when the
-Future Health reaches 4+ stars over 10+ visits — see
-`.local/deliverables/roblox-hedis-future-health.md`.
+All five catalog badges now have a scene/script. `roblox-checkup-champion` is
+the one exception to "one badge, one mini-game": it's awarded automatically
+by the backend when Future Health reaches 4+ stars over 10+ visits, not by a
+standalone scene — see `.local/deliverables/roblox-hedis-future-health.md`.
 
 ## Compliance boundary (read this before building scenes)
 
@@ -65,6 +66,10 @@ The only data that crosses the Tabula Medica <-> Roblox boundary is:
      per NPC, each with an `Anchor` part, a `ProximityPrompt` named
      `VisitPrompt`, and a `BillboardGui` named `Bubble` containing a
      `TextLabel` named `Text`
+   - `workspace.MiniGames.GermBuster.Zones.<Name>` — one `BasePart` per germ
+     spot (each with a `BoolValue` child named `Cleared`), plus
+     `workspace.MiniGames.GermBuster.StartPrompt` — a `BasePart` that starts
+     a 30-second round when touched
 
 ## Wiring up the backend connection
 

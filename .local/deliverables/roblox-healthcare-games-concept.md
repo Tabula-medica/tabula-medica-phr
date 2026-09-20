@@ -98,10 +98,16 @@ rules-based star rating and AI (Vertex, PHI-free) coaching tips from "Dr.
 Nova"; auto-awards `roblox-checkup-champion`. Full write-up in
 `roblox-hedis-future-health.md`.
 
-**Phase 2 — content.** Germ Buster mini-game (catalog id `roblox-germ-buster`
-already reserved), real art/UI pass on `ClientUI`, DataStore persistence for
-in-Roblox progress (currently session-only), clinician + child-safety review
-of the clinic measure copy and the Nova prompt.
+**Phase 1c (shipped) — Germ Buster.** Timed round (`GermBuster.server.lua`):
+clear every germ zone before the 30-second timer to earn `roblox-germ-buster`.
+All five catalog badges now have a working scene/award path.
+
+**Phase 2 — polish.** Real art/UI pass on `ClientUI` (current version proves
+wiring, not final visual design), DataStore persistence for in-Roblox
+progress (currently session-only — a player rejoining loses round state,
+though earned badges/points already persist server-side via Tabula Medica),
+clinician + child-safety review of the Future Health measure copy and the
+Nova prompt.
 
 **Phase 3 — publish.** Set `ROBLOX_SERVER_API_KEY` in production secrets,
 configure the published place's HTTP allowlist, publish to Roblox Creator
