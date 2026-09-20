@@ -19,6 +19,7 @@
   // Phones get the poster only until the visitor presses play: saves data and battery on small screens.
   var smallViewport = window.matchMedia && window.matchMedia("(max-width: 639px)").matches;
   var autoplayAllowed = !smallViewport;
+  var wasPlayingBeforeHide = false;
   try { userPaused = localStorage.getItem("uh-hero-paused") === "1"; } catch (e) { /* storage may be blocked */ }
 
   if (reducedMotion || saveData || slowNet) {
@@ -59,12 +60,15 @@
       });
     }
   }
-  function pause() {
-    video.pause();
+  // Automatic pause (off-screen, hidden tab): stops playback and shows the poster and Play
+  // affordance, but does not record a user preference, so it can resume when back in view.
+  function pauseSilently() {
+    if (!video.paused) video.pause();
     hero.classList.remove("is-playing");
     toggle.setAttribute("aria-pressed", "false");
     toggle.setAttribute("aria-label", "Play background video");
   }
+  function pause() { pauseSilently(); }
 
   toggle.addEventListener("click", function () {
     var playing = toggle.getAttribute("aria-pressed") === "true";
@@ -81,8 +85,8 @@
         onScreen = entry.isIntersecting;
         if (onScreen) {
           if (!userPaused && autoplayAllowed) play();
-        } else if (!video.paused) {
-          video.pause(); // save battery off-screen; state label untouched
+        } else {
+          pauseSilently(); // save battery off-screen
         }
       });
     }, { threshold: 0.25 });
@@ -97,7 +101,7 @@
   }
 
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) { if (!video.paused) video.pause(); }
-    else if (!userPaused && onScreen && (autoplayAllowed || hero.classList.contains("is-playing"))) { play(); } // only resume when in view
+    if (document.hidden) { wasPlayingBeforeHide = hero.classList.contains("is-playing"); pauseSilently(); }
+    else if (!userPaused && onScreen && (autoplayAllowed || wasPlayingBeforeHide)) { play(); } // only resume when in view
   });
 })();

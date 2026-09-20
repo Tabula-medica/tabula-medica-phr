@@ -1,5 +1,5 @@
 {
-  "_readme": "Six Seedance 2.0 jobs for the Higgsfield MCP video-generation tool. Field names follow Higgsfield's CLI MODELS.md for seedance_2_0 exactly: aspect_ratio, duration (integer), resolution (480p/720p/1080p/4k), generate_audio, image-references (<=9), video-references (<=3), audio-references (<=3), <=12 refs total; mode fast = 480p/720p only, std for 1080p/4k. Reference paths are local files to upload; out/keepers/<id>.mp4 is produced by `node generate.mjs --keep <id>:<seed>` (or by copying the chosen Higgsfield download there) before job 06 runs. Seed policy: `seeds` is the final-pass count; draft jobs run 1 seed regardless. Reference paths under refs/ are optional for jobs 01, 02 and 05 (skip them if the file is absent) and required for job 06. Run drafts (draft:true) first.",
+  "_readme": "Six Seedance 2.0 jobs for the Higgsfield MCP video-generation tool. Field names follow Higgsfield's CLI MODELS.md for seedance_2_0 exactly: aspect_ratio, duration (integer), resolution (480p/720p/1080p/4k), generate_audio, image-references (<=9), video-references (<=3), audio-references (<=3), <=12 refs total; mode fast = 480p/720p only, std for 1080p/4k. Reference paths are local files to upload; out/keepers/<id>.mp4 is produced by `node generate.mjs --keep <id>:<seed>` (or by copying the chosen Higgsfield download there) before job 06 runs. Seed policy: `seeds` is per job; draft jobs are set to 1, finals to 3 (or 2 for the social cut). Reference paths under refs/ are optional for jobs 01, 02 and 05 (skip them if the file is absent) and required for job 06. Run drafts (draft:true) first.",
   "server": "https://mcp.higgsfield.ai/mcp",
   "model": {
     "job_set_type": "seedance_2_0",
@@ -13,7 +13,7 @@
     {
       "id": "01-hero-loop",
       "draft": true,
-      "seeds": 3,
+      "seeds": 1,
       "duration": 8,
       "aspect_ratio": "16:9",
       "resolution": "720p",
@@ -49,7 +49,7 @@
     {
       "id": "03-empire-ledger",
       "draft": true,
-      "seeds": 3,
+      "seeds": 1,
       "duration": 10,
       "aspect_ratio": "16:9",
       "resolution": "720p",
@@ -79,7 +79,7 @@
     {
       "id": "05-return-home",
       "draft": true,
-      "seeds": 3,
+      "seeds": 1,
       "duration": 8,
       "aspect_ratio": "16:9",
       "resolution": "720p",

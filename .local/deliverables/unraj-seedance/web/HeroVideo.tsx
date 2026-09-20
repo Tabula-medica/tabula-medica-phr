@@ -76,12 +76,18 @@ export function HeroVideo({
         .then(() => setPlaying(true))
         .catch(() => setPlaying(false));
     };
+    // Automatic pause: stop playback and show the poster + Play control, but leave the
+    // stored preference alone so the video resumes when the hero is back in view.
+    const pauseSilently = () => {
+      if (!video.paused) video.pause();
+      setPlaying(false);
+    };
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           onScreenRef.current = e.isIntersecting;
           if (e.isIntersecting) tryPlay();
-          else if (!video.paused) video.pause();
+          else pauseSilently();
         }
       },
       { threshold: 0.25 }
@@ -89,9 +95,8 @@ export function HeroVideo({
     io.observe(el);
 
     const onVis = () => {
-      if (document.hidden) {
-        if (!video.paused) video.pause();
-      } else if (onScreenRef.current) tryPlay(); // never resume an off-screen hero
+      if (document.hidden) pauseSilently();
+      else if (onScreenRef.current) tryPlay(); // never resume an off-screen hero
     };
     document.addEventListener("visibilitychange", onVis);
     return () => {
