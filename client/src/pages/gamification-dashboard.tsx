@@ -231,7 +231,7 @@ export default function GamificationDashboard() {
     },
     onSuccess: (data: any) => {
       setRobloxCode({ code: data.code, expiresAt: data.expiresAt });
-      toast({ title: "Link code ready", description: "Enter it in the Tabula Medica Kids Roblox experience within 10 minutes." });
+      toast({ title: "Link code ready", description: "Enter it in the World Clinic: Future Health Roblox experience within 10 minutes." });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to generate a Roblox link code.", variant: "destructive" });
@@ -1039,7 +1039,7 @@ export default function GamificationDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Gamepad2 className="h-5 w-5 text-indigo-500" />
-                  Tabula Medica Kids on Roblox
+                  World Clinic on Roblox
                 </CardTitle>
                 <CardDescription>
                   Link this profile to earn badges for finishing health-education mini-games. No health
@@ -1099,7 +1099,7 @@ export default function GamificationDashboard() {
                     {robloxCode && (
                       <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
                         <p className="text-xs text-muted-foreground">
-                          In Roblox, open <strong>Tabula Medica Kids</strong> → Settings → Link Family
+                          In Roblox, open <strong>World Clinic: Future Health</strong> → Settings → Link Family
                           Account, and enter:
                         </p>
                         <div className="flex items-center gap-2">
@@ -1178,7 +1178,7 @@ export default function GamificationDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-sky-500" />
-                    Clinic of the Future
+                    Future Health
                   </CardTitle>
                   <CardDescription>
                     How the pretend clinic is doing on checkup habits — every "patient" is a game character,

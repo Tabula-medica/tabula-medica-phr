@@ -1,4 +1,4 @@
-# Roblox Healthcare Games — "Tabula Medica Kids"
+# Roblox Healthcare Games — "World Clinic"
 
 Status: MVP scaffolding shipped (this session). Product concept, compliance
 boundary, backend integration, and a starter Roblox experience.
@@ -93,10 +93,10 @@ and the end-to-end test flow.
 Rojo project, 3 working mini-games. Not yet deployed to a public Roblox
 place; `BadgeSync.lua`'s `API_BASE_URL`/`API_KEY` are placeholders.
 
-**Phase 1b (shipped) — Clinic of the Future.** HEDIS-concept NPC visits with a
+**Phase 1b (shipped) — Future Health.** HEDIS-concept NPC visits with a
 rules-based star rating and AI (Vertex, PHI-free) coaching tips from "Dr.
 Nova"; auto-awards `roblox-checkup-champion`. Full write-up in
-`roblox-hedis-clinic-of-the-future.md`.
+`roblox-hedis-future-health.md`.
 
 **Phase 2 — content.** Germ Buster mini-game (catalog id `roblox-germ-buster`
 already reserved), real art/UI pass on `ClientUI`, DataStore persistence for

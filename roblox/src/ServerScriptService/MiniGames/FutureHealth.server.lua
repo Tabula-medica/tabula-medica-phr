@@ -1,4 +1,4 @@
--- ClinicOfTheFuture.server.lua
+-- FutureHealth.server.lua
 -- The player runs a pretend clinic. Fictional NPC patients arrive with a
 -- "care gap" modeled on a HEDIS measure concept (yearly checkup due, shots
 -- due, pressure check...). The player has VISIT_WINDOW seconds to walk up
@@ -13,7 +13,7 @@
 -- are simplified educational approximations.
 --
 -- Scene requirements (build in Studio):
---   workspace.MiniGames.ClinicOfTheFuture.Patients.<any name> (Model, one per
+--   workspace.MiniGames.FutureHealth.Patients.<any name> (Model, one per
 --     NPC bed/chair) each containing:
 --       - a BasePart named "Anchor" (where the prompt + speech bubble attach)
 --       - a ProximityPrompt named "VisitPrompt" (ObjectText/ActionText are set
@@ -31,11 +31,11 @@ local VISIT_WINDOW = 45 -- seconds the player has before an NPC's gap is "missed
 local PAUSE_BETWEEN_PATIENTS = 6
 local ROUND_PATIENTS = 6 -- 6 NPC visits per round, then a short breather
 
-local root = workspace:FindFirstChild("MiniGames") and workspace.MiniGames:FindFirstChild("ClinicOfTheFuture")
+local root = workspace:FindFirstChild("MiniGames") and workspace.MiniGames:FindFirstChild("FutureHealth")
 local patientsFolder = root and root:FindFirstChild("Patients")
 
 if not patientsFolder then
-	warn("[ClinicOfTheFuture] Patients folder not found under workspace.MiniGames.ClinicOfTheFuture — build the scene before testing.")
+	warn("[FutureHealth] Patients folder not found under workspace.MiniGames.FutureHealth — build the scene before testing.")
 	return
 end
 
@@ -46,7 +46,7 @@ local function loadMeasures()
 	if response and response.measures and #response.measures > 0 then
 		measures = response.measures
 	else
-		warn("[ClinicOfTheFuture] Could not load measures from backend; check BadgeSync config.")
+		warn("[FutureHealth] Could not load measures from backend; check BadgeSync config.")
 	end
 end
 
@@ -68,7 +68,7 @@ end
 local function runVisit(player: Player, patient: Model, measure)
 	local prompt = patient:FindFirstChild("VisitPrompt", true)
 	if not prompt then
-		warn(("[ClinicOfTheFuture] %s has no VisitPrompt"):format(patient.Name))
+		warn(("[FutureHealth] %s has no VisitPrompt"):format(patient.Name))
 		return
 	end
 

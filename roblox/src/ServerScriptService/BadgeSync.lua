@@ -78,7 +78,7 @@ function BadgeSync.FetchCatalog()
 	return request("GET", "/catalog", nil)
 end
 
--- Clinic of the Future ------------------------------------------------------
+-- Future Health ------------------------------------------------------
 
 -- Kid-safe measure catalog (id, kidName, npcPrompt, whatItTeaches).
 function BadgeSync.FetchClinicMeasures()

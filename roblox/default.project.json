@@ -1,5 +1,5 @@
 {
-  "name": "TabulaMedicaKids",
+  "name": "WorldClinic",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {

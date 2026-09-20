@@ -66,11 +66,11 @@ Other working documents in this directory:
 - `google-for-startups-narrative.md` — funding pitch material
 
 ### Product initiatives
-- `roblox-healthcare-games-concept.md` — "Tabula Medica Kids" Roblox
+- `roblox-healthcare-games-concept.md` — "World Clinic" Roblox
   integration: PHI-free reward-relay architecture, backend routes
   (`server/roblox-education-link-routes.ts`), dashboard tab, and the
   `roblox/` Rojo project with 3 working mini-games
-- `roblox-hedis-clinic-of-the-future.md` — "Clinic of the Future": HEDIS
+- `roblox-hedis-future-health.md` — "Future Health": HEDIS
   measure *concepts* taught via fictional NPC patients, rules-based star
   rating of the player's own pretend clinic, AI (Vertex, PHI-free) used only
   for Dr. Nova coaching tips; explains why real-provider HEDIS rating was

@@ -1,6 +1,6 @@
 -- RemoteEvents.lua (ModuleScript)
 -- Central place for every client<->server communication channel used by
--- Tabula Medica Kids, so mini-games and UI never create ad-hoc remotes.
+-- World Clinic, so mini-games and UI never create ad-hoc remotes.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -43,7 +43,7 @@ RemoteEvents.MedicationMatchAttempt = getOrCreateEvent("MedicationMatchAttempt")
 -- Args: { badge = {...}, points = number }
 RemoteEvents.RewardEarned = getOrCreateEvent("RewardEarned")
 
--- Server -> Client: the Clinic of the Future scorecard changed (stars, per-
+-- Server -> Client: the Future Health scorecard changed (stars, per-
 -- measure tallies, Dr. Nova's coaching tip). Args: scorecard table from the
 -- backend's /api/roblox/clinic/scorecard response.
 RemoteEvents.ClinicScorecardUpdated = getOrCreateEvent("ClinicScorecardUpdated")

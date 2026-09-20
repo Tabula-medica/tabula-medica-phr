@@ -8,7 +8,7 @@ import {
 } from "./roblox-education-link-routes";
 
 /**
- * "Clinic of the Future" — the HEDIS-concept mini-game for Tabula Medica Kids.
+ * "Future Health" — the HEDIS-concept mini-game for World Clinic.
  *
  * The player runs a pretend clinic staffed by an AI guide ("Dr. Nova"). Fictional
  * NPC patients show up with a care gap modeled on a real HEDIS measure concept
@@ -211,7 +211,7 @@ async function buildScorecard(robloxUserId: string): Promise<Scorecard> {
 
   let championEarned = false;
   if (mine.length >= CHAMPION_MIN_EVENTS && stars >= CHAMPION_MIN_STARS) {
-    const result = awardRobloxBadge(robloxUserId, CHECKUP_CHAMPION_BADGE, "clinic-of-the-future", "health_improvement");
+    const result = awardRobloxBadge(robloxUserId, CHECKUP_CHAMPION_BADGE, "future-health", "health_improvement");
     championEarned = result.awarded || result.reason === "already_awarded";
   }
 
@@ -282,5 +282,5 @@ export default router;
 
 export function registerRobloxClinicRoutes(app: import("express").Express) {
   app.use("/api/roblox/clinic", router);
-  console.log("[Routes] Roblox Clinic of the Future routes registered at /api/roblox/clinic/*");
+  console.log("[Routes] Roblox Future Health routes registered at /api/roblox/clinic/*");
 }

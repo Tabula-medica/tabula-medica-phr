@@ -4,7 +4,7 @@ import { calculatePoints } from "./gamification-engine";
 import { Badge, PointCategory } from "@shared/schema";
 
 /**
- * Bridges the Tabula Medica gamification system to the "Tabula Medica Kids"
+ * Bridges the Tabula Medica gamification system to the "World Clinic"
  * Roblox experience. Roblox is a public, unauthenticated-by-us, COPPA-governed
  * platform, so this module is deliberately a one-way, PHI-free reward relay:
  *

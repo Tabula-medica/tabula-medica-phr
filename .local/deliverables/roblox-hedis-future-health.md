@@ -1,4 +1,4 @@
-# Clinic of the Future — HEDIS-concept learning for kids (Roblox)
+# Future Health — HEDIS-concept learning for kids (Roblox)
 
 Status: MVP shipped on branch `claude/roblox-healthcare-games-i0fz76` (PR #106
 follow-up). Companion to `roblox-healthcare-games-concept.md`.
@@ -95,7 +95,7 @@ Backend (`server/roblox-clinic-routes.ts`, mounted at `/api/roblox/clinic/*`):
   the shared helper.
 
 Roblox (`roblox/src/…`):
-- `MiniGames/ClinicOfTheFuture.server.lua` — round loop: NPC gets a random
+- `MiniGames/FutureHealth.server.lua` — round loop: NPC gets a random
   measure, `VisitPrompt` enabled for 45s, closed/missed posted, scorecard
   pushed to the client. Scene contract documented at the top of the script.
 - `BadgeSync.lua` — `FetchClinicMeasures`, `RecordClinicEvent`,
@@ -103,7 +103,7 @@ Roblox (`roblox/src/…`):
 - `RemoteEvents.lua` — `ClinicScorecardUpdated`.
 - `ClientUI.client.lua` — Dr. Nova panel (stars + tip).
 
-App (`client/src/pages/gamification-dashboard.tsx`): Clinic of the Future card
+App (`client/src/pages/gamification-dashboard.tsx`): Future Health card
 on the Roblox tab — stars, visit count, Champion badge, Dr. Nova tip,
 per-measure progress bars, with the "these are not certified HEDIS® measures"
 disclaimer in the card description.

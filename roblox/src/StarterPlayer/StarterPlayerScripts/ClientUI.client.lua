@@ -83,7 +83,7 @@ linkButton.Activated:Connect(function()
 	statusLabel.Text = response and response.message or "Something went wrong. Try again."
 end)
 
--- Dr. Nova panel (Clinic of the Future scorecard) -------------------------
+-- Dr. Nova panel (Future Health scorecard) -------------------------
 
 local novaFrame = Instance.new("Frame")
 novaFrame.Name = "NovaPanel"
@@ -102,7 +102,7 @@ local novaTitle = Instance.new("TextLabel")
 novaTitle.Size = UDim2.new(1, -20, 0, 22)
 novaTitle.Position = UDim2.new(0, 10, 0, 8)
 novaTitle.BackgroundTransparency = 1
-novaTitle.Text = "Dr. Nova — Clinic of the Future"
+novaTitle.Text = "Dr. Nova — Future Health"
 novaTitle.TextColor3 = Color3.fromRGB(150, 220, 255)
 novaTitle.Font = Enum.Font.GothamBold
 novaTitle.TextSize = 14

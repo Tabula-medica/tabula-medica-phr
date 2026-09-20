@@ -47,7 +47,7 @@ RemoteEvents.MiniGameCompleted.OnServerEvent:Connect(function(player: Player, ba
 end)
 
 Players.PlayerAdded:Connect(function(player: Player)
-	print(("[GameManager] %s joined Tabula Medica Kids"):format(player.Name))
+	print(("[GameManager] %s joined World Clinic"):format(player.Name))
 end)
 
 Players.PlayerRemoving:Connect(function(player: Player)
