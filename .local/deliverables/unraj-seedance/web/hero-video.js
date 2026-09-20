@@ -16,6 +16,9 @@
   var slowNet = navigator.connection && /(^|-)2g$/.test(navigator.connection.effectiveType || "");
   var userPaused = false;
   var onScreen = true; // updated by the IntersectionObserver below; assumed visible without one
+  // Phones get the poster only until the visitor presses play: saves data and battery on small screens.
+  var smallViewport = window.matchMedia && window.matchMedia("(max-width: 639px)").matches;
+  var autoplayAllowed = !smallViewport;
   try { userPaused = localStorage.getItem("uh-hero-paused") === "1"; } catch (e) { /* storage may be blocked */ }
 
   if (reducedMotion || saveData || slowNet) {
@@ -66,6 +69,7 @@
   toggle.addEventListener("click", function () {
     var playing = toggle.getAttribute("aria-pressed") === "true";
     userPaused = playing;
+    if (!playing) autoplayAllowed = true; // explicit play on a phone opts in for this visit
     try { localStorage.setItem("uh-hero-paused", playing ? "1" : "0"); } catch (e) { /* ignore */ }
     if (playing) pause(); else play();
   });
@@ -76,24 +80,24 @@
       entries.forEach(function (entry) {
         onScreen = entry.isIntersecting;
         if (onScreen) {
-          if (!userPaused) play();
+          if (!userPaused && autoplayAllowed) play();
         } else if (!video.paused) {
           video.pause(); // save battery off-screen; state label untouched
         }
       });
     }, { threshold: 0.25 });
     io.observe(hero);
-  } else if (!userPaused) {
+  } else if (!userPaused && autoplayAllowed) {
     play();
   }
 
-  if (userPaused) {
+  if (userPaused || !autoplayAllowed) {
     toggle.setAttribute("aria-pressed", "false");
     toggle.setAttribute("aria-label", "Play background video");
   }
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) { if (!video.paused) video.pause(); }
-    else if (!userPaused && onScreen) { play(); } // only resume when the hero is actually in view
+    else if (!userPaused && onScreen && (autoplayAllowed || hero.classList.contains("is-playing"))) { play(); } // only resume when in view
   });
 })();

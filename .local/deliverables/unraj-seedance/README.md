@@ -54,12 +54,12 @@ Prompts live in `prompts/` (one file per clip, paste-ready; `prompts.json` is wh
 
 ## 3. Workflow (≈ 3 hours end to end)
 
-1. **Collect references** into `refs/` (not committed): the site's diamond hero image or logo PNG, and optionally a still of the Empire Ledger page for palette. No photos of real people are needed for any clip.
+1. **Collect references** into `refs/` (not committed): save the site's diamond hero image as `refs/diamond.png`. Clips 01, 02 and 05 use it when present and fall back to text-only when it is absent; clip 06 requires it. No photos of real people are needed for any clip.
 2. **Generate** — pick one route:
    - **Higgsfield MCP (recommended, no code):** connect once per `higgsfield/RUNBOOK.md` §1, then paste the §4 message into a Claude session.
    - **Dreamina:** paste `prompts/*.md` (attach refs in Multiframes mode using `@Image1`).
    - **fal.ai script:** `npm i @fal-ai/client && FAL_KEY=... node generate.mjs --only 01,03` (run `--estimate` first).
-3. **Pick keepers** — 3 seeds per clip; reject any frame with readable text, distorted hands, or a recognisable living person. Promote each winner to a stable path: `node generate.mjs --keep 01:1000` copies `out/01-hero-loop-s1000.mp4` to `out/keepers/01-hero-loop.mp4` (Higgsfield or Dreamina downloads: copy them to the same `out/keepers/<id>.mp4` path by hand). Clip 06 reads `out/keepers/04-one-billion-voices.mp4`, so promote 04 before generating 06.
+3. **Pick keepers** — drafts run 1 seed, finals 3 seeds per clip (the `seeds` values in `prompts.json`); reject any frame with readable text, distorted hands, or a recognisable living person. Promote each winner to a stable path: `node generate.mjs --keep 01:1000` copies `out/01-hero-loop-s1000.mp4` to `out/keepers/01-hero-loop.mp4` (Higgsfield or Dreamina downloads: copy them to the same `out/keepers/<id>.mp4` path by hand). Clip 06 reads `out/keepers/04-one-billion-voices.mp4`, so promote 04 before generating 06.
 4. **Optimise for web** — `bash optimize.sh out/keepers/01-hero-loop.mp4` (a raw seed file such as `out/01-hero-loop-s1000.mp4` also works; the seed suffix is stripped) → H.264 MP4 + WebM + poster + 9:16 crop under the budgets in §5.
 5. **Drop in** — `web/hero-video.html|css|js` for the static site, or `web/HeroVideo.tsx` if the site is React. Both honour `prefers-reduced-motion`, poster fallback, lazy loading, and a pause button. Copy is already the site's own language and is translatable through the existing `?lng=` mechanism.
 6. **QA** — run `checklist.md` before publishing.

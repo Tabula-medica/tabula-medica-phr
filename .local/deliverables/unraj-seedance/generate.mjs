@@ -102,6 +102,9 @@ const { fal } = await import("@fal-ai/client");
 fal.config({ credentials: process.env.FAL_KEY });
 
 const uploadCache = new Map();
+async function exists(relPath) {
+  return stat(path.join(here, relPath)).then(() => true, () => false);
+}
 async function upload(relPath) {
   if (uploadCache.has(relPath)) return uploadCache.get(relPath);
   const abs = path.join(here, relPath);
@@ -128,7 +131,18 @@ for (const c of clips) {
   const tier = tierFor();
   const res = resolutionFor(c, tier);
   const seeds = c.seeds ?? cfg.defaults.seeds;
-  const endpoint = `bytedance/seedance-2.0/${tier === "fast" ? "fast/" : ""}${c.endpoint}`;
+  // Optional image references (the diamond render) are used when present; without them the
+  // clip falls back to plain text-to-video so the batch still runs.
+  let clipEndpoint = c.endpoint;
+  let imageRefs = c.image_refs ?? [];
+  if (c.optional_image_refs) {
+    const present = [];
+    for (const r of imageRefs) (await exists(r)) ? present.push(r) : console.log(`  (optional ref ${r} not found, continuing without it)`);
+    imageRefs = present;
+    if (imageRefs.length === 0 && !(c.video_refs?.length || c.audio_refs?.length)) clipEndpoint = "text-to-video";
+    else clipEndpoint = "reference-to-video";
+  }
+  const endpoint = `bytedance/seedance-2.0/${tier === "fast" ? "fast/" : ""}${clipEndpoint}`;
 
   const input = {
     prompt: c.prompt,
@@ -137,9 +151,9 @@ for (const c of clips) {
     aspect_ratio: c.aspect_ratio,
     generate_audio: Boolean(c.generate_audio),
   };
-  if (c.endpoint === "image-to-video") input.image_url = await upload(c.image_refs[0]);
-  if (c.endpoint === "reference-to-video") {
-    if (c.image_refs?.length) input.image_urls = await Promise.all(c.image_refs.map(upload));
+  if (clipEndpoint === "image-to-video") input.image_url = await upload(imageRefs[0]);
+  if (clipEndpoint === "reference-to-video") {
+    if (imageRefs.length) input.image_urls = await Promise.all(imageRefs.map(upload));
     if (c.video_refs?.length) input.video_urls = await Promise.all(c.video_refs.map(upload));
     if (c.audio_refs?.length) input.audio_urls = await Promise.all(c.audio_refs.map(upload));
   }

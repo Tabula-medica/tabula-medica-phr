@@ -50,8 +50,9 @@ Higgsfield's published example: Seedance 2.0, 10 s, 1080p, High ≈ 90 credits (
 | 04 one billion voices | 12 s · 1080p · audio | ≈ 110 |
 | 05 return home | 8 s · 720p · audio | ≈ 35 |
 | 06 social 9:16 | 8 s · 1080p · audio · refs | ≈ 75 |
-| **One seed each** | | **≈ 435 (≈ $22)** |
-| **Three seeds each** | | **≈ 1,300 (≈ $65)** |
+| **Drafts (01, 03, 05), one seed, fast mode** | | **≈ 115 (≈ $6)** |
+| **Finals, one seed each** | | **≈ 435 (≈ $22)** |
+| **Finals, three seeds each (the `seeds` values in jobs.json)** | | **≈ 1,300 (≈ $65)** |
 
 Treat as ± 30 % until the first job returns its real charge. Under a Seedance Unlimited window (Seedance 2.0 at 1080p/8 s is included) the cost is zero but jobs run one at a time.
 
