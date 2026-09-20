@@ -1,18 +1,18 @@
-/* unraj.org hero video — matches the Tabula Medica navy/teal family. Light and dark safe. */
+/* unraj.org hero video — indigo night with gold light, matching the campaign palette. Light and dark safe. */
 .uh-hero {
   --uh-navy: #0c1a3a;
   --uh-navy-deep: #060d1f;
-  --uh-teal: #5eead4;
-  --uh-sky: #7dd3fc;
-  --uh-indigo: #a5b4fc;
-  --uh-primary: #2563eb;
+  --uh-teal: #fcd34d;   /* gold */
+  --uh-sky: #fde68a;    /* pale gold */
+  --uh-indigo: #f59e0b; /* amber */
+  --uh-primary: #b45309;
   position: relative;
   isolation: isolate;
   overflow: hidden;
   min-height: min(88vh, 720px);
   display: grid;
   align-items: center;
-  background: linear-gradient(135deg, #020617 0%, var(--uh-navy) 55%, #072e3a 100%);
+  background: linear-gradient(135deg, #020617 0%, #111a3a 55%, #2a1a05 100%);
   color: #fff;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -64,8 +64,8 @@
 }
 .uh-btn:focus-visible { outline: 3px solid var(--uh-sky); outline-offset: 3px; }
 .uh-btn--primary {
-  color: #fff; background: linear-gradient(90deg, var(--uh-primary), #3b82f6);
-  box-shadow: 0 20px 40px -12px rgba(37, 99, 235, .45);
+  color: #fff; background: linear-gradient(90deg, var(--uh-primary), #d97706);
+  box-shadow: 0 20px 40px -12px rgba(217, 119, 6, .45);
 }
 .uh-btn--primary:hover { transform: translateY(-1px); }
 .uh-btn--ghost { color: #fff; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.04); }

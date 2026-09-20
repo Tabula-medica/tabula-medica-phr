@@ -1,8 +1,8 @@
 # Higgsfield MCP runbook — generate the unraj.org clips from inside Claude
 
-**Goal:** Dr. Aggarwal connects the hosted Higgsfield MCP once; Claude (this session or any Cowork/Claude Code session) then generates all six Seedance 2.0 clips, polls them, and hands back download URLs. No API keys, no scripts.
+**Goal:** connect the hosted Higgsfield MCP once; Claude (this session or any Cowork / Claude Code session) then generates all six Seedance 2.0 clips, polls them, and hands back download URLs. No API keys, no scripts.
 
-**Status on 2026-09-03:** the Higgsfield connector is **not connected** to this session. It is a custom-URL connector (not in the public claude.ai directory), so it has to be added once by the account owner (steps in §1). Everything below is ready for the moment it is.
+**Status on 2026-09-20:** the Higgsfield connector is **not connected** to this session. It is a custom-URL connector (not in the public claude.ai directory), so the account owner has to add it once (§1). Everything below is ready for the moment it is.
 
 ---
 
@@ -10,60 +10,68 @@
 
 | Surface | Steps |
 |---|---|
-| **claude.ai / Cowork / this remote session** | Settings → Connectors → **Add custom connector** → Name `Higgsfield`, URL `https://mcp.higgsfield.ai/mcp` → Add → **Connect** (OAuth with your Higgsfield login). Then in this chat's connector toggles, enable **Higgsfield**. |
-| **Claude Code (terminal)** | `claude mcp add --transport http --scope user higgsfield https://mcp.higgsfield.ai/mcp` then run `/mcp` and finish the OAuth sign-in. Restart if tools do not appear. |
-| **Any project repo** | Drop `higgsfield/mcp.json` from this folder in as `.mcp.json` at the repo root so every Claude Code session in that repo gets it (asks each dev to approve once). |
+| **claude.ai / Cowork / this remote session** | Settings → Connectors → **Add custom connector** → Name `Higgsfield`, URL `https://mcp.higgsfield.ai/mcp` → Add → **Connect** (OAuth with your Higgsfield login). Then enable **Higgsfield** in this chat's connector toggles. |
+| **Claude Code (terminal)** | `claude mcp add --transport http --scope user higgsfield https://mcp.higgsfield.ai/mcp` then `/mcp` to finish OAuth. Restart if tools do not appear. |
+| **Any project repo** | Copy `higgsfield/mcp.json` to the repo root as `.mcp.json`. |
 
-Requirements: a paid Higgsfield plan (Plus/Pro/Ultimate; credits are billed per generation). Seedance 2.0 is available on Higgsfield in Standard, Fast, and Mini modes at 480p–4K, 4–15 s, with optional audio and video reference inputs.
-
----
-
-## 2. Credit budget (Higgsfield credit mode, Sep 2026 public figures)
-
-| Clip | Spec | Approx. credits | Approx. USD on Plus |
-|---|---|---|---|
-| 01 hero loop | 8 s · 720p · no audio | ≈ 40 | ≈ $1.80 |
-| 02 founder intro | 12 s · 1080p · audio · image + audio refs | ≈ 110 | ≈ $4.80 |
-| 03 explainer | 15 s · 1080p · audio | ≈ 135 | ≈ $6.00 |
-| 04 care access | 10 s · 720p · no audio | ≈ 50 | ≈ $2.25 |
-| 05 diaspora | 10 s · 720p · audio | ≈ 55 | ≈ $2.50 |
-| 06 social 9:16 | 8 s · 1080p · audio · refs | ≈ 75 | ≈ $3.30 |
-| **One seed each** | | **≈ 465** | **≈ $21** |
-| **Three seeds each** | | **≈ 1,400** | **≈ $62** |
-
-Basis: Higgsfield lists ≈ 45 credits for a 5 s 1080p Seedance 2.0 clip and ≈ 25 credits for 5 s at lower resolution, scaled linearly by duration with a small uplift for audio and reference inputs. Treat these as ± 30% until the first job returns its actual charge. If you are on a Seedance Unlimited add-on window, the per-clip cost is zero and you should run all three seeds.
+Requirements: a Higgsfield account with credits or an active Unlimited window. Output is watermark-free on paid plans and licensed for commercial use under Higgsfield's Terms of Use.
 
 ---
 
-## 3. What Claude will do once connected (the exact loop)
+## 2. Official Seedance 2.0 parameters on Higgsfield
 
-1. Call the connector's model-listing tool (if present) to confirm the Seedance 2.0 model id and the parameter schema. Expected ids: `seedance-2.0` / `seedance` (Standard), a `fast` variant, and `seedance-2.5`. **Use whatever the live schema says; do not guess.**
-2. Upload references for clips 02 and 06 (headshot, voice sample, the chosen clip 03 output) through the tool's file/URL input.
-3. Submit each entry in `jobs.json` as one video-generation call, three seeds for the keepers, one seed for drafts.
-4. Poll with the connector's job-status / wait tool until each job is `completed`; collect result URLs.
-5. Download the MP4s into `../out/` (or hand you the URLs if downloads are blocked in the environment), write the sidecar request JSON for provenance, and stop.
-6. You pick keepers; `../optimize.sh` does the web encode as before.
+From Higgsfield's own CLI `MODELS.md` (job type `seedance_2_0`); the MCP tool exposes the same fields.
 
-Guardrails Claude will enforce during the run: no patient images or PHI in references, no text baked into video, the Uninsurance clip never says "insurance", and every published clip keeps its prompt + seed on file.
+| Field | Values | Default |
+|---|---|---|
+| `aspect_ratio` | `auto`, `16:9`, `9:16`, `4:3`, `3:4`, `1:1`, `21:9` | `16:9` |
+| `duration` | integer seconds (4–15) | `5` |
+| `resolution` | `480p`, `720p`, `1080p`, `4k` | `720p` |
+| `generate_audio` | boolean | `true` |
+| `image-references` | up to 9 (counting start/end image) | — |
+| `video-references` | up to 3 | — |
+| `audio-references` | up to 3; needs at least one image or video ref | — |
+| `start-image` / `end-image` | single each | — |
+| mode | `fast` (480p/720p only) or `std` (1080p/4k) | — |
+
+Total references ≤ 12. Sibling job types: `seedance_2_0_mini` (cheapest) and `seedance_2_5` (30 s, 50 refs). Known quirk (CLI issue #30, June 2026): multiple image references may be rejected as duplicate `start_image`; if that happens, pass one image and describe the rest in the prompt.
+
+---
+
+## 3. Credit budget
+
+Higgsfield's published example: Seedance 2.0, 10 s, 1080p, High ≈ 90 credits (≈ $4.50), i.e. ≈ 9 credits/s at 1080p and roughly half that at 720p.
+
+| Clip | Spec | Approx. credits |
+|---|---|---|
+| 01 hero loop | 8 s · 720p · no audio | ≈ 35 |
+| 02 story of the stone | 15 s · 1080p · audio | ≈ 135 |
+| 03 empire ledger | 10 s · 720p · no audio | ≈ 45 |
+| 04 one billion voices | 12 s · 1080p · audio | ≈ 110 |
+| 05 return home | 8 s · 720p · audio | ≈ 35 |
+| 06 social 9:16 | 8 s · 1080p · audio · refs | ≈ 75 |
+| **One seed each** | | **≈ 435 (≈ $22)** |
+| **Three seeds each** | | **≈ 1,300 (≈ $65)** |
+
+Treat as ± 30 % until the first job returns its real charge. Under a Seedance Unlimited window (Seedance 2.0 at 1080p/8 s is included) the cost is zero but jobs run one at a time.
 
 ---
 
 ## 4. Paste-ready message for the session (after connecting)
 
-> Higgsfield is connected. Run the unraj.org batch from `.local/deliverables/unraj-seedance/higgsfield/jobs.json`: first list the available models and confirm the Seedance 2.0 id and parameters, then generate clips 01, 04 and 05 with one seed each as drafts, show me the URLs, and wait for my go before spending credits on 02, 03 and 06.
+> Higgsfield is connected. Run the unraj.org batch from `.local/deliverables/unraj-seedance/higgsfield/jobs.json`: first list the available video models and confirm the Seedance 2.0 job type and parameters, then generate the draft clips 01, 03 and 05 with one seed each in fast mode, show me the URLs, and wait for my go before spending credits on 02, 04 and 06.
 
-Drafts first (≈ 145 credits, ≈ $6.50) keeps the first spend small and lets you check the look before the reference-driven clips.
+Drafts first (≈ 115 credits, ≈ $6) keeps the first spend small and lets you check the diamond look before the longer clips.
 
 ---
 
-## 5. Why Higgsfield instead of fal.ai or Dreamina
+## 5. What Claude does once connected
 
-| | Higgsfield MCP | fal.ai API (`../generate.mjs`) | Dreamina web |
-|---|---|---|---|
-| Runs from Claude with no code | **Yes** | No (script) | No (manual) |
-| Seedance 2.0 + 2.5 + 30 other models on one login | **Yes** | Seedance only | Seedance only |
-| Predictable per-second USD | No (credits) | **Yes** | No (credits) |
-| 4K / 10-bit masters | Yes (plan-dependent) | 720p–1080p on the public endpoints | Yes (Pro) |
-| Best for | You saying "make the clips" in chat | Repeatable batch runs | Hand-tuning one shot |
+1. Lists models to confirm the Seedance 2.0 job type and live schema. **Uses whatever the live schema says; never guesses.**
+2. Uploads `refs/diamond.png` (and later the chosen clip 04 output) through the tool's file input.
+3. Submits each `jobs.json` entry as one generation call; drafts in `fast` mode, finals in `std`.
+4. Polls the job-status tool until `completed`; collects result URLs.
+5. Downloads the MP4s into `../out/` (or returns the URLs if downloads are blocked), writes the sidecar request JSON for provenance, and stops.
+6. You pick keepers; `../optimize.sh` does the web encode.
 
-Keep all three routes in the kit; the prompts and the web components do not change.
+Guardrails enforced during the run: no living public figures, no fake documents or institutional signage, no readable text in frame, respectful historical iconography, every published clip keeps its prompt + seed on file.

@@ -1,6 +1,6 @@
 /**
  * HeroVideo — React + Tailwind version of the unraj.org Seedance hero.
- * Styling mirrors the Tabula Medica landing hero (navy gradient, teal→sky→indigo accent, blue CTA).
+ * Indigo night gradient with gold accent and amber CTA, matching the campaign palette.
  * Drop into any Vite/Next/React app; no external deps beyond React.
  *
  * <HeroVideo
@@ -30,13 +30,13 @@ export function HeroVideo({
   poster,
   mp4,
   webm,
-  eyebrow = "Rajiv Aggarwal, MD · Family physician · Founder",
-  title = "Records that follow you.",
-  titleAccent = "Care you can afford.",
-  lede = "Thirty-eight years in family medicine, now building patient-owned health records and real access to care for the 40 million Americans without coverage.",
-  primaryCta = { label: "See what I'm building", href: "#work" },
-  secondaryCta = { label: "About Dr. Aggarwal", href: "#about" },
-  disclosure = "Illustrative video created with AI-generated imagery. No patient data or patient likenesses were used.",
+  eyebrow = "UnRaj.org · A global declaration",
+  title = "Bring the Kohinoor",
+  titleAccent = "home to India.",
+  lede = "One billion voices asking Britain to return the Koh-i-Noor and the artifacts taken during the Raj. Read the record. Add your name.",
+  primaryCta = { label: "Sign the declaration", href: "#declaration" },
+  secondaryCta = { label: "Read the Empire Ledger", href: "#ledger" },
+  disclosure = "Illustrative video created with AI-generated imagery. No real person is depicted.",
 }: HeroVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -124,7 +124,7 @@ export function HeroVideo({
       >
         {/* media */}
         <div className="absolute inset-0 -z-10" aria-hidden="true">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#0c1a3a] to-[#072e3a]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#111a3a] to-[#2a1a05]" />
           <img
             src={poster}
             alt=""
@@ -163,7 +163,7 @@ export function HeroVideo({
           >
             {title}
             <br />
-            <span className="bg-gradient-to-r from-teal-300 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent">
               {titleAccent}
             </span>
           </h1>
@@ -171,13 +171,13 @@ export function HeroVideo({
           <div className="mt-2 flex flex-wrap gap-3">
             <a
               href={primaryCta.href}
-              className="inline-flex h-[52px] items-center justify-center rounded-xl px-8 text-base font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 shadow-xl shadow-blue-600/35 hover:from-blue-600/90 hover:to-blue-500/90 transition-all duration-200 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-sky-300 focus-visible:outline-offset-[3px]"
+              className="inline-flex h-[52px] items-center justify-center rounded-xl px-8 text-base font-semibold text-white bg-gradient-to-r from-amber-700 to-amber-600 shadow-xl shadow-amber-600/35 hover:from-amber-700/90 hover:to-amber-600/90 transition-all duration-200 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-amber-200 focus-visible:outline-offset-[3px]"
             >
               {primaryCta.label}
             </a>
             <a
               href={secondaryCta.href}
-              className="inline-flex h-[52px] items-center justify-center rounded-xl px-8 text-base font-semibold text-white border border-white/20 bg-white/[0.04] hover:bg-white/10 transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-sky-300 focus-visible:outline-offset-[3px]"
+              className="inline-flex h-[52px] items-center justify-center rounded-xl px-8 text-base font-semibold text-white border border-white/20 bg-white/[0.04] hover:bg-white/10 transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-amber-200 focus-visible:outline-offset-[3px]"
             >
               {secondaryCta.label}
             </a>
@@ -190,7 +190,7 @@ export function HeroVideo({
             onClick={toggle}
             aria-pressed={!userPaused}
             aria-label={userPaused ? "Play background video" : "Pause background video"}
-            className="absolute right-4 bottom-4 grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-[#060d1f]/55 text-white backdrop-blur focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-sky-300"
+            className="absolute right-4 bottom-4 grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-[#060d1f]/55 text-white backdrop-blur focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-amber-200"
           >
             {userPaused ? (
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
