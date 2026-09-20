@@ -42,59 +42,59 @@ export interface ClinicMeasure {
 export const CLINIC_MEASURES: ClinicMeasure[] = [
   {
     id: "well-child-visit",
-    kidName: "Yearly Checkup",
-    whatItTeaches: "Growing bodies need a checkup every year, even when you feel fine.",
+    kidName: "Yearly Stat Check",
+    whatItTeaches: "Even a maxed-out character gets a yearly stat check — that's how you catch small stuff early.",
     hedisReference: "Child and Adolescent Well-Care Visits (WCV)",
-    npcPrompt: "I feel great! Do I still need my yearly checkup?",
+    npcPrompt: "I feel 100% today. Do I still need my stat check?",
   },
   {
     id: "immunizations",
-    kidName: "Shots on Time",
-    whatItTeaches: "Vaccines on schedule keep you and your friends from getting sick.",
+    kidName: "Shot Streak",
+    whatItTeaches: "Shots on time keep your whole squad in the game, not just you.",
     hedisReference: "Childhood Immunization Status (CIS) / Immunizations for Adolescents (IMA)",
-    npcPrompt: "My shot record says one is due this month. Can we do it today?",
+    npcPrompt: "My tracker says a shot's due this month. Keep the streak alive?",
   },
   {
     id: "weight-and-activity",
-    kidName: "Move & Fuel Check",
-    whatItTeaches: "Doctors check growth and talk about food and play at every visit.",
+    kidName: "Fuel & Move Check",
+    whatItTeaches: "Snacks and playtime are basically your character's stat build — worth checking in on.",
     hedisReference: "Weight Assessment and Counseling for Nutrition and Physical Activity (WCC)",
-    npcPrompt: "Can we talk about snacks and how much I run around?",
+    npcPrompt: "Can we talk loadout — snacks and how much I move around?",
   },
   {
     id: "asthma-controller",
-    kidName: "Breathe-Easy Plan",
-    whatItTeaches: "Kids with asthma feel best when they use their everyday controller medicine.",
+    kidName: "Breathe-Easy Combo",
+    whatItTeaches: "The everyday controller move is what stops the big flare-ups from happening at all.",
     hedisReference: "Asthma Medication Ratio (AMR)",
-    npcPrompt: "I only use my inhaler when I wheeze. Is that okay?",
+    npcPrompt: "I only pull out my inhaler when I'm already wheezing. That's fine, right?",
   },
   {
     id: "blood-pressure",
     kidName: "Pressure Check",
-    whatItTeaches: "A quick arm squeeze tells the doctor how hard your heart is working.",
+    whatItTeaches: "A quick arm-cuff squeeze is a live read on how hard your heart's engine is working.",
     hedisReference: "Controlling High Blood Pressure (CBP)",
-    npcPrompt: "What's that squeezy arm cuff for?",
+    npcPrompt: "What's this squeezy arm thing even do?",
   },
   {
     id: "lead-screening",
-    kidName: "Safe-Home Test",
+    kidName: "Safe-House Scan",
     whatItTeaches: "A tiny blood test checks for lead, which can hide in old paint and pipes.",
     hedisReference: "Lead Screening in Children (LSC)",
-    npcPrompt: "We just moved into an old house. Should I get checked for anything?",
+    npcPrompt: "We just moved into an old house — should I get scanned for anything?",
   },
   {
     id: "dental-visit",
     kidName: "Smile Check",
-    whatItTeaches: "Seeing the dentist twice a year keeps teeth strong.",
+    whatItTeaches: "Twice a year keeps your smile's defense stats maxed, cavities or not.",
     hedisReference: "Oral Evaluation, Dental Services (OED)",
-    npcPrompt: "My teeth don't hurt. Do I really need the dentist?",
+    npcPrompt: "Zero cavities so far. Do I really still need to go?",
   },
   {
     id: "depression-screening",
     kidName: "Feelings Check-In",
-    whatItTeaches: "Doctors ask how you're feeling inside, too — and it's okay to say 'not great.'",
+    whatItTeaches: "Your mood counts as a stat too — it's okay to say 'not great.'",
     hedisReference: "Depression Screening and Follow-Up for Adolescents and Adults (DSF-E)",
-    npcPrompt: "The nurse asked how I've been feeling lately. Why?",
+    npcPrompt: "The nurse asked how I've been feeling lately. Why's that part of the checkup?",
   },
 ];
 
@@ -136,11 +136,11 @@ const clinicEvents: ClinicEvent[] = [];
 const tipCache = new Map<string, { key: string; tip: string }>();
 
 const CURATED_TIPS = [
-  "Great clinics don't wait for someone to feel sick — they invite everyone in for a checkup.",
-  "Shots on time protect the whole waiting room, not just one patient.",
-  "Every arm-cuff squeeze and growth check is a clue about how a body is doing.",
-  "Ask about feelings, not just fevers. A good checkup covers the inside, too.",
-  "When a patient asks 'do I really need this?', that's your moment to explain why.",
+  "Real MVPs get checked even when they feel unstoppable — that's the move.",
+  "Shots on time keep your whole squad in the game, not just one player.",
+  "Every scan and check is intel. More intel, stronger build.",
+  "Feelings count as stats too — check in, not just check-ups.",
+  "'Do I really need this?' is your cue to drop the knowledge, not skip the visit.",
 ];
 
 function starsFor(rate: number | null, totalEvents: number): number {
@@ -158,7 +158,7 @@ function curatedTip(scores: MeasureScore[]): string {
     .sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1))[0];
   const measure = weakest && CLINIC_MEASURES.find((m) => m.id === weakest.measureId);
   if (measure && (weakest.rate ?? 1) < 0.75) {
-    return `Your clinic is missing some "${measure.kidName}" visits. ${measure.whatItTeaches}`;
+    return `Your "${measure.kidName}" numbers are slipping. ${measure.whatItTeaches}`;
   }
   return CURATED_TIPS[Math.floor(Math.random() * CURATED_TIPS.length)];
 }
@@ -173,10 +173,12 @@ async function novaTip(scores: MeasureScore[], stars: number): Promise<string> {
     const text = await generateText(
       {
         systemPrompt:
-          "You are Dr. Nova, a friendly AI guide inside a children's game about running a pretend clinic. " +
-          "You speak to kids aged 7-12. Reply with ONE encouraging coaching tip of at most two short sentences. " +
-          "Talk only about the pretend clinic's checkup habits. Never give medical advice, never mention " +
-          "medicines by name, never mention real doctors or hospitals, and never ask the child for personal information.",
+          "You are Nova, a hyped-up AI co-pilot inside a kids' clinic-sim game. You talk to players aged " +
+          "7-12 like a friendly esports coach — upbeat and encouraging, using light game words (streak, " +
+          "level up, boss move, squad) instead of clinical language. Reply with ONE tip, at most two short " +
+          "sentences and under 180 characters. Talk only about the pretend clinic's checkup habits. Never " +
+          "give medical advice, never mention medicines by name, never mention real doctors or hospitals, " +
+          "and never ask the child for personal information.",
         userPrompt: `The pretend clinic has ${stars} out of 5 stars. Visit tally: ${summary || "no visits yet"}. Give the tip.`,
         temperature: 0.6,
         maxTokens: 80,

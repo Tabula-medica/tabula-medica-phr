@@ -1181,9 +1181,9 @@ export default function GamificationDashboard() {
                     Future Health
                   </CardTitle>
                   <CardDescription>
-                    How the pretend clinic is doing on checkup habits — every "patient" is a game character,
-                    and the score reflects only in-game choices. Measures are simplified, kid-friendly versions
-                    of quality-of-care concepts, not certified HEDIS® measures.
+                    Your kid's stats from running their in-game clinic — every "patient" is a game character,
+                    and the score reflects only their in-game choices. Measures are simplified, kid-friendly
+                    versions of quality-of-care concepts, not certified HEDIS® measures.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1202,7 +1202,7 @@ export default function GamificationDashboard() {
                   </div>
                   {clinicScorecard.coachingTip && (
                     <Alert>
-                      <AlertTitle>Dr. Nova says</AlertTitle>
+                      <AlertTitle>Nova says</AlertTitle>
                       <AlertDescription>{clinicScorecard.coachingTip}</AlertDescription>
                     </Alert>
                   )}

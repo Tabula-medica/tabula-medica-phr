@@ -35,7 +35,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -20, 0, 24)
 title.Position = UDim2.new(0, 10, 0, 8)
 title.BackgroundTransparency = 1
-title.Text = "Link your Tabula Medica family account"
+title.Text = "LINK UP // Family Account"
 title.TextColor3 = Color3.fromRGB(240, 240, 240)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
@@ -45,7 +45,7 @@ title.Parent = frame
 local codeBox = Instance.new("TextBox")
 codeBox.Size = UDim2.new(1, -20, 0, 32)
 codeBox.Position = UDim2.new(0, 10, 0, 40)
-codeBox.PlaceholderText = "Enter the 8-character code from the app"
+codeBox.PlaceholderText = "Drop your 8-char code here"
 codeBox.Text = ""
 codeBox.ClearTextOnFocus = false
 codeBox.Font = Enum.Font.Gotham
@@ -55,7 +55,7 @@ codeBox.Parent = frame
 local linkButton = Instance.new("TextButton")
 linkButton.Size = UDim2.new(1, -20, 0, 32)
 linkButton.Position = UDim2.new(0, 10, 0, 78)
-linkButton.Text = "Link account"
+linkButton.Text = "LINK UP"
 linkButton.Font = Enum.Font.GothamBold
 linkButton.TextSize = 14
 linkButton.Parent = frame
@@ -73,14 +73,14 @@ statusLabel.Parent = frame
 
 linkButton.Activated:Connect(function()
 	local code = codeBox.Text
-	statusLabel.Text = "Linking..."
+	statusLabel.Text = "Linking up..."
 	local response = RemoteEvents.SubmitLinkCode:InvokeServer(code)
 	if response and response.ok then
 		statusLabel.TextColor3 = Color3.fromRGB(120, 220, 150)
 	else
 		statusLabel.TextColor3 = Color3.fromRGB(230, 120, 120)
 	end
-	statusLabel.Text = response and response.message or "Something went wrong. Try again."
+	statusLabel.Text = response and response.message or "That didn't work — try again."
 end)
 
 -- Dr. Nova panel (Future Health scorecard) -------------------------
@@ -102,7 +102,7 @@ local novaTitle = Instance.new("TextLabel")
 novaTitle.Size = UDim2.new(1, -20, 0, 22)
 novaTitle.Position = UDim2.new(0, 10, 0, 8)
 novaTitle.BackgroundTransparency = 1
-novaTitle.Text = "Dr. Nova — Future Health"
+novaTitle.Text = "NOVA // Future Health"
 novaTitle.TextColor3 = Color3.fromRGB(150, 220, 255)
 novaTitle.Font = Enum.Font.GothamBold
 novaTitle.TextSize = 14
@@ -139,7 +139,7 @@ RemoteEvents.ClinicScorecardUpdated.OnClientEvent:Connect(function(scorecard)
 	end
 	local stars = scorecard.stars or 0
 	starsLabel.Text = string.rep("★", stars) .. string.rep("☆", 5 - stars)
-		.. ("   %d visits"):format(scorecard.totalEvents or 0)
+		.. ("   %d run%s"):format(scorecard.totalEvents or 0, scorecard.totalEvents == 1 and "" or "s")
 	tipLabel.Text = scorecard.coachingTip or ""
 	novaFrame.Visible = true
 end)
@@ -167,7 +167,7 @@ RemoteEvents.RewardEarned.OnClientEvent:Connect(function(payload)
 	nameLabel.Size = UDim2.new(1, -16, 0, 22)
 	nameLabel.Position = UDim2.new(0, 8, 0, 6)
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = ("Badge earned: %s"):format(badge.name or "Unknown badge")
+	nameLabel.Text = ("UNLOCKED: %s"):format(badge.name or "New badge")
 	nameLabel.TextColor3 = Color3.fromRGB(255, 215, 120)
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextSize = 14
@@ -178,7 +178,7 @@ RemoteEvents.RewardEarned.OnClientEvent:Connect(function(payload)
 	pointsLabel.Size = UDim2.new(1, -16, 0, 18)
 	pointsLabel.Position = UDim2.new(0, 8, 0, 30)
 	pointsLabel.BackgroundTransparency = 1
-	pointsLabel.Text = ("+%d points synced to Tabula Medica"):format(payload.points or 0)
+	pointsLabel.Text = ("+%d points — check your Achievements tab"):format(payload.points or 0)
 	pointsLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
 	pointsLabel.Font = Enum.Font.Gotham
 	pointsLabel.TextSize = 12

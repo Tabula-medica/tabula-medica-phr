@@ -29,7 +29,7 @@ const ROBLOX_BADGES: Badge[] = [
   {
     id: "roblox-handwash-hero",
     name: "Handwashing Hero",
-    description: "Scrubbed for the full 20 seconds in the Handwashing Hero mini-game",
+    description: "Full 20-second scrub, no shortcuts. Germs: 0. You: 1.",
     icon: "sparkles",
     category: "achievement",
     rarity: "common",
@@ -40,7 +40,7 @@ const ROBLOX_BADGES: Badge[] = [
   {
     id: "roblox-body-explorer",
     name: "Body Systems Explorer",
-    description: "Completed the Body Systems Quest tour of the heart, lungs, and digestive system",
+    description: "Toured the heart, lung, and gut stations like a pro — full map cleared.",
     icon: "compass",
     category: "achievement",
     rarity: "common",
@@ -51,7 +51,7 @@ const ROBLOX_BADGES: Badge[] = [
   {
     id: "roblox-med-match-bronze",
     name: "Medication Match: Bronze",
-    description: "Matched 10 pretend medicine bottles to the right pretend patient in Medication Match",
+    description: "10-match streak — bottles to charts, zero mix-ups.",
     icon: "pill",
     category: "achievement",
     rarity: "common",
@@ -62,7 +62,7 @@ const ROBLOX_BADGES: Badge[] = [
   {
     id: "roblox-med-match-gold",
     name: "Medication Match: Gold",
-    description: "Matched 50 pretend medicine bottles correctly across Medication Match sessions",
+    description: "50-match streak. You could run the pharmacy at this point.",
     icon: "pill",
     category: "achievement",
     rarity: "uncommon",
@@ -73,7 +73,7 @@ const ROBLOX_BADGES: Badge[] = [
   {
     id: "roblox-germ-buster",
     name: "Germ Buster",
-    description: "Cleared all germ zones in a Germ Buster round",
+    description: "Cleared every germ zone before the clock hit zero.",
     icon: "shield",
     category: "achievement",
     rarity: "common",
@@ -86,7 +86,7 @@ const ROBLOX_BADGES: Badge[] = [
   {
     id: "roblox-checkup-champion",
     name: "Checkup Champion",
-    description: "Ran a Future Health clinic that hit 4+ stars over 10+ visits",
+    description: "Ran a Future Health clinic to 4+ stars over 10+ visits. Legendary run.",
     icon: "stethoscope",
     category: "milestone",
     rarity: "uncommon",
