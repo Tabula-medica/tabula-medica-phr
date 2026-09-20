@@ -52,6 +52,11 @@ Other working documents in this directory:
   / `f1-triage-union-honest-scope.txt` — triage worksheets
 - `action-item-H-plaintext-backfill.md` — Action Item H detail
 
+### Marketing & campaign kits
+- `unraj-seedance/` — Seedance 2.0 video kit for unraj.org (Koh-i-Noor
+  repatriation campaign): prompts, Higgsfield MCP runbook, fal.ai batch
+  generator, ffmpeg encode pipeline, drop-in hero components, QA checklist
+
 ### Compliance & audit
 - `accessibility-audit-session-6.md` — WCAG audit findings (Action Item U)
 - `audit-methodology-notes.md` — audit approach + conventions

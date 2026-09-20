@@ -142,6 +142,9 @@ for (const c of clips) {
     if (imageRefs.length === 0 && !(c.video_refs?.length || c.audio_refs?.length)) clipEndpoint = "text-to-video";
     else clipEndpoint = "reference-to-video";
   }
+  // fal endpoint IDs for this model carry no "fal-ai/" prefix. Source: fal's API reference
+  // (fal.ai/docs/model-api-reference/video-generation-api/bytedance-seedance-2.0-text-to-video,
+  // "Endpoint ID: bytedance/seedance-2.0/text-to-video") and github.com/fal-ai/seedance-2.0-api.
   const endpoint = `bytedance/seedance-2.0/${tier === "fast" ? "fast/" : ""}${clipEndpoint}`;
 
   const input = {
