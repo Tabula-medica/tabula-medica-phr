@@ -12,17 +12,20 @@
 -- ReplicatedStorage.RemoteEvents.MedicationMatchAttempt:FireServer(bottleId,
 -- chartId) on each drop, using the bottle/chart ids in ANSWER_KEY below.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local RemoteEvents = require(ReplicatedStorage.RemoteEvents)
 local MiniGameAPI = require(ServerScriptService.MiniGameAPI)
+local PlayerDataStore = require(ServerScriptService.PlayerDataStore)
 
 local GAME_ID = "medication-match"
 local BRONZE_BADGE_ID = "roblox-med-match-bronze"
 local GOLD_BADGE_ID = "roblox-med-match-gold"
 local BRONZE_THRESHOLD = 10
 local GOLD_THRESHOLD = 50
+local AUTOSAVE_EVERY = 5 -- persist every N correct matches, not every single one
 
 -- Fictional bottle -> chart answer key. Swap or expand freely; nothing here
 -- is real medical content.
@@ -33,10 +36,27 @@ local ANSWER_KEY = {
 	["bottle-d"] = "chart-4",
 }
 
--- playerId -> lifetime correct match count for this server instance.
--- A production build would persist this in a DataStore keyed by UserId so
--- progress survives across sessions/servers.
+-- playerId -> lifetime correct match count, mirrored to a DataStore so a
+-- player who's at, say, 37/50 doesn't lose that progress if this Roblox
+-- server instance restarts before they hit Gold. Badges/points themselves
+-- are already durable on the Tabula Medica backend regardless of this.
 local correctMatches = {}
+
+local function loadPlayer(player: Player)
+	correctMatches[player.UserId] = PlayerDataStore.Get(player.UserId, 0)
+end
+
+local function savePlayer(player: Player)
+	local total = correctMatches[player.UserId]
+	if total ~= nil then
+		PlayerDataStore.Set(player.UserId, total)
+	end
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+	loadPlayer(player)
+end
+Players.PlayerAdded:Connect(loadPlayer)
 
 RemoteEvents.MedicationMatchAttempt.OnServerEvent:Connect(function(player: Player, bottleId: string, chartId: string)
 	if typeof(bottleId) ~= "string" or typeof(chartId) ~= "string" then
@@ -52,11 +72,22 @@ RemoteEvents.MedicationMatchAttempt.OnServerEvent:Connect(function(player: Playe
 
 	if total == BRONZE_THRESHOLD then
 		MiniGameAPI.Complete(player, BRONZE_BADGE_ID, GAME_ID, "engagement")
+		savePlayer(player)
 	elseif total == GOLD_THRESHOLD then
 		MiniGameAPI.Complete(player, GOLD_BADGE_ID, GAME_ID, "health_improvement")
+		savePlayer(player)
+	elseif total % AUTOSAVE_EVERY == 0 then
+		savePlayer(player)
 	end
 end)
 
-game.Players.PlayerRemoving:Connect(function(player)
+Players.PlayerRemoving:Connect(function(player)
+	savePlayer(player)
 	correctMatches[player.UserId] = nil
+end)
+
+game:BindToClose(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		savePlayer(player)
+	end
 end)

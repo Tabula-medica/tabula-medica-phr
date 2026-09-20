@@ -17,6 +17,7 @@ roblox/
     ├── ServerScriptService/
     │   ├── BadgeSync.lua                          # Only script that calls the TM backend
     │   ├── MiniGameAPI.lua                        # Server-authoritative "award this badge" helper
+    │   ├── PlayerDataStore.lua                    # Safe DataStore wrapper for in-progress counters
     │   ├── GameManager.server.lua                 # Boots linking + relays client-driven events
     │   └── MiniGames/
     │       ├── HandwashingHero.server.lua         # ProximityPrompt, 20s hold

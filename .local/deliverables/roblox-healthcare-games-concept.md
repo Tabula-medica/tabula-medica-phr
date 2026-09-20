@@ -102,12 +102,24 @@ Nova"; auto-awards `roblox-checkup-champion`. Full write-up in
 clear every germ zone before the 30-second timer to earn `roblox-germ-buster`.
 All five catalog badges now have a working scene/award path.
 
+**Phase 1d (shipped) — gamer-cool tone pass.** Measure names, Nova's voice,
+badge descriptions, and the in-Roblox UI copy rewritten around gamer
+vocabulary (streaks, stats, builds) instead of clinical phrasing. Parent
+dashboard kept professional; the kid-facing surfaces got the energy.
+
+**Phase 1e (shipped) — DataStore persistence for Medication Match.**
+`PlayerDataStore.lua` wraps `DataStoreService` (pcall-safe, never blocks
+play on an outage) so a player's lifetime correct-match count survives a
+Roblox server restart instead of resetting mid-progress toward the 50-match
+Gold badge. Autosaves every 5 matches, on threshold, on leave, and on
+`BindToClose`. The other mini-games are short enough (single round, no
+multi-session grind) that losing round state on restart isn't a real loss,
+so they were left as-is. Badges/points themselves were never at risk here —
+those are already durable on the Tabula Medica backend.
+
 **Phase 2 — polish.** Real art/UI pass on `ClientUI` (current version proves
-wiring, not final visual design), DataStore persistence for in-Roblox
-progress (currently session-only — a player rejoining loses round state,
-though earned badges/points already persist server-side via Tabula Medica),
-clinician + child-safety review of the Future Health measure copy and the
-Nova prompt.
+wiring, not final visual design), clinician + child-safety review of the
+Future Health measure copy and the Nova prompt.
 
 **Phase 3 — publish.** Set `ROBLOX_SERVER_API_KEY` in production secrets,
 configure the published place's HTTP allowlist, publish to Roblox Creator
