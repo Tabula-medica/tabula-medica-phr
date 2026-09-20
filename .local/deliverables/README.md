@@ -65,6 +65,12 @@ Other working documents in this directory:
 - `capacitor-build-playbook.md` — iOS/Android Capacitor build runbook
 - `google-for-startups-narrative.md` — funding pitch material
 
+### Product initiatives
+- `roblox-healthcare-games-concept.md` — "Tabula Medica Kids" Roblox
+  integration: PHI-free reward-relay architecture, backend routes
+  (`server/roblox-education-link-routes.ts`), dashboard tab, and the
+  `roblox/` Rojo project with 3 working mini-games
+
 ---
 
 ## Notes on document maintenance

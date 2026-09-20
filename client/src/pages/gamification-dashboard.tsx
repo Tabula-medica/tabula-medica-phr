@@ -45,6 +45,9 @@ import {
   Pill,
   FileText,
   ArrowRight,
+  Gamepad2,
+  Copy,
+  Unlink,
 } from "lucide-react";
 
 interface BadgeData {
@@ -202,6 +205,44 @@ export default function GamificationDashboard() {
 
   const { data: adherenceStats } = useQuery<any>({
     queryKey: ["/api/gamification/adherence-stats"],
+  });
+
+  const { data: robloxLinkStatus, isLoading: robloxLinkLoading } = useQuery<{ linked: boolean; linkedAt: string | null }>({
+    queryKey: ["/api/roblox/link/status"],
+  });
+
+  const { data: robloxRewardsData } = useQuery<{ totalPoints: number; badgeCount: number; rewards: any[] }>({
+    queryKey: ["/api/roblox/rewards/me"],
+    enabled: !!robloxLinkStatus?.linked,
+  });
+
+  const [robloxCode, setRobloxCode] = useState<{ code: string; expiresAt: string } | null>(null);
+
+  const generateRobloxCodeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/roblox/link/code", {});
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      setRobloxCode({ code: data.code, expiresAt: data.expiresAt });
+      toast({ title: "Link code ready", description: "Enter it in the Tabula Medica Kids Roblox experience within 10 minutes." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to generate a Roblox link code.", variant: "destructive" });
+    },
+  });
+
+  const unlinkRobloxMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/roblox/link/unlink", {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/roblox/link/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/roblox/rewards/me"] });
+      setRobloxCode(null);
+      toast({ title: "Roblox account unlinked" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to unlink the Roblox account.", variant: "destructive" });
+    },
   });
 
   const recordAdherenceMutation = useMutation({
@@ -431,6 +472,10 @@ export default function GamificationDashboard() {
           <TabsTrigger value="leaderboard" data-testid="button-tab-leaderboard">
             <Users className="h-4 w-4 mr-2" />
             Leaderboard
+          </TabsTrigger>
+          <TabsTrigger value="roblox" data-testid="button-tab-roblox">
+            <Gamepad2 className="h-4 w-4 mr-2" />
+            Roblox
           </TabsTrigger>
         </TabsList>
 
@@ -980,6 +1025,148 @@ export default function GamificationDashboard() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="roblox">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gamepad2 className="h-5 w-5 text-indigo-500" />
+                  Tabula Medica Kids on Roblox
+                </CardTitle>
+                <CardDescription>
+                  Link this profile to earn badges for finishing health-education mini-games. No health
+                  records, diagnoses, or medications are ever shared with Roblox — only a game badge and
+                  a point total come back.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {robloxLinkLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking link status...
+                  </div>
+                ) : robloxLinkStatus?.linked ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Linked
+                      </Badge>
+                      {robloxLinkStatus.linkedAt && (
+                        <span className="text-xs text-muted-foreground">
+                          since {new Date(robloxLinkStatus.linkedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => unlinkRobloxMutation.mutate()}
+                      disabled={unlinkRobloxMutation.isPending}
+                      data-testid="button-roblox-unlink"
+                    >
+                      {unlinkRobloxMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Unlink className="h-4 w-4 mr-2" />
+                      )}
+                      Unlink Roblox account
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => generateRobloxCodeMutation.mutate()}
+                      disabled={generateRobloxCodeMutation.isPending}
+                      data-testid="button-roblox-generate-code"
+                    >
+                      {generateRobloxCodeMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Gamepad2 className="h-4 w-4 mr-2" />
+                      )}
+                      Generate link code
+                    </Button>
+
+                    {robloxCode && (
+                      <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          In Roblox, open <strong>Tabula Medica Kids</strong> → Settings → Link Family
+                          Account, and enter:
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-mono font-bold tracking-widest" data-testid="text-roblox-code">
+                            {robloxCode.code}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigator.clipboard?.writeText(robloxCode.code)}
+                            data-testid="button-roblox-copy-code"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Expires {new Date(robloxCode.expiresAt).toLocaleTimeString()}
+                        </p>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="px-0"
+                          onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/roblox/link/status"] })}
+                          data-testid="button-roblox-check-linked"
+                        >
+                          I entered the code — check link status
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Medal className="h-5 w-5 text-amber-500" />
+                  Roblox Rewards
+                </CardTitle>
+                <CardDescription>Badges and points earned in the Roblox mini-games.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!robloxLinkStatus?.linked ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Link a Roblox account to see rewards here.</p>
+                  </div>
+                ) : !robloxRewardsData?.rewards?.length ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Gamepad2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No mini-games completed yet. Jump into Roblox to earn your first badge!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total points earned</span>
+                      <span className="font-semibold">{robloxRewardsData.totalPoints}</span>
+                    </div>
+                    {robloxRewardsData.rewards.map((r: any) => (
+                      <div key={r.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div>
+                          <p className="font-medium text-sm">{r.badge?.name || r.badgeId}</p>
+                          <p className="text-xs text-muted-foreground">{r.badge?.description}</p>
+                        </div>
+                        <Badge variant="secondary">+{r.points} pts</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
