@@ -127,6 +127,9 @@ export function HeroVideo({
       persistPaused(true);
     } else {
       persistPaused(false);
+      // Off-screen (e.g. the button kept focus while the visitor scrolled away): record the
+      // preference only; the IntersectionObserver starts playback when the hero is back in view.
+      if (!onScreenRef.current) return;
       video
         .play()
         .then(() => setPlaying(true))

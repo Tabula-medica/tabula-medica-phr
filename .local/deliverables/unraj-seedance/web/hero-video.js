@@ -75,7 +75,10 @@
     userPaused = playing;
     if (!playing) autoplayAllowed = true; // explicit play on a phone opts in for this visit
     try { localStorage.setItem("uh-hero-paused", playing ? "1" : "0"); } catch (e) { /* ignore */ }
-    if (playing) pause(); else play();
+    if (playing) { pause(); return; }
+    // Off-screen (button kept focus while the visitor scrolled away): keep the preference only;
+    // the IntersectionObserver starts playback once the hero is back in view.
+    if (onScreen) play();
   });
 
   // Only play while visible, and only on first intersection if the user hasn't paused it.
