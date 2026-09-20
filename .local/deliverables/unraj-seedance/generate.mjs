@@ -6,8 +6,12 @@
  *   FAL_KEY=xxx node generate.mjs                 # generate every clip
  *   FAL_KEY=xxx node generate.mjs --only 01,03    # subset by id prefix
  *   node generate.mjs --estimate                  # cost only, no API calls
- *   FAL_KEY=xxx node generate.mjs --fast          # 720p fast tier for drafts
+ *   FAL_KEY=xxx node generate.mjs --fast --seeds 1   # draft pass: fast tier, one seed per clip
  *   node generate.mjs --keep 04:1000              # copy out/04-...-s1000.mp4 to out/keepers/04-....mp4
+ *   FAL_KEY=xxx node generate.mjs --only 06       # after --keep 04, generate the clip that depends on it
+ *
+ * Clips whose required reference files are missing (clip 06 needs out/keepers/04-one-billion-voices.mp4)
+ * are skipped with a message and counted as failures; the rest of the batch still runs.
  *
  * Outputs land in ./out/<id>-s<seed>.mp4 with a sidecar .json of the request.
  * Chosen seeds are promoted with --keep to ./out/keepers/<id>.mp4, the stable path that
@@ -33,6 +37,12 @@ const ESTIMATE_ONLY = flag("estimate");
 const FAST = flag("fast");
 const ONLY = (opt("only") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const KEEP = opt("keep"); // "<id-prefix>:<seed>"
+const SEEDS_OVERRIDE = opt("seeds") ? Number(opt("seeds")) : undefined; // e.g. --seeds 1 for drafts
+if (SEEDS_OVERRIDE !== undefined && !(Number.isInteger(SEEDS_OVERRIDE) && SEEDS_OVERRIDE > 0)) {
+  console.error("--seeds must be a positive integer");
+  process.exit(1);
+}
+const seedsFor = (clip) => SEEDS_OVERRIDE ?? clip.seeds ?? cfg.defaults.seeds;
 
 // fal.ai list prices, USD per output second (checked Sep 2026; re-verify on fal.ai/seedance-2.0).
 const PRICE_PER_SEC = {
@@ -78,7 +88,7 @@ console.log("\nClip                       tier      res    sec  seeds   est. USD
 for (const c of clips) {
   const tier = tierFor();
   const res = resolutionFor(c, tier);
-  const seeds = c.seeds ?? cfg.defaults.seeds;
+  const seeds = seedsFor(c);
   const perSec = PRICE_PER_SEC[tier][res];
   if (perSec == null) {
     console.error(`No price for ${tier}/${res} (clip ${c.id})`);
@@ -130,7 +140,23 @@ const failures = [];
 for (const c of clips) {
   const tier = tierFor();
   const res = resolutionFor(c, tier);
-  const seeds = c.seeds ?? cfg.defaults.seeds;
+  const seeds = seedsFor(c);
+  // Preflight required references so a missing file skips this clip instead of aborting the batch.
+  const requiredRefs = [
+    ...(c.optional_image_refs ? [] : c.image_refs ?? []),
+    ...(c.video_refs ?? []),
+    ...(c.audio_refs ?? []),
+  ];
+  const missing = [];
+  for (const r of requiredRefs) if (!(await exists(r))) missing.push(r);
+  if (missing.length) {
+    const hint = missing.some((m) => m.startsWith("out/keepers/"))
+      ? " (promote the source clip first: node generate.mjs --keep <id>:<seed>, then --only " + c.id.slice(0, 2) + ")"
+      : "";
+    console.error(`\n⏭ ${c.id} skipped: missing reference ${missing.join(", ")}${hint}`);
+    failures.push(`${c.id} (missing refs)`);
+    continue;
+  }
   // Optional image references (the diamond render) are used when present; without them the
   // clip falls back to plain text-to-video so the batch still runs.
   let clipEndpoint = c.endpoint;

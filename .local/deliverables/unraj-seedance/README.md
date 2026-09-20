@@ -29,7 +29,7 @@ Budget (from `node generate.mjs --estimate`, fal list prices):
 
 | Run | Est. USD |
 |---|---|
-| Draft pass, all 6 clips, fast tier 720p, 3 seeds | ≈ $44 |
+| Draft pass, all 6 clips, fast tier 720p, 1 seed (`--fast --seeds 1`) | ≈ $15 |
 | Final pass at spec, 1 seed each | ≈ $32 |
 | Final pass at spec, 3 seeds each | ≈ $92 |
 
@@ -58,7 +58,7 @@ Prompts live in `prompts/` (one file per clip, paste-ready; `prompts.json` is wh
 2. **Generate** — pick one route:
    - **Higgsfield MCP (recommended, no code):** connect once per `higgsfield/RUNBOOK.md` §1, then paste the §4 message into a Claude session.
    - **Dreamina:** paste `prompts/*.md` (attach refs in Multiframes mode using `@Image1`).
-   - **fal.ai script:** `npm i @fal-ai/client && FAL_KEY=... node generate.mjs --only 01,03` (run `--estimate` first).
+   - **fal.ai script:** `npm i @fal-ai/client`, then a draft pass `FAL_KEY=... node generate.mjs --fast --seeds 1 --only 01,03,05`, then finals `node generate.mjs --only 02,04` (3 seeds each from `prompts.json`). Run `node generate.mjs --estimate --fast --seeds 1` first to see the spend. Clip 06 depends on a promoted clip 04 (`--keep 04:<seed>`), so run it last with `--only 06`; the script skips it with a hint if the keeper is missing.
 3. **Pick keepers** — drafts run 1 seed, finals 3 seeds per clip (the `seeds` values in `prompts.json`); reject any frame with readable text, distorted hands, or a recognisable living person. Promote each winner to a stable path: `node generate.mjs --keep 01:1000` copies `out/01-hero-loop-s1000.mp4` to `out/keepers/01-hero-loop.mp4` (Higgsfield or Dreamina downloads: copy them to the same `out/keepers/<id>.mp4` path by hand). Clip 06 reads `out/keepers/04-one-billion-voices.mp4`, so promote 04 before generating 06.
 4. **Optimise for web** — `bash optimize.sh out/keepers/01-hero-loop.mp4` (a raw seed file such as `out/01-hero-loop-s1000.mp4` also works; the seed suffix is stripped) → H.264 MP4 + WebM + poster under the budgets in §5. Add `--keep-audio` for clips 02, 04, 05 and 06, `--1080` for 02 and 04, and `--vertical` only when you want a 9:16 crop of a landscape keeper (clip 06 is generated vertical already).
 5. **Drop in** — `web/hero-video.html|css|js` for the static site (plain CSS, no framework), or `web/HeroVideo.tsx` if the site is React **with Tailwind CSS** (its styling is Tailwind utilities). Both honour `prefers-reduced-motion`, poster fallback, lazy loading, and a pause button. Copy is already the site's own language and is translatable through the existing `?lng=` mechanism.
