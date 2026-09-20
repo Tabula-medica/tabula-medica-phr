@@ -59,6 +59,7 @@ import {
   TestTubes,
   ArrowLeftRight,
   Crown,
+  Tag,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -113,6 +114,13 @@ const mainNavItems = [
     icon: Link2,
     badge: null,
     requiresTefca: true,
+  },
+  {
+    title: "Cash Prices",
+    titleKey: "sidebar.cashPrices",
+    url: "/cash-prices",
+    icon: Tag,
+    badge: null,
   },
   {
     title: "Symptom Checker",

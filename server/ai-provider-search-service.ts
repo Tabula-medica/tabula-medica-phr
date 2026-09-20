@@ -139,6 +139,16 @@ class AIProviderSearchService {
   }
 
   async performSemanticSearch(query: string): Promise<SemanticSearchResult> {
+    // PHI SAFETY (P0): a patient's free-text search query can contain PHI
+    // ("cardiologist for my HIV meds"). This service's OpenAI client has no BAA,
+    // so by default we interpret the query on-device via the keyword mapper and
+    // send NOTHING to a third-party LLM. The LLM path only runs when explicitly
+    // opted in with a BAA-covered provider (PROVIDER_SEARCH_LLM=1, which must
+    // point AI_INTEGRATIONS_OPENAI_* at a Vertex/BAA gateway). Do not enable
+    // without a signed BAA.
+    if (process.env.PROVIDER_SEARCH_LLM !== "1") {
+      return this.fallbackSemanticSearch(query);
+    }
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-4o",

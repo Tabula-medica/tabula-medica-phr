@@ -17,6 +17,7 @@ import {
   Scale, Eye, Zap, Leaf, Sun, Wind, Timer, BarChart3, LineChart,
   Clock, Shield, Sparkles, CheckCircle2, AlertTriangle,
 } from "lucide-react";
+import { BIOMARKER_TARGETS } from "@shared/longevity-protocol";
 
 interface BiomarkerEntry {
   id: string;
@@ -63,42 +64,9 @@ const BIOMARKER_CATEGORIES = [
   { key: "organ", label: "Organ Function", icon: Shield },
 ];
 
-const COMMON_BIOMARKERS = [
-  { name: "Fasting Glucose", unit: "mg/dL", category: "metabolic", optimal: "70-99" },
-  { name: "HbA1c", unit: "%", category: "metabolic", optimal: "< 5.7" },
-  { name: "Fasting Insulin", unit: "µIU/mL", category: "metabolic", optimal: "2-6" },
-  { name: "HOMA-IR", unit: "", category: "metabolic", optimal: "< 1.0" },
-  { name: "Total Cholesterol", unit: "mg/dL", category: "cardiovascular", optimal: "< 200" },
-  { name: "LDL Cholesterol", unit: "mg/dL", category: "cardiovascular", optimal: "< 100" },
-  { name: "HDL Cholesterol", unit: "mg/dL", category: "cardiovascular", optimal: "> 60" },
-  { name: "Triglycerides", unit: "mg/dL", category: "cardiovascular", optimal: "< 150" },
-  { name: "ApoB", unit: "mg/dL", category: "cardiovascular", optimal: "< 80" },
-  { name: "Lp(a)", unit: "nmol/L", category: "cardiovascular", optimal: "< 75" },
-  { name: "hs-CRP", unit: "mg/L", category: "inflammatory", optimal: "< 1.0" },
-  { name: "Homocysteine", unit: "µmol/L", category: "inflammatory", optimal: "< 10" },
-  { name: "IL-6", unit: "pg/mL", category: "inflammatory", optimal: "< 1.8" },
-  { name: "TNF-alpha", unit: "pg/mL", category: "inflammatory", optimal: "< 8.1" },
-  { name: "Testosterone (Total)", unit: "ng/dL", category: "hormonal", optimal: "varies" },
-  { name: "Free Testosterone", unit: "pg/mL", category: "hormonal", optimal: "varies" },
-  { name: "DHEA-S", unit: "µg/dL", category: "hormonal", optimal: "varies by age" },
-  { name: "Cortisol (AM)", unit: "µg/dL", category: "hormonal", optimal: "6-18" },
-  { name: "TSH", unit: "mIU/L", category: "hormonal", optimal: "0.5-2.5" },
-  { name: "Free T3", unit: "pg/mL", category: "hormonal", optimal: "3.0-4.0" },
-  { name: "Free T4", unit: "ng/dL", category: "hormonal", optimal: "1.0-1.5" },
-  { name: "IGF-1", unit: "ng/mL", category: "hormonal", optimal: "varies by age" },
-  { name: "Vitamin D (25-OH)", unit: "ng/mL", category: "nutritional", optimal: "40-60" },
-  { name: "Vitamin B12", unit: "pg/mL", category: "nutritional", optimal: "500-1000" },
-  { name: "Ferritin", unit: "ng/mL", category: "nutritional", optimal: "40-150" },
-  { name: "Magnesium (RBC)", unit: "mg/dL", category: "nutritional", optimal: "5.0-6.5" },
-  { name: "Omega-3 Index", unit: "%", category: "nutritional", optimal: "> 8" },
-  { name: "Zinc", unit: "µg/dL", category: "nutritional", optimal: "80-120" },
-  { name: "GFR", unit: "mL/min", category: "organ", optimal: "> 90" },
-  { name: "Cystatin C", unit: "mg/L", category: "organ", optimal: "0.5-1.0" },
-  { name: "ALT", unit: "U/L", category: "organ", optimal: "< 25" },
-  { name: "AST", unit: "U/L", category: "organ", optimal: "< 25" },
-  { name: "GGT", unit: "U/L", category: "organ", optimal: "< 30" },
-  { name: "Uric Acid", unit: "mg/dL", category: "organ", optimal: "< 5.5" },
-];
+// Biomarker targets come from the canonical protocol module (single source of
+// truth, shared with the EHR/WorldEHR/ACP surfaces). Edit values there, not here.
+const COMMON_BIOMARKERS = BIOMARKER_TARGETS;
 
 const LONGEVITY_CATEGORIES = [
   {

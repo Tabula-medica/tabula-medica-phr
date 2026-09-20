@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { speechToText } from "../replit_integrations/audio/client";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -113,13 +114,9 @@ class AIClinicalDocumentationService {
   async transcribeConversation(audioBase64: string, mimeType: string = "audio/webm"): Promise<TranscriptionResult> {
     try {
       const buffer = Buffer.from(audioBase64, "base64");
-      const file = new File([buffer], "audio.webm", { type: mimeType });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: file,
-        model: "gpt-4o-mini-transcribe",
-        response_format: "json",
-      });
+      const ext = mimeType.includes("mp3") ? "mp3" : mimeType.includes("wav") ? "wav" : "webm";
+      // GCP Speech-to-Text (BAA) — not OpenAI Whisper.
+      const transcription = { text: await speechToText(buffer, ext as any) };
 
       const structuredNotes = await this.parseTranscriptionToStructuredNotes(transcription.text);
 
