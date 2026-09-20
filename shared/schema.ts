@@ -792,14 +792,19 @@ export type WellnessMetric = typeof wellnessMetricsTable.$inferSelect;
 export const rpmDeviceProviders = ["vitalfriend", "other"] as const;
 export type RpmDeviceProvider = typeof rpmDeviceProviders[number];
 
-export const rpmDeviceTypes = [
+// Named distinctly from the pre-existing rpmDeviceTypes/RpmDeviceType above
+// (server/onboarding.ts) — those model a generic onboarding-time device
+// registration + setup-instructions flow; this models an actual clinical
+// RPM device connected to a real provider (VitalFriend) that feeds
+// vital_signs. Don't merge the two without checking both call sites.
+export const rpmMonitoringDeviceTypes = [
   "blood_pressure_cuff",
   "glucometer",
   "pulse_oximeter",
   "scale",
   "thermometer",
 ] as const;
-export type RpmDeviceType = typeof rpmDeviceTypes[number];
+export type RpmMonitoringDeviceType = typeof rpmMonitoringDeviceTypes[number];
 
 export const rpmDeviceStatuses = ["pending", "active", "inactive", "error"] as const;
 export type RpmDeviceStatus = typeof rpmDeviceStatuses[number];

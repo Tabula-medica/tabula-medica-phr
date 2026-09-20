@@ -19,7 +19,7 @@ import {
 import { Watch, ShieldCheck, Trash2, Loader2, ExternalLink, HeartPulse, Info } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { FitnessProvider, FitnessConnection, RpmDevice, RpmDeviceType } from "@shared/schema";
+import type { FitnessProvider, FitnessConnection, RpmDevice, RpmMonitoringDeviceType } from "@shared/schema";
 
 const PROVIDER_LABELS: Record<FitnessProvider, string> = {
   apple_health: "Apple Health",
@@ -34,7 +34,7 @@ const PROVIDER_LABELS: Record<FitnessProvider, string> = {
   strava: "Strava",
 };
 
-const DEVICE_TYPE_LABELS: Record<RpmDeviceType, string> = {
+const DEVICE_TYPE_LABELS: Record<RpmMonitoringDeviceType, string> = {
   blood_pressure_cuff: "Blood pressure cuff",
   glucometer: "Glucose meter",
   pulse_oximeter: "Pulse oximeter (SpO2)",
@@ -194,7 +194,7 @@ function RpmDevicesSection() {
   });
 
   const enrollMutation = useMutation({
-    mutationFn: (payload: { deviceType: RpmDeviceType; externalDeviceId: string; serialNumber?: string }) =>
+    mutationFn: (payload: { deviceType: RpmMonitoringDeviceType; externalDeviceId: string; serialNumber?: string }) =>
       apiRequest("POST", "/api/rpm/devices", { provider: "vitalfriend", ...payload }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rpm/devices"] });
@@ -234,7 +234,7 @@ function RpmDevicesSection() {
           onSubmit={(e) => {
             e.preventDefault();
             const form = e.currentTarget;
-            const deviceType = (form.elements.namedItem("deviceType") as HTMLSelectElement)?.value as RpmDeviceType;
+            const deviceType = (form.elements.namedItem("deviceType") as HTMLSelectElement)?.value as RpmMonitoringDeviceType;
             const externalDeviceId = (form.elements.namedItem("externalDeviceId") as HTMLInputElement)?.value?.trim();
             if (!deviceType || !externalDeviceId) return;
             enrollMutation.mutate({ deviceType, externalDeviceId });
@@ -274,7 +274,7 @@ function RpmDevicesSection() {
             {devices.map((device) => (
               <div key={device.id} className="flex items-center justify-between rounded-lg border p-3" data-testid={`row-device-${device.id}`}>
                 <div>
-                  <div className="font-medium">{DEVICE_TYPE_LABELS[device.deviceType as RpmDeviceType] || device.deviceType}</div>
+                  <div className="font-medium">{DEVICE_TYPE_LABELS[device.deviceType as RpmMonitoringDeviceType] || device.deviceType}</div>
                   <div className="text-xs text-muted-foreground">
                     ID {device.externalDeviceId} · {device.status}
                     {device.lastReadingAt ? ` · last reading ${new Date(device.lastReadingAt).toLocaleString()}` : " · no readings yet"}

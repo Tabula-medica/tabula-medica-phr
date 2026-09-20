@@ -27,7 +27,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import crypto from "crypto";
 import { db } from "../db";
-import { rpmDevicesTable, rpmDeviceTypes, rpmDeviceProviders, type VitalSignType } from "@shared/schema";
+import { rpmDevicesTable, rpmMonitoringDeviceTypes, rpmDeviceProviders, type VitalSignType } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { ingestVitalReading } from "../services/vital-thresholds";
 
@@ -101,7 +101,7 @@ router.get("/devices", async (req: Request, res: Response) => {
 
 const enrollDeviceSchema = z.object({
   provider: z.enum(rpmDeviceProviders).default("vitalfriend"),
-  deviceType: z.enum(rpmDeviceTypes),
+  deviceType: z.enum(rpmMonitoringDeviceTypes),
   externalDeviceId: z.string().min(1),
   serialNumber: z.string().optional(),
 });
