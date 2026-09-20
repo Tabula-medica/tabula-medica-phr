@@ -21,14 +21,16 @@ roblox/
     │   └── MiniGames/
     │       ├── HandwashingHero.server.lua         # ProximityPrompt, 20s hold
     │       ├── BodySystemsQuest.server.lua        # Touch 3 checkpoints
-    │       └── MedicationMatch.server.lua         # Server-validated matching puzzle
+    │       ├── MedicationMatch.server.lua         # Server-validated matching puzzle
+    │       └── ClinicOfTheFuture.server.lua       # HEDIS-concept NPC visits + Dr. Nova scorecard
     └── StarterPlayer/StarterPlayerScripts/
-        └── ClientUI.client.lua                    # Link-account panel + reward toast
+        └── ClientUI.client.lua                    # Link panel, reward toast, Dr. Nova panel
 ```
 
-Two mini-games in the catalog (`roblox-germ-buster`, `roblox-checkup-champion`)
-are Phase 2 — they exist in the server's badge catalog but have no scene/script
-here yet. See the concept doc's rollout plan.
+`roblox-germ-buster` is still Phase 2 (in the badge catalog, no scene yet).
+`roblox-checkup-champion` is awarded automatically by the backend when the
+Clinic of the Future reaches 4+ stars over 10+ visits — see
+`.local/deliverables/roblox-hedis-clinic-of-the-future.md`.
 
 ## Compliance boundary (read this before building scenes)
 
@@ -59,6 +61,10 @@ The only data that crosses the Tabula Medica <-> Roblox boundary is:
    - A drag-and-drop `ScreenGui` for Medication Match that fires
      `MedicationMatchAttempt:FireServer(bottleId, chartId)` using ids from
      `MedicationMatch.server.lua`'s `ANSWER_KEY`
+   - `workspace.MiniGames.ClinicOfTheFuture.Patients.<Name>` — one `Model`
+     per NPC, each with an `Anchor` part, a `ProximityPrompt` named
+     `VisitPrompt`, and a `BillboardGui` named `Bubble` containing a
+     `TextLabel` named `Text`
 
 ## Wiring up the backend connection
 

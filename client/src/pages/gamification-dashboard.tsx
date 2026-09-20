@@ -216,6 +216,12 @@ export default function GamificationDashboard() {
     enabled: !!robloxLinkStatus?.linked,
   });
 
+  const { data: clinicData } = useQuery<{ scorecard: any | null }>({
+    queryKey: ["/api/roblox/clinic/me"],
+    enabled: !!robloxLinkStatus?.linked,
+  });
+  const clinicScorecard = clinicData?.scorecard ?? null;
+
   const [robloxCode, setRobloxCode] = useState<{ code: string; expiresAt: string } | null>(null);
 
   const generateRobloxCodeMutation = useMutation({
@@ -1113,9 +1119,9 @@ export default function GamificationDashboard() {
                           Expires {new Date(robloxCode.expiresAt).toLocaleTimeString()}
                         </p>
                         <Button
-                          variant="link"
+                          variant="ghost"
                           size="sm"
-                          className="px-0"
+                          className="px-0 underline-offset-4 hover:underline"
                           onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/roblox/link/status"] })}
                           data-testid="button-roblox-check-linked"
                         >
@@ -1166,6 +1172,58 @@ export default function GamificationDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {robloxLinkStatus?.linked && clinicScorecard && (
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-sky-500" />
+                    Clinic of the Future
+                  </CardTitle>
+                  <CardDescription>
+                    How the pretend clinic is doing on checkup habits — every "patient" is a game character,
+                    and the score reflects only in-game choices. Measures are simplified, kid-friendly versions
+                    of quality-of-care concepts, not certified HEDIS® measures.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span className="text-2xl tracking-wider text-amber-500" data-testid="text-clinic-stars">
+                      {"★".repeat(clinicScorecard.stars)}
+                      <span className="text-muted-foreground">{"☆".repeat(5 - clinicScorecard.stars)}</span>
+                    </span>
+                    <span className="text-sm text-muted-foreground">{clinicScorecard.totalEvents} visits</span>
+                    {clinicScorecard.championEarned && (
+                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                        <Crown className="h-3 w-3 mr-1" />
+                        Checkup Champion
+                      </Badge>
+                    )}
+                  </div>
+                  {clinicScorecard.coachingTip && (
+                    <Alert>
+                      <AlertTitle>Dr. Nova says</AlertTitle>
+                      <AlertDescription>{clinicScorecard.coachingTip}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {clinicScorecard.measures
+                      .filter((m: any) => m.closed + m.missed > 0)
+                      .map((m: any) => (
+                        <div key={m.measureId} className="rounded-lg border p-3 space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium">{m.kidName}</span>
+                            <span className="text-muted-foreground">
+                              {m.closed}/{m.closed + m.missed}
+                            </span>
+                          </div>
+                          <Progress value={Math.round((m.rate ?? 0) * 100)} />
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
       </Tabs>

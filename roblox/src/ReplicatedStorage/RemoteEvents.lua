@@ -43,6 +43,11 @@ RemoteEvents.MedicationMatchAttempt = getOrCreateEvent("MedicationMatchAttempt")
 -- Args: { badge = {...}, points = number }
 RemoteEvents.RewardEarned = getOrCreateEvent("RewardEarned")
 
+-- Server -> Client: the Clinic of the Future scorecard changed (stars, per-
+-- measure tallies, Dr. Nova's coaching tip). Args: scorecard table from the
+-- backend's /api/roblox/clinic/scorecard response.
+RemoteEvents.ClinicScorecardUpdated = getOrCreateEvent("ClinicScorecardUpdated")
+
 -- Client -> Server (invoke): submit the family's link code typed in the UI.
 -- Returns: { ok: boolean, message: string }
 RemoteEvents.SubmitLinkCode = getOrCreateFunction("SubmitLinkCode")

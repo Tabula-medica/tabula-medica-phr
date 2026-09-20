@@ -93,10 +93,15 @@ and the end-to-end test flow.
 Rojo project, 3 working mini-games. Not yet deployed to a public Roblox
 place; `BadgeSync.lua`'s `API_BASE_URL`/`API_KEY` are placeholders.
 
-**Phase 2 — content.** Germ Buster and Checkup Champion mini-games (already
-reserved as catalog badge ids: `roblox-germ-buster`, `roblox-checkup-champion`
-in `roblox-education-link-routes.ts`), real art/UI pass on `ClientUI`,
-DataStore persistence for in-Roblox progress (currently session-only).
+**Phase 1b (shipped) — Clinic of the Future.** HEDIS-concept NPC visits with a
+rules-based star rating and AI (Vertex, PHI-free) coaching tips from "Dr.
+Nova"; auto-awards `roblox-checkup-champion`. Full write-up in
+`roblox-hedis-clinic-of-the-future.md`.
+
+**Phase 2 — content.** Germ Buster mini-game (catalog id `roblox-germ-buster`
+already reserved), real art/UI pass on `ClientUI`, DataStore persistence for
+in-Roblox progress (currently session-only), clinician + child-safety review
+of the clinic measure copy and the Nova prompt.
 
 **Phase 3 — publish.** Set `ROBLOX_SERVER_API_KEY` in production secrets,
 configure the published place's HTTP allowlist, publish to Roblox Creator

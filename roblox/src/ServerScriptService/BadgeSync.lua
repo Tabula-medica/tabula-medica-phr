@@ -78,4 +78,25 @@ function BadgeSync.FetchCatalog()
 	return request("GET", "/catalog", nil)
 end
 
+-- Clinic of the Future ------------------------------------------------------
+
+-- Kid-safe measure catalog (id, kidName, npcPrompt, whatItTeaches).
+function BadgeSync.FetchClinicMeasures()
+	return request("GET", "/clinic/measures", nil)
+end
+
+-- Records one fictional-patient care-gap outcome ("closed" | "missed") and
+-- returns the updated scorecard (stars, per-measure tallies, coaching tip).
+function BadgeSync.RecordClinicEvent(player: Player, measureId: string, outcome: string)
+	return request("POST", "/clinic/event", {
+		robloxUserId = tostring(player.UserId),
+		measureId = measureId,
+		outcome = outcome,
+	})
+end
+
+function BadgeSync.FetchClinicScorecard(player: Player)
+	return request("GET", "/clinic/scorecard?robloxUserId=" .. tostring(player.UserId), nil)
+end
+
 return BadgeSync

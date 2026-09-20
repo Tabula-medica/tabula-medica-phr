@@ -83,6 +83,67 @@ linkButton.Activated:Connect(function()
 	statusLabel.Text = response and response.message or "Something went wrong. Try again."
 end)
 
+-- Dr. Nova panel (Clinic of the Future scorecard) -------------------------
+
+local novaFrame = Instance.new("Frame")
+novaFrame.Name = "NovaPanel"
+novaFrame.Size = UDim2.new(0, 320, 0, 120)
+novaFrame.Position = UDim2.new(1, -340, 1, -140)
+novaFrame.BackgroundColor3 = Color3.fromRGB(20, 40, 60)
+novaFrame.BackgroundTransparency = 0.1
+novaFrame.Visible = false
+novaFrame.Parent = screenGui
+
+local novaCorner = Instance.new("UICorner")
+novaCorner.CornerRadius = UDim.new(0, 12)
+novaCorner.Parent = novaFrame
+
+local novaTitle = Instance.new("TextLabel")
+novaTitle.Size = UDim2.new(1, -20, 0, 22)
+novaTitle.Position = UDim2.new(0, 10, 0, 8)
+novaTitle.BackgroundTransparency = 1
+novaTitle.Text = "Dr. Nova — Clinic of the Future"
+novaTitle.TextColor3 = Color3.fromRGB(150, 220, 255)
+novaTitle.Font = Enum.Font.GothamBold
+novaTitle.TextSize = 14
+novaTitle.TextXAlignment = Enum.TextXAlignment.Left
+novaTitle.Parent = novaFrame
+
+local starsLabel = Instance.new("TextLabel")
+starsLabel.Size = UDim2.new(1, -20, 0, 22)
+starsLabel.Position = UDim2.new(0, 10, 0, 32)
+starsLabel.BackgroundTransparency = 1
+starsLabel.Text = ""
+starsLabel.TextColor3 = Color3.fromRGB(255, 215, 120)
+starsLabel.Font = Enum.Font.GothamBold
+starsLabel.TextSize = 18
+starsLabel.TextXAlignment = Enum.TextXAlignment.Left
+starsLabel.Parent = novaFrame
+
+local tipLabel = Instance.new("TextLabel")
+tipLabel.Size = UDim2.new(1, -20, 0, 56)
+tipLabel.Position = UDim2.new(0, 10, 0, 58)
+tipLabel.BackgroundTransparency = 1
+tipLabel.TextWrapped = true
+tipLabel.Text = ""
+tipLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+tipLabel.Font = Enum.Font.Gotham
+tipLabel.TextSize = 12
+tipLabel.TextXAlignment = Enum.TextXAlignment.Left
+tipLabel.TextYAlignment = Enum.TextYAlignment.Top
+tipLabel.Parent = novaFrame
+
+RemoteEvents.ClinicScorecardUpdated.OnClientEvent:Connect(function(scorecard)
+	if not scorecard then
+		return
+	end
+	local stars = scorecard.stars or 0
+	starsLabel.Text = string.rep("★", stars) .. string.rep("☆", 5 - stars)
+		.. ("   %d visits"):format(scorecard.totalEvents or 0)
+	tipLabel.Text = scorecard.coachingTip or ""
+	novaFrame.Visible = true
+end)
+
 -- Reward toast ------------------------------------------------------------
 
 RemoteEvents.RewardEarned.OnClientEvent:Connect(function(payload)

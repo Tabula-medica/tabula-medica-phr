@@ -133,6 +133,44 @@ function generateCode(): string {
   return randomBytes(4).toString("hex").toUpperCase(); // e.g. "8F3C1A9B"
 }
 
+export function getLinkedPatientId(robloxUserId: string): string | undefined {
+  return robloxLinks.get(robloxUserId)?.patientId;
+}
+
+export type AwardResult =
+  | { awarded: true; points: number; badge: Badge }
+  | { awarded: false; reason: "not_linked" | "unknown_badge" | "already_awarded" };
+
+export function awardRobloxBadge(
+  robloxUserId: string,
+  badgeId: string,
+  gameId: string,
+  pointCategory?: string
+): AwardResult {
+  const patientId = getLinkedPatientId(robloxUserId);
+  if (!patientId) return { awarded: false, reason: "not_linked" };
+
+  const badge = getRobloxBadgeById(badgeId);
+  if (!badge) return { awarded: false, reason: "unknown_badge" };
+
+  if (robloxRewards.some((r) => r.patientId === patientId && r.badgeId === badge.id)) {
+    return { awarded: false, reason: "already_awarded" };
+  }
+
+  const category: PointCategory = (pointCategory as PointCategory) || "engagement";
+  const points = calculatePoints(category);
+  robloxRewards.push({
+    id: randomUUID(),
+    patientId,
+    robloxUserId,
+    badgeId: badge.id,
+    gameId,
+    points,
+    awardedAt: new Date().toISOString(),
+  });
+  return { awarded: true, points, badge };
+}
+
 function getPatientId(req: Request): string | undefined {
   const user = req.user as any;
   return user?.claims?.sub || user?.id;
@@ -254,43 +292,26 @@ router.post("/rewards/sync", requireRobloxApiKey, (req: Request, res: Response) 
     return;
   }
 
-  const link = robloxLinks.get(String(robloxUserId));
-  if (!link) {
+  const result = awardRobloxBadge(
+    String(robloxUserId),
+    String(badgeId),
+    gameId ? String(gameId) : "unknown",
+    pointCategory
+  );
+
+  if (result.awarded === false && result.reason === "not_linked") {
     res.status(404).json({ error: "This Roblox account is not linked to a Tabula Medica profile" });
     return;
   }
-
-  const badge = getRobloxBadgeById(String(badgeId));
-  if (!badge) {
+  if (result.awarded === false && result.reason === "unknown_badge") {
     res.status(404).json({ error: "Unknown badge id" });
     return;
   }
 
-  const alreadyAwarded = robloxRewards.some(
-    (r) => r.patientId === link.patientId && r.badgeId === badge.id
-  );
-  if (alreadyAwarded) {
-    res.json({ awarded: false, reason: "already_awarded" });
-    return;
-  }
-
-  const category: PointCategory = (pointCategory as PointCategory) || "engagement";
-  const points = calculatePoints(category);
-
-  const reward: RobloxReward = {
-    id: randomUUID(),
-    patientId: link.patientId,
-    robloxUserId: String(robloxUserId),
-    badgeId: badge.id,
-    gameId: gameId ? String(gameId) : "unknown",
-    points,
-    awardedAt: new Date().toISOString(),
-  };
-  robloxRewards.push(reward);
-
-  res.json({ awarded: true, points, badge });
+  res.json(result);
 });
 
+export { requireRobloxApiKey, getPatientId };
 export default router;
 
 export function registerRobloxEducationRoutes(app: import("express").Express) {
