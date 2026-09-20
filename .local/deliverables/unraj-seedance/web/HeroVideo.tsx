@@ -1,7 +1,8 @@
+"use client";
 /**
  * HeroVideo — React + Tailwind version of the unraj.org Seedance hero.
  * Indigo night gradient with gold accent and amber CTA, matching the campaign palette.
- * Drop into any Vite/Next/React app; no external deps beyond React.
+ * Drop into any Vite/Next/React app; no external deps beyond React. Marked "use client" for the Next.js App Router.
  *
  * <HeroVideo
  *   poster="/media/01-hero-loop/01-hero-loop.jpg"
@@ -40,6 +41,7 @@ export function HeroVideo({
 }: HeroVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const onScreenRef = useRef(true); // latest IntersectionObserver state
   const [videoAllowed, setVideoAllowed] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
@@ -77,6 +79,7 @@ export function HeroVideo({
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
+          onScreenRef.current = e.isIntersecting;
           if (e.isIntersecting) tryPlay();
           else if (!video.paused) video.pause();
         }
@@ -88,7 +91,7 @@ export function HeroVideo({
     const onVis = () => {
       if (document.hidden) {
         if (!video.paused) video.pause();
-      } else tryPlay();
+      } else if (onScreenRef.current) tryPlay(); // never resume an off-screen hero
     };
     document.addEventListener("visibilitychange", onVis);
     return () => {
@@ -97,23 +100,33 @@ export function HeroVideo({
     };
   }, [videoAllowed, userPaused]);
 
-  const toggle = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const next = !userPaused;
-    setUserPaused(next);
+  const persistPaused = (value: boolean) => {
+    setUserPaused(value);
     try {
-      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
     } catch {
       /* ignore */
     }
-    if (next) {
+  };
+
+  // The control reflects real playback, not just the stored preference: if autoplay was
+  // blocked the button shows Play, and the next click retries play() instead of pausing.
+  const toggle = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (playing && !video.paused) {
       video.pause();
       setPlaying(false);
+      persistPaused(true);
     } else {
-      video.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      persistPaused(false);
+      video
+        .play()
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
     }
   };
+  const showPause = playing && !userPaused;
 
   return (
     <>
@@ -188,11 +201,11 @@ export function HeroVideo({
           <button
             type="button"
             onClick={toggle}
-            aria-pressed={!userPaused}
-            aria-label={userPaused ? "Play background video" : "Pause background video"}
+            aria-pressed={showPause}
+            aria-label={showPause ? "Pause background video" : "Play background video"}
             className="absolute right-4 bottom-4 grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-[#060d1f]/55 text-white backdrop-blur focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-amber-200"
           >
-            {userPaused ? (
+            {!showPause ? (
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                 <path fill="currentColor" d="M8 5v14l11-7z" />
               </svg>

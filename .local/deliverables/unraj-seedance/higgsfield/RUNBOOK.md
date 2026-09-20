@@ -68,10 +68,10 @@ Drafts first (≈ 115 credits, ≈ $6) keeps the first spend small and lets you 
 ## 5. What Claude does once connected
 
 1. Lists models to confirm the Seedance 2.0 job type and live schema. **Uses whatever the live schema says; never guesses.**
-2. Uploads `refs/diamond.png` (and later the chosen clip 04 output) through the tool's file input.
+2. Uploads `refs/diamond.png` through the tool's file input. Before job 06, copies the chosen clip 04 download to `out/keepers/04-one-billion-voices.mp4` (the path `jobs.json` names) and uploads that.
 3. Submits each `jobs.json` entry as one generation call; drafts in `fast` mode, finals in `std`.
 4. Polls the job-status tool until `completed`; collects result URLs.
-5. Downloads the MP4s into `../out/` (or returns the URLs if downloads are blocked), writes the sidecar request JSON for provenance, and stops.
+5. Downloads the MP4s into `../out/<id>-s<seed>.mp4` (or returns the URLs if downloads are blocked), writes the sidecar request JSON for provenance, and stops. Keepers are promoted to `../out/keepers/<id>.mp4`.
 6. You pick keepers; `../optimize.sh` does the web encode.
 
 Guardrails enforced during the run: no living public figures, no fake documents or institutional signage, no readable text in frame, respectful historical iconography, every published clip keeps its prompt + seed on file.

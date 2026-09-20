@@ -1,7 +1,7 @@
 # 06 — Social vertical (9:16)
 
 **Use:** Instagram Reels, WhatsApp status, X, YouTube Shorts, linking back to unraj.org · **Duration:** 8 s · **Ratio:** 9:16 · **Resolution:** 1080p · **Audio:** on
-**References:** `@Video1` = the keeper from clip 04 (rhythm and palette reference) · `@Image1` = diamond render.
+**References:** `@Video1` = `out/keepers/04-one-billion-voices.mp4` (promote the chosen 04 seed first) · `@Image1` = `refs/diamond.png`.
 
 ## Prompt
 

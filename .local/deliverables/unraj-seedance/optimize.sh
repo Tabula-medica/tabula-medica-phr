@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Web-encode a Seedance clip for unraj.org.
-#   bash optimize.sh out/01-hero-loop-s1000.mp4            # hero: strips audio, 720p, loop-safe
-#   bash optimize.sh out/02-founder-intro-s1000.mp4 --keep-audio --1080
-#   bash optimize.sh out/03-portfolio-explainer-s1000.mp4 --keep-audio --vertical   # also makes a 9:16 crop
+#   bash optimize.sh out/keepers/01-hero-loop.mp4                          # hero: strips audio, 720p, loop-safe
+#   bash optimize.sh out/keepers/02-story-of-the-stone.mp4 --keep-audio --1080
+#   bash optimize.sh out/keepers/04-one-billion-voices.mp4 --keep-audio --vertical   # also makes a 9:16 crop
+#   bash optimize.sh out/01-hero-loop-s1000.mp4                             # raw seed files work too; -sNNNN is stripped
 #
 # Produces in web/media/<name>/ :
 #   <name>.mp4  (H.264, faststart)   <name>.webm (AV1, falls back to VP9)   <name>.jpg (poster)

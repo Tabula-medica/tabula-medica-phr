@@ -15,6 +15,7 @@
   var saveData = navigator.connection && navigator.connection.saveData === true;
   var slowNet = navigator.connection && /(^|-)2g$/.test(navigator.connection.effectiveType || "");
   var userPaused = false;
+  var onScreen = true; // updated by the IntersectionObserver below; assumed visible without one
   try { userPaused = localStorage.getItem("uh-hero-paused") === "1"; } catch (e) { /* storage may be blocked */ }
 
   if (reducedMotion || saveData || slowNet) {
@@ -73,7 +74,8 @@
   if ("IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
+        onScreen = entry.isIntersecting;
+        if (onScreen) {
           if (!userPaused) play();
         } else if (!video.paused) {
           video.pause(); // save battery off-screen; state label untouched
@@ -92,6 +94,6 @@
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) { if (!video.paused) video.pause(); }
-    else if (!userPaused && hero.classList.contains("is-playing")) { video.play().catch(function () {}); }
+    else if (!userPaused && onScreen) { play(); } // only resume when the hero is actually in view
   });
 })();

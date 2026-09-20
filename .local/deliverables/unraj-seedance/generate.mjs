@@ -7,11 +7,15 @@
  *   FAL_KEY=xxx node generate.mjs --only 01,03    # subset by id prefix
  *   node generate.mjs --estimate                  # cost only, no API calls
  *   FAL_KEY=xxx node generate.mjs --fast          # 720p fast tier for drafts
+ *   node generate.mjs --keep 04:1000              # copy out/04-...-s1000.mp4 to out/keepers/04-....mp4
  *
  * Outputs land in ./out/<id>-s<seed>.mp4 with a sidecar .json of the request.
+ * Chosen seeds are promoted with --keep to ./out/keepers/<id>.mp4, the stable path that
+ * clip 06's video reference, optimize.sh, and the Higgsfield jobs file point at.
+ * Exits non-zero if any seed fails so automation cannot report a partial batch as complete.
  * Reference files listed in prompts.json (refs/*.jpg, *.mp3) are uploaded to fal storage.
  */
-import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat, copyFile } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
@@ -28,6 +32,7 @@ const opt = (name) => {
 const ESTIMATE_ONLY = flag("estimate");
 const FAST = flag("fast");
 const ONLY = (opt("only") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const KEEP = opt("keep"); // "<id-prefix>:<seed>"
 
 // fal.ai list prices, USD per output second (checked Sep 2026; re-verify on fal.ai/seedance-2.0).
 const PRICE_PER_SEC = {
@@ -38,7 +43,24 @@ const PRICE_PER_SEC = {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cfg = JSON.parse(await readFile(path.join(here, "prompts/prompts.json"), "utf8"));
 const outDir = path.join(here, "out");
-await mkdir(outDir, { recursive: true });
+const keepDir = path.join(outDir, "keepers");
+await mkdir(keepDir, { recursive: true });
+
+// ---- keeper promotion (no API calls) --------------------------------------
+if (KEEP) {
+  const [prefix, seed] = KEEP.split(":");
+  const clip = cfg.clips.find((c) => c.id.startsWith(prefix ?? ""));
+  if (!clip || !seed) {
+    console.error("Usage: --keep <clip-id-prefix>:<seed>   e.g. --keep 04:1000");
+    process.exit(1);
+  }
+  const src = path.join(outDir, `${clip.id}-s${seed}.mp4`);
+  await stat(src); // throws if that seed was never generated
+  await copyFile(src, path.join(keepDir, `${clip.id}.mp4`));
+  await copyFile(src.replace(/\.mp4$/, ".json"), path.join(keepDir, `${clip.id}.json`)).catch(() => {});
+  console.log(`✔ keeper: out/keepers/${clip.id}.mp4  (from ${path.basename(src)})`);
+  process.exit(0);
+}
 
 const clips = cfg.clips.filter((c) => ONLY.length === 0 || ONLY.some((p) => c.id.startsWith(p)));
 if (clips.length === 0) {
@@ -101,6 +123,7 @@ async function download(url, dest) {
   await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
 }
 
+const failures = [];
 for (const c of clips) {
   const tier = tierFor();
   const res = resolutionFor(c, tier);
@@ -142,8 +165,14 @@ for (const c of clips) {
       await writeFile(path.join(outDir, `${label}.json`), JSON.stringify({ endpoint, request: req, response: result.data }, null, 2));
       console.log(`  ✔ saved ${path.relative(process.cwd(), dest)}  (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
     } catch (err) {
+      failures.push(label);
       console.error(`  ✖ ${label} failed:`, err?.message ?? err);
     }
   }
 }
-console.log("\nDone. Next: pick keepers, then `bash optimize.sh out/<keeper>.mp4`.");
+if (failures.length) {
+  console.error(`\n${failures.length} generation(s) failed: ${failures.join(", ")}`);
+  process.exitCode = 1;
+} else {
+  console.log("\nDone. Next: promote keepers with `node generate.mjs --keep 01:1000`, then `bash optimize.sh out/keepers/01-hero-loop.mp4`.");
+}
