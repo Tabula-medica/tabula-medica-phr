@@ -170,6 +170,7 @@ const Security = lazy(() => import("@/pages/security"));
 const Privacy = lazy(() => import("@/pages/privacy"));
 const CDSDisabled = lazy(() => import("@/pages/cds-disabled"));
 const GamificationDashboard = lazy(() => import("@/pages/gamification-dashboard"));
+const LifeStageChallenges = lazy(() => import("@/pages/life-stage-challenges"));
 const ComprehensivePatientProfile = lazy(() => import("@/pages/comprehensive-patient-profile"));
 const HealthGoalTracking = lazy(() => import("@/pages/health-goal-tracking"));
 const AuditLogs = lazy(() => import("@/pages/audit-logs"));
@@ -288,6 +289,7 @@ function Router() {
       <Route path="/assessments" component={Assessments} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/achievements" component={GamificationDashboard} />
+      <Route path="/life-stage" component={LifeStageChallenges} />
       <Route path="/settings" component={Settings} />
       <Route path="/settings/notifications" component={NotificationSettings} />
       <Route path="/settings/security" component={SecuritySettings} />

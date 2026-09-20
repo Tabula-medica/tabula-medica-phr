@@ -94,6 +94,22 @@ const ROBLOX_BADGES: Badge[] = [
     isSecret: false,
     createdAt: new Date().toISOString(),
   },
+  // Campus Life tier (teen/college/newlywed) — awarded automatically by
+  // roblox-campus-routes.ts once the Campus Life scorecard reaches 4+
+  // stars over 10+ visits, same pattern as Checkup Champion above. This is
+  // a SEPARATE Roblox experience/place from the kids' World Clinic — see
+  // roblox-campus/README.md for why (Roblox content-maturity labeling).
+  {
+    id: "roblox-campus-champion",
+    name: "Campus Champion",
+    description: "Ran a Campus Life clinic to 4+ stars over 10+ visits. You've got this figured out.",
+    icon: "graduation-cap",
+    category: "milestone",
+    rarity: "uncommon",
+    criteria: "Reach 4+ stars over 10+ visits in Campus Life",
+    isSecret: false,
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 function getRobloxBadgeById(id: string): Badge | undefined {

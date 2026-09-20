@@ -73,8 +73,19 @@ Other working documents in this directory:
 - `roblox-hedis-future-health.md` — "Future Health": HEDIS
   measure *concepts* taught via fictional NPC patients, rules-based star
   rating of the player's own pretend clinic, AI (Vertex, PHI-free) used only
-  for Dr. Nova coaching tips; explains why real-provider HEDIS rating was
+  for Nova's coaching tips; explains why real-provider HEDIS rating was
   deliberately kept out of the kids' game
+- `roblox-campus-life-concept.md` — "World Clinic: Campus Life"
+  (`roblox-campus/`, `server/roblox-campus-routes.ts`): the teen/college/
+  newlywed tier as a SEPARATE Roblox place (content-maturity labeling), with
+  its own preventive-care measure catalog (mental health, sexual health,
+  substance-use screening, sports physicals, family planning, insurance
+  literacy) handled per Roblox's teen-content boundary
+- `life-stage-challenges-concept.md` — "Life Stage Health Challenges"
+  (`server/life-stage-challenges-routes.ts`, `/life-stage` page): decade-
+  banded preventive-care nudges for 50+ users inside the main app (not
+  Roblox — that audience isn't there), auto-tiered from the profile's real
+  date of birth
 
 ---
 
