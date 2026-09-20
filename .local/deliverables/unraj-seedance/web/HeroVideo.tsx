@@ -2,7 +2,9 @@
 /**
  * HeroVideo — React + Tailwind version of the unraj.org Seedance hero.
  * Indigo night gradient with gold accent and amber CTA, matching the campaign palette.
- * Drop into any Vite/Next/React app; no external deps beyond React. Marked "use client" for the Next.js App Router.
+ * Drop into a React app that already uses Tailwind CSS (classes below are Tailwind utilities); for a
+ * site without Tailwind use web/hero-video.html + hero-video.css instead. Marked "use client" for the
+ * Next.js App Router.
  *
  * <HeroVideo
  *   poster="/media/01-hero-loop/01-hero-loop.jpg"
