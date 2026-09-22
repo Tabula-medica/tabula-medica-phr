@@ -1,5 +1,4 @@
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./ai-gateway";
+import { generatePhiSafeText, generatePhiSafeChat } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
 
@@ -10,10 +9,6 @@ export class ConversationOwnershipError extends Error {
   }
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface ChatbotMessage {
   id: string;
@@ -159,13 +154,12 @@ export async function processPatientFAQ(
   }));
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const content = await generatePhiSafeChat({
       messages: [
         {
           role: "system",
           content: `${FAQ_KNOWLEDGE_BASE}
-          
+
 Patient Context (use to personalize responses):
 - Patient Name: ${context.patientName}
 - Known Conditions: ${context.conditions.join(", ") || "Not specified"}
@@ -191,10 +185,8 @@ Format your response as JSON:
         ...conversationHistory,
       ],
       temperature: 0.7,
-      max_tokens: 1000,
+      maxTokens: 1000,
     });
-
-    const content = response.choices[0]?.message?.content || "";
     let parsed: any;
     
     try {

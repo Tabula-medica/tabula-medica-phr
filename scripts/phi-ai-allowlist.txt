@@ -35,11 +35,7 @@ server/services/ai-harmonization-assistant.ts
 server/services/ai-health-assistant.ts
 server/services/ai-onboarding-assistant.ts
 server/services/ai-onboarding-service.ts
-server/services/ai-policy-chatbot.ts
-server/services/ai-proactive-patient-engagement-chatbot-service.ts
 server/services/ai-provider.ts
-server/services/aiCommunication.ts
-server/services/aiPatientEngagement.ts
 server/services/aiProgressFeedbackService.ts
 server/services/analytics-customization.ts
 server/services/document-ocr-service.ts
@@ -51,3 +47,4 @@ server/services/patientAssistant.ts
 server/symptom-tracker-service.ts
 server/usability-features-service.ts
 server/utils/openai-client.ts
+server/ai-provider-search-service.ts

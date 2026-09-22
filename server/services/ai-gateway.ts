@@ -5,9 +5,13 @@
  * (Google BAA) directly via @google-cloud/vertexai — never OpenAI/Anthropic — and
  * prepends the NO-CDS guardrail inside the gateway so no caller can forget it.
  *
- * Any feature that puts patient-identifying content into a prompt MUST call
- * `generatePhiSafeText` here. Non-PHI features may use another provider ONLY via a
- * separate, clearly-named module (see ai-nonphi.ts) — never this one, never a bare
+ * Exports:
+ *   generatePhiSafeText  — single-turn generation (summaries, reports, extractions)
+ *   generatePhiSafeChat  — multi-turn chat (conversation history + new user message)
+ *
+ * Any feature that puts patient-identifying content into a prompt MUST use one of
+ * these exports. Non-PHI features may use another provider ONLY via a separate,
+ * clearly-named module (see ai-nonphi.ts) — never this one, never a bare
  * `new OpenAI(...)` on a PHI path (enforced by scripts/phi-ai-guard.sh).
  *
  * RUNTIME-VERIFY the model id: the OpenAI-compat path in server/lib/vertex-openai.ts
@@ -55,8 +59,8 @@ export interface PhiSafeTextRequest {
 }
 
 /**
- * Run a PHI-bearing generation on Vertex (BAA). Returns the model's text. Throws
- * on transport/model errors — callers should surface a 500, never fall back to a
+ * Run a PHI-bearing single-turn generation on Vertex (BAA). Returns the model's
+ * text. Throws on transport/model errors — callers should never fall back to a
  * non-BAA provider.
  */
 export async function generatePhiSafeText(req: PhiSafeTextRequest): Promise<string> {
@@ -67,6 +71,68 @@ export async function generatePhiSafeText(req: PhiSafeTextRequest): Promise<stri
     generationConfig: {
       maxOutputTokens: req.maxTokens ?? 1024,
       temperature: req.temperature ?? 0.2,
+      ...(req.responseMimeType ? { responseMimeType: req.responseMimeType } : {}),
+    },
+  });
+  const parts = result?.response?.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p: any) => p?.text ?? "").join("");
+}
+
+export interface PhiSafeChatMessage {
+  /** OpenAI uses "assistant"; Vertex uses "model" — both are accepted here. */
+  role: "user" | "model" | "assistant" | "system";
+  content: string;
+}
+
+export interface PhiSafeChatRequest {
+  /**
+   * Full conversation including any leading system messages. "system" role entries
+   * are extracted and appended to the system instruction (NO-CDS guardrail is always
+   * prepended). The last message MUST be role "user".
+   */
+  messages: PhiSafeChatMessage[];
+  /** Additional system context appended after the NO-CDS guardrail. */
+  system?: string;
+  maxTokens?: number;
+  /** e.g. "application/json" to force JSON output. */
+  responseMimeType?: string;
+  /** 0..1; defaults to 0.3 for conversational responses. */
+  temperature?: number;
+}
+
+/**
+ * Run a PHI-bearing multi-turn chat on Vertex (BAA). Accepts the full conversation
+ * history (OpenAI-shaped messages array) and returns the model's reply text. Throws
+ * on error — callers should never fall back to a non-BAA provider.
+ */
+export async function generatePhiSafeChat(req: PhiSafeChatRequest): Promise<string> {
+  const systemParts: string[] = [NO_CDS_GUARDRAIL];
+  if (req.system) systemParts.push(req.system);
+
+  const convMessages: PhiSafeChatMessage[] = [];
+  for (const m of req.messages) {
+    if (m.role === "system") {
+      systemParts.push(m.content);
+    } else {
+      convMessages.push(m);
+    }
+  }
+
+  if (convMessages.length === 0 || convMessages[convMessages.length - 1].role === "model" || convMessages[convMessages.length - 1].role === "assistant") {
+    throw new Error("generatePhiSafeChat: last non-system message must be from the user");
+  }
+
+  const contents = convMessages.map((m) => ({
+    role: (m.role === "assistant" ? "model" : m.role) as "user" | "model",
+    parts: [{ text: m.content }],
+  }));
+
+  const result = await getModel().generateContent({
+    systemInstruction: systemParts.join("\n\n"),
+    contents,
+    generationConfig: {
+      maxOutputTokens: req.maxTokens ?? 1024,
+      temperature: req.temperature ?? 0.3,
       ...(req.responseMimeType ? { responseMimeType: req.responseMimeType } : {}),
     },
   });

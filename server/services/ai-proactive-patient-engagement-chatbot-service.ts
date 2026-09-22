@@ -1,22 +1,6 @@
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./ai-gateway";
+import { generatePhiSafeText, generatePhiSafeChat } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    if (apiKey && apiKey !== 'dummy-key' && baseURL) {
-      openaiClient = new OpenAI({
-        apiKey,
-        baseURL,
-      });
-    }
-  }
-  return openaiClient;
-}
 
 function logAudit(action: string, details: Record<string, unknown>, outcome: 'success' | 'failure') {
   logPhiAccess({
@@ -225,15 +209,12 @@ class AIProactivePatientEngagementChatbotService {
     let response: string;
     let suggestedActions: string[] = [];
     
-    const openai = getOpenAI();
-    if (openai) {
-      try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a helpful, empathetic healthcare assistant chatbot. Your role is to help patients with:
+    try {
+      response = await generatePhiSafeChat({
+        messages: [
+          {
+            role: 'system',
+            content: `You are a helpful, empathetic healthcare assistant chatbot. Your role is to help patients with:
 - Appointment reminders and scheduling questions
 - Basic health queries (educational only, NOT medical advice)
 - Medication reminders
@@ -253,22 +234,17 @@ Patient Context:
 - Medications: ${conversation.context.medications?.join(', ') || 'None specified'}
 
 Respond helpfully to the patient's message.`
-            },
-            ...conversation.messages.slice(-10).map(m => ({
-              role: m.role as 'user' | 'assistant',
-              content: m.content
-            })),
-            { role: 'user', content: message }
-          ],
-          max_completion_tokens: 500
-        });
-        
-        response = completion.choices[0]?.message?.content || this.getFallbackResponse(intent, conversation);
-      } catch (error) {
-        console.log('[ChatbotService] OpenAI error, using fallback:', error);
-        response = this.getFallbackResponse(intent, conversation);
-      }
-    } else {
+          },
+          ...conversation.messages.slice(-10).map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+          })),
+          { role: 'user', content: message }
+        ],
+        maxTokens: 500,
+      });
+    } catch (error) {
+      console.log('[ChatbotService] AI error, using fallback:', error);
       response = this.getFallbackResponse(intent, conversation);
     }
     

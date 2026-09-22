@@ -1,13 +1,8 @@
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./ai-gateway";
+import { generatePhiSafeText, generatePhiSafeChat } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT, sanitizeNoCDSObject } from "../security/no-cds-guardrails";
 import type { Patient, Medication, MedicalRecord, Appointment, LabResult } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function parseAIResponse(content: string | null | undefined): any {
   const raw = JSON.parse(content || "{}");
@@ -414,14 +409,13 @@ Return a JSON object with:
       { role: "user", content: query },
     ];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const rawContent = await generatePhiSafeChat({
       messages,
-      response_format: { type: "json_object" },
-      max_completion_tokens: 800,
+      responseMimeType: "application/json",
+      maxTokens: 800,
     });
 
-    const result = parseAIResponse(response.choices[0]?.message?.content);
+    const result = parseAIResponse(rawContent);
 
     return {
       message: result.message || "I'm here to help. Could you tell me more about your question?",
