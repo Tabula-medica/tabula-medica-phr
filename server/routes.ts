@@ -408,6 +408,7 @@ import insuranceLearningRoutes from "./routes/insurance-learning-routes";
 import familyVerificationRoutes from "./routes/family-verification-routes";
 import familyHubRoutes from "./family-hub-routes";
 import { requireFeature } from "./middleware/require-feature";
+import { requireUser, getUserId } from "./middleware/require-user";
 import enterpriseSavingsRoutes from "./enterprise-savings-routes";
 import uninsuredResourcesRoutes from "./routes/uninsured-resources-routes";
 import cmsMarketplaceRoutes from "./routes/cms-marketplace-routes";
@@ -904,13 +905,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/voice/multilingual", async (req, res) => {
+  app.post("/api/voice/multilingual", requireUser, async (req, res) => {
     try {
       const { audio, format, inputLanguage, outputLanguage, context } = req.body;
       if (!audio) {
         return res.status(400).json({ error: "Audio data (base64) is required" });
       }
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const result = await processVoiceAccess({
         audio,
         format,
@@ -926,10 +927,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/voice/transcribe", async (req, res) => {
+  app.post("/api/voice/transcribe", requireUser, async (req, res) => {
     try {
       const { audio, format } = req.body;
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       if (!audio) {
         return res.status(400).json({ error: "Audio data (base64) is required" });
       }
@@ -951,10 +952,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/voice/synthesize", async (req, res) => {
+  app.post("/api/voice/synthesize", requireUser, async (req, res) => {
     try {
       const { text, language, voice } = req.body;
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
       }
@@ -977,13 +978,13 @@ export async function registerRoutes(
   });
 
   // Document Translation API
-  app.post("/api/translate/document", async (req, res) => {
+  app.post("/api/translate/document", requireUser, async (req, res) => {
     try {
       const { content, sourceLanguage, targetLanguage, documentType } = req.body;
       if (!content) {
         return res.status(400).json({ error: "Document content is required" });
       }
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const result = await translateMedicalDocument({
         content,
         sourceLanguage,
@@ -2500,17 +2501,17 @@ export async function registerRoutes(
   });
 
   // AI chatbot for patient queries
-  app.post("/api/ai-engagement/chatbot", async (req, res) => {
+  app.post("/api/ai-engagement/chatbot", requireUser, async (req, res) => {
     try {
       const validationResult = chatbotQuerySchema.safeParse(req.body);
       if (!validationResult.success) {
-        return res.status(400).json({ 
-          error: "Validation failed", 
-          details: validationResult.error.flatten().fieldErrors 
+        return res.status(400).json({
+          error: "Validation failed",
+          details: validationResult.error.flatten().fieldErrors
         });
       }
       const { patientId, query, conversationHistory } = validationResult.data;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2527,11 +2528,11 @@ export async function registerRoutes(
   });
 
   // Generate personalized health education
-  app.get("/api/ai-engagement/education/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/education/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { topic, format } = req.query;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2554,7 +2555,7 @@ export async function registerRoutes(
   // Get high-risk patients for interventions (admin/provider view)
   app.get("/api/ai-engagement/high-risk-patients", requireAnyPermission("admin:audit", "provider:view_patients"), async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -2581,7 +2582,7 @@ export async function registerRoutes(
         });
       }
       const { patientId, interventionType, reason } = validationResult.data;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2609,11 +2610,11 @@ export async function registerRoutes(
   // ========================================
   
   // Get personalized health education content based on conditions and activity
-  app.get("/api/ai-engagement/education-recommendations/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/education-recommendations/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { format, focusArea, maxResults } = req.query;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2635,10 +2636,10 @@ export async function registerRoutes(
   });
 
   // Generate proactive outreach for a specific patient
-  app.get("/api/ai-engagement/proactive-outreach/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/proactive-outreach/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2657,7 +2658,7 @@ export async function registerRoutes(
   // Identify all patients needing outreach (admin/provider view)
   app.get("/api/ai-engagement/outreach-campaign", requireAnyPermission("admin:audit", "provider:view_patients"), async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -2674,10 +2675,10 @@ export async function registerRoutes(
   });
 
   // Get personalized health goals for a patient
-  app.get("/api/ai-engagement/health-goals/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/health-goals/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2694,10 +2695,10 @@ export async function registerRoutes(
   });
 
   // Get patient health timeline with goals progress and historical data
-  app.get("/api/ai-engagement/health-timeline/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/health-timeline/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2794,7 +2795,7 @@ export async function registerRoutes(
   app.post("/api/ai-communication/summarize-message", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { messageId, threadId, patientId, content, subject, threadHistory } = req.body;
       
       if (!messageId || !content) {
@@ -2848,7 +2849,7 @@ export async function registerRoutes(
   app.post("/api/ai-communication/follow-up-draft", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { patientId, triggerType, triggerData } = req.body;
       
       if (!patientId || !triggerType) {
@@ -2928,7 +2929,7 @@ export async function registerRoutes(
   app.get("/api/care-team/tasks", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       logPhiAccess({
         userId,
@@ -2950,7 +2951,7 @@ export async function registerRoutes(
   app.post("/api/care-team/tasks", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Unknown";
       
       const validationResult = insertCareTeamTaskSchema.safeParse(req.body);
@@ -2978,7 +2979,7 @@ export async function registerRoutes(
   app.get("/api/care-team/tasks/care-plan/:carePlanId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       logPhiAccess({
@@ -3013,7 +3014,7 @@ export async function registerRoutes(
   app.get("/api/care-team/tasks/patient/:patientId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logPhiAccess({
@@ -3036,7 +3037,7 @@ export async function registerRoutes(
   app.patch("/api/care-team/tasks/:taskId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Unknown";
       const { taskId } = req.params;
       
@@ -3056,7 +3057,7 @@ export async function registerRoutes(
   app.post("/api/care-team/handoffs", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertCareHandoffSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -3083,7 +3084,7 @@ export async function registerRoutes(
   app.get("/api/care-team/handoffs/care-plan/:carePlanId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       logPhiAccess({
@@ -3118,7 +3119,7 @@ export async function registerRoutes(
   app.patch("/api/care-team/handoffs/:handoffId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Unknown";
       const { handoffId } = req.params;
       const { status, notes } = req.body;
@@ -3139,7 +3140,7 @@ export async function registerRoutes(
   app.post("/api/care-team/notes", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertCareTeamNoteSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -3166,7 +3167,7 @@ export async function registerRoutes(
   app.get("/api/care-team/notes/care-plan/:carePlanId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       const viewerRole = req.query.role as string || undefined;
       
@@ -3190,7 +3191,7 @@ export async function registerRoutes(
   app.post("/api/care-team/notes/:noteId/read", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { noteId } = req.params;
       
       const note = careTeamCollab.markNoteAsRead(noteId, userId);
@@ -3209,7 +3210,7 @@ export async function registerRoutes(
   app.get("/api/care-team/activities/care-plan/:carePlanId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
       
@@ -3663,7 +3664,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/patient/:patientId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logPhiAccess({
@@ -3686,7 +3687,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/my-plans", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const carePlans = collaborativeCarePlan.getCarePlansByContributor(userId);
       res.json(carePlans);
     } catch (error) {
@@ -3699,7 +3700,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/:carePlanId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.getCollaborativeCarePlan(carePlanId);
@@ -3726,7 +3727,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       
       const carePlan = collaborativeCarePlan.createCollaborativeCarePlan(
@@ -3754,7 +3755,7 @@ export async function registerRoutes(
   app.patch("/api/collaborative-care-plans/:carePlanId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId } = req.params;
@@ -3794,7 +3795,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/goals", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId } = req.params;
@@ -3830,7 +3831,7 @@ export async function registerRoutes(
   app.patch("/api/collaborative-care-plans/:carePlanId/goals/:goalId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId, goalId } = req.params;
@@ -3859,7 +3860,7 @@ export async function registerRoutes(
   app.delete("/api/collaborative-care-plans/:carePlanId/goals/:goalId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId, goalId } = req.params;
@@ -3887,7 +3888,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/interventions", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId } = req.params;
@@ -3927,7 +3928,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/contributors", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const contributor = collaborativeCarePlan.addContributor({
@@ -3966,7 +3967,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/:carePlanId/versions", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.getCollaborativeCarePlan(carePlanId);
@@ -4019,7 +4020,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/acknowledge", requireRole("patient", "provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Patient";
       const { carePlanId } = req.params;
       
@@ -4082,7 +4083,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/suggestions/generate", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.getCollaborativeCarePlan(carePlanId);
@@ -4113,7 +4114,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/suggestions/:suggestionId/review", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const { suggestionId } = req.params;
       const { status, notes } = req.body;
@@ -4141,7 +4142,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/suggestions/:suggestionId/apply", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { suggestionId } = req.params;
@@ -4168,7 +4169,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/lock", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       const { reason } = req.body;
       
@@ -4188,7 +4189,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/unlock", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.unlockCarePlan(carePlanId, userId);
@@ -4210,7 +4211,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/:carePlanId/access", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const access = collaborativeCarePlan.getContributorAccess(carePlanId, userId);
@@ -4231,7 +4232,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/generate", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { patientContext, primaryCondition, additionalNotes } = req.body;
       
       if (!patientContext || !primaryCondition) {
@@ -4258,7 +4259,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/suggest-tasks", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4285,7 +4286,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/suggest-interventions", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext, goalId } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4312,7 +4313,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/optimize", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4339,7 +4340,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/progress-summary", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4734,10 +4735,10 @@ export async function registerRoutes(
   console.log("[Routes] AI Progress Feedback routes registered at /api/progress-feedback");
   const aiProgressFeedbackService = await import("./services/aiProgressFeedbackService");
 
-  app.get("/api/progress-feedback/:patientId", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       const forceRefresh = req.query.refresh === "true";
 
@@ -4761,10 +4762,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/trends", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/trends", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4787,10 +4788,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/encouragement", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/encouragement", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4814,10 +4815,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/goals", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/goals", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4840,10 +4841,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/adjustments", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/adjustments", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4954,10 +4955,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/goals/:goalId", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/goals/:goalId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId, goalId } = req.params;
 
       logPhiAccess({
@@ -4986,9 +4987,9 @@ export async function registerRoutes(
   const predictiveAnalytics = await import("./services/predictiveAnalytics");
 
   // Get feature adoption trends and predictions
-  app.get("/api/predictive-dashboard/feature-adoption", async (req, res) => {
+  app.get("/api/predictive-dashboard/feature-adoption", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -5005,9 +5006,9 @@ export async function registerRoutes(
   });
 
   // Get churn mitigation dashboard
-  app.get("/api/predictive-dashboard/churn-mitigation", async (req, res) => {
+  app.get("/api/predictive-dashboard/churn-mitigation", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -5024,10 +5025,10 @@ export async function registerRoutes(
   });
 
   // Get specific user churn mitigation strategy
-  app.get("/api/predictive-dashboard/churn-mitigation/:userId", async (req, res) => {
+  app.get("/api/predictive-dashboard/churn-mitigation/:userId", requireUser, async (req, res) => {
     try {
       const { userId: targetUserId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -5549,7 +5550,7 @@ Respond in JSON format with these fields:
     try {
       const { patientId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       await logPhiAccess({
         userId,
@@ -5576,7 +5577,7 @@ Respond in JSON format with these fields:
   app.post("/api/immunizations", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertImmunizationSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -5609,7 +5610,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getImmunization(id);
       if (!existing) {
@@ -5643,7 +5644,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getImmunization(id);
       if (!existing) {
@@ -5682,7 +5683,7 @@ Respond in JSON format with these fields:
       const { patientId } = req.params;
       const { metricType } = req.query;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       await logPhiAccess({
         userId,
@@ -5714,7 +5715,7 @@ Respond in JSON format with these fields:
   app.post("/api/health-metrics", requireRole("patient", "provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertAdvancedHealthMetricSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -5747,7 +5748,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getAdvancedHealthMetric(id);
       if (!existing) {
@@ -5786,7 +5787,7 @@ Respond in JSON format with these fields:
       const { patientId } = req.params;
       const { conditionType } = req.query;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       await logPhiAccess({
         userId,
@@ -5818,7 +5819,7 @@ Respond in JSON format with these fields:
   app.post("/api/condition-proms", requireRole("patient", "provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertConditionSpecificPROMSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -5851,7 +5852,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getConditionSpecificPROM(id);
       if (!existing) {
@@ -8015,7 +8016,7 @@ STRICT NO-CDS CONSTRAINTS:
     const connections = await storage.getEhrConnections();
     const patients = await storage.getPatients();
     const user = req.user as { claims?: { sub?: string } } | undefined;
-    const currentUserId = user?.claims?.sub || "current-user";
+    const currentUserId = getUserId(req);
     const timelineEvents: UnifiedTimelineEvent[] = [];
 
     for (const patient of patients) {
@@ -8414,7 +8415,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/reminders", requirePermission("medications:read"), auditDataAccess("medication_reminders", "list"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const reminders = await storage.getMedicationReminders(userId);
       res.json(reminders);
     } catch (error) {
@@ -8427,7 +8428,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/reminders", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const createReminderSchema = z.object({
         medicationId: z.string().min(1),
@@ -8468,7 +8469,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.patch("/api/medications/reminders/:id", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const updateSchema = z.object({
@@ -8504,7 +8505,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.delete("/api/medications/reminders/:id", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingReminder = await storage.getMedicationReminder(id);
@@ -8527,7 +8528,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/adherence", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const { missedDoseReasons } = await import("@shared/schema");
       
@@ -8591,7 +8592,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/adherence/stats", requirePermission("medications:read"), auditDataAccess("medication_adherence", "view"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { medicationId, periodDays } = req.query;
       
       const stats = await storage.getMedicationAdherenceStats(
@@ -8611,7 +8612,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/adherence/records", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { medicationId } = req.query;
       
       const records = await storage.getMedicationAdherenceRecords(
@@ -8630,7 +8631,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/adherence/patterns", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const records = await storage.getMedicationAdherenceRecords(userId);
       const { analyzeAdherencePatterns } = await import("./medication-ai");
@@ -8647,7 +8648,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/coaching", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const sessions = await storage.getAdherenceCoachingSessions(userId);
       res.json(sessions);
@@ -8661,7 +8662,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/coaching/check-in", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const records = await storage.getMedicationAdherenceRecords(userId);
       const { analyzeAdherencePatterns, generateProactiveCoaching } = await import("./medication-ai");
@@ -8685,7 +8686,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/coaching/:id/complete", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const session = await storage.getAdherenceCoachingSession(id);
@@ -8708,7 +8709,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/interactions", requirePermission("medications:read"), auditDataAccess("drug_interactions", "list"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const interactions = await storage.getDrugInteractions(userId);
       res.json(interactions);
     } catch (error) {
@@ -8721,7 +8722,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/analyze", requirePermission("medications:read"), auditDataAccess("medication_analysis", "view"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const { analyzePatientMedications } = await import("./medication-ai");
       const analysis = await analyzePatientMedications(userId);
@@ -8737,7 +8738,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/interactions/:id/acknowledge", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingInteraction = await storage.getDrugInteraction(id);
@@ -8757,7 +8758,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/insights", requirePermission("medications:read"), auditDataAccess("medication_insights", "list"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const insights = await storage.getMedicationAIInsights(userId);
       res.json(insights);
     } catch (error) {
@@ -8770,7 +8771,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.patch("/api/medications/insights/:id/read", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingInsight = await storage.getMedicationAIInsight(id);
@@ -8793,7 +8794,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/insights/:id/dismiss", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingInsight = await storage.getMedicationAIInsight(id);
@@ -10500,7 +10501,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/assistant/conversations", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const conversations = await storage.getAssistantConversations(userId);
       res.json(conversations);
@@ -10514,7 +10515,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/assistant/conversations/:id", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const conversation = await storage.getAssistantConversation(req.params.id);
       if (!conversation || conversation.userId !== userId) {
@@ -10533,7 +10534,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/conversations", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { patientId, title } = req.body;
       
       const conversation = await storage.createAssistantConversation({
@@ -10553,7 +10554,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/assistant/conversations/:id", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       await storage.deleteAssistantConversation(req.params.id, userId);
       res.json({ success: true });
@@ -10567,7 +10568,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/conversations/:id/messages", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { message, patientId, language } = req.body;
       
       if (!message || message.trim().length === 0) {
@@ -10647,7 +10648,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/conversations/:id/stream", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { message, patientId, language } = req.body;
       
       if (!message || message.trim().length === 0) {
@@ -10776,7 +10777,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/ask", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { question, patientId, language } = req.body;
       
       if (!question || question.trim().length === 0) {
@@ -10822,7 +10823,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/dashboard", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const stats = await storage.getPrivacyDashboardStats(userId);
       const summaries = await storage.getConsentSummaries(userId);
@@ -10838,7 +10839,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/recipients", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const recipients = await storage.getSharingRecipients(userId);
       res.json(recipients);
@@ -10852,7 +10853,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/privacy/recipients", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertSharingRecipientSchema.safeParse({
         ...req.body,
@@ -10885,7 +10886,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.patch("/api/privacy/recipients/:id", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existing = await storage.getSharingRecipient(id);
@@ -10922,7 +10923,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/privacy/recipients/:id", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       await storage.deleteSharingRecipient(id, userId);
@@ -10947,7 +10948,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/recipients/:id/consents", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const recipient = await storage.getSharingRecipient(id);
@@ -10967,7 +10968,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.put("/api/privacy/recipients/:id/consents", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       const { consents } = req.body;
       
@@ -11010,7 +11011,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/consents", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const consents = await storage.getDataSharingConsents(userId);
       res.json(consents);
@@ -11024,7 +11025,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/privacy/consents", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertDataSharingConsentSchema.safeParse({
         ...req.body,
@@ -11059,7 +11060,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/privacy/consents/:id", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const consent = await storage.getDataSharingConsent(id);
@@ -11092,7 +11093,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/policies", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const policies = await storage.getDefaultSharingPolicies(userId);
       res.json(policies);
@@ -11106,7 +11107,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.put("/api/privacy/policies", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertDefaultSharingPolicySchema.safeParse({
         ...req.body,
@@ -11140,7 +11141,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/audit-log", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 50;
       
       const logs = await storage.getConsentAuditLogs(userId, limit);
@@ -11155,7 +11156,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/check", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { patientUserId, category } = req.query;
       
       if (!patientUserId || !category) {
@@ -11187,7 +11188,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/preferences", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const prefs = await storage.getResearchPreferences(userId);
       res.json(prefs || {
@@ -11208,7 +11209,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.put("/api/research/preferences", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertResearchPreferencesSchema.safeParse({
         ...req.body,
@@ -11240,7 +11241,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/datasets", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const datasets = await storage.getDeidentifiedDatasets(userId);
       res.json(datasets);
@@ -11254,7 +11255,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/stats", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const stats = await getDatasetStats(userId);
       res.json(stats);
@@ -11268,7 +11269,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/research/datasets", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const { method, purpose, categories, dateShiftDays, ageThreshold, zipCodeTruncation } = req.body;
       
@@ -11353,7 +11354,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/datasets/:id", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const dataset = await storage.getDeidentifiedDataset(id);
@@ -11373,7 +11374,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/datasets/:id/download", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       const { format } = req.query;
       
@@ -11430,7 +11431,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/research/datasets/:id", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const dataset = await storage.getDeidentifiedDataset(id);
@@ -11452,7 +11453,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/audit-log", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const logs = await storage.getDeidentificationAuditLogsByUser(userId);
       res.json(logs);
@@ -11470,7 +11471,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/risk-assessments", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const assessments = await storage.getHealthRiskAssessments(patientId);
       res.json(assessments);
@@ -11484,7 +11485,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/health-insights/risk-assessments/generate", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const assessments = await generateHealthRiskAssessment(patientId);
       res.json(assessments);
@@ -11515,7 +11516,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/coaching", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const sessions = await storage.getHealthCoachingSessions(patientId);
       res.json(sessions);
@@ -11529,7 +11530,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/health-insights/coaching", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const { goalType, customGoal } = req.body;
       
       if (!goalType) {
@@ -11627,7 +11628,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/personalized", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const insights = await storage.getPersonalizedHealthInsights(patientId);
       res.json(insights);
@@ -11641,7 +11642,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/health-insights/personalized/generate", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const insights = await generatePersonalizedInsights(patientId);
       res.json(insights);
@@ -11684,7 +11685,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/dashboard", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [riskAssessments, coachingSessions, personalizedInsights] = await Promise.all([
         storage.getHealthRiskAssessments(patientId),
@@ -11714,10 +11715,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // ============================================
 
   // Analyze health data and generate predictive risk assessments
-  app.post("/api/health-insights/predictive/analyze", async (req, res) => {
+  app.post("/api/health-insights/predictive/analyze", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [medications, allergies, conditions, labResults] = await Promise.all([
         storage.getMedicationsByPatient(patientId),
@@ -11766,10 +11767,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Generate AI-powered patient health summary
-  app.post("/api/health-insights/summary/generate", async (req, res) => {
+  app.post("/api/health-insights/summary/generate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [medications, allergies, conditions, labResults] = await Promise.all([
         storage.getMedicationsByPatient(patientId),
@@ -11803,10 +11804,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get lab trend analysis
-  app.get("/api/health-insights/lab-trends", async (req, res) => {
+  app.get("/api/health-insights/lab-trends", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const timeframeDays = parseInt(req.query.days as string) || 365;
       
       const labResults = await storage.getLabResultsByPatient(patientId);
@@ -11827,10 +11828,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get combined predictive insights (summary + risks + trends)
-  app.get("/api/health-insights/predictive", async (req, res) => {
+  app.get("/api/health-insights/predictive", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [medications, allergies, conditions, labResults, wearableConnections, wearableData] = await Promise.all([
         storage.getMedicationsByPatient(patientId),
@@ -11937,10 +11938,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // ============================================
 
   // Get personalized content recommendations
-  app.get("/api/content-recommendations", async (req, res) => {
+  app.get("/api/content-recommendations", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [conditions, medications, labResults] = await Promise.all([
         storage.getProblemsByPatient(patientId),
@@ -11997,10 +11998,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get enhanced health trend analysis
-  app.get("/api/health-insights/trends/enhanced", async (req, res) => {
+  app.get("/api/health-insights/trends/enhanced", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [labResults, vitals] = await Promise.all([
         storage.getLabResultsByPatient(patientId),
@@ -12030,10 +12031,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get early warning indicators
-  app.get("/api/health-insights/warnings", async (req, res) => {
+  app.get("/api/health-insights/warnings", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [conditions, medications, labResults, vitals] = await Promise.all([
         storage.getProblemsByPatient(patientId),
@@ -12068,10 +12069,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get combined insights dashboard data (recommendations + trends + warnings)
-  app.get("/api/health-insights/enhanced-dashboard", async (req, res) => {
+  app.get("/api/health-insights/enhanced-dashboard", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [conditions, medications, labResults, vitals] = await Promise.all([
         storage.getProblemsByPatient(patientId),
@@ -12216,10 +12217,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // ============================================
 
   // Get gamification summary (stats, badges, streaks, nudges)
-  app.get("/api/gamification/summary", async (req, res) => {
+  app.get("/api/gamification/summary", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const { 
         createInitialPlayerStats, 
@@ -12307,10 +12308,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Record daily check-in and update streak
-  app.post("/api/gamification/checkin", async (req, res) => {
+  app.post("/api/gamification/checkin", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const { 
         updateStreak, 
@@ -12365,10 +12366,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Award points for goal progress
-  app.post("/api/gamification/award-points", async (req, res) => {
+  app.post("/api/gamification/award-points", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const { category, description, goalId } = req.body;
       
@@ -12413,10 +12414,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get leaderboard
-  app.get("/api/gamification/leaderboard", async (req, res) => {
+  app.get("/api/gamification/leaderboard", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const type = (req.query.type as "weekly" | "monthly" | "all_time") || "weekly";
       
       const { generateAnonymousLeaderboard, createInitialPlayerStats } = await import("./gamification-engine");
@@ -12472,10 +12473,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get point history
-  app.get("/api/gamification/points/history", async (req, res) => {
+  app.get("/api/gamification/points/history", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 20;
       
       const transactions = await storage.getPointTransactions(patientId, limit);
@@ -12494,10 +12495,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // PATIENT ENGAGEMENT ENHANCEMENTS
   // ============================================
 
-  app.post("/api/gamification/record-adherence", async (req, res) => {
+  app.post("/api/gamification/record-adherence", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const { medicationName, action } = req.body;
 
       const { createPointTransaction, calculateLevel, createInitialPlayerStats, updateStreak } = await import("./gamification-engine");
@@ -12551,10 +12552,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
     }
   });
 
-  app.get("/api/gamification/adherence-stats", async (req, res) => {
+  app.get("/api/gamification/adherence-stats", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const streaks = await storage.getStreakRecords(patientId);
       const medStreak = streaks.find(s => s.streakType === "medication_adherence");
@@ -12595,10 +12596,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
     }
   });
 
-  app.post("/api/gamification/record-journal", async (req, res) => {
+  app.post("/api/gamification/record-journal", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const { entryType } = req.body;
 
       const { createPointTransaction, calculateLevel, createInitialPlayerStats } = await import("./gamification-engine");
@@ -12879,10 +12880,10 @@ Generate a JSON response:
   };
 
   // Get message threads for a patient
-  app.get("/api/messages/threads", async (req, res) => {
+  app.get("/api/messages/threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       res.json(threads);
@@ -12893,10 +12894,10 @@ Generate a JSON response:
   });
 
   // Get unread message count for the current user
-  app.get("/api/messages/unread-count", async (req, res) => {
+  app.get("/api/messages/unread-count", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       const totalUnread = threads.reduce((sum, thread) => sum + thread.unreadCount, 0);
@@ -12909,10 +12910,10 @@ Generate a JSON response:
   });
 
   // Get recent message notifications for the notification dropdown
-  app.get("/api/messages/notifications/recent", async (req, res) => {
+  app.get("/api/messages/notifications/recent", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       
@@ -12942,10 +12943,10 @@ Generate a JSON response:
   });
 
   // Mark all messages as read
-  app.post("/api/messages/mark-all-read", async (req, res) => {
+  app.post("/api/messages/mark-all-read", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       for (const thread of threads) {
@@ -12962,11 +12963,11 @@ Generate a JSON response:
   });
 
   // Get a specific thread with messages
-  app.get("/api/messages/threads/:id", async (req, res) => {
+  app.get("/api/messages/threads/:id", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const thread = await storage.getMessageThread(id);
       
@@ -12992,10 +12993,10 @@ Generate a JSON response:
   });
 
   // Create a new message thread
-  app.post("/api/messages/threads", async (req, res) => {
+  app.post("/api/messages/threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const validation = insertMessageThreadSchema.safeParse({
         ...req.body,
@@ -13016,11 +13017,11 @@ Generate a JSON response:
   });
 
   // Archive a thread
-  app.post("/api/messages/threads/:id/archive", async (req, res) => {
+  app.post("/api/messages/threads/:id/archive", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       // Verify ownership
       if (!await verifyThreadOwnership(id, patientId)) {
@@ -13036,11 +13037,11 @@ Generate a JSON response:
   });
 
   // Close a thread
-  app.post("/api/messages/threads/:id/close", async (req, res) => {
+  app.post("/api/messages/threads/:id/close", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify ownership
       if (!await verifyThreadOwnership(id, userId)) {
@@ -13059,11 +13060,11 @@ Generate a JSON response:
   });
 
   // Mark all messages in a thread as read
-  app.post("/api/messages/threads/:id/read", async (req, res) => {
+  app.post("/api/messages/threads/:id/read", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify ownership
       if (!await verifyThreadOwnership(id, userId)) {
@@ -13079,11 +13080,11 @@ Generate a JSON response:
   });
 
   // Send a message in a thread
-  app.post("/api/messages/threads/:id/messages", async (req, res) => {
+  app.post("/api/messages/threads/:id/messages", requireUser, async (req, res) => {
     try {
       const { id: threadId } = req.params;
       const user = req.user as any;
-      const senderId = user?.claims?.sub || "current-user";
+      const senderId = getUserId(req);
       const senderName = user?.claims?.name || "Patient";
       
       // Verify ownership/participation
@@ -13132,11 +13133,11 @@ Generate a JSON response:
   });
 
   // Delete a message (only message owner can delete)
-  app.delete("/api/messages/:id", async (req, res) => {
+  app.delete("/api/messages/:id", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify message ownership
       const message = await storage.getSecureMessage(id);
@@ -13156,11 +13157,11 @@ Generate a JSON response:
   });
 
   // Delete an attachment (only uploader can delete)
-  app.delete("/api/messages/attachments/:id", async (req, res) => {
+  app.delete("/api/messages/attachments/:id", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify attachment ownership via message
       const attachments = await storage.getMessageAttachments(id);
@@ -13203,7 +13204,7 @@ Generate a JSON response:
     if (!user) {
       return { patientId: "", authorized: false };
     }
-    const patientId = user.claims?.sub || "current-user";
+    const patientId = getUserId(req);
     // In production, add additional role-based checks here
     // e.g., user.role must include 'patient' or 'care_coordinator' with EHR access
     return { patientId, authorized: true };
@@ -13367,10 +13368,10 @@ Generate a JSON response:
   // ============================================
 
   // Get all wearable connections for user
-  app.get("/api/wearables/connections", async (req, res) => {
+  app.get("/api/wearables/connections", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const connections = await storage.getWearableConnections(userId);
       res.json(connections);
     } catch (error) {
@@ -13395,10 +13396,10 @@ Generate a JSON response:
   });
 
   // Create new wearable connection
-  app.post("/api/wearables/connections", async (req, res) => {
+  app.post("/api/wearables/connections", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const connection = await storage.createWearableConnection({
         ...req.body,
         userId,
@@ -13464,10 +13465,10 @@ Generate a JSON response:
   // ============================================
 
   // Get wearable data records with filters
-  app.get("/api/wearables/data", async (req, res) => {
+  app.get("/api/wearables/data", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { dataType, startDate, endDate } = req.query;
       
       const records = await storage.getWearableDataRecords(
@@ -13484,10 +13485,10 @@ Generate a JSON response:
   });
 
   // Get latest data for a specific type
-  app.get("/api/wearables/data/latest/:dataType", async (req, res) => {
+  app.get("/api/wearables/data/latest/:dataType", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { dataType } = req.params;
       
       const record = await storage.getLatestWearableData(userId, dataType as any);
@@ -13518,10 +13519,10 @@ Generate a JSON response:
   // ============================================
 
   // Get all external data sources (EHR + Wearables combined)
-  app.get("/api/data-sources", async (req, res) => {
+  app.get("/api/data-sources", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const sources = await storage.getAllExternalDataSources(userId);
       res.json(sources);
     } catch (error) {
@@ -13546,10 +13547,10 @@ Generate a JSON response:
   // ============================================
 
   // Get onboarding status
-  app.get("/api/onboarding/status", async (req, res) => {
+  app.get("/api/onboarding/status", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const status = await storage.getOnboardingStatus(userId);
       res.json(status || { hasCompletedOnboarding: false, completedSteps: [] });
     } catch (error) {
@@ -13559,10 +13560,10 @@ Generate a JSON response:
   });
 
   // Complete onboarding
-  app.post("/api/onboarding/complete", async (req, res) => {
+  app.post("/api/onboarding/complete", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { completedSteps, goals } = req.body;
 
       // Validate completedSteps
@@ -13648,10 +13649,10 @@ Generate a JSON response:
   });
 
   // Complete patient registration with full form data
-  app.post("/api/patient-onboarding/complete", async (req, res) => {
+  app.post("/api/patient-onboarding/complete", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Validate request body with Zod
       const { z } = await import("zod");
@@ -14007,7 +14008,7 @@ Generate a JSON response:
   app.post("/api/care-plans", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const createdBy = user?.claims?.sub || "system";
+      const createdBy = getUserId(req);
       
       const { insertCarePlanSchema } = await import("@shared/schema");
       const validation = insertCarePlanSchema.safeParse({ ...req.body, createdBy });
@@ -18348,14 +18349,14 @@ STRICT CONSTRAINTS:
   // AI CHART INSIGHTS - Risk Stratification, History Summary, Care Gaps
   // ============================================
 
-  app.get("/api/patients/:patientId/predictive-risk", async (req, res) => {
+  app.get("/api/patients/:patientId/predictive-risk", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      const userId = (req as any).session?.userId || (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { logPhiAccess } = await import("./security/hipaa-audit");
       await logPhiAccess({ userId, patientId, resourceType: "PredictiveRiskStratification", action: "read", details: `AI predictive risk stratification accessed for patient ${patientId}`, requestPath: req.path, requestMethod: req.method });
       const { getPredictiveRiskStratification } = await import("./services/ai-chart-insights-service");
@@ -18367,14 +18368,14 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/history-summary", async (req, res) => {
+  app.get("/api/patients/:patientId/history-summary", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      const userId = (req as any).session?.userId || (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { logPhiAccess } = await import("./security/hipaa-audit");
       await logPhiAccess({ userId, patientId, resourceType: "ComprehensiveHistorySummary", action: "read", details: `AI comprehensive history summary accessed for patient ${patientId}`, requestPath: req.path, requestMethod: req.method });
       const { getComprehensiveHistorySummary } = await import("./services/ai-chart-insights-service");
@@ -18386,14 +18387,14 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/care-gaps-ai", async (req, res) => {
+  app.get("/api/patients/:patientId/care-gaps-ai", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      const userId = (req as any).session?.userId || (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { logPhiAccess } = await import("./security/hipaa-audit");
       await logPhiAccess({ userId, patientId, resourceType: "CareGapAnalysis", action: "read", details: `AI care gap analysis accessed for patient ${patientId}`, requestPath: req.path, requestMethod: req.method });
       const { getCareGapAnalysis } = await import("./services/ai-chart-insights-service");
@@ -19935,7 +19936,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
   // ============================================
 
   // Universal search endpoint with AI natural language processing
-  app.post("/api/search", async (req, res) => {
+  app.post("/api/search", requireUser, async (req, res) => {
     try {
       const { query, patientId, filters, isVoiceQuery, queryLanguage } = req.body;
       const startTime = Date.now();
@@ -19997,7 +19998,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const executionTimeMs = Date.now() - startTime;
 
       // Save search query for history
-      const userId = (req as any).user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const searchQuery: SearchQuery = {
         id: randomUUID(),
         patientId,
@@ -20056,9 +20057,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Get recent searches
-  app.get("/api/search/history", async (req, res) => {
+  app.get("/api/search/history", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 10;
       const searches = await storage.getRecentSearches(userId, limit);
       res.json(searches);
@@ -20316,7 +20317,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       const user = (req as any).user;
-      const generatedBy = user?.claims?.email || user?.claims?.sub || "system";
+      const generatedBy = user?.claims?.email || getUserId(req);
 
       const report = await generateReport({
         name,
@@ -21536,7 +21537,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const user = req.user as any;
       const incident = await storage.createSafetyIncident({
         ...req.body,
-        reporterId: user?.claims?.sub || "system",
+        reporterId: getUserId(req),
       });
       res.status(201).json(incident);
     } catch (error) {
@@ -21729,7 +21730,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_schedule_optimization",
         resourceType: "appointment",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI scheduling optimization",
         accessType: "read",
         phiFields: ["patientId", "conditions", "medications"],
@@ -21771,7 +21772,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_prior_auth_generation",
         resourceType: "prior_authorization",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI prior authorization generation",
         accessType: "create",
         phiFields: ["patientId", "conditions", "medications", "procedures"],
@@ -21819,7 +21820,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_prior_auth_status_check",
         resourceType: "prior_authorization",
         resourceId: req.params.requestId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "Prior authorization status check",
         accessType: "read",
         phiFields: ["requestId", "status"],
@@ -21853,7 +21854,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_visit_summary_generation",
         resourceType: "visit_summary",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI visit summary generation",
         accessType: "create",
         phiFields: ["patientId", "visitDate", "chiefComplaint", "clinicalNotes"],
@@ -21903,7 +21904,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_referral_generation",
         resourceType: "referral",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI referral letter generation",
         accessType: "create",
         phiFields: ["patientId", "conditions", "medications", "reason"],
@@ -21952,7 +21953,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_intake_form_generation",
         resourceType: "intake_form",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI adaptive intake form generation",
         accessType: "create",
         phiFields: ["patientId", "conditions", "medications"],
@@ -21994,7 +21995,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_intake_analysis",
         resourceType: "intake_response",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI intake response analysis",
         accessType: "read",
         phiFields: ["patientId", "responses"],
@@ -22106,7 +22107,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "export_policy_created",
         resourceType: "export_policy",
         resourceId: policy.id,
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         accessReason: "Admin created export policy",
         accessType: "create",
         phiFields: [],
@@ -22132,7 +22133,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "export_policy_updated",
         resourceType: "export_policy",
         resourceId: req.params.id,
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         accessReason: "Admin updated export policy",
         accessType: "update",
         phiFields: [],
@@ -22155,7 +22156,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "export_policy_deleted",
         resourceType: "export_policy",
         resourceId: req.params.id,
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         accessReason: "Admin deleted export policy",
         accessType: "delete",
         phiFields: [],
@@ -22292,7 +22293,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/export-control/requests/:id/approve", requireRole("admin", "provider"), async (req, res) => {
     try {
       const user = req.user as any;
-      const approverId = user?.claims?.sub || "system";
+      const approverId = getUserId(req);
       
       const request = await storage.approveExportRequest(req.params.id, approverId);
       if (!request) {
@@ -22320,7 +22321,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/export-control/requests/:id/deny", requireRole("admin", "provider"), async (req, res) => {
     try {
       const user = req.user as any;
-      const approverId = user?.claims?.sub || "system";
+      const approverId = getUserId(req);
       const reason = req.body.reason || "No reason provided";
       
       const request = await storage.denyExportRequest(req.params.id, approverId, reason);
@@ -23562,7 +23563,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "patient";
       
       const validationResult = documentAnalysisRequestSchema.safeParse(req.body);
@@ -23631,7 +23632,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "patient";
 
       await logPhiAccess({
@@ -23665,7 +23666,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const { patientId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "patient";
 
       await logPhiAccess({
@@ -23805,7 +23806,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/alerts", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
 
       const { patientId, status, severity } = req.query;
@@ -23835,7 +23836,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/alerts/:alertId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
 
@@ -23864,7 +23865,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/alerts/:alertId/acknowledge", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || user?.claims?.email || "Unknown";
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
@@ -23894,7 +23895,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/alerts/:alertId/resolve", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
 
@@ -23930,7 +23931,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/alerts/:alertId/escalate", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
 
@@ -23966,7 +23967,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/interventions", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
 
       const { patientId, alertId, status } = req.query;
@@ -23996,7 +23997,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/interventions/:interventionId/approve", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { interventionId } = req.params;
 
@@ -24025,7 +24026,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/interventions/:interventionId/complete", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { interventionId } = req.params;
 
@@ -24061,7 +24062,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/analyze/:patientId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { patientId } = req.params;
 
@@ -24131,7 +24132,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/dashboard", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
 
       await logPhiAccess({
@@ -24225,7 +24226,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const patientId = req.query.patientId as string || user?.claims?.sub;
       
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "EHR_Connection",
         action: "read",
@@ -24260,7 +24261,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       );
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: data.patientId,
         resourceType: "EHR_Connection",
         action: "create",
@@ -24283,7 +24284,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const syncLog = await providerIntegration.ehrIntegrationService.syncConnection(connectionId, resourceTypes);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: syncLog.patientId,
         resourceType: "EHR_Sync",
         action: "create",
@@ -24318,7 +24319,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const connection = providerIntegration.ehrIntegrationService.getConnection(connectionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection?.patientId || "unknown",
         resourceType: "FHIR_Patient_Record",
         action: "read",
@@ -24346,7 +24347,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const connection = providerIntegration.ehrIntegrationService.getConnection(connectionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection?.patientId || "unknown",
         resourceType: "FHIR_Lab_Results",
         action: "read",
@@ -24369,7 +24370,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const connection = providerIntegration.ehrIntegrationService.getConnection(connectionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection?.patientId || "unknown",
         resourceType: "FHIR_Medication_History",
         action: "read",
@@ -24428,7 +24429,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const result = await providerIntegration.ehrIntegrationService.sendPrescriptionToEhr(connectionId, validationResult.data);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection.patientId,
         resourceType: "FHIR_Prescription_Transmission",
         action: "create",
@@ -24463,7 +24464,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const result = await providerIntegration.ehrIntegrationService.sendReferralToEhr(connectionId, validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection.patientId,
         resourceType: "FHIR_Referral_Transmission",
         action: "create",
@@ -24488,7 +24489,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       );
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         resourceType: "External_Provider_Query",
         action: "read",
         details: `Queried external provider ${providerId} on ${ehrSystem} network`,
@@ -24670,7 +24671,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
 
       const user = req.user as any;
       logPhiAccess({
-        userId: user?.claims?.sub || "anonymous",
+        userId: getUserId(req),
         resourceType: "AI_Provider_Search",
         action: "ai_analysis",
         details: `Semantic search performed: ${query.substring(0, 50)}...`,
@@ -24738,7 +24739,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "EPrescription",
         action: "read",
@@ -24764,7 +24765,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const prescription = providerIntegration.prescriptionRoutingService.createPrescription(validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: prescription.patientId,
         resourceType: "EPrescription",
         action: "create",
@@ -24786,7 +24787,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const prescription = await providerIntegration.prescriptionRoutingService.sendPrescription(prescriptionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: prescription.patientId,
         resourceType: "EPrescription",
         action: "update",
@@ -24823,7 +24824,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "SpecialistReferral",
         action: "read",
@@ -24878,7 +24879,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: userId || "system",
+        userId: userId,
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "read",
@@ -24903,7 +24904,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const referral = providerIntegration.referralManagementService.createReferral(validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "create",
@@ -24929,7 +24930,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "update",
@@ -24955,7 +24956,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "update",
@@ -25004,7 +25005,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "ProviderAvailability",
         action: "update",
@@ -25036,7 +25037,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "PatientInsurance",
         action: "read",
@@ -25096,7 +25097,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "read",
@@ -25138,7 +25139,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const booking = providerIntegration.appointmentBookingService.createBooking(validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: booking.patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "create",
@@ -25196,7 +25197,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: booking.patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "update",
@@ -25230,7 +25231,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const booking = providerIntegration.appointmentBookingService.cancelBooking(
         bookingId,
         reason || "Cancelled by user",
-        userId || "system"
+        userId
       );
 
       if (!booking) {
@@ -25238,7 +25239,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: userId || "system",
+        userId: userId,
         patientId: booking.patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "delete",
@@ -25257,11 +25258,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   // ============================================
 
   // Document Sharing
-  app.get("/api/documents/:documentId/shares", async (req, res) => {
+  app.get("/api/documents/:documentId/shares", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25279,11 +25280,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/documents/:documentId/shares", async (req, res) => {
+  app.post("/api/documents/:documentId/shares", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const validationResult = insertDocumentShareSchema.safeParse({
         ...req.body,
@@ -25310,11 +25311,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/documents/shares/:shareId", async (req, res) => {
+  app.delete("/api/documents/shares/:shareId", requireUser, async (req, res) => {
     try {
       const { shareId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.revokeDocumentShare(shareId);
 
@@ -25334,11 +25335,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Document Annotations
-  app.get("/api/documents/:documentId/annotations", async (req, res) => {
+  app.get("/api/documents/:documentId/annotations", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25356,11 +25357,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/documents/:documentId/annotations", async (req, res) => {
+  app.post("/api/documents/:documentId/annotations", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const authorName = user?.claims?.first_name || "Patient";
       const authorRole = "patient";
 
@@ -25391,11 +25392,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/documents/annotations/:annotationId", async (req, res) => {
+  app.delete("/api/documents/annotations/:annotationId", requireUser, async (req, res) => {
     try {
       const { annotationId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteDocumentAnnotation(annotationId);
 
@@ -25426,11 +25427,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/documents/annotations/:annotationId/replies", async (req, res) => {
+  app.post("/api/documents/annotations/:annotationId/replies", requireUser, async (req, res) => {
     try {
       const { annotationId } = req.params;
       const user = req.user as any;
-      const authorId = user?.claims?.sub || "current-user";
+      const authorId = getUserId(req);
       const authorName = user?.claims?.first_name || "Patient";
       const authorRole = "patient";
 
@@ -25454,11 +25455,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Care Plan Tasks
-  app.get("/api/care-plans/:carePlanId/tasks", async (req, res) => {
+  app.get("/api/care-plans/:carePlanId/tasks", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25476,11 +25477,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/care-plans/:carePlanId/tasks", async (req, res) => {
+  app.post("/api/care-plans/:carePlanId/tasks", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const createdById = user?.claims?.sub || "current-user";
+      const createdById = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertCarePlanTaskSchema.safeParse({
@@ -25508,11 +25509,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.patch("/api/care-plans/tasks/:taskId", async (req, res) => {
+  app.patch("/api/care-plans/tasks/:taskId", requireUser, async (req, res) => {
     try {
       const { taskId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const validationResult = updateCarePlanTaskSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -25539,11 +25540,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/care-plans/tasks/:taskId", async (req, res) => {
+  app.delete("/api/care-plans/tasks/:taskId", requireUser, async (req, res) => {
     try {
       const { taskId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteCarePlanTask(taskId);
 
@@ -25563,11 +25564,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Care Plan Progress Updates
-  app.get("/api/care-plans/:carePlanId/progress", async (req, res) => {
+  app.get("/api/care-plans/:carePlanId/progress", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25585,11 +25586,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/care-plans/:carePlanId/progress", async (req, res) => {
+  app.post("/api/care-plans/:carePlanId/progress", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const authorId = user?.claims?.sub || "current-user";
+      const authorId = getUserId(req);
       const authorName = user?.claims?.first_name || "Patient";
       const authorRole = "patient";
 
@@ -25632,11 +25633,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/care-plans/:carePlanId/collaborators", async (req, res) => {
+  app.post("/api/care-plans/:carePlanId/collaborators", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const addedById = user?.claims?.sub || "current-user";
+      const addedById = getUserId(req);
 
       const validationResult = insertCarePlanCollaboratorSchema.safeParse({
         ...req.body,
@@ -25675,10 +25676,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Shared Notes
-  app.get("/api/shared-notes", async (req, res) => {
+  app.get("/api/shared-notes", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25696,11 +25697,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/shared-notes/:noteId", async (req, res) => {
+  app.get("/api/shared-notes/:noteId", requireUser, async (req, res) => {
     try {
       const { noteId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const note = await storage.getSharedNote(noteId);
       if (!note) {
@@ -25722,10 +25723,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/shared-notes", async (req, res) => {
+  app.post("/api/shared-notes", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertSharedNoteSchema.safeParse(req.body);
@@ -25750,11 +25751,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.patch("/api/shared-notes/:noteId", async (req, res) => {
+  app.patch("/api/shared-notes/:noteId", requireUser, async (req, res) => {
     try {
       const { noteId } = req.params;
       const user = req.user as any;
-      const editorId = user?.claims?.sub || "current-user";
+      const editorId = getUserId(req);
       const editorName = user?.claims?.first_name || "Patient";
 
       const validationResult = updateSharedNoteSchema.safeParse(req.body);
@@ -25782,11 +25783,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/shared-notes/:noteId", async (req, res) => {
+  app.delete("/api/shared-notes/:noteId", requireUser, async (req, res) => {
     try {
       const { noteId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteSharedNote(noteId);
 
@@ -25806,10 +25807,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Whiteboards
-  app.get("/api/whiteboards", async (req, res) => {
+  app.get("/api/whiteboards", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25827,11 +25828,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/whiteboards/:whiteboardId", async (req, res) => {
+  app.get("/api/whiteboards/:whiteboardId", requireUser, async (req, res) => {
     try {
       const { whiteboardId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const whiteboard = await storage.getWhiteboard(whiteboardId);
       if (!whiteboard) {
@@ -25853,10 +25854,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/whiteboards", async (req, res) => {
+  app.post("/api/whiteboards", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertWhiteboardSchema.safeParse(req.body);
@@ -25881,11 +25882,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.patch("/api/whiteboards/:whiteboardId", async (req, res) => {
+  app.patch("/api/whiteboards/:whiteboardId", requireUser, async (req, res) => {
     try {
       const { whiteboardId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const validationResult = updateWhiteboardSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -25912,11 +25913,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/whiteboards/:whiteboardId", async (req, res) => {
+  app.delete("/api/whiteboards/:whiteboardId", requireUser, async (req, res) => {
     try {
       const { whiteboardId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteWhiteboard(whiteboardId);
 
@@ -25936,10 +25937,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Group Message Threads
-  app.get("/api/collab-message-threads", async (req, res) => {
+  app.get("/api/collab-message-threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25957,11 +25958,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/collab-message-threads/:threadId", async (req, res) => {
+  app.get("/api/collab-message-threads/:threadId", requireUser, async (req, res) => {
     try {
       const { threadId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const thread = await storage.getCollabMessageThread(threadId);
       if (!thread) {
@@ -25983,10 +25984,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/collab-message-threads", async (req, res) => {
+  app.post("/api/collab-message-threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertCollabMessageThreadSchema.safeParse(req.body);
@@ -26055,11 +26056,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Thread Messages
-  app.get("/api/collab-message-threads/:threadId/messages", async (req, res) => {
+  app.get("/api/collab-message-threads/:threadId/messages", requireUser, async (req, res) => {
     try {
       const { threadId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -26077,11 +26078,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/collab-message-threads/:threadId/messages", async (req, res) => {
+  app.post("/api/collab-message-threads/:threadId/messages", requireUser, async (req, res) => {
     try {
       const { threadId } = req.params;
       const user = req.user as any;
-      const senderId = user?.claims?.sub || "current-user";
+      const senderId = getUserId(req);
       const senderName = user?.claims?.first_name || "Patient";
       const senderRole = "patient";
 
@@ -27605,7 +27606,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const dashboard = await journeyAnalyticsService.getDashboard(filter);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "anonymous",
+        userId: userId,
         eventType: "data_access",
         description: "Admin accessed journey analytics dashboard",
         ipAddress: req.ip || "Unknown",
@@ -32611,10 +32612,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   console.log("[Routes] Profile Management routes registered at /api/profiles");
   
   // Get all profiles for the current user
-  app.get("/api/profiles", async (req, res) => {
+  app.get("/api/profiles", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -32634,10 +32635,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get profile summaries (for profile switcher UI)
-  app.get("/api/profiles/summaries", async (req, res) => {
+  app.get("/api/profiles/summaries", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -32656,10 +32657,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get active profile
-  app.get("/api/profiles/active", async (req, res) => {
+  app.get("/api/profiles/active", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       const activeProfile = await storage.getActiveProfile(userId);
       
@@ -32709,10 +32710,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get single profile by ID
-  app.get("/api/profiles/:id", async (req, res) => {
+  app.get("/api/profiles/:id", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
 
       const profile = await storage.getProfile(id);
@@ -32739,10 +32740,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Create new profile (add dependent)
-  app.post("/api/profiles", async (req, res) => {
+  app.post("/api/profiles", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { firstName, lastName, dateOfBirth, gender, relationship, profileType, notes, medicalRecordNumber, insuranceId, emergencyContact } = req.body;
 
       if (!firstName || !lastName || !relationship) {
@@ -32806,10 +32807,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Update profile
-  app.patch("/api/profiles/:id", async (req, res) => {
+  app.patch("/api/profiles/:id", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       const updates = req.body;
 
@@ -32843,10 +32844,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Delete profile
-  app.delete("/api/profiles/:id", async (req, res) => {
+  app.delete("/api/profiles/:id", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
 
       const profile = await storage.getProfile(id);
@@ -32886,10 +32887,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Switch active profile
-  app.post("/api/profiles/:id/activate", async (req, res) => {
+  app.post("/api/profiles/:id/activate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
 
       const profile = await storage.getProfile(id);
@@ -32929,10 +32930,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get profile analytics events
-  app.get("/api/profiles/analytics/events", async (req, res) => {
+  app.get("/api/profiles/analytics/events", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const profileId = req.query.profileId as string | undefined;
 
       logPhiAccess({
@@ -33380,10 +33381,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Submit check-in response (patient-facing)
-  app.post("/api/provider-outreach/check-ins/:id/responses", async (req, res) => {
+  app.post("/api/provider-outreach/check-ins/:id/responses", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
       const { responses } = req.body;
 
       const checkIn = aiPatientOutreachService.getCheckIn(req.params.id);
@@ -33668,10 +33669,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   console.log("[Routes] Quick Share routes registered at /api/quick-share");
 
   // Generate quick share (QR code, secure link, or PDF)
-  app.post("/api/quick-share/generate", async (req, res) => {
+  app.post("/api/quick-share/generate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || req.body.patientId || "patient-default";
+      const patientId = getUserId(req);
       const { recordType = "summary", mode = "qr", expiresIn = "72h" } = req.body;
 
       logPhiAccess({
@@ -33850,10 +33851,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Generate PDF snapshot
-  app.post("/api/quick-share/pdf", async (req, res) => {
+  app.post("/api/quick-share/pdf", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || req.body.patientId || "patient-default";
+      const patientId = getUserId(req);
       const { recordType = "summary" } = req.body;
 
       logPhiAccess({
@@ -33933,10 +33934,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get active shares for a patient
-  app.get("/api/quick-share/active", async (req, res) => {
+  app.get("/api/quick-share/active", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
 
       const activeShares: Array<{
         shareId: string;
@@ -34099,10 +34100,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get access log for a specific share
-  app.get("/api/quick-share/:shareId/access-log", async (req, res) => {
+  app.get("/api/quick-share/:shareId/access-log", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
       const { shareId } = req.params;
 
       const shareData = quickShareTokens.get(shareId);
@@ -34137,10 +34138,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Revoke a share
-  app.delete("/api/quick-share/:shareId", async (req, res) => {
+  app.delete("/api/quick-share/:shareId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
       const { shareId } = req.params;
 
       const shareData = quickShareTokens.get(shareId);
@@ -36455,7 +36456,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Care team accessed high-risk patient list",
         ipAddress: req.ip || "Unknown",
@@ -36500,7 +36501,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const talkingPoints = await careTeamOutreachService.generateTalkingPoints(patientId);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_interaction",
         description: "AI talking points generated for patient outreach",
         ipAddress: req.ip || "Unknown",
@@ -36545,7 +36546,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const action = await careTeamOutreachService.createOutreachAction(parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_creation",
         description: `Outreach action created: ${action.actionType}`,
         ipAddress: req.ip || "Unknown",
@@ -36618,7 +36619,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const action = await careTeamOutreachService.recordAttempt(actionId, parseResult.data, performedBy);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: `Outreach attempt recorded: ${parseResult.data.response}`,
         ipAddress: req.ip || "Unknown",
@@ -36651,7 +36652,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const action = await careTeamOutreachService.updateOutcome(actionId, parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Patient outreach outcome recorded",
         ipAddress: req.ip || "Unknown",
@@ -36697,7 +36698,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const createdActions = await careTeamOutreachService.autoScheduleOutreach();
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_interaction",
         description: "AI auto-scheduled patient outreach actions",
         ipAddress: req.ip || "Unknown",
@@ -36732,7 +36733,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlan = await aiCarePlanService.generateCarePlan(parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_interaction",
         description: "AI care plan generated for patient",
         ipAddress: req.ip || "Unknown",
@@ -36763,7 +36764,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlans = await aiCarePlanService.getCarePlans(filter);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Care plans list accessed",
         ipAddress: req.ip || "Unknown",
@@ -36792,7 +36793,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Care plan detail accessed",
         ipAddress: req.ip || "Unknown",
@@ -36825,7 +36826,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const updatedGoal = await aiCarePlanService.updateGoal(planId, goalId, parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan goal updated",
         ipAddress: req.ip || "Unknown",
@@ -36858,7 +36859,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const updatedIntervention = await aiCarePlanService.updateIntervention(planId, interventionId, parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan intervention updated",
         ipAddress: req.ip || "Unknown",
@@ -36889,7 +36890,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const intervention = await aiCarePlanService.addInterventionFromLibrary(planId, libraryItemId, customization);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Intervention added to care plan from library",
         ipAddress: req.ip || "Unknown",
@@ -36915,7 +36916,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlan = await aiCarePlanService.submitForReview(planId);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan submitted for review",
         ipAddress: req.ip || "Unknown",
@@ -36955,7 +36956,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: `Care plan ${parseResult.data.action}: ${parseResult.data.comments || "No comments"}`,
         ipAddress: req.ip || "Unknown",
@@ -36981,7 +36982,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlan = await aiCarePlanService.activateCarePlan(planId);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan activated",
         ipAddress: req.ip || "Unknown",
@@ -37047,7 +37048,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const content = await patientEducationMessagingService.generateEducationContent(parseResult.data);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_generation",
         description: "AI education content generated",
         ipAddress: req.ip || "Unknown",
@@ -37079,7 +37080,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const schedule = await patientEducationMessagingService.createMessageSchedule(parseResult.data);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_create",
         description: "Message schedule created",
         ipAddress: req.ip || "Unknown",
@@ -37109,7 +37110,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Message schedules accessed",
         ipAddress: req.ip || "Unknown",
@@ -37139,7 +37140,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Message schedule cancelled",
         ipAddress: req.ip || "Unknown",
@@ -37174,7 +37175,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       );
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "message_sent",
         description: "Patient message sent",
         ipAddress: req.ip || "Unknown",
@@ -37210,7 +37211,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Patient messages accessed",
         ipAddress: req.ip || "Unknown",
@@ -37243,7 +37244,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       // Patients can only access their own messages
       if (userRole === "patient" && message.patientId !== userId) {
         await storage.createSecurityAuditLog({
-          userId: userId || "system",
+          userId: userId,
           eventType: "access_denied",
           description: "Unauthorized attempt to access another patient's message",
           ipAddress: req.ip || "Unknown",
@@ -37254,7 +37255,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Patient message detail accessed",
         ipAddress: req.ip || "Unknown",
@@ -37288,7 +37289,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       // Patients can only record interactions on their own messages
       if (userRole === "patient" && message.patientId !== userId) {
         await storage.createSecurityAuditLog({
-          userId: userId || "system",
+          userId: userId,
           eventType: "access_denied",
           description: "Unauthorized attempt to record interaction on another patient's message",
           ipAddress: req.ip || "Unknown",
@@ -37313,7 +37314,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       );
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "message_interaction",
         description: `Message ${parseResult.data.interactionType}`,
         ipAddress: req.ip || "Unknown",
@@ -37339,7 +37340,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const interactions = patientEducationMessagingService.getMessageInteractions(id);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Message interactions accessed",
         ipAddress: req.ip || "Unknown",
@@ -37370,7 +37371,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       );
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Patient engagement summary accessed",
         ipAddress: req.ip || "Unknown",
@@ -37413,7 +37414,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const result = await patientEducationMessagingService.processScheduledMessages();
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "system_action",
         description: "Scheduled messages processed",
         ipAddress: req.ip || "Unknown",
@@ -37446,7 +37447,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const schedules = await patientEducationMessagingService.autoGenerateSchedulesFromCarePlan(carePlan);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_generation",
         description: "Auto-generated message schedules from care plan",
         ipAddress: req.ip || "Unknown",
@@ -37644,11 +37645,11 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   console.log("[Routes] Health Data Sources routes registered at /api/health-data-sources/*");
 
   // Packet Export - Create and share health record packets
-  app.post("/api/packets/create", async (req, res) => {
+  app.post("/api/packets/create", requireUser, async (req, res) => {
     try {
       const { config, expiration, accessControl } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -37674,11 +37675,11 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     }
   });
 
-  app.post("/api/packets/download", async (req, res) => {
+  app.post("/api/packets/download", requireUser, async (req, res) => {
     try {
       const { config } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -37725,10 +37726,10 @@ startxref
   // ================== Simplified Mode API Routes ==================
   
   // Get simplified/important documents list
-  app.get("/api/documents/simplified", async (req, res) => {
+  app.get("/api/documents/simplified", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const documents = await storage.getDocuments(userId);
       
@@ -37748,10 +37749,10 @@ startxref
   });
 
   // Get last uploaded document
-  app.get("/api/documents/last-upload", async (req, res) => {
+  app.get("/api/documents/last-upload", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const documents = await storage.getDocuments(userId);
       
@@ -37790,11 +37791,11 @@ startxref
   });
 
   // Create share packet (simplified)
-  app.post("/api/share/create-packet", async (req, res) => {
+  app.post("/api/share/create-packet", requireUser, async (req, res) => {
     try {
       const { type, expiryDays, pinProtected } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       logPhiAccess({
         userId,
@@ -37825,11 +37826,11 @@ startxref
   });
 
   // Download PDF packet (simplified)
-  app.post("/api/share/download-pdf", async (req, res) => {
+  app.post("/api/share/download-pdf", requireUser, async (req, res) => {
     try {
       const { type } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,

@@ -1,16 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-  console.log("[AIFHIRDataSummarization] OpenAI client configured");
-} catch (error) {
-  console.log("[AIFHIRDataSummarization] OpenAI client not configured, using fallback responses");
-}
+const aiEnabled = true;
+console.log("[AIFHIRDataSummarization] AI client configured (Vertex/BAA gateway)");
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This summary is for informational and educational purposes only. It does NOT constitute clinical decision support, diagnosis, or medical advice. All information requires verification by qualified healthcare professionals before use in clinical decisions. Always consult with your healthcare provider for medical guidance.";
 
@@ -269,25 +261,15 @@ class AIFHIRDataSummarizationService {
     let trends: TrendAnalysis[] = [];
     let highlights: KeyHighlight[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5",
-          messages: [
-            {
-              role: "system",
-              content: `${AUDIENCE_PROMPTS[request.audience]}\n\n${VIEW_TYPE_PROMPTS[request.viewType]}\n\nIMPORTANT: Present ONLY factual information from the data provided. Do NOT provide medical advice, treatment recommendations, or clinical decision support. This is for informational purposes only.`
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          max_completion_tokens: 2000,
-          response_format: { type: "json_object" }
+        const content = await generatePhiSafeText({
+          system: `${AUDIENCE_PROMPTS[request.audience]}\n\n${VIEW_TYPE_PROMPTS[request.viewType]}\n\nIMPORTANT: Present ONLY factual information from the data provided. Do NOT provide medical advice, treatment recommendations, or clinical decision support. This is for informational purposes only.`,
+          user: prompt,
+          maxTokens: 2000,
+          responseMimeType: "application/json"
         });
 
-        const content = response.choices[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
           naturalLanguageSummary = parsed.summary || this.generateFallbackSummary(viewData, request);
@@ -361,7 +343,7 @@ class AIFHIRDataSummarizationService {
 
     let overallSummary: string;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const summaryPrompt = this.buildComprehensivePrompt(data, request, {
           medicationsSummary,
@@ -370,22 +352,13 @@ class AIFHIRDataSummarizationService {
           encountersSummary
         });
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-5",
-          messages: [
-            {
-              role: "system",
-              content: `${AUDIENCE_PROMPTS[request.audience]}\n\nCreate an integrated health overview that connects information across all health data categories. Focus on the big picture while highlighting what matters most.\n\nIMPORTANT: Present ONLY factual information from the data provided. Do NOT provide medical advice or clinical decision support.`
-            },
-            {
-              role: "user",
-              content: summaryPrompt
-            }
-          ],
-          max_completion_tokens: 3000
+        const content = await generatePhiSafeText({
+          system: `${AUDIENCE_PROMPTS[request.audience]}\n\nCreate an integrated health overview that connects information across all health data categories. Focus on the big picture while highlighting what matters most.\n\nIMPORTANT: Present ONLY factual information from the data provided. Do NOT provide medical advice or clinical decision support.`,
+          user: summaryPrompt,
+          maxTokens: 3000
         });
 
-        overallSummary = response.choices[0]?.message?.content || this.generateFallbackComprehensiveSummary(data, request);
+        overallSummary = content || this.generateFallbackComprehensiveSummary(data, request);
       } catch (error) {
         console.error("[AIFHIRDataSummarization] OpenAI comprehensive error:", error);
         overallSummary = this.generateFallbackComprehensiveSummary(data, request);

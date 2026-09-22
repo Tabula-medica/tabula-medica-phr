@@ -102,6 +102,28 @@ const containsAny = (haystack: string[] | undefined, needles: string[]): boolean
   return needles.some((n) => lc.some((h) => h.includes(n.toLowerCase())));
 };
 
+// P1-2: negation-aware, ICD-prefix-aware exclusion matching. Naive substring
+// matching (containsAny) wrongly excludes patients whose problem list mentions a
+// term in a NEGATED context — e.g. "family history of diabetes", "hypertension,
+// ruled out", "suspected lung cancer" would all skip a due screening. It also
+// treated ICD codes as substrings. Use this for CONDITION exclusions only.
+const NEGATION_CONTEXT =
+  /(family history|fh[:\s]|ruled out|rule out|r\/o|suspected|possible|no history of|negative for)/i;
+
+const matchesExclusion = (entries: string[] | undefined, terms: string[]): boolean => {
+  if (!entries || entries.length === 0) return false;
+  const icdCodes = terms.filter((t) => /^[A-Z]\d/.test(t)).map((t) => t.toUpperCase());
+  const textTerms = terms.filter((t) => !/^[A-Z]\d/.test(t)).map((t) => t.toLowerCase());
+  return entries.some((raw) => {
+    const e = raw.toLowerCase();
+    if (NEGATION_CONTEXT.test(e)) return false; // negated mention — not an active diagnosis
+    if (textTerms.some((t) => e.includes(t))) return true;
+    // ICD-10 by code prefix (term "E11" matches entry "E11.9"), not substring.
+    const upper = raw.toUpperCase();
+    return icdCodes.some((c) => new RegExp(`\\b${c}`).test(upper));
+  });
+};
+
 const monthsBetween = (a: Date, b: Date): number => {
   return (b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24 * 30.4375);
 };
@@ -178,7 +200,7 @@ export class CareGapsService {
     if (p.age < ageMin || p.age > ageMax) {
       return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
-    if (containsAny(p.conditions, COLORECTAL_EXCLUDE) || containsAny(p.surgicalHistory, ["colectomy"])) {
+    if (matchesExclusion(p.conditions, COLORECTAL_EXCLUDE) || containsAny(p.surgicalHistory, ["colectomy"])) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing colorectal cancer diagnosis or relevant surgical history.");
     }
     const lastIso = last[code];
@@ -201,7 +223,7 @@ export class CareGapsService {
     if (p.age < ageMin || p.age > ageMax) {
       return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
-    if (containsAny(p.conditions, BREAST_EXCLUDE)) {
+    if (matchesExclusion(p.conditions, BREAST_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing breast cancer diagnosis or bilateral mastectomy history.");
     }
     const lastIso = last[code];
@@ -224,7 +246,7 @@ export class CareGapsService {
     if (p.age < ageMin || p.age > ageMax) {
       return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
-    if (containsAny(p.conditions, CERVICAL_EXCLUDE) || containsAny(p.surgicalHistory, ["hysterectomy"])) {
+    if (matchesExclusion(p.conditions, CERVICAL_EXCLUDE) || containsAny(p.surgicalHistory, ["hysterectomy"])) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing cervical cancer diagnosis or hysterectomy history.");
     }
     const lastIso = last[code];
@@ -244,7 +266,7 @@ export class CareGapsService {
     if (p.age < ageMin || p.age > ageMax) {
       return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
-    if (containsAny(p.conditions, LUNG_EXCLUDE)) {
+    if (matchesExclusion(p.conditions, LUNG_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient has an existing lung cancer diagnosis or is in palliative care.");
     }
     const packYears = p.smokingPackYears ?? 0;
@@ -273,7 +295,7 @@ export class CareGapsService {
     if (p.age < ageMin || p.age > ageMax) {
       return this.notApplicable(code, title, grade, intervalMonths, `Patient age ${p.age} is outside the ${ageMin}–${ageMax} screening window.`);
     }
-    if (containsAny(p.conditions, DIABETES_EXCLUDE)) {
+    if (matchesExclusion(p.conditions, DIABETES_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient already has a diabetes or prediabetes diagnosis.");
     }
     if (p.bmi == null || p.bmi < 25) {
@@ -303,7 +325,7 @@ export class CareGapsService {
     if (p.age < ageMin) {
       return this.notApplicable(code, title, grade, intervalMonths, "Recommendation applies to adults 18 and older.");
     }
-    if (containsAny(p.conditions, HYPERTENSION_EXCLUDE)) {
+    if (matchesExclusion(p.conditions, HYPERTENSION_EXCLUDE)) {
       return this.excluded(code, title, grade, intervalMonths, "Patient already has a hypertension diagnosis.");
     }
     const lastIso = last[code];

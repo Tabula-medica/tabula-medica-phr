@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface FHIRResource {
   resourceType: string;
@@ -96,9 +91,10 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-function isOpenAIConfigured(): boolean {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  return !!(apiKey && !apiKey.includes('DUMMY') && apiKey.length >= 20);
+// PHI-bearing generation now runs through the Vertex/BAA gateway, which is always
+// available. Template fallbacks remain as a resilient path on gateway error.
+function isAIConfigured(): boolean {
+  return true;
 }
 
 async function logAuditEntry(
@@ -346,10 +342,10 @@ class AIFHIRResourceManagementService {
     try {
       let generatedResource: GeneratedResource;
 
-      if (isOpenAIConfigured()) {
+      if (isAIConfigured()) {
         generatedResource = await this.generateWithAI(naturalLanguageInput, resourceType);
       } else {
-        console.log("[AIFHIRResourceManagement] OpenAI not configured, using fallback generation");
+        console.log("[AIFHIRResourceManagement] AI not configured, using fallback generation");
         generatedResource = this.generateFallbackResource(naturalLanguageInput, resourceType);
       }
 
@@ -402,14 +398,12 @@ Respond with a JSON object containing:
   "suggestedLinks": ["descriptions of resources that should be linked"]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+    const content = await generatePhiSafeText({
+      user: prompt,
       temperature: 0.3,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -738,10 +732,10 @@ Respond with a JSON object containing:
     try {
       let suggestion: StructureSuggestion;
 
-      if (isOpenAIConfigured()) {
+      if (isAIConfigured()) {
         suggestion = await this.suggestWithAI(resourceType, useCase);
       } else {
-        console.log("[AIFHIRResourceManagement] OpenAI not configured, using fallback suggestions");
+        console.log("[AIFHIRResourceManagement] AI not configured, using fallback suggestions");
         suggestion = this.getFallbackSuggestion(resourceType, useCase);
       }
 
@@ -807,14 +801,12 @@ Respond with a JSON object containing:
   "rationale": "explanation of recommendations"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+    const content = await generatePhiSafeText({
+      user: prompt,
       temperature: 0.3,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }

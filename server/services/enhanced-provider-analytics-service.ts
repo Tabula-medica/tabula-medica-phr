@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 import { db } from "../db";
 import { phiDb } from "../storage/phi-storage";
@@ -12,18 +12,6 @@ import {
   profiles,
 } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, count, avg } from "drizzle-orm";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
-}
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: This analytics dashboard is for operational planning, quality improvement, and resource optimization only. It does NOT constitute clinical decision support. All clinical decisions must be made by qualified healthcare professionals based on individual patient assessments.";
 
@@ -316,8 +304,6 @@ class EnhancedProviderAnalyticsService {
   async getPredictiveRiskPatients(providerId: string): Promise<PredictiveRiskPatient[]> {
     logHipaaAudit("PREDICTIVE_RISK_ANALYSIS", providerId, { action: "get_high_risk_patients" });
 
-    const openai = getOpenAI();
-    
     const baseRiskPatients: PredictiveRiskPatient[] = [
       {
         patientId: hashIdentifier("p1"),
@@ -405,38 +391,26 @@ class EnhancedProviderAnalyticsService {
       },
     ];
 
-    if (openai) {
-      try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare analytics expert. Generate additional insights for patient risk stratification.
-              
+    try {
+      const aiInsight = await generatePhiSafeText({
+        system: `You are a healthcare analytics expert. Generate additional insights for patient risk stratification.
+
               IMPORTANT: This is NOT clinical decision support. Focus on:
               - Operational patterns and trends
               - Resource allocation suggestions
               - Outreach prioritization
-              
-              Do NOT provide clinical recommendations or diagnoses.`,
-            },
-            {
-              role: "user",
-              content: `Based on these high-risk patient profiles, provide 2-3 additional AI-generated insights about population-level patterns and resource optimization. Keep response brief and actionable.`,
-            },
-          ],
-          max_tokens: 300,
-          temperature: 0.7,
-        });
 
-        const aiInsight = completion.choices[0]?.message?.content;
-        if (aiInsight) {
-          baseRiskPatients[0].suggestedInterventions.push(`AI Insight: ${aiInsight.slice(0, 150)}`);
-        }
-      } catch (e) {
-        console.log("[ProviderAnalytics] OpenAI not available, using baseline predictions");
+              Do NOT provide clinical recommendations or diagnoses.`,
+        user: `Based on these high-risk patient profiles, provide 2-3 additional AI-generated insights about population-level patterns and resource optimization. Keep response brief and actionable.`,
+        maxTokens: 300,
+        temperature: 0.7,
+      });
+
+      if (aiInsight) {
+        baseRiskPatients[0].suggestedInterventions.push(`AI Insight: ${aiInsight.slice(0, 150)}`);
       }
+    } catch (e) {
+      console.log("[ProviderAnalytics] AI insights not available, using baseline predictions");
     }
 
     return baseRiskPatients;
@@ -646,45 +620,32 @@ class EnhancedProviderAnalyticsService {
       "Blood pressure control rates declined 2.4% - recommend enhanced hypertension management protocols.",
     ];
 
-    const openai = getOpenAI();
-    if (openai) {
-      try {
-        const metricsContext = metrics.slice(0, 3).map(m => `${m.metric}: ${m.value}% (${m.trend})`).join(", ");
-        const disparityContext = disparities.slice(0, 2).map(d => `${d.metric}: ${d.severity} disparity`).join(", ");
+    try {
+      const metricsContext = metrics.slice(0, 3).map(m => `${m.metric}: ${m.value}% (${m.trend})`).join(", ");
+      const disparityContext = disparities.slice(0, 2).map(d => `${d.metric}: ${d.severity} disparity`).join(", ");
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare analytics expert providing population health insights.
-              
+      const aiContent = await generatePhiSafeText({
+        system: `You are a healthcare analytics expert providing population health insights.
+
               CRITICAL RULES:
               - Focus ONLY on operational, quality improvement, and resource optimization insights
               - NEVER provide clinical recommendations or diagnoses
               - Keep insights actionable and data-driven
               - Use plain language suitable for healthcare administrators`,
-            },
-            {
-              role: "user",
-              content: `Based on these metrics: ${metricsContext}
+        user: `Based on these metrics: ${metricsContext}
               And disparities: ${disparityContext}
-              
-              Provide 2 additional brief insights (max 2 sentences each) about population health trends and improvement opportunities.`,
-            },
-          ],
-          max_tokens: 250,
-          temperature: 0.7,
-        });
 
-        const aiContent = completion.choices[0]?.message?.content;
-        if (aiContent) {
-          const aiInsights = aiContent.split("\n").filter(i => i.trim().length > 10).slice(0, 2);
-          baseInsights.push(...aiInsights);
-        }
-      } catch (e) {
-        console.log("[ProviderAnalytics] OpenAI unavailable for insights generation");
+              Provide 2 additional brief insights (max 2 sentences each) about population health trends and improvement opportunities.`,
+        maxTokens: 250,
+        temperature: 0.7,
+      });
+
+      if (aiContent) {
+        const aiInsights = aiContent.split("\n").filter(i => i.trim().length > 10).slice(0, 2);
+        baseInsights.push(...aiInsights);
       }
+    } catch (e) {
+      console.log("[ProviderAnalytics] AI unavailable for insights generation");
     }
 
     return baseInsights;

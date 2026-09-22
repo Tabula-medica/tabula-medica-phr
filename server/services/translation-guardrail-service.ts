@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 export const SUPPORTED_LANGUAGES = {
   tier1: [
@@ -238,7 +236,7 @@ export async function translateWithGuardrails(
   const highlightedSentences: Array<{ original: string; translated: string; index: number }> = [];
 
   try {
-    if (!openai) {
+    if (!aiEnabled) {
       translatedText = `[${languageName} translation]: ${contentToTranslate}`;
       sentences.forEach((sentence, index) => {
         highlightedSentences.push({
@@ -248,16 +246,12 @@ export async function translateWithGuardrails(
         });
       });
     } else {
-      const clinicalTermsList = clinicalTerms.length > 0 
+      const clinicalTermsList = clinicalTerms.length > 0
         ? `\n\nIMPORTANT: Preserve these clinical terms exactly as written (do not translate): ${clinicalTerms.join(", ")}`
         : "";
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
+      translatedText = (await generatePhiSafeText({
+        system: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
 
 TARGET LANGUAGE: ${languageName}
 
@@ -275,36 +269,20 @@ DISCLAIMER TO APPEND:
 ${LOCALIZED_DISCLAIMERS[targetLanguage] || LOCALIZED_DISCLAIMERS.en}
 
 Return ONLY the translation with the disclaimer appended.`,
-          },
-          {
-            role: "user",
-            content: contentToTranslate,
-          },
-        ],
+        user: contentToTranslate,
         temperature: 0.1,
-      });
-
-      translatedText = response.choices[0]?.message?.content || contentToTranslate;
+      })) || contentToTranslate;
 
       for (let i = 0; i < sentences.length; i++) {
-        const sentenceResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `Translate this single sentence to ${languageName}. Preserve clinical terms exactly. Return ONLY the translation.`,
-            },
-            {
-              role: "user",
-              content: sentences[i],
-            },
-          ],
+        const sentenceTranslation = await generatePhiSafeText({
+          system: `Translate this single sentence to ${languageName}. Preserve clinical terms exactly. Return ONLY the translation.`,
+          user: sentences[i],
           temperature: 0.1,
         });
 
         highlightedSentences.push({
           original: sentences[i],
-          translated: sentenceResponse.choices[0]?.message?.content || sentences[i],
+          translated: sentenceTranslation || sentences[i],
           index: i,
         });
       }
@@ -356,7 +334,7 @@ export async function summarizeWithGuardrails(
   const highlightedSentences: Array<{ original: string; translated: string; index: number }> = [];
 
   try {
-    if (!openai) {
+    if (!aiEnabled) {
       summary = `[${languageName} summary]: Key points from the document.`;
       sentences.forEach((sentence, index) => {
         highlightedSentences.push({
@@ -366,16 +344,12 @@ export async function summarizeWithGuardrails(
         });
       });
     } else {
-      const clinicalTermsList = clinicalTerms.length > 0 
+      const clinicalTermsList = clinicalTerms.length > 0
         ? `\n\nPreserve these clinical terms exactly: ${clinicalTerms.join(", ")}`
         : "";
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
+      summary = (await generatePhiSafeText({
+        system: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
 
 TARGET LANGUAGE: ${languageName}
 
@@ -389,16 +363,9 @@ ADDITIONAL INSTRUCTIONS:
 
 DISCLAIMER TO APPEND:
 ${LOCALIZED_DISCLAIMERS[targetLanguage] || LOCALIZED_DISCLAIMERS.en}`,
-          },
-          {
-            role: "user",
-            content: `Please provide an informational summary of this medical record text:\n\n${contentToSummarize}`,
-          },
-        ],
+        user: `Please provide an informational summary of this medical record text:\n\n${contentToSummarize}`,
         temperature: 0.1,
-      });
-
-      summary = response.choices[0]?.message?.content || "Summary unavailable.";
+      })) || "Summary unavailable.";
 
       for (let i = 0; i < Math.min(sentences.length, 5); i++) {
         highlightedSentences.push({
@@ -485,7 +452,7 @@ export async function generateTimelineStorySummary(
     eventsByType[event.type].push(event);
   }
 
-  if (!openai) {
+  if (!aiEnabled) {
     const keyEvents: string[] = [];
     const newResults: string[] = [];
     const medicationsDocumented: string[] = [];
@@ -543,12 +510,8 @@ export async function generateTimelineStorySummary(
       ? sourceSnippets.map(s => `[${s.source}, ${s.date}, ${s.recordId}]: "${s.text}"`).join("\n")
       : "No source snippets provided";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
+    const content = await generatePhiSafeText({
+      system: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
 
 TASK: Generate a timeline story summary in ${languageName} for the period ${timeRange}.
 
@@ -574,24 +537,18 @@ OUTPUT FORMAT: Return ONLY valid JSON matching this schema:
   ],
   "limitations": ["limitation 1", ...],
   "disclaimer": "${disclaimer}"
-}`
-        },
-        {
-          role: "user",
-          content: `Generate timeline story summary for ${timeRange}.
+}`,
+      user: `Generate timeline story summary for ${timeRange}.
 
 EVENTS_JSON:
 ${eventsJson}
 
 SOURCE_SNIPPETS:
-${snippetsText}`
-        }
-      ],
+${snippetsText}`,
       temperature: 0.1,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -693,7 +650,7 @@ export async function generateDocumentSummary(
   const documentTypeLabel = DOCUMENT_TYPE_LABELS[documentType] || documentType;
   const languageName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
 
-  if (!openai) {
+  if (!aiEnabled) {
     const lines = documentText.split("\n").filter(l => l.trim().length > 0);
     const keyPoints: string[] = [];
     const medications: string[] = [];
@@ -740,12 +697,8 @@ export async function generateDocumentSummary(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
+    const content = await generatePhiSafeText({
+      system: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
 
 TASK: Summarize the following ${documentTypeLabel} in ${languageName}. Use quote-first grounding and preserve clinical terminology.
 
@@ -771,11 +724,8 @@ OUTPUT FORMAT: Return ONLY valid JSON matching this schema:
   ],
   "limitations": ["limitation 1", ...],
   "disclaimer": "${disclaimer}"
-}`
-        },
-        {
-          role: "user",
-          content: `Summarize this ${documentTypeLabel} in ${languageName}.
+}`,
+      user: `Summarize this ${documentTypeLabel} in ${languageName}.
 
 DOCUMENT TEXT:
 ${documentText}
@@ -783,14 +733,11 @@ ${documentText}
 PROVENANCE:
 Source: ${provenance.sourceSystem}
 Date: ${provenance.documentDate}
-Record ID: ${provenance.recordId}`
-        }
-      ],
-      max_tokens: 2000,
+Record ID: ${provenance.recordId}`,
+      maxTokens: 2000,
       temperature: 0.2
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }
@@ -927,7 +874,7 @@ export async function explainLabResults(
   const disclaimer = getLocalizedDisclaimer(targetLanguage);
   const languageName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
 
-  if (!openai) {
+  if (!aiEnabled) {
     const labExplanations: LabExplanation[] = labs.map(lab => {
       const testNameLower = lab.name.toLowerCase();
       let generalMeaning = "This test measures a component of your blood or body function.";
@@ -963,12 +910,8 @@ export async function explainLabResults(
   try {
     const labsJson = JSON.stringify(labs, null, 2);
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
+    const content = await generatePhiSafeText({
+      system: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
 
 TASK: Explain the lab result(s) in ${languageName} in plain language. Do NOT recommend actions. Preserve units and reference ranges exactly.
 
@@ -997,22 +940,16 @@ OUTPUT FORMAT: Return ONLY valid JSON matching this schema:
   "questions_to_ask": ["neutral question 1", "neutral question 2", ...],
   "limitations": ["limitation 1", ...],
   "disclaimer": "${disclaimer}"
-}`
-        },
-        {
-          role: "user",
-          content: `Explain these lab results in ${languageName}.
+}`,
+      user: `Explain these lab results in ${languageName}.
 
 LAB RESULTS:
 ${labsJson}
-${optionalRecordSnippet ? `\nADDITIONAL CONTEXT FROM RECORD:\n${optionalRecordSnippet}` : ""}`
-        }
-      ],
-      max_tokens: 2500,
+${optionalRecordSnippet ? `\nADDITIONAL CONTEXT FROM RECORD:\n${optionalRecordSnippet}` : ""}`,
+      maxTokens: 2500,
       temperature: 0.2
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }
@@ -1112,17 +1049,13 @@ export async function summarizeImagingReport(
     disclaimer
   };
 
-  if (!openai) {
+  if (!aiEnabled) {
     return fallbackResult;
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
+    const content = await generatePhiSafeText({
+      system: `${RECORD_EXPLAINER_SYSTEM_PROMPT}
 
 TASK: Summarize this imaging report in ${languageName}. Emphasize that findings are taken from the report text. Do not interpret beyond the report.
 
@@ -1145,11 +1078,8 @@ OUTPUT FORMAT: Return ONLY valid JSON matching this schema:
   "quoted_evidence": [{"quote": "verbatim text", "source": "${input.source_system}", "date": "${input.report_date}", "record_id": "${input.record_id}"}],
   "limitations": ["limitation 1", ...],
   "disclaimer": "${disclaimer}"
-}`
-        },
-        {
-          role: "user",
-          content: `Summarize this imaging report in ${languageName}.
+}`,
+      user: `Summarize this imaging report in ${languageName}.
 
 MODALITY: ${input.modality}
 BODY PART: ${input.body_part}
@@ -1160,14 +1090,11 @@ ${input.report_text}
 PROVENANCE:
 Source: ${input.source_system}
 Date: ${input.report_date}
-Record ID: ${input.record_id}`
-        }
-      ],
-      max_tokens: 2000,
+Record ID: ${input.record_id}`,
+      maxTokens: 2000,
       temperature: 0.2
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }

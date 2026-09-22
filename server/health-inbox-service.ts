@@ -1,6 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI();
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 export interface InboxItem {
   id: string;
@@ -243,16 +241,9 @@ export async function suggestTags(
   if (!item) return [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You suggest helpful tags for health record items. Return 3-5 relevant, concise tags that would help organize this record. Tags should be lowercase, 1-3 words max.",
-        },
-        {
-          role: "user",
-          content: `Suggest tags for this health record item:
+    const content = await generatePhiSafeText({
+      system: "You suggest helpful tags for health record items. Return 3-5 relevant, concise tags that would help organize this record. Tags should be lowercase, 1-3 words max.",
+      user: `Suggest tags for this health record item:
 Type: ${item.type}
 Title: ${item.title}
 Summary: ${item.summary}
@@ -261,14 +252,11 @@ Source: ${item.source}
 Current tags: ${item.tags.join(", ") || "none"}
 
 Return JSON array: [{"tag": "tag name", "confidence": 0.9, "reason": "why this tag"}]`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const result = JSON.parse(content);
+    const result = JSON.parse(content || "{}");
     return result.suggestions || result.tags || [];
   } catch (error) {
     console.error("[HealthInbox] Tag suggestion error:", error);
@@ -289,12 +277,8 @@ export async function suggestEpisodeGrouping(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You analyze health records to identify "episodes" - related items that belong together. 
+    const content = await generatePhiSafeText({
+      system: `You analyze health records to identify "episodes" - related items that belong together.
 An episode might be:
 - A hospital stay with all related tests and follow-ups
 - An injury and its treatment/recovery
@@ -302,22 +286,16 @@ An episode might be:
 - A routine checkup with associated lab work
 
 Group items that are clearly related. Be conservative - only group items with clear connections.`,
-        },
-        {
-          role: "user",
-          content: `Analyze these ungrouped health record items and suggest episode groupings:
+      user: `Analyze these ungrouped health record items and suggest episode groupings:
 
 ${ungroupedItems.map(i => `- ID: ${i.id}, Type: ${i.type}, Title: ${i.title}, Date: ${i.receivedAt}, Summary: ${i.summary}`).join("\n")}
 
 Return JSON: {"episodes": [{"title": "Episode Name", "itemIds": ["id1", "id2"], "description": "why grouped"}], "suggestions": ["suggestion about records"]}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const result = JSON.parse(content);
+    const result = JSON.parse(content || "{}");
     
     const existingEpisodes = await getEpisodes(patientId);
     

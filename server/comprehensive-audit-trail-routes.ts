@@ -8,8 +8,10 @@ import {
 } from "./services/comprehensive-audit-trail-service";
 import { extractUserContext, requireRole, AuthorizedRequest } from "./middleware/rbac-authorization";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.use(extractUserContext);
 
@@ -17,7 +19,7 @@ router.get("/metadata", async (req: AuthorizedRequest, res: Response) => {
   try {
     logPhiAccess({
       action: "read",
-      userId: req.userId || "anonymous",
+      userId: getUserId(req),
       resourceType: "AuditTrailMetadata",
       details: "AUDIT_TRAIL_METADATA_ACCESSED",
     });
@@ -32,7 +34,7 @@ router.get("/metadata", async (req: AuthorizedRequest, res: Response) => {
 
 router.get("/logs", requireRole("administrator", "auditor"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     
     const filter: AuditLogFilter = {
       startDate: req.query.startDate as string,
@@ -64,7 +66,7 @@ router.get("/logs", requireRole("administrator", "auditor"), async (req: Authori
 
 router.get("/logs/:logId", requireRole("administrator", "auditor"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { logId } = req.params;
 
     const log = await comprehensiveAuditTrailService.getAuditLogById(userId, logId);
@@ -81,7 +83,7 @@ router.get("/logs/:logId", requireRole("administrator", "auditor"), async (req: 
 
 router.get("/statistics", requireRole("administrator", "auditor"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     
     const filter = {
       startDate: req.query.startDate as string,
@@ -98,7 +100,7 @@ router.get("/statistics", requireRole("administrator", "auditor"), async (req: A
 
 router.post("/export", requireRole("administrator", "auditor"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { filter, format } = req.body;
 
     const result = await comprehensiveAuditTrailService.exportAuditLogs(
@@ -118,7 +120,7 @@ router.post("/export", requireRole("administrator", "auditor"), async (req: Auth
 
 router.post("/log/data-source", requireRole("administrator", "clinician", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const userRole = req.userRole || "unknown";
     const { action, dataSource, details, context } = req.body;
 
@@ -150,7 +152,7 @@ router.post("/log/data-source", requireRole("administrator", "clinician", "data_
 
 router.post("/log/configuration", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const userRole = req.userRole || "unknown";
     const { config, changes, details, context } = req.body;
 
@@ -182,7 +184,7 @@ router.post("/log/configuration", requireRole("administrator"), async (req: Auth
 
 router.post("/log/rule-execution", requireRole("administrator", "clinician"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const userRole = req.userRole || "unknown";
     const { rule, execution, context } = req.body;
 
@@ -213,7 +215,7 @@ router.post("/log/rule-execution", requireRole("administrator", "clinician"), as
 
 router.post("/log/ai-prediction", requireRole("administrator", "clinician", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const userRole = req.userRole || "unknown";
     const { model, prediction, context } = req.body;
 
@@ -244,7 +246,7 @@ router.post("/log/ai-prediction", requireRole("administrator", "clinician", "dat
 
 router.post("/log/access-control", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const userRole = req.userRole || "unknown";
     const { action, target, details, context } = req.body;
 
@@ -276,7 +278,7 @@ router.post("/log/access-control", requireRole("administrator"), async (req: Aut
 
 router.get("/alerts", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
 
     const configs = await comprehensiveAuditTrailService.getAlertConfigs(userId);
     res.json({ 
@@ -291,7 +293,7 @@ router.get("/alerts", requireRole("administrator"), async (req: AuthorizedReques
 
 router.post("/alerts", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { name, enabled, conditions, notifications } = req.body;
 
     if (!name || !conditions) {
@@ -319,7 +321,7 @@ router.post("/alerts", requireRole("administrator"), async (req: AuthorizedReque
 
 router.patch("/alerts/:alertId", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { alertId } = req.params;
 
     const config = await comprehensiveAuditTrailService.updateAlertConfig(
@@ -344,7 +346,7 @@ router.patch("/alerts/:alertId", requireRole("administrator"), async (req: Autho
 
 router.delete("/alerts/:alertId", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { alertId } = req.params;
 
     const success = await comprehensiveAuditTrailService.deleteAlertConfig(userId, alertId);

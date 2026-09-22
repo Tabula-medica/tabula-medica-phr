@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import crypto from "crypto";
 import type { 
   ExplanationResponse, 
@@ -15,11 +15,6 @@ function generateId(): string {
 
 export { checkForMedicalAdviceRequest, isGuardrailTriggered };
 export type { GuardrailCheckResult, GuardrailRefusalResponse };
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 const DISCLAIMER = "Informational only. Not medical advice. Always consult your healthcare provider for personal health questions.";
 
@@ -114,23 +109,14 @@ export async function generateExplanation(
     };
   }
 
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (!apiKey) {
-    return getFallbackExplanation(term, request.sourceQuote, request.recordType, id);
-  }
-
   try {
     const recordTypeContext = request.recordType ? RECORD_TYPE_CONTEXT[request.recordType] : "";
     const sourceContext = request.sourceQuote 
       ? `\nSource quote from record: "${request.sourceQuote.text}"\nSource: ${request.sourceQuote.source}${request.sourceQuote.date ? ` (${request.sourceQuote.date})` : ""}`
       : "";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You explain medical terms to patients in simple, everyday language.
+    const content = await generatePhiSafeText({
+      system: `You explain medical terms to patients in simple, everyday language.
 
 SAFE VERBS TO USE: "shows", "means", "refers to", "is commonly used to describe", "is often measured to assess", "indicates"
 
@@ -149,22 +135,16 @@ Format response as JSON with these exact keys:
   "questionsForDoctor": ["3 safe questions to ask the doctor"],
   "relatedTerms": ["2-3 related medical terms they might also see"]
 }`,
-        },
-        {
-          role: "user",
-          content: `Explain this medical term in plain English: "${term}"
+      user: `Explain this medical term in plain English: "${term}"
 ${recordTypeContext}
 ${request.context ? `Additional context: ${request.context}` : ""}${sourceContext}
 
 Remember: Use ONLY safe verbs (refers to, means, shows, indicates). Do NOT give any advice or recommendations.`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
       temperature: 0.3,
-      max_tokens: 400,
+      maxTokens: 400,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       return getFallbackExplanation(term, request.sourceQuote, request.recordType, id);
     }

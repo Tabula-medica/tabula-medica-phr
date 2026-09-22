@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import crypto from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "CRITICAL COMPLIANCE NOTICE: This analytics system is for DATA GOVERNANCE, OPERATIONAL EFFICIENCY, and SECURITY purposes ONLY. It does NOT provide clinical decision support, diagnostic predictions, or treatment recommendations. All insights focus on data quality, system performance, and security posture - NOT individual patient clinical outcomes.";
 
@@ -339,39 +339,30 @@ export class AIAdvancedAnalyticsService {
     let trends: DataQualityTrend[] = [];
     let recommendations: string[] = [];
 
-    if (openai && historicalData.length > 0) {
+    if (aiEnabled && historicalData.length > 0) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const response = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a DATA QUALITY analyst specializing in healthcare data governance.
 Analyze historical data quality metrics and predict future trends.
 Focus ONLY on data quality, system performance, and operational efficiency.
 DO NOT make any clinical predictions or health outcome forecasts.
 
-Return JSON with: trends (array of metric predictions), recommendations (array of data governance actions), overallRiskScore (0-100).`
-            },
-            {
-              role: "user",
-              content: `Analyze these data quality metrics and forecast ${forecastDays} days ahead:
+Return JSON with: trends (array of metric predictions), recommendations (array of data governance actions), overallRiskScore (0-100).`,
+          user: `Analyze these data quality metrics and forecast ${forecastDays} days ahead:
 ${JSON.stringify(historicalData.map(d => ({ metricName: d.metricName, recentValues: d.values.slice(-10) })))}
 
-Generate data quality forecasts focusing on operational trends.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1200
+Generate data quality forecasts focusing on operational trends.`,
+          responseMimeType: "application/json",
+          maxTokens: 1200
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(response || "{}");
         trends = result.trends || [];
         recommendations = result.recommendations || [];
       } catch (error) {
-        console.error("OpenAI error in forecast generation:", error);
+        console.error("AI gateway error in forecast generation:", error);
       }
     }
 
@@ -471,33 +462,24 @@ Generate data quality forecasts focusing on operational trends.`
     let patterns: SystemicPattern[] = [];
     let recommendations: string[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const response = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a DATA GOVERNANCE analyst detecting systemic data quality issues.
 Identify patterns across multiple patients, systems, and time periods.
 Focus ONLY on data quality patterns, NOT clinical patterns or health outcomes.
 
-Return JSON with: patterns (array of systemic patterns with type, severity, affected systems, description, root cause, remediation), recommendations (array of governance actions), systemHealthScore (0-100).`
-            },
-            {
-              role: "user",
-              content: `Perform ${analysisType} pattern analysis for systemic data quality issues.
+Return JSON with: patterns (array of systemic patterns with type, severity, affected systems, description, root cause, remediation), recommendations (array of governance actions), systemHealthScore (0-100).`,
+          user: `Perform ${analysisType} pattern analysis for systemic data quality issues.
 Look for: recurring errors, data drift, source degradation, temporal anomalies, cross-system inconsistencies.
-Generate findings focused on DATA GOVERNANCE, not clinical insights.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500
+Generate findings focused on DATA GOVERNANCE, not clinical insights.`,
+          responseMimeType: "application/json",
+          maxTokens: 1500
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(response || "{}");
         patterns = (result.patterns || []).map((p: any, idx: number) => ({
           id: `pat-${analysisId}-${idx}`,
           patternType: p.patternType || "recurring_error",
@@ -513,7 +495,7 @@ Generate findings focused on DATA GOVERNANCE, not clinical insights.`
         }));
         recommendations = result.recommendations || [];
       } catch (error) {
-        console.error("OpenAI error in pattern analysis:", error);
+        console.error("AI gateway error in pattern analysis:", error);
       }
     }
 
@@ -604,40 +586,31 @@ Generate findings focused on DATA GOVERNANCE, not clinical insights.`
     let complianceGaps: string[] = [];
     let recommendations: string[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const response = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a SECURITY analyst for healthcare infrastructure.
 Analyze security posture, predict threats, and recommend adaptive controls.
 Focus ONLY on infrastructure security, NOT clinical data interpretation.
 
-Return JSON with: threatPredictions (array with threatType, likelihood, impact, indicators, timeframe), adaptiveControls (array with controlType, triggerCondition, currentState, recommendedState), emergingThreats (array of strings), complianceGaps (array of strings), recommendations (array of strings), overallRiskScore (0-100).`
-            },
-            {
-              role: "user",
-              content: `Analyze current security posture for a healthcare FHIR platform.
+Return JSON with: threatPredictions (array with threatType, likelihood, impact, indicators, timeframe), adaptiveControls (array with controlType, triggerCondition, currentState, recommendedState), emergingThreats (array of strings), complianceGaps (array of strings), recommendations (array of strings), overallRiskScore (0-100).`,
+          user: `Analyze current security posture for a healthcare FHIR platform.
 Consider: access patterns, configuration state, compliance status, threat landscape.
-Generate security predictions and adaptive control recommendations.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500
+Generate security predictions and adaptive control recommendations.`,
+          responseMimeType: "application/json",
+          maxTokens: 1500
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(response || "{}");
         threatPredictions = result.threatPredictions || [];
         adaptiveControls = result.adaptiveControls || [];
         emergingThreats = result.emergingThreats || [];
         complianceGaps = result.complianceGaps || [];
         recommendations = result.recommendations || [];
       } catch (error) {
-        console.error("OpenAI error in security analysis:", error);
+        console.error("AI gateway error in security analysis:", error);
       }
     }
 

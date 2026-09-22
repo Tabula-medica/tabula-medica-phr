@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
-export type SupportedLanguage = 
+export type SupportedLanguage =
   | "en" | "es" | "zh" | "hi" | "ar" | "pt" | "bn" | "ru" 
   | "ja" | "pa" | "de" | "ko" | "fr" | "vi" | "tl" | "it"
   | "fa" | "te" | "ne";
@@ -1050,6 +1045,7 @@ export async function translateMedicalText(
   if (options?.patientId) {
     logPhiAccess({
       action: "read",
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route passes (req as any).userId (typed any, may be undefined); make options.userId required once medical-terminology-translation-routes.ts passes getUserId(req)
       userId: options.userId || "system",
       patientId: options.patientId,
       resourceType: "MedicalTranslation",
@@ -1087,12 +1083,8 @@ export async function translateMedicalText(
       ? "Maintain appropriate medical terminology for someone with health knowledge."
       : "Use clear, accessible language suitable for most adults.";
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical translator specializing in patient health information. Translate the following text to ${langMeta.name} (${langMeta.nativeName}).
+    const aiText = await generatePhiSafeText({
+      system: `You are a medical translator specializing in patient health information. Translate the following text to ${langMeta.name} (${langMeta.nativeName}).
 
 ${readingLevelInstruction}
 ${preserveInstruction}
@@ -1105,16 +1097,11 @@ Rules:
 5. Ensure the translation is culturally appropriate
 
 Return ONLY the translated text, no explanations.`,
-        },
-        {
-          role: "user",
-          content: text,
-        },
-      ],
-      max_completion_tokens: 2000,
+      user: text,
+      maxTokens: 2000,
     });
-    
-    translatedText = response.choices[0]?.message?.content || text;
+
+    translatedText = aiText || text;
   } catch (error) {
     console.error("[MedicalTranslation] AI translation failed:", error);
     translatedText = `[${langMeta.name}] ${text}`;
@@ -1163,6 +1150,7 @@ export async function translateHealthSummary(
   if (options?.patientId) {
     logPhiAccess({
       action: "read",
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route passes (req as any).userId (typed any, may be undefined); make options.userId required once medical-terminology-translation-routes.ts passes getUserId(req)
       userId: options.userId || "system",
       patientId: options.patientId,
       resourceType: "HealthSummaryTranslation",

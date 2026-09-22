@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 interface ValidationRule {
   id: string;
@@ -511,20 +506,13 @@ Format your response as a JSON array with objects containing: type (correction/e
 
 IMPORTANT: This is for DATA QUALITY purposes only, NOT for clinical decision support.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a healthcare data quality expert. Provide suggestions for improving FHIR patient data quality. Focus on data completeness and accuracy. Do NOT provide clinical recommendations or treatment advice. This is NOT clinical decision support." 
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare data quality expert. Provide suggestions for improving FHIR patient data quality. Focus on data completeness and accuracy. Do NOT provide clinical recommendations or treatment advice. This is NOT clinical decision support.",
+        user: prompt,
+        responseMimeType: "application/json",
+        temperature: 0.3,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const aiSuggestions = parsed.suggestions || parsed;

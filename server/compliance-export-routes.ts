@@ -5,8 +5,10 @@ import { tefcaFrameworkService, type QHINIdentifier } from "./services/tefca-fra
 import { comprehensiveAuditTrailService, type AuditLogFilter } from "./services/comprehensive-audit-trail-service";
 import { extractUserContext, requireRole, type AuthorizedRequest } from "./middleware/rbac-authorization";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 router.use(extractUserContext);
 
 function deriveKey(password: string): Buffer {
@@ -287,7 +289,7 @@ router.post("/tefca", requireRole("administrator", "auditor", "compliance_office
 
     logPhiAccess({
       action: "export",
-      userId: req.userId || "anonymous",
+      userId: getUserId(req),
       resourceType: "TEFCAExchangeData",
       details: `COMPLIANCE_EXPORT_TEFCA format=${format} dateFrom=${dateFrom || "all"} dateTo=${dateTo || "all"}`,
     });
@@ -361,7 +363,7 @@ router.post("/audit-logs", requireRole("administrator", "auditor", "compliance_o
 
     logPhiAccess({
       action: "export",
-      userId: req.userId || "anonymous",
+      userId: getUserId(req),
       resourceType: "SystemAuditLogs",
       details: `COMPLIANCE_EXPORT_AUDIT format=${format} dateFrom=${dateFrom || "all"} dateTo=${dateTo || "all"} severity=${severity || "all"}`,
     });
@@ -378,7 +380,7 @@ router.post("/audit-logs", requireRole("administrator", "auditor", "compliance_o
       sortOrder: "desc",
     };
 
-    const result = await comprehensiveAuditTrailService.getAuditLogs(req.userId || "system", filter);
+    const result = await comprehensiveAuditTrailService.getAuditLogs(getUserId(req), filter);
     const entries = result.logs || [];
 
     let rawBuffer: Buffer;
@@ -441,7 +443,7 @@ router.get("/preview/tefca", requireRole("administrator", "auditor", "compliance
 
 router.get("/preview/audit-logs", requireRole("administrator", "auditor", "compliance_officer"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const result = await comprehensiveAuditTrailService.getAuditLogs(req.userId || "system", { limit: 5000 });
+    const result = await comprehensiveAuditTrailService.getAuditLogs(getUserId(req), { limit: 5000 });
     const entries = result.logs || [];
 
     const severityCounts: Record<string, number> = {};

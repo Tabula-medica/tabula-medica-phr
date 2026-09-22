@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { requireRole } from "./rbac";
 
@@ -340,29 +341,18 @@ Generate a comprehensive ${format.toUpperCase()} clinical note incorporating all
       }
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5-mini",
-          messages: [
-            {
-              role: "system",
-              content: `You are a medical coding specialist. Analyze clinical documentation and suggest appropriate ICD-10 diagnosis codes and CPT procedure codes.
+        const content = await generatePhiSafeText({
+          system: `You are a medical coding specialist. Analyze clinical documentation and suggest appropriate ICD-10 diagnosis codes and CPT procedure codes.
 
 IMPORTANT: These are suggestions for coder/physician review only. Final code selection must be verified by a certified medical coder.
 
 Return JSON with:
 - "codes": array of {code, type (ICD-10 or CPT), description, confidence (0-1), rationale}
 - "billingLevel": {emCode, level (1-5), justification, mdmComplexity, timeEstimate}`,
-            },
-            {
-              role: "user",
-              content: `Suggest ICD-10 and CPT codes for this clinical documentation:\n\n${clinicalText}${contextPrompt}\n\nReturn up to 12 most relevant codes.`,
-            },
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 2000,
-        });
-
-        const content = response.choices[0]?.message?.content || "{}";
+          user: `Suggest ICD-10 and CPT codes for this clinical documentation:\n\n${clinicalText}${contextPrompt}\n\nReturn up to 12 most relevant codes.`,
+          responseMimeType: "application/json",
+          maxTokens: 2000,
+        }) || "{}";
         console.log("[AINoteAssistant] Code suggestion raw response length:", content.length);
         const parsed = JSON.parse(content);
         const codes = parsed.codes || parsed.suggestions || parsed.code_suggestions || [];
@@ -401,12 +391,8 @@ Return JSON with:
       const patientData = buildPatientDataPrompt(patient);
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-5-mini",
-          messages: [
-            {
-              role: "system",
-              content: `You are a clinical documentation assistant. Generate a concise patient summary based on their medical data.
+        const content = await generatePhiSafeText({
+          system: `You are a clinical documentation assistant. Generate a concise patient summary based on their medical data.
 
 IMPORTANT: This is for documentation assistance only. Not clinical decision support.
 
@@ -417,17 +403,10 @@ Return JSON with:
 - "activeProblems": Prioritized list of active clinical problems
 - "medicationReview": Brief medication appropriateness observations
 - "preventiveCare": Any preventive care gaps noted`,
-            },
-            {
-              role: "user",
-              content: `Generate a clinical summary for this patient${focusArea ? ` with focus on: ${focusArea}` : ""}:\n\n${patientData}`,
-            },
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 2000,
-        });
-
-        const content = response.choices[0]?.message?.content || "{}";
+          user: `Generate a clinical summary for this patient${focusArea ? ` with focus on: ${focusArea}` : ""}:\n\n${patientData}`,
+          responseMimeType: "application/json",
+          maxTokens: 2000,
+        }) || "{}";
         const parsed = JSON.parse(content);
         res.json({
           success: true,

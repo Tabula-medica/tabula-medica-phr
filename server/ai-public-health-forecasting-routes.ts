@@ -1,10 +1,11 @@
 import { Express, Request, Response } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { aiPublicHealthForecasting } from "./services/ai-public-health-forecasting-service";
 
 export function registerAIPublicHealthForecastingRoutes(app: Express) {
-  app.get("/api/public-health-forecasting/dashboard", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/dashboard", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const dashboard = await aiPublicHealthForecasting.getDashboard(userId);
       res.json(dashboard);
     } catch (error) {
@@ -13,9 +14,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/outbreaks", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/outbreaks", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const forecasts = await aiPublicHealthForecasting.getOutbreakForecasts(userId);
       res.json({ forecasts });
     } catch (error) {
@@ -24,9 +25,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/outbreaks/:id", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/outbreaks/:id", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const forecast = await aiPublicHealthForecasting.getOutbreakForecast(userId, req.params.id);
       if (!forecast) {
         return res.status(404).json({ error: "Forecast not found" });
@@ -38,9 +39,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.post("/api/public-health-forecasting/outbreaks/generate", async (req: Request, res: Response) => {
+  app.post("/api/public-health-forecasting/outbreaks/generate", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { diseaseType, region, historicalData } = req.body;
 
       if (!diseaseType || !region || !historicalData) {
@@ -60,9 +61,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/shortages", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/shortages", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const shortages = await aiPublicHealthForecasting.getMedicationShortages(userId);
       res.json({ shortages });
     } catch (error) {
@@ -71,9 +72,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/shortages/:id", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/shortages/:id", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const shortage = await aiPublicHealthForecasting.getMedicationShortage(userId, req.params.id);
       if (!shortage) {
         return res.status(404).json({ error: "Shortage not found" });
@@ -85,9 +86,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.post("/api/public-health-forecasting/shortages/analyze", async (req: Request, res: Response) => {
+  app.post("/api/public-health-forecasting/shortages/analyze", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { medicationName, supplyData } = req.body;
 
       if (!medicationName || !supplyData) {
@@ -106,9 +107,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/interventions", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/interventions", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const interventionsList = await aiPublicHealthForecasting.getInterventions(userId);
       res.json({ interventions: interventionsList });
     } catch (error) {
@@ -117,9 +118,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/interventions/:id", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/interventions/:id", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const intervention = await aiPublicHealthForecasting.getIntervention(userId, req.params.id);
       if (!intervention) {
         return res.status(404).json({ error: "Intervention not found" });
@@ -131,9 +132,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.post("/api/public-health-forecasting/interventions/generate", async (req: Request, res: Response) => {
+  app.post("/api/public-health-forecasting/interventions/generate", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { threatType, region, population, currentMetrics } = req.body;
 
       if (!threatType || !region) {
@@ -153,9 +154,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/trends", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/trends", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const analyses = await aiPublicHealthForecasting.getTrendAnalyses(userId);
       res.json({ analyses });
     } catch (error) {
@@ -164,9 +165,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.get("/api/public-health-forecasting/trends/:id", async (req: Request, res: Response) => {
+  app.get("/api/public-health-forecasting/trends/:id", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const analysis = await aiPublicHealthForecasting.getTrendAnalysis(userId, req.params.id);
       if (!analysis) {
         return res.status(404).json({ error: "Trend analysis not found" });
@@ -178,9 +179,9 @@ export function registerAIPublicHealthForecastingRoutes(app: Express) {
     }
   });
 
-  app.post("/api/public-health-forecasting/trends/generate", async (req: Request, res: Response) => {
+  app.post("/api/public-health-forecasting/trends/generate", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { analysisType, dataPoints, context } = req.body;
 
       if (!analysisType || !dataPoints || dataPoints.length === 0) {
