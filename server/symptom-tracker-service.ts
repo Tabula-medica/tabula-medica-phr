@@ -206,7 +206,6 @@ export async function getSymptomInsights(
     labResults: Array<{ name: string; value: string; quote: string; source: string }>;
   }
 ): Promise<SymptomInsight> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return getMockSymptomInsight(symptomId, symptomName);
@@ -217,7 +216,6 @@ export async function getSymptomInsights(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -588,7 +586,6 @@ async function generatePeriodSummary(
   symptoms: SymptomLog[],
   periodDays: number
 ): Promise<{ keyChanges: string[]; persistentIssues: string[]; summary: string }> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   const fallback = {
     keyChanges: [
@@ -610,7 +607,6 @@ async function generatePeriodSummary(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",

@@ -148,7 +148,6 @@ async function generateAppointmentSuggestions(
   preferences: PatientPreferences,
   context: HealthContext
 ): Promise<AppointmentSuggestion[]> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return getMockSuggestions(request, preferences);
@@ -159,7 +158,6 @@ async function generateAppointmentSuggestions(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",

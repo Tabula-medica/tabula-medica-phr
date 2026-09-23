@@ -2,27 +2,36 @@ import OpenAI from "openai";
 import { Buffer } from "node:buffer";
 import { medicalSpeechToTextService } from "../../services/gcp/medical-speech-to-text";
 import { synthesizeSpeech } from "../../lib/gcp-tts";
-import { prepareForStt } from "../../lib/audio-transcode";
+import { generatePhiSafeChatStream } from "../../services/ai-gateway";
 
 // NOTE: `openai` here is the Vertex shim (build alias) — chat.completions routes to
 // Vertex/Gemini (BAA). Its `.audio`/`.images` are hard-disabled. Audio in this module
 // therefore uses GCP Speech-to-Text + Google Cloud TTS (both BAA-covered). Single-model
 // audio-in/audio-out (voiceChat*) can't run on Gemini and is fail-closed → use the
 // cascade voiceChatWithTextModel (STT → Vertex text → TTS) instead.
+// Exported for callers that need the OpenAI-compat interface; chat.completions routes
+// to Vertex AI via AI_INTEGRATIONS_OPENAI_BASE_URL (BAA-covered).
 export const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+// Map the app's audio container hints to GCP STT encodings; fail closed on mp4/aac.
+function sttEncoding(format: string): "WEBM_OPUS" | "OGG_OPUS" | "LINEAR16" | "MP3" {
+  if (format.includes("webm")) return "WEBM_OPUS";
+  if (format.includes("ogg")) return "OGG_OPUS";
+  if (format.includes("mp3") || format.includes("mpeg")) return "MP3";
+  if (format.includes("wav")) return "LINEAR16";
+  throw new Error(`Unsupported audio format "${format}" for GCP Speech-to-Text (mp4/aac needs transcoding — follow-up).`);
+}
+
 async function transcribeBaaSafe(audioBuffer: Buffer, format: string): Promise<string> {
   const ready = await medicalSpeechToTextService.initialize();
   if (!ready) throw new Error("GCP Speech-to-Text unavailable (ADC) — no PHI is sent to OpenAI.");
-  // mp4/aac transcoded to FLAC; WebM/Opus, Ogg, WAV, MP3 pass through. BAA-safe.
-  const { audioContent, encoding, sampleRateHertz } = await prepareForStt(audioBuffer, format);
   const r = await medicalSpeechToTextService.transcribe({
-    audioContent,
-    encoding: encoding as any,
-    sampleRateHertz,
+    audioContent: audioBuffer.toString("base64"),
+    encoding: sttEncoding(format),
+    sampleRateHertz: 48000,
     languageCode: "en-US",
     model: "medical_conversation",
     punctuation: true,
@@ -240,13 +249,6 @@ export async function* voiceChatWithTextModel(
     { role: "user" as const, content: userText },
   ];
 
-  // 3. Stream text from LLM
-  const textStream = await openai.chat.completions.create({
-    model: textModel,
-    messages,
-    stream: true,
-  });
-
   // 4. Parse sentences and dispatch TTS in parallel
   const parser = new SentenceParser(locale);
   const activeStreams: TTSStream[] = [];
@@ -301,9 +303,8 @@ export async function* voiceChatWithTextModel(
     }
   }
 
-  // 5. Process text stream: parse sentences, dispatch TTS, yield audio
-  for await (const chunk of textStream) {
-    const token = chunk.choices[0]?.delta?.content || "";
+  // 3+5. Stream text from Vertex gateway and parse sentences
+  for await (const token of generatePhiSafeChatStream({ messages })) {
     if (!token) continue;
 
     fullTranscript += token;

@@ -1,13 +1,7 @@
 import type { Express, Request, Response } from "express";
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./services/ai-gateway";
+import { generatePhiSafeText, generatePhiSafeChatStream } from "./services/ai-gateway";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { requireRole } from "./rbac";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = "DRAFT - FOR PHYSICIAN REVIEW ONLY. This AI-generated content is for documentation assistance only and does not constitute clinical decision support. All content must be verified by a licensed healthcare provider before use in patient care.";
 
@@ -256,25 +250,18 @@ Generate a comprehensive ${format.toUpperCase()} clinical note incorporating all
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
 
-        const stream = await openai.chat.completions.create({
-          model: "gpt-5.2",
+        let fullResponse = "";
+
+        for await (const content of generatePhiSafeChatStream({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4000,
-          stream: true,
-        });
-
-        let fullResponse = "";
-
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || "";
-          if (content) {
-            fullResponse += content;
-            res.write(`data: ${JSON.stringify({ type: "chunk", content })}\n\n`);
-          }
+          responseMimeType: "application/json",
+          maxTokens: 4000,
+        })) {
+          fullResponse += content;
+          res.write(`data: ${JSON.stringify({ type: "chunk", content })}\n\n`);
         }
 
         try {
