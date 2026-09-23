@@ -12,7 +12,7 @@ Target: $ARGUMENTS (default: uncommitted changes).
 2. Harden the target: input validation, error handling with useful messages, types with no `any`, no secrets or sensitive data in logs, idempotent side effects, timeouts on network calls.
 3. Add or extend tests for the happy path, edge cases, and failure modes, following the project's existing test layout.
 4. Update docs or comments only where behavior changed.
-5. Run every command in the `CLAUDE.md` Commands section. Fix failures. Re-run until clean.
+5. Run the verification commands from `CLAUDE.md`'s Commands section (typecheck, lint, test, build, `phi-ai-guard`). Skip `npm run dev` and `npm run db:push` — they start a server and mutate the database, not verify code. Fix failures. Re-run until clean.
 6. Report: what changed, what the checks returned, anything intentionally left out.
 
 Do not widen scope beyond the target. Do not skip or weaken tests to get green.

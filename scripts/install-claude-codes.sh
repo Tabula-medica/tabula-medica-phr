@@ -19,7 +19,11 @@ END='<!-- claude-prompt-codes:end -->'
 TARGET=""; MODE=""; REPLIT=0; DRY=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo) MODE=repo; TARGET="$2"; shift 2 ;;
+    --repo)
+      case "${2:-}" in
+        ""|-*) echo "--repo needs a path argument" >&2; exit 2 ;;
+      esac
+      MODE=repo; TARGET="$2"; shift 2 ;;
     --global) MODE=global; TARGET="${HOME}"; shift ;;
     --replit) REPLIT=1; shift ;;
     --dry-run) DRY=1; shift ;;
@@ -42,7 +46,8 @@ run cp "$SRC/claude-code-cheatsheet.md" "$DEST/claude-code-cheatsheet.md"
 # In global mode the block lives in ~/.claude/CLAUDE.md, so its paths must be absolute to ~/.claude.
 SNIP="$SRC/CLAUDE.snippet.md"
 if [ "$MODE" = global ]; then
-  SNIP="$(mktemp)"; sed 's#`\.claude/#`~/.claude/#g' "$SRC/CLAUDE.snippet.md" > "$SNIP"
+  SNIP="$(mktemp)"; trap 'rm -f "$SNIP"' EXIT
+  sed 's#`\.claude/#`~/.claude/#g' "$SRC/CLAUDE.snippet.md" > "$SNIP"
 fi
 run cp "$SNIP" "$DEST/CLAUDE.snippet.md"
 for d in "$SRC"/skills/*/; do
@@ -58,6 +63,7 @@ else
   mkdir -p "$(dirname "$MEMORY")"
   touch "$MEMORY"
   if grep -qF "$BEGIN" "$MEMORY"; then
+    grep -qF "$END" "$MEMORY" || { echo "found begin marker without end marker in $MEMORY — refusing to overwrite, fix it by hand" >&2; exit 1; }
     awk -v b="$BEGIN" -v e="$END" -v snip="$SNIP" '
       $0==b { while ((getline line < snip) > 0) print line; skip=1; next }
       $0==e { skip=0; next }
@@ -72,4 +78,5 @@ if [ "$REPLIT" = 1 ]; then
   run cp "$HERE/.agents/skills/prompt-codes/SKILL.md" "$TARGET/.agents/skills/prompt-codes/SKILL.md"
 fi
 
-echo "Installed prompt-code bundle -> $DEST ($(ls "$SRC/skills" | wc -l | tr -d ' ') skills); memory: $MEMORY"
+VERB="Installed"; [ "$DRY" = 1 ] && VERB="Would install"
+echo "$VERB prompt-code bundle -> $DEST ($(ls "$SRC/skills" | wc -l | tr -d ' ') skills); memory: $MEMORY"

@@ -13,4 +13,4 @@ Symptom: $ARGUMENTS
 3. **Explain**: one paragraph on what went wrong and why it was possible.
 4. **Fix** minimally in the code the bug lives in. No drive-by refactors.
 5. **Regression test** that fails before the fix and passes after.
-6. Re-run the full check suite from `CLAUDE.md`. Report the before and after output.
+6. Re-run the verification commands from `CLAUDE.md` (typecheck, lint, test, build, `phi-ai-guard` — not `npm run dev` or `npm run db:push`). Report the before and after output.
