@@ -34,6 +34,7 @@ import {
   triggerFastenExport,
 } from "./auth/fasten";
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
 import { registerAbdmRoutes } from "./abdm-routes";
@@ -20254,7 +20255,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         description,
         type: type || "condition",
         criteria,
-        createdBy: createdBy || "system",
+        createdBy: createdBy || SYSTEM_ACTOR,
       });
       res.status(201).json(cohort);
     } catch (error) {
@@ -20322,7 +20323,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         type,
         description,
         parameters: parameters || {},
-        generatedBy: generatedBy || "system",
+        generatedBy: generatedBy || SYSTEM_ACTOR,
       });
       res.status(201).json(report);
     } catch (error) {

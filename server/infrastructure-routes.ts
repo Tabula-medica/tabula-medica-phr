@@ -1788,8 +1788,7 @@ router.get("/wearables/stream/:patientId/:deviceId", async (req: Request, res: R
 
 router.get("/wearables/connectors/statuses", async (req: Request, res: Response) => {
   try {
-    const { patientId } = req.query;
-    const pid = (patientId as string) || 'patient-001';
+    const pid = (req.query.patientId as string | undefined) || getUserId(req);
     logAudit("WEARABLE_CONNECTOR_STATUSES_ACCESSED", { patientId: pid });
     const devices = wearableDeviceService.getConnectedDevices(pid);
     const allData = wearableDeviceService.getDeviceData(pid, '', undefined);

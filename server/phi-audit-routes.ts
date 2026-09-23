@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import crypto from "crypto";
 import { requireUser, getUserId } from "./middleware/require-user";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const auditQuerySchema = z.object({
   action: z.string().optional(),
@@ -69,7 +70,7 @@ export function registerPhiAuditRoutes(app: Express): void {
         id: log.id,
         timestamp: log.createdAt,
         action: log.eventType,
-        resourceType: log.metadata?.resourceType as string || "system",
+        resourceType: log.metadata?.resourceType as string || SYSTEM_ACTOR,
         resourceId: log.metadata?.resourceId as string || undefined,
         userId: log.userId,
         userName: log.metadata?.userName as string || log.userId.substring(0, 8),

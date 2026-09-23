@@ -2,8 +2,10 @@ import { Router } from "express";
 import { wearableIntegrationService } from "./services/wearable-integration-service";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { randomUUID } from "crypto";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 // ============================================
 // DATA CONSENT MANAGEMENT
@@ -111,8 +113,7 @@ initializeSampleConsents();
 // Get all data consents for a patient
 router.get("/api/health-data/consents", async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     await logPhiAccess({
       action: "read",
@@ -136,8 +137,7 @@ router.get("/api/health-data/consents", async (req, res) => {
 // Update consent settings
 router.post("/api/health-data/consents", async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const { dataSource, dataTypes, consentGiven, purpose, canShare, shareWith } = req.body;
 
     if (!dataSource || !dataTypes || typeof consentGiven !== "boolean") {
@@ -194,8 +194,7 @@ router.post("/api/health-data/consents", async (req, res) => {
 // Revoke consent for a data source
 router.delete("/api/health-data/consents/:consentId", async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const { consentId } = req.params;
 
     const consents = consentsStore.get(patientId) || [];
@@ -238,8 +237,7 @@ router.delete("/api/health-data/consents/:consentId", async (req, res) => {
 
 router.get("/api/health-data/consolidated", async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     // Check consents - enforce granular data type filtering
     const consents = consentsStore.get(patientId) || [];
@@ -438,8 +436,7 @@ router.get("/api/health-data/consolidated", async (req, res) => {
 // Get data access audit log
 router.get("/api/health-data/audit-log", async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const consents = consentsStore.get(patientId) || [];
     const auditLog = consents.flatMap(c => 

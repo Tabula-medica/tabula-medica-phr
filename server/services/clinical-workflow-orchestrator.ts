@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This workflow automation system is for operational and care coordination purposes only. All clinical decisions must be made by qualified healthcare providers. This system does NOT provide clinical decision support or medical advice.";
 
@@ -1024,7 +1025,7 @@ class ClinicalWorkflowOrchestrator {
           action: "execute" as any,
           resourceType: "workflow",
           // eslint-disable-next-line tabulaAuth/no-fallback-identity -- not an identity fallback: this is resourceId (workflow/instance/task id), userId is a separate required param; "system" here means a workflow-level event with no specific resource id
-          resourceId: details.workflowId || details.instanceId || details.taskId || "system",
+          resourceId: details.workflowId || details.instanceId || details.taskId || SYSTEM_ACTOR,
           resourceName: details.name || action,
           description: `Workflow action: ${action}`
         },

@@ -13,6 +13,7 @@ import type { Request, Response, NextFunction } from "express";
 import { logPhiAccess } from "./hipaa-audit";
 import { redactPath } from "./redact-path";
 import { getSiemStatus } from "./siem-forwarder";
+import { SYSTEM_ACTOR } from "./audit-constants";
 
 const COMPLIANCE_LOG_PREFIX = "[Compliance]";
 
@@ -108,7 +109,7 @@ export function hipaaComplianceMiddleware(config: ComplianceConfig = DEFAULT_COM
         userId,
         action: req.method === "GET" || req.method === "HEAD" ? "read" : req.method === "DELETE" ? "delete" : "write",
         resourceType: "ComplianceAudit",
-        patientId: req.params?.patientId || "system",
+        patientId: req.params?.patientId || SYSTEM_ACTOR,
         // redactPath, not req.path: a capability token in a URL must not
         // reach an audit record either. See server/security/redact-path.ts.
         details: `${req.method} ${redactPath(req.path)} [${res.statusCode}] ${responseTime}ms`,
