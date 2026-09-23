@@ -2199,7 +2199,7 @@ export async function registerRoutes(
   });
 
   // High-risk patients list for provider dashboard
-  app.get("/api/analytics/high-risk-patients", async (req, res) => {
+  app.get("/api/analytics/high-risk-patients", requireUser, async (req, res) => {
     try {
       const highRiskPatients = [
         { patientId: "p-001", patientName: "John Smith", age: 68, riskScore: 85, riskLevel: "high" as const, primaryConditions: ["CHF", "Type 2 Diabetes", "CKD Stage 3"], lastVisit: new Date(Date.now() - 45 * 86400000).toISOString(), upcomingActions: ["Schedule cardiology follow-up", "Lab work overdue"], trend: "worsening" as const },
@@ -2563,7 +2563,7 @@ export async function registerRoutes(
 
   // DISABLED: Health recommendations endpoint - CDS violation (NO-CDS COMPLIANCE)
   // AI-generated health recommendations are not permitted under HIPAA/SOC2 NO-CDS policy
-  app.get("/api/ai-engagement/recommendations/:patientId", async (_req, res) => {
+  app.get("/api/ai-engagement/recommendations/:patientId", requireUser, async (_req, res) => {
     res.status(403).json({ 
       error: "Feature disabled for compliance",
       reason: "AI-generated health recommendations are not available. Per HIPAA/SOC2 NO-CDS policy, this platform provides educational information and record summaries only. Please consult your healthcare provider for personalized health advice.",
@@ -2573,7 +2573,7 @@ export async function registerRoutes(
 
   // DISABLED: Risk assessment endpoint - CDS violation (NO-CDS COMPLIANCE)
   // AI-generated risk assessments are clinical decision support, not permitted under NO-CDS policy
-  app.get("/api/ai-engagement/risk-assessment/:patientId", async (_req, res) => {
+  app.get("/api/ai-engagement/risk-assessment/:patientId", requireUser, async (_req, res) => {
     res.status(403).json({ 
       error: "Feature disabled for compliance",
       reason: "AI-generated risk assessments are not available. Per HIPAA/SOC2 NO-CDS policy, this platform does not provide clinical risk stratification. Please consult your healthcare provider for health risk assessment.",
@@ -4693,7 +4693,7 @@ export async function registerRoutes(
   console.log("[Routes] AI Patient Insights routes registered at /api/patient-insights");
   const aiPatientInsightsService = await import("./services/aiPatientInsightsService");
 
-  app.get("/api/patient-insights/:patientId", async (req, res) => {
+  app.get("/api/patient-insights/:patientId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4719,7 +4719,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/patient-insights/:patientId/generate", async (req, res) => {
+  app.post("/api/patient-insights/:patientId/generate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4746,7 +4746,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/patient-insights/:patientId/adherence-risk", async (req, res) => {
+  app.get("/api/patient-insights/:patientId/adherence-risk", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4779,7 +4779,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/patient-insights/:patientId/optimizations", async (req, res) => {
+  app.get("/api/patient-insights/:patientId/optimizations", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4948,7 +4948,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/clinician-flags", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/clinician-flags", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4971,7 +4971,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/progress-feedback/:patientId/clinician-flags", async (req, res) => {
+  app.post("/api/progress-feedback/:patientId/clinician-flags", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -5002,7 +5002,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/progress-feedback/:patientId/clinician-flags/:flagId", async (req, res) => {
+  app.patch("/api/progress-feedback/:patientId/clinician-flags/:flagId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -6770,7 +6770,7 @@ Respond in JSON format with these fields:
   });
 
   // AI Summary - uses aggregated data from all EHR sources
-  app.post("/api/patients/:id/ai-summary", async (req, res) => {
+  app.post("/api/patients/:id/ai-summary", requireUser, async (req, res) => {
     try {
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
@@ -11821,7 +11821,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get cached patient health summary (returns null if not yet generated)
-  app.get("/api/health-insights/summary", async (req, res) => {
+  app.get("/api/health-insights/summary", requireUser, async (req, res) => {
     try {
       res.json(null);
     } catch (error) {
@@ -12844,7 +12844,7 @@ Generate a JSON response with this structure:
   // PREDICTIVE HEALTH RISK INSIGHTS API  
   // ============================================
 
-  app.post("/api/health-insights/predictive-risk/generate", async (req, res) => {
+  app.post("/api/health-insights/predictive-risk/generate", requireUser, async (req, res) => {
     try {
       const { patientId = "patient-1", timeframe = "6_months" } = req.body;
 
@@ -12920,7 +12920,7 @@ Generate a JSON response:
     }
   });
 
-  app.get("/api/health-insights/predictive-risk/:patientId", async (req, res) => {
+  app.get("/api/health-insights/predictive-risk/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const forecasts = await storage.getPredictiveRiskForecasts(patientId);
@@ -14581,7 +14581,7 @@ Provide a brief clinical analysis and recommended actions.`
   });
 
   // Get alerts for a patient
-  app.get("/api/patients/:patientId/alerts", async (req, res) => {
+  app.get("/api/patients/:patientId/alerts", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const alerts = await storage.getProviderAlertsByPatient(patientId);
@@ -17490,7 +17490,7 @@ Secure Healthcare System`;
   console.log("[Routes] Enhanced Audit Trail routes registered at /api/provider/portal/audit-logs/*");
 
   // Get full patient analytics dashboard with AI insights
-  app.get("/api/analytics/patient/:patientId", async (req, res) => {
+  app.get("/api/analytics/patient/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const includeAI = req.query.ai !== "false";
@@ -17504,7 +17504,7 @@ Secure Healthcare System`;
   });
 
   // Get trend data for specific metric type
-  app.get("/api/analytics/patient/:patientId/trends/:metricType", async (req, res) => {
+  app.get("/api/analytics/patient/:patientId/trends/:metricType", requireUser, async (req, res) => {
     try {
       const { patientId, metricType } = req.params;
       const metricName = req.query.metric as string | undefined;
@@ -17522,7 +17522,7 @@ Secure Healthcare System`;
   });
 
   // Get patient anomalies
-  app.get("/api/analytics/patient/:patientId/anomalies", async (req, res) => {
+  app.get("/api/analytics/patient/:patientId/anomalies", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const severity = req.query.severity as "low" | "medium" | "high" | "critical" | undefined;
@@ -17536,7 +17536,7 @@ Secure Healthcare System`;
   });
 
   // Get patient correlations
-  app.get("/api/analytics/patient/:patientId/correlations", async (req, res) => {
+  app.get("/api/analytics/patient/:patientId/correlations", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { getPatientCorrelations } = await import("./services/patientAnalytics");
@@ -17549,7 +17549,7 @@ Secure Healthcare System`;
   });
 
   // Invalidate analytics cache
-  app.delete("/api/analytics/cache/:patientId?", async (req, res) => {
+  app.delete("/api/analytics/cache/:patientId?", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { invalidateAnalyticsCache } = await import("./services/patientAnalytics");
@@ -18005,7 +18005,7 @@ IMPORTANT:
   // MEDICAL SUMMARY ROUTES
   // ============================================
 
-  app.get("/api/medical-summaries/patient/:patientId", async (req, res) => {
+  app.get("/api/medical-summaries/patient/:patientId", requireUser, async (req, res) => {
     try {
       const summaries = await storage.getMedicalSummaries(req.params.patientId);
       res.json(summaries);
@@ -18236,7 +18236,7 @@ Be thorough but prioritize clinically relevant information. Mark high-relevance 
     return hash.toString(36);
   }
 
-  app.get("/api/patients/:patientId/chart-summary", async (req, res) => {
+  app.get("/api/patients/:patientId/chart-summary", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const forceRefresh = req.query.refresh === "true";
@@ -18501,7 +18501,7 @@ STRICT CONSTRAINTS:
   // ============================================
 
   // Get all predictive risk forecasts for a patient
-  app.get("/api/predictive-analytics/forecasts/:patientId", async (req, res) => {
+  app.get("/api/predictive-analytics/forecasts/:patientId", requireUser, async (req, res) => {
     try {
       const forecasts = await storage.getPredictiveRiskForecasts(req.params.patientId);
       res.json(forecasts);
@@ -18512,7 +18512,7 @@ STRICT CONSTRAINTS:
   });
 
   // Get active risk forecasts for a patient
-  app.get("/api/predictive-analytics/forecasts/:patientId/active", async (req, res) => {
+  app.get("/api/predictive-analytics/forecasts/:patientId/active", requireUser, async (req, res) => {
     try {
       const forecasts = await storage.getActiveRiskForecasts(req.params.patientId);
       res.json(forecasts);
@@ -18523,7 +18523,7 @@ STRICT CONSTRAINTS:
   });
 
   // Get risk stratification for a specific patient
-  app.get("/api/predictive-analytics/stratification/:patientId", async (req, res) => {
+  app.get("/api/predictive-analytics/stratification/:patientId", requireUser, async (req, res) => {
     try {
       const stratification = await storage.getPatientRiskStratification(req.params.patientId);
       if (!stratification) {
@@ -18537,7 +18537,7 @@ STRICT CONSTRAINTS:
   });
 
   // Get provider dashboard with all patient risk stratifications
-  app.get("/api/predictive-analytics/dashboard", async (req, res) => {
+  app.get("/api/predictive-analytics/dashboard", requireUser, async (req, res) => {
     try {
       const stratifications = await storage.getAllPatientRiskStratifications();
       const pendingForecasts = await storage.getPendingForecasts();
@@ -18682,7 +18682,7 @@ STRICT CONSTRAINTS:
   });
 
   // Generate predictive risk assessment for a patient using AI
-  app.post("/api/predictive-analytics/generate/:patientId", async (req, res) => {
+  app.post("/api/predictive-analytics/generate/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { timeframe = "90_days", categories } = req.body;
@@ -18907,7 +18907,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
   });
 
   // Acknowledge a risk forecast
-  app.post("/api/predictive-analytics/forecasts/:id/acknowledge", async (req, res) => {
+  app.post("/api/predictive-analytics/forecasts/:id/acknowledge", requireUser, async (req, res) => {
     try {
       const { providerId } = req.body;
       const forecast = await storage.acknowledgePredictiveRiskForecast(req.params.id, providerId || "provider-1");
@@ -18922,7 +18922,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
   });
 
   // Mark intervention as implemented
-  app.post("/api/predictive-analytics/forecasts/:forecastId/interventions/:interventionId/implement", async (req, res) => {
+  app.post("/api/predictive-analytics/forecasts/:forecastId/interventions/:interventionId/implement", requireUser, async (req, res) => {
     try {
       const { forecastId, interventionId } = req.params;
       const { implementedBy } = req.body;
@@ -18956,7 +18956,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
   });
 
   // Get pending forecasts requiring provider review
-  app.get("/api/predictive-analytics/pending-reviews", async (req, res) => {
+  app.get("/api/predictive-analytics/pending-reviews", requireUser, async (req, res) => {
     try {
       const forecasts = await storage.getPendingForecasts();
       res.json(forecasts);
@@ -18967,7 +18967,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
   });
 
   // Get urgent interventions across all patients
-  app.get("/api/predictive-analytics/urgent-interventions", async (req, res) => {
+  app.get("/api/predictive-analytics/urgent-interventions", requireUser, async (req, res) => {
     try {
       const interventions = await storage.getUrgentInterventions();
       res.json(interventions);
