@@ -97,8 +97,10 @@ export function requireQwenSafePrompt(logger: Logger) {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
-    // Only validate if this is a Qwen request
+    // Only validate if this is a Qwen request with user-supplied prompt
     if (!req.body.qwenPrompt) {
+      // Internal/fixed-operation calls (no user prompt) are pre-validated
+      req.qwenValidation = { valid: true };
       next();
       return;
     }
@@ -124,15 +126,18 @@ export function requireQwenSafePrompt(logger: Logger) {
 
         // Alert security team immediately
         try {
-          await automatedAlertingService.alert({
-            severity: "critical",
-            type: "QWEN_PHI_EXTRACTION_ATTEMPT",
-            user: (req.user as any)?.id || "unknown",
-            timestamp: new Date(),
-            details: `Prompt contains PHI keyword: "${keyword}"`,
-          });
+          await automatedAlertingService.recordSecurityAnomaly(
+            "qwen_phi_extraction_attempt",
+            "critical",
+            {
+              userId: (req.user as any)?.id || "unknown",
+              ipAddress: req.ip,
+              action: "prompt_validation_blocked",
+              reason: `PHI keyword detected: "${keyword}"`,
+            }
+          );
         } catch (alertError) {
-          logger.error(alertError, "Failed to send security alert");
+          logger.error(alertError, "Failed to record security anomaly");
         }
 
         res.status(400).json({

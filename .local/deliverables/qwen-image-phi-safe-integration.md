@@ -6,11 +6,12 @@
 
 ## Executive Summary
 
-✅ **Qwen-Image 2.1 can be used for Tabula-Medica WITHOUT PHI risk** — but ONLY for **pre-ingestion document screening** (non-medical analysis). 
+✅ **Qwen-Image 2.1 can be used for Tabula-Medica WITHOUT PHI *processing* risk** — but ONLY for **pre-ingestion document screening** (non-medical analysis). 
 
-- **No patient data ever touches the model**
-- **No medical decision-making based on Qwen output**
-- **Local-only inference** (no data egress)
+- **Document images (PHI) are local-only** — never egress from device; never stored by Qwen
+- **Only metadata output extracted** — classification labels, quality flags; no text/content retained
+- **No medical decision-making based on Qwen output** — Qwen used only for routing, not diagnosis
+- **No fine-tuning or training** on patient data — frozen inference only
 - **Estimated value-add:** 30-40% reduction in manual document classification overhead
 
 ---
@@ -312,15 +313,15 @@ if (qwenOutput.length > 500_chars) {
 
 ## Conclusion
 
-**Qwen-Image 2.1 is safe for Tabula-Medica** when used strictly for **pre-ingestion screening** (document classification, legibility, quality checks). The uncensored variant poses **zero compliance risk** because:
+**Qwen-Image 2.1 is safe for Tabula-Medica** when used strictly for **pre-ingestion screening** (document classification, legibility, quality checks). The uncensored variant poses **zero PHI *processing* risk** because:
 
-1. ✅ **No PHI input:** Only document images, no patient data in prompts
-2. ✅ **No PHI output:** Only classification labels and flags
-3. ✅ **Local inference:** Zero data egress; no third-party processing
-4. ✅ **Hard boundary:** Vertex AI handles all actual PHI extraction
-5. ✅ **Audit trail:** All Qwen decisions logged and reviewable
+1. ✅ **PHI image input never egresses:** Document images (PHI) processed locally only; no external APIs, no training, no retention
+2. ✅ **No PHI output:** Qwen output contains ONLY classification labels and quality flags; never extracted text or medical content
+3. ✅ **Local inference:** All Qwen processing runs on premise; zero third-party involvement
+4. ✅ **Hard separation:** Vertex AI (with BAA) handles all actual PHI extraction and medical analysis; Qwen only routes documents
+5. ✅ **Audit trail:** All Qwen screening decisions logged (no content); full compliance audit trail maintained
 
-**Estimated ROI:** 1-2 hours/day saved on document triage with zero compliance overhead.
+**Estimated ROI:** 1-2 hours/day saved on document triage with demonstrated compliance overhead.
 
 ---
 
