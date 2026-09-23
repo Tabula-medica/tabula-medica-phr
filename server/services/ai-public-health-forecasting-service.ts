@@ -1,12 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = "INFORMATIONAL ONLY: This AI-generated analysis is for public health surveillance and planning purposes only. It does NOT constitute medical advice, clinical decision support, or treatment recommendations. All public health decisions must be made by qualified healthcare officials based on comprehensive assessment of local conditions.";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "dummy-key",
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface DiseaseOutbreakForecast {
   id: string;
@@ -577,14 +572,13 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1000,
+      const responseText = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
       const currentCases = historicalData[historicalData.length - 1]?.cases || 0;
 
       const forecast: DiseaseOutbreakForecast = {
@@ -689,14 +683,13 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 800,
+      const responseText = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 800,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       const shortage: MedicationShortage = {
         id: `shortage-${Date.now()}`,
@@ -806,14 +799,13 @@ IMPORTANT: This is for public health planning only. NOT clinical decision suppor
 Respond in JSON format with all the above fields.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+      const responseText = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       const intervention: PublicHealthIntervention = {
         id: `intervention-${Date.now()}`,
@@ -925,14 +917,13 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1200,
+      const responseText = await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 1200,
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const result = JSON.parse(responseText || "{}");
 
       const allDataPoints = [
         ...dataPoints.map((d) => ({ ...d, predicted: false })),

@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { getCohort, getCohortResults, type PatientMatch } from "./ai-patient-cohort-builder";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const CDS_PROHIBITED_PATTERNS = [
   /\b(prescribe|should take|recommend starting|administer|give the patient)\b/i,
@@ -174,7 +174,7 @@ export async function compareMultipleCohorts(cohortIds: string[]): Promise<Multi
   const benchmarkComparisons = compareToBenchmarks(cohortData);
 
   let aiHypotheses: AIHypothesis[] = [];
-  if (openai) {
+  if (aiEnabled) {
     aiHypotheses = await generateAIHypotheses(cohortSummaries, metrics, differentialRiskFactors);
   } else {
     aiHypotheses = generateFallbackHypotheses(cohortSummaries, metrics, differentialRiskFactors);
@@ -542,14 +542,12 @@ Respond in JSON format:
   ]
 }`;
 
-    const response = await openai!.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+    const content = await generatePhiSafeText({
+      user: prompt,
       temperature: 0.7,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return generateFallbackHypotheses(summaries, metrics, riskFactors);
 
     const parsed = JSON.parse(content);

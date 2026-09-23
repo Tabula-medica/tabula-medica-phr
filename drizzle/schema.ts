@@ -232,6 +232,28 @@ export const auditLog = pgTable("audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Advance Directives — one structured directive row per profile.
+// PHI fields are encrypted at rest via the phi-storage wrapper. Uploaded
+// directive forms are stored as documents in the "advance_directives" folder.
+// NOTE: shared/schema.ts is the schema drizzle-kit actually reads (see
+// drizzle.config.ts); this mirror keeps drizzle/schema.ts consistent.
+export const advanceDirectives = pgTable(
+  "advance_directives",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    familyPrimaryGoalOfCare: text("family_primary_goal_of_care"),
+    goalsOfCare: text("goals_of_care"),
+    codeStatus: text("code_status").array(),
+    treatmentPreferences: jsonb("treatment_preferences").$type<Record<string, "yes" | "no" | null>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileUx: uniqueIndex("advance_directives_profile_ux").on(t.profileId),
+  })
+);
+
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
   account: one(accounts, { fields: [profiles.accountId], references: [accounts.id] }),
   folders: many(folders),

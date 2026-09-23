@@ -1,11 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeChat } from "./ai-gateway";
 import crypto from "crypto";
 import { storage } from "../storage";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return crypto.createHash("sha256").update(id).digest("hex").slice(0, 16);
@@ -496,29 +492,19 @@ export async function chat(
 
   let response: string;
 
-  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    try {
-      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-        { role: "system", content: SYSTEM_PROMPT + "\n\n" + contextualInfo },
-      ];
+  try {
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: SYSTEM_PROMPT + "\n\n" + contextualInfo },
+    ];
 
-      const recentMessages = session.messages.slice(-10);
-      for (const msg of recentMessages) {
-        messages.push({ role: msg.role, content: msg.content });
-      }
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages,
-        max_completion_tokens: 1024,
-      });
-
-      response = completion.choices[0]?.message?.content || generateFallbackResponse(message, context);
-    } catch (error) {
-      console.error("[AIOnboardingAssistant] OpenAI error, using fallback:", error);
-      response = generateFallbackResponse(message, context);
+    const recentMessages = session.messages.slice(-10);
+    for (const msg of recentMessages) {
+      messages.push({ role: msg.role, content: msg.content });
     }
-  } else {
+
+    response = await generatePhiSafeChat({ messages, maxTokens: 1024 });
+  } catch (error) {
+    console.error("[AIOnboardingAssistant] AI error, using fallback:", error);
     response = generateFallbackResponse(message, context);
   }
 

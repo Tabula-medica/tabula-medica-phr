@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import {
   getPatientConversations,
   getConversation,
@@ -675,14 +676,9 @@ router.post("/ai/summarize-thread", async (req: Request, res: Response) => {
     } | null = null;
     
     try {
-      const openai = new (await import("openai")).default({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-      
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && messages.length > 0) {
+      if (messages.length > 0) {
         const messageText = messages.map(m => `[${m.senderName} (${m.senderRole})] ${m.content}`).join("\n");
-        
+
         const prompt = `Analyze this care team conversation about patient "${conversation.patientName}" and provide a comprehensive summary.
 
 Messages:
@@ -699,15 +695,14 @@ Provide JSON with:
 }
 
 Focus on care coordination - do NOT provide clinical advice. Extract action items and communication gaps.`;
-        
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 800,
+
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
+          maxTokens: 800,
         });
-        
-        summary = JSON.parse(response.choices[0]?.message?.content || "null");
+
+        summary = JSON.parse(responseText || "null");
       }
     } catch (error) {
       console.log("[CareTeamCollab] AI summary unavailable, using fallback");
@@ -781,18 +776,13 @@ router.post("/ai/suggest-relevant-info", async (req: Request, res: Response) => 
     } | null = null;
     
     try {
-      const openai = new (await import("openai")).default({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-      
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      {
         const contextData = {
           conversations: conversations.slice(0, 3).map(c => ({ preview: c.lastMessagePreview, participants: c.participants.length })),
           tasks: tasks.slice(0, 5).map(t => ({ title: t.title, status: t.status, priority: t.priority, due: t.dueDate })),
           reviews: reviews.slice(0, 3).map(r => ({ title: r.reportTitle, status: r.status, openAnnotations: r.annotations.filter(a => a.status === "open").length })),
         };
-        
+
         const prompt = `Analyze this patient's care coordination data and suggest relevant information for the care team to review.
 
 Context:
@@ -808,15 +798,14 @@ Provide JSON with:
 }
 
 Focus on coordination gaps and priority items - NO clinical advice.`;
-        
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 600,
+
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
+          maxTokens: 600,
         });
-        
-        suggestions = JSON.parse(response.choices[0]?.message?.content || "null");
+
+        suggestions = JSON.parse(responseText || "null");
       }
     } catch (error) {
       console.log("[CareTeamCollab] AI suggestions unavailable, using fallback");
@@ -905,12 +894,7 @@ router.post("/ai/draft-follow-up", async (req: Request, res: Response) => {
     } | null = null;
     
     try {
-      const openai = new (await import("openai")).default({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-      
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      {
         const contextData = {
           recentMessages: recentMessages.slice(0, 5).map(m => `${m.senderName}: ${m.content}`),
           pendingTasks: tasks.filter(t => t.status !== "completed").map(t => t.title),
@@ -918,7 +902,7 @@ router.post("/ai/draft-follow-up", async (req: Request, res: Response) => {
           targetRole,
           draftType,
         };
-        
+
         const prompt = `Generate a professional ${draftType === "task" ? "task assignment" : "follow-up message"} for care team coordination.
 
 Context:
@@ -943,15 +927,14 @@ ${draftType === "task" ? `Create a task with:
 }`}
 
 Keep it professional and coordination-focused. NO clinical advice or recommendations.`;
-        
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 500,
+
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
+          maxTokens: 500,
         });
-        
-        draft = JSON.parse(response.choices[0]?.message?.content || "null");
+
+        draft = JSON.parse(responseText || "null");
       }
     } catch (error) {
       console.log("[CareTeamCollab] AI draft unavailable, using fallback");
@@ -1030,12 +1013,7 @@ router.post("/ai/analyze-clinical-event", async (req: Request, res: Response) =>
     } | null = null;
     
     try {
-      const openai = new (await import("openai")).default({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-      
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      {
         const prompt = `Analyze this clinical event and suggest coordination actions for the care team.
 
 Event Type: ${eventType}
@@ -1052,15 +1030,14 @@ Provide JSON with:
 }
 
 Focus on COORDINATION actions only - NOT clinical decisions. Suggest who should be informed and what tasks to create.`;
-        
-        const response = await openai.chat.completions.create({
-          model: "gpt-5.1",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 500,
+
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
+          maxTokens: 500,
         });
-        
-        analysis = JSON.parse(response.choices[0]?.message?.content || "null");
+
+        analysis = JSON.parse(responseText || "null");
       }
     } catch (error) {
       console.log("[CareTeamCollab] AI event analysis unavailable, using fallback");

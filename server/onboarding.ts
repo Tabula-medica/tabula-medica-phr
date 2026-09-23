@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import * as automatedOnboarding from "./services/automatedOnboardingService";
 import {
   insertPatientOnboardingSessionSchema,
@@ -21,34 +21,20 @@ import {
 
 const router = Router();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
-
 async function generatePersonalizedWelcome(formData: PatientOnboardingFormData): Promise<PersonalizedWelcome> {
   const firstName = formData.personalInfo?.firstName || "there";
   const conditions = formData.medicalHistory?.conditions || [];
   const medications = formData.medications?.map(m => m.name) || [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a friendly healthcare assistant helping patients onboard to a health management platform. Generate a personalized welcome message that is warm, encouraging, and informative. Return JSON with: greeting (personalized hello), introduction (2-3 sentences about the platform), keyBenefits (3-4 benefits relevant to their conditions), recommendedActions (2-3 next steps), healthFocusAreas (areas to focus on based on their health profile), estimatedTime (how long onboarding will take).`,
-        },
-        {
-          role: "user",
-          content: `Generate a personalized welcome for a patient named ${firstName}. Their health conditions include: ${conditions.join(", ") || "none specified"}. Current medications: ${medications.join(", ") || "none specified"}.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 500,
+    const content = await generatePhiSafeText({
+      system: `You are a friendly healthcare assistant helping patients onboard to a health management platform. Generate a personalized welcome message that is warm, encouraging, and informative. Return JSON with: greeting (personalized hello), introduction (2-3 sentences about the platform), keyBenefits (3-4 benefits relevant to their conditions), recommendedActions (2-3 next steps), healthFocusAreas (areas to focus on based on their health profile), estimatedTime (how long onboarding will take).`,
+      user: `Generate a personalized welcome for a patient named ${firstName}. Their health conditions include: ${conditions.join(", ") || "none specified"}. Current medications: ${medications.join(", ") || "none specified"}.`,
+      responseMimeType: "application/json",
+      maxTokens: 500,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       greeting: parsed.greeting || `Welcome, ${firstName}!`,
@@ -91,24 +77,14 @@ async function generatePersonalizedWelcome(formData: PatientOnboardingFormData):
 
 async function extractFormDataFromDocument(documentContent: string, documentType: string): Promise<Record<string, any>> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical document processor. Extract relevant patient information from the document and return it as structured JSON. Focus on extracting: personal information (name, DOB, address, phone, email), medical conditions, medications, allergies, emergency contacts, and insurance information. Only include fields where you have high confidence in the extracted data.`,
-        },
-        {
-          role: "user",
-          content: `Document type: ${documentType}\n\nDocument content:\n${documentContent}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1000,
+    const content = await generatePhiSafeText({
+      system: `You are a medical document processor. Extract relevant patient information from the document and return it as structured JSON. Focus on extracting: personal information (name, DOB, address, phone, email), medical conditions, medications, allergies, emergency contacts, and insurance information. Only include fields where you have high confidence in the extracted data.`,
+      user: `Document type: ${documentType}\n\nDocument content:\n${documentContent}`,
+      responseMimeType: "application/json",
+      maxTokens: 1000,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    return JSON.parse(content);
+    return JSON.parse(content || "{}");
   } catch (error) {
     console.error("Error extracting form data:", error);
     return {};
@@ -313,24 +289,14 @@ async function analyzeHealthAssessment(responses: HealthAssessmentResponse[], qu
       .filter(Boolean)
       .join("\n");
 
-    const aiResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare assessment analyst. Analyze the patient's health assessment responses and provide a comprehensive analysis. Return JSON with: overallHealthScore (0-100), riskLevel ("low", "moderate", or "high"), keyFindings (array of key observations), recommendations (array of actionable recommendations), areasOfConcern (array of {area, severity: "mild"|"moderate"|"severe", recommendation}), followUpSuggestions (array of suggested next steps), confidence (0-100).`,
-        },
-        {
-          role: "user",
-          content: `Analyze the following health assessment responses:\n\n${formattedResponses}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 800,
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare assessment analyst. Analyze the patient's health assessment responses and provide a comprehensive analysis. Return JSON with: overallHealthScore (0-100), riskLevel ("low", "moderate", or "high"), keyFindings (array of key observations), recommendations (array of actionable recommendations), areasOfConcern (array of {area, severity: "mild"|"moderate"|"severe", recommendation}), followUpSuggestions (array of suggested next steps), confidence (0-100).`,
+      user: `Analyze the following health assessment responses:\n\n${formattedResponses}`,
+      responseMimeType: "application/json",
+      maxTokens: 800,
     });
 
-    const content = aiResponse.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       overallHealthScore: parsed.overallHealthScore ?? 70,

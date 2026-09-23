@@ -1,6 +1,7 @@
 import { Express } from "express";
 import { fhirExportService } from "./services/fhir-export-service";
 import { requireFeature } from "./middleware/require-feature";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 export function registerFHIRExportRoutes(app: Express): void {
   const BASE_PATH = "/api/fhir-export";
@@ -9,7 +10,7 @@ export function registerFHIRExportRoutes(app: Express): void {
   // the actual export/download/cancel actions are gated.
   const gateBulkExport = requireFeature("bulk_export");
 
-  app.get(`${BASE_PATH}/formats`, async (req, res) => {
+  app.get(`${BASE_PATH}/formats`, requireUser, async (req, res) => {
     try {
       const formats = await fhirExportService.getSupportedFormats();
       res.json({ formats });
@@ -19,7 +20,7 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/resource-types`, async (req, res) => {
+  app.get(`${BASE_PATH}/resource-types`, requireUser, async (req, res) => {
     try {
       const resourceTypes = await fhirExportService.getSupportedResourceTypes();
       res.json({ resourceTypes });
@@ -29,7 +30,7 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/preview`, async (req, res) => {
+  app.post(`${BASE_PATH}/preview`, requireUser, async (req, res) => {
     try {
       const preview = await fhirExportService.getExportPreview(req.body);
       res.json(preview);
@@ -39,9 +40,9 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/requests`, async (req, res) => {
+  app.post(`${BASE_PATH}/requests`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const request = await fhirExportService.createExportRequest(userId, req.body);
       res.status(201).json(request);
     } catch (error) {
@@ -50,9 +51,9 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/start/:requestId`, gateBulkExport, async (req, res) => {
+  app.post(`${BASE_PATH}/start/:requestId`, requireUser, gateBulkExport, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const job = await fhirExportService.startExport(userId, req.params.requestId);
       res.json(job);
     } catch (error) {
@@ -61,9 +62,9 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/jobs`, async (req, res) => {
+  app.get(`${BASE_PATH}/jobs`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const jobs = await fhirExportService.getExportJobs(userId);
       res.json({ jobs });
     } catch (error) {
@@ -72,7 +73,7 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/jobs/:jobId`, async (req, res) => {
+  app.get(`${BASE_PATH}/jobs/:jobId`, requireUser, async (req, res) => {
     try {
       const job = await fhirExportService.getExportJob(req.params.jobId);
       if (!job) {
@@ -85,9 +86,9 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/jobs/:jobId/cancel`, async (req, res) => {
+  app.post(`${BASE_PATH}/jobs/:jobId/cancel`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const job = await fhirExportService.cancelExport(req.params.jobId, userId);
       if (!job) {
         return res.status(404).json({ error: "Export job not found" });
@@ -99,7 +100,7 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/download/:jobId`, gateBulkExport, async (req, res) => {
+  app.get(`${BASE_PATH}/download/:jobId`, requireUser, gateBulkExport, async (req, res) => {
     try {
       const { data, contentType, filename } = await fhirExportService.generateExportData(req.params.jobId);
       res.setHeader("Content-Type", contentType);
@@ -111,9 +112,9 @@ export function registerFHIRExportRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/suggestions`, async (req, res) => {
+  app.post(`${BASE_PATH}/suggestions`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { context } = req.body;
       const suggestions = await fhirExportService.getAIExportSuggestions(userId, context);
       res.json({ suggestions });

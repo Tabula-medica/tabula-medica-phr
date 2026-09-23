@@ -1,28 +1,234 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Label } from "@/components/ui/label";
+import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, MailCheck } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
-import { signInGcipWithGoogle, signInGcipWithApple, getGcipIdToken, isGcipConfigured } from "@/lib/gcip";
+import {
+  signInGcipWithGoogleRedirect,
+  signInGcipWithAppleRedirect,
+  completeGcipRedirectSignIn,
+  signUpGcipWithEmail,
+  sendGcipVerificationEmail,
+  refreshGcipEmailVerified,
+  getGcipCurrentEmail,
+  signOutGcip,
+  getGcipIdToken,
+  isGcipConfigured,
+  isNativeApp,
+} from "@/lib/gcip";
+
+/** Seconds to wait between "resend verification email" presses. */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function AuthRegister() {
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptHipaa, setAcceptHipaa] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Email-verification step: set to the address we mailed a link to. While
+  // this is non-null the page shows the "check your inbox" panel instead of
+  // the form — the account is not usable until the link is clicked.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
   const gcipReady = isGcipConfigured();
-  const canSubmit = acceptTerms && acceptHipaa && gcipReady;
+  const nativeApp = isNativeApp();
+  const consentGiven = acceptTerms && acceptHipaa && gcipReady;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canEmailSubmit =
+    consentGiven && emailValid && password.length >= 8 && password === confirmPassword;
 
+  // Complete the server session after any successful GCIP sign-up.
+  const completeSession = async () => {
+    const idToken = await getGcipIdToken(true);
+    if (!idToken) {
+      throw new Error("Could not get sign-in token. Please try again.");
+    }
+    const exchangeRes = await fetch("/api/auth/gcip/session", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    });
+    if (!exchangeRes.ok) {
+      const body = await exchangeRes.json().catch(() => ({}));
+      // The server gates provisioning of a new email/password account until the
+      // address is confirmed. That 403 is the ONLY signal that the confirmation
+      // step is required — it already accounts for
+      // REQUIRE_SIGNUP_EMAIL_VERIFICATION being switched off, in which case the
+      // exchange simply succeeds and the person is signed straight in.
+      if (exchangeRes.status === 403 && body?.code === "email_not_verified") {
+        await startEmailVerification(getGcipCurrentEmail());
+        return;
+      }
+      throw new Error(body?.message || "Failed to complete sign-up.");
+    }
+    const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
+    await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    setLocation(result?.needsOnboarding ? "/new-patient-onboarding" : "/");
+  };
+
+  const handleEmailSignUp = async () => {
+    if (!consentGiven) {
+      setError("Please accept the terms of service and HIPAA acknowledgement to continue.");
+      return;
+    }
+    if (!emailValid) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const address = email.trim();
+      await signUpGcipWithEmail(address, password);
+      setPassword("");
+      setConfirmPassword("");
+      // Attempt the exchange and let the server decide. When the anti-bot gate
+      // is on it answers 403 email_not_verified and completeSession() switches
+      // to the confirmation panel; when it is off the exchange succeeds and the
+      // person is signed straight in. (The gate is deliberately an email
+      // round-trip, not an MFA enrolment: nobody is asked to set up an
+      // authenticator app to create an account.)
+      await completeSession();
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string } | null;
+      switch (err?.code) {
+        case "auth/email-already-in-use":
+          setError("An account with this email already exists. Please sign in instead.");
+          break;
+        case "auth/invalid-email":
+          setError("Please enter a valid email address.");
+          break;
+        case "auth/weak-password":
+          setError("Please choose a stronger password (at least 8 characters).");
+          break;
+        default:
+          setError(err?.message || "Sign-up failed. Please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Switch the page into the "confirm your email" state and mail the link.
+  // pendingEmail is set BEFORE the send is attempted, and a failed send only
+  // changes the wording: otherwise a throw here would leave the person with a
+  // created GCIP account, a generic error, and no way to resend.
+  const startEmailVerification = async (address: string | null) => {
+    setError(null);
+    setNotice(null);
+    setPendingEmail(address ?? email.trim());
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("We sent you a confirmation link. Open it, then press “I've confirmed my email.”");
+    } catch (e: unknown) {
+      const err = e as { code?: string } | null;
+      setNotice(
+        err?.code === "auth/too-many-requests"
+          ? "We've already sent several emails to this address — check your inbox and spam folder."
+          : "We couldn't send the confirmation email just now. Press “Resend email” to try again.",
+      );
+    } finally {
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    }
+  };
+
+  // Re-mail the verification link. Rate-limited client-side by RESEND_COOLDOWN_SECONDS
+  // so an impatient tap doesn't trip GCIP's own auth/too-many-requests throttle.
+  const handleResendVerification = async () => {
+    if (resendIn > 0) return;
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("Verification email sent. It can take a minute to arrive — check your spam folder too.");
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string } | null;
+      setError(
+        err?.code === "auth/too-many-requests"
+          ? "Too many attempts. Please wait a few minutes before requesting another email."
+          : err?.message || "Could not send the verification email. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // "I've verified" — re-read the user from GCIP and, if the link has been
+  // clicked, finish the sign-up by exchanging the (now verified) token.
+  const handleVerificationDone = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const verified = await refreshGcipEmailVerified();
+      if (!verified) {
+        setError(
+          "That email hasn't been confirmed yet. Open the link we sent you, then press this again.",
+        );
+        return;
+      }
+      await completeSession();
+    } catch (e: unknown) {
+      const err = e as { message?: string } | null;
+      setError(err?.message || "Could not complete sign-up. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Bail out of the verification step (typo'd address) and show the form again.
+  const handleUseDifferentEmail = async () => {
+    setError(null);
+    setNotice(null);
+    try {
+      await signOutGcip();
+    } catch {
+      /* signing out is best-effort; the form is usable either way */
+    }
+    setPendingEmail(null);
+    setResendIn(0);
+  };
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  // Redirect flow: signIn() navigates the whole page to Google/Apple after
+  // consent is captured. Completion happens on return via the effect below, so
+  // we don't call completeSession() here.
   const handleProviderSignUp = async (
     providerLabel: "Google" | "Apple",
-    signIn: () => Promise<unknown>,
+    signIn: () => Promise<void>,
   ) => {
-    if (!canSubmit) {
+    if (!consentGiven) {
       setError("Please accept the terms of service and HIPAA acknowledgement to continue.");
       return;
     }
@@ -30,40 +236,50 @@ export default function AuthRegister() {
     setBusy(true);
     try {
       await signIn();
-      const idToken = await getGcipIdToken(true);
-      if (!idToken) {
-        throw new Error("Could not get sign-in token. Please try again.");
-      }
-      const exchangeRes = await fetch("/api/auth/gcip/session", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "X-Requested-With": "XMLHttpRequest",
-        },
-      });
-      if (!exchangeRes.ok) {
-        const body = await exchangeRes.json().catch(() => ({}));
-        throw new Error(body?.message || "Failed to complete sign-up.");
-      }
-      const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setLocation(result?.needsOnboarding ? "/new-patient-onboarding" : "/");
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string } | null;
-      const code = err?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
-      } else {
-        setError(err?.message || `${providerLabel} sign-up failed. Please try again.`);
-      }
-    } finally {
+      setError(err?.message || `${providerLabel} sign-up failed. Please try again.`);
       setBusy(false);
     }
   };
 
-  const handleGoogleSignUp = () => handleProviderSignUp("Google", signInGcipWithGoogle);
-  const handleAppleSignUp = () => handleProviderSignUp("Apple", signInGcipWithApple);
+  const handleGoogleSignUp = () => handleProviderSignUp("Google", signInGcipWithGoogleRedirect);
+  const handleAppleSignUp = () => handleProviderSignUp("Apple", signInGcipWithAppleRedirect);
+
+  // Finish a Google/Apple redirect sign-up when the page loads back from the
+  // provider. No-op on a normal page load.
+  //
+  // IMPORTANT: skip this entirely inside the native app. In-app the third-party
+  // buttons are hidden (email/password only), so there is never a redirect to
+  // complete — and calling getRedirectResult() inside an iOS WKWebView throws
+  // auth/internal-error, whose catch used to render an error banner on a freshly
+  // loaded registration page. That is the "error message on the Login/
+  // Registration page" that got the app rejected repeatedly (Guideline 2.1a).
+  useEffect(() => {
+    if (!gcipReady || nativeApp) return;
+    let active = true;
+    (async () => {
+      try {
+        const user = await completeGcipRedirectSignIn();
+        if (user && active) {
+          setBusy(true);
+          await completeSession();
+        }
+      } catch (e: unknown) {
+        // Never surface a background redirect-completion failure as a page-load
+        // error. Log only (a fresh sign-up can't have a real MFA challenge).
+        if (import.meta.env.DEV) {
+          console.warn("[auth] redirect completion skipped:", e);
+        }
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background flex" data-testid="page-auth-register">
@@ -120,10 +336,92 @@ export default function AuthRegister() {
             <div className="lg:hidden mb-8 text-center">
               <img src="/logo.png" alt="Tabula Medica" className="h-10 mx-auto mb-4" />
             </div>
+            {pendingEmail ? (
+              <Card
+                className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm"
+                data-testid="card-verify-email"
+              >
+                <CardHeader className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <MailCheck className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-2xl font-normal">Confirm your email</CardTitle>
+                  </div>
+                  <CardDescription>
+                    We sent a confirmation link to{" "}
+                    <strong className="text-foreground" data-testid="text-pending-email">
+                      {pendingEmail}
+                    </strong>
+                    . Open it to finish setting up your account.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {error && (
+                    <Alert variant="destructive" data-testid="alert-verify-error">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {notice && (
+                    <Alert data-testid="alert-verify-notice">
+                      <MailCheck className="h-4 w-4" />
+                      <AlertDescription>{notice}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This one-time check keeps automated sign-ups out of Tabula Medica. It is
+                    not two-factor authentication — you won't need an authenticator app, and
+                    you won't be asked for a code every time you sign in.
+                  </p>
+
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => void handleVerificationDone()}
+                      disabled={busy}
+                      data-testid="button-verification-done"
+                    >
+                      {busy ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        "I've confirmed my email"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void handleResendVerification()}
+                      disabled={busy || resendIn > 0}
+                      data-testid="button-resend-verification"
+                    >
+                      {resendIn > 0 ? `Resend email (${resendIn}s)` : "Resend email"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => void handleUseDifferentEmail()}
+                      disabled={busy}
+                      data-testid="button-different-email"
+                    >
+                      Use a different email
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground text-center pt-1 flex items-center justify-center gap-1.5">
+                    <Shield className="h-3 w-3" />
+                    Protected by Google Cloud Identity Platform
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
             <Card className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm">
               <CardHeader className="space-y-2">
                 <CardTitle className="text-2xl font-normal">Create your account</CardTitle>
-                <CardDescription>Sign up with Google to get started in seconds</CardDescription>
+                <CardDescription>Create your free account to get started</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {!gcipReady && (
@@ -171,14 +469,53 @@ export default function AuthRegister() {
                   </div>
                 </div>
 
-                <div className="space-y-2.5">
+                <form
+                  className="space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleEmailSignUp();
+                  }}
+                >
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-email" className="text-sm">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      data-testid="input-register-email"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-password" className="text-sm">Password</Label>
+                    <PasswordInput
+                      id="register-password"
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      data-testid="input-register-password"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-confirm" className="text-sm">Confirm password</Label>
+                    <PasswordInput
+                      id="register-confirm"
+                      autoComplete="new-password"
+                      placeholder="Re-enter your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      data-testid="input-register-confirm"
+                    />
+                  </div>
                   <Button
-                    type="button"
+                    type="submit"
                     className="w-full"
                     size="lg"
-                    onClick={handleGoogleSignUp}
-                    disabled={busy || !canSubmit}
-                    data-testid="button-google-signup"
+                    disabled={busy || !canEmailSubmit}
+                    data-testid="button-email-signup"
                   >
                     {busy ? (
                       <>
@@ -186,40 +523,18 @@ export default function AuthRegister() {
                         Creating account...
                       </>
                     ) : (
-                      <>
-                        <SiGoogle className="h-4 w-4 mr-2" />
-                        Continue with Google
-                      </>
+                      "Create account"
                     )}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
-                    size="lg"
-                    onClick={handleAppleSignUp}
-                    disabled={busy || !canSubmit}
-                    data-testid="button-apple-signup"
-                  >
-                    {busy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      <>
-                        <SiApple className="h-4 w-4 mr-2" />
-                        Continue with Apple
-                      </>
-                    )}
-                  </Button>
-                </div>
+                </form>
+
                 <p className="text-xs text-muted-foreground text-center pt-1 flex items-center justify-center gap-1.5">
                   <Shield className="h-3 w-3" />
                   Protected by Google Cloud Identity Platform
                 </p>
               </CardContent>
             </Card>
+            )}
             <p className="text-sm text-muted-foreground text-center mt-6">
               Already have an account?{" "}
               <Link href="/auth/login" className="text-primary hover:underline font-medium" data-testid="link-login">

@@ -1,4 +1,5 @@
 // ELI12, Timeline Story, What Changed, Smart Search, One-Page Snapshot
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
 
 // ============================================
 // ELI12 - Explain Like I'm 12
@@ -87,19 +88,16 @@ export async function generateELI12Explanation(
   }
 
   // Use AI for complex explanations
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return getMockELI12Explanation(term, recordContext, disclaimer);
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -280,15 +278,13 @@ export async function generateTimelineStory(
     },
   ];
 
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
   let summary = "";
   let takeaway = "";
 
   if (apiKey) {
     try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
+      const response = await baaChatFetch({
         method: "POST",
         headers: {
           "Content-Type": "application/json",

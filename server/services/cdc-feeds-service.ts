@@ -1,18 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: CDC data feeds are for INFORMATIONAL AND PUBLIC HEALTH AWARENESS PURPOSES ONLY. This data does NOT constitute medical advice, clinical decision support, or treatment recommendations. All health decisions must be made in consultation with qualified healthcare professionals.";
-
-let openai: OpenAI | null = null;
-function getOpenAI(): OpenAI | null {
-  if (!openai && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openai;
-}
 
 const CDC_BASE_URL = "https://data.cdc.gov/resource";
 
@@ -315,27 +304,12 @@ async function generateAISummary(data: {
   fluData: CDCFluData[];
   vaccinationData: CDCVaccinationData[];
 }): Promise<string> {
-  const client = getOpenAI();
-  if (!client) {
-    return "AI summary unavailable. Key highlights: " + 
-      `${data.alerts.length} active outbreak alerts, ` +
-      `flu activity varies by region, ` +
-      `vaccination coverage ranges from ${Math.min(...data.vaccinationData.map(v => v.coverageRate))}% to ${Math.max(...data.vaccinationData.map(v => v.coverageRate))}%.`;
-  }
-  
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a public health data analyst. Summarize CDC data concisely for healthcare providers. 
+    const content = await generatePhiSafeText({
+      system: `You are a public health data analyst. Summarize CDC data concisely for healthcare providers.
 Focus on actionable insights. Keep response under 150 words.
-${NO_CDS_DISCLAIMER}`
-        },
-        {
-          role: "user",
-          content: `Summarize this CDC public health data:
+${NO_CDS_DISCLAIMER}`,
+      user: `Summarize this CDC public health data:
 
 Active Outbreak Alerts:
 ${data.alerts.map(a => `- ${a.disease} (${a.location}): ${a.caseCount} cases, ${a.severity} severity`).join('\n')}
@@ -346,14 +320,12 @@ ${data.fluData.slice(0, 5).map(f => `- ${f.region}: ${f.activityLevel} activity,
 Vaccination Coverage:
 ${data.vaccinationData.map(v => `- ${v.vaccineType} (${v.ageGroup}): ${v.coverageRate}% coverage`).join('\n')}
 
-Provide a brief summary highlighting key public health concerns and trends.`
-        }
-      ],
-      max_tokens: 300,
-      temperature: 0.3
+Provide a brief summary highlighting key public health concerns and trends.`,
+      maxTokens: 300,
+      temperature: 0.3,
     });
-    
-    return response.choices[0]?.message?.content || "Summary generation failed.";
+
+    return content || "Summary generation failed.";
   } catch (error) {
     console.error("[CDC Feeds] AI summary error:", error);
     return "AI summary temporarily unavailable.";
@@ -462,36 +434,17 @@ export async function getAIInsightsForData(userId: string, data: any[], context:
     details: `Generate AI insights for ${context}`
   });
   
-  const client = getOpenAI();
-  if (!client) {
-    return [
-      "AI insights unavailable - OpenAI not configured",
-      "Review the raw data for patterns and trends",
-      "Consult CDC guidance for interpretation"
-    ];
-  }
-  
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a public health data analyst. Provide 3-5 brief, actionable insights based on CDC data.
+    const content = await generatePhiSafeText({
+      system: `You are a public health data analyst. Provide 3-5 brief, actionable insights based on CDC data.
 Each insight should be one sentence. Focus on trends, concerns, and recommendations.
-${NO_CDS_DISCLAIMER}`
-        },
-        {
-          role: "user",
-          content: `Context: ${context}\n\nData sample:\n${JSON.stringify(data.slice(0, 10), null, 2)}\n\nProvide key insights.`
-        }
-      ],
-      max_tokens: 300,
-      temperature: 0.3
+${NO_CDS_DISCLAIMER}`,
+      user: `Context: ${context}\n\nData sample:\n${JSON.stringify(data.slice(0, 10), null, 2)}\n\nProvide key insights.`,
+      maxTokens: 300,
+      temperature: 0.3,
     });
-    
-    const content = response.choices[0]?.message?.content || "";
-    return content.split('\n').filter(line => line.trim().length > 0).slice(0, 5);
+
+    return (content || "").split('\n').filter(line => line.trim().length > 0).slice(0, 5);
   } catch (error) {
     console.error("[CDC Feeds] AI insights error:", error);
     return ["AI analysis temporarily unavailable."];

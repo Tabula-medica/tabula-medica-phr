@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useRegion } from "@/components/region-provider";
+import { useTefcaEnabled } from "@/hooks/use-tefca";
 import { 
   LayoutDashboard, 
   Clock, 
@@ -55,6 +56,10 @@ import {
   Hash,
   Globe,
   Stethoscope as StethoscopeIcon,
+  TestTubes,
+  ArrowLeftRight,
+  Crown,
+  Tag,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -107,6 +112,14 @@ const mainNavItems = [
     titleKey: "sidebar.connectHealthRecords",
     url: "/fasten-connect",
     icon: Link2,
+    badge: null,
+    requiresTefca: true,
+  },
+  {
+    title: "Cash Prices",
+    titleKey: "sidebar.cashPrices",
+    url: "/cash-prices",
+    icon: Tag,
     badge: null,
   },
   {
@@ -162,6 +175,13 @@ const mainNavItems = [
     titleKey: "sidebar.longevityTracking",
     url: "/longevity-tracking",
     icon: Timer,
+    badge: "new",
+  },
+  {
+    title: "Longevity & Prevention",
+    titleKey: "sidebar.longevityPreventive",
+    url: "/longevity-preventive-health",
+    icon: ShieldCheck,
     badge: "new",
   },
   {
@@ -481,6 +501,12 @@ const adminItems = [
     icon: Stethoscope,
   },
   {
+    title: "RCM Command Center",
+    url: "/rcm",
+    icon: DollarSign,
+    badge: "new",
+  },
+  {
     title: "Patients",
     url: "/patients",
     icon: ClipboardList,
@@ -650,6 +676,10 @@ function SectionHeader({
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const tefcaEnabled = useTefcaEnabled();
+  const mainNavItemsForRegion = mainNavItems.filter(
+    (item) => tefcaEnabled || !(item as { requiresTefca?: boolean }).requiresTefca,
+  );
   const [healthToolsOpen, setHealthToolsOpen] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [engagementOpen, setEngagementOpen] = useState(false);
@@ -750,7 +780,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider">Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map(renderNavItem)}
+              {mainNavItemsForRegion.map(renderNavItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

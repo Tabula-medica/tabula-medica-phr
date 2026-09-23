@@ -1,31 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
+import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, MailCheck, HeartPulse } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
-  signInGcipWithGoogle,
-  signInGcipWithApple,
+  signInGcipWithGoogleRedirect,
+  signInGcipWithAppleRedirect,
+  completeGcipRedirectSignIn,
+  signInGcipWithEmail,
+  sendGcipPasswordReset,
+  sendGcipVerificationEmail,
+  refreshGcipEmailVerified,
+  getGcipCurrentEmail,
+  signOutGcip,
+  startPhoneSignIn,
+  confirmPhoneCode,
+  normalizePhoneE164,
+  clearRecaptcha,
   getGcipIdToken,
   isGcipConfigured,
+  isNativeApp,
   isMfaChallenge,
   getMfaResolver,
   resolveTotpChallenge,
   type MultiFactorResolver,
+  type ConfirmationResult,
 } from "@/lib/gcip";
+
+/** Seconds to wait between "resend verification email" presses. */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function AuthLogin() {
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  // Email-verification step: an email/password account whose address hasn't
+  // been confirmed yet. We never require MFA here — the confirmation link is
+  // the only extra step, and only until it's clicked once.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Phone (SMS) sign-in — the default, HealthEx-style passwordless path.
+  const [method, setMethod] = useState<"phone" | "email">("phone");
+  const [phone, setPhone] = useState("");
+  const [phoneStep, setPhoneStep] = useState<"enter" | "code">("enter");
+  const [smsCode, setSmsCode] = useState("");
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const gcipReady = isGcipConfigured();
+  const nativeApp = isNativeApp();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const phoneE164 = normalizePhoneE164(phone);
 
   const completeSession = async () => {
     const idToken = await getGcipIdToken(true);
@@ -42,6 +77,13 @@ export default function AuthLogin() {
     });
     if (!exchangeRes.ok) {
       const body = await exchangeRes.json().catch(() => ({}));
+      // The server refuses to provision an email/password account whose
+      // address hasn't been confirmed (anti-bot gate). Show the "check your
+      // inbox" panel rather than a red error the user can't act on.
+      if (exchangeRes.status === 403 && body?.code === "email_not_verified") {
+        await startEmailVerification(getGcipCurrentEmail());
+        return;
+      }
       throw new Error(body?.message || "Failed to complete sign-in.");
     }
     const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
@@ -49,40 +91,293 @@ export default function AuthLogin() {
     setLocation(result?.needsOnboarding ? "/new-patient-onboarding" : "/");
   };
 
-  const handleProviderSignIn = async (
-    providerLabel: "Google" | "Apple",
-    signIn: () => Promise<unknown>,
-  ) => {
+  // Shared error/MFA handling for any GCIP sign-in method.
+  const handleSignInError = (e: unknown, fallback: string) => {
+    if (isMfaChallenge(e)) {
+      try {
+        const resolver = getMfaResolver(e);
+        setMfaResolver(resolver);
+        setError(null);
+      } catch (resolverErr: any) {
+        setError(resolverErr?.message || "Could not start MFA challenge.");
+      }
+      return;
+    }
+    const err = e as { code?: string; message?: string } | null;
+    const code = err?.code;
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      setError(null);
+    } else if (
+      code === "auth/invalid-credential" ||
+      code === "auth/wrong-password" ||
+      code === "auth/user-not-found"
+    ) {
+      setError("Incorrect email or password.");
+    } else {
+      setError(err?.message || fallback);
+    }
+  };
+
+  const handleEmailSignIn = async () => {
+    if (!emailValid || password.length === 0) {
+      setError("Please enter your email and password.");
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      await signIn();
+      await signInGcipWithEmail(email.trim(), password);
+      // The SERVER decides whether this account needs its address confirmed.
+      // Do not pre-empt it here: the gate applies only when provisioning a NEW
+      // account, so an existing account whose Firebase emailVerified is still
+      // false (everyone who signed up before the gate landed) must keep being
+      // able to sign in. The server is also the only side that knows whether
+      // REQUIRE_SIGNUP_EMAIL_VERIFICATION is switched off. completeSession()
+      // opens the confirmation panel when the exchange answers 403
+      // email_not_verified.
       await completeSession();
     } catch (e: unknown) {
-      if (isMfaChallenge(e)) {
-        try {
-          const resolver = getMfaResolver(e);
-          setMfaResolver(resolver);
-          setError(null);
-        } catch (resolverErr: any) {
-          setError(resolverErr?.message || "Could not start MFA challenge.");
-        }
-        return;
-      }
-      const err = e as { code?: string; message?: string } | null;
-      const code = err?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
+      handleSignInError(e, "Sign-in failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Phone step 1: send the SMS code.
+  const handleSendCode = async () => {
+    if (!phoneE164) {
+      setError("Enter a valid mobile number, e.g. (571) 555-0123.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await startPhoneSignIn(phoneE164, "recaptcha-container");
+      setConfirmation(result);
+      setPhoneStep("code");
+    } catch (e: any) {
+      const code = e?.code as string | undefined;
+      if (code === "auth/invalid-phone-number") {
+        setError("That doesn't look like a valid mobile number.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a few minutes and try again.");
+      } else if (code === "auth/captcha-check-failed" || code === "auth/argument-error") {
+        setError("Couldn't verify this device. Refresh the page and try again.");
       } else {
-        setError(err?.message || `${providerLabel} sign-in failed. Please try again.`);
+        handleSignInError(e, "Couldn't send the code. Please try again.");
       }
     } finally {
       setBusy(false);
     }
   };
 
-  const handleGoogleSignIn = () => handleProviderSignIn("Google", signInGcipWithGoogle);
-  const handleAppleSignIn = () => handleProviderSignIn("Apple", signInGcipWithApple);
+  // Phone step 2: verify the 6-digit SMS code.
+  const handleVerifyCode = async () => {
+    if (!confirmation || smsCode.length !== 6) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await confirmPhoneCode(confirmation, smsCode);
+      await completeSession();
+    } catch (e: any) {
+      if (e?.code === "auth/invalid-verification-code") {
+        setError("That code didn't match. Check the text and try again.");
+      } else if (e?.code === "auth/code-expired") {
+        setError("That code expired. Tap “Resend code.”");
+      } else {
+        handleSignInError(e, "Couldn't verify the code. Please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Back to the number entry step (e.g. wrong number, or to resend).
+  const resetPhoneFlow = () => {
+    clearRecaptcha();
+    setConfirmation(null);
+    setPhoneStep("enter");
+    setSmsCode("");
+    setError(null);
+  };
+
+  // Switch the page into the "confirm your email" state and mail the link.
+  // Sending is best-effort: if GCIP throttles us the panel still renders with
+  // a Resend button, so the person is never stuck on a dead end.
+  const startEmailVerification = async (address: string | null) => {
+    setError(null);
+    setPendingEmail(address);
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("We sent you a confirmation link. Open it, then press “I've confirmed my email.”");
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    } catch (e: unknown) {
+      const err = e as { code?: string } | null;
+      setNotice(
+        err?.code === "auth/too-many-requests"
+          ? "We've already sent several emails to this address — check your inbox and spam folder."
+          : "Open the confirmation link we emailed you, then press “I've confirmed my email.”",
+      );
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (resendIn > 0) return;
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("Verification email sent. It can take a minute to arrive — check your spam folder too.");
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string } | null;
+      setError(
+        err?.code === "auth/too-many-requests"
+          ? "Too many attempts. Please wait a few minutes before requesting another email."
+          : err?.message || "Could not send the verification email. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerificationDone = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const verified = await refreshGcipEmailVerified();
+      if (!verified) {
+        setError(
+          "That email hasn't been confirmed yet. Open the link we sent you, then press this again.",
+        );
+        return;
+      }
+      await completeSession();
+    } catch (e: unknown) {
+      const err = e as { message?: string } | null;
+      setError(err?.message || "Could not complete sign-in. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelEmailVerification = async () => {
+    setError(null);
+    setNotice(null);
+    try {
+      await signOutGcip();
+    } catch {
+      /* best-effort: the form works either way */
+    }
+    setPendingEmail(null);
+    setResendIn(0);
+    setPassword("");
+  };
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  // Landing back from the confirmation link (?verified=1) — tell the person
+  // the address is confirmed and they can just sign in normally now.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (new URLSearchParams(window.location.search).get("verified") === "1") {
+        setNotice("Your email is confirmed. Sign in below to finish setting up your account.");
+      }
+    } catch {
+      /* malformed query string — nothing to announce */
+    }
+  }, []);
+
+  const handlePasswordReset = async () => {
+    if (!emailValid) {
+      setError("Enter your email above, then tap “Forgot password.”");
+      return;
+    }
+    setError(null);
+    setResetSent(false);
+    setBusy(true);
+    try {
+      await sendGcipPasswordReset(email.trim());
+      setResetSent(true);
+    } catch (e: unknown) {
+      handleSignInError(e, "Could not send the reset email. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Redirect flow: signIn() navigates the whole page to Google/Apple. There's
+  // no inline result — completion happens on return via the effect below. So we
+  // don't call completeSession() here; on success the page has already unloaded.
+  const handleProviderSignIn = async (
+    providerLabel: "Google" | "Apple",
+    signIn: () => Promise<void>,
+  ) => {
+    setError(null);
+    setBusy(true);
+    try {
+      await signIn();
+    } catch (e: unknown) {
+      handleSignInError(e, `${providerLabel} sign-in failed. Please try again.`);
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleSignIn = () => handleProviderSignIn("Google", signInGcipWithGoogleRedirect);
+  const handleAppleSignIn = () => handleProviderSignIn("Apple", signInGcipWithAppleRedirect);
+
+  // When the page loads back from a Google/Apple redirect, finish the sign-in.
+  // No-op on a normal page load (getRedirectResult returns null).
+  //
+  // IMPORTANT: skip this entirely inside the native app. In-app the third-party
+  // buttons are hidden (email/password only), so there is never a redirect to
+  // complete — and calling getRedirectResult() inside an iOS WKWebView throws
+  // auth/internal-error, whose catch used to render an error banner on a freshly
+  // loaded login page. That is the "error message on the Login/Registration
+  // page" that got the app rejected repeatedly (App Store Guideline 2.1a).
+  useEffect(() => {
+    if (!gcipReady || nativeApp) return;
+    let active = true;
+    (async () => {
+      try {
+        const user = await completeGcipRedirectSignIn();
+        if (user && active) {
+          setBusy(true);
+          await completeSession();
+        }
+      } catch (e: unknown) {
+        // A background redirect-completion check must never surface as an error
+        // on a fresh login page. Only a genuine MFA challenge (from an actual
+        // social redirect) needs UI; anything else is logged, not shown.
+        if (active && isMfaChallenge(e)) {
+          handleSignInError(e, "");
+        } else if (import.meta.env.DEV) {
+          console.warn("[auth] redirect completion skipped:", e);
+        }
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tear down the invisible reCAPTCHA widget when leaving the page so a
+  // remount (or route change) rebuilds it from a clean slate.
+  useEffect(() => {
+    return () => clearRecaptcha();
+  }, []);
 
   const handleMfaSubmit = async () => {
     if (!mfaResolver) return;
@@ -163,6 +458,88 @@ export default function AuthLogin() {
             <div className="lg:hidden mb-8 text-center">
               <img src="/logo.png" alt="Tabula Medica" className="h-10 mx-auto mb-4" />
             </div>
+            {pendingEmail ? (
+              <Card
+                className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm"
+                data-testid="card-verify-email"
+              >
+                <CardHeader className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <MailCheck className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-2xl font-normal">Confirm your email</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Open the confirmation link we sent to{" "}
+                    <strong className="text-foreground" data-testid="text-pending-email">
+                      {pendingEmail ?? "your email address"}
+                    </strong>
+                    , then come back here.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive" data-testid="alert-verify-error">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {notice && (
+                    <Alert data-testid="alert-verify-notice">
+                      <MailCheck className="h-4 w-4" />
+                      <AlertDescription>{notice}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This one-time check keeps automated sign-ups out of Tabula Medica. It is
+                    not two-factor authentication — no authenticator app, and no code to enter
+                    on future sign-ins.
+                  </p>
+
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => void handleVerificationDone()}
+                      disabled={busy}
+                      data-testid="button-verification-done"
+                    >
+                      {busy ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        "I've confirmed my email"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void handleResendVerification()}
+                      disabled={busy || resendIn > 0}
+                      data-testid="button-resend-verification"
+                    >
+                      {resendIn > 0 ? `Resend email (${resendIn}s)` : "Resend email"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => void cancelEmailVerification()}
+                      disabled={busy}
+                      data-testid="button-cancel-verification"
+                    >
+                      Back to sign in
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground text-center pt-1 flex items-center justify-center gap-1.5">
+                    <Shield className="h-3 w-3" />
+                    Protected by Google Cloud Identity Platform
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
             <Card className="border-slate-200 dark:border-border/60 bg-white dark:bg-card shadow-sm">
               <CardHeader className="space-y-2">
                 <CardTitle className="text-2xl font-normal">Welcome back</CardTitle>
@@ -181,6 +558,20 @@ export default function AuthLogin() {
                   <Alert variant="destructive" data-testid="alert-signin-error">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                {notice && (
+                  <Alert data-testid="alert-signin-notice">
+                    <MailCheck className="h-4 w-4" />
+                    <AlertDescription>{notice}</AlertDescription>
+                  </Alert>
+                )}
+                {resetSent && (
+                  <Alert data-testid="alert-reset-sent">
+                    <ShieldCheck className="h-4 w-4" />
+                    <AlertDescription>
+                      If an account exists for {email.trim()}, a password-reset link is on its way. Check your email (and spam folder).
+                    </AlertDescription>
                   </Alert>
                 )}
                 {mfaResolver ? (
@@ -229,50 +620,197 @@ export default function AuthLogin() {
                       Cancel and start over
                     </Button>
                   </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    <Button
+                ) : method === "phone" ? (
+                  <div className="space-y-4" data-testid="phone-signin">
+                    {phoneStep === "enter" ? (
+                      <form
+                        className="space-y-3"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void handleSendCode();
+                        }}
+                      >
+                        <div className="space-y-1.5">
+                          <Label htmlFor="login-phone" className="text-sm">Mobile number</Label>
+                          <Input
+                            id="login-phone"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            placeholder="(571) 555-0123"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            data-testid="input-login-phone"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            We'll text you a 6-digit code. Standard message rates may apply.
+                          </p>
+                        </div>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          size="lg"
+                          disabled={busy || !gcipReady || !phoneE164}
+                          data-testid="button-send-code"
+                        >
+                          {busy ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Sending code...
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Text me a code
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    ) : (
+                      <div className="space-y-3" data-testid="phone-code-step">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="login-sms-code" className="text-sm">
+                            Enter the code we texted to {phoneE164}
+                          </Label>
+                          <Input
+                            id="login-sms-code"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            placeholder="000000"
+                            maxLength={6}
+                            value={smsCode}
+                            onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
+                            className="text-center text-lg tracking-widest font-mono"
+                            data-testid="input-login-sms-code"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          className="w-full"
+                          size="lg"
+                          onClick={handleVerifyCode}
+                          disabled={busy || smsCode.length !== 6}
+                          data-testid="button-verify-code"
+                        >
+                          {busy ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verifying...
+                            </>
+                          ) : (
+                            "Verify and sign in"
+                          )}
+                        </Button>
+                        <div className="flex items-center justify-between text-sm">
+                          <button
+                            type="button"
+                            onClick={resetPhoneFlow}
+                            disabled={busy}
+                            className="text-muted-foreground hover:underline disabled:opacity-50"
+                            data-testid="link-change-number"
+                          >
+                            Change number
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSendCode}
+                            disabled={busy}
+                            className="text-primary font-medium hover:underline disabled:opacity-50"
+                            data-testid="link-resend-code"
+                          >
+                            Resend code
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* Invisible reCAPTCHA target for Firebase phone auth. */}
+                    <div id="recaptcha-container" />
+                    <button
                       type="button"
-                      className="w-full"
-                      size="lg"
-                      onClick={handleGoogleSignIn}
-                      disabled={busy || !gcipReady}
-                      data-testid="button-google-signin"
+                      onClick={() => {
+                        resetPhoneFlow();
+                        setMethod("email");
+                      }}
+                      disabled={busy}
+                      className="text-sm text-muted-foreground hover:text-primary hover:underline text-center w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      data-testid="link-use-email"
                     >
-                      {busy ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        <>
-                          <SiGoogle className="h-4 w-4 mr-2" />
-                          Continue with Google
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full bg-black text-white hover:bg-black/90 hover:text-white border-black dark:bg-black dark:text-white dark:hover:bg-black/90 dark:hover:text-white dark:border-black rounded-lg"
-                      size="lg"
-                      onClick={handleAppleSignIn}
-                      disabled={busy || !gcipReady}
-                      data-testid="button-apple-signin"
-                    >
-                      {busy ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        <>
-                          <SiApple className="h-4 w-4 mr-2" />
-                          Continue with Apple
-                        </>
-                      )}
-                    </Button>
+                      <Mail className="h-3.5 w-3.5" />
+                      Use email &amp; password instead
+                    </button>
                   </div>
+                ) : (
+                  <>
+                    <form
+                      className="space-y-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleEmailSignIn();
+                      }}
+                    >
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login-email" className="text-sm">Email</Label>
+                        <Input
+                          id="login-email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          data-testid="input-login-email"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login-password" className="text-sm">Password</Label>
+                        <PasswordInput
+                          id="login-password"
+                          autoComplete="current-password"
+                          placeholder="Your password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          data-testid="input-login-password"
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        size="lg"
+                        disabled={busy || !gcipReady || !emailValid || password.length === 0}
+                        data-testid="button-email-signin"
+                      >
+                        {busy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          "Sign in"
+                        )}
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={handlePasswordReset}
+                        disabled={busy || !gcipReady}
+                        className="text-sm text-primary hover:underline font-medium text-center w-full disabled:opacity-50"
+                        data-testid="link-forgot-password"
+                      >
+                        Forgot password?
+                      </button>
+                    </form>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMethod("phone");
+                      }}
+                      disabled={busy}
+                      className="text-sm text-muted-foreground hover:text-primary hover:underline text-center w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      data-testid="link-use-phone"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      Sign in with my phone number instead
+                    </button>
+                  </>
                 )}
                 <p className="text-xs text-muted-foreground text-center pt-2 flex items-center justify-center gap-1.5">
                   <Shield className="h-3 w-3" />
@@ -280,12 +818,38 @@ export default function AuthLogin() {
                 </p>
               </CardContent>
             </Card>
-            <p className="text-sm text-muted-foreground text-center mt-6">
-              New to Tabula Medica?{" "}
-              <Link href="/auth/register" className="text-primary hover:underline font-medium" data-testid="link-register">
-                Create an account
+            )}
+            <div className="mt-6 space-y-3">
+              <Link href="/auth/get-started" data-testid="link-get-started">
+                <Button variant="outline" className="w-full" size="lg">
+                  <HeartPulse className="h-4 w-4 mr-2" />
+                  New here? Set up by connecting your records
+                </Button>
               </Link>
-            </p>
+              <p className="text-sm text-muted-foreground text-center">
+                Prefer email?{" "}
+                <Link href="/auth/register" className="text-primary hover:underline font-medium" data-testid="link-register">
+                  Create an account
+                </Link>
+              </p>
+              {/* App Store badge — web visitors only (the iOS app is native and never renders this page) */}
+              <a
+                href="https://apps.apple.com/app/id6758421617"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Download Tabula Medica on the App Store"
+                data-testid="link-app-store"
+                className="mx-auto flex w-max items-center gap-2 rounded-lg bg-black px-4 py-2 text-white transition hover:opacity-90"
+              >
+                <svg viewBox="0 0 384 512" className="h-6 w-6 fill-white" aria-hidden="true">
+                  <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+                </svg>
+                <span className="text-left leading-tight">
+                  <span className="block text-[10px] opacity-80">Download on the</span>
+                  <span className="-mt-0.5 block text-sm font-semibold">App Store</span>
+                </span>
+              </a>
+            </div>
           </div>
         </div>
       </div>

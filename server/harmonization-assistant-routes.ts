@@ -9,7 +9,10 @@ import {
   SuggestionCategory,
 } from "./services/ai-harmonization-assistant";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -259,7 +262,7 @@ router.post("/suggestions/:id/apply", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid suggestion ID" });
     }
     const { id } = paramResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("APPLY_SUGGESTION", { suggestionId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const result = await aiHarmonizationAssistantService.applySuggestion(id, userId);
@@ -281,7 +284,7 @@ router.post("/suggestions/:id/reject", async (req: Request, res: Response) => {
     if (!parseResult.success) {
       return res.status(400).json({ success: false, error: "Rejection reason is required" });
     }
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("REJECT_SUGGESTION", { suggestionId: hashIdentifier(id), userId: hashIdentifier(userId) });
     const suggestion = await aiHarmonizationAssistantService.rejectSuggestion(id, userId, parseResult.data.reason);
@@ -294,7 +297,7 @@ router.post("/suggestions/:id/reject", async (req: Request, res: Response) => {
 
 router.post("/conversations", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "anonymous";
+    const userId = getUserId(req);
     logHipaaAudit("START_CONVERSATION", { userId: hashIdentifier(userId) });
     const conversation = aiHarmonizationAssistantService.startConversation(userId);
     res.status(201).json({ success: true, data: conversation });
@@ -353,7 +356,7 @@ router.post("/bulk-apply", async (req: Request, res: Response) => {
     if (!parseResult.success) {
       return res.status(400).json({ success: false, error: "Suggestion IDs are required" });
     }
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("BULK_APPLY_SUGGESTIONS", { count: parseResult.data.suggestionIds.length, userId: hashIdentifier(userId) });
     

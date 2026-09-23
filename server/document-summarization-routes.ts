@@ -1,13 +1,8 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { logPhiAccess } from "./security/hipaa-audit";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 interface SummarizeDocumentRequest {
   documentId?: string;
@@ -134,17 +129,12 @@ ${documentContent}
 
 Remember: This summary is for educational purposes to help patients understand their medical documents. It is NOT medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
-
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         throw new Error("No response from AI model");
       }
@@ -236,16 +226,11 @@ Provide a clear, concise explanation (2-3 sentences) that a person with no medic
         ? `Please explain the medical term "${term}" as it appears in this context: "${context}"`
         : `Please explain the medical term "${term}" in simple, everyday language.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        max_completion_tokens: 300
-      });
-
-      const explanation = response.choices[0]?.message?.content || "Unable to explain this term.";
+      const explanation = (await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        maxTokens: 300,
+      })) || "Unable to explain this term.";
 
       await logPhiAccess({
         action: "read",

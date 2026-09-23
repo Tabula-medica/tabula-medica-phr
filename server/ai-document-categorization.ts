@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import { Request, Response, Router } from "express";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeChat, generatePhiSafeVision } from "./services/ai-gateway";
 
 export interface DocumentCategory {
   primaryCategory: string;
@@ -136,17 +131,16 @@ ${content.slice(0, 15000)}
 Provide categorization as JSON.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
+    const raw = await generatePhiSafeChat({
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(raw || "{}");
     
     return {
       primaryCategory: result.primaryCategory || "general_medical",
@@ -189,35 +183,20 @@ export async function analyzeDocumentImage(
   const imageMediaType = mimeType?.startsWith("image/") ? mimeType : "image/jpeg";
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Analyze this medical document image and categorize it.
+    const raw = await generatePhiSafeVision({
+      base64Image,
+      imageMimeType: imageMediaType,
+      prompt: `Analyze this medical document image and categorize it.
 Filename: ${filename || "Unknown"}
 File type: ${mimeType || "image"}
 
 Provide categorization as JSON.`,
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${imageMediaType};base64,${base64Image}`,
-              },
-            },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+      system: SYSTEM_PROMPT,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const result = JSON.parse(raw || "{}");
     
     return {
       primaryCategory: result.primaryCategory || "general_medical",
@@ -328,6 +307,6 @@ router.post("/api/document-categorization/batch", async (req: Request, res: Resp
   }
 });
 
-console.log("[AIDocumentCategorization] Service initialized with OpenAI integration");
+console.log("[AIDocumentCategorization] Service initialized (Vertex AI gateway)");
 
 export { router as aiDocumentCategorizationRouter };

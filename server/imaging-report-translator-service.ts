@@ -1,6 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI();
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 export interface TranslatedImagingReport {
   id: string;
@@ -156,24 +154,14 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a patient-friendly radiology report translator. You help patients understand their imaging reports without causing alarm. You NEVER use the word 'cancer', NEVER give follow-up recommendations, and ALWAYS encourage discussing with their clinician.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: "You are a patient-friendly radiology report translator. You help patients understand their imaging reports without causing alarm. You NEVER use the word 'cancer', NEVER give follow-up recommendations, and ALWAYS encourage discussing with their clinician.",
+      user: prompt,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const result = JSON.parse(content);
+    const result = JSON.parse(content || "{}");
 
     const translatedReport = {
       id: `img-trans-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

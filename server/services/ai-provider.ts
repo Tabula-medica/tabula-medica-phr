@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { VertexAI, GenerativeModel, HarmCategory, HarmBlockThreshold } from "@google-cloud/vertexai";
 
 export type AIProvider = "openai" | "vertex";
@@ -21,24 +20,18 @@ export interface AIProviderConfig {
   featureOverrides: Record<string, AIProvider>;
 }
 
+// PHI SAFETY: default to Vertex (Google BAA). PHI must NEVER route to OpenAI
+// (no BAA relied upon) or Anthropic. Only an explicit, reviewed env override can
+// change the default, and the Vertex path is fail-closed (see generateWithVertex /
+// streamWithVertex): a Vertex error throws rather than silently falling back to
+// OpenAI, so a transient failure can never leak PHI to a non-BAA provider.
 const providerConfig: AIProviderConfig = {
-  defaultProvider: (process.env.AI_DEFAULT_PROVIDER as AIProvider) || "openai",
+  defaultProvider: (process.env.AI_DEFAULT_PROVIDER as AIProvider) || "vertex",
   featureOverrides: {},
 };
 
-let openaiClient: OpenAI | null = null;
 let vertexClient: VertexAI | null = null;
 let vertexModel: GenerativeModel | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
-}
 
 function getVertexClient(): VertexAI {
   if (!vertexClient) {
@@ -105,24 +98,11 @@ export async function generateText(
   return generateWithOpenAI(options);
 }
 
-async function generateWithOpenAI(options: AIGenerateOptions): Promise<string> {
-  const client = getOpenAIClient();
-  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
-
-  if (options.systemPrompt) {
-    messages.push({ role: "system", content: options.systemPrompt });
-  }
-  messages.push({ role: "user", content: options.userPrompt });
-
-  const response = await client.chat.completions.create({
-    model: options.model || "gpt-4o",
-    messages,
-    temperature: options.temperature ?? 0.7,
-    max_tokens: options.maxTokens || 2048,
-    ...(options.responseFormat === "json" ? { response_format: { type: "json_object" as const } } : {}),
-  });
-
-  return response.choices[0]?.message?.content || "";
+async function generateWithOpenAI(_options: AIGenerateOptions): Promise<string> {
+  // FAIL-CLOSED: OpenAI has no BAA. The defaultProvider is Vertex; this path is
+  // only reached if AI_DEFAULT_PROVIDER=openai — an env misconfiguration that must
+  // be surfaced immediately rather than silently leaking PHI to a non-BAA provider.
+  throw new Error("AI_DEFAULT_PROVIDER=openai is disabled (no BAA). Use Vertex (default).");
 }
 
 async function generateWithVertex(options: AIGenerateOptions): Promise<string> {
@@ -153,8 +133,10 @@ async function generateWithVertex(options: AIGenerateOptions): Promise<string> {
     }
     return "";
   } catch (error: any) {
-    console.error("[AIProvider] Vertex AI error, falling back to OpenAI:", error.message);
-    return generateWithOpenAI(options);
+    // PHI SAFETY: FAIL CLOSED. Do NOT fall back to OpenAI — a Vertex failure must
+    // never silently route PHI to a non-BAA provider. Surface the error instead.
+    console.error("[AIProvider] Vertex AI error (fail-closed, no OpenAI fallback):", error.message);
+    throw new Error("AI temporarily unavailable. Please try again.");
   }
 }
 
@@ -173,29 +155,11 @@ export async function* streamText(
   }
 }
 
-async function* streamWithOpenAI(options: AIGenerateOptions): AsyncGenerator<string, void, unknown> {
-  const client = getOpenAIClient();
-  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
-
-  if (options.systemPrompt) {
-    messages.push({ role: "system", content: options.systemPrompt });
-  }
-  messages.push({ role: "user", content: options.userPrompt });
-
-  const stream = await client.chat.completions.create({
-    model: options.model || "gpt-4o",
-    messages,
-    temperature: options.temperature ?? 0.7,
-    max_tokens: options.maxTokens || 2048,
-    stream: true,
-  });
-
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content;
-    if (content) {
-      yield content;
-    }
-  }
+async function* streamWithOpenAI(_options: AIGenerateOptions): AsyncGenerator<string, void, unknown> {
+  // FAIL-CLOSED: see generateWithOpenAI.
+  throw new Error("AI_DEFAULT_PROVIDER=openai is disabled (no BAA). Use Vertex (default).");
+  // Satisfy AsyncGenerator return type — unreachable.
+  yield "";
 }
 
 async function* streamWithVertex(options: AIGenerateOptions): AsyncGenerator<string, void, unknown> {
@@ -229,8 +193,9 @@ async function* streamWithVertex(options: AIGenerateOptions): AsyncGenerator<str
       }
     }
   } catch (error: any) {
-    console.error("[AIProvider] Vertex AI streaming error, falling back to OpenAI:", error.message);
-    yield* streamWithOpenAI(options);
+    // PHI SAFETY: FAIL CLOSED — no OpenAI fallback on the streaming path either.
+    console.error("[AIProvider] Vertex AI streaming error (fail-closed, no OpenAI fallback):", error.message);
+    throw new Error("AI temporarily unavailable. Please try again.");
   }
 }
 
@@ -252,4 +217,4 @@ export function getProviderStatus(): {
   };
 }
 
-export { getOpenAIClient, getVertexClient };
+export { getVertexClient };

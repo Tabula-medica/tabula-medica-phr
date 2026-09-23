@@ -1,4 +1,5 @@
 /**
+import { baaChatFetch, isAiConfigured } from "./lib/baa-chat";
  * AI Appointment Assistant Service
  * 
  * Suggests optimal appointment times based on health trends, symptoms, and preferences.
@@ -147,19 +148,16 @@ async function generateAppointmentSuggestions(
   preferences: PatientPreferences,
   context: HealthContext
 ): Promise<AppointmentSuggestion[]> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
 
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return getMockSuggestions(request, preferences);
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await baaChatFetch({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",

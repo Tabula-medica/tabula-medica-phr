@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 export interface USPSTFRecommendation {
   id: string;
@@ -351,7 +349,7 @@ class USPSTFGuidelinesService {
     const baseRecommendations = this.getRecommendationsForPatient(profile);
     const NO_CDS_DISCLAIMER = "EDUCATIONAL INFORMATION ONLY. This content explains what preventive screenings are and why they exist. It is NOT medical advice, NOT a recommendation to get any specific screening, and NOT a substitute for talking to your doctor. Your healthcare provider will determine what screenings are right for you.";
 
-    if (!openai) {
+    if (!aiEnabled) {
       return {
         recommendations: baseRecommendations.applicable,
         aiSummary: baseRecommendations.summary + " " + NO_CDS_DISCLAIMER,
@@ -365,12 +363,8 @@ class USPSTFGuidelinesService {
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a health education assistant providing ONLY FACTUAL EDUCATIONAL information about what USPSTF preventive care screenings are and what they measure.
+      const content = (await generatePhiSafeText({
+        system: `You are a health education assistant providing ONLY FACTUAL EDUCATIONAL information about what USPSTF preventive care screenings are and what they measure.
 
 ABSOLUTE RULES - VIOLATIONS WILL CAUSE HARM:
 1. NEVER say someone "should" get a screening
@@ -384,20 +378,13 @@ You must end EVERY response with: "[DISCLAIMER: Educational information only. Co
 
 Output format - provide ONLY:
 1. A 2-sentence factual description of what these screenings measure (not who should get them)
-2. 3 educational notes about understanding preventive care (not advice about getting care)`
-          },
-          {
-            role: "user",
-            content: `Explain the following preventive screenings for educational purposes only:
+2. 3 educational notes about understanding preventive care (not advice about getting care)`,
+        user: `Explain the following preventive screenings for educational purposes only:
 ${baseRecommendations.applicable.map(r => `- ${r.title}: ${r.description}`).join("\n")}
 
-Remember: Only factual explanations of what these screenings are. No recommendations.`
-          }
-        ],
-        max_tokens: 400
-      });
-
-      const content = response.choices[0]?.message?.content || "";
+Remember: Only factual explanations of what these screenings are. No recommendations.`,
+        maxTokens: 400
+      })) || "";
       const parts = content.split(/Notes?:|Educational|DISCLAIMER/i);
       let summary = (parts[0]?.trim() || baseRecommendations.summary);
       

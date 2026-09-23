@@ -1,9 +1,68 @@
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { validateCorsOrigin } from "./cors-config";
 import { getRequestId } from "./production-logger";
+import { logSecurityEvent } from "./gcp-audit-logger";
+import { PgRateLimitStore } from "./pg-rate-limit-store";
+import { pool } from "../db";
 
+/**
+ * Shared across instances (this app runs on Cloud Run with up to 10 —
+ * deploy.sh / deploy-world.sh `--max-instances 10`). The default
+ * express-rate-limit store is in-memory and per-process, so without this a
+ * caller distributed across instances got roughly N× the configured limit
+ * on identity-critical endpoints before any instance raised the 429 / SIEM
+ * event these limiters exist to produce. Applied to the three
+ * identity/account-recovery limiters that actually sit in this server's
+ * request path (auth, session exchange, MFA — see each limiter's own doc
+ * comment for where it mounts), not the general `apiRateLimiter` — that one
+ * throttles all `/api/*` traffic by volume, not identity abuse, so routing
+ * it through Postgres too would add write load disproportionate to its
+ * security value; a per-instance throttle still bounds a single instance's
+ * flood. `passwordResetRateLimiter` below stays on the in-memory store for
+ * the same reason apiRateLimiter does: see its own comment for why.
+ */
+function pgStore(namespace: string): PgRateLimitStore {
+  return new PgRateLimitStore(pool, namespace);
+}
+
+/**
+ * Shared 429 handler: emits a PHI-free security event (fanned out to Cloud
+ * Logging + SIEM) before answering. CrowdStrike 2026: credential stuffing
+ * and vishing-driven takeover attempts show up first as bursts against the
+ * session-exchange and recovery endpoints — those bursts must be visible to
+ * the SOC, not just silently throttled.
+ */
+function rateLimitHandler(limiterName: string) {
+  return (req: Request, res: Response, _next: NextFunction, options: { message: unknown; statusCode: number }) => {
+    void logSecurityEvent({
+      eventType: "auth_rate_limited",
+      actor: (req.user as any)?.claims?.sub || "anonymous",
+      ip: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip,
+      riskLevel: "medium",
+      details: {
+        requestId: getRequestId(req),
+        limiter: limiterName,
+        path: req.path,
+        method: req.method,
+        // No User-Agent here: it's client-controlled free text and
+        // scrubDetails only denies by key name, not by validating content —
+        // a caller could put an email/token/anything in that header and
+        // have it forwarded to the external SIEM verbatim.
+      },
+    });
+    res.status(options.statusCode).json(options.message);
+  };
+}
+
+/**
+ * Mounted directly on `/api/auth/cac/challenge` and `/api/auth/cac/verify`
+ * in `dod-routes.ts` — the CAC/PIV challenge-response flow is the only
+ * server-side credential check this app performs; GCIP/Firebase auth
+ * exchanges a token via `sessionExchangeRateLimiter` below and never
+ * reaches this server with a raw credential.
+ */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -15,14 +74,43 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  store: pgStore("auth"),
+  passOnStoreError: true, // a DB hiccup fails the limiter open, not the login request
+  handler: rateLimitHandler("auth"),
   skip: (req) => {
     return req.method === "OPTIONS";
   },
 });
 
+/**
+ * Token → session exchange endpoints (web + mobile). More generous than
+ * `authRateLimiter` because a legitimate household or clinic NAT can share
+ * one IP, but tight enough that a replayed/stolen-token spray is throttled
+ * and surfaced as a security event.
+ */
+export const sessionExchangeRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: {
+    error: "AUTH_RATE_LIMITED",
+    message: "Too many sign-in attempts from this network. Please try again later.",
+    retryAfter: "15 minutes",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  store: pgStore("session_exchange"),
+  passOnStoreError: true,
+  handler: rateLimitHandler("session_exchange"),
+  skip: (req) => req.method === "OPTIONS",
+});
+
+/** Mounted directly on `/api/auth/mfa/recovery-codes/consume` in `mfa-routes.ts`. */
 export const mfaRateLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 5,
+  store: pgStore("mfa"),
+  passOnStoreError: true,
   message: {
     error: "MFA_RATE_LIMITED",
     message: "Too many MFA attempts. Please wait before trying again.",
@@ -31,8 +119,22 @@ export const mfaRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  handler: rateLimitHandler("mfa"),
 });
 
+/**
+ * Mounted below on /api/auth/reset-password and /api/auth/forgot-password —
+ * but the client calls Firebase/GCIP's sendPasswordResetEmail() directly
+ * (client/src/lib/gcip.ts), and no server route ever handles either path.
+ * This limiter therefore protects no real traffic today; GCIP's own quota
+ * on password-reset emails is what actually guards this flow. Not on the
+ * shared Postgres store for the same reason it's not wired to anything
+ * else — there's no in-process traffic to make cross-instance either.
+ * Kept exported/mounted (rather than deleted) so a future server-side
+ * password-reset endpoint has a limiter ready to attach to; if one never
+ * materializes, this and its two `app.use()` mounts below are safe to
+ * remove.
+ */
 export const passwordResetRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
@@ -44,8 +146,10 @@ export const passwordResetRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  handler: rateLimitHandler("password_reset"),
 });
 
+// Not on the shared Postgres store — see the comment on pgStore() above.
 export const apiRateLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 200,
@@ -145,7 +249,16 @@ export function productionErrorHandler(err: Error & { status?: number; statusCod
   });
 }
 
-export function applyAuthRateLimiting(app: { use: Function }) {
+export function applyAuthRateLimiting(app: { use: (path: string, handler: RequestHandler) => unknown }) {
+  // Dead in practice — see passwordResetRateLimiter's own comment: no
+  // server route exists at either path, GCIP handles password reset
+  // entirely client-side. Left mounted in case that changes.
   app.use("/api/auth/reset-password", passwordResetRateLimiter);
   app.use("/api/auth/forgot-password", passwordResetRateLimiter);
+  // Identity-first hardening: every endpoint that turns a bearer token into
+  // a session (or links an external identity) is a takeover chokepoint.
+  app.use("/api/auth/gcip/session", sessionExchangeRateLimiter);
+  app.use("/api/mobile/auth/gcip/session", sessionExchangeRateLimiter);
+  app.use("/api/auth/fasten/verify", sessionExchangeRateLimiter);
+  app.use("/api/auth/fasten/link", sessionExchangeRateLimiter);
 }

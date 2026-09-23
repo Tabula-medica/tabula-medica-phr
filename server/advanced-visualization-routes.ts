@@ -1,10 +1,5 @@
 import type { Express, Request, Response } from "express";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 const BENCHMARK_DATA = generateBenchmarkData();
 const TREATMENT_DATA = generateTreatmentData();
@@ -390,13 +385,12 @@ Return a JSON object with:
 Return ONLY valid JSON, no markdown.`;
 
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-5-mini",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
+        const completionText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
         });
 
-        const prediction = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        const prediction = JSON.parse(completionText || "{}");
         res.json({ success: true, data: { treatmentId, treatment: treatment.name, condition: treatment.condition, metric: treatment.metric, unit: treatment.unit, currentData: treatment.data, prediction } });
       } catch (aiError: any) {
         console.warn("[TreatmentEfficacy] AI prediction unavailable, using fallback:", aiError.message);

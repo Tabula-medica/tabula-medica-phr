@@ -13,6 +13,7 @@ import {
   monitoringAlertStatuses,
 } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { VITAL_THRESHOLDS, checkVitalThresholds } from "./services/vital-thresholds";
 
 const router = Router();
 
@@ -50,55 +51,6 @@ function enforceSessionUserId(req: Request, res: Response, next: NextFunction) {
     req.body.profileId = sessionUserId;
   }
   next();
-}
-
-const VITAL_THRESHOLDS: Record<string, { low?: number; high?: number; critical_low?: number; critical_high?: number; unit: string }> = {
-  blood_pressure_systolic: { low: 90, high: 140, critical_low: 70, critical_high: 180, unit: "mmHg" },
-  blood_pressure_diastolic: { low: 60, high: 90, critical_low: 40, critical_high: 120, unit: "mmHg" },
-  heart_rate: { low: 60, high: 100, critical_low: 40, critical_high: 150, unit: "bpm" },
-  blood_glucose: { low: 70, high: 140, critical_low: 54, critical_high: 250, unit: "mg/dL" },
-  weight: { unit: "lbs" },
-  temperature: { low: 97, high: 99.5, critical_low: 95, critical_high: 103, unit: "°F" },
-  oxygen_saturation: { low: 95, critical_low: 90, unit: "%" },
-  respiratory_rate: { low: 12, high: 20, critical_low: 8, critical_high: 30, unit: "breaths/min" },
-};
-
-async function checkVitalThresholds(profileId: string, vitalType: string, value: number, vitalSignId: string) {
-  const thresholds = VITAL_THRESHOLDS[vitalType];
-  if (!thresholds) return;
-
-  let severity: "low" | "medium" | "high" | "critical" | null = null;
-  let message = "";
-
-  if (thresholds.critical_high && value >= thresholds.critical_high) {
-    severity = "critical";
-    message = `Critical high ${vitalType.replace(/_/g, " ")}: ${value} ${thresholds.unit} (threshold: ${thresholds.critical_high})`;
-  } else if (thresholds.critical_low && value <= thresholds.critical_low) {
-    severity = "critical";
-    message = `Critical low ${vitalType.replace(/_/g, " ")}: ${value} ${thresholds.unit} (threshold: ${thresholds.critical_low})`;
-  } else if (thresholds.high && value >= thresholds.high) {
-    severity = "high";
-    message = `High ${vitalType.replace(/_/g, " ")}: ${value} ${thresholds.unit} (normal: <${thresholds.high})`;
-  } else if (thresholds.low && value <= thresholds.low) {
-    severity = "medium";
-    message = `Low ${vitalType.replace(/_/g, " ")}: ${value} ${thresholds.unit} (normal: >${thresholds.low})`;
-  }
-
-  if (severity) {
-    await db.insert(monitoringAlertsTable).values({
-      profileId,
-      vitalSignId,
-      alertType: "vital_threshold",
-      severity,
-      title: `Abnormal ${vitalType.replace(/_/g, " ")} reading`,
-      message,
-      threshold: thresholds.high?.toString() || thresholds.low?.toString() || "",
-      actualValue: value.toString(),
-      status: "pending",
-    });
-
-    logHipaaAudit("ALERT_CREATED", profileId, vitalSignId, `${severity} severity alert for ${vitalType}`);
-  }
 }
 
 router.use(requireAuth);
@@ -352,7 +304,10 @@ router.post("/vitals", async (req: Request, res: Response) => {
       notes: data.notes,
     }).returning();
 
-    await checkVitalThresholds(data.profileId, data.vitalType, parseFloat(data.value), vital.id);
+    const alert = await checkVitalThresholds(data.profileId, data.vitalType, parseFloat(data.value), vital.id);
+    if (alert) {
+      logHipaaAudit("ALERT_CREATED", data.profileId, vital.id, `${alert.severity} severity alert for ${data.vitalType}`);
+    }
 
     logHipaaAudit("VITAL_CREATED", data.profileId, vital.id, `Recorded ${data.vitalType}: ${data.value} ${data.unit}`);
 
@@ -390,7 +345,10 @@ router.post("/vitals/batch", async (req: Request, res: Response) => {
         notes: data.notes,
       }).returning();
 
-      await checkVitalThresholds(data.profileId, data.vitalType, parseFloat(data.value), vital.id);
+      const alert = await checkVitalThresholds(data.profileId, data.vitalType, parseFloat(data.value), vital.id);
+      if (alert) {
+        logHipaaAudit("ALERT_CREATED", data.profileId, vital.id, `${alert.severity} severity alert for ${data.vitalType}`);
+      }
       vitals.push(vital);
     }
 

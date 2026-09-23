@@ -1,10 +1,11 @@
 import { Express } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { aiDeepFHIRAnalyticsService } from "./services/ai-deep-fhir-analytics-service";
 
 export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
   const BASE_PATH = "/api/deep-fhir-analytics";
 
-  app.get(`${BASE_PATH}/metadata`, async (req, res) => {
+  app.get(`${BASE_PATH}/metadata`, requireUser, async (req, res) => {
     try {
       const metadata = await aiDeepFHIRAnalyticsService.getMetadata();
       res.json(metadata);
@@ -14,9 +15,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/dashboard`, async (req, res) => {
+  app.get(`${BASE_PATH}/dashboard`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const dashboard = await aiDeepFHIRAnalyticsService.getDashboard(userId);
       res.json(dashboard);
     } catch (error) {
@@ -25,9 +26,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/predictive-analysis`, async (req, res) => {
+  app.post(`${BASE_PATH}/predictive-analysis`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { analysisType, patientId, populationCriteria, timeframe } = req.body;
       
       if (!analysisType) {
@@ -47,9 +48,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/predictions`, async (req, res) => {
+  app.get(`${BASE_PATH}/predictions`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const predictions = await aiDeepFHIRAnalyticsService.getPredictions(userId);
       res.json({ predictions });
     } catch (error) {
@@ -58,9 +59,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/at-risk-populations`, async (req, res) => {
+  app.post(`${BASE_PATH}/at-risk-populations`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { riskCategory, criteria } = req.body;
       
       if (!riskCategory) {
@@ -78,9 +79,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/natural-language-query`, async (req, res) => {
+  app.post(`${BASE_PATH}/natural-language-query`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { query } = req.body;
       
       if (!query) {
@@ -95,9 +96,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/query-history`, async (req, res) => {
+  app.get(`${BASE_PATH}/query-history`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 20;
       const queries = await aiDeepFHIRAnalyticsService.getQueryHistory(userId, limit);
       res.json({ queries });
@@ -107,9 +108,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/detect-anomalies`, async (req, res) => {
+  app.post(`${BASE_PATH}/detect-anomalies`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { detectionType, resourceType, scope } = req.body;
 
       const anomalies = await aiDeepFHIRAnalyticsService.detectAnomalies(userId, {
@@ -124,9 +125,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/anomalies`, async (req, res) => {
+  app.get(`${BASE_PATH}/anomalies`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { status, severity, type } = req.query;
       
       const anomalies = await aiDeepFHIRAnalyticsService.getAnomalies(userId, {
@@ -141,9 +142,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.patch(`${BASE_PATH}/anomalies/:anomalyId/status`, async (req, res) => {
+  app.patch(`${BASE_PATH}/anomalies/:anomalyId/status`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { anomalyId } = req.params;
       const { status } = req.body;
       
@@ -162,9 +163,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.post(`${BASE_PATH}/health-trend-forecast`, async (req, res) => {
+  app.post(`${BASE_PATH}/health-trend-forecast`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { forecastType, condition, timeHorizon } = req.body;
       
       if (!forecastType) {
@@ -183,9 +184,9 @@ export function registerAIDeepFHIRAnalyticsRoutes(app: Express): void {
     }
   });
 
-  app.get(`${BASE_PATH}/forecasts`, async (req, res) => {
+  app.get(`${BASE_PATH}/forecasts`, requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const forecasts = await aiDeepFHIRAnalyticsService.getForecasts(userId);
       res.json({ forecasts });
     } catch (error) {

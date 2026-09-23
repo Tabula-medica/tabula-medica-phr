@@ -1,9 +1,5 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeChat } from "./ai-gateway";
+import { speechToText } from "../replit_integrations/audio/client";
 
 export interface TranscriptionResult {
   text: string;
@@ -113,13 +109,9 @@ class AIClinicalDocumentationService {
   async transcribeConversation(audioBase64: string, mimeType: string = "audio/webm"): Promise<TranscriptionResult> {
     try {
       const buffer = Buffer.from(audioBase64, "base64");
-      const file = new File([buffer], "audio.webm", { type: mimeType });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: file,
-        model: "gpt-4o-mini-transcribe",
-        response_format: "json",
-      });
+      const ext = mimeType.includes("mp3") ? "mp3" : mimeType.includes("wav") ? "wav" : "webm";
+      // GCP Speech-to-Text (BAA) — not OpenAI Whisper.
+      const transcription = { text: await speechToText(buffer, ext as any) };
 
       const structuredNotes = await this.parseTranscriptionToStructuredNotes(transcription.text);
 
@@ -136,8 +128,7 @@ class AIClinicalDocumentationService {
 
   private async parseTranscriptionToStructuredNotes(transcription: string): Promise<StructuredNote> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -150,12 +141,11 @@ IMPORTANT: This is for documentation assistance only. All outputs require physic
             content: `Parse this transcript into structured clinical notes:\n\n${transcription}\n\nReturn JSON with these fields: chiefComplaint, historyOfPresentIllness, reviewOfSystems (array), physicalExamFindings (array), assessment, plan (array), medications (array of {name, dosage, frequency, route}), allergies (array), vitalSigns (optional object).`,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      return JSON.parse(content);
+      return JSON.parse(raw || "{}");
     } catch (error) {
       console.error("[AIClinicalDocumentation] Parse error:", error);
       return this.getEmptyStructuredNote();
@@ -164,8 +154,7 @@ IMPORTANT: This is for documentation assistance only. All outputs require physic
 
   async generateClinicalNote(request: ClinicalNoteRequest): Promise<ClinicalNoteResponse> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -182,7 +171,7 @@ Generate a complete clinical note following standard SOAP format.`,
           {
             role: "user",
             content: `Generate a draft clinical note for:
-            
+
 Patient ID: ${request.patientId}
 Visit Type: ${request.visitType}
 Chief Complaint: ${request.chiefComplaint}
@@ -197,12 +186,11 @@ ${request.additionalContext ? `Additional Context:\n${request.additionalContext}
 Return JSON with: draftNote (full narrative note), structuredNote (parsed sections), and disclaimer.`,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 3000,
+        responseMimeType: "application/json",
+        maxTokens: 3000,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(raw || "{}");
 
       const suggestedCodes = await this.suggestCodes(parsed.draftNote || request.chiefComplaint, request.patientSummary);
 
@@ -222,12 +210,11 @@ Return JSON with: draftNote (full narrative note), structuredNote (parsed sectio
 
   async suggestCodes(clinicalText: string, patientContext?: string): Promise<CodeSuggestion[]> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
-            content: `You are a medical coding assistant. Analyze clinical documentation and suggest appropriate ICD-10 diagnosis codes and CPT procedure codes. 
+            content: `You are a medical coding assistant. Analyze clinical documentation and suggest appropriate ICD-10 diagnosis codes and CPT procedure codes.
 
 IMPORTANT: These are suggestions for coder/physician review only. Final code selection must be verified by a certified medical coder or the treating physician.
 
@@ -244,12 +231,11 @@ ${patientContext ? `Patient Context:\n${patientContext}` : ""}
 Return up to 10 most relevant codes as JSON array.`,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const content = response.choices[0]?.message?.content || '{"codes":[]}';
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(raw || '{"codes":[]}');
       return parsed.codes || parsed.suggestions || [];
     } catch (error) {
       console.error("[AIClinicalDocumentation] Code suggestion error:", error);
@@ -259,8 +245,7 @@ Return up to 10 most relevant codes as JSON array.`,
 
   async generatePriorAuthorization(request: PriorAuthRequest): Promise<PriorAuthResponse> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -293,12 +278,11 @@ ${request.supportingDocumentation ? `Supporting Documents: ${request.supportingD
 Return JSON with: authorizationLetter, clinicalSummary, medicalNecessityStatement, supportingEvidence (array), estimatedProcessingDays.`,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 3000,
+        responseMimeType: "application/json",
+        maxTokens: 3000,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(raw || "{}");
 
       return {
         requestId: `pa-${Date.now()}`,

@@ -8,8 +8,10 @@ import {
   date,
   integer,
   serial,
+  real,
   jsonb,
   inet,
+  index,
   primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -20,7 +22,7 @@ import { createInsertSchema } from "drizzle-zod";
 // DRIZZLE DATABASE TABLES
 // ============================================
 
-export const appRegions = ["us", "international"] as const;
+export const appRegions = ["us", "au", "international"] as const;
 export type AppRegion = (typeof appRegions)[number];
 
 export const accounts = pgTable(
@@ -289,6 +291,69 @@ export type PhrVaccineRecord = typeof vaccinesTable.$inferSelect;
 export const insertPhrSdohSchema = createInsertSchema(sdohTable).omit({ id: true, createdAt: true });
 export type InsertPhrSdoh = z.infer<typeof insertPhrSdohSchema>;
 export type PhrSdohRecord = typeof sdohTable.$inferSelect;
+
+// ============================================
+// ADVANCE DIRECTIVES — Goals of Care & Treatment Preferences
+// ============================================
+//
+// One structured directive row per profile. PHI fields (goalsOfCare,
+// familyPrimaryGoalOfCare, codeStatus, treatmentPreferences) are encrypted at
+// rest via the phi-storage wrapper (see server/security/phi-column-map.ts →
+// `advanceDirectivesTable`). Uploaded directive FORMS are stored as normal
+// documents in the "advance_directives" system folder (folders.key).
+
+/** Code-status options for an advance directive. */
+export const advanceDirectiveCodeStatuses = ["Full Code", "DNR", "DNI"] as const;
+export type AdvanceDirectiveCodeStatus = typeof advanceDirectiveCodeStatuses[number];
+
+/** yes/no/null answer for each treatment-preference item. */
+export type TreatmentPreferenceValue = "yes" | "no" | null;
+
+/**
+ * Structured treatment-preference grid. The first 9 items are displayed as
+ * "requested" and the last 2 (feedingTube, intubation) as "not to be
+ * initiated", but all are stored uniformly as yes/no/null.
+ */
+export interface TreatmentPreferences {
+  antibioticsIv: TreatmentPreferenceValue;
+  antibioticsOral: TreatmentPreferenceValue;
+  bloodTransfusion: TreatmentPreferenceValue;
+  diagnosticTest: TreatmentPreferenceValue;
+  hcProxyInvoked: TreatmentPreferenceValue;
+  hospitalization: TreatmentPreferenceValue;
+  ivHydration: TreatmentPreferenceValue;
+  labTest: TreatmentPreferenceValue;
+  surgicalIntervention: TreatmentPreferenceValue;
+  feedingTube: TreatmentPreferenceValue;
+  intubation: TreatmentPreferenceValue;
+}
+
+export const advanceDirectivesTable = pgTable(
+  "advance_directives",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    familyPrimaryGoalOfCare: text("family_primary_goal_of_care"),
+    goalsOfCare: text("goals_of_care"),
+    // Multi-select code status stored as text[] (options: Full Code / DNR / DNI).
+    codeStatus: text("code_status").array(),
+    // Structured yes/no/null grid stored as jsonb (encrypted as an envelope).
+    treatmentPreferences: jsonb("treatment_preferences").$type<TreatmentPreferences>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileUx: uniqueIndex("advance_directives_profile_ux").on(t.profileId),
+  })
+);
+
+export const insertAdvanceDirectiveSchema = createInsertSchema(advanceDirectivesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAdvanceDirective = z.infer<typeof insertAdvanceDirectiveSchema>;
+export type AdvanceDirectiveRecord = typeof advanceDirectivesTable.$inferSelect;
 
 // ============================================
 // MEDICATION MANAGEMENT MODULE
@@ -623,6 +688,211 @@ export const insertFastenConnectionSchema = createInsertSchema(fastenConnections
 
 export type InsertFastenConnection = z.infer<typeof insertFastenConnectionSchema>;
 export type FastenConnection = typeof fastenConnectionsTable.$inferSelect;
+
+// ============================================
+// FITNESS APP CONNECTIONS (read-only, via Terra)
+// ============================================
+// All connections in this table are read-only by design: Terra's widget
+// auth flow never grants Tabula Medica write access back to the source
+// app, so there is no "scope" column to get wrong — every row here is
+// read-only data ingestion, never a write-back integration.
+
+export const fitnessProviders = [
+  "apple_health",
+  "google_fit",
+  "fitbit",
+  "oura",
+  "garmin",
+  "whoop",
+  "samsung_health",
+  "withings",
+  "polar",
+  "strava",
+] as const;
+export type FitnessProvider = typeof fitnessProviders[number];
+
+export const fitnessConnectionStatuses = ["pending", "connected", "disconnected", "error"] as const;
+export type FitnessConnectionStatus = typeof fitnessConnectionStatuses[number];
+
+export const fitnessConnectionsTable = pgTable(
+  "fitness_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    terraUserId: text("terra_user_id"),
+    terraSessionId: text("terra_session_id"),
+    // Our own opaque nonce, embedded in the auth_success/failure_redirect_url
+    // we hand Terra and echoed back as ?state=. Lets the callback match the
+    // exact connection attempt instead of guessing "most recent pending",
+    // which is spoofable/racy across concurrent attempts or accounts.
+    stateNonce: text("state_nonce"),
+    status: text("status").notNull().default("pending"),
+    accessScope: text("access_scope").notNull().default("read_only"),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
+    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    terraUserIdUx: uniqueIndex("fitness_connections_terra_user_id_ux").on(t.terraUserId),
+    stateNonceUx: uniqueIndex("fitness_connections_state_nonce_ux").on(t.stateNonce),
+  })
+);
+
+export const insertFitnessConnectionSchema = createInsertSchema(fitnessConnectionsTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFitnessConnection = z.infer<typeof insertFitnessConnectionSchema>;
+export type FitnessConnection = typeof fitnessConnectionsTable.$inferSelect;
+
+// Idempotency ledger for inbound webhook deliveries (Terra, VitalFriend).
+// See server/services/webhook-idempotency.ts's withDeliveryClaim(), which
+// is the only writer going forward: the claim insert, every write the
+// caller's handler makes, and the completion update all commit or roll
+// back together in one Postgres transaction, so under this code a row can
+// only ever become durably visible as `completed` — a handler failure, or
+// a crash mid-transaction, rolls the claim insert back too. A row seen at
+// `processing` is therefore not a live in-flight claim (Postgres blocks a
+// second insert of the same key until the first transaction resolves) but
+// a stale leftover from the earlier, pre-transactional claim/complete/
+// release + lease design; withDeliveryClaim() reclaims such rows rather
+// than treating them as permanent duplicates.
+export const webhookDeliveryStatuses = ["processing", "completed"] as const;
+export type WebhookDeliveryStatus = typeof webhookDeliveryStatuses[number];
+
+export const webhookDeliveriesTable = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    status: text("status").notNull().default("processing"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    providerDedupeUx: uniqueIndex("webhook_deliveries_provider_dedupe_ux").on(t.provider, t.dedupeKey),
+  })
+);
+
+export type WebhookDelivery = typeof webhookDeliveriesTable.$inferSelect;
+
+// Non-clinical wellness metrics pulled read-only from a connected fitness
+// app (steps, sleep, calories, HRV, workouts) — distinct from vitalSignsTable,
+// which is reserved for clinical-grade vitals (see checkVitalThresholds).
+export const wellnessMetricTypes = [
+  "steps",
+  "active_minutes",
+  "calories_burned",
+  "distance_meters",
+  "sleep_minutes",
+  "sleep_score",
+  "hrv",
+  "workout",
+  // Non-resting average heart rate (e.g. Terra's avg_hr_bpm, which spans
+  // active/exercise periods). Deliberately NOT a clinical vital: it isn't
+  // comparable to a resting-HR threshold and must never feed
+  // vital_signs/monitoring_alerts. Only resting_hr_bpm does that.
+  "avg_heart_rate",
+] as const;
+export type WellnessMetricType = typeof wellnessMetricTypes[number];
+
+export const wellnessMetricsTable = pgTable("wellness_metrics", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  fitnessConnectionId: uuid("fitness_connection_id").references(() => fitnessConnectionsTable.id, { onDelete: "set null" }),
+  provider: text("provider").notNull(),
+  metricType: text("metric_type").notNull(),
+  value: text("value").notNull(),
+  unit: text("unit").notNull(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull(),
+  rawPayload: jsonb("raw_payload").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertWellnessMetricSchema = createInsertSchema(wellnessMetricsTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWellnessMetric = z.infer<typeof insertWellnessMetricSchema>;
+export type WellnessMetric = typeof wellnessMetricsTable.$inferSelect;
+
+// ============================================
+// RPM (REMOTE PATIENT MONITORING) DEVICES
+// ============================================
+// Clinical-grade RPM device enrollments (e.g. VitalFriend Vital Buddy /
+// BUDDI cellular BP cuffs, pulse oximeters, glucometers, scales). Readings
+// from these devices are clinical vitals and are written into
+// vitalSignsTable (shared with manual entry) so they flow through the
+// same abnormal-range alerting in monitoringAlertsTable — see
+// server/services/vital-thresholds.ts.
+
+export const rpmDeviceProviders = ["vitalfriend", "other"] as const;
+export type RpmDeviceProvider = typeof rpmDeviceProviders[number];
+
+// Named distinctly from the pre-existing rpmDeviceTypes/RpmDeviceType above
+// (server/onboarding.ts) — those model a generic onboarding-time device
+// registration + setup-instructions flow; this models an actual clinical
+// RPM device connected to a real provider (VitalFriend) that feeds
+// vital_signs. Don't merge the two without checking both call sites.
+export const rpmMonitoringDeviceTypes = [
+  "blood_pressure_cuff",
+  "glucometer",
+  "pulse_oximeter",
+  "scale",
+  "thermometer",
+] as const;
+export type RpmMonitoringDeviceType = typeof rpmMonitoringDeviceTypes[number];
+
+export const rpmDeviceStatuses = ["pending", "active", "inactive", "error"] as const;
+export type RpmDeviceStatus = typeof rpmDeviceStatuses[number];
+
+export const rpmDevicesTable = pgTable(
+  "rpm_devices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("vitalfriend"),
+    externalDeviceId: text("external_device_id").notNull(),
+    deviceType: text("device_type").notNull(),
+    serialNumber: text("serial_number"),
+    status: text("status").notNull().default("pending"),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }),
+    lastReadingAt: timestamp("last_reading_at", { withTimezone: true }),
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    externalDeviceIdUx: uniqueIndex("rpm_devices_external_device_id_ux").on(t.provider, t.externalDeviceId),
+  })
+);
+
+export const insertRpmDeviceSchema = createInsertSchema(rpmDevicesTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRpmDevice = z.infer<typeof insertRpmDeviceSchema>;
+export type RpmDevice = typeof rpmDevicesTable.$inferSelect;
+
+// One-time deploy scripts (e.g.
+// scripts/backfill-rpm-legacy-device-reverification.ts) record a row here
+// keyed by a script-chosen slug once they've run to completion, so a
+// script can check for its own marker and skip re-running its effects — a
+// script whose action isn't naturally idempotent (like resetting rows that
+// may since have been legitimately re-verified) must not silently re-apply
+// just because someone runs it again.
+export const deployScriptMarkersTable = pgTable("deploy_script_markers", {
+  key: text("key").primaryKey(),
+  appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type DeployScriptMarker = typeof deployScriptMarkersTable.$inferSelect;
 
 // ============================================
 // ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM
@@ -20769,6 +21039,24 @@ export const securitySessionsTable = pgTable("security_sessions", {
   terminationReason: text("termination_reason"),
 });
 
+// Shared counter for the Postgres-backed express-rate-limit store
+// (server/security/pg-rate-limit-store.ts). Keys are namespaced,
+// IP-derived rate-limit identifiers only — never PHI.
+export const rateLimitHitsTable = pgTable(
+  "rate_limit_hits",
+  {
+    key: text("key").primaryKey(),
+    hits: integer("hits").notNull(),
+    resetTime: timestamp("reset_time", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    // The opportunistic expiry sweep in pg-rate-limit-store.ts filters and
+    // deletes by reset_time; without this, that's a sequential scan of the
+    // whole table on every triggered sweep.
+    resetTimeIdx: index("rate_limit_hits_reset_time_idx").on(t.resetTime),
+  })
+);
+
 // Insert schemas for compliance tables
 export const insertHipaaAuditLogSchema = z.object({
   eventType: z.enum(["PHI_ACCESS", "PHI_MODIFY", "PHI_CREATE", "PHI_DELETE", "LOGIN", "LOGOUT", "MFA_SETUP", "MFA_VERIFY", "SESSION_START", "SESSION_END", "EXPORT", "CONSENT_CHANGE", "ACCESS_DENIED"]),
@@ -22342,3 +22630,138 @@ export const insertAccountPrivacyPrefsSchema = createInsertSchema(accountPrivacy
 });
 export type InsertAccountPrivacyPrefs = z.infer<typeof insertAccountPrivacyPrefsSchema>;
 export type AccountPrivacyPrefs = typeof accountPrivacyPrefs.$inferSelect;
+
+// ============================================
+// PROVIDER DIRECTORY — PERSISTENCE
+// Postgres-backed store for the zip + specialty provider search.
+// Mirrors the HealthcareProvider / ProviderLocation interfaces above;
+// the in-memory providerDirectoryService remains as a dev/seed fallback.
+// ============================================
+export const healthcareProvidersTable = pgTable("healthcare_providers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  npi: text("npi").notNull().unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  credentials: jsonb("credentials").$type<string[]>().notNull().default([]),
+  providerType: text("provider_type").notNull(),
+  specialties: jsonb("specialties").$type<string[]>().notNull().default([]),
+  primarySpecialty: text("primary_specialty").notNull(),
+  status: text("status").notNull().default("active"),
+  bio: text("bio"),
+  photoUrl: text("photo_url"),
+  languages: jsonb("languages").$type<string[]>().notNull().default(["English"]),
+  acceptingNewPatients: boolean("accepting_new_patients").notNull().default(true),
+  appointmentModes: jsonb("appointment_modes").$type<string[]>().notNull().default(["in_person"]),
+  averageRating: real("average_rating"),
+  reviewCount: integer("review_count").notNull().default(0),
+  yearsExperience: integer("years_experience"),
+  boardCertifications: jsonb("board_certifications").$type<string[]>().notNull().default([]),
+  hospitalAffiliations: jsonb("hospital_affiliations").$type<string[]>().notNull().default([]),
+  groupPractice: text("group_practice"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  primarySpecialtyIdx: index("hcp_primary_specialty_idx").on(t.primarySpecialty),
+  statusIdx: index("hcp_status_idx").on(t.status),
+}));
+
+export const providerLocationsTable = pgTable("provider_locations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  providerId: uuid("provider_id").notNull().references(() => healthcareProvidersTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  country: text("country").notNull().default("USA"),
+  phone: text("phone").notNull(),
+  fax: text("fax"),
+  email: text("email"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  appointmentModes: jsonb("appointment_modes").$type<string[]>().notNull().default(["in_person"]),
+  officeHours: jsonb("office_hours").$type<unknown[]>().notNull().default([]),
+  handicapAccessible: boolean("handicap_accessible").notNull().default(false),
+  parkingAvailable: boolean("parking_available").notNull().default(false),
+  publicTransitAccess: boolean("public_transit_access").notNull().default(false),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  zipIdx: index("provider_loc_zip_idx").on(t.zipCode),
+  providerIdx: index("provider_loc_provider_idx").on(t.providerId),
+}));
+
+export const insertHealthcareProviderDBSchema = createInsertSchema(healthcareProvidersTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertHealthcareProviderDB = z.infer<typeof insertHealthcareProviderDBSchema>;
+export type HealthcareProviderDB = typeof healthcareProvidersTable.$inferSelect;
+
+export const insertProviderLocationDBSchema = createInsertSchema(providerLocationsTable).omit({ id: true, createdAt: true });
+export type InsertProviderLocationDB = z.infer<typeof insertProviderLocationDBSchema>;
+export type ProviderLocationDB = typeof providerLocationsTable.$inferSelect;
+
+// ─── Reference-content (Phase 1) ─────────────────────────────────────────────
+// Public medical reference content (FDA/CDC/WHO/ICD-11) sourced from public
+// URLs only — NEVER PHI. Every row lands as `draft`; nothing surfaces to a
+// patient or clinician until a human sets status="published". Patient-facing
+// text is passed through sanitizeNoCDS + carries the NO-CDS disclaimer.
+export const referenceContent = pgTable("reference_content", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  source: text("source").notNull(),                    // "fda" | "cdc" | "who" | "icd11"
+  sourceUrl: text("source_url").notNull().unique(),    // dedup key
+  externalVersion: text("external_version"),           // source date/version for change detection
+  contentType: text("content_type").notNull(),         // "drug-label" | "clinical-guideline" | "patient-education" | "coding"
+  surface: text("surface").notNull().default("patient-education"), // "patient-education" | "clinician-reference"
+  title: text("title").notNull(),
+  body: text("body"),                                  // clean markdown (sanitized if patient-facing)
+  structuredData: jsonb("structured_data").$type<Record<string, unknown>>().notNull().default({}),
+  license: text("license"),                            // "public-domain" | "CC-BY-NC-SA" | ...
+  attribution: text("attribution"),
+  status: text("status").notNull().default("draft"),   // draft | in-review | published | retired
+  reviewedBy: text("reviewed_by"),                     // reviewer user id (claims.sub; audit-only, no FK)
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  statusIdx: index("reference_content_status_idx").on(t.status),
+  sourceIdx: index("reference_content_source_idx").on(t.source),
+}));
+
+export const referenceContentTags = pgTable("reference_content_tags", {
+  contentId: uuid("content_id").notNull().references(() => referenceContent.id, { onDelete: "cascade" }),
+  tag: text("tag").notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.contentId, t.tag] }),
+  tagIdx: index("reference_content_tags_tag_idx").on(t.tag),
+}));
+
+export const insertReferenceContentSchema = createInsertSchema(referenceContent).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertReferenceContent = z.infer<typeof insertReferenceContentSchema>;
+export type ReferenceContent = typeof referenceContent.$inferSelect;
+
+// ─── Document OCR results (P1-5) ───────────────────────────────────────────
+// Persisted OCR extraction results (previously in-memory, lost on restart).
+// One row per (user_id, document_id) pair; upserted on re-extraction.
+export const documentOcrResultsTable = pgTable(
+  "document_ocr_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").notNull(),
+    profileId: text("profile_id"),
+    documentId: text("document_id").notNull(),
+    extractedText: text("extracted_text").notNull(),
+    structuredData: jsonb("structured_data").$type<Record<string, unknown>>().notNull().default({}),
+    category: text("category").notNull(),
+    confidence: real("confidence").notNull().default(0),
+    rawOcrText: text("raw_ocr_text"),
+    processingTime: integer("processing_time").notNull().default(0),
+    extractedAt: text("extracted_at").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdIdx: index("docr_user_id_idx").on(t.userId),
+    userProfileIdx: index("docr_user_profile_idx").on(t.userId, t.profileId),
+    userDocumentUx: uniqueIndex("docr_user_document_ux").on(t.userId, t.documentId),
+  })
+);

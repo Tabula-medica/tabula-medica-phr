@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useTefcaEnabled } from "@/hooks/use-tefca";
 import {
   Link2,
   Unlink,
@@ -54,6 +55,7 @@ interface EHRConnectionsProps {
 }
 
 export function EHRConnectionsCard({ userId, onDataUpdated }: EHRConnectionsProps) {
+  const tefcaEnabled = useTefcaEnabled();
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
   const [disconnectConnection, setDisconnectConnection] = useState<EHRConnection | null>(null);
@@ -126,6 +128,12 @@ export function EHRConnectionsCard({ userId, onDataUpdated }: EHRConnectionsProp
 
   const connections = connectionsData?.connections || [];
   const hasConnections = connections.length > 0;
+
+  // TEFCA / Fasten Health external-records connection is US-only. On the
+  // international (.world) deployment (TEFCA_ENABLED=false) this card is hidden.
+  if (!tefcaEnabled) {
+    return null;
+  }
 
   return (
     <Card className="w-full" data-testid="card-ehr-connections">

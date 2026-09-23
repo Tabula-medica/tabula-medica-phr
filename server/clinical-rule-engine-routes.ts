@@ -5,8 +5,10 @@ import {
   PopulationView,
   PatientContext 
 } from "./services/clinical-rule-template-engine";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.get("/metadata", async (req: Request, res: Response) => {
   try {
@@ -20,7 +22,7 @@ router.get("/metadata", async (req: Request, res: Response) => {
 
 router.get("/rules", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const domain = req.query.domain as RuleDomain | undefined;
     
     const rules = await clinicalRuleTemplateEngine.getRuleTemplates(userId, domain);
@@ -37,7 +39,7 @@ router.get("/rules", async (req: Request, res: Response) => {
 
 router.get("/rules/:ruleId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { ruleId } = req.params;
     
     const rule = await clinicalRuleTemplateEngine.getRuleTemplate(userId, ruleId);
@@ -56,7 +58,7 @@ router.get("/rules/:ruleId", async (req: Request, res: Response) => {
 
 router.post("/rules", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const template = req.body;
     
     if (!template.domain || !template.name) {
@@ -76,7 +78,7 @@ router.post("/rules", async (req: Request, res: Response) => {
 
 router.patch("/rules/:ruleId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { ruleId } = req.params;
     const updates = req.body;
     
@@ -96,7 +98,7 @@ router.patch("/rules/:ruleId", async (req: Request, res: Response) => {
 
 router.get("/citations", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const ruleId = req.query.ruleId as string | undefined;
     
     const citations = await clinicalRuleTemplateEngine.getCitations(userId, ruleId);
@@ -113,7 +115,7 @@ router.get("/citations", async (req: Request, res: Response) => {
 
 router.post("/generate-tasks", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientContext } = req.body;
     
     if (!patientContext || !patientContext.patientId || !patientContext.profileId) {
@@ -148,7 +150,7 @@ router.post("/generate-tasks", async (req: Request, res: Response) => {
 
 router.get("/tasks/:patientId/:profileId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId, profileId } = req.params;
     
     const tasks = await clinicalRuleTemplateEngine.getGeneratedTasks(userId, patientId, profileId);

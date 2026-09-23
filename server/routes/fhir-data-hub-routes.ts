@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "crypto";
 import { storage } from "../storage";
 import { fhirExportService } from "../services/fhir-export-service";
 import { FHIR_API_SCOPES } from "@shared/schema";
+import { requireUser, getUserId } from "../middleware/require-user";
 
 const router = Router();
 
@@ -57,7 +58,7 @@ async function logFhirApiRequest(
   });
 }
 
-router.get("/partners", async (req: Request, res: Response) => {
+router.get("/partners", requireUser, async (req: Request, res: Response) => {
   try {
     const partners = await storage.getFhirApiPartners();
     const sanitized = partners.map(({ apiKeyHash, ...rest }) => rest);
@@ -68,7 +69,7 @@ router.get("/partners", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/partners/:id", async (req: Request, res: Response) => {
+router.get("/partners/:id", requireUser, async (req: Request, res: Response) => {
   try {
     const partner = await storage.getFhirApiPartner(req.params.id);
     if (!partner) return res.status(404).json({ error: "Partner not found" });
@@ -80,7 +81,7 @@ router.get("/partners/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/partners", async (req: Request, res: Response) => {
+router.post("/partners", requireUser, async (req: Request, res: Response) => {
   try {
     const { name, organization, contactEmail, allowedScopes, rateLimitPerHour, expiresAt } = req.body;
     if (!name || !organization || !contactEmail) {
@@ -113,7 +114,7 @@ router.post("/partners", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/partners/:id", async (req: Request, res: Response) => {
+router.patch("/partners/:id", requireUser, async (req: Request, res: Response) => {
   try {
     const { status, allowedScopes, rateLimitPerHour, expiresAt } = req.body;
     const updates: Record<string, unknown> = {};
@@ -134,7 +135,7 @@ router.patch("/partners/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/partners/:id", async (req: Request, res: Response) => {
+router.delete("/partners/:id", requireUser, async (req: Request, res: Response) => {
   try {
     await storage.deleteFhirApiPartner(req.params.id);
     console.log(`[HIPAA-AUDIT][FHIRDataHub] Partner deleted: id=${req.params.id}`);
@@ -145,7 +146,7 @@ router.delete("/partners/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/partners/:id/rotate-key", async (req: Request, res: Response) => {
+router.post("/partners/:id/rotate-key", requireUser, async (req: Request, res: Response) => {
   try {
     const partner = await storage.getFhirApiPartner(req.params.id);
     if (!partner) return res.status(404).json({ error: "Partner not found" });
@@ -163,9 +164,9 @@ router.post("/partners/:id/rotate-key", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/scope-grants", async (req: Request, res: Response) => {
+router.get("/scope-grants", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const grants = await storage.getFhirApiScopeGrants(userId);
     res.json({ grants });
   } catch (error) {
@@ -174,9 +175,9 @@ router.get("/scope-grants", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/scope-grants/partner/:partnerId", async (req: Request, res: Response) => {
+router.get("/scope-grants/partner/:partnerId", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const grants = await storage.getFhirApiScopeGrantsForPatientAndPartner(userId, req.params.partnerId);
     res.json({ grants });
   } catch (error) {
@@ -185,9 +186,9 @@ router.get("/scope-grants/partner/:partnerId", async (req: Request, res: Respons
   }
 });
 
-router.put("/scope-grants/partner/:partnerId", async (req: Request, res: Response) => {
+router.put("/scope-grants/partner/:partnerId", requireUser, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { scopes } = req.body;
     if (!scopes || !Array.isArray(scopes)) {
       return res.status(400).json({ error: "scopes array is required" });
@@ -328,7 +329,7 @@ router.get("/Patient", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/audit-logs", async (req: Request, res: Response) => {
+router.get("/audit-logs", requireUser, async (req: Request, res: Response) => {
   try {
     const { partnerId, patientEmail, action, limit, offset } = req.query;
     const logs = await storage.getFhirApiAuditLogs({
@@ -345,7 +346,7 @@ router.get("/audit-logs", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/audit-stats", async (req: Request, res: Response) => {
+router.get("/audit-stats", requireUser, async (req: Request, res: Response) => {
   try {
     const stats = await storage.getFhirApiAuditStats();
     res.json(stats);

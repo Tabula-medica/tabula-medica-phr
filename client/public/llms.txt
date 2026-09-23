@@ -7,7 +7,7 @@
 - **What it is:** A patient-controlled unified personal health record. Patients own their data; Tabula Medica is not a provider and does not give medical advice.
 - **Data sources:** SMART on FHIR connections to 30,000+ US health systems, plus TEFCA federated health-record queries. Standardized on FHIR R4.
 - **Core capabilities:** Unified health timeline, deduplication of records across sources, plain-English explanations of labs/diagnoses/medications, medication reconciliation, AI health assistant, drug savings finder, FQHC (free/low-cost care) locator, wearable device sync, and family caregiver profiles.
-- **Privacy & security:** HIPAA-grade controls, SOC 2 Type II, zero-knowledge patient-held encryption (AES-256-GCM), TLS in transit, and self-serve GDPR/CCPA data-subject-request tools. Authenticated patient data (PHI) is never indexed or exposed to crawlers.
+- **Privacy & security:** HIPAA-grade controls, SOC 2 Type II audit planned, zero-knowledge patient-held encryption (AES-256-GCM), TLS in transit, and self-serve GDPR/CCPA data-subject-request tools. Authenticated patient data (PHI) is never indexed or exposed to crawlers.
 - **Languages:** Medical terminology translation across 19 languages.
 - **Platforms:** Web, iOS, Android.
 

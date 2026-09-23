@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PatientIdentity {
   firstName: string;
@@ -345,20 +340,12 @@ Return a JSON array of objects with: sourceType, probability (0-1), reasoning.
 Focus on statistical likelihood based on healthcare utilization patterns.
 Do not make assumptions about specific conditions or diagnoses.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a healthcare data analyst specializing in patient record discovery patterns. Return only valid JSON arrays.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 500,
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare data analyst specializing in patient record discovery patterns. Return only valid JSON arrays.",
+        user: prompt,
+        maxTokens: 500,
         temperature: 0.3,
-      });
-
-      const content = response.choices[0]?.message?.content || "[]";
+      }) || "[]";
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       
       if (jsonMatch) {
