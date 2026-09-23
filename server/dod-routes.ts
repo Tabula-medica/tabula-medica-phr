@@ -501,6 +501,26 @@ export function registerDoDRoutes(
           if (owner !== currentUserId) {
             throw new EnrollmentConflict("edipi");
           }
+        } else {
+          // We just claimed this EDIPI fresh — cac_edipi_claims had no row
+          // for it. cac_software_certs is older than this table, though:
+          // if a cert was already enrolled for this EDIPI before this
+          // exclusivity check existed, its owner is the real claimant and
+          // must win over whoever happens to hit this code path first
+          // post-deploy, or a fresh attacker could claim an EDIPI someone
+          // already legitimately enrolled simply because cac_edipi_claims
+          // started empty. Ignores expires_at for the same reason the
+          // claims table itself does — ownership shouldn't lapse just
+          // because a cert did.
+          const legacyOwners = await tx.execute(
+            sql`SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs WHERE edipi = ${edipi}`,
+          );
+          const owners = new Set(
+            ((legacyOwners as { rows?: Record<string, unknown>[] }).rows ?? []).map((r) => r.enrolled_by_user_id as string),
+          );
+          if (owners.size > 0 && !owners.has(currentUserId)) {
+            throw new EnrollmentConflict("edipi");
+          }
         }
 
         // Store enrollment record (sql`` tagged template — see the note on

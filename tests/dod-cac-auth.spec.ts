@@ -47,6 +47,15 @@ vi.mock("../server/db", () => {
         const owner = edipiClaims.get(claimEdipi);
         return { rows: owner ? [{ claimed_by_user_id: owner }] : [] };
       }
+      if (text.includes("SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs")) {
+        // The legacy-owner fallback: when this EDIPI has no row in
+        // cac_edipi_claims yet, a cert enrolled before that table existed
+        // is still the real claimant. No expires_at filter here either,
+        // for the same reason cac_edipi_claims itself never expires.
+        const [claimEdipi] = params as string[];
+        const owners = [...new Set(enrolledCerts.filter((c) => c.edipi === claimEdipi).map((c) => c.enrolledByUserId))];
+        return { rows: owners.map((enrolled_by_user_id) => ({ enrolled_by_user_id })) };
+      }
       if (text.includes("INSERT INTO cac_software_certs")) {
         // NOW() in the template isn't a bound param, so the 8 columns map to
         // only 7 params here: edipi, deviceId, publicKeyHex, certJson,
@@ -535,6 +544,37 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
       "legits-own-device",
     );
     expect(legitimateAttempt.statusCode).toBe(200);
+  });
+
+  it("honors a pre-existing cac_software_certs owner for an EDIPI that has no cac_edipi_claims row yet", async () => {
+    // cac_edipi_claims starts empty on any deploy, but cac_software_certs
+    // is the older table — real enrollments could already exist under an
+    // EDIPI before this exclusivity check (and its claims table) existed.
+    // Without consulting the older table too, the first caller to hit
+    // this code post-deploy would win the claim outright, even if they
+    // are not who actually enrolled that EDIPI's existing certificate.
+    const handlers = captureHandlers();
+    const legacyOwnerKeyPair = await generateKeyPair();
+    const attackerKeyPair = await generateKeyPair();
+
+    // Simulate a cert enrolled before cac_edipi_claims existed: a row in
+    // cac_software_certs with no corresponding claims-table entry.
+    enrolledCerts.push({
+      edipi: "7777777777",
+      deviceId: "legacy-owner-device",
+      publicKeyHex: await exportPublicKeyHex(legacyOwnerKeyPair.publicKey),
+      expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      enrolledByUserId: "legacy-owner",
+    });
+    expect(edipiClaims.has("7777777777")).toBe(false);
+
+    const attackerAttempt = await enroll(handlers, "7777777777", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker", "attacker-device");
+    expect(attackerAttempt.statusCode).toBe(409);
+
+    // The actual legacy owner can still enroll a new device under their
+    // own already-(legacy-)claimed EDIPI.
+    const legacyOwnerNewDevice = await enroll(handlers, "7777777777", await exportPublicKeyHex((await generateKeyPair()).publicKey), "legacy-owner", "legacy-owners-second-device");
+    expect(legacyOwnerNewDevice.statusCode).toBe(200);
   });
 
   it("re-enrolling the same device replaces its key rather than adding a second enrollment (ON CONFLICT (device_id) DO UPDATE)", async () => {

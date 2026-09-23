@@ -219,11 +219,16 @@ async function _hardwareCACFlow(
    * and session management infrastructure that the native module would call into.
    */
 
-  // Fetch challenge from server
+  // Fetch challenge from server. authMethod must be explicit here — the
+  // server's /challenge endpoint defaults to "software_cert" (matching
+  // /verify's own default for callers that omit it entirely), so an
+  // omitted authMethod on this hardware call would record the wrong
+  // context and make /verify's challenge/authMethod match check reject
+  // this flow's own signature once the native module above is wired up.
   const challengeRes = await fetch(`${apiBaseUrl}/api/auth/cac/challenge`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ readerType }),
+    body: JSON.stringify({ readerType, authMethod: "cac_hardware" }),
   });
 
   if (!challengeRes.ok) {
