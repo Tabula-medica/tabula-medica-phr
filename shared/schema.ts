@@ -21473,6 +21473,18 @@ export const cacSoftwareCertsTable = pgTable(
   })
 );
 
+// Atomic EDIPI-ownership claims for CAC/PIV software-cert enrollment.
+// Deliberately separate from cac_software_certs: a claim here never
+// expires and is never deleted, so ownership survives a lapsed cert
+// (which cac_software_certs' own expires_at-scoped rows would not), and
+// edipi as the PRIMARY KEY makes "claim it if unclaimed" an atomic
+// INSERT ... ON CONFLICT DO NOTHING rather than a racy check-then-insert.
+export const cacEdipiClaimsTable = pgTable("cac_edipi_claims", {
+  edipi: text("edipi").primaryKey(),
+  claimedByUserId: text("claimed_by_user_id").notNull(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Insert schemas for compliance tables
 export const insertHipaaAuditLogSchema = z.object({
   eventType: z.enum(["PHI_ACCESS", "PHI_MODIFY", "PHI_CREATE", "PHI_DELETE", "LOGIN", "LOGOUT", "MFA_SETUP", "MFA_VERIFY", "SESSION_START", "SESSION_END", "EXPORT", "CONSENT_CHANGE", "ACCESS_DENIED"]),

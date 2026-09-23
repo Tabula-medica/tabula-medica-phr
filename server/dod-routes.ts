@@ -15,6 +15,8 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { authRateLimiter } from "./security/api-protection";
+import { getUserId } from "./middleware/require-user";
+import { hipaaComplianceService } from "./services/hipaa-compliance-service";
 
 // ECDSA P-384 / SHA-384 — matches client/lib/fips-crypto.ts's FIPS.SIGN_ALGORITHM
 // / SIGN_CURVE / SIGN_HASH exactly, so a signature produced by that module's
@@ -351,14 +353,43 @@ export function registerDoDRoutes(
         signatureValid,
       };
 
-      // Audit log (sql`` — same reason as the enrolled-cert lookup above:
-      // this was previously a `?`-placeholder string, which would have
-      // thrown here on every real request, 500ing what should be a 200).
-      const auditMetadata = JSON.stringify({ authMethod, assuranceLevel, platform: req.headers["user-agent"] });
-      await db.execute(sql`
-        INSERT INTO audit_logs (user_id, action, resource_type, resource_id, metadata, created_at)
-        VALUES (${edipi}, 'cac_auth_success', 'session', ${session.sessionId}, ${auditMetadata}, NOW())
-      `);
+      // There is no `audit_logs` table in the managed schema (only
+      // `hipaa_audit_logs`, via hipaaComplianceService) — a raw INSERT
+      // against `audit_logs` would 500 here on every real request. Route
+      // through the same audit service the rest of the app uses, which
+      // also gets PHI-column encryption and integrity-hash chaining for
+      // free instead of reimplementing them ad hoc.
+      await hipaaComplianceService.logAuditEvent({
+        timestamp: new Date().toISOString(),
+        who: {
+          userId: edipi,
+          userName: edipi,
+          userRole: "patient",
+          ipAddress: req.ip ?? "unknown",
+          userAgent: (req.headers["user-agent"] as string) ?? "unknown",
+          sessionId: session.sessionId,
+        },
+        what: {
+          action: "cac_auth_success",
+          actionCategory: "LOGIN",
+          resourceType: "Session",
+          resourceId: session.sessionId,
+          phiAccessed: false,
+          dataClassification: "SENSITIVE",
+        },
+        when: {
+          timestamp: new Date().toISOString(),
+          timezone: "UTC",
+          serverTime: new Date().toISOString(),
+        },
+        context: {
+          endpoint: "/api/auth/cac/verify",
+          httpMethod: "POST",
+          requestId: randomBytes(8).toString("hex"),
+          sourceSystem: "cac-piv-auth",
+          accessReason: "operations",
+        },
+      });
 
       res.json(session);
     } catch (error) {
@@ -378,7 +409,11 @@ export function registerDoDRoutes(
         platformVersion: string;
       };
 
-      const currentUserId = (req as any)._authenticatedUserId as string;
+      // isAuthenticated (the middleware this route is actually mounted
+      // behind) leaves the verified subject at req.user.claims.sub, not on
+      // a `_authenticatedUserId` field nothing ever sets — getUserId() is
+      // this codebase's one shared accessor for it.
+      const currentUserId = getUserId(req);
 
       // Validate EDIPI
       if (!edipi || !/^\d{10}$/.test(edipi)) {
@@ -401,14 +436,31 @@ export function registerDoDRoutes(
       // attacker can still be the first to claim an arbitrary EDIPI nobody
       // has enrolled yet — but it does stop a later attacker from enrolling
       // a key under an EDIPI someone else already claimed.
-      const existingClaim = await db.execute(
-        sql`SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs WHERE edipi = ${edipi} AND expires_at > NOW()`,
-      );
-      const claimants = new Set(
-        ((existingClaim as { rows?: Record<string, unknown>[] }).rows ?? []).map((r) => r.enrolled_by_user_id as string),
-      );
-      if (claimants.size > 0 && !claimants.has(currentUserId)) {
-        return res.status(409).json({ error: "This EDIPI is already enrolled by a different account" });
+      //
+      // Claimed atomically via a dedicated table with edipi as its PRIMARY
+      // KEY, not by SELECT-then-INSERT against cac_software_certs: that
+      // would (a) let two concurrent enrollments from different accounts
+      // both observe "no claimant" and both succeed, and (b) let a claim
+      // lapse the moment its cert's expires_at passes, letting a different
+      // account take over an EDIPI whose original owner just hasn't
+      // re-enrolled yet. INSERT ... ON CONFLICT DO NOTHING on a unique key
+      // is atomic in Postgres — concurrent claims on the same edipi
+      // serialize on that key's row lock — and the claim row is never
+      // deleted, so ownership outlives any individual cert's expiry.
+      const claimAttempt = await db.execute(sql`
+        INSERT INTO cac_edipi_claims (edipi, claimed_by_user_id)
+        VALUES (${edipi}, ${currentUserId})
+        ON CONFLICT (edipi) DO NOTHING
+        RETURNING claimed_by_user_id
+      `);
+      if (!(claimAttempt as { rows?: unknown[] }).rows?.length) {
+        const existingClaim = await db.execute(
+          sql`SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi = ${edipi}`,
+        );
+        const owner = (existingClaim as { rows?: Record<string, unknown>[] }).rows?.[0]?.claimed_by_user_id as string | undefined;
+        if (owner !== currentUserId) {
+          return res.status(409).json({ error: "This EDIPI is already enrolled by a different account" });
+        }
       }
 
       const issuedAt = new Date().toISOString();
@@ -436,16 +488,38 @@ export function registerDoDRoutes(
       // Store enrollment record (sql`` tagged template — see the note on the
       // verify handler's lookup above for why raw `?` placeholders don't
       // actually bind against this Drizzle client).
+      //
+      // device_id is the ON CONFLICT target, but a plain
+      // "DO UPDATE SET public_key_hex = ..." would let anyone re-enroll a
+      // device_id someone else's account already owns: it'd silently swap
+      // in the new key while leaving the OLD row's edipi/enrolled_by_user_id
+      // in place, so the new key would authenticate as the old owner's
+      // identity (verify only matches on edipi + public_key_hex). The
+      // WHERE clause on the UPDATE makes the conflict branch a no-op
+      // (0 rows, no error) unless the existing row is already owned by
+      // this same account — atomically, since Postgres serializes
+      // concurrent INSERTs on the same device_id via its unique index. A
+      // brand-new device_id always inserts and returns a row regardless;
+      // an empty RETURNING therefore only ever means "conflict, different
+      // owner." Also keeps edipi in EXCLUDED's value so a same-owner
+      // re-enrollment under a corrected EDIPI stays consistent, rather
+      // than silently keeping the old row's stale edipi.
       const platformInfo = `${platform} ${platformVersion}`;
-      await db.execute(sql`
+      const enrollResult = await db.execute(sql`
         INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
         VALUES (${edipi}, ${deviceId}, ${publicKeyHex}, ${certJson}, ${platformInfo}, NOW(), ${expiresAt}, ${currentUserId})
         ON CONFLICT (device_id) DO UPDATE SET
+          edipi = EXCLUDED.edipi,
           public_key_hex = EXCLUDED.public_key_hex,
           cert_json = EXCLUDED.cert_json,
           enrolled_at = NOW(),
           expires_at = EXCLUDED.expires_at
+        WHERE cac_software_certs.enrolled_by_user_id = ${currentUserId}
+        RETURNING device_id
       `);
+      if (!(enrollResult as { rows?: unknown[] }).rows?.length) {
+        return res.status(409).json({ error: "This device is already enrolled by a different account" });
+      }
 
       res.json({ certJson, issuedAt, expiresAt });
     } catch (error) {
@@ -456,8 +530,8 @@ export function registerDoDRoutes(
 
   // ── GET /api/auth/cac/status ──────────────────────────────────────────────
   app.get("/api/auth/cac/status", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req as any)._authenticatedUserId as string;
     try {
+      const userId = getUserId(req);
       const certs = await db.execute(sql`
         SELECT edipi, device_id, platform, enrolled_at, expires_at FROM cac_software_certs
         WHERE enrolled_by_user_id = ${userId} AND expires_at > NOW()

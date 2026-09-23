@@ -27,43 +27,64 @@ function toQuery(query: SQL) {
 }
 
 const enrolledCerts: { edipi: string; deviceId: string; publicKeyHex: string; expiresAt: number; enrolledByUserId: string }[] = [];
+// edipi -> claimed_by_user_id, mirroring the real cac_edipi_claims table:
+// a claim, once made, is never removed by this mock either.
+const edipiClaims = new Map<string, string>();
 
 vi.mock("../server/db", () => ({
   db: {
     execute: vi.fn(async (query: SQL) => {
       const { sql: text, params } = toQuery(query);
+      if (text.includes("INSERT INTO cac_edipi_claims")) {
+        const [claimEdipi, claimedByUserId] = params as string[];
+        if (!edipiClaims.has(claimEdipi)) {
+          edipiClaims.set(claimEdipi, claimedByUserId);
+          return { rows: [{ claimed_by_user_id: claimedByUserId }] };
+        }
+        return { rows: [] }; // ON CONFLICT DO NOTHING — already claimed
+      }
+      if (text.includes("SELECT claimed_by_user_id FROM cac_edipi_claims")) {
+        const [claimEdipi] = params as string[];
+        const owner = edipiClaims.get(claimEdipi);
+        return { rows: owner ? [{ claimed_by_user_id: owner }] : [] };
+      }
       if (text.includes("INSERT INTO cac_software_certs")) {
         // NOW() in the template isn't a bound param, so the 8 columns map to
         // only 7 params here: edipi, deviceId, publicKeyHex, certJson,
         // platformInfo, expiresAt, enrolledByUserId (enrolled_at is NOW()).
+        // A trailing 8th param is the WHERE clause's repeated enrolledByUserId.
         const [edipi, deviceId, publicKeyHex, , , , enrolledByUserId] = params as string[];
-        // Mirrors the real ON CONFLICT (device_id) DO UPDATE: re-enrolling the
-        // same device replaces its row (new key/expiry) rather than adding a
-        // second one, so a superseded key stops matching lookups below.
         const existingIndex = enrolledCerts.findIndex((c) => c.deviceId === deviceId);
+        // Mirrors the real "... WHERE cac_software_certs.enrolled_by_user_id
+        // = $n": a device already owned by a DIFFERENT account never
+        // updates — the conflict branch is a no-op, same as Postgres
+        // returning zero rows for an ON CONFLICT DO UPDATE ... WHERE that
+        // doesn't match.
+        if (existingIndex >= 0 && enrolledCerts[existingIndex].enrolledByUserId !== enrolledByUserId) {
+          return { rows: [] };
+        }
+        // Same-owner re-enrollment replaces the row (new key/expiry/edipi)
+        // rather than adding a second one, so a superseded key stops
+        // matching lookups below.
         const row = { edipi, deviceId, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000, enrolledByUserId };
         if (existingIndex >= 0) {
           enrolledCerts[existingIndex] = row;
         } else {
           enrolledCerts.push(row);
         }
-        return { rows: [] };
-      }
-      if (text.includes("SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs")) {
-        const [edipi] = params as string[];
-        const claimants = enrolledCerts.filter((c) => c.edipi === edipi && c.expiresAt > Date.now());
-        return { rows: [...new Set(claimants.map((c) => c.enrolledByUserId))].map((enrolled_by_user_id) => ({ enrolled_by_user_id })) };
+        return { rows: [{ device_id: deviceId }] };
       }
       if (text.includes("SELECT public_key_hex FROM cac_software_certs")) {
         const [edipi, publicKeyHex] = params as string[];
         const match = enrolledCerts.find((c) => c.edipi === edipi && c.publicKeyHex === publicKeyHex && c.expiresAt > Date.now());
         return { rows: match ? [{ public_key_hex: match.publicKeyHex }] : [] };
       }
-      if (text.includes("INSERT INTO audit_logs")) {
-        return { rows: [] };
-      }
       throw new Error(`db.execute mock: unhandled query: ${text}`);
     }),
+    // hipaaComplianceService.logAuditEvent() writes via db.insert(...).values(...)
+    // (Drizzle's fluent builder), not db.execute(sql\`...\`) — stubbed just
+    // enough to resolve so the verify handler's audit call doesn't reject.
+    insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue({ rows: [] }) })),
   },
   pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
 }));
@@ -126,7 +147,11 @@ async function signChallenge(challenge: string, privateKey: CryptoKey): Promise<
 }
 
 function fakeReq(body: unknown, userId = "test-user"): Request {
-  return { body, headers: {}, _authenticatedUserId: userId } as unknown as Request;
+  // getUserId() (server/middleware/require-user.ts) — the real,
+  // unmocked implementation the enroll and status handlers now use —
+  // reads req.user.claims.sub, not a `_authenticatedUserId` field
+  // nothing in this app actually ever sets.
+  return { body, headers: {}, ip: "127.0.0.1", user: { claims: { sub: userId } } } as unknown as Request;
 }
 
 async function getChallenge(handlers: ReturnType<typeof captureHandlers>, edipi = "1234567890", authMethod = "software_cert") {
@@ -153,6 +178,7 @@ async function enroll(
 describe("POST /api/auth/cac/verify", () => {
   beforeEach(() => {
     enrolledCerts.length = 0;
+    edipiClaims.clear();
   });
 
   it("mints a session only when the key is enrolled for this EDIPI and the signature over the challenge verifies", async () => {
@@ -348,6 +374,7 @@ describe("POST /api/auth/cac/verify", () => {
 describe("POST /api/auth/cac/enroll-software-cert", () => {
   beforeEach(() => {
     enrolledCerts.length = 0;
+    edipiClaims.clear();
   });
 
   it("allows the same account to enroll a second device under an EDIPI it already claimed", async () => {
@@ -372,6 +399,67 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
 
     const attackerAttempt = await enroll(handlers, "1234567890", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker");
     expect(attackerAttempt.statusCode).toBe(409);
+  });
+
+  it("rejects a different account claiming an EDIPI whose sole enrolled cert has since expired", async () => {
+    // Ownership is tracked in cac_edipi_claims, which is never pruned by
+    // expiry — unlike checking cac_software_certs' own expires_at, which
+    // would let a claim silently lapse the moment the original owner's
+    // cert ages out, reopening exactly the takeover this exists to block.
+    const handlers = captureHandlers();
+    const victimKeyPair = await generateKeyPair();
+    const attackerKeyPair = await generateKeyPair();
+
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(victimKeyPair.publicKey), "victim")).statusCode).toBe(200);
+    enrolledCerts.forEach((c) => {
+      if (c.edipi === "1234567890") c.expiresAt = Date.now() - 1000; // simulate a lapsed cert
+    });
+
+    const attackerAttempt = await enroll(handlers, "1234567890", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker");
+    expect(attackerAttempt.statusCode).toBe(409);
+  });
+
+  it("resolves a same-EDIPI enrollment race between two different accounts to exactly one winner", async () => {
+    // The exclusivity check used to be a separate SELECT-then-INSERT
+    // against cac_software_certs, so two concurrent enrollments could both
+    // observe "unclaimed" and both succeed. It's now an atomic
+    // INSERT ... ON CONFLICT (edipi) DO NOTHING against cac_edipi_claims,
+    // whose PRIMARY KEY makes Postgres itself serialize the conflict.
+    const handlers = captureHandlers();
+    const keyA = await generateKeyPair();
+    const keyB = await generateKeyPair();
+
+    const [resA, resB] = await Promise.all([
+      enroll(handlers, "1234567890", await exportPublicKeyHex(keyA.publicKey), "racer-a"),
+      enroll(handlers, "1234567890", await exportPublicKeyHex(keyB.publicKey), "racer-b"),
+    ]);
+
+    const statusCodes = [resA.statusCode, resB.statusCode].sort();
+    expect(statusCodes).toEqual([200, 409]);
+  });
+
+  it("rejects a different account re-enrolling a device_id someone else already owns, leaving the original enrollment untouched", async () => {
+    // ON CONFLICT (device_id) DO UPDATE with no ownership check would
+    // silently overwrite the victim's key while leaving their edipi in
+    // place — letting the attacker's new key authenticate as the victim's
+    // identity, since verify matches on (edipi, public_key_hex) alone.
+    const handlers = captureHandlers();
+    const victimKeyPair = await generateKeyPair();
+    const attackerKeyPair = await generateKeyPair();
+    const victimPublicKeyHex = await exportPublicKeyHex(victimKeyPair.publicKey);
+
+    expect((await enroll(handlers, "1111111111", victimPublicKeyHex, "victim", "shared-device")).statusCode).toBe(200);
+
+    const attackerAttempt = await enroll(handlers, "2222222222", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker", "shared-device");
+    expect(attackerAttempt.statusCode).toBe(409);
+
+    // The victim's own enrollment must still be exactly what they set up.
+    const { challenge, challengeId } = await getChallenge(handlers, "1111111111");
+    const signature = await signChallenge(challenge, victimKeyPair.privateKey);
+    const verifyReq = fakeReq({ challengeId, edipi: "1111111111", authMethod: "software_cert", publicKeyHex: victimPublicKeyHex, signature });
+    const verifyRes = fakeRes();
+    await handlers.get("/api/auth/cac/verify")!(verifyReq, verifyRes);
+    expect(verifyRes.statusCode).toBe(200);
   });
 
   it("re-enrolling the same device replaces its key rather than adding a second enrollment (ON CONFLICT (device_id) DO UPDATE)", async () => {
