@@ -7,8 +7,10 @@ import {
   ABExperiment 
 } from "./services/ai-model-management-service";
 import { requireRole, extractUserContext, AuthorizedRequest } from "./middleware/rbac-authorization";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.use(extractUserContext);
 
@@ -24,7 +26,7 @@ router.get("/metadata", async (req: AuthorizedRequest, res: Response) => {
 
 router.get("/dashboard", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const dashboard = await aiModelManagementService.getModelDashboard(userId);
     res.json(dashboard);
   } catch (error) {
@@ -35,7 +37,7 @@ router.get("/dashboard", requireRole("administrator", "data_analyst"), async (re
 
 router.get("/models", requireRole("administrator", "clinician", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { type, status, environment, tags } = req.query;
 
     const filters: {
@@ -60,7 +62,7 @@ router.get("/models", requireRole("administrator", "clinician", "data_analyst"),
 
 router.get("/models/:modelId", requireRole("administrator", "clinician", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
 
     const result = await aiModelManagementService.getModel(userId, modelId);
@@ -77,7 +79,7 @@ router.get("/models/:modelId", requireRole("administrator", "clinician", "data_a
 
 router.get("/models/:modelId/metrics", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
     const { startDate, endDate } = req.query;
 
@@ -99,7 +101,7 @@ router.get("/models/:modelId/metrics", requireRole("administrator", "data_analys
 
 router.post("/models", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { name, description, type, configuration, tags } = req.body;
 
     if (!name || !description || !type || !configuration) {
@@ -125,7 +127,7 @@ router.post("/models", requireRole("administrator"), async (req: AuthorizedReque
 
 router.patch("/models/:modelId/configuration", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
     const updates = req.body;
 
@@ -142,7 +144,7 @@ router.patch("/models/:modelId/configuration", requireRole("administrator"), asy
 
 router.post("/models/:modelId/retire", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
     const { reason } = req.body;
 
@@ -163,7 +165,7 @@ router.post("/models/:modelId/retire", requireRole("administrator"), async (req:
 
 router.post("/models/:modelId/deploy", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
     const { version, environment, replicas, resourceAllocation } = req.body;
 
@@ -193,7 +195,7 @@ router.post("/models/:modelId/deploy", requireRole("administrator"), async (req:
 
 router.post("/deployments/:deploymentId/stop", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { deploymentId } = req.params;
     const { reason } = req.body;
 
@@ -214,7 +216,7 @@ router.post("/deployments/:deploymentId/stop", requireRole("administrator"), asy
 
 router.post("/models/:modelId/retrain", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
     const { trainingDatasetId, validationDatasetId, hyperparameters, targetVersion } = req.body;
 
@@ -243,7 +245,7 @@ router.post("/models/:modelId/retrain", requireRole("administrator"), async (req
 
 router.get("/training-jobs", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.query;
 
     const jobs = await aiModelManagementService.listTrainingJobs(
@@ -260,7 +262,7 @@ router.get("/training-jobs", requireRole("administrator", "data_analyst"), async
 
 router.get("/training-jobs/:jobId", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { jobId } = req.params;
 
     const job = await aiModelManagementService.getTrainingJob(userId, jobId);
@@ -277,7 +279,7 @@ router.get("/training-jobs/:jobId", requireRole("administrator", "data_analyst")
 
 router.post("/training-jobs/:jobId/cancel", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { jobId } = req.params;
     const { reason } = req.body;
 
@@ -298,7 +300,7 @@ router.post("/training-jobs/:jobId/cancel", requireRole("administrator"), async 
 
 router.get("/drift-alerts", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId, includeAcknowledged } = req.query;
 
     const alerts = await aiModelManagementService.getDriftAlerts(
@@ -316,7 +318,7 @@ router.get("/drift-alerts", requireRole("administrator", "data_analyst"), async 
 
 router.post("/drift-alerts/:alertId/acknowledge", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { alertId } = req.params;
 
     const alert = await aiModelManagementService.acknowledgeDriftAlert(userId, alertId);
@@ -332,7 +334,7 @@ router.post("/drift-alerts/:alertId/acknowledge", requireRole("administrator"), 
 
 router.get("/enhanced-dashboard", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const dashboard = await aiModelManagementService.getEnhancedDashboard(userId);
     res.json(dashboard);
   } catch (error) {
@@ -343,7 +345,7 @@ router.get("/enhanced-dashboard", requireRole("administrator", "data_analyst"), 
 
 router.get("/drift-monitoring", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.query;
 
     const result = await aiModelManagementService.getDriftMonitoringConfigs(userId, modelId as string | undefined);
@@ -356,7 +358,7 @@ router.get("/drift-monitoring", requireRole("administrator", "data_analyst"), as
 
 router.patch("/drift-monitoring/:configId", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { configId } = req.params;
     const updates = req.body;
 
@@ -373,7 +375,7 @@ router.patch("/drift-monitoring/:configId", requireRole("administrator"), async 
 
 router.post("/drift-monitoring/:configId/execute", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { configId } = req.params;
 
     const result = await aiModelManagementService.executeDriftCheck(userId, configId);
@@ -389,7 +391,7 @@ router.post("/drift-monitoring/:configId/execute", requireRole("administrator"),
 
 router.get("/drift-history/:modelId", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId } = req.params;
     const { limit } = req.query;
 
@@ -407,7 +409,7 @@ router.get("/drift-history/:modelId", requireRole("administrator", "data_analyst
 
 router.get("/ab-experiments", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId, status } = req.query;
 
     const result = await aiModelManagementService.listABExperiments(
@@ -424,7 +426,7 @@ router.get("/ab-experiments", requireRole("administrator", "data_analyst"), asyn
 
 router.get("/ab-experiments/:experimentId", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { experimentId } = req.params;
 
     const result = await aiModelManagementService.getABExperiment(userId, experimentId);
@@ -441,7 +443,7 @@ router.get("/ab-experiments/:experimentId", requireRole("administrator", "data_a
 
 router.post("/ab-experiments", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { name, description, modelId, variants, trafficAllocation, primaryMetric, secondaryMetrics, statisticalConfig } = req.body;
 
     if (!name || !modelId || !variants || !primaryMetric) {
@@ -474,7 +476,7 @@ router.post("/ab-experiments", requireRole("administrator"), async (req: Authori
 
 router.post("/ab-experiments/:experimentId/start", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { experimentId } = req.params;
 
     const result = await aiModelManagementService.startABExperiment(userId, experimentId);
@@ -490,7 +492,7 @@ router.post("/ab-experiments/:experimentId/start", requireRole("administrator"),
 
 router.post("/ab-experiments/:experimentId/stop", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { experimentId } = req.params;
     const { reason } = req.body;
 
@@ -511,7 +513,7 @@ router.post("/ab-experiments/:experimentId/stop", requireRole("administrator"), 
 
 router.post("/ab-experiments/:experimentId/analyze", requireRole("administrator", "data_analyst"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { experimentId } = req.params;
 
     const result = await aiModelManagementService.analyzeABExperiment(userId, experimentId);
@@ -527,7 +529,7 @@ router.post("/ab-experiments/:experimentId/analyze", requireRole("administrator"
 
 router.post("/ab-experiments/:experimentId/complete", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { experimentId } = req.params;
     const { winnerVariantId } = req.body;
 
@@ -548,7 +550,7 @@ router.post("/ab-experiments/:experimentId/complete", requireRole("administrator
 
 router.get("/rule-actions", requireRole("administrator"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { modelId, triggerType } = req.query;
 
     const result = await aiModelManagementService.getRuleEngineActions(

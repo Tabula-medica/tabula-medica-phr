@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import {
   LibraryEducationContent,
   LibraryEducationFAQ,
@@ -14,11 +14,6 @@ import {
   educationCategories,
   contentApprovalStatuses,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function generateId(): string {
   return `edu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -75,13 +70,9 @@ export async function generateArticle(request: LibraryContentGenerationRequest):
   };
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HIPAA_SAFE_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Generate an educational article about: "${request.topic}"
+    const content = await generatePhiSafeText({
+      system: HIPAA_SAFE_SYSTEM_PROMPT,
+      user: `Generate an educational article about: "${request.topic}"
 
 Category: ${request.category}
 Target conditions: ${request.targetConditions?.join(", ") || "general health"}
@@ -100,14 +91,11 @@ Return a JSON object with:
   "estimatedReadTime": number of minutes to read,
   "safetyDisclaimer": "Clear disclaimer about consulting healthcare providers"
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 2500,
+      responseMimeType: "application/json",
+      maxTokens: 2500,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       title: ensureSafeContent(parsed.title || `Understanding ${request.topic}`),
@@ -133,13 +121,9 @@ export async function generateFAQs(request: LibraryContentGenerationRequest, cou
   };
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HIPAA_SAFE_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Generate ${count} frequently asked questions and answers about: "${request.topic}"
+    const content = await generatePhiSafeText({
+      system: HIPAA_SAFE_SYSTEM_PROMPT,
+      user: `Generate ${count} frequently asked questions and answers about: "${request.topic}"
 
 Category: ${request.category}
 Target conditions: ${request.targetConditions?.join(", ") || "general health"}
@@ -156,14 +140,11 @@ Return a JSON object with:
   ],
   "safetyDisclaimer": "Clear disclaimer about consulting healthcare providers"
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 2000,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       faqs: (parsed.faqs || []).map((faq: any) => ({
@@ -188,13 +169,9 @@ export async function generateVideoScript(request: LibraryContentGenerationReque
   safetyDisclaimer: string;
 }> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HIPAA_SAFE_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Generate a video script outline about: "${request.topic}"
+    const content = await generatePhiSafeText({
+      system: HIPAA_SAFE_SYSTEM_PROMPT,
+      user: `Generate a video script outline about: "${request.topic}"
 
 Category: ${request.category}
 Reading level: ${request.readingLevel}
@@ -208,14 +185,11 @@ Return a JSON object with:
   "keyTopics": ["Main topics covered in the video"],
   "safetyDisclaimer": "Disclaimer for video description"
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 2000,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       title: ensureSafeContent(parsed.title || `Video: ${request.topic}`),

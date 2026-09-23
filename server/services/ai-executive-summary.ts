@@ -1,10 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { createHash, randomUUID } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are an executive communications specialist for healthcare data governance and compliance.
 
@@ -283,7 +281,7 @@ class AIExecutiveSummaryService {
   ): Promise<{ summary: string; highlights: string[]; insights: string[] }> {
     const fallbackResult = this.getDefaultExecutiveSummary(metrics, topRisks, period);
     
-    if (!openai) {
+    if (!aiEnabled) {
       return fallbackResult;
     }
 
@@ -293,13 +291,9 @@ class AIExecutiveSummaryService {
         .map(r => `- ${r.severity.toUpperCase()}: ${r.title}`)
         .join("\n");
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Generate an executive summary report for healthcare data governance.
+      const content = (await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Generate an executive summary report for healthcare data governance.
 
 Period: ${period.start} to ${period.end}
 
@@ -323,13 +317,9 @@ Provide response as JSON:
 }
 
 Focus ONLY on governance, compliance, and operational metrics. NO clinical recommendations.`,
-          },
-        ],
         temperature: 0.4,
-        max_tokens: 1000,
-      });
-
-      const content = response.choices[0]?.message?.content || "";
+        maxTokens: 1000,
+      })) || "";
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {

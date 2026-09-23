@@ -70,6 +70,7 @@ const Timeline = lazy(() => import("@/pages/timeline"));
 const Documents = lazy(() => import("@/pages/documents"));
 const CarePackets = lazy(() => import("@/pages/care-packets"));
 const CareIndex = lazy(() => import("@/pages/care-index"));
+const MyCarePage = lazy(() => import("@/pages/my-care"));
 const CareRateCalculator = lazy(() => import("@/pages/care-rate-calculator"));
 const CareShareQr = lazy(() => import("@/pages/care-share-qr"));
 const CareVaVerification = lazy(() => import("@/pages/care-va-verification"));
@@ -219,6 +220,7 @@ function Router() {
       <Route path="/documents" component={Documents} />
       <Route path="/care-packets" component={CarePackets} />
       <Route path="/care" component={CareIndex} />
+      <Route path="/care/my" component={MyCarePage} />
       <Route path="/care/find-a-doctor" component={ProviderDirectory} />
       <Route path="/care/eligibility" component={CareRateCalculator} />
       <Route path="/care/share-records" component={CareShareQr} />

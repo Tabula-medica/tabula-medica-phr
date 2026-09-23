@@ -5,8 +5,11 @@ import {
   biometricAuth,
 } from "./security/mobile-security";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 router.get("/session-timeout/preferences", async (req: Request, res: Response) => {
   try {

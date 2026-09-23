@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { iisDataReconciliationService, ReconciliationStatus, MatchConfidenceLevel, ResolutionType } from "./services/iis-data-reconciliation-service";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const RunReconciliationSchema = z.object({
   patientId: z.string().min(1),
@@ -38,9 +39,9 @@ const UpdateConfigSchema = z.object({
 });
 
 export function registerIISDataReconciliationRoutes(app: Express): void {
-  app.post("/api/iis-reconciliation/run", async (req: Request, res: Response) => {
+  app.post("/api/iis-reconciliation/run", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const userRole = req.headers["x-user-role"] as string || "clinician";
       const parsed = RunReconciliationSchema.parse(req.body);
 
@@ -82,9 +83,9 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iis-reconciliation/review-queue", async (req: Request, res: Response) => {
+  app.get("/api/iis-reconciliation/review-queue", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const userRole = req.headers["x-user-role"] as string || "clinician";
 
       let filters: z.infer<typeof ReviewQueueFiltersSchema> = {};
@@ -125,10 +126,10 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iis-reconciliation/match/:matchId", async (req: Request, res: Response) => {
+  app.get("/api/iis-reconciliation/match/:matchId", requireUser, async (req: Request, res: Response) => {
     try {
       const { matchId } = req.params;
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
 
       await logPhiAccess({
         userId,
@@ -161,10 +162,10 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iis-reconciliation/match/:matchId/resolve", async (req: Request, res: Response) => {
+  app.post("/api/iis-reconciliation/match/:matchId/resolve", requireUser, async (req: Request, res: Response) => {
     try {
       const { matchId } = req.params;
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const userRole = req.headers["x-user-role"] as string || "clinician";
       const parsed = ResolveMatchSchema.parse(req.body);
 
@@ -207,9 +208,9 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iis-reconciliation/stats", async (req: Request, res: Response) => {
+  app.get("/api/iis-reconciliation/stats", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
 
       await logPhiAccess({
         userId,
@@ -234,9 +235,9 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iis-reconciliation/audit-logs", async (req: Request, res: Response) => {
+  app.get("/api/iis-reconciliation/audit-logs", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const matchId = req.query.matchId as string | undefined;
       const filterUserId = req.query.userId as string | undefined;
       const limit = parseInt(req.query.limit as string) || 100;
@@ -264,9 +265,9 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iis-reconciliation/bulk-verify", async (req: Request, res: Response) => {
+  app.post("/api/iis-reconciliation/bulk-verify", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const userRole = req.headers["x-user-role"] as string || "clinician";
       const parsed = BulkAutoVerifySchema.parse(req.body);
 
@@ -298,7 +299,7 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iis-reconciliation/config", async (req: Request, res: Response) => {
+  app.get("/api/iis-reconciliation/config", requireUser, async (req: Request, res: Response) => {
     try {
       const config = iisDataReconciliationService.getConfig();
       res.json({
@@ -314,9 +315,9 @@ export function registerIISDataReconciliationRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/iis-reconciliation/config", async (req: Request, res: Response) => {
+  app.patch("/api/iis-reconciliation/config", requireUser, async (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string || "system";
+      const userId = getUserId(req);
       const parsed = UpdateConfigSchema.parse(req.body);
 
       await logPhiAccess({

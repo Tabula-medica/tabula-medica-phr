@@ -1,10 +1,6 @@
-import OpenAI from "openai";
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-} catch (error) {
-  console.log("[IoTHealthSensor] OpenAI client not initialized - AI features will use fallback");
-}
+import { generatePhiSafeText } from "./ai-gateway";
+
+const aiEnabled = true;
 
 export type SensorType = 
   | "blood_pressure" 
@@ -789,24 +785,13 @@ class IoTHealthSensorService {
     
     let aiInsights: string | undefined;
     
-    if (isAnomalous && openai) {
+    if (isAnomalous && aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a health monitoring AI assistant. Provide brief, educational insights about health readings. Always emphasize that this is NOT medical advice and patients should consult their healthcare provider."
-            },
-            {
-              role: "user",
-              content: `Analyze this anomalous health reading:\nSensor Type: ${sensorType}\nValues: ${JSON.stringify(values)}\nAnomalies: ${anomalyReasons.join(", ")}\n\nProvide a brief educational insight (2-3 sentences) about what this might indicate and general wellness tips.`
-            }
-          ],
-          max_tokens: 150
-        });
-        
-        aiInsights = response.choices[0]?.message?.content || undefined;
+        aiInsights = await generatePhiSafeText({
+          system: "You are a health monitoring AI assistant. Provide brief, educational insights about health readings. Always emphasize that this is NOT medical advice and patients should consult their healthcare provider.",
+          user: `Analyze this anomalous health reading:\nSensor Type: ${sensorType}\nValues: ${JSON.stringify(values)}\nAnomalies: ${anomalyReasons.join(", ")}\n\nProvide a brief educational insight (2-3 sentences) about what this might indicate and general wellness tips.`,
+          maxTokens: 150
+        }) || undefined;
       } catch (error) {
         console.error("[IoTHealthSensor] AI analysis error:", error);
       }
@@ -998,31 +983,20 @@ class IoTHealthSensorService {
     let aiInsights = "";
     let recommendations: string[] = [];
     
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a health data analyst. Provide brief, educational insights about health trends. Always emphasize this is NOT medical advice."
-            },
-            {
-              role: "user",
-              content: `Analyze this ${this.getSensorTypeName(sensorType)} trend data:
+        const content = await generatePhiSafeText({
+          system: "You are a health data analyst. Provide brief, educational insights about health trends. Always emphasize this is NOT medical advice.",
+          user: `Analyze this ${this.getSensorTypeName(sensorType)} trend data:
 Average: ${average.toFixed(1)}
 Range: ${min.toFixed(1)} - ${max.toFixed(1)}
 Trend: ${trend}
 Anomaly rate: ${((anomalyCount / readings.length) * 100).toFixed(1)}%
 % in normal range: ${percentInRange.toFixed(1)}%
 
-Provide 2-3 sentences of insight and 2-3 brief recommendations.`
-            }
-          ],
-          max_tokens: 200
-        });
-        
-        const content = response.choices[0]?.message?.content || "";
+Provide 2-3 sentences of insight and 2-3 brief recommendations.`,
+          maxTokens: 200
+        }) || "";
         const parts = content.split("Recommendations:");
         aiInsights = parts[0]?.trim() || "Trend analysis complete.";
         if (parts[1]) {

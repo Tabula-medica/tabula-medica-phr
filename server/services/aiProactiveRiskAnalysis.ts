@@ -1,12 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "not-set",
-  ...(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && {
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  }),
-});
 
 export interface HealthRiskIndicator {
   id: string;
@@ -269,15 +262,13 @@ Provide a brief JSON response with:
 
 Only include factors supported by the data. Use neutral, factual language.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [{ role: "user", content: prompt }],
+    const content = await generatePhiSafeText({
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
+      maxTokens: 500,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       return {
