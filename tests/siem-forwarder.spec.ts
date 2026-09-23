@@ -4,6 +4,7 @@ import {
   scrubDetails,
   isDeniedDetailKey,
   canonicalizePath,
+  hashIp,
   forwardSecurityEvent,
   flushSiemQueue,
   isSiemEnabled,
@@ -73,6 +74,26 @@ describe("siem-forwarder — PHI/secret allowlisting", () => {
       path: "/api/patients/a1b2c3d4e5f6a1b2c3d4e5f6",
     });
     expect(env.event.path).toBe("/api/patients/:id");
+  });
+
+  it("also canonicalizes a path nested in details, not just the top-level field", () => {
+    const out = scrubDetails({ path: "/api/patient-friendly-summary/123", other: "x" });
+    expect(out.path).toBe("/api/patient-friendly-summary/:id");
+    expect(out.other).toBe("x");
+  });
+
+  it("hashes the ip field to a keyed, non-reversible correlation value", () => {
+    expect(hashIp(undefined)).toBeUndefined();
+    const h1 = hashIp("203.0.113.9");
+    const h2 = hashIp("203.0.113.9");
+    const h3 = hashIp("198.51.100.1");
+    expect(h1).toBe(h2); // same input -> same correlation value
+    expect(h1).not.toBe(h3);
+    expect(h1).not.toContain("203.0.113.9");
+
+    const env = buildHecEnvelope({ eventType: "session_binding_anomaly", actor: "u1", ip: "203.0.113.9" });
+    expect(env.event.ip).toBe(h1);
+    expect(JSON.stringify(env)).not.toContain("203.0.113.9");
   });
 
   it("envelope only carries allowlisted top-level fields", () => {

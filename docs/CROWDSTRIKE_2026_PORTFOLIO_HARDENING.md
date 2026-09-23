@@ -47,7 +47,7 @@ Legend: ✅ shipped in this branch · 🔁 port from this repo · 🆕 app-speci
 | File | Purpose | Default |
 |---|---|---|
 | `server/security/siem-forwarder.ts` | Ships security events to a Splunk-HEC-compatible collector (Falcon Next-Gen SIEM, LogScale, Splunk). Allowlisted envelope, PHI-key denylist, value truncation, bounded queue, batching, 5 s timeout, warn-once on failure. | **Off** until `SIEM_HEC_URL` + `SIEM_HEC_TOKEN` are set |
-| `server/security/ai-runtime-guard.ts` | 30 weighted injection rules across 8 categories (instruction override, role hijack, system-prompt probe, tool coercion, exfiltration, delimiter spoof, encoding/obfuscation, safety bypass). Unicode normalisation (zero-width, tag chars, NFKC). Output-side scan for image beacons / data URIs / credentials. Express middleware on AI routes. | **Monitor** (`AI_GUARD_MODE=monitor`) |
+| `server/security/ai-runtime-guard.ts` | 28 weighted injection rules across 8 categories (instruction override, role hijack, system-prompt probe, tool coercion, exfiltration, delimiter spoof, encoding/obfuscation, safety bypass). Unicode normalisation (zero-width, tag chars, NFKC). Output-side scan for image beacons / data URIs / credentials. Express middleware on AI routes. | **Monitor** (`AI_GUARD_MODE=monitor`) |
 | `server/security/session-binding.ts` | Binds a PHI-free fingerprint (UA hash, /24 or /64 network hash, country) to the session; flags drift. UA or country change = high; network-only = medium and never enforced. | **Monitor** (`SESSION_BINDING_MODE=monitor`) |
 | `.github/workflows/security-scan.yml` | `npm audit --omit=dev --audit-level=high` + OSV-Scanner (all severities, pinned binary), both blocking, on PR, push to `main`, and daily 06:17 UTC; runs the three new security test suites. Documented exceptions live in `osv-scanner.toml`. | On |
 
@@ -90,17 +90,21 @@ Legend: ✅ shipped in this branch · 🔁 port from this repo · 🆕 app-speci
 1. Falcon console → **Next-Gen SIEM → Data connectors → Add connector → HEC / HTTP Event Collector**. Name it `tabula-medica-security`.
 2. Copy the **API URL** and **API key** shown once on the connector page.
 3. Put both in GCP Secret Manager (`siem-hec-url`, `siem-hec-token`) and expose to Cloud Run via `--set-secrets=SIEM_HEC_URL=siem-hec-url:latest,SIEM_HEC_TOKEN=siem-hec-token:latest` in `deploy.sh`.
-4. Verify: `GET /api/compliance-status` → the security block now includes the forwarder status (`enabled`, `endpointHost`, `sent`, `dropped`).
+4. Verify: `GET /api/compliance-status` → the security block now includes `siem.enabled: true`. That endpoint is unauthenticated, so it deliberately exposes only the boolean; check `getSiemStatus()` (`endpointHost`, `sent`, `dropped`, `queueDepth`) from an authenticated context (logs, a debugger, or an admin-only route) for the full forwarder health.
 
 Any Splunk-HEC-compatible collector (Falcon LogScale, Splunk, Cribl) works unchanged.
 
 ### 4.2 Wire format
 
-Newline-delimited HEC envelopes, `Authorization: Bearer <token>`:
+Newline-delimited HEC envelopes, `Authorization: Bearer <token>`. `ip` is a
+keyed HMAC-SHA256 correlation value (`hashIp` in `siem-forwarder.ts`), never
+the raw client address — an IP is a HIPAA Safe Harbor identifier, and the
+raw path is canonicalized (`:id` in place of any resource identifier) for
+the same reason:
 
 ```json
 {"time":1757160000.123,"host":"tabula-medica-web","source":"tabula-medica:security","sourcetype":"_json",
- "event":{"eventType":"session_binding_anomaly","riskLevel":"high","actor":"usr_…","ip":"203.0.113.9",
+ "event":{"eventType":"session_binding_anomaly","riskLevel":"high","actor":"usr_…","ip":"9f2c1a7bd4e08a31",
           "details":{"reasons":["country_changed"],"boundCountry":"US","currentCountry":"RU","mode":"monitor"},
           "app":"tabula-medica","environment":"production","timestamp":"2026-09-06T12:00:00.000Z"}}
 ```

@@ -221,11 +221,100 @@ export interface AiRuntimeGuardOptions {
 }
 
 /**
- * AI route surface. Kept broad on purpose: the codebase mounts ~100
- * `ai-*-routes.ts` modules under `/api/ai-…` plus a handful of AI-backed
- * features that don't carry the prefix.
+ * AI route surface. An explicit list rather than a name-based guess: three
+ * review rounds on this PR each found more AI-backed routes the previous
+ * (name-based, "ai(-|/|$)") pattern missed, because the codebase mounts
+ * ~100 `ai-*-routes.ts` modules under `/api/ai-…` PLUS a long tail of
+ * feature routes — `medications`, `care-team`, `visit-prep`, etc. — that
+ * call the shared AI gateway (`server/services/ai-gateway.ts`'s
+ * `generatePhiSafeText`/`generatePhiSafeChat*`) without an "ai" prefix.
+ * Every entry below was traced from an actual Express-mounted path back to
+ * that gateway or a direct OpenAI/Vertex-shim call, not guessed from the
+ * name. A NEW AI feature route MUST add its prefix here (or route through
+ * `ai-gateway.ts` under a prefix already covered) — nothing else keeps
+ * this guard's coverage honest.
+ *
+ * Three entries are narrow AI corners of an otherwise non-AI route file, so
+ * they're listed by full sub-path rather than the bare top-level prefix
+ * (matching the whole prefix would scan that file's ordinary CRUD traffic
+ * too — harmless in monitor mode, but noisy).
  */
-export const DEFAULT_AI_ROUTE_PATTERN = /^\/api\/(ai(?:[-/]|$)|patient-ai-onboarding|patient-friendly-summary|translation|multimodal|document-summary|documents?\/[^/]+\/(summar|explain|extract)|symptom-checker|explain|summar(y|ies)|health-summary|scribe|assistant|chat|voice)/i;
+const AI_ROUTE_PREFIXES = [
+  "ai(?:[-/]|$)",
+  "multimodal",
+  "document-summary",
+  "documents?/[^/]+/(summar|explain|extract)",
+  "symptom-checker",
+  "explain",
+  "summar(y|ies)",
+  "health-summary",
+  "scribe",
+  "assistant",
+  "chat",
+  "voice",
+  "translation",
+  "patient-ai-onboarding",
+  "patient-friendly-summary",
+  "patient-assistant",
+  // Narrow AI corners of otherwise non-AI route files (full sub-path):
+  "comprehensive-onboarding/ai-prefill",
+  "clinical-docs/synthesize-note",
+  "patient-onboarding-wizard/ai-prefill",
+  // The rest: top-level feature prefixes whose routes call ai-gateway.ts.
+  "referral-letters",
+  "ambient-encounter",
+  "preventive-care",
+  "care-team",
+  "card-ocr",
+  "dental-integrations",
+  "drug-savings",
+  "insurance-learning",
+  "patient-education-center",
+  "prior-auth-letter",
+  "admin-workflow",
+  "health-story",
+  "patient-chatbot",
+  "patient-health-record",
+  "personalized-education",
+  "medication-management",
+  "telehealth",
+  "support-resources",
+  "survivorship",
+  "infrastructure",
+  "patient-analytics",
+  "health-content",
+  "treatment-efficacy",
+  "care-plans",
+  "caregivers",
+  "clinician-summary",
+  "communication-summaries",
+  "content-recommendations",
+  "deduplicated-records",
+  "differential-diagnosis",
+  "eli12",
+  "health-inbox",
+  "health-insights",
+  "journal",
+  "imaging-reports",
+  "med-reconciliation",
+  "medical",
+  "medications",
+  "transfer-requests",
+  "proactive-alerts",
+  "smart-search",
+  "timeline-story",
+  "visit-prep",
+  "cds",
+  "enhanced-health-journey",
+  "operations-analytics",
+  "workflow-monitoring",
+  "feedback-analysis",
+  "third-party-governance",
+  "proactive-support",
+  "fhir-monitoring",
+];
+
+export const DEFAULT_AI_ROUTE_PATTERN = new RegExp(`^/api/(${AI_ROUTE_PREFIXES.join("|")})`, "i");
 
 const SEVERITY_RANK: Record<InjectionSeverity, number> = { none: 0, low: 1, medium: 2, high: 3 };
 
@@ -259,23 +348,33 @@ export function aiRuntimeGuard(options: AiRuntimeGuardOptions = {}): RequestHand
     const mode = resolveAiGuardMode(options.mode);
     if (mode === "off" || !match(req)) return next();
 
-    // Output-side scan: wrap res.json so the model's JSON response is
-    // checked for exfiltration-shaped content (image beacons, data URIs,
-    // bearer tokens, private keys) before it reaches the client. Detection
-    // only — this never blocks or alters the response, in monitor or enforce.
+    // Output-side scan: checks the model's response for exfiltration-shaped
+    // content (image beacons, data URIs, bearer tokens, private keys) before
+    // it reaches the client. Detection only — never blocks or alters the
+    // response, in monitor or enforce. Covers both a single JSON response
+    // (res.json) and a streamed one (res.write/res.end — SSE chat routes use
+    // this), since either can carry model output.
+    let outputFlagged = false;
+    let streamTail = "";
+    const MAX_STREAM_TAIL = 4000; // enough to catch a pattern split across chunk boundaries
+    const reportFlagged = (findings: string[]) => {
+      outputFlagged = true;
+      void logSecurityEvent({
+        eventType: "ai_output_exfiltration_pattern",
+        actor: actorOf(req),
+        ip: clientIp(req),
+        riskLevel: "high",
+        details: { requestId: getRequestId(req), path: req.path, method: req.method, findings },
+      });
+    };
+
     const originalJson = res.json.bind(res);
     res.json = ((body: unknown) => {
       try {
         for (const s of collectStrings(body)) {
           const outResult = scanModelOutput(s);
           if (outResult.flagged) {
-            void logSecurityEvent({
-              eventType: "ai_output_exfiltration_pattern",
-              actor: actorOf(req),
-              ip: clientIp(req),
-              riskLevel: "high",
-              details: { requestId: getRequestId(req), path: req.path, method: req.method, findings: outResult.findings },
-            });
+            reportFlagged(outResult.findings);
             break;
           }
         }
@@ -284,6 +383,29 @@ export function aiRuntimeGuard(options: AiRuntimeGuardOptions = {}): RequestHand
       }
       return originalJson(body);
     }) as typeof res.json;
+
+    const scanStreamChunk = (chunk: unknown): void => {
+      if (outputFlagged) return;
+      try {
+        const text = typeof chunk === "string" ? chunk : Buffer.isBuffer(chunk) ? chunk.toString("utf8") : "";
+        if (!text) return;
+        streamTail = (streamTail + text).slice(-MAX_STREAM_TAIL);
+        const outResult = scanModelOutput(streamTail);
+        if (outResult.flagged) reportFlagged(outResult.findings);
+      } catch {
+        /* telemetry must never break the response */
+      }
+    };
+    const originalWrite = res.write.bind(res);
+    res.write = ((chunk: unknown, ...rest: unknown[]) => {
+      scanStreamChunk(chunk);
+      return (originalWrite as (...a: unknown[]) => boolean)(chunk, ...rest);
+    }) as typeof res.write;
+    const originalEnd = res.end.bind(res);
+    res.end = ((chunk?: unknown, ...rest: unknown[]) => {
+      if (chunk !== undefined) scanStreamChunk(chunk);
+      return (originalEnd as (...a: unknown[]) => Response)(chunk, ...rest);
+    }) as typeof res.end;
 
     const body = req.body;
     if (!body || typeof body !== "object") return next();

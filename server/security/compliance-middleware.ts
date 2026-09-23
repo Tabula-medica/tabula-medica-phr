@@ -202,7 +202,7 @@ export function getComplianceStatus(): {
   hipaa: { status: string; encryptionAtRest: string; auditRetention: string; phiRoutes: number };
   soc2: { status: string; changeTracking: string; accessControl: string; availabilityTarget: string };
   tefca: { status: string; consentEnforcement: string; provenanceTracking: string; exchangeStandard: string };
-  security: { siem: ReturnType<typeof getSiemStatus> };
+  security: { siem: { enabled: boolean } };
 } {
   return {
     hipaa: {
@@ -224,7 +224,11 @@ export function getComplianceStatus(): {
       exchangeStandard: "FHIR R4",
     },
     security: {
-      siem: getSiemStatus(),
+      // This endpoint is unauthenticated (server/index.ts), so only a bare
+      // enabled flag is public — endpointHost/sent/dropped/queueDepth name
+      // the SIEM vendor and reveal operational volume. Those live behind an
+      // authenticated admin/security endpoint if an operator needs them.
+      siem: { enabled: getSiemStatus().enabled },
     },
   };
 }

@@ -30,10 +30,16 @@ jobs:
       - name: Install OSV-Scanner (pinned release binary)
         env:
           OSV_VERSION: v2.2.3
+          # SHA-256 of osv-scanner_linux_amd64 for this exact pinned tag, so a
+          # swapped/compromised release asset fails closed instead of
+          # executing with the CI job's permissions. Bump alongside
+          # OSV_VERSION (re-derive with `sha256sum` on the new asset).
+          OSV_SHA256: 8cdb138b36cdb9c99c455cafb32a1c83e1823448dc00e1c8ab9afe474a5e93f0
         run: |
           set -euo pipefail
           curl -fsSL -o /usr/local/bin/osv-scanner \
             "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SHA256}  /usr/local/bin/osv-scanner" | sha256sum -c -
           chmod +x /usr/local/bin/osv-scanner
           osv-scanner --version
       - name: Scan root lockfile

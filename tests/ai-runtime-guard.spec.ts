@@ -81,6 +81,21 @@ describe("ai-runtime-guard — body walking and route matching", () => {
     "/api/translation/document-summary",
     "/api/patient-ai-onboarding/start",
     "/api/patient-friendly-summary/123",
+    "/api/patient-assistant/chat",
+    "/api/comprehensive-onboarding/ai-prefill",
+    "/api/clinical-docs/synthesize-note",
+    "/api/patient-onboarding-wizard/ai-prefill",
+    "/api/referral-letters/patient-123",
+    "/api/ambient-encounter/process",
+    "/api/preventive-care/patients/1/ai-summary",
+    "/api/care-team/meeting-agenda",
+    "/api/differential-diagnosis/patient-1",
+    "/api/eli12/explain",
+    "/api/medications/reminders",
+    "/api/medical/autocomplete",
+    "/api/visit-prep/generate",
+    "/api/cds/recommendations",
+    "/api/health-insights/predictive-risk/generate",
   ])("matches AI route %s", (path) => {
     expect(DEFAULT_AI_ROUTE_PATTERN.test(path)).toBe(true);
   });
@@ -97,13 +112,16 @@ function fakeReqRes(path: string, body: unknown) {
   const headers: Record<string, string> = {};
   let statusCode = 200;
   let jsonBody: unknown = undefined;
+  const written: unknown[] = [];
   const req: any = { path, method: "POST", body, headers: {}, ip: "203.0.113.5", socket: {} };
   const res: any = {
     setHeader: (k: string, v: string) => { headers[k] = v; },
     status: (c: number) => { statusCode = c; return res; },
     json: (b: unknown) => { jsonBody = b; return res; },
+    write: (chunk: unknown) => { written.push(chunk); return true; },
+    end: (chunk?: unknown) => { if (chunk !== undefined) written.push(chunk); return res; },
   };
-  return { req, res, headers, status: () => statusCode, json: () => jsonBody };
+  return { req, res, headers, status: () => statusCode, json: () => jsonBody, written };
 }
 
 describe("ai-runtime-guard — middleware modes", () => {
@@ -173,5 +191,28 @@ describe("ai-runtime-guard — output-side scan wiring", () => {
     const original = t.res.json;
     aiRuntimeGuard({ mode: "monitor" })(t.req, t.res, () => {});
     expect(t.res.json).toBe(original);
+  });
+
+  it("scans streamed (res.write) output too, catching a pattern split across chunks", () => {
+    const t = fakeReqRes("/api/ai-patient-assistant/chat", { prompt: "hi" });
+    aiRuntimeGuard({ mode: "monitor" })(t.req, t.res, () => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    // Split the private-key marker across two SSE chunks.
+    t.res.write("data: -----BEGIN RSA PRIV");
+    t.res.write("ATE KEY-----\\nabc\n\n");
+    t.res.end();
+    const logged = logSpy.mock.calls.some((c) => String(c[0]).includes("ai_output_exfiltration_pattern"));
+    logSpy.mockRestore();
+    expect(logged).toBe(true);
+    expect(t.written.join("")).toContain("BEGIN RSA PRIVATE KEY");
+  });
+
+  it("does not wrap res.write/res.end on non-AI routes", () => {
+    const t = fakeReqRes("/api/patients/1", { prompt: "hi" });
+    const originalWrite = t.res.write;
+    const originalEnd = t.res.end;
+    aiRuntimeGuard({ mode: "monitor" })(t.req, t.res, () => {});
+    expect(t.res.write).toBe(originalWrite);
+    expect(t.res.end).toBe(originalEnd);
   });
 });

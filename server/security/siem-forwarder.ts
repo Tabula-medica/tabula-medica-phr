@@ -19,6 +19,7 @@
  *     is a security-telemetry channel, not an audit-log replica.
  */
 
+import crypto from "crypto";
 import { PHI_FIELD_NAMES } from "./phi-column-map";
 
 export type SiemRiskLevel = "low" | "medium" | "high" | "critical";
@@ -90,6 +91,23 @@ export function isDeniedDetailKey(key: string): boolean {
   return false;
 }
 
+// Keys the IP correlation hash below. Falls back to a per-process random
+// secret (same convention as smart-health-link-service.ts / mobile-api-routes.ts)
+// so the forwarder still degrades safely when SESSION_SECRET is unset — the
+// only cost is that the correlation value stops matching across a restart.
+const IP_HASH_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+
+/**
+ * Keyed, non-reversible correlation value for a client IP. An IP address is
+ * a HIPAA Safe Harbor identifier, so the raw address must never leave the
+ * app for an external SIEM — this still lets a SOC correlate events from the
+ * same client without exposing the address itself.
+ */
+export function hashIp(ip: string | undefined): string | undefined {
+  if (!ip) return ip;
+  return crypto.createHmac("sha256", IP_HASH_SECRET).update(ip).digest("hex").slice(0, 16);
+}
+
 const UUID_SEGMENT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NUMERIC_SEGMENT_RE = /^\d+$/;
 // Firestore/Mongo/nanoid-style opaque ids: long, no hyphens (so multi-word
@@ -140,6 +158,11 @@ export function scrubDetails(details: Record<string, unknown> | undefined): Reco
     if (count >= MAX_DETAIL_KEYS) break;
     if (isDeniedDetailKey(key)) {
       out[key] = "[REDACTED]";
+    } else if (key.toLowerCase() === "path" && typeof value === "string") {
+      // Same reasoning as the top-level `path` field: a detail-level `path`
+      // (session-binding, ai-runtime-guard both log one) must not carry a
+      // resource id either.
+      out[key] = scrubValue(canonicalizePath(value));
     } else {
       out[key] = scrubValue(value);
     }
@@ -160,6 +183,8 @@ export function buildHecEnvelope(event: SiemSecurityEvent, opts?: { host?: strin
     if (v === undefined || v === null) continue;
     if (f === "path") {
       picked[f] = scrubValue(canonicalizePath(v as string));
+    } else if (f === "ip") {
+      picked[f] = hashIp(v as string);
     } else {
       picked[f] = typeof v === "string" ? scrubValue(v) : v;
     }
