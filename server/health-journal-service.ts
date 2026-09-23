@@ -5,7 +5,7 @@
  * All entries are private and only analyzed by AI for personal insights.
  */
 
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 // Safe verb enforcement - ONLY these 4 verbs allowed
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -65,13 +65,8 @@ export interface JournalInsights {
 // In-memory storage for journal entries
 const journalStorage: JournalEntry[] = [];
 
-// Initialize OpenAI client
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (e) {
-  console.log("[HealthJournal] OpenAI not configured, using mock responses");
-}
+// AI generation via PHI-safe Vertex/BAA gateway
+const aiEnabled = true;
 
 function validateInsight(text: string): boolean {
   const lowerText = text.toLowerCase();
@@ -275,7 +270,7 @@ export async function analyzeJournalEntries(
     return getEmptyInsights();
   }
   
-  if (openai) {
+  if (aiEnabled) {
     try {
       const entrySummaries = entries.map(e => ({
         date: e.date,
@@ -288,20 +283,13 @@ export async function analyzeJournalEntries(
         ? `\n\nRecent symptom logs:\n${JSON.stringify(symptomLogs, null, 2)}`
         : "";
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: JOURNAL_ANALYSIS_PROMPT },
-          { 
-            role: "user", 
-            content: `Analyze these journal entries:\n${JSON.stringify(entrySummaries, null, 2)}${symptomContext}` 
-          }
-        ],
-        response_format: { type: "json_object" },
+      const content = await generatePhiSafeText({
+        system: JOURNAL_ANALYSIS_PROMPT,
+        user: `Analyze these journal entries:\n${JSON.stringify(entrySummaries, null, 2)}${symptomContext}`,
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
-      
-      const content = response.choices[0]?.message?.content;
+
       if (content) {
         const parsed = JSON.parse(content);
         return sanitizeInsights(parsed);

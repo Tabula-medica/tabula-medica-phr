@@ -1,92 +1,131 @@
-# Vertex AI Migration Plan
-**Date:** 2026-05-06  **Owner:** Platform Engineering  **Decision input:** [Locked 2026-05-03]
-**Why this is critical-path:** No OpenAI BAA exists. Every PHI-touching GPT-5 call is a HIPAA exposure and a SOC 2 Type 1 evidence-blocker. This sprint must complete **before** Strike Graph kickoff in Q3 2026.
+# OpenAI → Vertex AI Migration — Status & Closure
 
-## Current state — already in place
+**Original plan:** 2026-05-06 · **Refreshed:** 2026-09-10 · **Owner:** Platform Engineering
+**Why critical-path:** No OpenAI BAA exists. Any PHI-touching OpenAI call is a HIPAA
+exposure and a SOC 2 evidence blocker. This document is the source of truth for the
+migration's actual state — keep it accurate; auditors read it.
 
-The hard part is done. We have:
+> **Refresh note (2026-09-10):** The original plan (below, "Historical plan")
+> proposed a per-caller refactor plus a small chokepoint shim, with `openai` as the
+> default provider. The implementation went further and is now materially different
+> and stronger. This top section reflects **reality in the codebase today**; the
+> historical plan is retained verbatim at the bottom for provenance only.
 
-- `server/services/ai-provider.ts` — abstraction layer with `generateText()` and `streamText()` that already routes between OpenAI and Vertex by feature flag.
-- `server/services/vertex-gemma.ts` — direct Vertex client for the founder's Gemma "Submit-only" pattern.
-- `@google-cloud/vertexai` SDK installed and wired with credentials via `GCP_SERVICE_ACCOUNT_KEY` / `GOOGLE_APPLICATION_CREDENTIALS_JSON`.
-- Default provider env switch: `AI_DEFAULT_PROVIDER` (currently `openai`).
-- Per-feature override registry: `setFeatureProvider("symptom-checker", "vertex")`.
+## TL;DR — the HIPAA P0 is contained
 
-**Translation:** the platform already speaks Vertex. The migration is mostly (a) flipping the default, (b) refactoring direct `getOpenAIClient()` callers to go through `generateText()`, and (c) handling Whisper (audio) which has no abstraction yet.
+PHI can no longer reach OpenAI. The migration is functionally complete for every
+PHI path. The only open item is a **non-PHI image-generation feature that is
+currently fail-closed (disabled)** and awaiting a product decision — not a leak.
 
-## Call site inventory
-
-Total OpenAI-touching files in `server/`: **~50** TypeScript files.
-
-### Tier 1 — Routes through abstraction already (low effort)
-Files that import from `services/ai-provider.ts` only need the env flag flipped to migrate. Smoke-test only.
-
-### Tier 2 — Direct `getOpenAIClient()` callers via `utils/openai-client.ts`
-**Single chokepoint:** `server/utils/openai-client.ts` is the only OpenAI client factory used by ~40 files. Two paths:
-
-- **Option A (fast, recommended):** Repoint `getOpenAIClient()` to a Vertex-backed shim that translates the OpenAI Chat Completions API surface to Vertex. Zero call-site changes. Risk: subtle prompt/response format drift; need golden-output regression tests.
-- **Option B (clean, slow):** Refactor every caller to use `generateText()` from `ai-provider.ts`. ~40 file edits, ~2 weeks of engineering.
-
-Recommendation: **Option A** for the SOC 2 deadline, **Option B** as Q4 2026 cleanup.
-
-### Tier 3 — Highest-volume call-site files (priority for review)
-| File | OpenAI mentions | PHI? | Notes |
+| Modality | Path today | BAA-covered? | Status |
 |---|---|---|---|
-| `server/routes.ts` | 44 | Yes | Symptom checker, AI chat endpoints |
-| `server/services/ai-provider-dashboard-service.ts` | 31 | Yes | Provider AI dashboard — task list, vitals monitor, doc summaries |
-| `server/services/ai-personalized-care-journey-service.ts` | 30 | Yes | Care journey personalization |
-| `server/services/ai-workflow-automation.ts` | 27 | Yes | Workflow automation |
-| `server/services/ai-proactive-patient-engagement-chatbot-service.ts` | 26 | Yes | Patient chatbot |
-| `server/services/patient-engagement-hub-service.ts` | 25 | Yes | Engagement hub |
-| `server/services/ai-fhir-data-monetization-service.ts` | 25 | Yes | FHIR analytics |
-| `server/services/aiCarePlanAutomation.ts` | 24 | Yes | Care plan generation |
-| `server/services/translation-guardrail-service.ts` | 23 | Mixed | Translation — usually no PHI but possible in messages |
-| `server/services/ai-data-governance-service.ts` | 22 | Yes | Data governance AI |
-| `server/services/ai-medical-scribe-service.ts` | 20 | **Yes — high sensitivity** | Ambient encounter transcription |
-| `server/services/ai-health-assistant.ts` | 19 | Yes | AI medical assistant |
+| Text / chat / JSON | Vertex Gemini 2.5-flash via OpenAI-compat endpoint | ✅ Google BAA | **Done** |
+| Vision / OCR (image_url in chat) | Same Gemini path (multimodal) | ✅ Google BAA | **Done — runtime-verify** |
+| Audio STT + TTS | GCP Speech-to-Text + Google Cloud TTS | ✅ Google BAA | **Done** (PR #85) |
+| Image **generation** (`gpt-image-1`) | Fail-closed on Vertex (no compat support) | n/a — disabled | **Decision needed** |
 
-### Tier 4 — Whisper / audio (separate track)
-`server/voice.ts` and ambient encounter recording use OpenAI Whisper. Vertex equivalent is **Google Speech-to-Text Medical** (separate product, separate IAM, already covered under existing GCP BAA). Migration LOE: ~1 week, includes audio format handling differences (Whisper auto-detects, Speech-to-Text needs sample rate hints).
+## How it actually works now
 
-## Sequencing — 1 week of engineering
+### 1. Build-time alias shim (covers all ~300 call sites transparently)
+`script/build.ts:65` aliases every `import OpenAI from "openai"` to
+`server/lib/vertex-openai.ts`. No per-file edits — the swap is transparent.
 
-### Day 1 — Validate Vertex baseline
-- Set `AI_DEFAULT_PROVIDER=vertex` in staging.
-- Smoke-test all Tier-1 files (symptom checker, AI chat, summaries).
-- Capture golden outputs for 20 representative prompts; diff against OpenAI baseline.
+- **Fail-safe default:** `AI_PROVIDER` defaults to `vertex`. OpenAI is used ONLY
+  when a human explicitly sets `AI_PROVIDER=openai` (non-PHI / local dev). A
+  missing/misset env can no longer silently leak PHI — worst case is a fail-closed
+  error, never a non-BAA send.
+- **Model remap:** all `gpt-*` / `gpt-5.x` ids map to `google/gemini-2.5-flash`
+  (confirmed available in `united-planet-485003-n7` / `us-central1`).
+- **Thinking disabled** (`thinking_budget=0`) so Gemini honors `max_tokens` the way
+  the OpenAI-era call sites assume.
+- **Multimodal hard-block:** `blockPhiMultimodal()` disables the `.audio` and
+  `.images` *namespaces* on every client (fail-closed with a pointer to the
+  BAA-covered path). Note this blocks `openai.images.*` / `openai.audio.*` only —
+  **not** `image_url` content parts inside `chat.completions.create`, which are
+  multimodal-native to Gemini and route fine.
 
-### Day 2–3 — Repoint chokepoint (Option A)
-- Add `server/utils/openai-vertex-shim.ts` exposing the OpenAI Chat Completions interface, backed by Vertex Gemini.
-- Modify `server/utils/openai-client.ts` to return the shim when `AI_DEFAULT_PROVIDER=vertex`.
-- Run regression suite. Hand-test the 12 Tier-3 services above.
+### 2. Build-time PHI-egress guard (self-enforcing)
+`script/build.ts:74-84` fails the build if the shim is missing from the bundle
+(e.g. a Base44/Replit regen drops the alias). This prevents a silent regression
+back to real OpenAI. Keep this guard.
 
-### Day 4 — Whisper → Speech-to-Text Medical
-- Add `server/services/speech-to-text-service.ts` using `@google-cloud/speech`.
-- Switch `server/voice.ts` and ambient encounter routes.
-- Verify multilingual coverage (≥50 languages requirement still met).
+### 3. Audio (done — PR #85 `feat/phr-audio-gcp-stt`, merged)
+`server/replit_integrations/audio/routes.ts` uses `speechToText()` / `textToSpeech()`
+from `./client`, backed by GCP Speech-to-Text + Google Cloud TTS. The reasoning turn
+(`chat.completions.create`) routes through the shim to Vertex. Helper:
+`server/services/gcp/medical-speech-to-text.ts`.
 
-### Day 5 — Production cutover
-- Flip `AI_DEFAULT_PROVIDER=vertex` in production env.
-- Keep `AI_INTEGRATIONS_OPENAI_API_KEY` set for 2-week rollback window.
-- Monitor Vertex quotas; request quota increases proactively (default per-project quotas are aggressive for healthcare workloads).
+## Remaining work
 
-### Week 2 — Cleanup (background)
-- Remove Replit AI proxy fallback paths.
-- Delete OpenAI SDK once telemetry confirms zero calls for 14 days.
-- File Tier-3 refactor tickets (Option B) for Q4 cleanup.
+### A. Vision / OCR — RUNTIME-VERIFY only (no code change expected)
+These four sites send `image_url` parts (incl. `data:...;base64,`) through
+`chat.completions.create`, so they already route to Gemini via the compat endpoint:
 
-## Risks
-1. **Prompt drift** — Gemini handles JSON mode and system prompts differently from GPT-5. The shim translates but some prompts may need rewording. Mitigation: golden-output regression suite.
-2. **Response format** — `response_format: { type: "json_object" }` translates to `responseMimeType: "application/json"` in Vertex. Symptom checker depends on this; verify first.
-3. **Whisper parity** — Speech-to-Text Medical's word-error rate on accented English is competitive but not identical. Run side-by-side on 50-utterance test set before cutover.
-4. **Vertex quota** — Default per-region quota is ~60 QPM for Gemini Pro. Request increase to 600 QPM before production cutover.
+- `server/services/document-ocr-service.ts` (medical document OCR)
+- `server/services/multimodal-document-parser.ts`
+- `server/routes/card-ocr-routes.ts` (insurance card OCR)
+- `server/ai-document-categorization.ts`
 
-## Acceptance criteria
-- All clinical AI features pass regression suite running against Vertex.
-- Zero OpenAI API calls in production logs for 14 consecutive days.
-- Updated subprocessor list: OpenAI removed, Google Cloud (Vertex AI) confirmed under existing BAA.
-- Trust Center page reflects new posture.
+**Verify (needs deployed env + ADC):** confirm Vertex's OpenAI-compat
+`chat.completions` accepts `image_url` with base64 `data:` URLs and returns the
+expected JSON. If base64 data URLs are rejected, switch those sites to the native
+`@google-cloud/vertexai` `generateContent` with `inlineData` — code is small and
+localized. Until verified, treat as **works-pending-confirmation**, not done.
+
+### B. Image generation — product decision required (non-PHI, currently disabled)
+`server/replit_integrations/image/{client,routes}.ts` call `openai.images.generate`
+/ `.edit` (`gpt-image-1`). These **fail-closed** under the Vertex default, so the
+feature is non-functional in prod (not leaking). Options:
+
+1. **Deprecate** — if no live feature depends on generated images, delete the routes
+   + client and remove the dead surface. *Recommended if usage is zero.*
+2. **Vertex Imagen** — reimplement `generateImageBuffer` / edit against Vertex
+   Imagen (`@google-cloud/aiplatform` / Imagen API) under the existing BAA. ~1 day.
+
+**Owner decision:** is any shipped feature calling image generation? If no →
+deprecate. If yes → Imagen. (Grep found no `routes.ts` caller; likely unused.)
+
+## Acceptance criteria (updated)
+- [x] Zero code path can send PHI to OpenAI by default (fail-safe shim + build guard).
+- [x] Text, vision, and audio PHI paths BAA-covered (Vertex + GCP STT/TTS).
+- [ ] Vision `image_url` base64 acceptance confirmed in deployed env (item A).
+- [ ] Image-generation decision made and executed (item B).
+- [ ] Subprocessor list / Trust Center reflect: OpenAI removed for PHI; Google Cloud
+      (Vertex AI, Speech-to-Text, TTS) under existing BAA.
+- [ ] Telemetry: zero OpenAI calls in prod for 14 consecutive days, then remove the
+      `openai` dependency (`package.json:105`).
 
 ## Open questions for product
-- Do we keep the `AI_DEFAULT_PROVIDER` knob as a safety valve, or hardcode Vertex post-cutover?
-- Any features where Gemini quality is materially worse than GPT-5 that justify a per-feature OpenAI exception with explicit synthetic-data-only constraints?
+- Keep the `AI_PROVIDER` knob as a safety valve, or hardcode Vertex post-cutover?
+- Any feature where Gemini quality materially trails GPT and justifies a per-feature,
+  synthetic-data-only OpenAI exception?
+- Image generation: deprecate or Imagen? (see item B)
+
+---
+
+# Historical plan (2026-05-06) — retained for provenance
+
+> Superseded by the status above. The implementation used a build-time alias shim
+> (`server/lib/vertex-openai.ts`) rather than the `openai-vertex-shim.ts` /
+> per-caller approach described here, defaults to Vertex (not OpenAI), and has
+> already completed the Whisper/audio track via GCP Speech-to-Text + Google TTS.
+
+## Current state — already in place
+- `server/services/ai-provider.ts` — abstraction with `generateText()` / `streamText()`.
+- `server/services/vertex-gemma.ts` — direct Vertex client (Gemma "Submit-only").
+- `@google-cloud/vertexai` SDK wired via `GCP_SERVICE_ACCOUNT_KEY` /
+  `GOOGLE_APPLICATION_CREDENTIALS_JSON`.
+- Per-feature override registry: `setFeatureProvider("symptom-checker", "vertex")`.
+
+## Original sequencing (1 week)
+- Day 1 — validate Vertex baseline; golden-output diffs.
+- Day 2–3 — repoint chokepoint via shim (Option A).
+- Day 4 — Whisper → Speech-to-Text Medical.
+- Day 5 — production cutover; 2-week OpenAI rollback window.
+- Week 2 — remove Replit proxy fallbacks; delete OpenAI SDK after 14 clean days.
+
+## Original risks
+1. Prompt drift (Gemini JSON mode / system prompts differ) — golden-output suite.
+2. `response_format: json_object` → `responseMimeType: application/json`.
+3. Whisper parity vs Speech-to-Text Medical — side-by-side on 50 utterances.
+4. Vertex quota — default ~60 QPM; request increase before cutover.

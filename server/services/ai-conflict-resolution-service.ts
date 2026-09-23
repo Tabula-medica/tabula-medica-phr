@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 export type DataSourceType = 
   | "ehr" 
@@ -666,17 +661,14 @@ Provide a JSON response with:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+      const responseText = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const aiResponse = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const aiResponse = JSON.parse(responseText || "{}");
 
       const suggestion: AIMergeSuggestion = {
         id: `suggestion-${Date.now()}`,
@@ -767,6 +759,7 @@ Provide a JSON response with:
     }
 
     logPhiAccess({
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route apply-rule handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
       userId: userId || "system",
       action: "write",
       resourceType: "conflict_resolution",
@@ -925,6 +918,7 @@ Provide a JSON response with:
     recordType?: string;
   }, userId?: string): DataConflict[] {
     logPhiAccess({
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route conflicts handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
       userId: userId || "system",
       action: "read",
       resourceType: "conflicts",
@@ -1012,6 +1006,7 @@ Provide a JSON response with:
     }
 
     logPhiAccess({
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route accept handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
       userId: userId || "system",
       action: "write",
       resourceType: "conflict_resolution",
@@ -1038,6 +1033,7 @@ Provide a JSON response with:
     if (!suggestion) return false;
 
     logPhiAccess({
+      // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route reject handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
       userId: userId || "system",
       action: "write",
       resourceType: "conflict_resolution",

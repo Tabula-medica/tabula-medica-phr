@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { storage } from "../storage";
@@ -610,7 +610,8 @@ export interface ClinicalNotesSummary {
 }
 
 class AIProviderDashboardService {
-  private openai: OpenAI | null = null;
+  // PHI-bearing generation runs through the Vertex/BAA gateway (P1-1.2).
+  private aiEnabled = true;
   private tasks: Map<string, ProviderTask[]> = new Map();
   private vitals: Map<string, VitalSign[]> = new Map();
   private vitalsAlerts: Map<string, VitalsAlert[]> = new Map();
@@ -627,15 +628,8 @@ class AIProviderDashboardService {
   }
 
   private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL: baseURL || undefined });
-      console.log("[AIProviderDashboard] OpenAI initialized for AI analysis");
-    } else {
-      console.log("[AIProviderDashboard] OpenAI not configured, using rule-based analysis");
-    }
+    // PHI-bearing generation runs through the Vertex/BAA gateway (ai-gateway.ts).
+    console.log("[AIProviderDashboard] Vertex/BAA gateway enabled for AI analysis");
   }
 
   private initializeSampleData(): void {
@@ -1096,27 +1090,20 @@ class AIProviderDashboardService {
       details: `Generating AI task list for provider ${providerId} with ${patientData.length} patients`
     });
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return this.generateRuleBasedTasks(providerId, patientData);
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: TASK_GENERATION_PROMPT },
-          {
-            role: "user",
-            content: `Generate prioritized tasks for provider based on this patient panel data:
+      const content = await generatePhiSafeText({
+        system: TASK_GENERATION_PROMPT,
+        user: `Generate prioritized tasks for provider based on this patient panel data:
 ${JSON.stringify(patientData, null, 2)}
 
-Return a JSON array of tasks with fields: patientId, patientName, category, priority, title, description, estimatedMinutes, aiRationale`
-          }
-        ],
-        response_format: { type: "json_object" }
+Return a JSON array of tasks with fields: patientId, patientName, category, priority, title, description, estimatedMinutes, aiRationale`,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateRuleBasedTasks(providerId, patientData);
       }
@@ -1472,28 +1459,21 @@ Return a JSON array of tasks with fields: patientId, patientName, category, prio
       "patient-003": "Robert Johnson"
     };
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return this.generateRuleBasedSummary(patientId, patientNames[patientId] || "Unknown", documentContent, documentType, metadata);
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: DOC_SUMMARY_PROMPT },
-          {
-            role: "user",
-            content: `Summarize this ${documentType} document:
+      const content = await generatePhiSafeText({
+        system: DOC_SUMMARY_PROMPT,
+        user: `Summarize this ${documentType} document:
 
 ${documentContent}
 
-Return a JSON object with: overview, keyPoints (array), diagnoses (array with code, display, status), medications (array with name, dosage, frequency, status), procedures (array), labResults (array), followUpItems (array), providerNotes`
-          }
-        ],
-        response_format: { type: "json_object" }
+Return a JSON object with: overview, keyPoints (array), diagnoses (array with code, display, status), medications (array with name, dosage, frequency, status), procedures (array), labResults (array), followUpItems (array), providerNotes`,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateRuleBasedSummary(patientId, patientNames[patientId] || "Unknown", documentContent, documentType, metadata);
       }
@@ -1706,18 +1686,14 @@ Return a JSON object with: overview, keyPoints (array), diagnoses (array with co
       noCdsDisclaimer: NO_CDS_DISCLAIMER
     });
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return fallback();
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: PATIENT_SUMMARY_PROMPT },
-          {
-            role: "user",
-            content: `Summarize this patient record:
+      const content = await generatePhiSafeText({
+        system: PATIENT_SUMMARY_PROMPT,
+        user: `Summarize this patient record:
 
 Conditions: ${JSON.stringify(patientData.conditions)}
 Medications: ${JSON.stringify(patientData.medications)}
@@ -1726,13 +1702,10 @@ Recent Labs: ${JSON.stringify(patientData.labs)}
 Recent Vitals: ${JSON.stringify(patientData.vitals)}
 Demographics: ${JSON.stringify(patientData.demographics || {})}
 
-Return JSON with: overview, keyFindings, activeIssues, recentChanges, preventiveCareGaps`
-          }
-        ],
-        response_format: { type: "json_object" }
+Return JSON with: overview, keyFindings, activeIssues, recentChanges, preventiveCareGaps`,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return fallback();
 
       const parsed = JSON.parse(content);
@@ -1821,18 +1794,14 @@ Return JSON with: overview, keyFindings, activeIssues, recentChanges, preventive
       noCdsDisclaimer: NO_CDS_DISCLAIMER
     });
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return fallback();
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: REFERRAL_LETTER_PROMPT },
-          {
-            role: "user",
-            content: `Draft a referral letter with the following details:
+      const content = await generatePhiSafeText({
+        system: REFERRAL_LETTER_PROMPT,
+        user: `Draft a referral letter with the following details:
 
 Patient: ${patientName}
 Target Specialty: ${referralData.targetSpecialty}
@@ -1845,13 +1814,10 @@ Allergies: ${referralData.patientAllergies.join(", ") || "NKDA"}
 Relevant Labs: ${referralData.relevantLabs?.join(", ") || "Not provided"}
 Additional Notes: ${referralData.additionalNotes || "None"}
 
-Return JSON with: salutation, introduction, clinicalHistory, currentFindings, reasonForReferral, requestedActions, closing, attachmentSuggestions (array).`
-          }
-        ],
-        response_format: { type: "json_object" }
+Return JSON with: salutation, introduction, clinicalHistory, currentFindings, reasonForReferral, requestedActions, closing, attachmentSuggestions (array).`,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return fallback();
 
       const parsed = JSON.parse(content);
@@ -1927,18 +1893,14 @@ Return JSON with: salutation, introduction, clinicalHistory, currentFindings, re
       noCdsDisclaimer: NO_CDS_DISCLAIMER
     });
 
-    if (!this.openai) {
+    if (!this.aiEnabled) {
       return fallback();
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: DIFFERENTIAL_DX_PROMPT },
-          {
-            role: "user",
-            content: `List conditions commonly associated with these symptoms for provider review:
+      const content = await generatePhiSafeText({
+        system: DIFFERENTIAL_DX_PROMPT,
+        user: `List conditions commonly associated with these symptoms for provider review:
 
 Symptoms: ${symptomData.symptoms.join(", ")}
 Duration: ${symptomData.duration || "Not specified"}
@@ -1948,13 +1910,10 @@ Patient Gender: ${symptomData.patientGender || "Not specified"}
 Existing Conditions: ${symptomData.existingConditions?.join(", ") || "None documented"}
 Current Medications: ${symptomData.currentMedications?.join(", ") || "None documented"}
 
-Return JSON with possibleConditions and generalRecommendations. Frame ALL outputs as informational references, NOT diagnoses.`
-          }
-        ],
-        response_format: { type: "json_object" }
+Return JSON with possibleConditions and generalRecommendations. Frame ALL outputs as informational references, NOT diagnoses.`,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) return fallback();
 
       const parsed = JSON.parse(content);
@@ -2030,14 +1989,10 @@ Return JSON with possibleConditions and generalRecommendations. Frame ALL output
       : 85;
 
     try {
-      if (this.openai) {
-        const completion = await this.openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: HEALTH_TREND_PROMPT },
-            {
-              role: "user",
-              content: `Generate a health trend summary for provider review:
+      if (this.aiEnabled) {
+        const content = await generatePhiSafeText({
+          system: HEALTH_TREND_PROMPT,
+          user: `Generate a health trend summary for provider review:
 
 Patient: ${patientName}
 Conditions: ${conditionList}
@@ -2060,15 +2015,12 @@ Return JSON with:
   "medicationAdherence": {"overallRate": number, "trend": "improving|stable|declining", "concerningMedications": [], "notes": "summary"},
   "labTrends": [{"labName": "name", "latestValue": "value", "trend": "improving|stable|worsening", "normalRange": "range", "status": "normal|borderline|abnormal"}],
   "riskScore": 1-100
-}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500,
+}`,
+          responseMimeType: "application/json",
+          maxTokens: 1500,
           temperature: 0.3,
         });
 
-        const content = completion.choices[0]?.message?.content;
         if (content) {
           const result = JSON.parse(content);
           return sanitizeAIObject<PatientHealthTrendSummary>({
@@ -2245,14 +2197,10 @@ Return JSON with:
       : 85;
 
     try {
-      if (this.openai) {
-        const completion = await this.openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: PROGRESS_REPORT_PROMPT },
-            {
-              role: "user",
-              content: `Generate a ${periodMonths}-month progress report for provider review:
+      if (this.aiEnabled) {
+        const content = await generatePhiSafeText({
+          system: PROGRESS_REPORT_PROMPT,
+          user: `Generate a ${periodMonths}-month progress report for provider review:
 
 Patient: ${patientName}
 Report Period: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}
@@ -2274,15 +2222,12 @@ Return JSON with:
   "providerNotes": ["clinical observations"],
   "nextSteps": ["action items"],
   "overallProgress": "significant_improvement|moderate_improvement|stable|slight_decline|significant_decline"
-}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 2000,
+}`,
+          responseMimeType: "application/json",
+          maxTokens: 2000,
           temperature: 0.3,
         });
 
-        const content = completion.choices[0]?.message?.content;
         if (content) {
           const result = JSON.parse(content);
           return sanitizeAIObject<PatientProgressReport>({
@@ -2434,14 +2379,10 @@ Return JSON with:
     const recentVitals = vitalSigns.slice(0, 5).map((v: any) => `${v.type}: ${v.value} ${v.unit || ""}`).join("; ") || "None recorded";
 
     try {
-      if (this.openai) {
-        const completion = await this.openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: CLINICAL_NOTES_PROMPT },
-            {
-              role: "user",
-              content: `Generate a clinical notes summary for this patient visit:
+      if (this.aiEnabled) {
+        const content = await generatePhiSafeText({
+          system: CLINICAL_NOTES_PROMPT,
+          user: `Generate a clinical notes summary for this patient visit:
 
 Patient: ${patientName}
 Visit Date: ${visitDate}
@@ -2477,15 +2418,12 @@ Respond in this exact JSON format:
   },
   "summary": "2-3 sentence visit summary",
   "keyPoints": ["key clinical points to document"]
-}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500,
+}`,
+          responseMimeType: "application/json",
+          maxTokens: 1500,
           temperature: 0.3,
         });
 
-        const content = completion.choices[0]?.message?.content;
         if (content) {
           const result = JSON.parse(content);
           return sanitizeAIObject<ClinicalNotesSummary>({

@@ -5,14 +5,16 @@ import {
   type IISConnectionRequest,
 } from "./services/clinician-immunization-portal-service";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This information is based on CDC/ACIP published schedules and recorded history. This is NOT medical advice. Clinical judgment should always be applied.";
 
 router.get("/clinicians", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { organizationId } = req.query;
 
     const clinicians = clinicianImmunizationPortalService.getAllClinicians(
@@ -36,7 +38,7 @@ router.get("/clinicians", async (req: Request, res: Response) => {
 
 router.get("/clinicians/:clinicianId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { clinicianId } = req.params;
 
     const clinician = clinicianImmunizationPortalService.getClinicianProfile(clinicianId, userId);
@@ -63,7 +65,7 @@ router.get("/clinicians/:clinicianId", async (req: Request, res: Response) => {
 
 router.get("/dashboard/:clinicianId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { clinicianId } = req.params;
 
     const stats = clinicianImmunizationPortalService.getDashboardStats(clinicianId, userId);
@@ -83,7 +85,7 @@ router.get("/dashboard/:clinicianId", async (req: Request, res: Response) => {
 
 router.get("/patients/search", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { q, clinicianId, overdue, needsCatchUp, hasIISConsent } = req.query;
 
     if (!clinicianId) {
@@ -120,7 +122,7 @@ router.get("/patients/search", async (req: Request, res: Response) => {
 
 router.get("/patients/:patientId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId } = req.query;
 
@@ -159,7 +161,7 @@ router.get("/patients/:patientId", async (req: Request, res: Response) => {
 
 router.get("/patients/:patientId/immunizations", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, vaccineGroup, startDate, endDate, verificationStatus } = req.query;
 
@@ -198,7 +200,7 @@ router.get("/patients/:patientId/immunizations", async (req: Request, res: Respo
 
 router.post("/patients/:patientId/immunizations", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, ...recordData } = req.body;
 
@@ -238,7 +240,7 @@ router.post("/patients/:patientId/immunizations", async (req: Request, res: Resp
 
 router.put("/patients/:patientId/immunizations/:recordId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId, recordId } = req.params;
     const { clinicianId, ...updates } = req.body;
 
@@ -280,7 +282,7 @@ router.put("/patients/:patientId/immunizations/:recordId", async (req: Request, 
 
 router.post("/patients/:patientId/immunizations/:recordId/verify", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId, recordId } = req.params;
     const { clinicianId, verificationNotes } = req.body;
 
@@ -322,7 +324,7 @@ router.post("/patients/:patientId/immunizations/:recordId/verify", async (req: R
 
 router.post("/patients/:patientId/iis-consent", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, ...consentData } = req.body;
 
@@ -360,7 +362,7 @@ router.post("/patients/:patientId/iis-consent", async (req: Request, res: Respon
 
 router.post("/patients/:patientId/iis-connect", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, stateCode, consentId, connectionType, priority } = req.body;
 
@@ -399,7 +401,7 @@ router.post("/patients/:patientId/iis-connect", async (req: Request, res: Respon
 
 router.get("/patients/:patientId/iis-auto-detect", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId } = req.query;
 
@@ -440,7 +442,7 @@ router.get("/patients/:patientId/iis-auto-detect", async (req: Request, res: Res
 
 router.post("/patients/:patientId/iis-batch-connect", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, stateConnections } = req.body;
 
@@ -482,7 +484,7 @@ router.post("/patients/:patientId/iis-batch-connect", async (req: Request, res: 
 
 router.post("/patients/:patientId/iis-batch-consent", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, stateCodes } = req.body;
 
@@ -524,7 +526,7 @@ router.post("/patients/:patientId/iis-batch-consent", async (req: Request, res: 
 
 router.post("/patients/:patientId/reports", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, ...reportOptions } = req.body;
 
@@ -572,7 +574,7 @@ router.post("/patients/:patientId/reports", async (req: Request, res: Response) 
 
 router.get("/patients/:patientId/reports", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId } = req.query;
 
@@ -605,7 +607,7 @@ router.get("/patients/:patientId/reports", async (req: Request, res: Response) =
 
 router.get("/reports/:reportId", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { reportId } = req.params;
 
     const report = clinicianImmunizationPortalService.getReportById(reportId, userId);
@@ -632,7 +634,7 @@ router.get("/reports/:reportId", async (req: Request, res: Response) => {
 
 router.post("/patients/:patientId/messages", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId, clinicianName, subject, content, messageType, priority, relatedVaccines, requiresResponse, responseDeadline } = req.body;
 
@@ -677,7 +679,7 @@ router.post("/patients/:patientId/messages", async (req: Request, res: Response)
 
 router.get("/patients/:patientId/messages", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { patientId } = req.params;
     const { clinicianId } = req.query;
 

@@ -25,6 +25,9 @@ RUN test -f dist/index.cjs && echo "Build verified: dist/index.cjs" || (echo "MI
 FROM node:20-slim
 WORKDIR /app
 
+# ffmpeg: transcode Safari mp4/aac → FLAC for GCP Speech-to-Text (BAA-covered). Runtime dep.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 

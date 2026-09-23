@@ -1,6 +1,6 @@
-import OpenAI from "openai";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { generatePhiSafeText } from "./ai-gateway";
 import type {
   ChronicConditionProfile,
   ChronicDiseaseManagementPlan,
@@ -37,16 +37,8 @@ interface CDMPredictiveAlert {
   expiresAt?: string;
 }
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
+function isAiEnabled(): boolean {
+  return true;
 }
 
 const NO_CDS_GUARDRAIL = `
@@ -133,19 +125,14 @@ export async function generateManagementPlan(
     storage.getLabResultsByPatient(patientId),
   ]);
 
-  const client = getOpenAIClient();
   let aiInsights = "";
   let aiGoals: ManagementGoal[] = [];
   let aiEducation: EducationTopic[] = [];
 
-  if (client) {
+  if (isAiEnabled()) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `${NO_CDS_GUARDRAIL}
+      const response = await generatePhiSafeText({
+        system: `${NO_CDS_GUARDRAIL}
 You are a health education assistant helping create a personalized chronic disease management template.
 Generate educational goals and topics for self-management education ONLY.
 Return JSON with structure:
@@ -154,23 +141,18 @@ Return JSON with structure:
   "goals": [{"id": "g1", "title": "...", "description": "...", "status": "not_started"}],
   "educationTopics": [{"id": "e1", "title": "...", "category": "...", "content": "Brief educational summary", "isCompleted": false, "aiPersonalized": true}]
 }`,
-          },
-          {
-            role: "user",
-            content: `Create educational management template for:
+        user: `Create educational management template for:
 Condition: ${condition.conditionName} (${condition.conditionType})
 Diagnosis Date: ${condition.diagnosisDate || "Unknown"}
 Current Medications: ${medications.filter(m => m.status === "active").map(m => m.name).join(", ") || "None documented"}
 Recent Lab Results: ${labResults.slice(0, 5).map(l => `${l.testName}: ${l.value} ${l.unit || ""}`).join(", ") || "None"}
 
 Generate educational content for patient self-management. NOT clinical recommendations.`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1500,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(response || "{}");
       aiInsights = result.insights || "";
       aiGoals = (result.goals || []).map((g: any) => ({
         ...g,
@@ -516,37 +498,27 @@ export async function generateProgressSnapshot(
     (symptomTrend === "improving" ? 20 : symptomTrend === "stable" ? 10 : 0)
   );
 
-  const client = getOpenAIClient();
   let aiSummary = `Your weekly progress score is ${overallScore}%. Medication adherence: ${Math.round(adherenceRate)}%. Symptoms are ${symptomTrend}.`;
   let recommendations: string[] = [];
 
-  if (client) {
+  if (isAiEnabled()) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `${NO_CDS_GUARDRAIL}
+      const response = await generatePhiSafeText({
+        system: `${NO_CDS_GUARDRAIL}
 You are a supportive health education assistant. Generate an encouraging progress summary.
 Return JSON: {"summary": "2-3 sentence encouraging summary", "recommendations": ["Educational tip 1", "Educational tip 2"]}`,
-          },
-          {
-            role: "user",
-            content: `Weekly progress for chronic condition management:
+        user: `Weekly progress for chronic condition management:
 - Adherence rate: ${Math.round(adherenceRate)}%
 - Symptom trend: ${symptomTrend}
 - Goals completed: ${plan.goals.filter(g => g.status === "achieved").length}/${plan.goals.length}
 - Lifestyle logs this week: ${lifestyleLogs.filter(l => l.patientId === patientId && new Date(l.loggedAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000).length}
 
 Generate supportive educational feedback.`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(response || "{}");
       aiSummary = result.summary || aiSummary;
       recommendations = result.recommendations || [];
     } catch (error) {
@@ -595,17 +567,12 @@ export async function generateEducationContent(
   conditionType: ChronicConditionType,
   topic?: string
 ): Promise<PersonalizedEducationContent> {
-  const client = getOpenAIClient();
   let content: PersonalizedEducationContent;
 
-  if (client) {
+  if (isAiEnabled()) {
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `${NO_CDS_GUARDRAIL}
+      const response = await generatePhiSafeText({
+        system: `${NO_CDS_GUARDRAIL}
 You are a patient education specialist. Create easy-to-understand educational content.
 Use simple language (8th grade reading level). Be supportive and encouraging.
 Return JSON: {
@@ -614,18 +581,13 @@ Return JSON: {
   "contentType": "article",
   "relevanceScore": 0.9
 }`,
-          },
-          {
-            role: "user",
-            content: `Create educational content about ${topic || "general self-management"} for someone managing ${conditionType.replace(/_/g, " ")}.
+        user: `Create educational content about ${topic || "general self-management"} for someone managing ${conditionType.replace(/_/g, " ")}.
 Focus on practical self-care tips and when to seek provider guidance.`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 800,
+        responseMimeType: "application/json",
+        maxTokens: 800,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(response || "{}");
       content = {
         id: generateId("edu"),
         patientId,

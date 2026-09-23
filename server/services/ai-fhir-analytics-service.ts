@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import { comprehensiveAuditTrailService } from "./comprehensive-audit-trail-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PatientData {
   id: string;
@@ -208,9 +203,6 @@ function generateId(): string {
 }
 
 function isOpenAIConfigured(): boolean {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (!apiKey) return false;
-  if (apiKey.includes("dummy") || apiKey.includes("test") || apiKey.length < 20) return false;
   return true;
 }
 
@@ -362,15 +354,14 @@ Generate a JSON response with:
 
 IMPORTANT: This is for OPERATIONAL and DATA GOVERNANCE purposes only, NOT clinical decision-making.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
           temperature: 0.3,
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
-        
+        const aiResult = JSON.parse(responseText || "{}");
+
         prediction = {
           id: generateId(),
           modelType,
@@ -567,14 +558,13 @@ Generate a JSON response with:
 
 IMPORTANT: This is for OPERATIONAL PLANNING and QUALITY IMPROVEMENT purposes only, NOT clinical decision-making.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
           temperature: 0.3,
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const aiResult = JSON.parse(responseText || "{}");
 
         trend = {
           id: generateId(),
@@ -834,14 +824,13 @@ Generate a JSON response with:
 
 IMPORTANT: This report is for INFORMATIONAL, QUALITY IMPROVEMENT, and OPERATIONAL purposes only. NOT for clinical decision-making.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
+        const responseText = await generatePhiSafeText({
+          user: prompt,
+          responseMimeType: "application/json",
           temperature: 0.4,
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const aiResult = JSON.parse(responseText || "{}");
 
         report = {
           id: generateId(),

@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export const NO_CDS_DISCLAIMER = `DISCLAIMER: AI-generated administrative insights are for INFORMATIONAL and OPERATIONAL purposes only. They do NOT constitute clinical decision support, medical advice, or treatment recommendations. All clinical and coverage decisions must be made by qualified healthcare professionals and insurance representatives.`;
 
@@ -839,29 +834,20 @@ class AIAdminOperationsService {
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping verify insurance eligibility. Generate realistic insurance verification details based on the provided information. This is a simulation for samplenstration purposes.
+      const content = await generatePhiSafeText({
+        system: `You are an AI assistant helping verify insurance eligibility. Generate realistic insurance verification details based on the provided information. This is a simulation for samplenstration purposes.
 
-Return JSON with: status (verified/pending/denied), coverageDetails (object with boolean fields), copay, deductible, deductibleMet, outOfPocketMax, outOfPocketMet, verificationNotes.`
-          },
-          {
-            role: "user",
-            content: `Verify insurance eligibility for:
+Return JSON with: status (verified/pending/denied), coverageDetails (object with boolean fields), copay, deductible, deductibleMet, outOfPocketMax, outOfPocketMet, verificationNotes.`,
+        user: `Verify insurance eligibility for:
 Patient: ${patientName}
 Insurer: ${insurerInfo.insurerName}
 Member ID: ${insurerInfo.memberId}
-Group: ${insurerInfo.groupNumber || "N/A"}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500
+Group: ${insurerInfo.groupNumber || "N/A"}`,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const eligibility: InsuranceEligibility = {
         id: `elig-${Date.now()}`,
@@ -947,26 +933,17 @@ Group: ${insurerInfo.groupNumber || "N/A"}`
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI scheduling optimizer for healthcare practices. Analyze the schedule and provide optimization recommendations to reduce gaps and wait times.
+      const content = await generatePhiSafeText({
+        system: `You are an AI scheduling optimizer for healthcare practices. Analyze the schedule and provide optimization recommendations to reduce gaps and wait times.
 
-Return JSON with: recommendations (array with type, priority, description, impact), analysis (string summary), metrics (gapReduction, waitTimeReduction percentages).`
-          },
-          {
-            role: "user",
-            content: `Optimize this schedule for ${providerName} on ${date}:
-${JSON.stringify(currentSchedule.map(s => ({ time: s.time, duration: s.duration, type: s.appointmentType, status: s.status })), null, 2)}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 800
+Return JSON with: recommendations (array with type, priority, description, impact), analysis (string summary), metrics (gapReduction, waitTimeReduction percentages).`,
+        user: `Optimize this schedule for ${providerName} on ${date}:
+${JSON.stringify(currentSchedule.map(s => ({ time: s.time, duration: s.duration, type: s.appointmentType, status: s.status })), null, 2)}`,
+        responseMimeType: "application/json",
+        maxTokens: 800,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const originalGapMinutes = this.calculateGaps(currentSchedule);
       const optimizedGapMinutes = Math.max(0, originalGapMinutes * (1 - (parsed.metrics?.gapReduction || 30) / 100));
@@ -1064,29 +1041,20 @@ ${JSON.stringify(currentSchedule.map(s => ({ time: s.time, duration: s.duration,
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI predicting patient no-show risk for healthcare appointments. Consider factors like patient history, appointment timing, and type.
+      const content = await generatePhiSafeText({
+        system: `You are an AI predicting patient no-show risk for healthcare appointments. Consider factors like patient history, appointment timing, and type.
 
-Return JSON with: riskScore (0-1), riskCategory (low/medium/high/very_high), factors (array with factor, weight, value, impact), recommendations (array of strings), explanation (string).`
-          },
-          {
-            role: "user",
-            content: `Predict no-show risk for:
+Return JSON with: riskScore (0-1), riskCategory (low/medium/high/very_high), factors (array with factor, weight, value, impact), recommendations (array of strings), explanation (string).`,
+        user: `Predict no-show risk for:
 Patient: ${patientName}
 Appointment: ${appointmentDetails.type} on ${appointmentDetails.date} at ${appointmentDetails.time}
 Provider: ${appointmentDetails.providerName}
-History: ${patientHistory ? `${patientHistory.previousNoShows} no-shows in ${patientHistory.totalAppointments} appointments` : "No history available"}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 600
+History: ${patientHistory ? `${patientHistory.previousNoShows} no-shows in ${patientHistory.totalAppointments} appointments` : "No history available"}`,
+        responseMimeType: "application/json",
+        maxTokens: 600,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const prediction: NoShowPrediction = {
         id: `nsp-${Date.now()}`,
@@ -1161,31 +1129,22 @@ History: ${patientHistory ? `${patientHistory.previousNoShows} no-shows in ${pat
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping prepare prior authorization requests. Suggest required documentation and provide compliance recommendations.
+      const content = await generatePhiSafeText({
+        system: `You are an AI assistant helping prepare prior authorization requests. Suggest required documentation and provide compliance recommendations.
 
-Return JSON with: suggestedDocuments (array of strings), complianceScore (0-100), recommendations (array of strings).`
-          },
-          {
-            role: "user",
-            content: `Prepare prior authorization for:
+Return JSON with: suggestedDocuments (array of strings), complianceScore (0-100), recommendations (array of strings).`,
+        user: `Prepare prior authorization for:
 Service: ${serviceDetails.type}
 Procedure Code: ${serviceDetails.procedureCode || "N/A"}
 Diagnosis Code: ${serviceDetails.diagnosisCode || "N/A"}
 Insurer: ${insurerInfo.name}
 Urgency: ${serviceDetails.urgency}
-Notes: ${serviceDetails.notes}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500
+Notes: ${serviceDetails.notes}`,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const priorAuth: PriorAuthorization = {
         id: `pa-${Date.now()}`,
@@ -1274,30 +1233,21 @@ Notes: ${serviceDetails.notes}`
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI routing patient inquiries to appropriate care team members. Analyze the inquiry and determine the best department/person to handle it.
+      const content = await generatePhiSafeText({
+        system: `You are an AI routing patient inquiries to appropriate care team members. Analyze the inquiry and determine the best department/person to handle it.
 
 Categories: billing, appointments, prescriptions, referrals, lab_results, medical_records, insurance, technical_support, clinical_question, general
 
-Return JSON with: category, priority (low/medium/high/urgent), suggestedTeamMember (department name), routingRationale, suggestedResponse, estimatedResponseTime.`
-          },
-          {
-            role: "user",
-            content: `Route this patient inquiry:
+Return JSON with: category, priority (low/medium/high/urgent), suggestedTeamMember (department name), routingRationale, suggestedResponse, estimatedResponseTime.`,
+        user: `Route this patient inquiry:
 Channel: ${inquiry.channel}
 Subject: ${inquiry.subject}
-Content: ${inquiry.content}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500
+Content: ${inquiry.content}`,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const teamMember = this.findBestTeamMember(parsed.category || "general", parsed.suggestedTeamMember);
 
@@ -1396,30 +1346,21 @@ Content: ${inquiry.content}`
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI analyzing healthcare billing claims for errors and optimization opportunities. Identify coding issues, missing modifiers, bundling problems, and revenue optimization opportunities.
+      const content = await generatePhiSafeText({
+        system: `You are an AI analyzing healthcare billing claims for errors and optimization opportunities. Identify coding issues, missing modifiers, bundling problems, and revenue optimization opportunities.
 
-Return JSON with: errorRisk (0-1), optimizationScore (0-100), issues (array with type, severity, description, affectedCodes, suggestedFix), recommendations (array with type, priority, description, potentialRevenue, effort), complianceFlags (array of strings), revenueImpact (number).`
-          },
-          {
-            role: "user",
-            content: `Analyze this billing claim:
+Return JSON with: errorRisk (0-1), optimizationScore (0-100), issues (array with type, severity, description, affectedCodes, suggestedFix), recommendations (array with type, priority, description, potentialRevenue, effort), complianceFlags (array of strings), revenueImpact (number).`,
+        user: `Analyze this billing claim:
 Claim ID: ${claimId}
 Date of Service: ${claimDetails.dateOfService}
 Total Amount: $${claimDetails.totalAmount}
 Procedure Codes: ${claimDetails.procedureCodes.join(", ")}
-Diagnosis Codes: ${claimDetails.diagnosisCodes.join(", ")}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 800
+Diagnosis Codes: ${claimDetails.diagnosisCodes.join(", ")}`,
+        responseMimeType: "application/json",
+        maxTokens: 800,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const analysis: BillingClaimAnalysis = {
         id: `claim-${Date.now()}`,
@@ -1580,27 +1521,18 @@ Diagnosis Codes: ${claimDetails.diagnosisCodes.join(", ")}`
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping auto-populate healthcare forms from EHR data. Extract relevant fields based on the form type and available data. Assign confidence scores (0-1) to each field.
+      const content = await generatePhiSafeText({
+        system: `You are an AI assistant helping auto-populate healthcare forms from EHR data. Extract relevant fields based on the form type and available data. Assign confidence scores (0-1) to each field.
 
-Return JSON with: fields (array of {fieldName, fieldLabel, value, source, confidence, requiresVerification}), overallConfidence, missingFields, suggestions.`
-          },
-          {
-            role: "user",
-            content: `Auto-populate a ${formType.replace(/_/g, " ")} form using this EHR data:
+Return JSON with: fields (array of {fieldName, fieldLabel, value, source, confidence, requiresVerification}), overallConfidence, missingFields, suggestions.`,
+        user: `Auto-populate a ${formType.replace(/_/g, " ")} form using this EHR data:
 Patient: ${patientName}
-Available Data: ${JSON.stringify(ehrData, null, 2)}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000
+Available Data: ${JSON.stringify(ehrData, null, 2)}`,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const form: AutoPopulatedForm = {
         id: `form-${Date.now()}`,
@@ -1673,30 +1605,21 @@ Available Data: ${JSON.stringify(ehrData, null, 2)}`
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant helping generate prior authorization requests. Analyze clinical data to create compelling medical necessity narratives. Identify required supporting documents and estimate approval likelihood.
+      const content = await generatePhiSafeText({
+        system: `You are an AI assistant helping generate prior authorization requests. Analyze clinical data to create compelling medical necessity narratives. Identify required supporting documents and estimate approval likelihood.
 
-Return JSON with: clinicalJustification, aiNarrative, supportingDocuments (array with documentType, relevance, present, suggestedIfMissing), approvalLikelihood (0-1), missingElements.`
-          },
-          {
-            role: "user",
-            content: `Generate prior authorization request:
+Return JSON with: clinicalJustification, aiNarrative, supportingDocuments (array with documentType, relevance, present, suggestedIfMissing), approvalLikelihood (0-1), missingElements.`,
+        user: `Generate prior authorization request:
 Service: ${serviceInfo.serviceRequested}
 Procedure Codes: ${serviceInfo.procedureCodes.join(", ")}
 Diagnosis Codes: ${serviceInfo.diagnosisCodes.join(", ")}
 Insurer: ${insurerInfo.insurerName}
-Clinical Data: ${JSON.stringify(clinicalData, null, 2)}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1200
+Clinical Data: ${JSON.stringify(clinicalData, null, 2)}`,
+        responseMimeType: "application/json",
+        maxTokens: 1200,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const preAuth: PreAuthorizationRequest = {
         id: `preauth-${Date.now()}`,
@@ -1779,18 +1702,11 @@ Clinical Data: ${JSON.stringify(clinicalData, null, 2)}`
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant optimizing healthcare facility resources including rooms, equipment, and clinician schedules. Identify conflicts, underutilization, and recommend improvements.
+      const content = await generatePhiSafeText({
+        system: `You are an AI assistant optimizing healthcare facility resources including rooms, equipment, and clinician schedules. Identify conflicts, underutilization, and recommend improvements.
 
-Return JSON with: recommendations (array with type, priority, resource, description, expectedImpact, implementationEffort), conflicts (array with type, severity, description, suggestedResolution), metrics (overallUtilization, peakHours, underutilizedPeriods, efficiencyGain), analysis (string summary).`
-          },
-          {
-            role: "user",
-            content: `Optimize resource utilization:
+Return JSON with: recommendations (array with type, priority, resource, description, expectedImpact, implementationEffort), conflicts (array with type, severity, description, suggestedResolution), metrics (overallUtilization, peakHours, underutilizedPeriods, efficiencyGain), analysis (string summary).`,
+        user: `Optimize resource utilization:
 Facility: ${facilityName}
 Date: ${date}
 Resources: ${JSON.stringify(resources.map(r => ({
@@ -1800,14 +1716,12 @@ Resources: ${JSON.stringify(resources.map(r => ({
   targetUtilization: r.targetUtilization,
   scheduledSlots: r.scheduledSlots.length,
   availableSlots: r.availableSlots.length
-})), null, 2)}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000
+})), null, 2)}`,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const optimization: ResourceOptimization = {
         id: `resource-${Date.now()}`,
@@ -1903,33 +1817,24 @@ Resources: ${JSON.stringify(resources.map(r => ({
     });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant performing chart review and medical coding suggestions. Analyze clinical documentation to suggest appropriate ICD-10, CPT, and HCPCS codes. Identify documentation gaps and compliance issues.
+      const content = await generatePhiSafeText({
+        system: `You are an AI assistant performing chart review and medical coding suggestions. Analyze clinical documentation to suggest appropriate ICD-10, CPT, and HCPCS codes. Identify documentation gaps and compliance issues.
 
 ${NO_CDS_DISCLAIMER}
 
-Return JSON with: suggestedCodes (array with codeType, code, description, confidence, source, rationale, documentationSupport, alternativeCodes), codingAccuracyScore (0-1), documentationQualityScore (0-1), missingDocumentation (array), complianceFlags (array), aiNarrative (string).`
-          },
-          {
-            role: "user",
-            content: `Review this clinical encounter and suggest coding:
+Return JSON with: suggestedCodes (array with codeType, code, description, confidence, source, rationale, documentationSupport, alternativeCodes), codingAccuracyScore (0-1), documentationQualityScore (0-1), missingDocumentation (array), complianceFlags (array), aiNarrative (string).`,
+        user: `Review this clinical encounter and suggest coding:
 Encounter Date: ${encounterData.encounterDate}
 Encounter Type: ${encounterData.encounterType}
 Chief Complaint: ${encounterData.chiefComplaint}
 Documented Diagnoses: ${encounterData.diagnoses.join(", ")}
 Documented Procedures: ${encounterData.procedures.join(", ")}
-Clinical Notes: ${encounterData.clinicalNotes.substring(0, 2000)}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1500
+Clinical Notes: ${encounterData.clinicalNotes.substring(0, 2000)}`,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(content || "{}");
 
       const review: ChartReview = {
         id: `chart-${Date.now()}`,

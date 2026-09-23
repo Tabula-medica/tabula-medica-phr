@@ -26,8 +26,10 @@ import { phrService } from './services/phr-service';
 import { providerAdminService } from './services/provider-admin-service';
 import { checkDrugInteractions } from './clinical-decision-support-service';
 import { insertComprehensiveIntakeSchema } from '@shared/schema';
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 // Rate limiting store
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -75,7 +77,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 // Patient access verification middleware
 function verifyPatientAccess(req: Request, res: Response, next: NextFunction) {
   const requestedPatientId = req.params.patientId || req.body?.patientId;
-  const userId = (req.user as any)?.id || req.headers["x-session-id"] || "system";
+  const userId = getUserId(req);
   
   // Log PHI access attempt
   console.log(`[HIPAA-AUDIT] PHI access - User: ${userId}, PatientId: ${requestedPatientId}, Action: ${req.method} ${req.path}, IP: ${req.ip}`);
@@ -1025,7 +1027,7 @@ router.post("/uscdi-v5/exchange", async (req: Request, res: Response) => {
       action: "USCDI_V5_EXCHANGE",
       resourceType: "USCDIExchange",
       resourceId: patientId,
-      actorId: requestingProvider || "system",
+      actorId: getUserId(req),
       actorRole: "data_exchange",
       timestamp: new Date().toISOString(),
       details: { dataClasses: requestedDataClasses, purpose },
@@ -1201,7 +1203,7 @@ router.post("/tefca/query", async (req: Request, res: Response) => {
       action: "TEFCA_QUERY",
       resourceType: "TEFCAQuery",
       resourceId: requestId,
-      actorId: requestingUser?.name || "system",
+      actorId: getUserId(req),
       actorRole: "tefca_exchange",
       timestamp: new Date().toISOString(),
       details: { purpose, patientName: `${patientDemographics.lastName}, ${patientDemographics.firstName}` },
@@ -2291,8 +2293,8 @@ router.post("/messaging/conversation/:conversationId/read", rateLimiter, (req: R
   try {
     const { conversationId } = req.params;
     const { userId } = req.body;
-    secureMessagingService.markAsRead(conversationId, userId || "patient-001");
-    logAudit("messages_marked_read", userId || "patient-001", "SecureMessaging", req);
+    secureMessagingService.markAsRead(conversationId, getUserId(req));
+    logAudit("messages_marked_read", getUserId(req), "SecureMessaging", req);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to mark as read" });
@@ -3278,12 +3280,7 @@ router.get("/provider-admin/audit-log", (req: Request, res: Response) => {
 
 // ========== Provider Medication Adherence Routes ==========
 import { medicationAdherenceService } from "./services/medication-adherence-service";
-import OpenAI from "openai";
-
-const adherenceOpenai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 const adherenceAiCache = new Map<string, { data: string; timestamp: number }>();
 const AI_CACHE_TTL = 5 * 60 * 1000;
@@ -3450,17 +3447,12 @@ ${flagsText}
 
 Provide an observational summary of this patient's medication adherence patterns.`;
 
-    const response = await adherenceOpenai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 800,
+    const insight = (await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: 800,
       temperature: 0.3,
-    });
-
-    const insight = response.choices[0]?.message?.content || "Unable to generate adherence insight at this time.";
+    })) || "Unable to generate adherence insight at this time.";
 
     adherenceAiCache.set(cacheKey, { data: insight, timestamp: Date.now() });
 
@@ -3671,18 +3663,6 @@ ${intakeHistory.map(i => `  ${i.submittedAt} via ${i.source} - Sections: ${i.sec
 `
       : "";
 
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined;
-
-    if (!apiKey) {
-      const fallbackSummary = generateFallbackSummary(patient, intakeHistory, flags, completedOnboarding);
-      patientSummaryCache.set(patientId, { summary: fallbackSummary, generatedAt: new Date().toISOString(), expiresAt: Date.now() + 300000 });
-      logAuditEntry({ action: "PROVIDER_GENERATE_AI_PATIENT_SUMMARY_FALLBACK", resourceType: "AIPatientSummary", resourceId: patientId, actorId: "provider", actorRole: "provider", timestamp: new Date().toISOString(), details: { method: "fallback" }, outcome: "success", ipAddress: req.ip || "unknown" });
-      return res.json({ summary: fallbackSummary, generatedAt: new Date().toISOString(), cached: false });
-    }
-
-    const openaiClient = new OpenAI({ apiKey, baseURL });
-
     const systemPrompt = `You are a clinical data summarization assistant generating concise patient record summaries for healthcare providers.
 
 CRITICAL NO-CDS COMPLIANCE REQUIREMENTS:
@@ -3723,17 +3703,12 @@ PATIENT RECORD (from provider system):
 ${onboardingContext}${labContext}${vitalContext}${intakeContext}
 ${flags.length > 0 ? `CLINICAL FLAGS: ${flags.join("; ")}` : ""}`;
 
-    const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 1200,
+    const summary = (await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: 1200,
       temperature: 0.3,
-    });
-
-    const summary = completion.choices[0]?.message?.content || "Unable to generate summary.";
+    })) || "Unable to generate summary.";
     const generatedAt = new Date().toISOString();
 
     patientSummaryCache.set(patientId, { summary, generatedAt, expiresAt: Date.now() + 300000 });

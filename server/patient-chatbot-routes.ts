@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -304,16 +305,11 @@ Draft a professional, clear message the patient can send to their healthcare pro
 
 Keep it under 200 words.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are helping a patient draft a message to their healthcare provider. Be professional, clear, and concise. Do NOT provide medical advice." },
-          { role: "user", content: prompt }
-        ],
-        max_completion_tokens: 512,
-      });
-
-      const draft = response.choices[0]?.message?.content || "";
+      const draft = await generatePhiSafeText({
+        system: "You are helping a patient draft a message to their healthcare provider. Be professional, clear, and concise. Do NOT provide medical advice.",
+        user: prompt,
+        maxTokens: 512,
+      }) || "";
 
       res.json({
         draft,

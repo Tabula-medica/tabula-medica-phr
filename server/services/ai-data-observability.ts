@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
@@ -20,10 +19,7 @@ import type {
   DataObservabilityDashboard,
 } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data observability assistant analyzing data pipeline health and anomalies.
 
@@ -653,13 +649,9 @@ class AIDataObservabilityService {
     };
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this data pipeline anomaly and provide root cause analysis:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this data pipeline anomaly and provide root cause analysis:
 
 Anomaly Type: ${anomaly.type}
 Severity: ${anomaly.severity}
@@ -684,13 +676,10 @@ Provide analysis as JSON:
   "impactAssessment": "Business and data impact description",
   "recommendedActions": ["Action 1", "Action 2"]
 }`,
-          },
-        ],
-        max_tokens: 800,
+        maxTokens: 800,
         temperature: 0.3,
-      });
+      }) || "";
 
-      const content = response.choices[0]?.message?.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         aiAnalysis = JSON.parse(jsonMatch[0]);
@@ -1427,13 +1416,9 @@ Provide analysis as JSON:
     };
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Perform enhanced root cause analysis for this data pipeline anomaly:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Perform enhanced root cause analysis for this data pipeline anomaly:
 
 Anomaly: ${sanitizePhi(anomaly.title)}
 Type: ${anomaly.type}
@@ -1459,13 +1444,10 @@ Provide comprehensive analysis as JSON:
     {"action": "Action description", "priority": "high", "estimatedEffort": "2 hours", "expectedOutcome": "Expected result"}
   ]
 }`,
-          },
-        ],
-        max_tokens: 1200,
+        maxTokens: 1200,
         temperature: 0.3,
-      });
+      }) || "";
 
-      const content = response.choices[0]?.message?.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         aiAnalysis = JSON.parse(jsonMatch[0]);

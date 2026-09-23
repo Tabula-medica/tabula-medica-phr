@@ -1,6 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY });
+import { generatePhiSafeText } from "./ai-gateway";
 
 interface CapabilityStatementResource {
   type: string;
@@ -605,13 +603,6 @@ class AIFHIRAPIIntegrationService {
       throw new Error(`Resource type ${resourceType} not found on source server`);
     }
 
-    // Check if OpenAI is properly configured before attempting AI generation
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    if (!apiKey || apiKey.includes('DUMMY') || apiKey.length < 20) {
-      console.log('[AIFHIRAPIIntegration] OpenAI not configured, using fallback suggestions');
-      return this.getFallbackSuggestions(resourceType);
-    }
-
     try {
       const prompt = `You are an expert in FHIR data mapping and healthcare interoperability. Analyze the following FHIR resource type and generate mapping suggestions.
 
@@ -642,17 +633,12 @@ For mappings: { "sourcePath": "...", "targetPath": "...", "required": true/false
 For transformations: { "name": "...", "type": "terminology|format|structure", "sourcePath": "...", "targetPath": "...", "config": {...} }
 For validations: { "name": "...", "type": "required|format|range|reference", "path": "...", "severity": "error|warning", "message": "..." }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a FHIR interoperability expert. Always respond with valid JSON only." },
-          { role: "user", content: prompt }
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are a FHIR interoperability expert. Always respond with valid JSON only.",
+        user: prompt,
         temperature: 0.3,
-        max_tokens: 2000
-      });
-
-      const content = response.choices[0]?.message?.content || '[]';
+        maxTokens: 2000
+      }) || '[]';
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       const suggestions = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 
@@ -740,18 +726,6 @@ For validations: { "name": "...", "type": "required|format|range|reference", "pa
       throw new Error(`Mapping ${mappingId} not found`);
     }
 
-    // Check if OpenAI is properly configured before attempting AI generation
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    if (!apiKey || apiKey.includes('DUMMY') || apiKey.length < 20) {
-      console.log('[AIFHIRAPIIntegration] OpenAI not configured, using fallback code generation');
-      return {
-        language,
-        code: this.getFallbackCode(mapping, language),
-        dependencies: this.getFallbackDependencies(language),
-        instructions: 'Generated using fallback template. Configure OpenAI API for AI-powered generation.'
-      };
-    }
-
     try {
       const prompt = `Generate ${language} code for FHIR data integration based on this mapping configuration:
 
@@ -786,17 +760,12 @@ Response format (JSON):
   "instructions": "Setup and usage instructions"
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are an expert software engineer specializing in healthcare interoperability. Generate clean, production-ready code." },
-          { role: "user", content: prompt }
-        ],
+      const content = await generatePhiSafeText({
+        system: "You are an expert software engineer specializing in healthcare interoperability. Generate clean, production-ready code.",
+        user: prompt,
         temperature: 0.2,
-        max_tokens: 3000
-      });
-
-      const content = response.choices[0]?.message?.content || '{}';
+        maxTokens: 3000
+      }) || '{}';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       const result = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
@@ -1729,8 +1698,7 @@ def get_path(obj: Dict[str, Any], path: str) -> Optional[Any]:
     }));
 
     let aiInsights = 'Schema analysis completed based on capability statement.';
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    if (apiKey && !apiKey.includes('DUMMY') && apiKey.length >= 20) {
+    {
       try {
         const prompt = `Analyze this FHIR server's capabilities and provide insights:
 Server: ${discovery.serverName}
@@ -1743,16 +1711,12 @@ Provide a brief analysis (2-3 sentences) about:
 2. Interoperability considerations
 3. Any recommendations for integration`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: "You are a FHIR interoperability expert. Provide concise, actionable insights." },
-            { role: "user", content: prompt }
-          ],
+        aiInsights = await generatePhiSafeText({
+          system: "You are a FHIR interoperability expert. Provide concise, actionable insights.",
+          user: prompt,
           temperature: 0.3,
-          max_tokens: 300
-        });
-        aiInsights = response.choices[0]?.message?.content || aiInsights;
+          maxTokens: 300
+        }) || aiInsights;
       } catch (error) {
         console.error('[AIFHIRAPIIntegration] AI schema analysis failed:', error);
       }
@@ -1793,8 +1757,7 @@ Provide a brief analysis (2-3 sentences) about:
       throw new Error(`Resource type ${resourceType} not found on source server`);
     }
 
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    if (apiKey && !apiKey.includes('DUMMY') && apiKey.length >= 20) {
+    {
       try {
         const prompt = `Generate field mappings from FHIR ${resourceType} resource to a standard local EHR system.
 
@@ -1816,17 +1779,12 @@ Generate 5-8 practical field mappings. Response must be valid JSON array:
   }
 ]`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: "You are a FHIR data mapping expert. Return only valid JSON." },
-            { role: "user", content: prompt }
-          ],
+        const content = await generatePhiSafeText({
+          system: "You are a FHIR data mapping expert. Return only valid JSON.",
+          user: prompt,
           temperature: 0.3,
-          max_tokens: 1500
-        });
-
-        const content = response.choices[0]?.message?.content || '[]';
+          maxTokens: 1500
+        }) || '[]';
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         const rawMappings = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 

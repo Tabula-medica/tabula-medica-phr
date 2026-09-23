@@ -1,13 +1,8 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import crypto from "crypto";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return crypto.createHash("sha256").update(id).digest("hex").slice(0, 16);
@@ -248,19 +243,15 @@ ${gender ? `Gender: ${gender}` : ""}
 Based on this description, suggest conditions the patient may have been previously diagnosed with that they should document in their health record. Return as JSON array.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500,
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
-      
+      const parsed = JSON.parse(content || "{}");
+
       res.json({
         suggestions: parsed.suggestions || parsed.conditions || [],
         disclaimer: "These suggestions are for record-keeping purposes only and are NOT medical diagnoses. Please verify with your healthcare provider.",
@@ -300,19 +291,15 @@ ${inputText ? `Description: ${inputText}` : ""}
 Suggest common medications associated with this. Return as JSON array.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 500,
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
-      
+      const parsed = JSON.parse(content || "{}");
+
       res.json({
         suggestions: parsed.suggestions || parsed.medications || [],
         disclaimer: "These suggestions are for record-keeping purposes only. Always verify medications with your pharmacist or healthcare provider.",
@@ -351,19 +338,15 @@ Context: ${JSON.stringify(context || {})}
 Suggest completions for this field.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 200,
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 200,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
-      
+      const parsed = JSON.parse(content || "{}");
+
       res.json({
         suggestions: parsed.suggestions || [],
         confidence: parsed.confidence || 0.5,
@@ -629,19 +612,15 @@ Last synced: ${connectedData.lastSync}
 Prepare structured pre-fill data for the patient onboarding form.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
+      const content = await generatePhiSafeText({
+        system: systemPrompt,
+        user: userPrompt,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
-      
+      const parsed = JSON.parse(content || "{}");
+
       logHipaaAudit("AI_PREFILL_GENERATED", patientId || "anonymous", `Pre-fill data generated from ${connectedData.source}`);
       
       res.json({
@@ -1003,20 +982,15 @@ NO-CDS DISCLAIMER: You provide technical support only. You do NOT provide medica
 
 Be friendly, patient, and focus on practical step-by-step guidance.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `The user is trying to connect ${sourceType} and asks: "${userQuestion}"
+        const aiAnswer = (await generatePhiSafeText({
+          system: systemPrompt,
+          user: `The user is trying to connect ${sourceType} and asks: "${userQuestion}"
 
 Connection guide available: ${JSON.stringify(guide)}
 
-Please provide a helpful, friendly answer.` },
-          ],
-          max_tokens: 400,
-        });
-
-        const aiAnswer = response.choices[0]?.message?.content || "I'd be happy to help you connect your health data. Could you provide more details about what you're trying to do?";
+Please provide a helpful, friendly answer.`,
+          maxTokens: 400,
+        })) || "I'd be happy to help you connect your health data. Could you provide more details about what you're trying to do?";
         
         res.json({
           success: true,

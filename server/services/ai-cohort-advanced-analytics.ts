@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 import { getCohort, getCohortResults, type PatientMatch } from "./ai-patient-cohort-builder";
 
@@ -167,15 +167,11 @@ export async function discoverPatterns(cohortId: string): Promise<PatternDiscove
   let methodology = "";
   let limitations: string[] = [];
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_PATTERN_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this patient cohort for hidden patterns and correlations.
+      const content = await generatePhiSafeText({
+        system: NO_CDS_PATTERN_PROMPT,
+        user: `Analyze this patient cohort for hidden patterns and correlations.
 
 Cohort: "${cohort.name}"
 Patient count: ${patients.length}
@@ -195,12 +191,9 @@ Provide population-level pattern analysis in JSON format:
 }
 
 Focus on research insights only. No clinical recommendations.`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         patterns = (parsed.patterns || []).map((p: any) => ({
@@ -218,7 +211,7 @@ Focus on research insights only. No clinical recommendations.`,
         limitations = (parsed.limitations || []).map((l: string) => enforceCdsCompliance(l));
       }
     } catch (error) {
-      console.error("[AdvancedAnalytics] OpenAI pattern discovery failed:", error);
+      console.error("[AdvancedAnalytics] AI pattern discovery failed:", error);
     }
   }
 
@@ -359,15 +352,11 @@ export async function performCausalInference(
   let methodology = "";
   let researchImplications: string[] = [];
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_CAUSAL_PROMPT },
-          {
-            role: "user",
-            content: `Perform causal inference analysis for this cohort.
+      const content = await generatePhiSafeText({
+        system: NO_CDS_CAUSAL_PROMPT,
+        user: `Perform causal inference analysis for this cohort.
 
 Cohort: "${cohort.name}"
 Patient count: ${patients.length}
@@ -390,12 +379,9 @@ Provide causal analysis results in JSON format:
 }
 
 IMPORTANT: Focus on statistical associations and research implications only. Do NOT make clinical recommendations.`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         results = parsed.results;
@@ -410,7 +396,7 @@ IMPORTANT: Focus on statistical associations and research implications only. Do 
         researchImplications = (parsed.researchImplications || []).map((r: string) => enforceCdsCompliance(r));
       }
     } catch (error) {
-      console.error("[AdvancedAnalytics] OpenAI causal inference failed:", error);
+      console.error("[AdvancedAnalytics] AI causal inference failed:", error);
     }
   }
 

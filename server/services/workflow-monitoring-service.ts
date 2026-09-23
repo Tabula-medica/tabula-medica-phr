@@ -1,16 +1,9 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-const openaiBaseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-let openai: OpenAI | null = null;
-if (openaiApiKey && openaiBaseURL) {
-  openai = new OpenAI({
-    apiKey: openaiApiKey,
-    baseURL: openaiBaseURL,
-  });
-}
+// PHI-bearing generation now runs through the Vertex/BAA gateway, which is always
+// available at runtime; the previous OpenAI-key gate no longer applies.
+const aiEnabled = true;
 
 export interface StepExecution {
   stepId: string;
@@ -497,7 +490,7 @@ export async function analyzeExecutionWithAI(executionId: string): Promise<{
   const execution = getExecutionDetails(executionId);
   if (!execution) return null;
 
-  if (!openai) {
+  if (!aiEnabled) {
     return {
       summary: `Workflow "${execution.workflowName}" ${execution.status}. Processed ${execution.metrics.resourcesInput} resources with ${execution.metrics.errorsEncountered} errors.`,
       bottlenecks: execution.steps
@@ -509,36 +502,26 @@ export async function analyzeExecutionWithAI(executionId: string): Promise<{
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a workflow optimization analyst. Analyze workflow execution data and provide insights.
-Return JSON with: summary (string), bottlenecks (array of strings), recommendations (array of strings), riskAssessment (string).`
-        },
-        {
-          role: "user",
-          content: `Analyze this workflow execution:\n${JSON.stringify({
-            name: execution.workflowName,
-            status: execution.status,
-            duration: execution.totalDurationMs,
-            steps: execution.steps.map(s => ({
-              name: s.stepName,
-              status: s.status,
-              duration: s.durationMs,
-              resources: s.resourcesProcessed,
-              error: s.error
-            })),
-            metrics: execution.metrics
-          }, null, 2)}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+    const content = await generatePhiSafeText({
+      system: `You are a workflow optimization analyst. Analyze workflow execution data and provide insights.
+Return JSON with: summary (string), bottlenecks (array of strings), recommendations (array of strings), riskAssessment (string).`,
+      user: `Analyze this workflow execution:\n${JSON.stringify({
+        name: execution.workflowName,
+        status: execution.status,
+        duration: execution.totalDurationMs,
+        steps: execution.steps.map(s => ({
+          name: s.stepName,
+          status: s.status,
+          duration: s.durationMs,
+          resources: s.resourcesProcessed,
+          error: s.error
+        })),
+        metrics: execution.metrics
+      }, null, 2)}`,
+      responseMimeType: "application/json",
+      maxTokens: 500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No AI response");
 
     return JSON.parse(content);
@@ -596,7 +579,7 @@ export function simulateStepProgress(executionId: string, stepId: string, progre
 export function getServiceMetadata() {
   return {
     version: "1.0.0",
-    aiEnabled: !!openai,
+    aiEnabled,
     features: [
       "Real-time execution tracking",
       "Step-by-step visualization",
@@ -609,4 +592,4 @@ export function getServiceMetadata() {
   };
 }
 
-console.log("[WorkflowMonitoring] Service initialized with", openai ? "AI-powered" : "rule-based", "analysis");
+console.log("[WorkflowMonitoring] Service initialized with", aiEnabled ? "AI-powered" : "rule-based", "analysis");
