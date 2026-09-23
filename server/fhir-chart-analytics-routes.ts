@@ -1,12 +1,15 @@
 import { Router, Request, Response } from "express";
 import { fhirChartAnalyticsService } from "./services/fhir-chart-analytics-service";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 router.get("/medications/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const data = await fhirChartAnalyticsService.getMedicationChartData(patientId, userId);
     res.json(data);
   } catch (error) {
@@ -20,7 +23,7 @@ router.get("/medications/:patientId", async (req: Request, res: Response) => {
 router.get("/conditions/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const data = await fhirChartAnalyticsService.getConditionChartData(patientId, userId);
     res.json(data);
   } catch (error) {
@@ -34,7 +37,7 @@ router.get("/conditions/:patientId", async (req: Request, res: Response) => {
 router.get("/encounters/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const data = await fhirChartAnalyticsService.getEncounterChartData(patientId, userId);
     res.json(data);
   } catch (error) {
@@ -48,7 +51,7 @@ router.get("/encounters/:patientId", async (req: Request, res: Response) => {
 router.get("/health-trends/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const data = await fhirChartAnalyticsService.getPatientHealthTrends(patientId, userId);
     res.json(data);
   } catch (error) {
@@ -62,7 +65,7 @@ router.get("/health-trends/:patientId", async (req: Request, res: Response) => {
 router.get("/provider-dashboard/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const data = await fhirChartAnalyticsService.getProviderDashboardData(patientId, userId);
     res.json(data);
   } catch (error) {
@@ -76,7 +79,7 @@ router.get("/provider-dashboard/:patientId", async (req: Request, res: Response)
 router.get("/patient-dashboard/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const data = await fhirChartAnalyticsService.getPatientDashboardData(patientId, userId);
     res.json(data);
   } catch (error) {

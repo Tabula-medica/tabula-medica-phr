@@ -14,6 +14,7 @@ import {
   type MfaEmailEvent,
 } from "./services/mfa-notification-service";
 import { isEmailConfigured } from "./services/email-service";
+import { mfaRateLimiter } from "./security/api-protection";
 
 const GCIP_SECRET_SENTINEL = "gcip-managed";
 
@@ -207,9 +208,12 @@ export function registerMfaRoutes(app: Express): void {
     }
   );
 
+  // Rate-limited: recovery codes are guessable secrets, and this is the
+  // one MFA endpoint that verifies one against a stored hash.
   app.post(
     "/api/auth/mfa/recovery-codes/consume",
     isAuthenticated,
+    mfaRateLimiter,
     async (req: Request, res: Response) => {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthenticated" });

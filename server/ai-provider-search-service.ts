@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 export interface SearchSuggestion {
   text: string;
@@ -139,13 +134,19 @@ class AIProviderSearchService {
   }
 
   async performSemanticSearch(query: string): Promise<SemanticSearchResult> {
+    // PHI SAFETY (P0): a patient's free-text search query can contain PHI
+    // ("cardiologist for my HIV meds"). This service's OpenAI client has no BAA,
+    // so by default we interpret the query on-device via the keyword mapper and
+    // send NOTHING to a third-party LLM. The LLM path only runs when explicitly
+    // opted in with a BAA-covered provider (PROVIDER_SEARCH_LLM=1, which must
+    // point AI_INTEGRATIONS_OPENAI_* at a Vertex/BAA gateway). Do not enable
+    // without a signed BAA.
+    if (process.env.PROVIDER_SEARCH_LLM !== "1") {
+      return this.fallbackSemanticSearch(query);
+    }
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare search assistant. Analyze patient search queries and extract relevant medical specialties, conditions, and search terms.
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare search assistant. Analyze patient search queries and extract relevant medical specialties, conditions, and search terms.
 
 Available specialties: ${Object.keys(SPECIALTY_MAPPINGS).join(", ")}
 
@@ -157,18 +158,12 @@ Respond with JSON only:
   "searchTerms": ["term1", "term2"],
   "patientNeedsSummary": "brief summary of patient's likely healthcare needs"
 }`,
-          },
-          {
-            role: "user",
-            content: `Patient search query: "${query}"`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        user: `Patient search query: "${query}"`,
+        responseMimeType: "application/json",
         temperature: 0.3,
-        max_tokens: 500,
+        maxTokens: 500,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.fallbackSemanticSearch(query);
       }

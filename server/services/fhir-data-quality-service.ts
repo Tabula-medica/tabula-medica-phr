@@ -1,8 +1,8 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 export type ValidationSeverity = "error" | "warning" | "info";
 export type ValidationCategory = "required_field" | "data_type" | "timestamp" | "reference" | "code_system" | "consistency" | "completeness" | "format";
@@ -569,8 +569,8 @@ class FHIRDataQualityService {
 
     const resource = this.sampleFHIRResources.find(r => r.id === issue.resourceId);
 
-    if (!openai) {
-      console.log("[FHIRDataQuality] OpenAI not configured, using fallback suggestions");
+    if (!aiEnabled) {
+      console.log("[FHIRDataQuality] AI not configured, using fallback suggestions");
       return this.generateFallbackSuggestion(issue, resource);
     }
 
@@ -600,14 +600,13 @@ Provide a JSON response with:
 Return ONLY valid JSON, no markdown.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
+      const response = await generatePhiSafeText({
+        user: prompt,
         temperature: 0.2,
-        max_tokens: 500
+        maxTokens: 500
       });
 
-      const content = response.choices[0]?.message?.content?.trim() || "{}";
+      const content = (response || "{}").trim();
       const cleanContent = content.replace(/```json\n?|```\n?/g, "").trim();
       const parsed = JSON.parse(cleanContent);
 

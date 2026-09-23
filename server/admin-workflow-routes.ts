@@ -1,11 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 interface ClinicalNote {
   id: string;
@@ -156,13 +151,10 @@ Provide coding suggestions in the following JSON format:
 
 IMPORTANT: These are administrative suggestions only. A certified medical coder must review and validate all codes before submission. Include both diagnosis codes (ICD-10) and procedure codes (CPT) where applicable.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-      });
-
-      const responseText = completion.choices[0]?.message?.content || "{}";
+      const responseText = (await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+      })) || "{}";
       let suggestions: CodingSuggestion[] = [];
 
       try {
@@ -246,13 +238,10 @@ Provide scheduling suggestions in the following JSON format:
 
 IMPORTANT: These are administrative scheduling suggestions only. Clinical staff must confirm all appointments based on clinical judgment.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-      });
-
-      const responseText = completion.choices[0]?.message?.content || "{}";
+      const responseText = (await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+      })) || "{}";
       let suggestions: SchedulingSuggestion[] = [];
 
       try {
@@ -333,13 +322,10 @@ Provide the referral draft in the following JSON format:
 
 IMPORTANT: This is a DRAFT only. The referring physician must review, modify as needed, and sign the referral before sending.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-      });
-
-      const responseText = completion.choices[0]?.message?.content || "{}";
+      const responseText = (await generatePhiSafeText({
+        user: prompt,
+        responseMimeType: "application/json",
+      })) || "{}";
       let referralDraft: Partial<ReferralDraft>;
 
       try {

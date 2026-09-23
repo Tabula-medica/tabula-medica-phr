@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PatientHistorySummary {
   overview: string;
@@ -107,14 +102,12 @@ Respond in JSON format matching this structure:
   "careGaps": ["string"]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -165,14 +158,12 @@ Respond in JSON format:
   "followUpDetails": "string"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -226,13 +217,10 @@ ${summaries.map((s) => `- ${s.date}: ${s.chiefComplaint} - ${s.summary}`).join("
 
 Respond with just a brief factual observation about the pattern of visits.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [{ role: "user", content: patternPrompt }],
-        max_completion_tokens: 200,
-      });
-
-      overallPattern = response.choices[0]?.message?.content || "";
+      overallPattern = await generatePhiSafeText({
+        user: patternPrompt,
+        maxTokens: 200,
+      }) || "";
     } catch (error) {
       console.error("[AIMedicalAssistant] Error generating pattern:", error);
       overallPattern = `${consultations.length} consultations reviewed.`;

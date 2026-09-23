@@ -1,12 +1,14 @@
 import { Router, Request, Response } from "express";
 import { diabetesManagementService } from "./services/diabetes-management-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.get("/dashboard/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const summary = await diabetesManagementService.getDashboardSummary(profileId, userId);
     res.json(summary);
@@ -19,7 +21,7 @@ router.get("/glucose/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
     const { days, context } = req.query;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getGlucoseEntries(profileId, userId, {
       days: days ? parseInt(days as string) : undefined,
@@ -34,7 +36,7 @@ router.get("/glucose/:profileId", async (req: Request, res: Response) => {
 router.post("/glucose/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const { value, unit, context, timestamp, source, notes } = req.body;
     
@@ -60,7 +62,7 @@ router.get("/events/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
     const { days } = req.query;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getHypoHyperEvents(profileId, userId, days ? parseInt(days as string) : undefined);
     res.json(result);
@@ -72,7 +74,7 @@ router.get("/events/:profileId", async (req: Request, res: Response) => {
 router.post("/events/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const { eventType, severity, timestamp, symptoms, context, actionTaken, glucoseValue, glucoseUnit, resolved, notes } = req.body;
     
@@ -101,7 +103,7 @@ router.post("/events/:profileId", async (req: Request, res: Response) => {
 router.get("/medications/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getMedications(profileId, userId);
     res.json(result);
@@ -113,7 +115,7 @@ router.get("/medications/:profileId", async (req: Request, res: Response) => {
 router.post("/medications/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const med = await diabetesManagementService.addMedication(profileId, userId, req.body);
     res.status(201).json(med);
@@ -125,7 +127,7 @@ router.post("/medications/:profileId", async (req: Request, res: Response) => {
 router.post("/medications/:profileId/adherence", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const adherence = await diabetesManagementService.logMedicationAdherence(profileId, userId, req.body);
     res.status(201).json(adherence);
@@ -138,7 +140,7 @@ router.get("/labs/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
     const { type } = req.query;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getLabResults(profileId, userId, type as any);
     res.json(result);
@@ -150,7 +152,7 @@ router.get("/labs/:profileId", async (req: Request, res: Response) => {
 router.get("/labs/:profileId/:labId/explain", async (req: Request, res: Response) => {
   try {
     const { profileId, labId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.explainLabResult(profileId, userId, labId);
     res.json(result);
@@ -162,7 +164,7 @@ router.get("/labs/:profileId/:labId/explain", async (req: Request, res: Response
 router.get("/tasks/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getCareTasks(profileId, userId);
     res.json(result);
@@ -174,7 +176,7 @@ router.get("/tasks/:profileId", async (req: Request, res: Response) => {
 router.patch("/tasks/:profileId/:taskId", async (req: Request, res: Response) => {
   try {
     const { profileId, taskId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const task = await diabetesManagementService.updateCareTask(profileId, userId, taskId, req.body);
     
@@ -191,7 +193,7 @@ router.patch("/tasks/:profileId/:taskId", async (req: Request, res: Response) =>
 router.post("/tasks/:profileId/:taskId/complete", async (req: Request, res: Response) => {
   try {
     const { profileId, taskId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const task = await diabetesManagementService.completeTask(profileId, userId, taskId);
     
@@ -208,7 +210,7 @@ router.post("/tasks/:profileId/:taskId/complete", async (req: Request, res: Resp
 router.get("/complications/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getComplications(profileId, userId);
     res.json(result);
@@ -220,7 +222,7 @@ router.get("/complications/:profileId", async (req: Request, res: Response) => {
 router.post("/complications/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const comp = await diabetesManagementService.addComplication(profileId, userId, req.body);
     res.status(201).json(comp);
@@ -232,7 +234,7 @@ router.post("/complications/:profileId", async (req: Request, res: Response) => 
 router.get("/screenings/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getScreenings(profileId, userId);
     res.json(result);
@@ -244,7 +246,7 @@ router.get("/screenings/:profileId", async (req: Request, res: Response) => {
 router.get("/glucose-ranges/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const result = await diabetesManagementService.getGlucoseRanges(profileId, userId);
     res.json(result);
@@ -256,7 +258,7 @@ router.get("/glucose-ranges/:profileId", async (req: Request, res: Response) => 
 router.patch("/glucose-ranges/:profileId/:rangeId", async (req: Request, res: Response) => {
   try {
     const { profileId, rangeId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const range = await diabetesManagementService.updateGlucoseRange(profileId, userId, rangeId, req.body);
     
@@ -273,7 +275,7 @@ router.patch("/glucose-ranges/:profileId/:rangeId", async (req: Request, res: Re
 router.post("/packet/:profileId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     
     const options = req.body;
     

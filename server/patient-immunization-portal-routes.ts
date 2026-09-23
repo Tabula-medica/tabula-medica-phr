@@ -2,13 +2,13 @@ import { Router } from "express";
 import { patientImmunizationPortalService } from "./services/patient-immunization-portal-service";
 import { insertIISConsentSchema, insertPatientPortalMessageSchema } from "@shared/schema";
 import { isAuthenticated } from "./replit_integrations/auth/replitAuth";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
 
-router.get("/summary", isAuthenticated, async (req, res) => {
+router.get("/summary", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const result = await patientImmunizationPortalService.getPortalSummary(patientId);
     res.json(result);
   } catch (error) {
@@ -17,10 +17,9 @@ router.get("/summary", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/immunizations", isAuthenticated, async (req, res) => {
+router.get("/immunizations", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const result = await patientImmunizationPortalService.getPatientImmunizations(patientId);
     res.json(result);
   } catch (error) {
@@ -29,10 +28,9 @@ router.get("/immunizations", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/iis-connections", isAuthenticated, async (req, res) => {
+router.get("/iis-connections", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const result = await patientImmunizationPortalService.getIISConnections(patientId);
     res.json(result);
   } catch (error) {
@@ -41,10 +39,9 @@ router.get("/iis-connections", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/consents", isAuthenticated, async (req, res) => {
+router.get("/consents", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const result = await patientImmunizationPortalService.getPatientConsents(patientId);
     res.json(result);
   } catch (error) {
@@ -53,11 +50,10 @@ router.get("/consents", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/consents", isAuthenticated, async (req, res) => {
+router.post("/consents", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
-    
+    const patientId = getUserId(req);
+
     const validation = insertIISConsentSchema.safeParse({
       ...req.body,
       patientId,
@@ -87,10 +83,9 @@ router.post("/consents", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/consents/:consentId/revoke", isAuthenticated, async (req, res) => {
+router.post("/consents/:consentId/revoke", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const { consentId } = req.params;
     const { reason } = req.body;
 
@@ -109,10 +104,9 @@ router.post("/consents/:consentId/revoke", isAuthenticated, async (req, res) => 
   }
 });
 
-router.get("/messages", isAuthenticated, async (req, res) => {
+router.get("/messages", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const status = req.query.status as string | undefined;
     
     const result = await patientImmunizationPortalService.getPatientMessages(patientId, status);
@@ -123,10 +117,9 @@ router.get("/messages", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/messages/:messageId/read", isAuthenticated, async (req, res) => {
+router.post("/messages/:messageId/read", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const { messageId } = req.params;
 
     const result = await patientImmunizationPortalService.markMessageAsRead(patientId, messageId);
@@ -140,10 +133,9 @@ router.post("/messages/:messageId/read", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/messages/:messageId/archive", isAuthenticated, async (req, res) => {
+router.post("/messages/:messageId/archive", requireUser, async (req, res) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const { messageId } = req.params;
 
     const result = await patientImmunizationPortalService.archiveMessage(patientId, messageId);
@@ -157,7 +149,26 @@ router.post("/messages/:messageId/archive", isAuthenticated, async (req, res) =>
   }
 });
 
-router.post("/messages", isAuthenticated, async (req, res) => {
+router.post("/messages", requireUser, async (req, res) => {
+  try {
+    const validation = insertPatientPortalMessageSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({
+        error: "Invalid message data",
+        details: validation.error.errors
+      });
+    }
+
+    const result = await patientImmunizationPortalService.sendMessageFromClinician(validation.data);
+    res.status(201).json(result);
+  } catch (error) {
+    console.error("Error sending message:", error);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+router.post("/messages/send", requireUser, async (req, res) => {
   try {
     const validation = insertPatientPortalMessageSchema.safeParse(req.body);
     
@@ -176,35 +187,16 @@ router.post("/messages", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/messages/send", isAuthenticated, async (req, res) => {
+router.post("/access-link", requireUser, async (req, res) => {
   try {
-    const validation = insertPatientPortalMessageSchema.safeParse(req.body);
-    
-    if (!validation.success) {
-      return res.status(400).json({ 
-        error: "Invalid message data", 
-        details: validation.error.errors 
-      });
-    }
-
-    const result = await patientImmunizationPortalService.sendMessageFromClinician(validation.data);
-    res.status(201).json(result);
-  } catch (error) {
-    console.error("Error sending message:", error);
-    res.status(500).json({ error: "Failed to send message" });
-  }
-});
-
-router.post("/access-link", isAuthenticated, async (req, res) => {
-  try {
-    const user = req.user as any;
-    const patientId = req.body.patientId || user?.claims?.sub || "patient-001";
+    const userId = getUserId(req);
+    const patientId = req.body.patientId || userId;
     const { purpose, maxUses, expiresInHours } = req.body;
 
     const result = await patientImmunizationPortalService.generateSecureAccessLink(
       patientId,
       purpose || "one_time_access",
-      user?.claims?.sub || "system",
+      userId,
       maxUses || 1,
       expiresInHours || 24
     );

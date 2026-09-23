@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 export type CarePlanStatus = "draft" | "active" | "completed" | "on_hold" | "cancelled";
 export type GoalStatus = "not_started" | "in_progress" | "achieved" | "not_achieved" | "cancelled";
@@ -396,19 +391,12 @@ export async function suggestCarePlanImprovements(
   if (!plan) return [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare care plan advisor. Analyze care plans and suggest improvements. 
-Keep suggestions practical, actionable, and patient-friendly. 
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare care plan advisor. Analyze care plans and suggest improvements.
+Keep suggestions practical, actionable, and patient-friendly.
 NEVER give medical advice or recommend specific treatments.
 Focus on process improvements, communication, and adherence strategies.`,
-        },
-        {
-          role: "user",
-          content: `Analyze this care plan and suggest 3-5 improvements:
+      user: `Analyze this care plan and suggest 3-5 improvements:
 
 Title: ${plan.title}
 Condition: ${plan.condition}
@@ -416,14 +404,11 @@ Goals: ${plan.goals.map(g => `${g.title} (${g.status})`).join(", ")}
 Interventions: ${plan.interventions.map(i => `${i.title} (${i.status})`).join(", ")}
 
 Return JSON: {"suggestions": ["suggestion1", "suggestion2", ...]}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
       temperature: 0.4,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const result = JSON.parse(content);
+    const result = JSON.parse(content || "{}");
     return result.suggestions || [];
   } catch (error) {
     console.error("[CarePlan] AI suggestion error:", error);

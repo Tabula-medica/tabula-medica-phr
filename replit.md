@@ -10,8 +10,8 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **Typecheck**: `npm run typecheck`
 *   **Codegen (Drizzle)**: `npm run generate`
 *   **DB Push (Drizzle)**: `npm run db:push`
+*   **Security telemetry / runtime guards (optional)**: `SIEM_HEC_URL` + `SIEM_HEC_TOKEN` (HEC-compatible collector, e.g. CrowdStrike Falcon Next-Gen SIEM — forwarder is off until both are set); `AI_GUARD_MODE` and `SESSION_BINDING_MODE` (`off` | `monitor` | `enforce`, default `monitor`). See `docs/CROWDSTRIKE_2026_PORTFOLIO_HARDENING.md`.
 *   **Required Env Vars**: `RESEND_API_KEY`, `NETWORK_ALERT_EMAIL`, `RESEND_FROM_EMAIL` (for email alerts and MFA security notifications — without `RESEND_API_KEY` no MFA confirmation email is sent, and `GET /api/auth/mfa/status` reports `securityEmailConfigured: false`); optional `APP_PUBLIC_URL` and `SUPPORT_EMAIL` for the links in those emails; GCP credentials for Secret Manager fallback; `AI_DEFAULT_PROVIDER=vertex` (defaults to OpenAI fallback if unset — OpenAI standard tier has **no BAA** and must not touch PHI; Vertex AI runs under the existing GCP BAA and is the HIPAA-compliant default).
-
 ## Stack
 
 *   **Frontend**: React, TypeScript, Wouter (routing), TanStack Query (server state), Shadcn/ui, Radix primitives, Tailwind CSS.
@@ -32,8 +32,10 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **API Contracts**: Defined implicitly by `server/routes/*`
 *   **UI Components**: `client/src/components/`
 *   **Unified Health Summary Panel**: `client/src/components/unified-summary-panel.tsx`
+*   **Longevity & Preventive Health**: protocol module `shared/longevity-preventive.ts` (portable, mirror to WorldEHR), API `server/routes/longevity-preventive-routes.ts`, UI `client/src/components/longevity-preventive-panel.tsx` (PHR tab, clinician chart subtab, `/longevity-preventive-health` page), practice summary `docs/LONGEVITY_PREVENTIVE_HEALTH_PROTOCOL.md`
 *   **Strategic Planning Docs**: `docs/`
 *   **Security Policy**: `client/public/.well-known/security.txt`
+*   **Security layer (identity, AI runtime guard, SIEM forwarder)**: `server/security/` — `session-binding.ts`, `ai-runtime-guard.ts`, `siem-forwarder.ts`; threat model in `threat_model.md`
 
 ## Architecture decisions
 
@@ -55,6 +57,7 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **FHIR R4 API**: Provides USCDI V3 compliant endpoints for external data exchange.
 *   **Document Extraction Pipeline**: Processes medical documents with multi-model AI extraction and human-in-the-loop validation.
 *   **Financial Tools**: Includes insurance learning, drug savings, and uninsured discount platforms.
+*   **Fitness & Remote Patient Monitoring**: Read-only fitness-app connections (Fitbit, Garmin, Oura, Withings, Google Fit, Apple Health, Samsung Health, WHOOP, Polar, Strava via Terra) plus VitalFriend RPM device pairing; clinical-overlap readings feed the same abnormal-range alerting as manually entered vitals.
 *   **Internationalization**: Supports 19 UI languages and over 50 voice/AI languages.
 
 ## User preferences

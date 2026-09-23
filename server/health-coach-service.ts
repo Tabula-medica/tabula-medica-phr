@@ -164,7 +164,6 @@ export async function getHealthCoachResponse(
   userMessage: string,
   conversationHistory: ChatMessage[]
 ): Promise<HealthCoachResponse> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return {
@@ -188,7 +187,6 @@ export async function getHealthCoachResponse(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -397,7 +395,6 @@ export async function getPersonalizedGuidance(
   patientId: string,
   context: PatientContext
 ): Promise<PersonalizedGuidance> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   
   // Build context summary
   const contextSummary = {
@@ -426,7 +423,6 @@ export async function getPersonalizedGuidance(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",

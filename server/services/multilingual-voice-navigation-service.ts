@@ -1,11 +1,6 @@
-import OpenAI from "openai";
 import crypto from "crypto";
 import type { SupportedLanguage } from "./unified-ai-onboarding-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 function hashIdentifier(id: string): string {
   return crypto.createHash("sha256").update(id).digest("hex").slice(0, 16);
@@ -518,16 +513,13 @@ Key behaviors:
 - Keep responses concise for voice (2-3 sentences max)
 - Always include a reminder that you cannot provide medical advice`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: transcript },
-      ],
-      max_completion_tokens: 150,
+    const aiText = await generatePhiSafeText({
+      system: systemPrompt,
+      user: transcript,
+      maxTokens: 150,
     });
 
-    return response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you please try again?";
+    return aiText || "I'm sorry, I didn't understand that. Could you please try again?";
   } catch (error) {
     console.error("[VoiceNav] AI response error:", error);
     return language === "en"

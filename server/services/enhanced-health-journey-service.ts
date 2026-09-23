@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (error) {
-  console.log("[EnhancedHealthJourney] OpenAI client not available, using fallback responses");
-}
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "This information is for educational and motivational purposes only and does NOT constitute clinical decision support or medical advice. Always consult your healthcare provider for personalized medical decisions.";
 
@@ -211,21 +206,11 @@ class EnhancedHealthJourneyService {
   }
 
   private async checkOpenAIAvailability() {
-    if (!openai) {
-      this.openaiAvailable = false;
-      return;
-    }
-    try {
-      await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: "test" }],
-        max_tokens: 5,
-      });
-      this.openaiAvailable = true;
-      console.log("[EnhancedHealthJourney] OpenAI integration active for sentiment analysis");
-    } catch {
-      this.openaiAvailable = false;
-      console.log("[EnhancedHealthJourney] OpenAI not available, using fallback sentiment");
+    this.openaiAvailable = aiEnabled;
+    if (aiEnabled) {
+      console.log("[EnhancedHealthJourney] AI gateway active for sentiment analysis");
+    } else {
+      console.log("[EnhancedHealthJourney] AI not available, using fallback sentiment");
     }
   }
 
@@ -524,31 +509,22 @@ class EnhancedHealthJourneyService {
     let suggestedInterventions: string[] = [];
     let aiGenerated = false;
 
-    if (this.openaiAvailable && openai) {
+    if (this.openaiAvailable) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare sentiment analyzer. Analyze patient messages to understand their emotional state and engagement level. Return JSON with:
+        const response = await generatePhiSafeText({
+          system: `You are a healthcare sentiment analyzer. Analyze patient messages to understand their emotional state and engagement level. Return JSON with:
 - sentiment: one of 'positive', 'neutral', 'negative', 'frustrated', 'motivated', 'confused'
 - score: 0-1 (0=very negative, 1=very positive)
 - indicators: array of emotional indicators detected
 - interventions: array of suggested supportive interventions
 
-Focus on wellness and engagement, NOT clinical diagnosis.`
-            },
-            {
-              role: "user",
-              content: `Analyze this patient message: "${deidentifiedText}"`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 500,
+Focus on wellness and engagement, NOT clinical diagnosis.`,
+          user: `Analyze this patient message: "${deidentifiedText}"`,
+          responseMimeType: "application/json",
+          maxTokens: 500,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(response || "{}");
         sentiment = result.sentiment || 'neutral';
         sentimentScore = result.score || 0.5;
         emotionalIndicators = result.indicators || [];

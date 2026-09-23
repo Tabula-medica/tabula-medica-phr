@@ -11,13 +11,7 @@
  * All generated content includes mandatory disclaimers.
  */
 
-import OpenAI from "openai";
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 // CRITICAL: Informational disclaimer for all AI outputs
 const INFORMATIONAL_DISCLAIMER = `
@@ -350,31 +344,23 @@ class AIFHIRInsightsService {
   }
 
   /**
-   * Call OpenAI for AI-powered insight generation
+   * Call the PHI-safe Vertex (BAA) gateway for AI-powered insight generation
    */
   private async callOpenAI(
     dataType: 'medication' | 'condition' | 'lab' | 'encounter',
     data: any[]
   ): Promise<{ patientSummary: string; trends: TrendItem[]; insights: ClinicalInsight[] }> {
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      throw new Error('OpenAI not configured');
-    }
-
     const systemPrompt = this.getSystemPrompt(dataType);
     const userPrompt = this.getUserPrompt(dataType, data);
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.3,
-      max_tokens: 1500,
-      response_format: { type: 'json_object' },
+      maxTokens: 1500,
+      responseMimeType: 'application/json',
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error('No response from AI');
     }

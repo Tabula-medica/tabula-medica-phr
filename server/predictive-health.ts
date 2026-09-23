@@ -6,13 +6,8 @@ import type {
   TimelineEvent, 
   HealthGoal 
 } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { logAuditEntry, ExplainableInsight, EXPLAINABILITY_VERSION } from "./explainability";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export type RiskLevel = "low" | "moderate" | "elevated" | "high";
 export type RiskCategory = 
@@ -469,14 +464,12 @@ Important:
 - Never provide specific medical diagnoses or treatment recommendations`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1024,
+    const content = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1024,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No AI response");
 
     const parsed = JSON.parse(content);

@@ -17,14 +17,11 @@
  * - encounter-discharge: Triggered at discharge
  */
 
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-// Initialize OpenAI client for AI-enhanced CDS analysis
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+// AI-enhanced CDS analysis runs through the PHI-safe Vertex/BAA gateway.
+const aiEnabled = true;
 
 // CRITICAL: Informational disclaimer for all CDS outputs
 const INFORMATIONAL_DISCLAIMER = `
@@ -481,8 +478,8 @@ class CDSHooksService {
       }
     }
 
-    // AI-enhanced contextual information if OpenAI is configured
-    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && cards.length > 0) {
+    // AI-enhanced contextual information via the PHI-safe gateway
+    if (aiEnabled && cards.length > 0) {
       try {
         const aiCard = await this.generateAIContextCard(ctx, 'patient-view');
         if (aiCard) cards.push(aiCard);
@@ -671,7 +668,7 @@ class CDSHooksService {
    * Generate AI-enhanced contextual information card
    */
   private async generateAIContextCard(ctx: CDSContext, hookType: CDSHookType): Promise<CDSCard | null> {
-    if (!openai) return null;
+    if (!aiEnabled) return null;
 
     const contextSummary = {
       conditions: ctx.conditions?.map(c => c.display) || [],
@@ -680,31 +677,21 @@ class CDSHooksService {
     };
 
     try {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-5.1',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a clinical information summarizer. You provide INFORMATIONAL CONTEXT ONLY.
+      const summary = await generatePhiSafeText({
+        system: `You are a clinical information summarizer. You provide INFORMATIONAL CONTEXT ONLY.
 You NEVER provide medical advice, treatment recommendations, or clinical decisions.
 You only summarize existing documented information and highlight general educational context.
 Always emphasize that clinical judgment by qualified providers is required.
-Keep responses concise (2-3 sentences max).`
-          },
-          {
-            role: 'user',
-            content: `Provide a brief informational summary for a ${hookType} context with:
+Keep responses concise (2-3 sentences max).`,
+        user: `Provide a brief informational summary for a ${hookType} context with:
 Conditions: ${contextSummary.conditions.join(', ') || 'None documented'}
 Medications: ${contextSummary.medications.join(', ') || 'None documented'}
 Recent Labs: ${contextSummary.recentLabs.join(', ') || 'None available'}
 
-Remember: INFORMATIONAL ONLY. No recommendations.`
-          }
-        ],
-        max_completion_tokens: 200
+Remember: INFORMATIONAL ONLY. No recommendations.`,
+        maxTokens: 200,
       });
 
-      const summary = response.choices[0]?.message?.content;
       if (!summary) return null;
 
       return {

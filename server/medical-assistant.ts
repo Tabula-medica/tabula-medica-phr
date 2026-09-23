@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText, generatePhiSafeChat, generatePhiSafeChatStream } from "./services/ai-gateway";
 import { storage } from "./storage";
 import type { 
   AssistantMessage, 
@@ -11,10 +11,6 @@ import type {
 } from "@shared/schema";
 import { logAuditEntry } from "./explainability";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface PatientHealthContext {
   medications: Medication[];
@@ -188,8 +184,8 @@ export async function generateAssistantResponse(
   } = {}
 ): Promise<AssistantResponse> {
   const startTime = Date.now();
-  
-  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: MEDICAL_ASSISTANT_SYSTEM_PROMPT },
     { role: "system", content: buildHealthContextPrompt(healthContext) },
   ];
@@ -211,13 +207,7 @@ export async function generateAssistantResponse(
   messages.push({ role: "user", content: userMessage });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages,
-      max_completion_tokens: 1024,
-    });
-
-    const content = response.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
+    const content = (await generatePhiSafeChat({ messages, maxTokens: 1024 })) || "I apologize, but I couldn't generate a response. Please try again.";
     const processingTime = Date.now() - startTime;
 
     const extractedContext = extractReferencedHealthData(content, healthContext);
@@ -283,7 +273,7 @@ export async function* streamAssistantResponse(
 ): AsyncGenerator<{ type: 'content' | 'done' | 'metadata'; data: string | StreamResult }> {
   const startTime = Date.now();
   
-  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: MEDICAL_ASSISTANT_SYSTEM_PROMPT },
     { role: "system", content: buildHealthContextPrompt(healthContext) },
   ];
@@ -304,21 +294,11 @@ export async function* streamAssistantResponse(
 
   messages.push({ role: "user", content: userMessage });
 
-  const stream = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    messages,
-    max_completion_tokens: 1024,
-    stream: true,
-  });
-
   let fullContent = '';
 
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content;
-    if (delta) {
-      fullContent += delta;
-      yield { type: 'content', data: delta };
-    }
+  for await (const delta of generatePhiSafeChatStream({ messages, maxTokens: 1024 })) {
+    fullContent += delta;
+    yield { type: 'content', data: delta };
   }
 
   const processingTime = Date.now() - startTime;
@@ -449,19 +429,13 @@ export async function generateConversationTitle(
   firstMessage: string
 ): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: "Generate a brief, descriptive title (3-6 words) for a health-related conversation based on the user's first message. Just return the title, nothing else."
-        },
-        { role: "user", content: firstMessage }
-      ],
-      max_completion_tokens: 50,
+    const content = await generatePhiSafeText({
+      system: "Generate a brief, descriptive title (3-6 words) for a health-related conversation based on the user's first message. Just return the title, nothing else.",
+      user: firstMessage,
+      maxTokens: 50,
     });
 
-    return response.choices[0]?.message?.content?.trim() || "Health Conversation";
+    return content?.trim() || "Health Conversation";
   } catch {
     return "Health Conversation";
   }

@@ -1,9 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 function sanitizePhi(text: string): string {
   return text
@@ -507,18 +504,14 @@ class AIComplianceTrainingService {
   }
 
   private async generateAIContent(weakness: UserWeakness): Promise<TrainingContent[]> {
-    if (!process.env.OPENAI_API_KEY || !openai) {
+    if (!aiEnabled) {
       return this.generateFallbackContent(weakness);
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_TRAINING_PROMPT },
-          {
-            role: "user",
-            content: `Generate educational training content for a healthcare compliance module.
+      const contentText = (await generatePhiSafeText({
+        system: NO_CDS_TRAINING_PROMPT,
+        user: `Generate educational training content for a healthcare compliance module.
 
 Topic: ${sanitizePhi(weakness.category.replace(/_/g, " "))}
 Issue: ${sanitizePhi(weakness.description)}
@@ -530,14 +523,10 @@ Create 2-3 training content sections with:
 3. 3 key takeaway points
 
 Format as JSON array with objects containing: type, title, body, keyPoints
-Types can be: text, scenario, example, best_practice, warning`
-          }
-        ],
-        max_tokens: 1000,
+Types can be: text, scenario, example, best_practice, warning`,
+        maxTokens: 1000,
         temperature: 0.7
-      });
-
-      const contentText = response.choices[0]?.message?.content || "";
+      })) || "";
       try {
         const jsonMatch = contentText.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
@@ -640,18 +629,14 @@ Types can be: text, scenario, example, best_practice, warning`
   }
 
   private async generateAIExercises(weakness: UserWeakness): Promise<TrainingExercise[]> {
-    if (!process.env.OPENAI_API_KEY || !openai) {
+    if (!aiEnabled) {
       return this.generateFallbackExercises(weakness);
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_TRAINING_PROMPT },
-          {
-            role: "user",
-            content: `Generate 3 training exercises for healthcare compliance.
+      const exerciseText = (await generatePhiSafeText({
+        system: NO_CDS_TRAINING_PROMPT,
+        user: `Generate 3 training exercises for healthcare compliance.
 
 Topic: ${sanitizePhi(weakness.category.replace(/_/g, " "))}
 Focus Area: ${sanitizePhi(weakness.description)}
@@ -663,14 +648,10 @@ Create exercises with:
 3. The correct answer
 4. An explanation of why the answer is correct
 
-Format as JSON array with: type (multiple_choice), question, options (array), correctAnswer, explanation`
-          }
-        ],
-        max_tokens: 800,
+Format as JSON array with: type (multiple_choice), question, options (array), correctAnswer, explanation`,
+        maxTokens: 800,
         temperature: 0.7
-      });
-
-      const exerciseText = response.choices[0]?.message?.content || "";
+      })) || "";
       try {
         const jsonMatch = exerciseText.match(/\[[\s\S]*\]/);
         if (jsonMatch) {

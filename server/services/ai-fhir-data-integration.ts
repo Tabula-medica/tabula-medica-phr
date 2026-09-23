@@ -1,13 +1,8 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    })
-  : null;
+const aiEnabled = true;
 
 const CDS_PROHIBITED_PATTERNS = [
   /\b(prescribe|should take|recommend starting|administer|give the patient)\b/i,
@@ -421,15 +416,11 @@ export async function generateMappingRules(
   const detectedFields = analyzeSourceStructure(sampleData, integration.sourceFormat);
   let generatedRules: MappingRule[] = [];
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_INTEGRATION_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this source data structure and generate FHIR R4 mapping rules.
+      const content = await generatePhiSafeText({
+        system: NO_CDS_INTEGRATION_PROMPT,
+        user: `Analyze this source data structure and generate FHIR R4 mapping rules.
 
 Source Format: ${integration.sourceFormat}
 Source System: ${integration.sourceSystem}
@@ -453,12 +444,9 @@ Generate mapping rules in JSON format:
 }
 
 Focus on accurate FHIR R4 mapping. No clinical recommendations.`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         generatedRules = (parsed.mappings || []).map((m: any, idx: number) => ({
@@ -1137,15 +1125,11 @@ export async function generateQualityInsights(integrationId: string): Promise<Da
     trend: accuracyScore > 85 ? "improving" : "stable",
   });
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_INTEGRATION_PROMPT },
-          {
-            role: "user",
-            content: `Analyze data quality for this FHIR integration:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_INTEGRATION_PROMPT,
+        user: `Analyze data quality for this FHIR integration:
 
 Integration: ${integration.name}
 Source: ${integration.sourceSystem} (${integration.sourceFormat})
@@ -1168,12 +1152,9 @@ Provide additional quality insights in JSON format:
 }
 
 Focus on data quality and interoperability. No clinical recommendations.`,
-          },
-        ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         for (const aiInsight of parsed.insights || []) {

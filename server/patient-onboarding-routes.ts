@@ -16,12 +16,12 @@ import {
   getOnboardingMetrics,
   getOnboardingAuditLog,
 } from "./services/patient-onboarding-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 export function registerPatientOnboardingRoutes(app: Express): void {
-  app.post("/api/patient-onboarding/start", async (req: Request, res: Response) => {
+  app.post("/api/patient-onboarding/start", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = req.user as { claims?: { sub?: string } } | undefined;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -53,10 +53,9 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-onboarding/submit-step", async (req: Request, res: Response) => {
+  app.post("/api/patient-onboarding/submit-step", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = req.user as { claims?: { sub?: string } } | undefined;
-      const userId = user?.claims?.sub || "patient";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -89,10 +88,9 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/patient-onboarding/assign-task", async (req: Request, res: Response) => {
+  app.post("/api/patient-onboarding/assign-task", requireUser, async (req: Request, res: Response) => {
     try {
-      const user = req.user as { claims?: { sub?: string } } | undefined;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
 
@@ -124,7 +122,7 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-onboarding/workflows", async (_req: Request, res: Response) => {
+  app.get("/api/patient-onboarding/workflows", requireUser, async (_req: Request, res: Response) => {
     try {
       const workflows = getAllOnboardingWorkflows();
       res.json({ workflows });
@@ -134,7 +132,7 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-onboarding/workflows/:workflowId", async (req: Request, res: Response) => {
+  app.get("/api/patient-onboarding/workflows/:workflowId", requireUser, async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
       const workflow = getOnboardingWorkflow(workflowId);
@@ -149,7 +147,7 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-onboarding/patient/:patientId", async (req: Request, res: Response) => {
+  app.get("/api/patient-onboarding/patient/:patientId", requireUser, async (req: Request, res: Response) => {
     try {
       const { patientId } = req.params;
       const workflows = getPatientOnboardingWorkflows(patientId);
@@ -160,7 +158,7 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-onboarding/forms/:stepType", async (req: Request, res: Response) => {
+  app.get("/api/patient-onboarding/forms/:stepType", requireUser, async (req: Request, res: Response) => {
     try {
       const { stepType } = req.params;
       if (!patientOnboardingStepTypes.includes(stepType as any)) {
@@ -175,7 +173,7 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-onboarding/metrics", async (_req: Request, res: Response) => {
+  app.get("/api/patient-onboarding/metrics", requireUser, async (_req: Request, res: Response) => {
     try {
       const metrics = getOnboardingMetrics();
       res.json({ metrics });
@@ -185,7 +183,7 @@ export function registerPatientOnboardingRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/patient-onboarding/audit", async (req: Request, res: Response) => {
+  app.get("/api/patient-onboarding/audit", requireUser, async (req: Request, res: Response) => {
     try {
       const workflowId = req.query.workflowId as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;

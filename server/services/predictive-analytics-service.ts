@@ -1,14 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { PatientDataSummary, LabResult, VitalReading } from "./health-copilot-service";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 const NO_CDS_ANALYTICS_PROMPT = `You are a healthcare data analytics assistant that identifies data patterns and trends.
 
@@ -571,30 +564,21 @@ export async function generatePredictiveAnalytics(
 export async function getAIRiskExplanation(
   assessment: PatientRiskAssessment
 ): Promise<string> {
-  const openai = getOpenAI();
-  
-  if (!openai) {
+  if (!aiEnabled) {
     return generateFallbackExplanation(assessment);
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: NO_CDS_ANALYTICS_PROMPT,
-        },
-        {
-          role: "user",
-          content: `Provide a brief, NO-CDS compliant summary of the following de-identified patient risk assessment data. Focus only on data patterns and workflow coordination opportunities. Do NOT provide clinical recommendations.
+    const aiResponse = await generatePhiSafeText({
+      system: NO_CDS_ANALYTICS_PROMPT,
+      user: `Provide a brief, NO-CDS compliant summary of the following de-identified patient risk assessment data. Focus only on data patterns and workflow coordination opportunities. Do NOT provide clinical recommendations.
 
 Patient Reference: [PATIENT-${assessment.patientId}]
 Overall Coordination Score: ${assessment.overallRiskScore}/100
 Priority Level: ${assessment.riskLevel}
 
 Data Pattern Categories:
-${assessment.riskCategories.map(cat => 
+${assessment.riskCategories.map(cat =>
   `- ${cat.category}: ${cat.score}/100 (${cat.level})
    Observations: ${cat.factors.map(f => f.observation).join("; ")}`
 ).join("\n")}
@@ -602,13 +586,10 @@ ${assessment.riskCategories.map(cat =>
 Suggested Coordination Pathway: ${assessment.suggestedPathway.name}
 
 Provide a 2-3 sentence summary focusing on data patterns and coordination opportunities only. Use "[PATIENT]" as the reference, not names.`,
-        },
-      ],
       temperature: 0.3,
-      max_tokens: 300,
-    });
+      maxTokens: 300,
+    }) || "";
 
-    const aiResponse = response.choices[0]?.message?.content || "";
     return aiResponse.replace(/\[PATIENT(-\w+)?\]/g, assessment.patientName) || generateFallbackExplanation(assessment);
   } catch (error) {
     console.error("[PredictiveAnalytics] AI explanation failed:", error);

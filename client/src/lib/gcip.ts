@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  reload,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -109,6 +111,65 @@ export async function signUpGcipWithEmail(
 export async function sendGcipPasswordReset(email: string): Promise<void> {
   await sendPasswordResetEmail(getGcipAuth(), email);
 }
+
+// ---------------------------------------------------------------------------
+// Email verification — the anti-bot check on the email/password sign-up path.
+//
+// We do NOT require MFA to register or sign in (TOTP stays opt-in in Security
+// settings). Instead a new email/password account has to prove the address is
+// a real inbox someone can read: GCIP mails a verification link, and the
+// server refuses to provision the account until the token comes back with
+// `email_verified: true` (see server/auth/email-verification.ts).
+//
+// Google/Apple sign-in and phone/SMS sign-in are unaffected — those tokens
+// arrive already verified by the IdP or by possession of the number.
+// ---------------------------------------------------------------------------
+
+/**
+ * Mail the current user a verification link. Call right after
+ * signUpGcipWithEmail(), and again for "resend".
+ *
+ * The link returns the browser to `${origin}/auth/login?verified=1`, so the
+ * person lands back on our sign-in page instead of Firebase's bare
+ * "your email has been verified" page.
+ *
+ * OPS PREREQ: every serving domain (tabulamedica.us/.world/.health, localhost)
+ * must be listed under Authentication > Settings > Authorized domains in the
+ * Firebase/GCIP console, or the link is rejected with auth/unauthorized-continue-uri.
+ */
+export async function sendGcipVerificationEmail(): Promise<void> {
+  const user = getGcipAuth().currentUser;
+  if (!user) throw new Error("Not signed in");
+  const continueUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/auth/login?verified=1`
+      : undefined;
+  await sendEmailVerification(user, continueUrl ? { url: continueUrl } : undefined);
+}
+
+/** Email address of the currently signed-in GCIP user, if any. */
+export function getGcipCurrentEmail(): string | null {
+  return getGcipAuth().currentUser?.email ?? null;
+}
+
+/**
+ * Re-fetch the current user from GCIP so a just-clicked verification link is
+ * reflected in `emailVerified`. Returns the refreshed verified flag (false when
+ * nobody is signed in).
+ */
+export async function refreshGcipEmailVerified(): Promise<boolean> {
+  const user = getGcipAuth().currentUser;
+  if (!user) return false;
+  await reload(user);
+  return user.emailVerified === true;
+}
+
+// NOTE: there is deliberately no client-side `needsEmailVerification(user)`
+// helper. Mirroring the server rule here is what let the client block existing
+// accounts the server would have admitted: the gate applies only when
+// provisioning a NEW user, and only the server knows whether
+// REQUIRE_SIGNUP_EMAIL_VERIFICATION is on. Callers should attempt the session
+// exchange and branch on its 403 `email_not_verified` response instead.
 
 export async function signInGcipWithGoogle(): Promise<FirebaseUser> {
   const provider = new GoogleAuthProvider();

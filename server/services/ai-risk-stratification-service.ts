@@ -1,13 +1,4 @@
-import OpenAI from "openai";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface RiskFactorData {
   demographics: {
@@ -79,19 +70,10 @@ export class AIRiskStratificationService {
     }
 
     try {
-      const openai = getOpenAIClient();
-      if (!openai) {
-        return this.generateRuleBasedRisk(patientId, data);
-      }
-      
       const prompt = this.buildRiskPrompt(data);
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical documentation analyst that identifies documented risk factors in patient records. 
+
+      const content = await generatePhiSafeText({
+        system: `You are a clinical documentation analyst that identifies documented risk factors in patient records.
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - You are STRICTLY PROHIBITED from providing clinical decision support, treatment recommendations, or medical advice
@@ -101,19 +83,13 @@ CRITICAL COMPLIANCE REQUIREMENTS:
 - Focus on presenting what is documented in the medical record
 - Risk scores are based solely on presence of documented factors, not clinical judgment
 
-Your role is to help organize documented health information by categorizing known risk factors for review purposes only. This is NOT predictive analytics - it is documentation organization.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
+Your role is to help organize documented health information by categorizing known risk factors for review purposes only. This is NOT predictive analytics - it is documentation organization.`,
+        user: prompt,
+        responseMimeType: "application/json",
         temperature: 0.2,
-        max_tokens: 2000
+        maxTokens: 2000
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateRuleBasedRisk(patientId, data);
       }

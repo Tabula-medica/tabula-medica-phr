@@ -1380,6 +1380,23 @@ export default function Connections() {
           )}
         </div>
 
+        <a
+          href="/fitness-connections"
+          className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors"
+          data-testid="link-fitness-rpm-connections"
+        >
+          <div className="flex items-center gap-3">
+            <Watch className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <div className="font-medium">Fitness apps & remote patient monitoring</div>
+              <div className="text-sm text-muted-foreground">
+                Connect Fitbit, Garmin, Oura, and more read-only, or pair a VitalFriend RPM device
+              </div>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        </a>
+
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "ehr" | "wearables")} className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="ehr" data-testid="tab-ehr">

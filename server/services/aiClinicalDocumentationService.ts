@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export const NO_CDS_DISCLAIMER = "DISCLAIMER: This AI-generated content is for documentation assistance only and does not constitute clinical decision support. All generated notes and code suggestions require clinician review and validation before use. The final clinical judgment rests with the licensed healthcare provider.";
 
@@ -156,27 +151,18 @@ export async function generateClinicalNote(
   const prompt = buildNotePrompt(visitData, noteType);
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a clinical documentation assistant helping healthcare providers create accurate, comprehensive clinical notes. 
+    const responseText = await generatePhiSafeText({
+      system: `You are a clinical documentation assistant helping healthcare providers create accurate, comprehensive clinical notes.
 You generate notes in a structured format based on the provided visit data.
 IMPORTANT: Your output is for documentation assistance only and requires clinician review before use.
 Do NOT provide clinical decision support, diagnostic recommendations, or treatment advice.
-Focus only on accurately documenting the provided information in professional medical terminology.`
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" }
+Focus only on accurately documenting the provided information in professional medical terminology.`,
+      user: prompt,
+      responseMimeType: "application/json",
     });
-    
-    const content = JSON.parse(response.choices[0]?.message?.content || "{}");
-    
+
+    const content = JSON.parse(responseText || "{}");
+
     const codes = await suggestCodes(visitData, content);
     
     const note: GeneratedNote = {
@@ -393,27 +379,18 @@ export async function suggestCodes(
   const prompt = buildCodePrompt(visitData, noteContent);
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical coding assistant that suggests appropriate ICD-10 and CPT codes based on clinical documentation.
+    const responseText = await generatePhiSafeText({
+      system: `You are a medical coding assistant that suggests appropriate ICD-10 and CPT codes based on clinical documentation.
 Your role is to identify potential codes for clinician review - NOT to make final coding decisions.
 Always include a rationale explaining why each code might apply.
 Provide confidence levels: high (clear documentation support), medium (some documentation support), low (inferred or possible).
-IMPORTANT: All code suggestions require professional coder and clinician verification before billing use.`
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" }
+IMPORTANT: All code suggestions require professional coder and clinician verification before billing use.`,
+      user: prompt,
+      responseMimeType: "application/json",
     });
-    
-    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
-    
+
+    const result = JSON.parse(responseText || "{}");
+
     if (result.codes && Array.isArray(result.codes)) {
       return result.codes.map((code: any) => ({
         type: code.type || "ICD-10",
@@ -486,21 +463,14 @@ export async function generateLabSummaryNote(labSummary: LabSummary): Promise<Ge
   const noteId = `note-lab-${Date.now()}`;
   
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a clinical documentation assistant that summarizes laboratory results.
+    const responseText = await generatePhiSafeText({
+      system: `You are a clinical documentation assistant that summarizes laboratory results.
 Create clear, professional summaries of lab results highlighting abnormal findings.
 IMPORTANT: Do NOT interpret results or suggest diagnoses - only summarize and flag abnormalities.
-This is documentation assistance only and requires clinician review.`
-        },
-        {
-          role: "user",
-          content: `Summarize these lab results for patient ${labSummary.patientName} (Date: ${labSummary.labDate}):
+This is documentation assistance only and requires clinician review.`,
+      user: `Summarize these lab results for patient ${labSummary.patientName} (Date: ${labSummary.labDate}):
 
-${labSummary.results.map(r => 
+${labSummary.results.map(r =>
   `${r.test}: ${r.value}${r.unit ? ` ${r.unit}` : ""}${r.referenceRange ? ` (Ref: ${r.referenceRange})` : ""}${r.flag ? ` [${r.flag}]` : ""}`
 ).join("\n")}
 
@@ -510,13 +480,11 @@ Provide a JSON response with:
   "abnormalFindings": "List of abnormal results with values",
   "criticalFindings": "Any critical values requiring immediate attention",
   "normalFindings": "Summary of normal results"
-}`
-        }
-      ],
-      response_format: { type: "json_object" }
+}`,
+      responseMimeType: "application/json",
     });
-    
-    const content = JSON.parse(response.choices[0]?.message?.content || "{}");
+
+    const content = JSON.parse(responseText || "{}");
     
     const note: GeneratedNote = {
       id: noteId,

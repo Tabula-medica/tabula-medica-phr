@@ -62,11 +62,28 @@ function mapModel(_model?: string): string {
 // Passed via the Vertex OpenAI-compat `extra_body` passthrough.
 const THINKING_OFF = { google: { thinking_config: { thinking_budget: 0 } } };
 
+// PHI GUARD: OpenAI has NO BAA, so patient audio (Whisper) and images (GPT-4o
+// vision / DALL-E) must never reach it. Vertex's OpenAI-compat endpoint has no
+// audio/images either. So we hard-disable `.audio` and `.images` on every client
+// regardless of provider — fail closed with a clear pointer to the BAA-covered
+// path (GCP Speech-to-Text, Vertex Gemini vision, Google Cloud TTS).
+function blockPhiMultimodal(client: any): any {
+  const deny = (kind: string) =>
+    new Proxy(function () {} as any, {
+      get() { throw new Error(`[PHI-guard] OpenAI ${kind}.* is disabled — no OpenAI BAA. Use GCP Speech-to-Text (audio), Vertex Gemini vision (images/OCR), or Google Cloud TTS.`); },
+      apply() { throw new Error(`[PHI-guard] OpenAI ${kind}.* is disabled — no OpenAI BAA.`); },
+    });
+  for (const kind of ["audio", "images"]) {
+    try { Object.defineProperty(client, kind, { get: () => deny(kind), configurable: true }); } catch { /* best effort */ }
+  }
+  return client;
+}
+
 class OpenAIShim {
   constructor(opts: Record<string, any> = {}) {
-    // Default path: real OpenAI, unchanged.
+    // Default path: real OpenAI, unchanged (text only — audio/images blocked below).
     if (!USE_VERTEX) {
-      return new (RealOpenAI as any)(opts);
+      return blockPhiMultimodal(new (RealOpenAI as any)(opts));
     }
 
     // Vertex path: OpenAI-compatible endpoint + ADC bearer token + model remap.
@@ -95,7 +112,7 @@ class OpenAIShim {
         );
     }
 
-    return real;
+    return blockPhiMultimodal(real);
   }
 }
 
