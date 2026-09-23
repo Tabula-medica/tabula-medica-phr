@@ -45,6 +45,9 @@ import {
   Pill,
   FileText,
   ArrowRight,
+  Gamepad2,
+  Copy,
+  Unlink,
 } from "lucide-react";
 
 interface BadgeData {
@@ -202,6 +205,50 @@ export default function GamificationDashboard() {
 
   const { data: adherenceStats } = useQuery<any>({
     queryKey: ["/api/gamification/adherence-stats"],
+  });
+
+  const { data: robloxLinkStatus, isLoading: robloxLinkLoading } = useQuery<{ linked: boolean; linkedAt: string | null }>({
+    queryKey: ["/api/roblox/link/status"],
+  });
+
+  const { data: robloxRewardsData } = useQuery<{ totalPoints: number; badgeCount: number; rewards: any[] }>({
+    queryKey: ["/api/roblox/rewards/me"],
+    enabled: !!robloxLinkStatus?.linked,
+  });
+
+  const { data: clinicData } = useQuery<{ scorecard: any | null }>({
+    queryKey: ["/api/roblox/clinic/me"],
+    enabled: !!robloxLinkStatus?.linked,
+  });
+  const clinicScorecard = clinicData?.scorecard ?? null;
+
+  const [robloxCode, setRobloxCode] = useState<{ code: string; expiresAt: string } | null>(null);
+
+  const generateRobloxCodeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/roblox/link/code", {});
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      setRobloxCode({ code: data.code, expiresAt: data.expiresAt });
+      toast({ title: "Link code ready", description: "Enter it in the World Clinic: Future Health Roblox experience within 10 minutes." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to generate a Roblox link code.", variant: "destructive" });
+    },
+  });
+
+  const unlinkRobloxMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/roblox/link/unlink", {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/roblox/link/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/roblox/rewards/me"] });
+      setRobloxCode(null);
+      toast({ title: "Roblox account unlinked" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to unlink the Roblox account.", variant: "destructive" });
+    },
   });
 
   const recordAdherenceMutation = useMutation({
@@ -431,6 +478,10 @@ export default function GamificationDashboard() {
           <TabsTrigger value="leaderboard" data-testid="button-tab-leaderboard">
             <Users className="h-4 w-4 mr-2" />
             Leaderboard
+          </TabsTrigger>
+          <TabsTrigger value="roblox" data-testid="button-tab-roblox">
+            <Gamepad2 className="h-4 w-4 mr-2" />
+            Roblox
           </TabsTrigger>
         </TabsList>
 
@@ -980,6 +1031,200 @@ export default function GamificationDashboard() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="roblox">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gamepad2 className="h-5 w-5 text-indigo-500" />
+                  World Clinic on Roblox
+                </CardTitle>
+                <CardDescription>
+                  Link this profile to earn badges for finishing health-education mini-games. No health
+                  records, diagnoses, or medications are ever shared with Roblox — only a game badge and
+                  a point total come back.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {robloxLinkLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking link status...
+                  </div>
+                ) : robloxLinkStatus?.linked ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Linked
+                      </Badge>
+                      {robloxLinkStatus.linkedAt && (
+                        <span className="text-xs text-muted-foreground">
+                          since {new Date(robloxLinkStatus.linkedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => unlinkRobloxMutation.mutate()}
+                      disabled={unlinkRobloxMutation.isPending}
+                      data-testid="button-roblox-unlink"
+                    >
+                      {unlinkRobloxMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Unlink className="h-4 w-4 mr-2" />
+                      )}
+                      Unlink Roblox account
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => generateRobloxCodeMutation.mutate()}
+                      disabled={generateRobloxCodeMutation.isPending}
+                      data-testid="button-roblox-generate-code"
+                    >
+                      {generateRobloxCodeMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Gamepad2 className="h-4 w-4 mr-2" />
+                      )}
+                      Generate link code
+                    </Button>
+
+                    {robloxCode && (
+                      <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          In Roblox, open <strong>World Clinic: Future Health</strong> → Settings → Link Family
+                          Account, and enter:
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-mono font-bold tracking-widest" data-testid="text-roblox-code">
+                            {robloxCode.code}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigator.clipboard?.writeText(robloxCode.code)}
+                            data-testid="button-roblox-copy-code"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Expires {new Date(robloxCode.expiresAt).toLocaleTimeString()}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="px-0 underline-offset-4 hover:underline"
+                          onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/roblox/link/status"] })}
+                          data-testid="button-roblox-check-linked"
+                        >
+                          I entered the code — check link status
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Medal className="h-5 w-5 text-amber-500" />
+                  Roblox Rewards
+                </CardTitle>
+                <CardDescription>Badges and points earned in the Roblox mini-games.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!robloxLinkStatus?.linked ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Link a Roblox account to see rewards here.</p>
+                  </div>
+                ) : !robloxRewardsData?.rewards?.length ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Gamepad2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No mini-games completed yet. Jump into Roblox to earn your first badge!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total points earned</span>
+                      <span className="font-semibold">{robloxRewardsData.totalPoints}</span>
+                    </div>
+                    {robloxRewardsData.rewards.map((r: any) => (
+                      <div key={r.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div>
+                          <p className="font-medium text-sm">{r.badge?.name || r.badgeId}</p>
+                          <p className="text-xs text-muted-foreground">{r.badge?.description}</p>
+                        </div>
+                        <Badge variant="secondary">+{r.points} pts</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {robloxLinkStatus?.linked && clinicScorecard && (
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-sky-500" />
+                    Future Health
+                  </CardTitle>
+                  <CardDescription>
+                    Your kid's stats from running their in-game clinic — every "patient" is a game character,
+                    and the score reflects only their in-game choices. Measures are simplified, kid-friendly
+                    versions of quality-of-care concepts, not certified HEDIS® measures.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span className="text-2xl tracking-wider text-amber-500" data-testid="text-clinic-stars">
+                      {"★".repeat(clinicScorecard.stars)}
+                      <span className="text-muted-foreground">{"☆".repeat(5 - clinicScorecard.stars)}</span>
+                    </span>
+                    <span className="text-sm text-muted-foreground">{clinicScorecard.totalEvents} visits</span>
+                    {clinicScorecard.championEarned && (
+                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                        <Crown className="h-3 w-3 mr-1" />
+                        Checkup Champion
+                      </Badge>
+                    )}
+                  </div>
+                  {clinicScorecard.coachingTip && (
+                    <Alert>
+                      <AlertTitle>Nova says</AlertTitle>
+                      <AlertDescription>{clinicScorecard.coachingTip}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {clinicScorecard.measures
+                      .filter((m: any) => m.closed + m.missed > 0)
+                      .map((m: any) => (
+                        <div key={m.measureId} className="rounded-lg border p-3 space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium">{m.kidName}</span>
+                            <span className="text-muted-foreground">
+                              {m.closed}/{m.closed + m.missed}
+                            </span>
+                          </div>
+                          <Progress value={Math.round((m.rate ?? 0) * 100)} />
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

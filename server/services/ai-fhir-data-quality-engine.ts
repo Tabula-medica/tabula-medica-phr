@@ -966,10 +966,6 @@ function createIssue(params: Partial<FHIRQualityIssue> & {
 }
 
 async function generateAISuggestion(issue: FHIRQualityIssue): Promise<CorrectionSuggestion | null> {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    return generateRuleBasedSuggestion(issue);
-  }
-
   try {
     const content = await generatePhiSafeText({
       maxTokens: 512,

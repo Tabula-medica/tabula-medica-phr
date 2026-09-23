@@ -52,10 +52,20 @@ Other working documents in this directory:
   / `f1-triage-union-honest-scope.txt` — triage worksheets
 - `action-item-H-plaintext-backfill.md` — Action Item H detail
 
+### Marketing & campaign kits
+- `unraj-seedance/` — Seedance 2.0 video kit for unraj.org (Koh-i-Noor
+  repatriation campaign): prompts, Higgsfield MCP runbook, fal.ai batch
+  generator, ffmpeg encode pipeline, drop-in hero components, QA checklist
+
 ### Compliance & audit
 - `accessibility-audit-session-6.md` — WCAG audit findings (Action Item U)
 - `audit-methodology-notes.md` — audit approach + conventions
 - `key-management-audit.md` — key rotation + escrow analysis
+- `netwitness-siem-gap-analysis.md` — detection & response gap analysis
+  (Action Item AH). Maps a healthcare SIEM checklist against TM's real
+  logging/alerting posture: audit-sink retention defect, absent alert
+  policies, seeded demo telemetry on compliance surfaces. Includes
+  TM/UI/SAWD applicability and a do-not-buy recommendation.
 - `vitest-runner-health-check.md` — Action Item V findings
 - `object-form-conversion-template.md` — logger conversion reference
   (Action Item K / T methodology)
@@ -64,6 +74,28 @@ Other working documents in this directory:
 - `app-store-submission.md` — Apple App Store submission notes
 - `capacitor-build-playbook.md` — iOS/Android Capacitor build runbook
 - `google-for-startups-narrative.md` — funding pitch material
+
+### Product initiatives
+- `roblox-healthcare-games-concept.md` — "World Clinic" Roblox
+  integration: PHI-free reward-relay architecture, backend routes
+  (`server/roblox-education-link-routes.ts`), dashboard tab, and the
+  `roblox/` Rojo project with 3 working mini-games
+- `roblox-hedis-future-health.md` — "Future Health": HEDIS
+  measure *concepts* taught via fictional NPC patients, rules-based star
+  rating of the player's own pretend clinic, AI (Vertex, PHI-free) used only
+  for Nova's coaching tips; explains why real-provider HEDIS rating was
+  deliberately kept out of the kids' game
+- `roblox-campus-life-concept.md` — "World Clinic: Campus Life"
+  (`roblox-campus/`, `server/roblox-campus-routes.ts`): the teen/college/
+  newlywed tier as a SEPARATE Roblox place (content-maturity labeling), with
+  its own preventive-care measure catalog (mental health, sexual health,
+  substance-use screening, sports physicals, family planning, insurance
+  literacy) handled per Roblox's teen-content boundary
+- `life-stage-challenges-concept.md` — "Life Stage Health Challenges"
+  (`server/life-stage-challenges-routes.ts`, `/life-stage` page): decade-
+  banded preventive-care nudges for 50+ users inside the main app (not
+  Roblox — that audience isn't there), auto-tiered from the profile's real
+  date of birth
 
 ---
 

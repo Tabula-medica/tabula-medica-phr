@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeVision } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = `DISCLAIMER: This multimodal parsing system is for DATA EXTRACTION AND ADMINISTRATIVE PURPOSES ONLY. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations.`;
@@ -111,26 +111,13 @@ export interface ParseWarning {
 }
 
 class MultimodalDocumentParserService {
-  private openai: OpenAI | null = null;
   private requests: Map<string, MultimodalParseRequest> = new Map();
 
   constructor() {
-    this.initializeOpenAI();
-    console.log("[MultimodalParser] Service initialized with Gemma 4 native OCR support");
+    console.log("[MultimodalParser] Service initialized (Vertex AI gateway — BAA-covered)");
     console.log("[MultimodalParser] Supported: bills, lab results, prescriptions, insurance cards");
     console.log("[MultimodalParser] Thinking mode enabled for transparent reasoning");
     console.log("[MultimodalParser] NO-CDS compliance enforced");
-  }
-
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL: baseURL || undefined });
-      console.log("[MultimodalParser] Vision model configured");
-    } else {
-      console.log("[MultimodalParser] AI not configured — OCR unavailable");
-    }
   }
 
   private getDocTypePrompt(docType: MultimodalDocumentType): string {
@@ -173,35 +160,16 @@ class MultimodalDocumentParserService {
     }
 
     try {
-      if (!this.openai) {
-        return this.generateFallbackResult(documentType);
-      }
-
       const docPrompt = this.getDocTypePrompt(documentType);
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: MULTIMODAL_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: docPrompt },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${imageBase64}`,
-                  detail: "high",
-                },
-              },
-            ],
-          },
-        ],
-        max_tokens: 4096,
+      const rawContent = await generatePhiSafeVision({
+        base64Image: imageBase64,
+        imageMimeType: mimeType,
+        prompt: docPrompt,
+        system: MULTIMODAL_SYSTEM_PROMPT,
+        maxTokens: 4096,
         temperature: 0.1,
       });
-
-      const rawContent = response.choices[0]?.message?.content || "";
       const { thinking, extraction } = this.parseThinkingResponse(rawContent);
 
       let extractedData: Record<string, any> = {};

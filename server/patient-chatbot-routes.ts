@@ -1,11 +1,5 @@
 import type { Express, Request, Response } from "express";
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./services/ai-gateway";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText, generatePhiSafeChatStream } from "./services/ai-gateway";
 
 const NO_CDS_DISCLAIMER = "This is educational information only, NOT medical advice. Always consult your healthcare provider for medical decisions.";
 
@@ -252,23 +246,16 @@ export function registerPatientChatbotRoutes(app: Express): void {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: messages as any,
-        stream: true,
-        max_completion_tokens: 1024,
-      });
-
       let fullResponse = "";
 
       res.write(`data: ${JSON.stringify({ type: "escalation", data: escalation })}\n\n`);
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          fullResponse += content;
-          res.write(`data: ${JSON.stringify({ type: "content", content })}\n\n`);
-        }
+      for await (const content of generatePhiSafeChatStream({
+        messages: messages as Array<{ role: "system" | "user" | "assistant"; content: string }>,
+        maxTokens: 1024,
+      })) {
+        fullResponse += content;
+        res.write(`data: ${JSON.stringify({ type: "content", content })}\n\n`);
       }
 
       res.write(`data: ${JSON.stringify({ type: "disclaimer", content: NO_CDS_DISCLAIMER })}\n\n`);
@@ -348,21 +335,14 @@ IMPORTANT: This is for educational purposes only. Always emphasize consulting wi
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      for await (const content of generatePhiSafeChatStream({
         messages: [
           { role: "system", content: "You are a health education assistant. Provide clear, accurate medication information for educational purposes only. Always include disclaimers about consulting healthcare providers. Never provide dosage recommendations or treatment advice." },
-          { role: "user", content: prompt }
+          { role: "user", content: prompt },
         ],
-        stream: true,
-        max_completion_tokens: 1024,
-      });
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          res.write(`data: ${JSON.stringify({ type: "content", content })}\n\n`);
-        }
+        maxTokens: 1024,
+      })) {
+        res.write(`data: ${JSON.stringify({ type: "content", content })}\n\n`);
       }
 
       res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);

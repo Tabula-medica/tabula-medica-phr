@@ -501,6 +501,12 @@ const adminItems = [
     icon: Stethoscope,
   },
   {
+    title: "RCM Command Center",
+    url: "/rcm",
+    icon: DollarSign,
+    badge: "new",
+  },
+  {
     title: "Patients",
     url: "/patients",
     icon: ClipboardList,

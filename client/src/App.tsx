@@ -95,6 +95,7 @@ const AIEvidenceAdvisor = lazy(() => import("@/pages/ai-evidence-advisor"));
 const HealthAssistant = lazy(() => import("@/pages/health-assistant"));
 const HealthJournal = lazy(() => import("@/pages/health-journal"));
 const HealthGoals = lazy(() => import("@/pages/health-goals"));
+const FitnessRpmConnections = lazy(() => import("@/pages/fitness-rpm-connections"));
 const MedicalScribe = lazy(() => import("@/pages/medical-scribe"));
 const VisitSummary = lazy(() => import("@/pages/visit-summary"));
 const PreventiveScreening = lazy(() => import("@/pages/preventive-screening"));
@@ -124,6 +125,7 @@ const CaregiverPortal = lazy(() => import("@/pages/caregiver-portal"));
 const FamilyVerification = lazy(() => import("@/pages/family-verification"));
 const MyFamily = lazy(() => import("@/pages/my-family"));
 const CMS1500ClaimForm = lazy(() => import("@/pages/cms-1500-claim-form"));
+const RcmCommandCenter = lazy(() => import("@/pages/rcm-command-center"));
 const ProviderDirectory = lazy(() => import("@/pages/provider-directory"));
 const NPILookup = lazy(() => import("@/pages/npi-lookup"));
 const ComplianceExport = lazy(() => import("@/pages/compliance-export"));
@@ -172,6 +174,7 @@ const Security = lazy(() => import("@/pages/security"));
 const Privacy = lazy(() => import("@/pages/privacy"));
 const CDSDisabled = lazy(() => import("@/pages/cds-disabled"));
 const GamificationDashboard = lazy(() => import("@/pages/gamification-dashboard"));
+const LifeStageChallenges = lazy(() => import("@/pages/life-stage-challenges"));
 const ComprehensivePatientProfile = lazy(() => import("@/pages/comprehensive-patient-profile"));
 const HealthGoalTracking = lazy(() => import("@/pages/health-goal-tracking"));
 const AuditLogs = lazy(() => import("@/pages/audit-logs"));
@@ -248,6 +251,7 @@ function Router() {
       <Route path="/health-assistant" component={HealthAssistant} />
       <Route path="/health-journal" component={HealthJournal} />
       <Route path="/health-goals" component={HealthGoals} />
+      <Route path="/fitness-connections" component={FitnessRpmConnections} />
       <Route path="/medical-scribe" component={MedicalScribe} />
       <Route path="/visit-summary" component={VisitSummary} />
       <Route path="/preventive-screening" component={PreventiveScreening} />
@@ -282,6 +286,7 @@ function Router() {
       <Route path="/family-verification" component={FamilyVerification} />
       <Route path="/my-family" component={MyFamily} />
       <Route path="/cms-1500" component={CMS1500ClaimForm} />
+      <Route path="/rcm" component={RcmCommandCenter} />
       <Route path="/find-provider" component={ProviderDirectory} />
       <Route path="/npi-lookup" component={NPILookup} />
       {tefcaEnabled && <Route path="/compliance-export" component={ComplianceExport} />}
@@ -292,6 +297,7 @@ function Router() {
       <Route path="/assessments" component={Assessments} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/achievements" component={GamificationDashboard} />
+      <Route path="/life-stage" component={LifeStageChallenges} />
       <Route path="/settings" component={Settings} />
       <Route path="/settings/notifications" component={NotificationSettings} />
       <Route path="/settings/security" component={SecuritySettings} />
@@ -417,6 +423,7 @@ const pageTitles: Record<string, string> = {
   "/family-verification": "Family Verification",
   "/my-family": "My Family",
   "/cms-1500": "Insurance Claim Forms",
+  "/rcm": "RCM Command Center",
   "/find-provider": "Find a Provider",
   "/npi-lookup": "Smart NPI Lookup",
   "/compliance-export": "Compliance Export",
@@ -447,6 +454,7 @@ const pageTitles: Record<string, string> = {
   "/login": "Sign In",
   "/consent": "Privacy Consent",
   "/connections": "Data Sources",
+  "/fitness-connections": "Fitness & Remote Monitoring",
   "/intake-history": "Health History",
   "/medications": "Medications",
   "/conditions": "Conditions",

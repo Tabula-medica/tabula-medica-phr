@@ -33,6 +33,7 @@ This scan is production-scoped. Mockup sandboxes and purely local development ar
 - **Confirmed public FHIR router cluster to re-check on future scans:** `server/fhir-r4-api-routes.ts`, `server/external-fhir-routes.ts`, and `server/fhir-search-routes.ts` because they are production-mounted and have previously exposed bearer-auth bypasses, public control-plane state, or runtime audit metadata
 - **Additional production-mounted disclosure/IDOR surfaces to re-check:** `server/patient-export-routes.ts` and provider integration routes backed by `server/services/providerIntegration.ts`, especially referral and booking endpoints, because several routes trust caller-supplied or predictable record IDs without an ownership check
 - **SMART helper split-brain warning:** `server/smart-fhir-routes.ts` mixes correctly PHI-gated routes with public `/api/smart/discovery/*` and public `/api/fhir/*` helper endpoints, so route-level auth must be reviewed per endpoint rather than assumed from the file
+- **AI runtime + identity telemetry controls to re-check:** `server/security/ai-runtime-guard.ts`, `server/security/session-binding.ts`, `server/security/siem-forwarder.ts`, and the mount order in `server/replit_integrations/auth/replitAuth.ts` (`session → passport → sessionBinding → aiRuntimeGuard`); regressions here silently disable detection for every AI route
 - **Highest-risk data/file surfaces:** `server/replit_integrations/object_storage/*`, `server/profile-photo-routes.ts`, `server/services/profile-photo-service.ts`, `server/secure-health-share-routes.ts`
 - **Highest-risk patient portal surface:** `server/patient-experience-routes.ts` because it mixes patient-scoped reads/writes, caller-controlled `patientId` parameters, raw object-ID mutations, and a hard-coded `patient-001` fallback
 - **Production-mounted demo/control-plane surfaces to re-check:** `server/user-role-management-routes.ts`, `server/services/user-role-management-service.ts`, `server/ai-conflict-resolution-routes.ts`, `server/services/ai-conflict-resolution-service.ts`, `server/ai-audit-log-routes.ts` because demo-backed routes can still create real AI-cost, tampering, or abuse side effects
@@ -88,6 +89,27 @@ Required guarantees:
 - Expensive AI or integration-triggering routes MUST require authenticated access and appropriate rate limits.
 - Provider-oriented or privileged AI workflows MUST enforce role isolation so ordinary users cannot repurpose them as a paid compute surface.
 - Storage-allocation endpoints MUST not allow unauthenticated arbitrary object creation in private buckets.
+
+### AI Runtime / Agentic Abuse (AIDR)
+
+CrowdStrike's 2026 Threat Hunting Report recorded prompt injection against GenAI tools at 90+ organisations and an 89% rise in AI-enabled threats. This codebase mounts ~100 AI route modules, several of which can trigger downstream actions (FHIR writes, exports, share links, care-team messages). Untrusted text reaches models from patient prompts, uploaded documents, external FHIR bundles, and provider messages. The application-layer control is `server/security/ai-runtime-guard.ts`, mounted for every AI route after session/passport.
+
+Required guarantees:
+- Every AI-backed route MUST pass request bodies through the runtime guard; new AI prefixes MUST be added to `DEFAULT_AI_ROUTE_PATTERN` or matched explicitly.
+- Untrusted document / FHIR content MUST be wrapped with `wrapUntrustedContent` before it reaches a model; model output that will be rendered as markdown MUST be checked with `scanModelOutput`.
+- AI routes that can mutate, export or share data MUST require an explicit, authenticated user action and MUST NOT be reachable from model tool-calls without that action.
+- AI security events MUST be PHI-free (rule ids, scores, paths, actor ids only — never prompt text).
+- `AI_GUARD_MODE=enforce` MUST be the production target once monitor-mode false-positive rates are known.
+
+### Session Hijack, Token Replay and Identity Telemetry
+
+82% of 2026 intrusions were malware-free and vishing intrusions doubled; adversaries replay valid sessions and tokens from their own infrastructure. Controls: `server/security/session-binding.ts` (UA / country / network drift), `sessionExchangeRateLimiter` on every token → session exchange, and `server/security/siem-forwarder.ts` so identity anomalies reach a SIEM in near-real time.
+
+Required guarantees:
+- Token → session exchange endpoints (`/api/auth/gcip/session`, `/api/mobile/auth/gcip/session`, identity-link endpoints) MUST be rate-limited and MUST emit a security event when limited.
+- Authenticated sessions MUST carry a binding fingerprint; a user-agent or country change MUST produce a high-risk security event and, in enforce mode, terminate the session.
+- Security events (401/403, rate limits, binding anomalies, AI guard hits) MUST be forwarded to the configured SIEM when `SIEM_HEC_URL`/`SIEM_HEC_TOKEN` are set, and the forwarded payload MUST pass the allowlist/denylist in `siem-forwarder.ts` (verified by `tests/siem-forwarder.spec.ts`).
+- Account-recovery and role-grant flows MUST be treated as vishing surfaces: no help-desk style bypass of MFA, and sensitive changes SHOULD require out-of-band confirmation.
 
 ### Elevation of Privilege
 

@@ -37,6 +37,15 @@ Action Item **AF** in `.local/deliverables/f1-action-items.md` tracks the consol
 - `2e9df14a` — TMD-4 Phase 2: disabled `newArchEnabled` for iPad compatibility (addresses App Store submission `69f718ee` rejection on iPad Air 11" M3 / iPadOS 26.4.1)
 - Previous: F1 PHI encryption guardrail program in progress (84 violations remaining of original 102+)
 
+## Claude Code setup
+
+- `CLAUDE.md` — project memory loaded by every Claude Code session (non-negotiables, commands, prompt-code protocol)
+- `.claude/prompt-codes.md` — behavior specs for the 100 "Claude Secret Codes" prompt prefixes (`/ghost`, `/redteam`, `L99`, `OODA`, ...)
+- `.claude/skills/` — 21 of those codes as real slash commands (`/redteam`, `/premortem`, `/shipit`, `/testit`, `/sentinel`, ...)
+- `.claude/skills/archify/` — vendored Archify (MIT) diagram renderer; `cache-miss.architecture.json` + `cache-miss.html` show the evidence-only cache-miss path
+- `.claude/claude-code-cheatsheet.md` — documented Claude Code commands, shortcuts, and flags
+- `scripts/install-claude-codes.sh` — copy the bundle into another repo (`--repo PATH`) or into `~/.claude` for all projects (`--global`)
+
 ## Sister projects (separate repos / Replits)
 
 - **Uninsurance** — Virginia DMPO-pending membership product. Owned by Uninsurance LLC. Separate codebase, separate Replit, separate deployment, separate Stripe merchant account, separate App Store listing. Cross-app integration with Tabula Medica is planned via SMART on FHIR (Phase 1 of `unified-architecture-plan.md`) but not yet active.

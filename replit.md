@@ -10,7 +10,11 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **Typecheck**: `npm run typecheck`
 *   **Codegen (Drizzle)**: `npm run generate`
 *   **DB Push (Drizzle)**: `npm run db:push`
+*   **Security telemetry / runtime guards (optional)**: `SIEM_HEC_URL` + `SIEM_HEC_TOKEN` (HEC-compatible collector, e.g. CrowdStrike Falcon Next-Gen SIEM — forwarder is off until both are set); `AI_GUARD_MODE` and `SESSION_BINDING_MODE` (`off` | `monitor` | `enforce`, default `monitor`). See `docs/CROWDSTRIKE_2026_PORTFOLIO_HARDENING.md`.
 *   **Required Env Vars**: `RESEND_API_KEY`, `NETWORK_ALERT_EMAIL`, `RESEND_FROM_EMAIL` (for email alerts); GCP credentials for Secret Manager fallback; `AI_DEFAULT_PROVIDER=vertex` (defaults to OpenAI fallback if unset — OpenAI standard tier has **no BAA** and must not touch PHI; Vertex AI runs under the existing GCP BAA and is the HIPAA-compliant default).
+*   **Fitness app connections (read-only)**: `TERRA_API_KEY`, `TERRA_DEV_ID` (from the Terra dashboard, tryterra.co) enable `/api/fitness/*`; without them the connect flow returns 503. `TERRA_SIGNING_SECRET` is required for the `/api/fitness/webhook` endpoint to accept inbound data — register that URL as a Terra webhook destination.
+*   **RPM devices (VitalFriend)**: `VITALFRIEND_WEBHOOK_SECRET` authenticates the `/api/rpm/webhook/vitalfriend` endpoint. The payload shape it expects is an assumption pending VitalFriend's real integration spec — see the comment block in `server/routes/rpm-device-routes.ts` before enabling it against a live VitalFriend account.
+*   **After adding the fitness/RPM tables**: run `npm run db:push` once to create `fitness_connections`, `wellness_metrics`, and `rpm_devices` in Postgres (no SQL migration file is committed in this repo's workflow — schema changes are applied directly via `drizzle-kit push`).
 
 ## Stack
 
@@ -35,6 +39,7 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **Longevity & Preventive Health**: protocol module `shared/longevity-preventive.ts` (portable, mirror to WorldEHR), API `server/routes/longevity-preventive-routes.ts`, UI `client/src/components/longevity-preventive-panel.tsx` (PHR tab, clinician chart subtab, `/longevity-preventive-health` page), practice summary `docs/LONGEVITY_PREVENTIVE_HEALTH_PROTOCOL.md`
 *   **Strategic Planning Docs**: `docs/`
 *   **Security Policy**: `client/public/.well-known/security.txt`
+*   **Security layer (identity, AI runtime guard, SIEM forwarder)**: `server/security/` — `session-binding.ts`, `ai-runtime-guard.ts`, `siem-forwarder.ts`; threat model in `threat_model.md`
 
 ## Architecture decisions
 
@@ -56,6 +61,7 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **FHIR R4 API**: Provides USCDI V3 compliant endpoints for external data exchange.
 *   **Document Extraction Pipeline**: Processes medical documents with multi-model AI extraction and human-in-the-loop validation.
 *   **Financial Tools**: Includes insurance learning, drug savings, and uninsured discount platforms.
+*   **Fitness & Remote Patient Monitoring**: Read-only fitness-app connections (Fitbit, Garmin, Oura, Withings, Google Fit, Apple Health, Samsung Health, WHOOP, Polar, Strava via Terra) plus VitalFriend RPM device pairing; clinical-overlap readings feed the same abnormal-range alerting as manually entered vitals.
 *   **Internationalization**: Supports 19 UI languages and over 50 voice/AI languages.
 
 ## User preferences
