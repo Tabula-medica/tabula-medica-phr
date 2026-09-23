@@ -111,17 +111,14 @@ export function requireQwenSafePrompt(logger: Logger) {
 
     for (const keyword of PHI_KEYWORDS) {
       if (prompt.includes(keyword)) {
-        const violation = {
-          timestamp: new Date().toISOString(),
-          userId: (req.user as any)?.id || "unknown",
-          ip: req.ip,
-          keyword,
-          promptLength: prompt.length,
-          firstNChars: prompt.substring(0, 100),
-        };
-
+        // Log only the keyword and metadata, NEVER log prompt content (no PHI)
         logger.error(
-          violation,
+          {
+            timestamp: new Date().toISOString(),
+            userId: (req.user as any)?.id || "unknown",
+            keyword,
+            promptLength: prompt.length,
+          },
           "🚨 BLOCKED: Qwen prompt contains PHI keyword"
         );
 
@@ -158,7 +155,7 @@ export function requireQwenSafePrompt(logger: Logger) {
 
     if (!isSafePrompt) {
       logger.warn(
-        { prompt: prompt.substring(0, 100), userId: (req.user as any)?.id },
+        { userId: (req.user as any)?.id },
         "Qwen prompt does not match safe-list"
       );
 

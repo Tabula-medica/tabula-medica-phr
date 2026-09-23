@@ -4,6 +4,7 @@ import {
   requireQwenSafePrompt,
   ensureQwenValidated,
 } from "../middleware/require-qwen-safe-prompt";
+import { requireAuth0Token } from "../middleware/auth0-jwt-verify";
 import { Logger } from "pino";
 import multer from "multer";
 
@@ -37,8 +38,9 @@ export function attachQwenScreeningRoutes(
   router: Router,
   logger: Logger
 ): void {
-  // Middleware for all Qwen routes
+  // Middleware for all Qwen routes: requires authentication + PHI safety checks
   const qwenMiddleware = [
+    requireAuth0Token,
     requireQwenSafePrompt(logger),
     ensureQwenValidated(logger),
   ];
