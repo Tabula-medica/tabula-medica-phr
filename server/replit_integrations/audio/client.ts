@@ -2,12 +2,15 @@ import OpenAI from "openai";
 import { Buffer } from "node:buffer";
 import { medicalSpeechToTextService } from "../../services/gcp/medical-speech-to-text";
 import { synthesizeSpeech } from "../../lib/gcp-tts";
+import { generatePhiSafeChatStream } from "../../services/ai-gateway";
 
 // NOTE: `openai` here is the Vertex shim (build alias) — chat.completions routes to
 // Vertex/Gemini (BAA). Its `.audio`/`.images` are hard-disabled. Audio in this module
 // therefore uses GCP Speech-to-Text + Google Cloud TTS (both BAA-covered). Single-model
 // audio-in/audio-out (voiceChat*) can't run on Gemini and is fail-closed → use the
 // cascade voiceChatWithTextModel (STT → Vertex text → TTS) instead.
+// Exported for callers that need the OpenAI-compat interface; chat.completions routes
+// to Vertex AI via AI_INTEGRATIONS_OPENAI_BASE_URL (BAA-covered).
 export const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -246,13 +249,6 @@ export async function* voiceChatWithTextModel(
     { role: "user" as const, content: userText },
   ];
 
-  // 3. Stream text from LLM
-  const textStream = await openai.chat.completions.create({
-    model: textModel,
-    messages,
-    stream: true,
-  });
-
   // 4. Parse sentences and dispatch TTS in parallel
   const parser = new SentenceParser(locale);
   const activeStreams: TTSStream[] = [];
@@ -307,9 +303,8 @@ export async function* voiceChatWithTextModel(
     }
   }
 
-  // 5. Process text stream: parse sentences, dispatch TTS, yield audio
-  for await (const chunk of textStream) {
-    const token = chunk.choices[0]?.delta?.content || "";
+  // 3+5. Stream text from Vertex gateway and parse sentences
+  for await (const token of generatePhiSafeChatStream({ messages })) {
     if (!token) continue;
 
     fullTranscript += token;

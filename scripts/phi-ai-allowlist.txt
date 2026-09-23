@@ -7,12 +7,13 @@ server/lib/baa-chat.ts
 server/utils/openai-client.ts
 # False positive — code is BAA-safe, comment text triggers grep:
 server/ai-provider-search-service.ts
-# Backlog — migrate each to server/services/ai-gateway.ts:
+# Permanent exceptions — env-var bootstrap/checks only, no AI PHI calls:
 server/index.ts
 server/integrations-debug-routes.ts
 server/monitoring-routes.ts
+# Backlog — migrate each to server/services/ai-gateway.ts:
+# audio/client.ts: exports openai (Vertex shim, BAA) used by voice callers; chat call migrated
 server/replit_integrations/audio/client.ts
-server/replit_integrations/chat/routes.ts
 server/replit_integrations/image/client.ts
 server/routes/card-ocr-routes.ts
 server/services/ai-provider.ts
