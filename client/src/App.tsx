@@ -95,6 +95,7 @@ const AIEvidenceAdvisor = lazy(() => import("@/pages/ai-evidence-advisor"));
 const HealthAssistant = lazy(() => import("@/pages/health-assistant"));
 const HealthJournal = lazy(() => import("@/pages/health-journal"));
 const HealthGoals = lazy(() => import("@/pages/health-goals"));
+const FitnessRpmConnections = lazy(() => import("@/pages/fitness-rpm-connections"));
 const MedicalScribe = lazy(() => import("@/pages/medical-scribe"));
 const VisitSummary = lazy(() => import("@/pages/visit-summary"));
 const PreventiveScreening = lazy(() => import("@/pages/preventive-screening"));
@@ -249,6 +250,7 @@ function Router() {
       <Route path="/health-assistant" component={HealthAssistant} />
       <Route path="/health-journal" component={HealthJournal} />
       <Route path="/health-goals" component={HealthGoals} />
+      <Route path="/fitness-connections" component={FitnessRpmConnections} />
       <Route path="/medical-scribe" component={MedicalScribe} />
       <Route path="/visit-summary" component={VisitSummary} />
       <Route path="/preventive-screening" component={PreventiveScreening} />
@@ -449,6 +451,7 @@ const pageTitles: Record<string, string> = {
   "/login": "Sign In",
   "/consent": "Privacy Consent",
   "/connections": "Data Sources",
+  "/fitness-connections": "Fitness & Remote Monitoring",
   "/intake-history": "Health History",
   "/medications": "Medications",
   "/conditions": "Conditions",
