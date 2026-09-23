@@ -14,6 +14,7 @@ import {
   index,
   primaryKey,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -455,6 +456,244 @@ export const insertProviderMedicationActionDBSchema = createInsertSchema(provide
 export type InsertProviderMedicationActionDB = z.infer<typeof insertProviderMedicationActionDBSchema>;
 export type ProviderMedicationActionDB = typeof providerMedicationActionsTable.$inferSelect;
 
+// ============================================
+// eRx CANCELLATION / AUTO-DISCONTINUATION
+// ============================================
+// Backs three workflows that all resolve to one outbound NCPDP SCRIPT
+// CancelRx message:
+//   1. dose change      -> cancel the superseded prescription at the pharmacy
+//   2. manual cancel    -> clinician/patient stops an eRx before it is dispensed
+//   3. patient demise   -> cancel every open prescription in one batch
+//
+// The message payload itself is built by `server/services/erx-script-messages.ts`;
+// these tables hold the request lifecycle, the transmission audit trail, and the
+// mortality record that drives the batch trigger.
+
+/** Why a CancelRx is being sent. Maps to a SCRIPT reason in erx-script-messages. */
+export const erxCancellationTriggers = [
+  "dose_change",          // new Rx supersedes an old one at a different dose
+  "medication_discontinued",
+  "therapy_completed",
+  "duplicate_therapy",
+  "adverse_reaction",
+  "drug_interaction",
+  "patient_request",
+  "prescriber_request",
+  "patient_deceased",
+] as const;
+export type ErxCancellationTrigger = typeof erxCancellationTriggers[number];
+
+/** Lifecycle of a cancellation request, from creation to pharmacy acknowledgement. */
+export const erxCancellationStatuses = [
+  "pending_review",   // awaiting prescriber approval before it may be sent
+  "queued",           // approved, waiting for the transport to pick it up
+  "transmitting",     // handed to the transport, no response yet
+  "transmitted",      // accepted by the network, awaiting CancelRxResponse
+  "acknowledged",     // pharmacy approved the cancellation
+  "denied",           // pharmacy denied (e.g. already dispensed)
+  "failed",           // transport error after the retry budget was exhausted
+  "cancelled",        // withdrawn before transmission
+] as const;
+export type ErxCancellationStatus = typeof erxCancellationStatuses[number];
+
+/** Who/what initiated the request — drives the approval requirement. */
+export const erxCancellationInitiators = [
+  "system_automation",
+  "prescriber",
+  "clinical_staff",
+  "patient",
+  "caregiver",
+  "admin",
+] as const;
+export type ErxCancellationInitiator = typeof erxCancellationInitiators[number];
+
+export const erxCancellationRequestsTable = pgTable("erx_cancellation_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  medicationId: uuid("medication_id").references(() => medicationsTable.id, { onDelete: "set null" }),
+
+  // What is being cancelled
+  medicationName: text("medication_name").notNull(),
+  previousDose: text("previous_dose"),
+  newDose: text("new_dose"),
+  rxReferenceNumber: text("rx_reference_number"),   // pharmacy-assigned Rx number
+  originalMessageId: text("original_message_id"),   // SCRIPT MessageID of the NewRx
+
+  // The outbound SCRIPT message
+  messageType: text("message_type").notNull().default("CancelRx"),
+  scriptMessageId: text("script_message_id"),
+  scriptVersion: text("script_version"),
+  reasonCode: text("reason_code"),
+  reasonText: text("reason_text"),
+
+  // Routing
+  pharmacyNcpdpId: text("pharmacy_ncpdp_id"),
+  pharmacyName: text("pharmacy_name"),
+  prescriberNpi: text("prescriber_npi"),
+  prescriberName: text("prescriber_name"),
+
+  // Lifecycle
+  triggerType: text("trigger_type").notNull(),
+  status: text("status").notNull().default("pending_review"),
+  requiresPrescriberApproval: boolean("requires_prescriber_approval").notNull().default(true),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  transmittedAt: timestamp("transmitted_at", { withTimezone: true }),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+
+  // Pharmacy response (CancelRxResponse)
+  responseStatus: text("response_status"),
+  responseCode: text("response_code"),
+  responseText: text("response_text"),
+
+  // Transport bookkeeping
+  transport: text("transport"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+  lastError: text("last_error"),
+
+  // Waste avoidance reporting
+  estimatedWasteAvoidedCents: integer("estimated_waste_avoided_cents"),
+  daysSupplyRemaining: integer("days_supply_remaining"),
+
+  initiatedBy: text("initiated_by"),
+  initiatorRole: text("initiator_role").notNull().default("system_automation"),
+  batchId: uuid("batch_id"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  idempotencyKeyIdx: uniqueIndex("erx_cancellation_idempotency_key_idx").on(t.idempotencyKey),
+  profileStatusIdx: index("erx_cancellation_profile_status_idx").on(t.profileId, t.status),
+  batchIdx: index("erx_cancellation_batch_idx").on(t.batchId),
+}));
+
+/** Append-only audit trail: one row per lifecycle transition or transport attempt. */
+export const erxCancellationEventsTable = pgTable("erx_cancellation_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  requestId: uuid("request_id").notNull().references(() => erxCancellationRequestsTable.id, { onDelete: "cascade" }),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  detail: text("detail"),
+  payloadHash: text("payload_hash"),   // SHA-256 of the transmitted payload, never the payload
+  actor: text("actor"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  requestIdx: index("erx_cancellation_events_request_idx").on(t.requestId),
+}));
+
+/** How a reported death reached us — governs how much verification is required. */
+export const mortalitySources = [
+  "clinician_attested",
+  "ehr_feed",
+  "state_registry",
+  "ssa_death_master_file",
+  "family_reported",
+  "caregiver_reported",
+  "obituary_match",
+] as const;
+export type MortalitySource = typeof mortalitySources[number];
+
+/**
+ * Death reports are destructive (they cancel every open prescription), so the
+ * record carries its own verification state and can be rescinded.
+ */
+export const mortalityVerificationStatuses = [
+  "unverified",
+  "pending_verification",
+  "verified",
+  "disputed",
+  "rescinded",
+] as const;
+export type MortalityVerificationStatus = typeof mortalityVerificationStatuses[number];
+
+export const patientMortalityRecordsTable = pgTable("patient_mortality_records", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  // Stored as text, not `date`: the value is PHI and is held as ciphertext at
+  // rest (see PHI_COLUMN_MAP). Callers pass/receive an ISO `YYYY-MM-DD` string.
+  deceasedDate: text("deceased_date"),
+  source: text("source").notNull(),
+  verificationStatus: text("verification_status").notNull().default("unverified"),
+  reportedBy: text("reported_by"),
+  reporterRelationship: text("reporter_relationship"),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+
+  // Outcome of the bulk-cancel run
+  cancellationBatchId: uuid("cancellation_batch_id"),
+  prescriptionsCancelled: integer("prescriptions_cancelled").notNull().default(0),
+  cancellationRunAt: timestamp("cancellation_run_at", { withTimezone: true }),
+
+  rescindedAt: timestamp("rescinded_at", { withTimezone: true }),
+  rescindedBy: text("rescinded_by"),
+  rescindReason: text("rescind_reason"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  profileIdx: uniqueIndex("patient_mortality_profile_idx").on(t.profileId),
+}));
+
+export const insertErxCancellationRequestDBSchema = createInsertSchema(erxCancellationRequestsTable)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertErxCancellationRequestDB = z.infer<typeof insertErxCancellationRequestDBSchema>;
+export type ErxCancellationRequestDB = typeof erxCancellationRequestsTable.$inferSelect;
+
+export const insertErxCancellationEventDBSchema = createInsertSchema(erxCancellationEventsTable)
+  .omit({ id: true, createdAt: true });
+export type InsertErxCancellationEventDB = z.infer<typeof insertErxCancellationEventDBSchema>;
+export type ErxCancellationEventDB = typeof erxCancellationEventsTable.$inferSelect;
+
+export const insertPatientMortalityRecordDBSchema = createInsertSchema(patientMortalityRecordsTable)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPatientMortalityRecordDB = z.infer<typeof insertPatientMortalityRecordDBSchema>;
+export type PatientMortalityRecordDB = typeof patientMortalityRecordsTable.$inferSelect;
+
+/** Request body for a clinician- or patient-initiated eRx cancellation. */
+export const createErxCancellationSchema = z.object({
+  medicationId: z.string().uuid().optional(),
+  medicationName: z.string().min(1, "Medication name is required"),
+  previousDose: z.string().optional().nullable(),
+  newDose: z.string().optional().nullable(),
+  rxReferenceNumber: z.string().optional().nullable(),
+  originalMessageId: z.string().optional().nullable(),
+  triggerType: z.enum(erxCancellationTriggers),
+  reasonText: z.string().max(500).optional().nullable(),
+  pharmacyNcpdpId: z.string().optional().nullable(),
+  pharmacyName: z.string().optional().nullable(),
+  prescriberNpi: z.string().optional().nullable(),
+  prescriberName: z.string().optional().nullable(),
+  daysSupplyRemaining: z.number().int().min(0).max(365).optional().nullable(),
+  // NOTE: `initiatorRole` is deliberately NOT accepted from the client. It is
+  // derived from the session role in the route: a caller who could name their
+  // own role could claim "prescriber" and bypass the approval step entirely.
+});
+export type CreateErxCancellationInput = z.infer<typeof createErxCancellationSchema>;
+
+/** Request body for recording a death and triggering the bulk cancellation. */
+export const recordPatientMortalitySchema = z.object({
+  deceasedDate: z.string().optional().nullable(),
+  source: z.enum(mortalitySources),
+  reportedBy: z.string().max(200).optional().nullable(),
+  reporterRelationship: z.string().max(100).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  /**
+   * Cancel open prescriptions immediately instead of holding them for
+   * verification. Only honoured for sources that are authoritative on their own.
+   */
+  cancelImmediately: z.boolean().default(false),
+});
+export type RecordPatientMortalityInput = z.infer<typeof recordPatientMortalitySchema>;
+
+export const rescindPatientMortalitySchema = z.object({
+  rescindReason: z.string().min(1, "A reason is required to rescind a death report").max(500),
+});
+export type RescindPatientMortalityInput = z.infer<typeof rescindPatientMortalitySchema>;
+
 export const symptomEntries = pgTable("symptom_entries", {
   id: uuid("id").defaultRandom().primaryKey(),
   profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
@@ -520,6 +759,89 @@ export const shareLinks = pgTable(
   (t) => ({
     tokenUx: uniqueIndex("share_links_token_hash_ux").on(t.tokenHash),
   })
+);
+
+/**
+ * TCPA / DPDP consent, one row per contact point.
+ *
+ * Durable rather than process-local because a revocation that only reaches
+ * one instance is not a revocation. Every production deploy path in this repo
+ * (`deploy.sh`, `deploy-world.sh`, `deploy/gcp-deploy.sh`, `cloudbuild.yaml`)
+ * runs Cloud Run with `--max-instances=10` and no session affinity, so a STOP
+ * processed on one instance has to be visible to the other nine before the
+ * next send is gated — otherwise the statutory opt-out is honoured on a tenth
+ * of the traffic and ignored on the rest.
+ *
+ * Lookup is by `phoneHash` (HMAC via `hashPhone`) so a number can be found
+ * without decrypting the table; `phone` itself is encrypted at rest.
+ */
+export const engagementConsentsTable = pgTable(
+  "engagement_consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    phoneHash: text("phone_hash").notNull(),
+    phone: text("phone").notNull(),
+    state: text("state").notNull(),
+    purposes: jsonb("purposes").$type<string[]>().notNull().default([]),
+    capturedVia: text("captured_via"),
+    capturedAt: timestamp("captured_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedByKeyword: text("revoked_by_keyword"),
+    noticeLanguage: text("notice_language"),
+    noticeVersion: text("notice_version"),
+    needsStaffReview: boolean("needs_staff_review").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    phoneUx: uniqueIndex("engagement_consents_phone_hash_ux").on(t.phoneHash),
+  }),
+);
+
+/**
+ * Share grants for the health-summary link.
+ *
+ * Same reasoning as consent, with a sharper edge: `/s/:token` is
+ * unauthenticated, so a grant that lives only in one process means a staff
+ * revoke on instance A leaves instance B serving medications, diagnoses and
+ * allergies to anyone holding the link. The view cap and the PIN attempt
+ * lockout are equally worthless per-process — ten instances multiply both by
+ * ten.
+ *
+ * `tokenHash` is SHA-256 of the token; the token itself is never stored.
+ */
+export const healthSummarySharesTable = pgTable(
+  "health_summary_shares",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    sections: jsonb("sections").$type<string[]>().notNull(),
+    initiator: text("initiator").notNull(),
+    createdByAccountId: text("created_by_account_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    maxViews: integer("max_views").notNull(),
+    viewCount: integer("view_count").notNull().default(0),
+    pinAttempts: integer("pin_attempts").notNull().default(0),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+    language: text("language").notNull().default("en"),
+    pinRequired: boolean("pin_required").notNull().default(false),
+    /** base64 scrypt output and its salt. Null when no PIN was set. */
+    pinHash: text("pin_hash"),
+    pinSalt: text("pin_salt"),
+    /** Patient-chosen label ("Dr Rao", "Mum"). Encrypted — it names people. */
+    label: text("label"),
+    attestations: jsonb("attestations").$type<Record<string, boolean>>(),
+    /** 45 CFR 164.524(c)(3)(ii) directive. Names a person — encrypted. */
+    directive: jsonb("directive").$type<Record<string, string>>(),
+  },
+  (t) => ({
+    tokenUx: uniqueIndex("health_summary_shares_token_hash_ux").on(t.tokenHash),
+    profileIdx: index("health_summary_shares_profile_idx").on(t.profileId),
+  }),
 );
 
 export const auditLogTable = pgTable("audit_log_new", {
@@ -22631,6 +22953,108 @@ export const insertAccountPrivacyPrefsSchema = createInsertSchema(accountPrivacy
 export type InsertAccountPrivacyPrefs = z.infer<typeof insertAccountPrivacyPrefsSchema>;
 export type AccountPrivacyPrefs = typeof accountPrivacyPrefs.$inferSelect;
 
+/**
+ * Ambient scribe: consent to record a consultation.
+ *
+ * Deliberately not folded into `engagement_consents`. That table answers "may
+ * we text this number"; this one answers "may we capture this room". A patient
+ * who agreed to appointment reminders has agreed to nothing here, and one
+ * table with a widened purpose list would let the first answer satisfy a
+ * question about the second.
+ *
+ * `noticeElements` records which DPDP s.5 elements the delivered notice
+ * covered. Section 5 makes the notice constitutive rather than procedural, so
+ * this is part of whether consent exists at all — not an audit nicety.
+ */
+export const scribeConsentsTable = pgTable(
+  "scribe_consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    jurisdiction: text("jurisdiction").notNull(),
+    purpose: text("purpose").notNull(),
+    state: text("state").notNull(),
+    method: text("method").notNull(),
+    noticeLanguage: text("notice_language").notNull(),
+    noticeVersion: text("notice_version").notNull(),
+    noticeElements: jsonb("notice_elements").$type<string[]>().notNull().default([]),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The clinician who attests to having asked. Names a person — encrypted. */
+    capturedBy: text("captured_by"),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("scribe_consents_profile_idx").on(t.profileId),
+    /**
+     * One authoritative row per (patient, purpose).
+     *
+     * Without this the store's insert appended, and `findConsent` — `LIMIT 1`
+     * with no ordering — could return the superseded `granted` row after a
+     * withdrawal had been written. Recording would then continue for a patient
+     * who had exercised DPDP s.6(6), and every surface would look correct.
+     *
+     * `engagement_consents` has had the equivalent unique index on `phoneHash`
+     * since it was written; this table was added without it.
+     */
+    profilePurposeUx: uniqueIndex("scribe_consents_profile_purpose_ux").on(
+      t.profileId,
+      t.purpose,
+    ),
+  }),
+);
+
+/**
+ * Ambient scribe sessions.
+ *
+ * `transcript` and `draft` are the most identifying payloads this application
+ * stores: a verbatim record of what a patient said about their own body, in
+ * their own words, plus whatever a relative in the room volunteered. Both are
+ * encrypted jsonb.
+ *
+ * The audio itself is **not** stored here and no column references it. It is
+ * working material with a 24-hour life (`SCRIBE_LIMITS.AUDIO_RETENTION_HOURS`);
+ * keeping it alongside the note would build a voice-biometric corpus nobody
+ * consented to, one consultation at a time.
+ *
+ * `attestation` being null is the difference between a draft and a clinical
+ * record. Nothing downstream may exchange a row whose attestation is null.
+ */
+export const scribeSessionsTable = pgTable(
+  "scribe_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    clinicianAccountId: text("clinician_account_id").notNull(),
+    jurisdiction: text("jurisdiction").notNull(),
+    status: text("status").notNull(),
+    language: text("language").notNull(),
+    mixedWith: jsonb("mixed_with").$type<string[]>().notNull().default([]),
+    engine: text("engine"),
+    /** Region inference actually ran in, recorded at start for the audit trail. */
+    processedInRegion: text("processed_in_region"),
+    rolesEstablished: boolean("roles_established").notNull().default(false),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** When the working audio was destroyed. Null means it has not been yet. */
+    audioDeletedAt: timestamp("audio_deleted_at", { withTimezone: true }),
+    /** Unattested drafts expire; an abandoned session must not linger as a shadow record. */
+    draftExpiresAt: timestamp("draft_expires_at", { withTimezone: true }),
+    /** Verbatim diarised turns. The most identifying payload here — encrypted. */
+    transcript: jsonb("transcript").$type<Record<string, unknown>>(),
+    /** Structured note items with their evidence spans — encrypted. */
+    draft: jsonb("draft").$type<Record<string, unknown>>(),
+    /** Null until a named clinician signs. Null means "not a clinical record". */
+    attestation: jsonb("attestation").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("scribe_sessions_profile_idx").on(t.profileId),
+    clinicianIdx: index("scribe_sessions_clinician_idx").on(t.clinicianAccountId),
+  }),
+);
 // ============================================
 // PROVIDER DIRECTORY — PERSISTENCE
 // Postgres-backed store for the zip + specialty provider search.
