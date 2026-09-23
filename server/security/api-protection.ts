@@ -53,6 +53,13 @@ function rateLimitHandler(limiterName: string) {
   };
 }
 
+/**
+ * Mounted directly on `/api/auth/cac/challenge` and `/api/auth/cac/verify`
+ * in `dod-routes.ts` — the CAC/PIV challenge-response flow is the only
+ * server-side credential check this app performs; GCIP/Firebase auth
+ * exchanges a token via `sessionExchangeRateLimiter` below and never
+ * reaches this server with a raw credential.
+ */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -95,6 +102,7 @@ export const sessionExchangeRateLimiter = rateLimit({
   skip: (req) => req.method === "OPTIONS",
 });
 
+/** Mounted directly on `/api/auth/mfa/recovery-codes/consume` in `mfa-routes.ts`. */
 export const mfaRateLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 5,

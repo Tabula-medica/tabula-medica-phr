@@ -21027,6 +21027,15 @@ export const securitySessionsTable = pgTable("security_sessions", {
   terminationReason: text("termination_reason"),
 });
 
+// Shared counter for the Postgres-backed express-rate-limit store
+// (server/security/pg-rate-limit-store.ts). Keys are namespaced,
+// IP-derived rate-limit identifiers only — never PHI.
+export const rateLimitHitsTable = pgTable("rate_limit_hits", {
+  key: text("key").primaryKey(),
+  hits: integer("hits").notNull(),
+  resetTime: timestamp("reset_time", { withTimezone: true }).notNull(),
+});
+
 // Insert schemas for compliance tables
 export const insertHipaaAuditLogSchema = z.object({
   eventType: z.enum(["PHI_ACCESS", "PHI_MODIFY", "PHI_CREATE", "PHI_DELETE", "LOGIN", "LOGOUT", "MFA_SETUP", "MFA_VERIFY", "SESSION_START", "SESSION_END", "EXPORT", "CONSENT_CHANGE", "ACCESS_DENIED"]),

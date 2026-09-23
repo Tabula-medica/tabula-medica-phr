@@ -13,6 +13,7 @@ import type { Express, Request, Response } from "express";
 import { randomBytes, createHash } from "crypto";
 import { db } from "./db";
 import { z } from "zod";
+import { authRateLimiter } from "./security/api-protection";
 
 // ─── Offline sync ─────────────────────────────────────────────────────────────
 
@@ -174,7 +175,10 @@ export function registerDoDRoutes(
   });
 
   // ── POST /api/auth/cac/challenge ──────────────────────────────────────────
-  app.post("/api/auth/cac/challenge", async (req: Request, res: Response) => {
+  // Rate-limited: this is the actual authentication attempt this app makes —
+  // GCIP/Firebase auth never sees a CAC/PIV credential, so authRateLimiter
+  // has no other consumer.
+  app.post("/api/auth/cac/challenge", authRateLimiter, async (req: Request, res: Response) => {
     try {
       const { authMethod = "cac_hardware", edipi } = req.body as {
         authMethod?: string;
@@ -199,7 +203,7 @@ export function registerDoDRoutes(
   });
 
   // ── POST /api/auth/cac/verify ────────────────────────────────────────────
-  app.post("/api/auth/cac/verify", async (req: Request, res: Response) => {
+  app.post("/api/auth/cac/verify", authRateLimiter, async (req: Request, res: Response) => {
     try {
       const {
         challengeId,

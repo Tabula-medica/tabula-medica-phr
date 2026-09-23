@@ -4,9 +4,12 @@ import { PgRateLimitStore, type Queryable } from "../server/security/pg-rate-lim
 /**
  * In-memory fake of the one Postgres feature this store actually needs: an
  * atomic "insert or bump, resetting an expired window" upsert. Mirrors the
- * real SQL's semantics (verified against a live Postgres 16 instance during
- * development — see the PR discussion) so this suite can run without a
- * database, the way the other two security-layer spec files do.
+ * real SQL's semantics so this suite can run without a database, the way
+ * the other two security-layer spec files do — but a synchronous fake can't
+ * expose a real read/write race, so it doesn't stand in for proof that
+ * concurrent increments are serialized by Postgres itself. That property is
+ * covered separately by `tests/pg-rate-limit-store.integration.spec.ts`,
+ * which runs against a real `postgres` service container in CI.
  */
 type FakeRow = { hits: number; reset_time: Date };
 type FakeQueryResult = { rows: FakeRow[] };
@@ -15,7 +18,6 @@ function fakeQueryable(): Queryable & { rows: Map<string, { hits: number; resetT
   const rows = new Map<string, { hits: number; resetTime: Date }>();
   const run = async (sql: string, params?: unknown[]): Promise<FakeQueryResult> => {
     const text = String(sql);
-    if (text.startsWith("CREATE TABLE")) return { rows: [] };
 
     if (text.startsWith("INSERT INTO")) {
       const [key, intervalStr] = params as [string, string];
@@ -111,5 +113,24 @@ describe("PgRateLimitStore", () => {
     await new Promise((r) => setTimeout(r, 80));
     const r = await shortStore.increment("k4");
     expect(r.totalHits).toBe(1); // window elapsed -> restarted, not 3
+  });
+
+  it("never stores the raw rate-limit key — only an opaque hash of namespace+key", async () => {
+    await store.increment("203.0.113.5");
+    const storedKeys = [...pool.rows.keys()];
+    expect(storedKeys).toHaveLength(1);
+    expect(storedKeys[0]).not.toContain("203.0.113.5");
+    expect(storedKeys[0]).not.toContain("test_ns");
+    expect(storedKeys[0]).toMatch(/^[0-9a-f]{64}$/); // sha256 hex digest
+  });
+
+  it("propagates a query failure instead of swallowing it, so passOnStoreError can fail the limiter open", async () => {
+    const failingPool: Queryable = {
+      query: (() => Promise.reject(new Error("connection refused"))) as Queryable["query"],
+    };
+    const brokenStore = new PgRateLimitStore(failingPool, "broken_ns");
+    brokenStore.init({ windowMs: 1000 });
+    await expect(brokenStore.increment("k5")).rejects.toThrow("connection refused");
+    await expect(brokenStore.get("k5")).rejects.toThrow("connection refused");
   });
 });
