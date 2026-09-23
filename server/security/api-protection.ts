@@ -4,6 +4,25 @@ import { Request, Response, NextFunction, RequestHandler } from "express";
 import { validateCorsOrigin } from "./cors-config";
 import { getRequestId } from "./production-logger";
 import { logSecurityEvent } from "./gcp-audit-logger";
+import { PgRateLimitStore } from "./pg-rate-limit-store";
+import { pool } from "../db";
+
+/**
+ * Shared across instances (this app runs on Cloud Run with up to 10 —
+ * deploy.sh / deploy-world.sh `--max-instances 10`). The default
+ * express-rate-limit store is in-memory and per-process, so without this a
+ * caller distributed across instances got roughly N× the configured limit
+ * on identity-critical endpoints before any instance raised the 429 / SIEM
+ * event these limiters exist to produce. Applied to the four
+ * identity/account-recovery limiters below, not the general `apiRateLimiter`
+ * — that one throttles all `/api/*` traffic by volume, not identity abuse,
+ * so routing it through Postgres too would add write load disproportionate
+ * to its security value; a per-instance throttle still bounds a single
+ * instance's flood.
+ */
+function pgStore(namespace: string): PgRateLimitStore {
+  return new PgRateLimitStore(pool, namespace);
+}
 
 /**
  * Shared 429 handler: emits a PHI-free security event (fanned out to Cloud
@@ -45,6 +64,8 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  store: pgStore("auth"),
+  passOnStoreError: true, // a DB hiccup fails the limiter open, not the login request
   handler: rateLimitHandler("auth"),
   skip: (req) => {
     return req.method === "OPTIONS";
@@ -68,6 +89,8 @@ export const sessionExchangeRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
+  store: pgStore("session_exchange"),
+  passOnStoreError: true,
   handler: rateLimitHandler("session_exchange"),
   skip: (req) => req.method === "OPTIONS",
 });
@@ -75,6 +98,8 @@ export const sessionExchangeRateLimiter = rateLimit({
 export const mfaRateLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 5,
+  store: pgStore("mfa"),
+  passOnStoreError: true,
   message: {
     error: "MFA_RATE_LIMITED",
     message: "Too many MFA attempts. Please wait before trying again.",
@@ -89,6 +114,8 @@ export const mfaRateLimiter = rateLimit({
 export const passwordResetRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
+  store: pgStore("password_reset"),
+  passOnStoreError: true,
   message: {
     error: "RESET_RATE_LIMITED",
     message: "Too many password reset requests. Please try again later.",
@@ -100,6 +127,7 @@ export const passwordResetRateLimiter = rateLimit({
   handler: rateLimitHandler("password_reset"),
 });
 
+// Not on the shared Postgres store — see the comment on pgStore() above.
 export const apiRateLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 200,
