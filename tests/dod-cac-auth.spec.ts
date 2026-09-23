@@ -384,25 +384,39 @@ describe("POST /api/auth/cac/verify", () => {
     }
   });
 
-  it("does not reject when both /challenge and /verify omit authMethod and rely on their (matching) defaults", async () => {
-    // The default-mismatch bug: /challenge defaulted to cac_hardware while
-    // /verify defaulted to software_cert, so any caller relying on both
-    // defaults was always rejected even with an otherwise-perfect request.
+  it("mints a session when /challenge and /verify send matching, explicit edipi/authMethod", async () => {
     const handlers = captureHandlers();
     const keyPair = await generateKeyPair();
     const publicKeyHex = await exportPublicKeyHex(keyPair.publicKey);
     await enroll(handlers, "1234567890", publicKeyHex);
 
-    const challengeRes = fakeRes();
-    await handlers.get("/api/auth/cac/challenge")!(fakeReq({ edipi: "1234567890" }), challengeRes); // no authMethod
-    const { challenge, challengeId } = challengeRes.body as { challenge: string; challengeId: string };
+    const { challenge, challengeId } = await getChallenge(handlers, "1234567890", "software_cert");
     const signature = await signChallenge(challenge, keyPair.privateKey);
 
-    const req = fakeReq({ challengeId, edipi: "1234567890", publicKeyHex, signature }); // no authMethod here either
+    const req = fakeReq({ challengeId, edipi: "1234567890", authMethod: "software_cert", publicKeyHex, signature });
     const res = fakeRes();
     await handlers.get("/api/auth/cac/verify")!(req, res);
 
     expect(res.statusCode).toBe(200);
+  });
+
+  it("rejects /challenge when edipi is omitted — an unbound challenge would let /verify assert any identity", async () => {
+    // edipi/authMethod used to be optional at /challenge, with /verify's
+    // context-binding check only enforced "when the challenge happened to
+    // record one" — so any caller could skip the binding entirely just by
+    // omitting them here, then assert whatever edipi/authMethod they liked
+    // at /verify. Both are now required, making the binding unconditional.
+    const handlers = captureHandlers();
+    const res = fakeRes();
+    await handlers.get("/api/auth/cac/challenge")!(fakeReq({ authMethod: "software_cert" }), res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects /challenge when authMethod is omitted", async () => {
+    const handlers = captureHandlers();
+    const res = fakeRes();
+    await handlers.get("/api/auth/cac/challenge")!(fakeReq({ edipi: "1234567890" }), res);
+    expect(res.statusCode).toBe(400);
   });
 });
 

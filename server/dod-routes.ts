@@ -64,7 +64,7 @@ const SyncPayloadSchema = z.object({
 const _challenges = new Map<string, {
   challenge: string;
   expiresAt: number;
-  edipi?: string;
+  edipi: string;
   authMethod: string;
 }>();
 
@@ -216,14 +216,24 @@ export function registerDoDRoutes(
   // has no other consumer.
   app.post("/api/auth/cac/challenge", authRateLimiter, async (req: Request, res: Response) => {
     try {
-      // Same default as /verify below — they must match, or any caller that
-      // omits authMethod on both calls (as this app's real client always
-      // does explicitly, but nothing enforces that) gets rejected by the
-      // context-binding check even though both requests are otherwise valid.
-      const { authMethod = "software_cert", edipi } = req.body as {
+      const { authMethod, edipi } = req.body as {
         authMethod?: string;
         edipi?: string;
       };
+
+      // Both were previously optional, with /verify's context-binding
+      // check only enforced "when the challenge recorded one" — meaning
+      // any caller could skip the binding entirely just by omitting them
+      // here, then assert whatever edipi/authMethod they liked at /verify.
+      // The real clients (client/lib/cac-auth.ts) already always send
+      // both, so this only rejects direct API callers that don't —
+      // exactly the callers the binding exists to constrain.
+      if (!edipi || !/^\d{10}$/.test(edipi)) {
+        return res.status(400).json({ error: "Invalid EDIPI format — must be 10 digits" });
+      }
+      if (!authMethod) {
+        return res.status(400).json({ error: "authMethod is required" });
+      }
 
       const challengeBytes = randomBytes(32);
       const challengeHex = challengeBytes.toString("hex");
@@ -280,13 +290,15 @@ export function registerDoDRoutes(
       // for. Without this, a signature that's valid for the challenge could
       // still mint a session under a different EDIPI/authMethod than the
       // one /challenge was called with (the challenge and stored context are
-      // otherwise unused once retrieved). edipi/authMethod are optional at
-      // challenge time, so only enforce a match when the challenge actually
-      // recorded one.
-      if (stored.edipi && stored.edipi !== edipi) {
+      // otherwise unused once retrieved). /challenge requires and validates
+      // both fields, so this is an unconditional match, not a
+      // "only if the challenge happened to record one" check — a caller
+      // can no longer skip the binding just by omitting them at challenge
+      // time and asserting whatever they like here.
+      if (stored.edipi !== edipi) {
         return res.status(401).json({ error: "EDIPI does not match the challenge request" });
       }
-      if (stored.authMethod && stored.authMethod !== authMethod) {
+      if (stored.authMethod !== authMethod) {
         return res.status(401).json({ error: "Auth method does not match the challenge request" });
       }
 
@@ -370,7 +382,15 @@ export function registerDoDRoutes(
       await hipaaComplianceService.logAuditEvent({
         timestamp: new Date().toISOString(),
         who: {
-          userId: edipi,
+          // who.userId is NOT a PHI-encrypted column on hipaa_audit_logs
+          // (only who.userName is, per PHI_COLUMN_MAP) and is also what
+          // hipaaComplianceService's own logger.info call emits verbatim —
+          // so the raw EDIPI (a DoD-issued personal identifier) can't go
+          // here without landing in plaintext logs and an unencrypted DB
+          // column. Hash it for userId (still a stable, queryable
+          // correlation key) and keep the real EDIPI only in userName,
+          // which is encrypted at rest.
+          userId: createHash("sha256").update(edipi).digest("hex"),
           userName: edipi,
           userRole: "patient",
           ipAddress: req.ip ?? "unknown",
