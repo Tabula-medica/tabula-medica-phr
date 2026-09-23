@@ -30,10 +30,17 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
         reset_time TIMESTAMPTZ NOT NULL
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rate_limit_key_secret (
+        id INTEGER PRIMARY KEY,
+        secret TEXT NOT NULL
+      )
+    `);
   });
 
   afterAll(async () => {
     await pool.query("DROP TABLE IF EXISTS rate_limit_hits");
+    await pool.query("DROP TABLE IF EXISTS rate_limit_key_secret");
     await pool.end();
   });
 
@@ -89,6 +96,25 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
 
     await expect(store.increment("k1")).rejects.toThrow();
     await deadPool.end();
+  });
+
+  it("converges every instance on one HMAC key even when they all race to provision it on their very first call", async () => {
+    // The actual scenario the HMAC-key-in-the-database design exists for:
+    // several fresh Cloud Run instances (or revisions) cold-starting at once,
+    // each hitting getKeySecret() for the first time simultaneously. If they
+    // didn't converge on one secret, each would hash "racer" to a different
+    // row and this test would see 10 separate counters of 1, not one of 10.
+    await pool.query("DELETE FROM rate_limit_key_secret");
+    const racers = Array.from({ length: 10 }, () => new PgRateLimitStore(pool, "race_test"));
+    racers.forEach((s) => s.init({ windowMs: 15 * 60 * 1000 }));
+
+    await Promise.all(racers.map((s) => s.increment("racer")));
+
+    const seenCounts = await Promise.all(racers.map((s) => s.get("racer")));
+    for (const seen of seenCounts) expect(seen?.totalHits).toBe(10);
+
+    const secretRowCount = await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_key_secret");
+    expect(secretRowCount.rows[0].n).toBe(1);
   });
 
   it("rejects with Postgres error 42P01 when the schema hasn't been published yet — the pre-deploy gap this store must fail loud on", async () => {

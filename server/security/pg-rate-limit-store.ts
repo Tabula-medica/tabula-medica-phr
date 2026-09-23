@@ -10,30 +10,34 @@
  * makes the counter shared, so the limit holds regardless of which
  * instance answers a given request.
  *
- * The `rate_limit_hits` table is a normal Drizzle-managed table
- * (`shared/schema.ts` → `rateLimitHitsTable`), applied via the project's
- * db:push/publish flow like every other table — this store does not run
- * DDL itself (`.local/skills/database/references/database-migrations-on-publish.md`
+ * `rate_limit_hits` and `rate_limit_key_secret` are normal Drizzle-managed
+ * tables (`shared/schema.ts`), applied via the project's db:push/publish
+ * flow like every other table — this store does not run DDL itself
+ * (`.local/skills/database/references/database-migrations-on-publish.md`
  * prohibits startup-time schema mutation). IMPORTANT: `deploy.sh` /
  * `deploy-world.sh` deploy straight to Cloud Run via `gcloud run deploy
  * --source .` and do not run a schema-publish step, so the schema must be
  * applied to the production database out-of-band (`npm run db:push` against
  * the production `DATABASE_URL`, or the team's equivalent release step)
  * *before* a deploy that relies on this store reaches production traffic.
- * If the table is missing, every query rejects with Postgres error 42P01
- * ("relation does not exist"); `logMissingTableOnce()` below turns that into
- * a loud, one-time `rate_limit_schema_missing` security event instead of a
- * failure indistinguishable from an ordinary DB hiccup, and
+ * If either table is missing, every query rejects with Postgres error
+ * 42P01 ("relation does not exist"); `logMissingTableOnce()` below turns
+ * that into a loud, one-time `rate_limit_schema_missing` security event
+ * instead of a failure indistinguishable from an ordinary DB hiccup, and
  * `passOnStoreError: true` on each limiter still fails that limiter open
  * rather than 500ing the request.
  *
- * Keys are namespaced per limiter and run through a keyed HMAC (not a bare
- * hash) before storage: a bare SHA-256 of a namespace + IP is enumerable
- * (the namespace is known and the IPv4 space is small enough to brute-force
- * offline), which would defeat the point of hashing. The HMAC key reuses
- * `SESSION_SECRET`, the same convention `siem-forwarder.ts` uses for its own
- * IP hashing; rotating that secret is safe — it only resets in-flight rate
- * counters to zero for one window, never lets a caller exceed a limit.
+ * Keys are namespaced per limiter and run through a keyed HMAC before
+ * storage — a bare hash of a namespace + IP is enumerable (the namespace is
+ * known and the IPv4 space is small enough to brute-force offline). The
+ * HMAC key is *not* read from an env var like `SESSION_SECRET`: an
+ * env-sourced secret is captured once at process start, so an old and a new
+ * Cloud Run revision serving traffic concurrently during a rollout (or two
+ * instances started with different env values) would hash the same caller
+ * to two different rows and double their effective limit for the overlap.
+ * Instead the key lives in `rate_limit_key_secret`, the same database that
+ * already coordinates the counts themselves, so every instance and every
+ * revision converges on one value regardless of deploy/rotation timing.
  */
 import type { Pool } from "pg";
 import { createHmac, randomBytes } from "crypto";
@@ -45,7 +49,7 @@ export interface ClientRateLimitInfo {
 }
 
 const TABLE = "rate_limit_hits";
-const KEY_HASH_SECRET = process.env.SESSION_SECRET || randomBytes(32).toString("hex");
+const SECRET_TABLE = "rate_limit_key_secret";
 
 /** Minimal shape this store needs from `pg.Pool` — lets tests inject a fake without a real database. */
 export type Queryable = Pick<Pool, "query">;
@@ -61,14 +65,14 @@ function logMissingTableOnce(namespace: string): void {
   if (warnedMissingTable) return;
   warnedMissingTable = true;
   console.error(
-    `[pg-rate-limit-store] "${TABLE}" does not exist — rate limiting is failing open on every limiter using this store. ` +
+    `[pg-rate-limit-store] "${TABLE}" or "${SECRET_TABLE}" does not exist — rate limiting is failing open on every limiter using this store. ` +
       "Apply the schema (npm run db:push against the production database, or the team's schema-publish step) before this deploy serves traffic.",
   );
   void logSecurityEvent({
     eventType: "rate_limit_schema_missing",
     actor: "system",
     riskLevel: "critical",
-    details: { namespace, table: TABLE },
+    details: { namespace, tables: `${TABLE},${SECRET_TABLE}` },
   });
 }
 
@@ -76,14 +80,11 @@ export class PgRateLimitStore {
   private readonly pool: Queryable;
   private readonly namespace: string;
   private windowMs = 15 * 60 * 1000;
+  private keySecretPromise: Promise<string> | null = null;
 
   constructor(pool: Queryable, namespace: string) {
     this.pool = pool;
     this.namespace = namespace;
-  }
-
-  private scopedKey(key: string): string {
-    return createHmac("sha256", KEY_HASH_SECRET).update(`${this.namespace}:${key}`).digest("hex");
   }
 
   private async query<T extends { rows: unknown[] }>(sql: string, params: unknown[]): Promise<T> {
@@ -95,12 +96,45 @@ export class PgRateLimitStore {
     }
   }
 
+  /**
+   * Fetches the shared HMAC key from `rate_limit_key_secret`, provisioning
+   * it on first use. The insert/select pair is race-safe: if two instances
+   * (or two stores in this process) reach this at the same time, the
+   * `ON CONFLICT DO NOTHING` loser simply reads back whichever value won.
+   */
+  private getKeySecret(): Promise<string> {
+    if (!this.keySecretPromise) {
+      this.keySecretPromise = (async () => {
+        const candidate = randomBytes(32).toString("hex");
+        const inserted = await this.query<{ rows: { secret: string }[] }>(
+          `INSERT INTO ${SECRET_TABLE} (id, secret) VALUES (1, $1) ON CONFLICT (id) DO NOTHING RETURNING secret`,
+          [candidate],
+        );
+        if (inserted.rows.length > 0) return inserted.rows[0].secret;
+        const existing = await this.query<{ rows: { secret: string }[] }>(
+          `SELECT secret FROM ${SECRET_TABLE} WHERE id = 1`,
+          [],
+        );
+        return existing.rows[0].secret;
+      })().catch((err) => {
+        this.keySecretPromise = null; // allow a retry on the next call rather than wedging forever
+        throw err;
+      });
+    }
+    return this.keySecretPromise;
+  }
+
+  private async scopedKey(key: string): Promise<string> {
+    const secret = await this.getKeySecret();
+    return createHmac("sha256", secret).update(`${this.namespace}:${key}`).digest("hex");
+  }
+
   init(options: { windowMs: number }): void {
     this.windowMs = options.windowMs;
   }
 
   async increment(key: string): Promise<ClientRateLimitInfo> {
-    const scoped = this.scopedKey(key);
+    const scoped = await this.scopedKey(key);
     // Atomic upsert: one round trip, no read-check-write race across
     // concurrent requests (from this instance or any other). A row whose
     // window has already elapsed restarts the count; otherwise it's
@@ -119,17 +153,20 @@ export class PgRateLimitStore {
   }
 
   async decrement(key: string): Promise<void> {
-    await this.query(`UPDATE ${TABLE} SET hits = GREATEST(hits - 1, 0) WHERE key = $1`, [this.scopedKey(key)]);
+    const scoped = await this.scopedKey(key);
+    await this.query(`UPDATE ${TABLE} SET hits = GREATEST(hits - 1, 0) WHERE key = $1`, [scoped]);
   }
 
   async resetKey(key: string): Promise<void> {
-    await this.query(`DELETE FROM ${TABLE} WHERE key = $1`, [this.scopedKey(key)]);
+    const scoped = await this.scopedKey(key);
+    await this.query(`DELETE FROM ${TABLE} WHERE key = $1`, [scoped]);
   }
 
   async get(key: string): Promise<ClientRateLimitInfo | undefined> {
+    const scoped = await this.scopedKey(key);
     const res = await this.query<{ rows: { hits: number; reset_time: Date }[] }>(
       `SELECT hits, reset_time FROM ${TABLE} WHERE key = $1 AND reset_time > now()`,
-      [this.scopedKey(key)],
+      [scoped],
     );
     if (res.rows.length === 0) return undefined;
     const row = res.rows[0];

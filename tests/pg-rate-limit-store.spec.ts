@@ -12,12 +12,29 @@ import { PgRateLimitStore, type Queryable } from "../server/security/pg-rate-lim
  * which runs against a real `postgres` service container in CI.
  */
 type FakeRow = { hits: number; reset_time: Date };
-type FakeQueryResult = { rows: FakeRow[] };
+type FakeSecretRow = { secret: string };
+type FakeQueryResult = { rows: (FakeRow | FakeSecretRow)[] };
 
 function fakeQueryable(): Queryable & { rows: Map<string, { hits: number; resetTime: Date }> } {
   const rows = new Map<string, { hits: number; resetTime: Date }>();
+  let secret: string | undefined;
   const run = async (sql: string, params?: unknown[]): Promise<FakeQueryResult> => {
     const text = String(sql);
+
+    if (text.includes("rate_limit_key_secret")) {
+      if (text.startsWith("INSERT INTO")) {
+        const [candidate] = params as [string];
+        if (secret === undefined) {
+          secret = candidate;
+          return { rows: [{ secret }] };
+        }
+        return { rows: [] }; // ON CONFLICT DO NOTHING — already provisioned
+      }
+      if (text.startsWith("SELECT")) {
+        return { rows: [{ secret: secret as string }] };
+      }
+      throw new Error(`fakeQueryable: unhandled secret-table query: ${text}`);
+    }
 
     if (text.startsWith("INSERT INTO")) {
       const [key, intervalStr] = params as [string, string];
