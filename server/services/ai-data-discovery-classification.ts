@@ -1,10 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { createHash, randomUUID } from "crypto";
 import { DataClassificationTag, dataClassificationTags } from "@shared/schema";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_DISCOVERY_PROMPT = `You are a healthcare data classification expert specializing in identifying sensitive data types for regulatory compliance.
 
@@ -802,7 +800,7 @@ class AIDataDiscoveryClassificationService {
     reasoning: string;
     recommendations: string[];
   }> {
-    if (!openai) {
+    if (!aiEnabled) {
       return this.fallbackAnalysis(content);
     }
 
@@ -810,13 +808,9 @@ class AIDataDiscoveryClassificationService {
       const sanitizedContent = sanitizePhi(content);
       const sanitizedContext = sanitizePhi(context);
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_DISCOVERY_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this data field for sensitive data types. Identify PHI, PII, financial, genetic, or other sensitive categories.
+      const responseText = await generatePhiSafeText({
+        system: NO_CDS_DISCOVERY_PROMPT,
+        user: `Analyze this data field for sensitive data types. Identify PHI, PII, financial, genetic, or other sensitive categories.
 
 Context: ${sanitizedContext}
 Data sample (sanitized): ${sanitizedContent}
@@ -827,15 +821,13 @@ Respond in JSON format:
   "confidence": 0.0-1.0,
   "reasoning": "explanation",
   "recommendations": ["action1", "action2"]
-}`
-          }
-        ],
-        response_format: { type: "json_object" },
+}`,
+        responseMimeType: "application/json",
         temperature: 0.3,
-        max_tokens: 500,
+        maxTokens: 500,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(responseText || "{}");
       return {
         detectedTypes: result.detectedTypes || [],
         confidence: result.confidence || 0.5,

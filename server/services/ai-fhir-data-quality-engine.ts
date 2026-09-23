@@ -1,13 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
 import { createHash } from "crypto";
 import * as fhirValidation from "./fhir-validation-service";
 import * as dataReconciliation from "./data-reconciliation-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return "H" + createHash("sha256").update(id).digest("hex").substring(0, 8);
@@ -976,13 +971,10 @@ async function generateAISuggestion(issue: FHIRQualityIssue): Promise<Correction
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      max_completion_tokens: 512,
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR data quality expert. Analyze the data quality issue and suggest a correction.
+    const content = await generatePhiSafeText({
+      maxTokens: 512,
+      responseMimeType: "application/json",
+      system: `You are a FHIR data quality expert. Analyze the data quality issue and suggest a correction.
 Return JSON only with these fields:
 - suggestedValue: The corrected value (null if cannot determine)
 - confidence: Number 0-1 indicating confidence in the suggestion
@@ -992,10 +984,7 @@ Return JSON only with these fields:
 
 IMPORTANT: Do NOT provide clinical advice. Focus only on data quality and FHIR standards compliance.
 If the issue involves clinical interpretation, set requiresApproval to true and suggest review by a clinician.`,
-        },
-        {
-          role: "user",
-          content: `Analyze this FHIR data quality issue and suggest a correction:
+      user: `Analyze this FHIR data quality issue and suggest a correction:
 
 Resource Type: ${issue.resourceType}
 Issue Type: ${issue.issueType}
@@ -1006,11 +995,8 @@ Current Value: ${JSON.stringify(issue.currentValue)}
 Expected Value: ${JSON.stringify(issue.expectedValue)}
 
 Provide a JSON response with your correction suggestion.`,
-        },
-      ],
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return generateRuleBasedSuggestion(issue);
 
     try {

@@ -1,11 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import type { AutoTagCategory, DocumentAutoTag, DocumentAutoTagResult } from "@shared/schema";
-
-// Use AI Integrations for OpenAI access (no API key required)
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 // Category labels for display
 export const autoTagCategoryLabels: Record<AutoTagCategory, string> = {
@@ -68,23 +62,13 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: "You are a medical document classifier that provides explainable categorization. Always respond with valid JSON. Your explanations should be clear and reference specific indicators in the document that led to your classification decision.",
-        },
-        {
-          role: "user",
-          content: classificationPrompt,
-        },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: "You are a medical document classifier that provides explainable categorization. Always respond with valid JSON. Your explanations should be clear and reference specific indicators in the document that led to your classification decision.",
+      user: classificationPrompt,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const result = JSON.parse(content);
+    const result = JSON.parse(content || "{}");
 
     // Validate category
     const validCategories: AutoTagCategory[] = ["discharge_summary", "lab", "imaging", "insurance", "referral", "other"];

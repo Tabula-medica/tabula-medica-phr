@@ -1,18 +1,4 @@
-import OpenAI from "openai";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-    
-    if (apiKey && baseURL) {
-      openaiClient = new OpenAI({ apiKey, baseURL });
-    }
-  }
-  return openaiClient;
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This is NOT clinical decision support (CDS). All content is for patient engagement, education, and care coordination purposes only. Treatment decisions must be made by qualified healthcare professionals based on their clinical judgment and individual patient assessment.";
 
@@ -216,45 +202,30 @@ export async function createPersonalizedCareJourney(
   logHipaaAudit("CREATE_JOURNEY", userId, patientId, `Creating personalized care journey: ${journeyType}`);
 
   const patient = samplePatients.find(p => p.patientId === patientId) || samplePatients[0];
-  
-  const openai = getOpenAI();
-  if (!openai) {
-    console.log("[PersonalizedCareJourney] OpenAI not configured, using fallback journey");
-    return buildFallbackCareJourney(patient, journeyType);
-  }
-  
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare care journey designer. Create a personalized care journey structure based on patient profile and journey type. This is NOT clinical decision support - only care coordination and engagement content.
+    const responseText = await generatePhiSafeText({
+      responseMimeType: "application/json",
+      system: `You are a healthcare care journey designer. Create a personalized care journey structure based on patient profile and journey type. This is NOT clinical decision support - only care coordination and engagement content.
 
 Return JSON with structure:
 {
   "phases": [{ "phaseName": string, "description": string, "durationDays": number, "milestones": [{ "title": string }], "tasks": [{ "title": string, "type": "medication"|"appointment"|"education"|"lifestyle"|"assessment", "priority": "high"|"medium"|"low" }] }],
   "treatmentRecommendations": [{ "type": string, "title": string, "description": string, "rationale": string, "evidenceLevel": "strong"|"moderate"|"emerging", "personalizationFactors": [string], "priority": "high"|"medium"|"low", "estimatedBenefit": string }],
   "educationTopics": [{ "title": string, "topic": string, "type": "article"|"video"|"infographic", "relevanceReason": string, "keyTakeaways": [string] }]
-}`
-        },
-        {
-          role: "user",
-          content: `Create a personalized "${journeyType}" care journey for:
+}`,
+      user: `Create a personalized "${journeyType}" care journey for:
 Patient: ${patient.name}, ${patient.age}yo ${patient.gender}
 Conditions: ${patient.conditions.join(", ")}
 Medications: ${patient.medications.join(", ")}
 Care Goals: ${patient.carePlan?.goals.join(", ") || "General wellness"}
 Reading Level: ${patient.preferences.readingLevel}
-Reminder Preference: ${patient.preferences.reminderFrequency}`
-        }
-      ],
+Reminder Preference: ${patient.preferences.reminderFrequency}`,
       temperature: 0.7,
     });
 
-    const aiResult = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const aiResult = JSON.parse(responseText || "{}");
+
     const journey = buildCareJourney(patient, journeyType, aiResult);
     
     logHipaaAudit("CREATE_JOURNEY_SUCCESS", userId, patientId, `Journey created with ${journey.phases.length} phases`);
@@ -688,21 +659,11 @@ export async function getAITreatmentRecommendations(
   logHipaaAudit("AI_TREATMENT_RECOMMENDATIONS", userId, patientId, `Context: ${JSON.stringify(context || {})}`);
   
   const patient = samplePatients.find(p => p.patientId === patientId) || samplePatients[0];
-  
-  const openai = getOpenAI();
-  if (!openai) {
-    console.log("[PersonalizedCareJourney] OpenAI not configured, using fallback recommendations");
-    return buildFallbackRecommendations(patient);
-  }
-  
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare engagement assistant helping patients understand care options. This is NOT clinical decision support - provide educational information about care approaches that the patient can discuss with their healthcare provider.
+    const responseText = await generatePhiSafeText({
+      responseMimeType: "application/json",
+      system: `You are a healthcare engagement assistant helping patients understand care options. This is NOT clinical decision support - provide educational information about care approaches that the patient can discuss with their healthcare provider.
 
 Return JSON:
 {
@@ -717,25 +678,20 @@ Return JSON:
     "estimatedBenefit": string
   }],
   "personalizationSummary": string (explain how recommendations are tailored to this patient)
-}`
-        },
-        {
-          role: "user",
-          content: `Generate personalized care recommendations for:
+}`,
+      user: `Generate personalized care recommendations for:
 Patient: ${patient.age}yo ${patient.gender}
 Conditions: ${patient.conditions.join(", ")}
 Current Medications: ${patient.medications.join(", ")}
 Care Goals: ${patient.carePlan?.goals.join(", ") || "General wellness"}
 ${context?.recentLabResults ? `Recent Lab Results: ${context.recentLabResults}` : ""}
 ${context?.symptoms ? `Current Symptoms: ${context.symptoms.join(", ")}` : ""}
-${context?.concerns ? `Patient Concerns: ${context.concerns.join(", ")}` : ""}`
-        }
-      ],
+${context?.concerns ? `Patient Concerns: ${context.concerns.join(", ")}` : ""}`,
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(responseText || "{}");
+
     const recommendations = (result.recommendations || []).map((rec: any, idx: number) => ({
       recommendationId: `rec-${Date.now()}-${idx}`,
       ...rec,
@@ -789,21 +745,11 @@ export async function getPersonalizedEducationContent(
   logHipaaAudit("PERSONALIZED_EDUCATION", userId, patientId, `Topic: ${topic || "all"}`);
   
   const patient = samplePatients.find(p => p.patientId === patientId) || samplePatients[0];
-  
-  const openai = getOpenAI();
-  if (!openai) {
-    console.log("[PersonalizedCareJourney] OpenAI not configured, using fallback education content");
-    return buildFallbackEducationContent(patient, topic);
-  }
-  
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `You are a patient education specialist creating personalized health education content. Tailor content to the patient's conditions, reading level, and preferences. This is NOT clinical advice.
+    const responseText = await generatePhiSafeText({
+      responseMimeType: "application/json",
+      system: `You are a patient education specialist creating personalized health education content. Tailor content to the patient's conditions, reading level, and preferences. This is NOT clinical advice.
 
 Return JSON:
 {
@@ -817,23 +763,18 @@ Return JSON:
     "actionItems": [string]
   }],
   "learningPath": [string] (ordered sequence of topics to cover)
-}`
-        },
-        {
-          role: "user",
-          content: `Create personalized education content for:
+}`,
+      user: `Create personalized education content for:
 Patient: ${patient.age}yo ${patient.gender}
 Conditions: ${patient.conditions.join(", ")}
 Reading Level: ${patient.preferences.readingLevel}
 Language: ${patient.preferences.language}
-${topic ? `Focus Topic: ${topic}` : "Cover all relevant topics for their conditions"}`
-        }
-      ],
+${topic ? `Focus Topic: ${topic}` : "Cover all relevant topics for their conditions"}`,
       temperature: 0.7,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(responseText || "{}");
+
     const content = (result.content || []).map((c: any, idx: number) => ({
       contentId: `edu-${Date.now()}-${idx}`,
       ...c,
@@ -1011,35 +952,24 @@ export async function updateJourneyFromProgress(
   }
   
   if (progressUpdate.feedback) {
-    const openaiClient = getOpenAI();
-    if (openaiClient) {
-      try {
-        const response = await openaiClient.chat.completions.create({
-          model: "gpt-5.1",
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: `Analyze patient feedback and suggest care journey adaptations. Return JSON:
+    try {
+      const responseText = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        system: `Analyze patient feedback and suggest care journey adaptations. Return JSON:
 {
   "sentiment": "positive"|"neutral"|"negative",
   "suggestedAdaptations": [{ "reason": string, "changes": [string] }],
   "nextSteps": [string],
   "supportNeeded": boolean
-}`
-            },
-            {
-            role: "user",
-            content: `Patient feedback: "${progressUpdate.feedback}"
+}`,
+        user: `Patient feedback: "${progressUpdate.feedback}"
 Patient conditions: ${patient.conditions.join(", ")}
-Current adherence: ${adherenceRate}%`
-          }
-        ],
+Current adherence: ${adherenceRate}%`,
         temperature: 0.5,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
-      
+      const aiResult = JSON.parse(responseText || "{}");
+
       if (aiResult.suggestedAdaptations) {
         adaptations.push(...aiResult.suggestedAdaptations);
       }
@@ -1047,32 +977,15 @@ Current adherence: ${adherenceRate}%`
         nextSteps.push(...aiResult.nextSteps);
       }
     } catch (error) {
-        console.log("[PersonalizedCareJourney] AI feedback analysis unavailable");
-        // Rule-based fallback
-        if (progressUpdate.feedback.toLowerCase().includes("difficult") || 
-            progressUpdate.feedback.toLowerCase().includes("struggling")) {
-          adaptations.push({
-            reason: "Patient expressing difficulty",
-            changes: ["Added extra support resources", "Scheduled care team check-in"],
-          });
-          nextSteps.push("Connect with care team for additional support");
-        }
-      }
-    } else {
-      // Fallback when OpenAI not configured
-      console.log("[PersonalizedCareJourney] OpenAI not configured, using rule-based feedback analysis");
-      if (progressUpdate.feedback.toLowerCase().includes("difficult") || 
-          progressUpdate.feedback.toLowerCase().includes("struggling") ||
-          progressUpdate.feedback.toLowerCase().includes("hard")) {
+      console.log("[PersonalizedCareJourney] AI feedback analysis unavailable");
+      // Rule-based fallback
+      if (progressUpdate.feedback.toLowerCase().includes("difficult") ||
+          progressUpdate.feedback.toLowerCase().includes("struggling")) {
         adaptations.push({
           reason: "Patient expressing difficulty",
           changes: ["Added extra support resources", "Scheduled care team check-in"],
         });
         nextSteps.push("Connect with care team for additional support");
-      } else if (progressUpdate.feedback.toLowerCase().includes("good") ||
-                 progressUpdate.feedback.toLowerCase().includes("great") ||
-                 progressUpdate.feedback.toLowerCase().includes("better")) {
-        nextSteps.push("Continue with current care approach");
       }
     }
   }

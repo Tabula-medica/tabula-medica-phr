@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { createHash, randomUUID } from "crypto";
 import {
   DataPolicy,
@@ -14,9 +14,7 @@ import {
 } from "@shared/schema";
 import { automatedAlertingService } from "./automated-alerting";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data governance analyst specializing in regulatory compliance and data policy management.
 
@@ -590,7 +588,7 @@ class AIDataGovernanceService {
     const complianceScore = this.calculateComplianceScore(allPolicies, violations);
 
     let recommendations: string[] = [];
-    if (openai) {
+    if (aiEnabled) {
       recommendations = await this.generateAIRecommendations(violations, allPolicies);
     } else {
       recommendations = this.getDefaultRecommendations(violations);
@@ -681,7 +679,7 @@ class AIDataGovernanceService {
     violations: GovernancePolicyViolation[],
     policies: DataPolicy[]
   ): Promise<string[]> {
-    if (!openai) return this.getDefaultRecommendations(violations);
+    if (!aiEnabled) return this.getDefaultRecommendations(violations);
 
     try {
       const violationSummary = violations
@@ -689,13 +687,9 @@ class AIDataGovernanceService {
         .map((v) => `- ${v.violationType}: ${v.description}`)
         .join("\n");
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze these data governance violations and provide recommendations:
+      const content = (await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze these data governance violations and provide recommendations:
 
 Violations:
 ${violationSummary || "No violations detected"}
@@ -711,13 +705,9 @@ Provide 3-5 specific recommendations focusing ONLY on:
 
 DO NOT provide any clinical or health-related recommendations.
 Format as a JSON array of strings.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 500,
-      });
-
-      const content = response.choices[0]?.message?.content || "[]";
+        maxTokens: 500,
+      })) || "[]";
       try {
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
@@ -798,7 +788,7 @@ Format as a JSON array of strings.`,
       policyUpdateStore.set(update.id, update);
     }
 
-    if (openai) {
+    if (aiEnabled) {
       const aiUpdate = await this.generateAIPolicyUpdate(policy, recentViolations);
       if (aiUpdate) {
         updates.push(aiUpdate);
@@ -818,16 +808,12 @@ Format as a JSON array of strings.`,
     policy: DataPolicy,
     violations: GovernancePolicyViolation[]
   ): Promise<GovernancePolicyUpdate | null> {
-    if (!openai) return null;
+    if (!aiEnabled) return null;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this data governance policy and suggest improvements:
+      const content = (await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this data governance policy and suggest improvements:
 
 Policy: ${policy.name}
 Type: ${policy.policyType}
@@ -849,13 +835,9 @@ Respond with JSON:
 }
 
 DO NOT suggest any clinical or health-related changes.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 300,
-      });
-
-      const content = response.choices[0]?.message?.content || "";
+        maxTokens: 300,
+      })) || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -1445,7 +1427,7 @@ DO NOT suggest any clinical or health-related changes.`,
     let aiAnalysis: string | undefined;
     let aiConfidenceScore = 0.7;
 
-    if (openai && violations.length > 0) {
+    if (aiEnabled && violations.length > 0) {
       try {
         const analysisResult = await this.generateAIPolicyAnalysis(policy, violations, remediationItems);
         aiAnalysis = analysisResult.analysis;
@@ -1561,7 +1543,7 @@ DO NOT suggest any clinical or health-related changes.`,
       regulatory?: RegulatoryMappingAmendment[];
     };
   }> {
-    if (!openai) {
+    if (!aiEnabled) {
       return { analysis: "", confidence: 0.5 };
     }
 
@@ -1605,18 +1587,14 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_POLICY_ANALYSIS_PROMPT },
-          { role: "user", content: prompt },
-        ],
+      const content = await generatePhiSafeText({
+        system: NO_CDS_POLICY_ANALYSIS_PROMPT,
+        user: prompt,
         temperature: 0.3,
-        max_tokens: 1500,
-        response_format: { type: "json_object" },
+        maxTokens: 1500,
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return { analysis: "", confidence: 0.5 };
       }
@@ -1970,7 +1948,7 @@ Respond in JSON format:
       review.reviewNotes = `Auto-approved: ${reasoning}`;
     }
 
-    if (openai && (requiresHumanReview || patternAnalysis.violationHistory.total > 0)) {
+    if (aiEnabled && (requiresHumanReview || patternAnalysis.violationHistory.total > 0)) {
       try {
         aiAnalysis = await this.generateAIAccessAnalysis(review, patternAnalysis);
       } catch (error) {
@@ -2011,7 +1989,7 @@ Respond in JSON format:
     review: DataAccessReview,
     patternAnalysis: AccessPatternAnalysis
   ): Promise<string> {
-    if (!openai) return "";
+    if (!aiEnabled) return "";
 
     const sanitizedReview = {
       userIdHash: hashIdentifier(patternAnalysis.userId),
@@ -2031,26 +2009,20 @@ Respond in JSON format:
     };
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_ACCESS_REVIEW_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this access review for compliance concerns (all identifiers are anonymized hashes):
+      const content = await generatePhiSafeText({
+        system: NO_CDS_ACCESS_REVIEW_PROMPT,
+        user: `Analyze this access review for compliance concerns (all identifiers are anonymized hashes):
 ${JSON.stringify(sanitizedReview, null, 2)}
 
 Provide a brief analysis (2-3 sentences) of:
 1. Key risk factors identified
 2. Whether the access pattern is appropriate for the role
 3. Recommended actions (focusing only on access control, not clinical aspects)`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 300,
+        maxTokens: 300,
       });
 
-      return response.choices[0]?.message?.content || "";
+      return content || "";
     } catch (error) {
       console.error("[AIDataGovernance] AI access analysis error:", error);
       return "";
@@ -2548,7 +2520,7 @@ Provide a brief analysis (2-3 sentences) of:
     const { decision, confidence, reasoning } = this.computeDecision(computedRiskScore, detectedViolations, riskFactors);
 
     let aiInsights: string | undefined;
-    if (openai && (decision !== "approved" || detectedViolations.length > 0)) {
+    if (aiEnabled && (decision !== "approved" || detectedViolations.length > 0)) {
       try {
         const sanitizedContext = sanitizePhi(JSON.stringify({
           accessSummary,
@@ -2558,25 +2530,19 @@ Provide a brief analysis (2-3 sentences) of:
           riskFactorCount: riskFactors.length,
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_ACCESS_REVIEW_PROMPT },
-            {
-              role: "user",
-              content: `Analyze this automated access review (all data anonymized):
+        const content = await generatePhiSafeText({
+          system: NO_CDS_ACCESS_REVIEW_PROMPT,
+          user: `Analyze this automated access review (all data anonymized):
 ${sanitizedContext}
 
 Provide 2-3 sentences identifying:
 1. Primary compliance concerns
 2. Recommended governance actions
 Focus only on data access patterns and security, not clinical interpretation.`,
-            },
-          ],
           temperature: 0.3,
-          max_tokens: 250,
+          maxTokens: 250,
         });
-        aiInsights = response.choices[0]?.message?.content || undefined;
+        aiInsights = content || undefined;
       } catch (error) {
         console.error("[AIDataGovernance] AI insights error:", error);
       }

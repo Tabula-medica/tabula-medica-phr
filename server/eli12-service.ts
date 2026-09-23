@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { logPhiAccess } from "./security/hipaa-audit";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 export type RecordType = "lab_result" | "diagnosis" | "procedure" | "medication" | "imaging" | "vital_sign" | "allergy" | "general";
 
@@ -80,18 +75,14 @@ Type: ${RECORD_TYPE_PROMPTS[request.recordType]}${contextInfo}${valueInfo}${rang
 Remember: Explain like you're talking to a 12-year-old. No medical jargon. Use everyday comparisons.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
-      max_tokens: 800,
+      maxTokens: 800,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       return getFallbackExplanation(request);
     }

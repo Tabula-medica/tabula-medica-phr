@@ -1,7 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_INTEROPERABILITY_PROMPT = `You are an AI-powered FHIR Interoperability Hub assistant. Your role is to:
 1. Monitor data exchange points between healthcare systems
@@ -440,7 +440,7 @@ function initializeSampleData(): void {
 class AIFHIRInteroperabilityHub {
   constructor() {
     initializeSampleData();
-    console.log("[AIFHIRInteroperabilityHub] OpenAI client", openai ? "configured" : "not configured");
+    console.log("[AIFHIRInteroperabilityHub] AI gateway", aiEnabled ? "configured" : "not configured");
     console.log("[AIFHIRInteroperabilityHub] Service initialized");
   }
 
@@ -582,19 +582,15 @@ class AIFHIRInteroperabilityHub {
 
     const detectedMismatches: SemanticMismatch[] = [];
     
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedName = sanitizePhi(ep.name);
         const sanitizedEndpoint = sanitizePhi(ep.endpoint);
         const sanitizedError = ep.lastError ? sanitizePhi(ep.lastError) : "None";
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_INTEROPERABILITY_PROMPT },
-            { 
-              role: "user", 
-              content: `Analyze potential semantic mismatches for a FHIR exchange point:
-              
+        const content = (await generatePhiSafeText({
+          system: NO_CDS_INTEROPERABILITY_PROMPT,
+          user: `Analyze potential semantic mismatches for a FHIR exchange point:
+
 Type: ${ep.type}
 Source System: ${sanitizePhi(ep.sourceSystem)}
 Target System: ${sanitizePhi(ep.targetSystem)}
@@ -609,14 +605,10 @@ Identify 2-3 potential semantic mismatches that commonly occur between these sys
 4. Description of the issue
 5. Suggested resolution
 
-Format as JSON array.` 
-            },
-          ],
+Format as JSON array.`,
           temperature: 0.7,
-          max_tokens: 1500,
-        });
-
-        const content = response.choices[0].message.content || "";
+          maxTokens: 1500,
+        })) || "";
         try {
           const jsonMatch = content.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
@@ -741,17 +733,13 @@ Format as JSON array.`
 
     const generatedSuggestions: StandardizationSuggestion[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedDescription = sanitizePhi(mismatch.description);
         const sanitizedResolution = mismatch.suggestedResolution ? sanitizePhi(mismatch.suggestedResolution) : "None";
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_INTEROPERABILITY_PROMPT },
-            {
-              role: "user",
-              content: `Generate standardization suggestions for the following semantic mismatch:
+        const content = (await generatePhiSafeText({
+          system: NO_CDS_INTEROPERABILITY_PROMPT,
+          user: `Generate standardization suggestions for the following semantic mismatch:
 
 Category: ${mismatch.category}
 Severity: ${mismatch.severity}
@@ -773,14 +761,10 @@ Provide 1-2 detailed standardization suggestions. For each suggestion include:
 8. Estimated effort (low, medium, high)
 9. Confidence score (0-100)
 
-Format as JSON array.`
-            },
-          ],
+Format as JSON array.`,
           temperature: 0.7,
-          max_tokens: 1500,
-        });
-
-        const content = response.choices[0].message.content || "";
+          maxTokens: 1500,
+        })) || "";
         try {
           const jsonMatch = content.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
@@ -897,18 +881,14 @@ Format as JSON array.`
 
     let recommendations: string[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedName = sanitizePhi(ep.name);
         const sanitizedSource = sanitizePhi(ep.sourceSystem);
         const sanitizedTarget = sanitizePhi(ep.targetSystem);
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_INTEROPERABILITY_PROMPT },
-            {
-              role: "user",
-              content: `Analyze data flow and provide recommendations for this exchange point:
+        const content = (await generatePhiSafeText({
+          system: NO_CDS_INTEROPERABILITY_PROMPT,
+          user: `Analyze data flow and provide recommendations for this exchange point:
 
 Name: ${sanitizedName}
 Type: ${ep.type}
@@ -921,14 +901,10 @@ Structural Issues: ${structuralIssues}
 Validation Errors: ${validationErrors}
 Profiles: ${ep.profilesUsed.join(", ")}
 
-Provide 3-5 specific recommendations to improve data flow quality and interoperability. Focus on technical improvements, not clinical decisions.`
-            },
-          ],
+Provide 3-5 specific recommendations to improve data flow quality and interoperability. Focus on technical improvements, not clinical decisions.`,
           temperature: 0.7,
-          max_tokens: 800,
-        });
-
-        const content = response.choices[0].message.content || "";
+          maxTokens: 800,
+        })) || "";
         recommendations = content.split(/\d+\.\s+/).filter(r => r.trim().length > 10).slice(0, 5);
       } catch (error) {
         console.error("[AIFHIRInteroperabilityHub] Data flow analysis error:", error);
@@ -981,17 +957,13 @@ Provide 3-5 specific recommendations to improve data flow quality and interopera
     let alignmentSuggestions: string[] = [];
     let compatibilityScore = 75;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedServerA = sanitizePhi(serverA);
         const sanitizedServerB = sanitizePhi(serverB);
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_INTEROPERABILITY_PROMPT },
-            {
-              role: "user",
-              content: `Compare FHIR interoperability between two healthcare systems:
+        const content = (await generatePhiSafeText({
+          system: NO_CDS_INTEROPERABILITY_PROMPT,
+          user: `Compare FHIR interoperability between two healthcare systems:
 
 Server A: ${sanitizedServerA}
 Server A Profiles: ${epA?.profilesUsed.join(", ") || "Unknown"}
@@ -1010,14 +982,10 @@ Analyze potential interoperability issues and provide:
 4. Overall compatibility score (0-100)
 5. Alignment suggestions
 
-Format response as JSON with keys: profileDifferences, terminologyMismatches, extensionConflicts, compatibilityScore, alignmentSuggestions`
-            },
-          ],
+Format response as JSON with keys: profileDifferences, terminologyMismatches, extensionConflicts, compatibilityScore, alignmentSuggestions`,
           temperature: 0.7,
-          max_tokens: 1500,
-        });
-
-        const content = response.choices[0].message.content || "";
+          maxTokens: 1500,
+        })) || "";
         try {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {

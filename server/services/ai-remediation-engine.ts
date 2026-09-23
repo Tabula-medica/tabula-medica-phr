@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
@@ -16,11 +16,6 @@ import type {
   RemediationMetrics,
   RemediationDashboard,
 } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data remediation assistant. You analyze data quality and compliance issues to suggest remediation steps.
 
@@ -465,13 +460,9 @@ class AIRemediationEngine {
     template: RemediationTemplate
   ): Promise<{ analysis: string; confidence: number }> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this data quality/compliance issue and provide remediation guidance:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this data quality/compliance issue and provide remediation guidance:
 
 Issue Type: ${trigger.issueType}
 Severity: ${trigger.severity}
@@ -486,13 +477,9 @@ Provide:
 3. Any special considerations for this remediation
 
 Format as JSON: {"analysis": "...", "confidence": 0.X, "considerations": ["..."]}`,
-          },
-        ],
-        max_tokens: 500,
+        maxTokens: 500,
         temperature: 0.3,
-      });
-
-      const content = response.choices[0]?.message?.content || "";
+      }) || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);

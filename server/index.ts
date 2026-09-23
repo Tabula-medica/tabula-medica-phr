@@ -50,6 +50,7 @@ import {
   getGcpAuditStatus,
 } from "./security";
 import { logPhiKeyFingerprints } from "./security/phi-encryption";
+import { assertPhiAiBoundary } from "./security/phi-ai-boundary";
 import { 
   requestCorrelationMiddleware, 
   createLogger,
@@ -258,6 +259,23 @@ app.use((req, res, next) => {
 phiLogger.info("Security compliance status", getComplianceStatus());
 phiLogger.info("HIPAA audit compliance", getAuditCompliance());
 logPhiKeyFingerprints();
+
+// Refuse to serve traffic if PHI-bearing AI would reach a non-BAA endpoint.
+// Deliberately before any route registration: a broken boundary is not a
+// degraded feature, it is patient data going somewhere it legally cannot.
+{
+  const boundary = assertPhiAiBoundary();
+  phiLogger.info("PHI-AI boundary verified", {
+    provider: boundary.provider,
+    baseUrlHost: (() => {
+      try {
+        return new URL(boundary.baseURL).host;
+      } catch {
+        return "unparseable";
+      }
+    })(),
+  });
+}
 
 async function initializeApp() {
   // Serve static SPA FIRST so the frontend works even if later startup steps

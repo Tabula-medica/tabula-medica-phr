@@ -1,14 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
-if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  console.log("[AIFHIRDataHarmonization] OpenAI client initialized for AI harmonization");
-}
+console.log("[AIFHIRDataHarmonization] AI client initialized for AI harmonization (Vertex/BAA gateway)");
 
 console.log("[AIFHIRDataHarmonization] Service initialized with NO-CDS compliance");
 console.log("[AIFHIRDataHarmonization] Features: Concept Mapping, Data Cleansing, Profile Suggestions");
@@ -257,19 +250,12 @@ async function generateConceptMappingWithAI(
   targetSystem: TerminologySystem
 ): Promise<ConceptMapping> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical terminology expert specializing in FHIR data harmonization.
+    const content = await generatePhiSafeText({
+      system: `You are a medical terminology expert specializing in FHIR data harmonization.
 Map concepts between healthcare terminologies (SNOMED CT, LOINC, ICD-10, RxNorm, CPT).
 Provide accurate mappings with confidence scores and rationale.
-NEVER provide clinical advice - focus only on terminology mapping.`
-        },
-        {
-          role: "user",
-          content: `Map the following concept to ${targetSystem}:
+NEVER provide clinical advice - focus only on terminology mapping.`,
+      user: `Map the following concept to ${targetSystem}:
 Source System: ${sourceSystem}
 Source Code: ${sourceCode}
 Source Display: ${sourceDisplay}
@@ -281,15 +267,13 @@ Provide the best matching concept in ${targetSystem} with:
 4. Brief rationale for the mapping
 5. Up to 2 alternative mappings if applicable
 
-Format as JSON.`
-        }
-      ],
+Format as JSON.`,
       temperature: 0.2,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(content || "{}");
+
     return {
       id: generateId("map"),
       sourceCode,
@@ -329,12 +313,8 @@ async function analyzeDataCleansingWithAI(
   resourceType: string
 ): Promise<DataCleansingResult[]> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR data quality expert. Analyze FHIR resources for data quality issues.
+    const content = await generatePhiSafeText({
+      system: `You are a FHIR data quality expert. Analyze FHIR resources for data quality issues.
 Identify issues such as:
 - Missing required fields
 - Invalid formats (dates, codes, identifiers)
@@ -343,11 +323,8 @@ Identify issues such as:
 - Duplicate or redundant data
 - Unit inconsistencies
 
-Suggest corrections with high confidence. NEVER provide clinical interpretation.`
-        },
-        {
-          role: "user",
-          content: `Analyze this ${resourceType} FHIR resource for data quality issues:
+Suggest corrections with high confidence. NEVER provide clinical interpretation.`,
+      user: `Analyze this ${resourceType} FHIR resource for data quality issues:
 ${JSON.stringify(resource, null, 2)}
 
 Identify up to 5 data quality issues with:
@@ -359,14 +336,12 @@ Identify up to 5 data quality issues with:
 6. Confidence score (0-1)
 7. Brief description
 
-Format as JSON array of issues.`
-        }
-      ],
+Format as JSON array of issues.`,
       temperature: 0.2,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(content || "{}");
     const issues = result.issues || [];
 
     return issues.map((issue: any) => ({
@@ -399,18 +374,11 @@ async function suggestProfileWithAI(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR implementation expert. Recommend the most appropriate FHIR profile for a given resource.
+    const content = await generatePhiSafeText({
+      system: `You are a FHIR implementation expert. Recommend the most appropriate FHIR profile for a given resource.
 Consider US Core, IPS (International Patient Summary), and other standard profiles.
-Provide specific profile URLs, versions, and required transformations.`
-        },
-        {
-          role: "user",
-          content: `Recommend the best FHIR profile for this ${resourceType} resource:
+Provide specific profile URLs, versions, and required transformations.`,
+      user: `Recommend the best FHIR profile for this ${resourceType} resource:
 ${JSON.stringify(resource, null, 2)}
 
 Provide:
@@ -421,14 +389,12 @@ Provide:
 5. Required transformations with complexity (simple, moderate, complex)
 6. Up to 2 alternative profiles
 
-Format as JSON.`
-        }
-      ],
+Format as JSON.`,
       temperature: 0.2,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(content || "{}");
 
     return {
       id: generateId("profile"),
@@ -463,17 +429,10 @@ async function generateHarmonizationInsightsWithAI(
   session: HarmonizationSession
 ): Promise<{ insights: string[]; recommendations: string[] }> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare data harmonization analyst. Provide insights and recommendations for FHIR data harmonization.
-Focus on data quality, interoperability, and standardization. NEVER provide clinical advice.`
-        },
-        {
-          role: "user",
-          content: `Analyze this harmonization session and provide insights:
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare data harmonization analyst. Provide insights and recommendations for FHIR data harmonization.
+Focus on data quality, interoperability, and standardization. NEVER provide clinical advice.`,
+      user: `Analyze this harmonization session and provide insights:
 - Total resources: ${session.resourceCount}
 - Concepts mapped: ${session.conceptMappings.length}
 - Issues found: ${session.cleansingResults.length}
@@ -485,14 +444,12 @@ Provide:
 1. 3-5 key insights about the data quality and harmonization status
 2. 3-5 actionable recommendations for improving data standardization
 
-Format as JSON with "insights" and "recommendations" arrays.`
-        }
-      ],
+Format as JSON with "insights" and "recommendations" arrays.`,
       temperature: 0.3,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(content || "{}");
     return {
       insights: result.insights || ["Harmonization analysis completed"],
       recommendations: result.recommendations || ["Review unmapped concepts manually"]
@@ -547,6 +504,7 @@ export async function createHarmonizationSession(
 
   // Log PHI access
   logPhiAccess({
+    // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route ai-fhir-data-harmonization-routes.ts:63 calls createHarmonizationSession without a userId; make param required once it passes getUserId(req)
     userId: userId || "system",
     action: "read",
     resourceType: "HarmonizationSession",
