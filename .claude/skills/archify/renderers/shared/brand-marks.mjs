@@ -93,25 +93,46 @@ function ipv4Private(address) {
     || (a === 203 && b === 0 && c === 113);
 }
 
+// Fully expand a syntactically valid IPv6 literal (compressed with "::" or
+// written out in full, optionally with a trailing IPv4 dotted-quad) into its
+// 8 16-bit groups, so mapped/compatible addresses are recognized regardless
+// of which of the many equivalent textual forms produced them.
+function ipv6Groups(address) {
+  const doubleColon = address.indexOf('::');
+  const before = doubleColon === -1 ? address : address.slice(0, doubleColon);
+  const after = doubleColon === -1 ? '' : address.slice(doubleColon + 2);
+  const beforeParts = before ? before.split(':') : [];
+  const afterParts = after ? after.split(':') : [];
+  let tailGroups = [];
+  const dottedHolder = afterParts.length ? afterParts : beforeParts;
+  if (dottedHolder.length && dottedHolder.at(-1).includes('.')) {
+    const octets = dottedHolder.pop().split('.').map(Number);
+    if (octets.length !== 4 || octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    tailGroups = [(octets[0] << 8) | octets[1], (octets[2] << 8) | octets[3]];
+  }
+  const known = beforeParts.length + afterParts.length + tailGroups.length;
+  const fill = doubleColon === -1 ? 0 : 8 - known;
+  if (fill < 0 || (doubleColon === -1 && known !== 8)) return null;
+  const hex = [...beforeParts, ...Array(fill).fill('0'), ...afterParts].map((part) => Number.parseInt(part, 16));
+  if (hex.some((n) => !Number.isInteger(n) || n < 0 || n > 0xffff)) return null;
+  const groups = [...hex, ...tailGroups];
+  return groups.length === 8 ? groups : null;
+}
+
 function ipv6Private(address) {
   const normalized = address.toLocaleLowerCase('en-US').split('%')[0];
-  if (normalized === '::' || normalized === '::1') return true;
   if (normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('ff') || /^fe[89ab]/.test(normalized)) return true;
   if (normalized.startsWith('64:ff9b:') || normalized.startsWith('100:')
     || normalized.startsWith('2001:db8:') || normalized.startsWith('2002:')) return true;
-  const mappedDotted = normalized.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mappedDotted) return ipv4Private(mappedDotted[1]);
-  const mappedHex = normalized.match(/::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (mappedHex) {
-    const high = Number.parseInt(mappedHex[1], 16);
-    const low = Number.parseInt(mappedHex[2], 16);
-    return ipv4Private(`${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`);
-  }
-  const compatibleHex = normalized.match(/^::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (compatibleHex) {
-    const high = Number.parseInt(compatibleHex[1], 16);
-    const low = Number.parseInt(compatibleHex[2], 16);
-    return ipv4Private(`${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`);
+  const groups = ipv6Groups(normalized);
+  if (!groups) return true; // unparseable — fail closed
+  if (groups.every((g) => g === 0)) return true; // ::
+  if (groups.slice(0, 7).every((g) => g === 0) && groups[7] === 1) return true; // ::1
+  const mapped = groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff;
+  const compatible = groups.slice(0, 6).every((g) => g === 0);
+  if (mapped || compatible) {
+    const [g6, g7] = groups.slice(6);
+    return ipv4Private(`${g6 >>> 8}.${g6 & 255}.${g7 >>> 8}.${g7 & 255}`);
   }
   return false;
 }
