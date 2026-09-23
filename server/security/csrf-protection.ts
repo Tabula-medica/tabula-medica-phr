@@ -107,7 +107,12 @@ export const csrfProtection: RequestHandler = (req: Request, res: Response, next
   }
   
   // Skip for webhook endpoints that use signature verification
-  if (req.path.startsWith("/api/webhooks/") || req.path.startsWith("/webhooks/")) {
+  if (
+    req.path.startsWith("/api/webhooks/") ||
+    req.path.startsWith("/webhooks/") ||
+    req.path === "/api/fitness/webhook" ||
+    req.path === "/api/rpm/webhook/vitalfriend"
+  ) {
     return next();
   }
   

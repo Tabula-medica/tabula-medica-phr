@@ -20,10 +20,8 @@
  * must not be used as clinical decision support.
  */
 
-import OpenAI from "openai";
 import { medicalSpeechToTextService } from "./services/gcp/medical-speech-to-text";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generatePhiSafeChat } from "./services/ai-gateway";
 
 export interface SoapNote {
   subjective: string;
@@ -125,6 +123,7 @@ class AmbientEncounterService {
       languageCode: language || "en-US",
       model: "medical_conversation",
       punctuation: true,
+      longRunning: true, // full encounters exceed the ~60s sync-recognize cap
     });
 
     if (!result.transcript || result.model === "local-fallback") {
@@ -139,21 +138,15 @@ class AmbientEncounterService {
   }
 
   async generateSoapNote(transcript: string): Promise<SoapNote> {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      response_format: { type: "json_object" },
-      temperature: 0.2,
+    const raw = await generatePhiSafeChat({
       messages: [
         { role: "system", content: SOAP_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON SOAP note now.`,
-        },
+        { role: "user", content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON SOAP note now.` },
       ],
+      responseMimeType: "application/json",
+      temperature: 0.2,
     });
-
-    const raw = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw || "{}");
     return {
       subjective: String(parsed.subjective ?? ""),
       objective: String(parsed.objective ?? ""),
@@ -163,21 +156,15 @@ class AmbientEncounterService {
   }
 
   async extractActionItems(transcript: string): Promise<ActionItem[]> {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      response_format: { type: "json_object" },
-      temperature: 0.2,
+    const raw = await generatePhiSafeChat({
       messages: [
         { role: "system", content: ACTION_ITEMS_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON action items now.`,
-        },
+        { role: "user", content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON action items now.` },
       ],
+      responseMimeType: "application/json",
+      temperature: 0.2,
     });
-
-    const raw = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw || "{}");
     const items = Array.isArray(parsed.items) ? parsed.items : [];
     return items.map((item: any) => ({
       type: this.normalizeType(item.type),

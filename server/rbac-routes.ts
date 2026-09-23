@@ -11,8 +11,10 @@ import {
   AuthorizedRequest 
 } from "./middleware/rbac-authorization";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.use(extractUserContext);
 
@@ -20,7 +22,7 @@ const logRbacAccess = (operation: string) => {
   return (req: AuthorizedRequest, res: Response, next: NextFunction) => {
     logPhiAccess({
       action: "read",
-      userId: req.userId || "anonymous",
+      userId: getUserId(req),
       resourceType: "RBACManagement",
       details: `RBAC_API_ACCESS: ${operation} by user ${req.userId} (${req.userRole})`,
     });
@@ -40,7 +42,7 @@ router.get("/metadata", logRbacAccess("GET_METADATA"), async (req: AuthorizedReq
 
 router.get("/roles", logRbacAccess("LIST_ROLES"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const roles = await rbacService.getRoles(userId);
     res.json({ 
       roles,
@@ -54,7 +56,7 @@ router.get("/roles", logRbacAccess("LIST_ROLES"), async (req: AuthorizedRequest,
 
 router.get("/roles/:roleId", logRbacAccess("GET_ROLE"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { roleId } = req.params;
     
     const role = await rbacService.getRole(userId, roleId);
@@ -70,7 +72,7 @@ router.get("/roles/:roleId", logRbacAccess("GET_ROLE"), async (req: AuthorizedRe
 
 router.post("/roles", requireRole("administrator"), logRbacAccess("CREATE_ROLE"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const roleData = req.body;
     
     if (!roleData.name) {
@@ -90,7 +92,7 @@ router.post("/roles", requireRole("administrator"), logRbacAccess("CREATE_ROLE")
 
 router.patch("/roles/:roleId", requireRole("administrator"), logRbacAccess("UPDATE_ROLE"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { roleId } = req.params;
     const updates = req.body;
     
@@ -113,7 +115,7 @@ router.patch("/roles/:roleId", requireRole("administrator"), logRbacAccess("UPDA
 
 router.get("/permissions", logRbacAccess("LIST_PERMISSIONS"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const resource = req.query.resource as ResourceCategory | undefined;
     
     let permissions;
@@ -160,7 +162,7 @@ router.post("/check-access", logRbacAccess("CHECK_ACCESS"), async (req: Authoriz
 
 router.post("/users/:targetUserId/roles", requireRole("administrator"), logRbacAccess("ASSIGN_ROLE"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const adminUserId = req.userId || "system";
+    const adminUserId = getUserId(req);
     const { targetUserId } = req.params;
     const { roleId, scope } = req.body;
     
@@ -187,7 +189,7 @@ router.post("/users/:targetUserId/roles", requireRole("administrator"), logRbacA
 
 router.get("/users/:targetUserId/roles", requireRole("administrator", "auditor"), logRbacAccess("GET_USER_ROLES"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const adminUserId = req.userId || "system";
+    const adminUserId = getUserId(req);
     const { targetUserId } = req.params;
     
     const roles = await rbacService.getUserRoles(adminUserId, targetUserId);
@@ -203,7 +205,7 @@ router.get("/users/:targetUserId/roles", requireRole("administrator", "auditor")
 
 router.delete("/assignments/:assignmentId", requireRole("administrator"), logRbacAccess("REVOKE_ROLE"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const adminUserId = req.userId || "system";
+    const adminUserId = getUserId(req);
     const { assignmentId } = req.params;
     
     const success = await rbacService.revokeUserRole(adminUserId, assignmentId);
@@ -220,7 +222,7 @@ router.delete("/assignments/:assignmentId", requireRole("administrator"), logRba
 
 router.get("/policies", requireRole("administrator", "auditor"), logRbacAccess("LIST_POLICIES"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const policies = await rbacService.getPolicies(userId);
     res.json({ 
       policies,
@@ -234,7 +236,7 @@ router.get("/policies", requireRole("administrator", "auditor"), logRbacAccess("
 
 router.post("/policies", requireRole("administrator"), logRbacAccess("CREATE_POLICY"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const policyData = req.body;
     
     if (!policyData.name || !policyData.principals || !policyData.resources || !policyData.actions) {
@@ -256,7 +258,7 @@ router.post("/policies", requireRole("administrator"), logRbacAccess("CREATE_POL
 
 router.get("/audit-logs", requireRole("administrator", "auditor"), logRbacAccess("GET_AUDIT_LOGS"), async (req: AuthorizedRequest, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getUserId(req);
     const { startDate, endDate, targetUserId, resource, decision, limit } = req.query;
     
     const logs = await rbacService.getAccessAuditLogs(userId, {

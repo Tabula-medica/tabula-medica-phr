@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -22,8 +22,11 @@ RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 RUN test -f dist/index.cjs && echo "Build verified: dist/index.cjs" || (echo "MISSING: dist/index.cjs" && exit 1)
 
-FROM node:20-slim
+FROM node:22-slim
 WORKDIR /app
+
+# ffmpeg: transcode Safari mp4/aac → FLAC for GCP Speech-to-Text (BAA-covered). Runtime dep.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev

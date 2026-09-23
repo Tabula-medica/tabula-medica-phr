@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import {
   insertSurvivorshipProfileSchema,
   insertFollowUpScheduleSchema,
@@ -981,13 +982,7 @@ router.post("/api/survivorship/personalized-watchlist", async (req, res) => {
   // Try AI enhancement if OpenAI is available
   let aiGenerated = false;
   try {
-    const OpenAI = (await import("openai")).default;
-    const openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-
-    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && suggestions.length > 0) {
+    if (suggestions.length > 0) {
       const prompt = `You are an educational health information assistant. Given a cancer survivor's treatment history and current symptom reports, provide FACTUAL educational context about the late effects they may want to discuss with their healthcare provider.
 
 CRITICAL COMPLIANCE RULES - You MUST follow these:
@@ -1010,13 +1005,10 @@ ${suggestions.slice(0, 5).map((s) => `- ${s.effectLabel}: ${s.reason}`).join("\n
 
 Provide a brief educational context (2-3 sentences max) for why tracking late effects may be valuable. Remember: NO medical advice, NO recommendations, only factual educational information.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        max_completion_tokens: 200,
+      const aiContext = await generatePhiSafeText({
+        user: prompt,
+        maxTokens: 200,
       });
-
-      const aiContext = response.choices[0]?.message?.content;
       if (aiContext) {
         aiGenerated = true;
         console.log("[Survivorship] AI context generated for personalized watchlist");
@@ -2404,13 +2396,7 @@ router.post("/api/survivorship/symptom-patterns", async (req, res) => {
   let aiInsights: string[] = [];
   
   try {
-    const openai = new (await import("openai")).default({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-    
-    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      const prompt = `Analyze these cancer survivor symptom patterns and provide 3-5 brief educational observations. 
+    const prompt = `Analyze these cancer survivor symptom patterns and provide 3-5 brief educational observations.
 DO NOT provide medical advice. Only educational pattern observations.
 
 Patterns:
@@ -2418,17 +2404,15 @@ ${patterns.map(p => `- ${p.symptomType}: ${p.frequency} occurrences, avg severit
 
 Provide ONLY factual observations about patterns, NOT medical advice. Keep each observation to 1-2 sentences.
 Format as JSON array of strings.`;
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 500,
-      });
-      
-      const content = JSON.parse(response.choices[0]?.message?.content || "{}");
-      aiInsights = content.insights || content.observations || [];
-    }
+
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 500,
+    });
+
+    const content = JSON.parse(responseText || "{}");
+    aiInsights = content.insights || content.observations || [];
   } catch (error) {
     console.log("[Survivorship] AI pattern analysis unavailable, using basic insights");
   }
@@ -2489,13 +2473,7 @@ router.post("/api/survivorship/ai-wellness-analysis", async (req, res) => {
   let aiAnalysis: { summary: string; recommendations: string[]; concerns: string[] } | null = null;
   
   try {
-    const openai = new (await import("openai")).default({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-    
-    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      const prompt = `Analyze this cancer survivor's 7-metric daily wellness data and provide educational insights.
+    const prompt = `Analyze this cancer survivor's 7-metric daily wellness data and provide educational insights.
 DO NOT provide medical advice. Only educational observations and general wellness suggestions.
 
 Recent trends (comparing last 7 days to previous 7 days):
@@ -2512,16 +2490,14 @@ Provide JSON with:
 }
 
 Remember: NO medical advice. Educational observations only.`;
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 600,
-      });
-      
-      aiAnalysis = JSON.parse(response.choices[0]?.message?.content || "null");
-    }
+
+    const responseText = await generatePhiSafeText({
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 600,
+    });
+
+    aiAnalysis = JSON.parse(responseText || "null");
   } catch (error) {
     console.log("[Survivorship] AI wellness analysis unavailable");
   }

@@ -1,16 +1,10 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
 import { z } from "zod";
+import { generatePhiSafeText } from "../services/ai-gateway";
 
 const router = Router();
 
-function getOpenAIClient(): OpenAI | null {
-  try {
-    return new OpenAI();
-  } catch {
-    return null;
-  }
-}
+const aiEnabled = true;
 
 interface EducationArticle {
   id: string;
@@ -492,9 +486,7 @@ router.post("/generate-personalized", async (req: Request, res: Response) => {
     const conditions = patientConditions || samplePatientConditions.map(c => c.name);
     const summary = journeySummary || "Patient managing chronic conditions with regular care.";
     
-    const openai = getOpenAIClient();
-    
-    if (openai) {
+    if (aiEnabled) {
       const prompt = `You are a patient education specialist creating personalized health content. Generate educational content for a patient with the following conditions: ${conditions.join(", ")}.
 
 Patient journey summary: ${summary}
@@ -524,16 +516,13 @@ Format the response as JSON with this structure:
 
 IMPORTANT: Include a reminder that this is informational only and not medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: "You are a patient education specialist. Always include NO-CDS compliance reminders." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" }
+      const aiText = await generatePhiSafeText({
+        system: "You are a patient education specialist. Always include NO-CDS compliance reminders.",
+        user: prompt,
+        responseMimeType: "application/json",
       });
 
-      const content = JSON.parse(response.choices[0].message.content || "{}");
+      const content = JSON.parse(aiText || "{}");
       
       return res.json({
         success: true,
@@ -546,7 +535,7 @@ IMPORTANT: Include a reminder that this is informational only and not medical ad
       });
     }
     
-    throw new Error("OpenAI client not available");
+    throw new Error("AI client not available");
   } catch (error: any) {
     console.error("[PatientEducation] AI generation error:", error);
     

@@ -1,11 +1,5 @@
-import OpenAI from "openai";
 import { generateText, getProviderForFeature } from "./ai-provider";
 import { speechToText } from "../replit_integrations/audio/client";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: This AI-generated clinical documentation is for documentation assistance only and does NOT constitute clinical decision support. All generated notes, code suggestions, and transcription outputs require review and validation by a licensed healthcare provider before becoming part of the official medical record. The final clinical judgment rests with the treating physician.";
 
@@ -288,13 +282,11 @@ export function checkGovernanceCompliance(): GovernanceCheckResult {
     details: "OpenAI integration governance check passed. BAA executed, data minimization enforced (no PHI stored by AI provider), TLS 1.3 encryption in transit verified. Compliance verified across HIPAA, SOC 2, HITRUST, and NIST 800-53 frameworks.",
   };
 
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-  if (!apiKey || !baseURL) {
+  const vertexProject = process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+  if (!vertexProject) {
     result.approved = false;
     result.integrationStatus = "blocked";
-    result.details = "OpenAI integration not configured. AI_INTEGRATIONS_OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_BASE_URL environment variables missing.";
+    result.details = "Vertex AI not configured. VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT environment variable missing.";
   }
 
   logHipaaAudit("GOVERNANCE_CHECK", "system", undefined, `Status: ${result.integrationStatus}, Approved: ${result.approved}`);

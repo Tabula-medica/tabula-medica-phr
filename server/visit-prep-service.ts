@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 async function logPhiAccess(data: {
   userId: string;
@@ -10,8 +10,6 @@ async function logPhiAccess(data: {
   const { logPhiAccess: log } = await import("./security/hipaa-audit");
   log(data);
 }
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface VisitPrepPack {
   appointmentId: string;
@@ -121,26 +119,16 @@ Guidelines:
 - Always include standard items like ID, insurance card, and medication list`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a patient education assistant. You help patients prepare for medical appointments by suggesting helpful questions to ask their healthcare providers. You NEVER give medical advice - only suggest questions and preparation items. Always respond with valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You are a patient education assistant. You help patients prepare for medical appointments by suggesting helpful questions to ask their healthcare providers. You NEVER give medical advice - only suggest questions and preparation items. Always respond with valid JSON.",
+      user: prompt,
       temperature: 0.7,
-      max_tokens: 2000,
-      response_format: { type: "json_object" },
+      maxTokens: 2000,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
-      throw new Error("No response from OpenAI");
+      throw new Error("No response from AI");
     }
 
     const parsed = JSON.parse(content);

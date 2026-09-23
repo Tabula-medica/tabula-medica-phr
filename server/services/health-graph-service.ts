@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface HealthNode {
   id: string;
@@ -1123,20 +1118,12 @@ Provide a clear, educational explanation a patient would understand. Focus on:
 
 Important: This is for informational purposes only. Do not provide medical advice or recommendations.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a health educator explaining medical relationships to patients. Use simple language, avoid jargon, and always remind patients to consult their healthcare provider. Never provide medical advice or treatment recommendations.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 500,
+      const explanation = await generatePhiSafeText({
+        system: "You are a health educator explaining medical relationships to patients. Use simple language, avoid jargon, and always remind patients to consult their healthcare provider. Never provide medical advice or treatment recommendations.",
+        user: prompt,
+        maxTokens: 500,
         temperature: 0.7,
-      });
-
-      const explanation = response.choices[0]?.message?.content || "Unable to generate explanation.";
+      }) || "Unable to generate explanation.";
       
       console.log(`[HIPAA-AUDIT] Relationship explanation generated - Patient: ${patientId}, Source: ${sourceNodeId}, Target: ${targetNodeId}`);
       
@@ -1218,20 +1205,12 @@ For each relationship found, return a JSON array with objects containing:
 
 Return ONLY the JSON array, no other text. This is informational only, not medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a clinical informatics system. Return only valid JSON arrays. Never provide medical advice.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 500,
+      const content = await generatePhiSafeText({
+        system: "You are a clinical informatics system. Return only valid JSON arrays. Never provide medical advice.",
+        user: prompt,
+        maxTokens: 500,
         temperature: 0.3,
-      });
-
-      const content = response.choices[0]?.message?.content || "[]";
+      }) || "[]";
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const links = JSON.parse(cleanContent);
 

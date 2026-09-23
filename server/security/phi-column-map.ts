@@ -33,6 +33,27 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
   // --- Identity & profile ---
   accounts: { text: ["email"], jsonb: [] },
   profiles: { text: ["fullName", "dob"], jsonb: ["metadata"] },
+
+  // --- AU-region identifiers (all government-issued numbers are PHI) ---
+  auPatientIdentifiers: {
+    text: [
+      "ihiNumberEnc",
+      "medicareNumberEnc",
+      "dvaNumberEnc",
+      "hpiiNumberEnc",
+      "hpioNumberEnc",
+      "concessionCardNumberEnc",
+    ],
+    jsonb: [],
+  },
+  auPatientDemographics: {
+    text: ["mobilePhone", "homePhone"],
+    jsonb: [],
+  },
+  auMyhrConsent: {
+    text: ["adhaSystemHpioEnc"],
+    jsonb: [],
+  },
   patientIdentityTable: {
     // NOTE: `ssnHash` is excluded — already a one-way hash.
     // NOTE: `stateIdState` is excluded — US-state FK ("VA"), not PHI.

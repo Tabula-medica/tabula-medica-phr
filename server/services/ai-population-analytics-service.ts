@@ -1,17 +1,5 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiClient && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: This population health analytics is for operational planning and resource optimization only. It does NOT constitute clinical decision support. All clinical decisions must be made by qualified healthcare professionals based on individual patient assessments.";
 
@@ -554,33 +542,24 @@ export async function getAIPopulationInsights(userId: string, query: string): Pr
 }> {
   logHipaaAudit("AI_INSIGHTS", userId, `Generating AI insights for query: ${query}`);
 
-  const openai = getOpenAI();
   let insights: string[] = [];
   let recommendations: string[] = [];
 
-  if (openai) {
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          {
-            role: "system",
-            content: `You are a population health analytics assistant. Analyze healthcare data trends and provide operational insights.
+  try {
+    const responseText = await generatePhiSafeText({
+      system: `You are a population health analytics assistant. Analyze healthcare data trends and provide operational insights.
 STRICT NO-CDS RULES: Never provide clinical recommendations. Focus only on operational, resource, and workflow insights.
 Respond in JSON format with: {"insights": ["string array"], "recommendations": ["string array"], "dataPoints": [{"metric": "string", "value": number, "trend": "up|down|stable"}]}`,
-          },
-          { role: "user", content: query },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 500,
-      });
+      user: query,
+      responseMimeType: "application/json",
+      maxTokens: 500,
+    });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
-      insights = parsed.insights || [];
-      recommendations = parsed.recommendations || [];
-    } catch (error) {
-      console.log("[PopulationAnalytics] AI insights unavailable, using fallback");
-    }
+    const parsed = JSON.parse(responseText || "{}");
+    insights = parsed.insights || [];
+    recommendations = parsed.recommendations || [];
+  } catch (error) {
+    console.log("[PopulationAnalytics] AI insights unavailable, using fallback");
   }
 
   if (insights.length === 0) {

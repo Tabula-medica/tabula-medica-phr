@@ -88,7 +88,6 @@ export async function generateELI12Explanation(
   }
 
   // Use AI for complex explanations
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return getMockELI12Explanation(term, recordContext, disclaimer);
@@ -99,7 +98,6 @@ export async function generateELI12Explanation(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -280,7 +278,6 @@ export async function generateTimelineStory(
     },
   ];
 
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   let summary = "";
   let takeaway = "";

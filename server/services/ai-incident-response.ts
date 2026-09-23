@@ -1,10 +1,10 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import type { Alert, AlertSeverity } from "@shared/schema";
 import { automatedAlertingService } from "./automated-alerting";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -658,7 +658,7 @@ class AIIncidentResponseService {
     else if (avgSeverity >= 0.5) businessImpact = "low";
 
     let aiAnalysis: string | undefined;
-    if (openai && alerts.some(a => a.severity === "critical" || a.severity === "high")) {
+    if (aiEnabled && alerts.some(a => a.severity === "critical" || a.severity === "high")) {
       aiAnalysis = await this.generateAIImpactAnalysis(alerts, category);
     }
 
@@ -675,7 +675,7 @@ class AIIncidentResponseService {
   }
 
   private async generateAIImpactAnalysis(alerts: Alert[], category: IncidentCategory): Promise<string> {
-    if (!openai) return "";
+    if (!aiEnabled) return "";
 
     const sanitizedAlerts = alerts.map(a => ({
       type: a.alertType,
@@ -684,13 +684,11 @@ class AIIncidentResponseService {
     }));
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_INCIDENT_ANALYSIS_PROMPT },
-          {
-            role: "user",
-            content: `Analyze the potential impact of this ${category} incident based on these alerts:
+      const responseText = await generatePhiSafeText({
+        system: NO_CDS_INCIDENT_ANALYSIS_PROMPT,
+        temperature: 0.3,
+        maxTokens: 200,
+        user: `Analyze the potential impact of this ${category} incident based on these alerts:
 ${JSON.stringify(sanitizedAlerts, null, 2)}
 
 Provide a brief (2-3 sentences) impact assessment covering:
@@ -699,13 +697,9 @@ Provide a brief (2-3 sentences) impact assessment covering:
 3. Urgency of response needed
 
 Focus only on IT/security/compliance aspects, not clinical implications.`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 200,
       });
 
-      return response.choices[0]?.message?.content || "";
+      return responseText || "";
     } catch (error) {
       console.error("[AIIncidentResponse] AI impact analysis error:", error);
       return "";
@@ -719,7 +713,7 @@ Focus only on IT/security/compliance aspects, not clinical implications.`,
       "Document all response actions taken",
     ];
 
-    if (!openai) return defaultRecommendations;
+    if (!aiEnabled) return defaultRecommendations;
 
     const sanitizedData = {
       category,
@@ -730,23 +724,15 @@ Focus only on IT/security/compliance aspects, not clinical implications.`,
     };
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_INCIDENT_ANALYSIS_PROMPT },
-          {
-            role: "user",
-            content: `Based on this incident summary, provide 3-5 specific response recommendations:
+      const content = await generatePhiSafeText({
+        system: NO_CDS_INCIDENT_ANALYSIS_PROMPT,
+        temperature: 0.3,
+        maxTokens: 300,
+        user: `Based on this incident summary, provide 3-5 specific response recommendations:
 ${JSON.stringify(sanitizedData, null, 2)}
 
 Return as a JSON array of strings. Focus on IT security, compliance, and operational responses only.`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 300,
-      });
-
-      const content = response.choices[0]?.message?.content || "";
+      }) || "";
       try {
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {

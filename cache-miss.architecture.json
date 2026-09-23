@@ -1,0 +1,489 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Cache miss in the data-aggregation cache",
+    "output": "cache-miss.html",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "repository": {
+      "url": "https://github.com/Tabula-medica/tabula-medica-phr",
+      "revision": "f3a2ca8550673641f625ae8e308550b4c1eab051"
+    },
+    "views": [
+      {
+        "id": "read-miss",
+        "label": "1 · The miss",
+        "focus": [
+          "page",
+          "routes",
+          "svc",
+          "map"
+        ],
+        "note": "GET /api/data-aggregation/cache reads the in-process Map. A missing key returns no entry and nothing fetches synchronously."
+      },
+      {
+        "id": "refresh-sweep",
+        "label": "2 · Refresh and sweep",
+        "focus": [
+          "routes",
+          "svc",
+          "map",
+          "scheduler",
+          "fetch"
+        ],
+        "note": "POST /cache/refresh only marks existing entries stale. The 5-minute scheduler sweep is the only writer, and its fetch is simulated."
+      },
+      {
+        "id": "bookkeeping",
+        "label": "3 · Bookkeeping",
+        "focus": [
+          "scheduler",
+          "syncruns",
+          "health",
+          "expiry",
+          "queryclient"
+        ],
+        "note": "Sync runs, source health, TTL expiry and the browser query cache surround the path but never fill a miss."
+      }
+    ],
+    "viewBox": [
+      1300,
+      590
+    ]
+  },
+  "components": [
+    {
+      "id": "queryclient",
+      "type": "frontend",
+      "label": "TanStack Query",
+      "sublabel": "refetch 30 s · invalidate",
+      "sources": [
+        {
+          "path": "client/src/pages/data-aggregation.tsx",
+          "line": 194,
+          "label": "refetchInterval"
+        },
+        {
+          "path": "client/src/pages/data-aggregation.tsx",
+          "line": 216,
+          "label": "invalidateQueries"
+        }
+      ],
+      "pos": [
+        40,
+        50
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "page",
+      "type": "frontend",
+      "label": "Data Aggregation page",
+      "sublabel": "data-aggregation.tsx",
+      "sources": [
+        {
+          "path": "client/src/pages/data-aggregation.tsx",
+          "line": 198,
+          "label": "GET /cache query"
+        },
+        {
+          "path": "client/src/pages/data-aggregation.tsx",
+          "line": 207,
+          "label": "refresh mutation"
+        }
+      ],
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "routes",
+      "type": "backend",
+      "label": "Express routes",
+      "sublabel": "/api/data-aggregation/*",
+      "sources": [
+        {
+          "path": "server/data-aggregation-routes.ts",
+          "line": 40,
+          "label": "GET /cache"
+        },
+        {
+          "path": "server/data-aggregation-routes.ts",
+          "line": 58,
+          "label": "POST /cache/refresh"
+        },
+        {
+          "path": "server/routes.ts",
+          "line": 852,
+          "label": "registered"
+        }
+      ],
+      "pos": [
+        370,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "svc",
+      "type": "backend",
+      "label": "DataCacheService",
+      "sublabel": "get · markStale · upsert",
+      "sources": [
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 42,
+          "label": "getCacheEntry"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 128,
+          "label": "markStale"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 79,
+          "label": "upsertCacheEntry"
+        }
+      ],
+      "pos": [
+        700,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "map",
+      "type": "database",
+      "label": "In-process cache Map",
+      "sublabel": "patientId:sourceId:category",
+      "tag": "lost on restart",
+      "sources": [
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 24,
+          "label": "Map<string, DataCacheEntry>"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 45,
+          "label": "miss → no entry"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 396,
+          "label": "seeded sample data"
+        }
+      ],
+      "pos": [
+        1030,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "expiry",
+      "type": "backend",
+      "label": "TTL expiry checker",
+      "sublabel": "every 60 s: fresh → stale",
+      "sources": [
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 379,
+          "label": "startCacheExpiryChecker"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 10,
+          "label": "TTL by category"
+        }
+      ],
+      "pos": [
+        1030,
+        50
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "backend",
+      "label": "Sync scheduler",
+      "sublabel": "stale sweep every 5 min",
+      "sources": [
+        {
+          "path": "server/services/data-aggregation-sync-scheduler.ts",
+          "line": 32,
+          "label": "getCacheEntries(stale)"
+        },
+        {
+          "path": "server/services/data-aggregation-sync-scheduler.ts",
+          "line": 16,
+          "label": "5 min interval"
+        },
+        {
+          "path": "server/routes.ts",
+          "line": 864,
+          "label": "started"
+        }
+      ],
+      "pos": [
+        700,
+        350
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "fetch",
+      "type": "external",
+      "label": "Simulated fetch",
+      "sublabel": "Math.random, no FHIR call",
+      "tag": "simulated",
+      "sources": [
+        {
+          "path": "server/services/data-aggregation-sync-scheduler.ts",
+          "line": 57,
+          "label": "simulatedRecords"
+        },
+        {
+          "path": "server/services/data-aggregation-sync-scheduler.ts",
+          "line": 61,
+          "label": "upsertCacheEntry"
+        }
+      ],
+      "pos": [
+        700,
+        500
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "syncruns",
+      "type": "database",
+      "label": "syncRuns log",
+      "sublabel": "in memory, newest 500",
+      "sources": [
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 25,
+          "label": "syncRuns[]"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 204,
+          "label": "createSyncRun"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 224,
+          "label": "completeSyncRun"
+        }
+      ],
+      "pos": [
+        370,
+        350
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "health",
+      "type": "database",
+      "label": "sourceHealth map",
+      "sublabel": "healthy · degraded",
+      "sources": [
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 26,
+          "label": "sourceHealth Map"
+        },
+        {
+          "path": "server/services/data-cache-service.ts",
+          "line": 277,
+          "label": "updateSourceHealth"
+        },
+        {
+          "path": "server/services/data-aggregation-sync-scheduler.ts",
+          "line": 82,
+          "label": "after fetch"
+        }
+      ],
+      "pos": [
+        1030,
+        350
+      ],
+      "size": [
+        150,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Express process (single instance, in-memory state)",
+      "wraps": [
+        "routes",
+        "svc",
+        "map",
+        "expiry",
+        "scheduler",
+        "syncruns",
+        "health"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "query-invalidate",
+      "from": "queryclient",
+      "to": "page",
+      "label": "invalidate → refetch",
+      "labelAt": [
+        115,
+        128
+      ]
+    },
+    {
+      "id": "page-to-routes",
+      "from": "page",
+      "to": "routes",
+      "label": "GET /cache · POST refresh",
+      "variant": "emphasis"
+    },
+    {
+      "id": "routes-to-svc",
+      "from": "routes",
+      "to": "svc",
+      "label": "getCacheEntries · markStale",
+      "variant": "emphasis"
+    },
+    {
+      "id": "svc-to-map",
+      "from": "svc",
+      "to": "map",
+      "label": "Map.get → no entry (miss)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "expiry-to-map",
+      "from": "expiry",
+      "to": "map",
+      "label": "expired → stale",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1105,
+        128
+      ]
+    },
+    {
+      "id": "map-to-scheduler",
+      "from": "map",
+      "to": "scheduler",
+      "label": "stale sweep (5 min)",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "scheduler-to-fetch",
+      "from": "scheduler",
+      "to": "fetch",
+      "label": "markRefreshing → fetch",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        775,
+        428
+      ]
+    },
+    {
+      "id": "fetch-to-map",
+      "from": "fetch",
+      "to": "map",
+      "label": "upsertCacheEntry → fresh",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "labelAt": [
+        1055,
+        520
+      ]
+    },
+    {
+      "id": "scheduler-to-syncruns",
+      "from": "scheduler",
+      "to": "syncruns",
+      "label": "completeSyncRun",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "scheduler-to-health",
+      "from": "scheduler",
+      "to": "health",
+      "label": "updateSourceHealth",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Hard miss: key never cached",
+      "items": [
+        "getCacheEntry returns no entry and nothing fetches: no read-through (data-cache-service.ts:42-45)",
+        "Only upsertCacheEntry writes, and only the scheduler calls it (sync-scheduler.ts:61)",
+        "markStale touches existing entries only, so a never-cached key stays empty (data-cache-service.ts:128, :396)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Soft miss and manual refresh",
+      "items": [
+        "Expired entries are flagged on read and still returned; the checker flips fresh → stale every 60 s (service:47-51, :379-390)",
+        "TTL: vitals 2 h, labs 4 h, meds 8 h, claims/imaging 12 h, else 24 h (service:10-21)",
+        "POST /cache/refresh marks stale and fakes completion in 3-5 s; entries turn fresh only on the 5-min sweep (routes.ts:65-93, scheduler:16)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Simulated, and not on this path",
+      "items": [
+        "Sweep fetch and health checks are Math.random, not FHIR, Blue Button, or Fasten calls (scheduler:57-58, :115-116)",
+        "Object storage only issues upload URLs; no Postgres table backs this cache, so state dies on restart (routes.ts:184, service:24-26)",
+        "Wiring: server/routes.ts:852 and :864; types shared/schema.ts:21879-21935"
+      ]
+    }
+  ]
+}

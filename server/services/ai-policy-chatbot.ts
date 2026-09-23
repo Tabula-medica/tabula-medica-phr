@@ -1,10 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeChat } from "./ai-gateway";
 import { randomUUID, createHash } from "crypto";
 import { getAuditLogger } from "./integrations/factory";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
 
 const NO_CDS_POLICY_CHATBOT_PROMPT = `You are a Data Governance Policy Expert Assistant for Tabula Medica, a HIPAA-compliant healthcare data platform.
 
@@ -287,17 +284,14 @@ class AIPolicyChatbotService {
         content: m.content,
       }));
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const content = await generatePhiSafeChat({
         messages: [
           { role: "system", content: systemPrompt },
           ...conversationHistory,
         ],
         temperature: 0.7,
-        max_tokens: 800,
+        maxTokens: 800,
       });
-
-      const content = response.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try rephrasing your question.";
 
       return {
         content,

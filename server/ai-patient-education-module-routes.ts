@@ -1,15 +1,18 @@
 import { Router, Request, Response } from "express";
 import { aiPatientEducationModuleService, EducationTopic, PatientContext } from "./services/ai-patient-education-module-service";
 import { healthInsightsService } from "./services/health-insights-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { z } from "zod";
 
 const router = Router();
+
+router.use(requireUser);
 
 function logHIPAAAudit(operation: string, details: Record<string, any>, req: Request) {
   console.log(`[HIPAA-AUDIT][PatientEducationModule] ${JSON.stringify({
     timestamp: new Date().toISOString(),
     operation,
-    userId: req.headers["x-user-id"] || "anonymous",
+    userId: getUserId(req),
     ipAddress: req.ip,
     userAgent: req.headers["user-agent"]?.slice(0, 50),
     details,
@@ -183,7 +186,7 @@ router.get("/history/:patientId", async (req: Request, res: Response) => {
 router.post("/curate/:patientId", async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const userId = (req.headers["x-user-id"] as string) || "system";
+    const userId = getUserId(req);
 
     logHIPAAAudit("CURATE_EDUCATION_PLAN", { patientId: patientId.slice(0, 8) + "***" }, req);
 

@@ -130,6 +130,7 @@ export const PHI_PROTECTED_ROUTES = [
   "/api/diagnostic-reports",
   "/api/export",
   "/api/telehealth",
+  "/api/rcm",
 ];
 
 export function isPhiProtectedRoute(path: string): boolean {

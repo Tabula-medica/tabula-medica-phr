@@ -1,21 +1,3 @@
-import OpenAI from "openai";
-import {
-  DEFAULT_CARE_SETTING,
-  dosesPerDayFromFrequency,
-  resolveDispenseDefaults,
-  type CareSetting,
-  type DispenseClass,
-} from "./services/prescription-dispense-policy";
-
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
-
 interface PatientContext {
   patientId: string;
   name: string;

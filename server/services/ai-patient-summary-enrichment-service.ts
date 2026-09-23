@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { randomUUID } from "crypto";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = `IMPORTANT DISCLAIMER: This AI-generated analysis is for INFORMATIONAL PURPOSES ONLY. It does NOT constitute medical advice, clinical recommendations, or a substitute for professional medical judgment. Healthcare decisions should ONLY be made by qualified healthcare providers who have examined the patient. This system is NOT a Clinical Decision Support (CDS) system and should NOT be used for diagnosis, treatment planning, or prescribing decisions.`;
 
@@ -285,18 +280,15 @@ IMPORTANT: Only extract information that is explicitly documented. Do not infer 
     let keyThemes: string[] = [];
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a clinical documentation analyst. Extract structured clinical events from medical notes. Do not provide medical advice or interpretations." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000
+      const responseText = await generatePhiSafeText({
+        system: "You are a clinical documentation analyst. Extract structured clinical events from medical notes. Do not provide medical advice or interpretations.",
+        user: prompt,
+        responseMimeType: "application/json",
+        maxTokens: 2000
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
-      
+      const parsed = JSON.parse(responseText || "{}");
+
       events = (parsed.events || []).map((e: any) => ({
         id: randomUUID(),
         eventType: e.eventType || "care_transition",
@@ -370,17 +362,14 @@ VITALS:
 ${patientData.vitals.map(v => `- ${v.name}: ${v.value} (${v.date})`).join("\n")}`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a health data analyst. Summarize patient health observations without providing clinical advice." },
-          { role: "user", content: `Analyze patient data and provide health observations summary:\n${patientContext}\n\nRespond in JSON with overallObservation, observationScore, primaryConcerns, protectiveFactors, monitoringPriorities, comprehensiveSummary, patientFriendlySummary.` }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000
+      const responseText = await generatePhiSafeText({
+        system: "You are a health data analyst. Summarize patient health observations without providing clinical advice.",
+        user: `Analyze patient data and provide health observations summary:\n${patientContext}\n\nRespond in JSON with overallObservation, observationScore, primaryConcerns, protectiveFactors, monitoringPriorities, comprehensiveSummary, patientFriendlySummary.`,
+        responseMimeType: "application/json",
+        maxTokens: 2000
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       return {
         id: randomUUID(),
@@ -423,17 +412,14 @@ ${patientData.vitals.map(v => `- ${v.name}: ${v.value} (${v.date})`).join("\n")}
     await auditLog("generate_historical_comparison", userId, "patient_trends", patientId, { timeframe });
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [
-          { role: "system", content: "You are a health trend analyst. Compare current and historical patient data. Do not provide clinical advice." },
-          { role: "user", content: `Generate trend comparison for ${patientData.name} over ${timeframe}. Conditions: ${patientData.conditions.join(", ")}. Labs: ${patientData.recentLabs.map(l => `${l.name}: ${l.value} (${l.trend})`).join(", ")}. Respond in JSON with healthDomains, conditionProgression, overallProgressNarrative, patientFriendlyComparison.` }
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000
+      const responseText = await generatePhiSafeText({
+        system: "You are a health trend analyst. Compare current and historical patient data. Do not provide clinical advice.",
+        user: `Generate trend comparison for ${patientData.name} over ${timeframe}. Conditions: ${patientData.conditions.join(", ")}. Labs: ${patientData.recentLabs.map(l => `${l.name}: ${l.value} (${l.trend})`).join(", ")}. Respond in JSON with healthDomains, conditionProgression, overallProgressNarrative, patientFriendlyComparison.`,
+        responseMimeType: "application/json",
+        maxTokens: 2000
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       return {
         id: randomUUID(),

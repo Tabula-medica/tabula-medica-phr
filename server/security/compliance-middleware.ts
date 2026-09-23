@@ -12,6 +12,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { logPhiAccess } from "./hipaa-audit";
 import { redactPath } from "./redact-path";
+import { getSiemStatus } from "./siem-forwarder";
 
 const COMPLIANCE_LOG_PREFIX = "[Compliance]";
 
@@ -60,6 +61,7 @@ const PHI_ROUTE_PATTERNS = [
   /\/api\/care-plan/,
   /\/api\/immunization/,
   /\/api\/telehealth/,
+  /\/api\/rcm/,
 ];
 
 const TEFCA_DATA_EXCHANGE_PATTERNS = [
@@ -206,6 +208,7 @@ export function getComplianceStatus(): {
   hipaa: { status: string; encryptionAtRest: string; auditRetention: string; phiRoutes: number };
   soc2: { status: string; changeTracking: string; accessControl: string; availabilityTarget: string };
   tefca: { status: string; consentEnforcement: string; provenanceTracking: string; exchangeStandard: string };
+  security: { siem: { enabled: boolean } };
 } {
   return {
     hipaa: {
@@ -225,6 +228,13 @@ export function getComplianceStatus(): {
       consentEnforcement: DEFAULT_COMPLIANCE_CONFIG.consentRequired ? "required" : "optional",
       provenanceTracking: "enabled",
       exchangeStandard: "FHIR R4",
+    },
+    security: {
+      // This endpoint is unauthenticated (server/index.ts), so only a bare
+      // enabled flag is public — endpointHost/sent/dropped/queueDepth name
+      // the SIEM vendor and reveal operational volume. Those live behind an
+      // authenticated admin/security endpoint if an operator needs them.
+      siem: { enabled: getSiemStatus().enabled },
     },
   };
 }

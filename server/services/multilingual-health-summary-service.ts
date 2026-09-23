@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 import type { SupportedLanguage } from "./unified-ai-onboarding-service";
 import {
@@ -9,11 +9,6 @@ import {
   translateMedicalText,
   LANGUAGE_METADATA,
 } from "./medical-terminology-translation-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return crypto.createHash("sha256").update(id).digest("hex").slice(0, 16);
@@ -218,18 +213,14 @@ Format your response as JSON with the following structure:
   "actionItems": ["item 1", "item 2"] // Only include actions like "discuss with doctor" or "bring questions to next visit"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Summarize this health record data:\n\n${formattedData}` },
-      ],
-      max_completion_tokens: 1000,
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Summarize this health record data:\n\n${formattedData}`,
+      maxTokens: 1000,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     englishSummary = parsed.summary || "Unable to generate summary.";
     plainLanguageSummary = parsed.plainLanguage || englishSummary;
@@ -259,12 +250,8 @@ Format your response as JSON with the following structure:
         `"${en}" -> "${translatedConditions[i]}"`
       ).join('\n');
       
-      const translationResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { 
-            role: "system", 
-            content: `You are a medical translator. Translate the following health summary to ${langName}.
+      const translatedContent = await generatePhiSafeText({
+        system: `You are a medical translator. Translate the following health summary to ${langName}.
 
 RULES:
 1. Maintain the same tone and reading level
@@ -273,19 +260,13 @@ RULES:
 4. Use these condition name translations:
 ${conditionMappings}
 
-Return JSON with: {"summary": "...", "keyPoints": [...], "actionItems": [...]}`
-          },
-          { 
-            role: "user", 
-            content: JSON.stringify({ summary: englishSummary, keyPoints, actionItems }) 
-          },
-        ],
-        max_completion_tokens: 2000,
-        response_format: { type: "json_object" },
+Return JSON with: {"summary": "...", "keyPoints": [...], "actionItems": [...]}`,
+        user: JSON.stringify({ summary: englishSummary, keyPoints, actionItems }),
+        maxTokens: 2000,
+        responseMimeType: "application/json",
       });
 
-      const translatedContent = translationResponse.choices[0]?.message?.content || "{}";
-      const translatedParsed = JSON.parse(translatedContent);
+      const translatedParsed = JSON.parse(translatedContent || "{}");
       
       translatedSummary = translatedParsed.summary;
       keyPointsTranslated = translatedParsed.keyPoints;

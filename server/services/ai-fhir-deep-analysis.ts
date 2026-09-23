@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { createHash, randomUUID } from "crypto";
 import {
   FHIRInconsistency,
@@ -12,9 +12,7 @@ import {
 } from "@shared/schema";
 import { automatedAlertingService } from "./automated-alerting";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare data quality analyst specializing in FHIR R4 data structure analysis.
 
@@ -190,7 +188,7 @@ class AIFHIRDeepAnalysisEngine {
     const scores = this.calculateQualityScores(resourceData, inconsistencies);
 
     let aiInsights: string[] = [];
-    if (openai) {
+    if (aiEnabled) {
       aiInsights = await this.generateAIInsights(resourceType, resourceData, inconsistencies);
     }
 
@@ -447,7 +445,7 @@ class AIFHIRDeepAnalysisEngine {
     data: Record<string, unknown>,
     inconsistencies: FHIRInconsistency[]
   ): Promise<string[]> {
-    if (!openai) return [];
+    if (!aiEnabled) return [];
 
     try {
       const sanitizedData = JSON.stringify(data).substring(0, 2000);
@@ -456,13 +454,9 @@ class AIFHIRDeepAnalysisEngine {
         .map((i) => `- ${i.inconsistencyType}: ${i.description}`)
         .join("\n");
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this FHIR ${resourceType} resource for data quality issues.
+      const content = (await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this FHIR ${resourceType} resource for data quality issues.
 
 Resource structure (truncated):
 ${sanitizedData}
@@ -478,13 +472,9 @@ Provide 3-5 data quality insights focusing ONLY on:
 
 DO NOT provide any clinical interpretation or recommendations.
 Format as a JSON array of strings.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 500,
-      });
-
-      const content = response.choices[0]?.message?.content || "[]";
+        maxTokens: 500,
+      })) || "[]";
       try {
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {

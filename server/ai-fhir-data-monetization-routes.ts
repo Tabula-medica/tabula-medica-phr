@@ -9,8 +9,11 @@ import {
   DataUsageLog
 } from "./services/ai-fhir-data-monetization-service";
 import { comprehensiveAuditTrailService } from "./services/comprehensive-audit-trail-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 const logAudit = async (
   action: string,
@@ -20,7 +23,7 @@ const logAudit = async (
   req: Request
 ) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     await comprehensiveAuditTrailService.logAuditEntry(userId, {
       who: {
         userId,

@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeChat } from "./ai-gateway";
 
 export interface OnboardingSession {
   id: string;
@@ -516,13 +511,10 @@ export async function processMessage(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+    const assistantContent = (await generatePhiSafeChat({
       messages: conversationMessages,
-      max_completion_tokens: 1024,
-    });
-
-    const assistantContent = response.choices[0]?.message?.content || "I apologize, I had trouble processing that. Could you please repeat?";
+      maxTokens: 1024,
+    })) || "I apologize, I had trouble processing that. Could you please repeat?";
 
     const assistantMsg: ChatMessage = {
       id: generateMessageId(),

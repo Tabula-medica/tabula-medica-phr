@@ -123,6 +123,8 @@ export interface VaccineScheduleRule {
   scheduleSource: string;
   sourceDate: string;
   ruleVersion: string;
+  /** "us-acip" | "in-uip" | "who-epi" — set to restrict rule to a region pack */
+  scheduleRegion?: string;
 }
 
 export interface DoseRule {
@@ -164,7 +166,9 @@ const CVX_CODES: Map<string, CVXCode> = new Map([
   ["229", { code: "229", shortDescription: "COVID-19", fullName: "COVID-19 (Updated 2024-25)", vaccineGroup: "COVID-19", status: "active" }],
   ["121", { code: "121", shortDescription: "Zoster", fullName: "Zoster (Shingrix)", vaccineGroup: "Shingles", status: "active" }],
   ["122", { code: "122", shortDescription: "RV", fullName: "Rotavirus", vaccineGroup: "Rotavirus", status: "active" }],
-  ["305", { code: "305", shortDescription: "RSV", fullName: "Respiratory Syncytial Virus", vaccineGroup: "RSV", status: "active" }],
+  ["305", { code: "305", shortDescription: "RSV", fullName: "RSV PreF (Abrysvo/Pfizer)", vaccineGroup: "RSV", status: "active" }],
+  ["317", { code: "317", shortDescription: "RSV mRNA", fullName: "RSV mRNA (mResvia/Moderna)", vaccineGroup: "RSV", status: "active" }],
+  ["206", { code: "206", shortDescription: "Mpox", fullName: "Mpox/Smallpox Vaccine (JYNNEOS)", vaccineGroup: "Mpox", status: "active" }],
 ]);
 
 const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
@@ -184,8 +188,9 @@ const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
       { flag: "pregnancy", recommendation: "Contraindicated during pregnancy" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "Tdap",
@@ -198,11 +203,12 @@ const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
     ],
     contraindications: ["Severe allergic reaction to vaccine component", "Encephalopathy within 7 days of prior dose"],
     riskFlagRecommendations: [
-      { flag: "pregnancy", recommendation: "Recommended during each pregnancy (27-36 weeks)" },
+      { flag: "pregnancy", recommendation: "Tdap recommended during each pregnancy at 27-36 weeks gestation" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "HPV",
@@ -213,87 +219,92 @@ const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
       { doseNumber: 3, minimumAge: 108, minimumInterval: 84, notes: "If started at 15+: 3 doses (0, 1-2, 6 months)" },
     ],
     catchUpRules: [
-      { ageRange: { min: 180, max: 312 }, priorDoses: 0, intervalDays: 0, notes: "Catch-up through age 26" },
+      { ageRange: { min: 180, max: 312 }, priorDoses: 0, intervalDays: 0, notes: "Routine catch-up through age 26; shared clinical decision-making ages 27-45" },
     ],
-    contraindications: ["Severe allergic reaction to vaccine component", "Pregnancy (defer until after)"],
+    contraindications: ["Severe allergic reaction to vaccine component", "Pregnancy (defer until after delivery)"],
     riskFlagRecommendations: [
-      { flag: "immunocompromised", recommendation: "3-dose series recommended regardless of age at start" },
+      { flag: "immunocompromised", recommendation: "3-dose series recommended regardless of age at initiation" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "Influenza",
     seriesName: "Annual Influenza",
     doses: [
-      { doseNumber: 1, minimumAge: 6, recommendedAge: 6, notes: "Annual vaccination, 6 months and older" },
+      { doseNumber: 1, minimumAge: 6, recommendedAge: 6, notes: "Annual 2025-26 formula; 6 months and older. High-dose (Fluzone HD) or adjuvanted (Fluad) preferred for ages 65+" },
     ],
     catchUpRules: [],
-    contraindications: ["Severe allergic reaction to vaccine component", "History of Guillain-Barré syndrome within 6 weeks of prior flu vaccine"],
+    contraindications: ["Severe allergic reaction to vaccine component", "History of Guillain-Barré syndrome within 6 weeks of prior influenza vaccine"],
     riskFlagRecommendations: [
-      { flag: "pregnancy", recommendation: "Recommended during any trimester" },
+      { flag: "pregnancy", recommendation: "Recommended during any trimester; inactivated or recombinant formulation only" },
       { flag: "chronic_heart", recommendation: "Annual vaccination strongly recommended" },
       { flag: "chronic_lung", recommendation: "Annual vaccination strongly recommended" },
       { flag: "diabetes", recommendation: "Annual vaccination strongly recommended" },
-      { flag: "immunocompromised", recommendation: "Annual vaccination strongly recommended" },
+      { flag: "immunocompromised", recommendation: "Annual vaccination strongly recommended; avoid LAIV (live attenuated)" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-08-28",
-    ruleVersion: "2024.2",
+    sourceDate: "2025-06-26",
+    ruleVersion: "2025.2",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "COVID-19",
-    seriesName: "COVID-19 Vaccination",
+    seriesName: "COVID-19 Annual Vaccination",
     doses: [
-      { doseNumber: 1, minimumAge: 6, recommendedAge: 6, notes: "Updated 2024-25 vaccine for everyone 6 months+" },
+      { doseNumber: 1, minimumAge: 6, recommendedAge: 6, notes: "Updated 2025-26 formula annually for everyone 6 months+. Adults 65+ who received ≥1 dose of updated formula are considered up-to-date." },
     ],
     catchUpRules: [],
-    contraindications: ["Severe allergic reaction to vaccine component"],
+    contraindications: ["Severe allergic reaction to vaccine component (e.g., polyethylene glycol)"],
     riskFlagRecommendations: [
-      { flag: "immunocompromised", recommendation: "Additional doses may be recommended - confirm with clinician" },
+      { flag: "immunocompromised", recommendation: "Additional doses may be recommended — shared clinical decision-making with clinician" },
       { flag: "pregnancy", recommendation: "Vaccination recommended during pregnancy" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-06-27",
-    ruleVersion: "2024.2",
+    sourceDate: "2025-06-26",
+    ruleVersion: "2025.2",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "Shingles",
     seriesName: "Shingrix Series",
     doses: [
       { doseNumber: 1, minimumAge: 600, recommendedAge: 600, notes: "First dose at age 50+" },
-      { doseNumber: 2, minimumAge: 600, minimumInterval: 60, notes: "Second dose 2-6 months after first" },
+      { doseNumber: 2, minimumAge: 600, minimumInterval: 60, notes: "Second dose 2-6 months after first (8-12 weeks for immunocompromised)" },
     ],
     catchUpRules: [],
-    contraindications: ["Severe allergic reaction to vaccine component", "Current shingles outbreak"],
+    contraindications: ["Severe allergic reaction to vaccine component", "Current shingles outbreak (defer until resolved)"],
     riskFlagRecommendations: [
-      { flag: "immunocompromised", recommendation: "Recommended at 19+ if immunocompromised - confirm with clinician" },
+      { flag: "immunocompromised", recommendation: "Recommended at age 19+ if immunocompromised — confirm dosing interval with clinician" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "Pneumococcal",
     seriesName: "Pneumococcal (Adult)",
     doses: [
-      { doseNumber: 1, minimumAge: 780, recommendedAge: 780, notes: "PCV20 or PCV15+PPSV23 at 65+" },
+      { doseNumber: 1, minimumAge: 780, recommendedAge: 780, notes: "PCV20 (preferred) or PCV21 at 65+; or PCV15 followed by PPSV23 ≥1 year later" },
     ],
     catchUpRules: [],
     contraindications: ["Severe allergic reaction to vaccine component"],
     riskFlagRecommendations: [
-      { flag: "chronic_heart", recommendation: "Recommended at 19-64 with risk conditions" },
-      { flag: "chronic_lung", recommendation: "Recommended at 19-64 with risk conditions" },
-      { flag: "diabetes", recommendation: "Recommended at 19-64 with risk conditions" },
-      { flag: "immunocompromised", recommendation: "Recommended at 19+ - confirm with clinician" },
-      { flag: "asplenia", recommendation: "Recommended at 19+ - confirm with clinician" },
-      { flag: "smoker", recommendation: "Recommended at 19-64 for smokers" },
-      { flag: "long_term_care", recommendation: "Recommended for long-term care residents" },
+      { flag: "chronic_heart", recommendation: "Recommended at ages 19-64 with qualifying risk condition" },
+      { flag: "chronic_lung", recommendation: "Recommended at ages 19-64 with qualifying risk condition" },
+      { flag: "diabetes", recommendation: "Recommended at ages 19-64 with qualifying risk condition" },
+      { flag: "immunocompromised", recommendation: "Recommended at 19+ — confirm specific product/schedule with clinician" },
+      { flag: "asplenia", recommendation: "Recommended at 19+ — confirm specific product/schedule with clinician" },
+      { flag: "smoker", recommendation: "Recommended at ages 19-64 for current smokers" },
+      { flag: "long_term_care", recommendation: "Recommended for long-term care facility residents" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "HepB",
@@ -304,35 +315,37 @@ const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
       { doseNumber: 3, minimumAge: 6, minimumInterval: 56, notes: "Third dose at 6-18 months" },
     ],
     catchUpRules: [
-      { ageRange: { min: 0, max: 228 }, priorDoses: 0, intervalDays: 28, notes: "3-dose series catch-up" },
+      { ageRange: { min: 0, max: 228 }, priorDoses: 0, intervalDays: 28, notes: "3-dose catch-up series; Heplisav-B (2-dose) available for adults 18+" },
     ],
     contraindications: ["Severe allergic reaction to vaccine component"],
     riskFlagRecommendations: [
-      { flag: "healthcare_worker", recommendation: "Vaccination required for healthcare workers" },
-      { flag: "diabetes", recommendation: "Recommended for adults 19-59 with diabetes" },
+      { flag: "healthcare_worker", recommendation: "Vaccination required for healthcare workers; post-exposure prophylaxis available" },
+      { flag: "diabetes", recommendation: "Recommended for adults 19-59 with diabetes; shared clinical decision-making 60+" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "HepA",
     seriesName: "Hepatitis A Series",
     doses: [
       { doseNumber: 1, minimumAge: 12, recommendedAge: 12, notes: "First dose at 12-23 months" },
-      { doseNumber: 2, minimumAge: 18, minimumInterval: 180, notes: "Second dose 6+ months after first" },
+      { doseNumber: 2, minimumAge: 18, minimumInterval: 180, notes: "Second dose 6-18 months after first" },
     ],
     catchUpRules: [
-      { ageRange: { min: 24, max: 228 }, priorDoses: 0, intervalDays: 180, notes: "2-dose catch-up series" },
+      { ageRange: { min: 24, max: 228 }, priorDoses: 0, intervalDays: 180, notes: "2-dose catch-up series for unvaccinated adults" },
     ],
     contraindications: ["Severe allergic reaction to vaccine component"],
     riskFlagRecommendations: [
-      { flag: "chronic_liver", recommendation: "Recommended for chronic liver disease" },
-      { flag: "travel", recommendation: "Recommended before international travel" },
+      { flag: "chronic_liver", recommendation: "Recommended for all persons with chronic liver disease" },
+      { flag: "travel", recommendation: "Recommended before travel to hepatitis A-endemic countries" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
   {
     vaccineGroup: "Meningococcal",
@@ -342,16 +355,71 @@ const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
       { doseNumber: 2, minimumAge: 192, minimumInterval: 96, notes: "Booster at 16 years" },
     ],
     catchUpRules: [
-      { ageRange: { min: 156, max: 252 }, priorDoses: 0, intervalDays: 56, notes: "Catch-up for teens/young adults" },
+      { ageRange: { min: 156, max: 252 }, priorDoses: 0, intervalDays: 56, notes: "Catch-up for adolescents/young adults; boosters every 5 years for high-risk" },
     ],
     contraindications: ["Severe allergic reaction to vaccine component"],
     riskFlagRecommendations: [
-      { flag: "asplenia", recommendation: "Additional doses recommended - confirm with clinician" },
-      { flag: "immunocompromised", recommendation: "Additional doses may be recommended - confirm with clinician" },
+      { flag: "asplenia", recommendation: "Additional doses recommended; MenACWY + MenB both indicated — confirm with clinician" },
+      { flag: "immunocompromised", recommendation: "Additional doses may be recommended — confirm with clinician" },
     ],
     scheduleSource: "CDC/ACIP",
-    sourceDate: "2024-02-08",
-    ruleVersion: "2024.1",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
+  },
+  // ── RSV (adult 60+) — added 2025 ACIP adult schedule ─────────────────────
+  {
+    vaccineGroup: "RSV",
+    seriesName: "RSV (Adult 60+)",
+    doses: [
+      { doseNumber: 1, minimumAge: 720, recommendedAge: 720, notes: "Single dose Abrysvo (CVX-305) or mResvia (CVX-317) at age 60+; shared clinical decision-making for healthy adults 60-74 with clinician" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [
+      { flag: "chronic_heart", recommendation: "RSV vaccination recommended — discuss timing with clinician" },
+      { flag: "chronic_lung", recommendation: "RSV vaccination recommended — discuss timing with clinician" },
+      { flag: "long_term_care", recommendation: "RSV vaccination recommended for long-term care residents 60+" },
+    ],
+    scheduleSource: "CDC/ACIP",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
+  },
+  // ── RSV maternal — Abrysvo 32-36 weeks gestation ─────────────────────────
+  {
+    vaccineGroup: "RSV-Maternal",
+    seriesName: "RSV Maternal Vaccine",
+    doses: [
+      { doseNumber: 1, minimumAge: 0, recommendedAge: 0, notes: "Abrysvo (CVX-305) single dose at 32-36 weeks gestation; protects infant through passive antibody transfer. Do not administer if infant will receive nirsevimab." },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component", "Prior receipt of any RSV vaccine in current or recent pregnancy"],
+    riskFlagRecommendations: [
+      { flag: "pregnancy", recommendation: "Shared clinical decision-making at 32-36 weeks; discuss nirsevimab vs maternal vaccine with clinician" },
+    ],
+    scheduleSource: "CDC/ACIP",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
+  },
+  // ── Mpox (JYNNEOS) — ACIP preexposure prophylaxis guidance ───────────────
+  {
+    vaccineGroup: "Mpox",
+    seriesName: "JYNNEOS Mpox Series",
+    doses: [
+      { doseNumber: 1, minimumAge: 216, recommendedAge: 216, notes: "First dose subcutaneous; intradermal option (0.1 mL) for adults 18+ conserves supply" },
+      { doseNumber: 2, minimumAge: 216, minimumInterval: 28, notes: "Second dose 28 days after first" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Subcutaneous route preferred (not intradermal) for immunocompromised — confirm with clinician" },
+    ],
+    scheduleSource: "CDC/ACIP",
+    sourceDate: "2025-02-27",
+    ruleVersion: "2025.1",
+    scheduleRegion: "us-acip",
   },
 ];
 
@@ -801,6 +869,30 @@ export const vaccineScheduleEngine = {
 
   getDisclaimer(): string {
     return NO_CDS_DISCLAIMER;
+  },
+
+  /** Returns the most recent sourceDate across all loaded schedule rules. */
+  getEffectiveDate(): string {
+    const dates = VACCINE_SCHEDULE_RULES.map((r) => r.sourceDate).sort();
+    return dates[dates.length - 1];
+  },
+
+  /** Returns the latest ruleVersion string (highest lexicographic value). */
+  getScheduleVersion(): string {
+    const versions = VACCINE_SCHEDULE_RULES.map((r) => r.ruleVersion).sort();
+    return versions[versions.length - 1];
+  },
+
+  /**
+   * Returns rules scoped to a region pack. Pass "us-acip" (default), "in-uip",
+   * or "who-epi". Rules without a scheduleRegion field are always included.
+   * Country-specific packs (in-uip, who-epi) are not yet populated — this
+   * method is the hook for future non-US regional schedules.
+   */
+  getRulesForRegion(region: "us-acip" | "in-uip" | "who-epi" = "us-acip"): VaccineScheduleRule[] {
+    return VACCINE_SCHEDULE_RULES.filter(
+      (r) => !r.scheduleRegion || r.scheduleRegion === region
+    );
   },
 
   async getVaccineSummary(patientId: string, profileId: string, birthDate: string, userId: string): Promise<{
