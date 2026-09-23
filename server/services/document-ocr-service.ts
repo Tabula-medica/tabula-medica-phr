@@ -1,5 +1,8 @@
 import type { AutoTagCategory } from "@shared/schema";
+import { documentOcrResultsTable } from "@shared/schema";
 import { generatePhiSafeVision, generatePhiSafeChat } from "./ai-gateway";
+import { db } from "../db";
+import { eq, and } from "drizzle-orm";
 
 export interface ExtractedDocumentData {
   documentId: string;
@@ -255,85 +258,109 @@ export interface DocumentSearchResult {
 }
 
 class DocumentSearchService {
-  private extractedDocuments: Map<string, ExtractedDocumentData> = new Map();
-  
-  addDocument(userId: string, data: ExtractedDocumentData) {
-    // P0-4: namespace entries by user so one user's documents are invisible and
-    // un-fetchable to any other user.
-    this.extractedDocuments.set(`${userId}::${data.documentId}`, data);
+  async addDocument(userId: string, profileId: string | null, data: ExtractedDocumentData): Promise<void> {
+    await db
+      .insert(documentOcrResultsTable)
+      .values({
+        userId,
+        profileId: profileId || null,
+        documentId: data.documentId,
+        extractedText: data.extractedText,
+        structuredData: data.structuredData as Record<string, unknown>,
+        category: data.category,
+        confidence: data.confidence,
+        rawOcrText: data.rawOcrText || null,
+        processingTime: data.processingTime,
+        extractedAt: data.extractedAt,
+      })
+      .onConflictDoUpdate({
+        target: [documentOcrResultsTable.userId, documentOcrResultsTable.documentId],
+        set: {
+          profileId: profileId || null,
+          extractedText: data.extractedText,
+          structuredData: data.structuredData as Record<string, unknown>,
+          category: data.category,
+          confidence: data.confidence,
+          rawOcrText: data.rawOcrText || null,
+          processingTime: data.processingTime,
+          extractedAt: data.extractedAt,
+        },
+      });
   }
 
-  search(userId: string, params: DocumentSearchParams): DocumentSearchResult[] {
-    const results: DocumentSearchResult[] = [];
+  async search(userId: string, params: DocumentSearchParams): Promise<DocumentSearchResult[]> {
+    const rows = await db
+      .select()
+      .from(documentOcrResultsTable)
+      .where(eq(documentOcrResultsTable.userId, userId));
 
-    const prefix = `${userId}::`;
-    const entries = Array.from(this.extractedDocuments.entries());
-    for (const [key, doc] of entries) {
-      if (!key.startsWith(prefix)) continue; // P0-4: only the calling user's documents
-      const docId = doc.documentId;
+    const results: DocumentSearchResult[] = [];
+    for (const row of rows) {
+      const doc = row.structuredData as ExtractedDocumentData["structuredData"];
+      const docId = row.documentId;
+
       if (params.patientId && !docId.includes(params.patientId)) continue;
-      if (params.category && doc.category !== params.category) continue;
-      
-      if (params.dateFrom && doc.structuredData.documentDate) {
-        if (new Date(doc.structuredData.documentDate) < new Date(params.dateFrom)) continue;
+      if (params.category && row.category !== params.category) continue;
+
+      if (params.dateFrom && doc.documentDate) {
+        if (new Date(doc.documentDate) < new Date(params.dateFrom)) continue;
       }
-      if (params.dateTo && doc.structuredData.documentDate) {
-        if (new Date(doc.structuredData.documentDate) > new Date(params.dateTo)) continue;
+      if (params.dateTo && doc.documentDate) {
+        if (new Date(doc.documentDate) > new Date(params.dateTo)) continue;
       }
-      
-      if (params.provider && doc.structuredData.provider) {
-        if (!doc.structuredData.provider.toLowerCase().includes(params.provider.toLowerCase())) continue;
+
+      if (params.provider && doc.provider) {
+        if (!doc.provider.toLowerCase().includes(params.provider.toLowerCase())) continue;
       }
-      if (params.facility && doc.structuredData.facility) {
-        if (!doc.structuredData.facility.toLowerCase().includes(params.facility.toLowerCase())) continue;
+      if (params.facility && doc.facility) {
+        if (!doc.facility.toLowerCase().includes(params.facility.toLowerCase())) continue;
       }
-      
-      if (params.hasMedications && (!doc.structuredData.medications || doc.structuredData.medications.length === 0)) continue;
-      if (params.hasDiagnoses && (!doc.structuredData.diagnoses || doc.structuredData.diagnoses.length === 0)) continue;
-      if (params.hasLabResults && (!doc.structuredData.labResults || doc.structuredData.labResults.length === 0)) continue;
-      
+
+      if (params.hasMedications && (!doc.medications || doc.medications.length === 0)) continue;
+      if (params.hasDiagnoses && (!doc.diagnoses || doc.diagnoses.length === 0)) continue;
+      if (params.hasLabResults && (!doc.labResults || doc.labResults.length === 0)) continue;
+
       let matchScore = 50;
       const matchedTerms: string[] = [];
-      
+
       if (params.query) {
         const query = params.query.toLowerCase();
         const searchableText = [
-          doc.extractedText,
-          doc.structuredData.summary,
-          doc.structuredData.provider,
-          doc.structuredData.facility,
-          ...(doc.structuredData.medications?.map(m => m.name) || []),
-          ...(doc.structuredData.diagnoses?.map(d => d.description) || []),
-          ...(doc.structuredData.labResults?.map(l => l.test) || [])
+          row.extractedText,
+          doc.summary,
+          doc.provider,
+          doc.facility,
+          ...(doc.medications?.map(m => m.name) || []),
+          ...(doc.diagnoses?.map(d => d.description) || []),
+          ...(doc.labResults?.map(l => l.test) || []),
         ].filter(Boolean).join(" ").toLowerCase();
-        
+
         if (!searchableText.includes(query)) continue;
-        
-        const queryTerms = query.split(/\s+/);
-        for (const term of queryTerms) {
+
+        for (const term of query.split(/\s+/)) {
           if (searchableText.includes(term)) {
             matchedTerms.push(term);
             matchScore += 10;
           }
         }
       }
-      
-      const snippet = doc.structuredData.summary || 
-        doc.extractedText.slice(0, 200) + (doc.extractedText.length > 200 ? "..." : "");
-      
+
+      const snippet =
+        doc.summary || row.extractedText.slice(0, 200) + (row.extractedText.length > 200 ? "..." : "");
+
       results.push({
         documentId: docId,
-        title: doc.structuredData.documentType || "Document",
-        category: doc.category,
-        date: doc.structuredData.documentDate || doc.extractedAt,
-        facility: doc.structuredData.facility,
-        provider: doc.structuredData.provider,
+        title: doc.documentType || "Document",
+        category: row.category as any,
+        date: doc.documentDate || row.extractedAt,
+        facility: doc.facility,
+        provider: doc.provider,
         matchScore,
         matchedTerms,
-        snippet
+        snippet,
       });
     }
-    
+
     if (params.sortBy === "date") {
       results.sort((a, b) => {
         const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -347,17 +374,34 @@ class DocumentSearchService {
         return params.sortOrder === "asc" ? diff : -diff;
       });
     }
-    
+
     const offset = params.offset || 0;
     const limit = params.limit || 50;
-    
     return results.slice(offset, offset + limit);
   }
-  
-  getDocument(userId: string, documentId: string): ExtractedDocumentData | undefined {
-    // P0-4: the namespaced key enforces ownership — a document owned by another
-    // user is un-fetchable (returns undefined -> 404 at the route).
-    return this.extractedDocuments.get(`${userId}::${documentId}`);
+
+  async getDocument(userId: string, documentId: string): Promise<ExtractedDocumentData | undefined> {
+    const rows = await db
+      .select()
+      .from(documentOcrResultsTable)
+      .where(and(
+        eq(documentOcrResultsTable.userId, userId),
+        eq(documentOcrResultsTable.documentId, documentId),
+      ))
+      .limit(1);
+
+    if (rows.length === 0) return undefined;
+    const row = rows[0];
+    return {
+      documentId: row.documentId,
+      extractedText: row.extractedText,
+      structuredData: row.structuredData as ExtractedDocumentData["structuredData"],
+      category: row.category as AutoTagCategory,
+      confidence: row.confidence,
+      rawOcrText: row.rawOcrText || undefined,
+      processingTime: row.processingTime,
+      extractedAt: row.extractedAt,
+    };
   }
 }
 

@@ -22516,3 +22516,29 @@ export const referenceContentTags = pgTable("reference_content_tags", {
 export const insertReferenceContentSchema = createInsertSchema(referenceContent).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertReferenceContent = z.infer<typeof insertReferenceContentSchema>;
 export type ReferenceContent = typeof referenceContent.$inferSelect;
+
+// ─── Document OCR results (P1-5) ───────────────────────────────────────────
+// Persisted OCR extraction results (previously in-memory, lost on restart).
+// One row per (user_id, document_id) pair; upserted on re-extraction.
+export const documentOcrResultsTable = pgTable(
+  "document_ocr_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").notNull(),
+    profileId: text("profile_id"),
+    documentId: text("document_id").notNull(),
+    extractedText: text("extracted_text").notNull(),
+    structuredData: jsonb("structured_data").$type<Record<string, unknown>>().notNull().default({}),
+    category: text("category").notNull(),
+    confidence: real("confidence").notNull().default(0),
+    rawOcrText: text("raw_ocr_text"),
+    processingTime: integer("processing_time").notNull().default(0),
+    extractedAt: text("extracted_at").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdIdx: index("docr_user_id_idx").on(t.userId),
+    userProfileIdx: index("docr_user_profile_idx").on(t.userId, t.profileId),
+    userDocumentUx: uniqueIndex("docr_user_document_ux").on(t.userId, t.documentId),
+  })
+);
