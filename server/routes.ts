@@ -24,7 +24,7 @@ import {
   type AccessLevel,
   accounts,
 } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeChat, generatePhiSafeChatStream } from "./services/ai-gateway";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import {
   isFastenConfigured,
@@ -555,10 +555,6 @@ function resetRateLimit(userId: string): void {
   rateLimitMap.delete(userId);
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 // Helper functions for health analytics chart data
 function buildLabChartData(labResults: any[]): any[] {
@@ -711,14 +707,12 @@ Generate a JSON response with:
   "positiveNotes": ["1-2 positive health observations"]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
+    const raw = await generatePhiSafeChat({
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 500,
+      maxTokens: 500,
     });
-    
-    const content = response.choices[0]?.message?.content || "{}";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    const jsonMatch = (raw || "{}").match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
@@ -5082,15 +5076,7 @@ export async function registerRoutes(
       if (content && eventType === "manual_entry") {
         try {
           console.log("[Journal] Starting AI analysis...");
-          const OpenAI = (await import("openai")).default;
-          const openai = new OpenAI({
-            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-            timeout: 15000, // 15 second timeout
-          });
-
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+          const raw = await generatePhiSafeChat({
             messages: [
               {
                 role: "system",
@@ -5115,11 +5101,11 @@ Respond in JSON format with these fields:
                 content: `Journal entry title: "${title}"\n\nContent: "${content}"\n\nMood: ${mood || "not specified"}\n\nSymptoms reported: ${symptoms?.join(", ") || "none"}`
               }
             ],
-            response_format: { type: "json_object" },
+            responseMimeType: "application/json",
           });
 
           console.log("[Journal] AI analysis complete");
-          const analysisResult = JSON.parse(completion.choices[0].message.content || "{}");
+          const analysisResult = JSON.parse(raw || "{}");
           aiAnalysis = {
             ...analysisResult,
             confidenceScore: 0.85,
@@ -6771,18 +6757,13 @@ STRICT NO-CDS CONSTRAINTS:
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      for await (const content of generatePhiSafeChatStream({
         messages: [
           { role: "system", content: "You are a QUOTE-FIRST health record summarizer. EVERY claim MUST start with a direct quote from the records, followed by plain-language explanation. ABSOLUTELY NO recommendations, advice, risk assessments, or action items. Only allowed verbs: 'shows', 'states', 'indicates', 'lists', 'records'. Forbidden words: 'should', 'must', 'need', 'recommend', 'advise', 'concerning', 'important', 'urgent', 'normal', 'abnormal'." },
           { role: "user", content: prompt }
         ],
-        stream: true,
-        max_completion_tokens: 1024,
-      });
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
+        maxTokens: 1024,
+      })) {
         if (content) {
           res.write(`data: ${JSON.stringify({ content })}\n\n`);
         }
@@ -8206,8 +8187,7 @@ STRICT NO-CDS CONSTRAINTS:
             `[${e.date}] ${e.type}: ${e.title}${e.description ? ' - ' + e.description.slice(0, 100) : ''}`
           ).join('\n');
 
-          const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+          narrative = await generatePhiSafeChat({
             messages: [
               {
                 role: "system",
@@ -8218,11 +8198,9 @@ STRICT NO-CDS CONSTRAINTS:
                 content: `Please provide a plain-language chronological summary of these health events:\n\n${eventSummaries}`
               }
             ],
-            max_tokens: 500,
+            maxTokens: 500,
             temperature: 0.3,
-          });
-
-          narrative = response.choices[0]?.message?.content || "Unable to generate summary at this time.";
+          }) || "Unable to generate summary at this time.";
         } catch (narrativeError) {
           console.error("Error generating narrative:", narrativeError);
           narrative = "Unable to generate an AI summary at this time. Please review your timeline events below.";
@@ -8917,18 +8895,17 @@ Provide:
 
 IMPORTANT: Only provide educational information. Do NOT provide medical advice, recommendations, or diagnosis. Keep the explanation factual and neutral.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const explanation = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a helpful medical education assistant that explains medical terms in plain English. Never provide medical advice or recommendations." },
           { role: "user", content: prompt }
         ],
-        max_completion_tokens: 256,
+        maxTokens: 256,
       });
 
       res.json({
         term,
-        explanation: response.choices[0]?.message?.content || "No explanation available",
+        explanation: explanation || "No explanation available",
       });
     } catch (error) {
       console.error("Error explaining term:", error);
@@ -12737,14 +12714,13 @@ Generate a JSON response with this structure:
   "disclaimer": "This analysis is for informational purposes only and does not constitute medical advice, diagnosis, or treatment. Always consult with the treating physician."
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const raw = await generatePhiSafeChat({
         messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4096,
+        responseMimeType: "application/json",
+        maxTokens: 4096,
       });
 
-      const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const analysis = JSON.parse(raw || "{}");
       analysis.generatedAt = new Date().toISOString();
       analysis.analysisId = `ai-assist-${Date.now()}`;
 
@@ -12839,14 +12815,13 @@ Generate a JSON response:
   "disclaimer": "These predictions are based on historical data patterns and are for informational purposes only. They do not constitute medical advice. Always consult with your healthcare provider for medical decisions."
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const rawPrediction = await generatePhiSafeChat({
         messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4096,
+        responseMimeType: "application/json",
+        maxTokens: 4096,
       });
 
-      const prediction = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const prediction = JSON.parse(rawPrediction || "{}");
       prediction.generatedAt = new Date().toISOString();
       prediction.patientId = patientId;
 
@@ -14410,11 +14385,7 @@ Generate a JSON response:
         // Run AI analysis for the alert
         let aiAnalysis = "";
         try {
-          const OpenAI = (await import("openai")).default;
-          const openai = new OpenAI();
-          
-          const aiResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
+          aiAnalysis = await generatePhiSafeChat({
             messages: [
               {
                 role: "system",
@@ -14433,10 +14404,8 @@ Answers: ${JSON.stringify(processedAnswers, null, 2)}
 Provide a brief clinical analysis and recommended actions.`
               }
             ],
-            max_tokens: 300,
-          });
-          
-          aiAnalysis = aiResponse.choices[0]?.message?.content || "";
+            maxTokens: 300,
+          }) || "";
         } catch (aiError) {
           console.error("AI analysis error:", aiError);
           aiAnalysis = "AI analysis unavailable. Manual review recommended.";
@@ -17627,16 +17596,12 @@ Secure Healthcare System`;
       const medications = await storage.getMedicationsByPatient(patientId);
       const conditions = await storage.getConditions(patientId);
       
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI();
-      
       const context = {
         medications: medications.map(m => m.name).slice(0, 5),
         conditions: conditions.map(c => c.name).slice(0, 5),
       };
-      
-      const aiResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
+
+      const rawTips = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -17651,12 +17616,11 @@ Conditions: ${context.conditions.join(", ") || "None specified"}
 Return JSON array of tips.`
           }
         ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
-      
-      const content = aiResponse.choices[0]?.message?.content;
-      const parsedTips = content ? JSON.parse(content) : { tips: [] };
+
+      const parsedTips = rawTips ? JSON.parse(rawTips) : { tips: [] };
       const generatedTips = parsedTips.tips || [];
       
       // Save and deliver tips
@@ -17851,20 +17815,18 @@ IMPORTANT:
 4. Include clear warning signs that would require immediate care
 5. This is educational only - always include a disclaimer`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const rawTriage = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a medical triage AI assistant. Provide helpful, accurate, and safe guidance while always recommending professional medical consultation for concerning symptoms. Never provide definitive diagnoses." },
           { role: "user", content: prompt }
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const analysisText = completion.choices[0]?.message?.content || "{}";
       let analysis;
       try {
-        analysis = JSON.parse(analysisText);
+        analysis = JSON.parse(rawTriage || "{}");
       } catch {
         analysis = {
           summary: "Unable to analyze symptoms. Please consult a healthcare provider.",
@@ -18045,17 +18007,16 @@ Generate a comprehensive yet concise medical summary. Return a JSON object with:
 
 Be thorough but prioritize clinically relevant information. Mark high-relevance items that providers should focus on.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const rawSummary = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a clinical AI assistant specializing in medical record summarization. Always respond with valid JSON." },
           { role: "user", content: prompt }
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+      const aiResult = JSON.parse(rawSummary || "{}");
 
       // Build the medical summary
       const summary: MedicalSummary = {
@@ -18285,17 +18246,16 @@ STRICT CONSTRAINTS:
 
       let aiResult: any;
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
+        const rawChart = await generatePhiSafeChat({
           messages: [
             { role: "system", content: "You are a clinical chart summarization AI. Always respond with valid JSON. Never provide clinical recommendations or decision support." },
             { role: "user", content: prompt }
           ],
-          response_format: { type: "json_object" },
+          responseMimeType: "application/json",
           temperature: 0.2,
-          max_completion_tokens: 1200,
+          maxTokens: 1200,
         });
-        aiResult = JSON.parse(response.choices[0].message.content || "{}");
+        aiResult = JSON.parse(rawChart || "{}");
       } catch (aiError) {
         console.error("AI chart summary generation failed, using fallback:", aiError);
         aiResult = {
@@ -18765,18 +18725,17 @@ Return a JSON object:
 
 Focus on actionable, clinically relevant predictions. Be specific about risk factors and interventions.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const rawForecast = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a clinical AI assistant specializing in predictive health analytics. Always respond with valid JSON. Your predictions should be evidence-based and actionable." },
           { role: "user", content: prompt }
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
-      
+      const aiResult = JSON.parse(rawForecast || "{}");
+
       // Store each forecast
       const savedForecasts = [];
       const dataSources: ("conditions" | "medications" | "labs" | "vitals" | "proms" | "triage" | "family_history" | "lifestyle")[] = [];
@@ -19046,8 +19005,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
              "pointsReward": 50
            }`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const rawEducation = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -19055,16 +19013,15 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
           },
           { role: "user", content: prompt },
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.7,
       });
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
+      if (!rawEducation) {
         throw new Error("No response from AI");
       }
 
-      const generated = JSON.parse(response);
+      const generated = JSON.parse(rawEducation);
       const now = new Date().toISOString();
 
       if (type === "article") {
@@ -19945,8 +19902,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
       let nlpFilters: SearchFilters = filters || {};
 
       try {
-        const nlpResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
+        const rawNlp = await generatePhiSafeChat({
           messages: [
             {
               role: "system",
@@ -19972,11 +19928,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
               content: query,
             },
           ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 200,
+          responseMimeType: "application/json",
+          maxTokens: 200,
         });
 
-        const parsed = JSON.parse(nlpResponse.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(rawNlp || "{}");
         interpretedQuery = parsed.searchTerms || query;
         if (parsed.dataTypes) nlpFilters.dataTypes = parsed.dataTypes;
         if (parsed.dateFrom) nlpFilters.dateFrom = parsed.dateFrom;

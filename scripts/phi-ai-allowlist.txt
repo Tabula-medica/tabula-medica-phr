@@ -14,7 +14,6 @@ server/monitoring-routes.ts
 server/replit_integrations/audio/client.ts
 server/replit_integrations/chat/routes.ts
 server/replit_integrations/image/client.ts
-server/routes.ts
 server/routes/card-ocr-routes.ts
 server/services/ai-provider.ts
 server/services/document-ocr-service.ts
