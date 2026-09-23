@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- request/response test doubles */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   scanForPromptInjection,
   scanModelOutput,
@@ -77,6 +77,10 @@ describe("ai-runtime-guard — body walking and route matching", () => {
     "/api/multimodal/analyze",
     "/api/document-summary/123",
     "/api/symptom-checker/session",
+    "/api/translation/summarize",
+    "/api/translation/document-summary",
+    "/api/patient-ai-onboarding/start",
+    "/api/patient-friendly-summary/123",
   ])("matches AI route %s", (path) => {
     expect(DEFAULT_AI_ROUTE_PATTERN.test(path)).toBe(true);
   });
@@ -139,5 +143,35 @@ describe("ai-runtime-guard — middleware modes", () => {
     aiRuntimeGuard({ mode: "enforce" })(t.req, t.res, () => { nextCalled = true; });
     expect(nextCalled).toBe(true);
     expect(t.headers["X-AI-Guard"]).toBeUndefined();
+  });
+});
+
+describe("ai-runtime-guard — output-side scan wiring", () => {
+  it("scans the JSON response and logs ai_output_exfiltration_pattern when flagged", () => {
+    const t = fakeReqRes("/api/ai-patient-assistant/chat", { prompt: "hi" });
+    aiRuntimeGuard({ mode: "monitor" })(t.req, t.res, () => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    t.res.json({ answer: "-----BEGIN RSA PRIVATE KEY-----\nabc" });
+    const logged = logSpy.mock.calls.some((c) => String(c[0]).includes("ai_output_exfiltration_pattern"));
+    logSpy.mockRestore();
+    expect(logged).toBe(true);
+    expect(t.json()).toEqual({ answer: "-----BEGIN RSA PRIVATE KEY-----\nabc" });
+  });
+
+  it("does not log for clean responses", () => {
+    const t = fakeReqRes("/api/ai-patient-assistant/chat", { prompt: "hi" });
+    aiRuntimeGuard({ mode: "monitor" })(t.req, t.res, () => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    t.res.json({ answer: "Your A1c is 6.1%." });
+    const logged = logSpy.mock.calls.some((c) => String(c[0]).includes("ai_output_exfiltration_pattern"));
+    logSpy.mockRestore();
+    expect(logged).toBe(false);
+  });
+
+  it("does not wrap res.json on non-AI routes", () => {
+    const t = fakeReqRes("/api/patients/1", { prompt: "hi" });
+    const original = t.res.json;
+    aiRuntimeGuard({ mode: "monitor" })(t.req, t.res, () => {});
+    expect(t.res.json).toBe(original);
   });
 });

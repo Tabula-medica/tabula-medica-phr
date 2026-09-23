@@ -8,7 +8,9 @@ import {
   type SessionFingerprint,
 } from "../server/security/session-binding";
 
-function req(overrides: Partial<{ ua: string; ip: string; xff: string; country: string; sub: string; path: string; session: any }> = {}): any {
+function req(
+  overrides: Partial<{ ua: string; ip: string; xff: string; country: string; countrySource: string; sub: string; path: string; session: any }> = {},
+): any {
   const headers: Record<string, string> = { "user-agent": overrides.ua ?? "Mozilla/5.0 (iPhone) Safari" };
   if (overrides.xff) headers["x-forwarded-for"] = overrides.xff;
   return {
@@ -18,6 +20,10 @@ function req(overrides: Partial<{ ua: string; ip: string; xff: string; country: 
     ip: overrides.ip ?? "198.51.100.23",
     socket: {},
     country: overrides.country,
+    // Real Cloudflare-resolved countries default to "cf" here so existing
+    // tests keep exercising the trusted path; pass countrySource: "header"
+    // to simulate the caller-controlled X-Country-Code fallback instead.
+    countrySource: overrides.countrySource ?? (overrides.country ? "cf" : undefined),
     user: overrides.sub === "" ? undefined : { claims: { sub: overrides.sub ?? "user-1" } },
     session: overrides.session ?? {},
   };
@@ -39,6 +45,12 @@ describe("session-binding — network prefix", () => {
     expect(networkPrefix("::ffff:198.51.100.99")).toBe("198.51.100.0/24");
     expect(networkPrefix("2001:db8:85a3:8d3:1319:8a2e:370:7348")).toBe("2001:db8:85a3:8d3::/64");
     expect(networkPrefix(undefined)).toBe("unknown");
+  });
+
+  it("expands :: compression before slicing, so addresses in the same /64 hash the same", () => {
+    // db8:85a3:0:0:... written two ways — compressed and fully expanded.
+    expect(networkPrefix("2001:db8:85a3::1")).toBe(networkPrefix("2001:db8:85a3:0:0:0:0:1"));
+    expect(networkPrefix("::1")).toBe(networkPrefix("0:0:0:0:0:0:0:1"));
   });
 });
 
@@ -69,6 +81,15 @@ describe("session-binding — verdicts", () => {
   it("uses the first X-Forwarded-For hop", () => {
     const fp = fingerprintRequest(req({ xff: "203.0.113.1, 10.0.0.2", ip: "10.0.0.2" }));
     expect(fp.netHash).toBe(fingerprintRequest(req({ ip: "203.0.113.5" })).netHash);
+  });
+
+  it("never trusts a country resolved from the caller-controlled X-Country-Code header", () => {
+    // countrySource "header" is geo-country.ts's fallback for the spoofable
+    // X-Country-Code header — a stolen session could set this to suppress
+    // (or forge) a country_changed anomaly.
+    const spoofed = fingerprintRequest(req({ country: "RU", countrySource: "header" }));
+    expect(spoofed.country).toBeUndefined();
+    expect(evaluateBinding(base, spoofed).reasons).not.toContain("country_changed");
   });
 });
 

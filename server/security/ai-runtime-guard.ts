@@ -225,7 +225,7 @@ export interface AiRuntimeGuardOptions {
  * `ai-*-routes.ts` modules under `/api/ai-…` plus a handful of AI-backed
  * features that don't carry the prefix.
  */
-export const DEFAULT_AI_ROUTE_PATTERN = /^\/api\/(ai(?:[-/]|$)|multimodal|document-summary|documents?\/[^/]+\/(summar|explain|extract)|symptom-checker|explain|summar(y|ies)|health-summary|scribe|assistant|chat|voice)/i;
+export const DEFAULT_AI_ROUTE_PATTERN = /^\/api\/(ai(?:[-/]|$)|patient-ai-onboarding|patient-friendly-summary|translation|multimodal|document-summary|documents?\/[^/]+\/(summar|explain|extract)|symptom-checker|explain|summar(y|ies)|health-summary|scribe|assistant|chat|voice)/i;
 
 const SEVERITY_RANK: Record<InjectionSeverity, number> = { none: 0, low: 1, medium: 2, high: 3 };
 
@@ -258,6 +258,32 @@ export function aiRuntimeGuard(options: AiRuntimeGuardOptions = {}): RequestHand
   return (req: Request, res: Response, next: NextFunction): void => {
     const mode = resolveAiGuardMode(options.mode);
     if (mode === "off" || !match(req)) return next();
+
+    // Output-side scan: wrap res.json so the model's JSON response is
+    // checked for exfiltration-shaped content (image beacons, data URIs,
+    // bearer tokens, private keys) before it reaches the client. Detection
+    // only — this never blocks or alters the response, in monitor or enforce.
+    const originalJson = res.json.bind(res);
+    res.json = ((body: unknown) => {
+      try {
+        for (const s of collectStrings(body)) {
+          const outResult = scanModelOutput(s);
+          if (outResult.flagged) {
+            void logSecurityEvent({
+              eventType: "ai_output_exfiltration_pattern",
+              actor: actorOf(req),
+              ip: clientIp(req),
+              riskLevel: "high",
+              details: { requestId: getRequestId(req), path: req.path, method: req.method, findings: outResult.findings },
+            });
+            break;
+          }
+        }
+      } catch {
+        /* telemetry must never break the response */
+      }
+      return originalJson(body);
+    }) as typeof res.json;
 
     const body = req.body;
     if (!body || typeof body !== "object") return next();

@@ -11,6 +11,7 @@
 
 import type { Request, Response, NextFunction } from "express";
 import { logPhiAccess } from "./hipaa-audit";
+import { getSiemStatus } from "./siem-forwarder";
 
 const COMPLIANCE_LOG_PREFIX = "[Compliance]";
 
@@ -201,6 +202,7 @@ export function getComplianceStatus(): {
   hipaa: { status: string; encryptionAtRest: string; auditRetention: string; phiRoutes: number };
   soc2: { status: string; changeTracking: string; accessControl: string; availabilityTarget: string };
   tefca: { status: string; consentEnforcement: string; provenanceTracking: string; exchangeStandard: string };
+  security: { siem: ReturnType<typeof getSiemStatus> };
 } {
   return {
     hipaa: {
@@ -220,6 +222,9 @@ export function getComplianceStatus(): {
       consentEnforcement: DEFAULT_COMPLIANCE_CONFIG.consentRequired ? "required" : "optional",
       provenanceTracking: "enabled",
       exchangeStandard: "FHIR R4",
+    },
+    security: {
+      siem: getSiemStatus(),
     },
   };
 }

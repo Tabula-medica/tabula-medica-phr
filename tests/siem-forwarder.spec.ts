@@ -3,6 +3,7 @@ import {
   buildHecEnvelope,
   scrubDetails,
   isDeniedDetailKey,
+  canonicalizePath,
   forwardSecurityEvent,
   flushSiemQueue,
   isSiemEnabled,
@@ -24,6 +25,7 @@ describe("siem-forwarder — PHI/secret allowlisting", () => {
   it.each([
     "email", "patientEmail", "phone", "ssn", "dateOfBirth", "dob", "mrn", "firstName", "lastName",
     "password", "accessToken", "id_token", "authorization", "cookie", "apiKey", "diagnosis", "medications", "address",
+    "patientId", "patientID",
   ])("denies detail key %s", (key) => {
     expect(isDeniedDetailKey(key)).toBe(true);
   });
@@ -53,6 +55,24 @@ describe("siem-forwarder — PHI/secret allowlisting", () => {
     expect(out.list).toEqual([1, "two", "[object]"]);
     expect(JSON.stringify(out)).not.toContain("Jane");
     expect(JSON.stringify(out)).not.toContain("1970-01-01");
+  });
+
+  it("canonicalizes dynamic path segments but preserves kebab-case route names", () => {
+    expect(canonicalizePath("/api/patients/a1b2c3d4e5f6a1b2c3d4e5f6")).toBe("/api/patients/:id");
+    expect(canonicalizePath("/api/fhir/Patient/12345")).toBe("/api/fhir/Patient/:id");
+    expect(canonicalizePath("/api/fhir/Patient/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d")).toBe("/api/fhir/Patient/:id");
+    expect(canonicalizePath("/api/compliance-status")).toBe("/api/compliance-status");
+    expect(canonicalizePath("/api/patient-friendly-summary")).toBe("/api/patient-friendly-summary");
+    expect(canonicalizePath(undefined)).toBeUndefined();
+  });
+
+  it("envelope canonicalizes the path field so it never carries a resource id", () => {
+    const env = buildHecEnvelope({
+      eventType: "unauthorized_access",
+      actor: "user-123",
+      path: "/api/patients/a1b2c3d4e5f6a1b2c3d4e5f6",
+    });
+    expect(env.event.path).toBe("/api/patients/:id");
   });
 
   it("envelope only carries allowlisted top-level fields", () => {

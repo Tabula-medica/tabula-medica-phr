@@ -79,11 +79,39 @@ const DEFAULT_FLUSH_MS = 2000;
 export function isDeniedDetailKey(key: string): boolean {
   const lower = key.toLowerCase().replace(/[^a-z0-9_]/g, "");
   if (PHI_KEYS_LOWER.has(lower) || SECRET_LIKE_KEYS.has(lower)) return true;
-  // Substring matches for compound names such as `patientEmail`, `authToken`.
-  for (const s of ["email", "phone", "ssn", "password", "token", "secret", "dob", "birth", "mrn", "diagnos", "medication", "address"]) {
+  // Substring matches for compound names such as `patientEmail`, `patientId`,
+  // `authToken`. Deliberately a short, curated list rather than every entry
+  // in PHI_KEYS_LOWER — generic PHI synonyms like "reason" or "name" are
+  // substrings of plenty of legitimate non-PHI telemetry keys (`reasons`,
+  // `ruleName`) and would over-redact if used here.
+  for (const s of ["email", "phone", "ssn", "password", "token", "secret", "dob", "birth", "mrn", "diagnos", "medication", "address", "patient"]) {
     if (lower.includes(s)) return true;
   }
   return false;
+}
+
+const UUID_SEGMENT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NUMERIC_SEGMENT_RE = /^\d+$/;
+// Firestore/Mongo/nanoid-style opaque ids: long, no hyphens (so multi-word
+// kebab-case route segments like `compliance-status` never match).
+const OPAQUE_ID_SEGMENT_RE = /^[A-Za-z0-9_]{20,}$/;
+
+/**
+ * Collapses dynamic path segments (UUIDs, Mongo/Firestore-style ids, numeric
+ * ids, long opaque tokens) to `:id` so a request path never carries a
+ * resource identifier — e.g. a patient id — into the external SIEM.
+ */
+export function canonicalizePath(path: string | undefined): string | undefined {
+  if (!path) return path;
+  return path
+    .split("/")
+    .map((seg) =>
+      seg.length > 0 &&
+      (UUID_SEGMENT_RE.test(seg) || NUMERIC_SEGMENT_RE.test(seg) || OPAQUE_ID_SEGMENT_RE.test(seg))
+        ? ":id"
+        : seg
+    )
+    .join("/");
 }
 
 function scrubValue(value: unknown): unknown {
@@ -129,7 +157,12 @@ export function buildHecEnvelope(event: SiemSecurityEvent, opts?: { host?: strin
   const picked: Record<string, unknown> = {};
   for (const f of ENVELOPE_FIELDS) {
     const v = event[f];
-    if (v !== undefined && v !== null) picked[f] = typeof v === "string" ? scrubValue(v) : v;
+    if (v === undefined || v === null) continue;
+    if (f === "path") {
+      picked[f] = scrubValue(canonicalizePath(v as string));
+    } else {
+      picked[f] = typeof v === "string" ? scrubValue(v) : v;
+    }
   }
   if (!picked.timestamp) picked.timestamp = new Date().toISOString();
   if (!picked.riskLevel) picked.riskLevel = "medium";

@@ -52,6 +52,19 @@ function shortHash(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex").slice(0, 16);
 }
 
+/** Expands `::` shorthand to 8 explicit groups so a compressed address hashes the same as its expanded form. */
+function expandIpv6Groups(ip: string): string[] {
+  const main = ip.split("%")[0]; // drop a zone id, e.g. fe80::1%eth0
+  if (main.includes("::")) {
+    const [head, tail] = main.split("::");
+    const headParts = head ? head.split(":") : [];
+    const tailParts = tail ? tail.split(":") : [];
+    const missing = Math.max(0, 8 - headParts.length - tailParts.length);
+    return [...headParts, ...Array(missing).fill("0"), ...tailParts];
+  }
+  return main.split(":");
+}
+
 /** Collapses an IP to a coarse network prefix so DHCP churn inside one network is not an anomaly. */
 export function networkPrefix(ip: string | undefined): string {
   if (!ip) return "unknown";
@@ -60,8 +73,8 @@ export function networkPrefix(ip: string | undefined): string {
     return clean.split(".").slice(0, 3).join(".") + ".0/24";
   }
   if (clean.includes(":")) {
-    const parts = clean.split(":");
-    return parts.slice(0, 4).join(":") + "::/64";
+    const groups = expandIpv6Groups(clean);
+    return groups.slice(0, 4).join(":") + "::/64";
   }
   return "unknown";
 }
@@ -77,7 +90,11 @@ export function fingerprintRequest(req: Request, now: number = Date.now()): Sess
   return {
     uaHash: shortHash(ua),
     netHash: shortHash(networkPrefix(clientIpOf(req))),
-    country: req.country,
+    // Only trust the Cloudflare-edge-resolved country. `req.country` can
+    // also come from the caller-controlled `X-Country-Code` header
+    // (geo-country.ts's non-CF fallback), which a stolen session could set
+    // to suppress a real `country_changed` anomaly or forge a false one.
+    country: req.countrySource === "cf" ? req.country : undefined,
     boundAt: now,
   };
 }
