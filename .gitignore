@@ -5,6 +5,10 @@ server/public
 vite.config.ts.*
 *.tar.gz
 google-service-account.json
+test-results
+playwright-report
+blob-report
+playwright/.cache
 # --- PHI / secrets hardening (added during migration) ---
 DATABASE_URL
 cookies.txt
@@ -18,4 +22,11 @@ database_backup.json
 *-key.json
 service-account*.json
 google-service-account*.json
+
+# Archify browser-check sidecars (regenerate with visual-check)
+*.visual-check.json
+*.visual-check.html
+*.visual-check.*.png
+*.visual-check/
+
 .claude/settings.local.json

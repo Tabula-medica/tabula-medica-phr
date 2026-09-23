@@ -77,6 +77,7 @@ export async function generateWidgetSession(
   provider: FitnessProvider,
   referenceId: string,
   redirectBaseUrl: string,
+  state: string,
 ): Promise<GenerateWidgetSessionResult> {
   const { apiKey, devId } = getConfig();
   if (!apiKey || !devId) {
@@ -84,6 +85,11 @@ export async function generateWidgetSession(
       "Terra is not configured: set TERRA_API_KEY and TERRA_DEV_ID (from the Terra dashboard) before connecting fitness apps.",
     );
   }
+
+  // `state` is OUR opaque nonce (not Terra's), embedded in the redirect URL
+  // we control so the callback can match the exact connection attempt
+  // instead of guessing "most recent pending" — see fitness-integrations-routes.ts.
+  const stateParam = `&state=${encodeURIComponent(state)}`;
 
   const res = await fetch(`${TERRA_BASE_URL}/auth/generateWidgetSession`, {
     method: "POST",
@@ -96,8 +102,8 @@ export async function generateWidgetSession(
       reference_id: referenceId,
       providers: terraProviderCode(provider),
       language: "en",
-      auth_success_redirect_url: `${redirectBaseUrl}?status=success`,
-      auth_failure_redirect_url: `${redirectBaseUrl}?status=failure`,
+      auth_success_redirect_url: `${redirectBaseUrl}?status=success${stateParam}`,
+      auth_failure_redirect_url: `${redirectBaseUrl}?status=failure${stateParam}`,
     }),
   });
 
@@ -158,16 +164,28 @@ export async function deauthenticateTerraUser(terraUserId: string): Promise<{ su
   }
 }
 
+// How much clock skew/delivery delay to tolerate before a signature is
+// considered stale. Bounds the replay window: without this, a captured
+// valid request could be replayed indefinitely and re-ingested.
+const WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
+
 /**
  * Verify a Terra webhook's `terra-signature` header against the raw
- * request body. Fails closed: any missing config, malformed header, or
- * mismatch returns false. Callers MUST reject the webhook on false.
+ * request body. Fails closed: any missing config, malformed header,
+ * mismatch, or stale timestamp returns false. Callers MUST reject the
+ * webhook on false.
  *
  * Terra's documented format: `terra-signature: t=<unix_ts>,v1=<hex hmac>`
  * where the hmac is SHA-256 of `${t}.${rawBody}` keyed by the signing
- * secret from the Terra dashboard, compared in constant time.
+ * secret from the Terra dashboard, compared in constant time. The
+ * timestamp itself is bounded to WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS of
+ * "now" to prevent replay of an old, otherwise-valid signed request.
  */
-export function verifyTerraWebhookSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
+export function verifyTerraWebhookSignature(
+  rawBody: Buffer,
+  signatureHeader: string | undefined,
+  nowMs: number = Date.now(),
+): boolean {
   const { signingSecret } = getConfig();
   if (!signingSecret || !signatureHeader) return false;
 
@@ -180,6 +198,11 @@ export function verifyTerraWebhookSignature(rawBody: Buffer, signatureHeader: st
   const timestamp = parts["t"];
   const providedSignature = parts["v1"];
   if (!timestamp || !providedSignature) return false;
+
+  const timestampSeconds = Number(timestamp);
+  if (!Number.isFinite(timestampSeconds)) return false;
+  const ageSeconds = Math.abs(nowMs / 1000 - timestampSeconds);
+  if (ageSeconds > WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS) return false;
 
   const signedPayload = `${timestamp}.${rawBody.toString("utf8")}`;
   const expectedSignature = crypto.createHmac("sha256", signingSecret).update(signedPayload).digest("hex");
@@ -199,7 +222,16 @@ export interface MappedClinicalReading {
 }
 
 export interface MappedWellnessReading {
-  metricType: "steps" | "active_minutes" | "calories_burned" | "distance_meters" | "sleep_minutes" | "sleep_score" | "hrv";
+  metricType:
+    | "steps"
+    | "active_minutes"
+    | "calories_burned"
+    | "distance_meters"
+    | "sleep_minutes"
+    | "sleep_score"
+    | "hrv"
+    | "workout"
+    | "avg_heart_rate";
   value: number;
   unit: string;
   recordedAt: Date;
@@ -243,9 +275,14 @@ export function mapTerraPayloadToReadings(
     if (typeof distance === "number") {
       wellness.push({ metricType: "distance_meters", value: distance, unit: "meters", recordedAt });
     }
+    // avg_hr_bpm spans active/exercise periods and is NOT comparable to a
+    // resting-heart-rate clinical threshold — routing it into the clinical
+    // path would trigger false "abnormal heart rate" alerts for a normal
+    // workout. Only resting_hr_bpm is a clinical vital; avg_hr_bpm is
+    // wellness data only.
     const avgHr = entry?.heart_rate_data?.summary?.avg_hr_bpm;
     if (typeof avgHr === "number") {
-      clinical.push({ vitalType: "heart_rate", value: avgHr, unit: "bpm", recordedAt });
+      wellness.push({ metricType: "avg_heart_rate", value: avgHr, unit: "bpm", recordedAt });
     }
     const restingHr = entry?.heart_rate_data?.summary?.resting_hr_bpm;
     if (typeof restingHr === "number") {
@@ -258,6 +295,24 @@ export function mapTerraPayloadToReadings(
     const spo2 = entry?.oxygen_data?.avg_saturation_percentage;
     if (typeof spo2 === "number") {
       clinical.push({ vitalType: "oxygen_saturation", value: spo2, unit: "%", recordedAt });
+    }
+  }
+
+  if (type === "activity") {
+    // Terra's activity payload carries workout metadata (name/type,
+    // start_time, end_time) per docs.tryterra.co's data-models reference.
+    // wellnessMetricTypes advertises "workout" as a supported category —
+    // this is the mapping that actually produces it; without it, every
+    // workout payload was silently dropped.
+    const startTime = entry?.metadata?.start_time;
+    const endTime = entry?.metadata?.end_time;
+    if (startTime && endTime) {
+      const start = new Date(startTime).getTime();
+      const end = new Date(endTime).getTime();
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+        const durationMinutes = Math.round((end - start) / 60000);
+        wellness.push({ metricType: "workout", value: durationMinutes, unit: "minutes", recordedAt });
+      }
     }
   }
 

@@ -17,6 +17,7 @@ import {
   signUpGcipWithEmail,
   sendGcipVerificationEmail,
   refreshGcipEmailVerified,
+  getGcipCurrentEmail,
   signOutGcip,
   getGcipIdToken,
   isGcipConfigured,
@@ -64,6 +65,15 @@ export default function AuthRegister() {
     });
     if (!exchangeRes.ok) {
       const body = await exchangeRes.json().catch(() => ({}));
+      // The server gates provisioning of a new email/password account until the
+      // address is confirmed. That 403 is the ONLY signal that the confirmation
+      // step is required — it already accounts for
+      // REQUIRE_SIGNUP_EMAIL_VERIFICATION being switched off, in which case the
+      // exchange simply succeeds and the person is signed straight in.
+      if (exchangeRes.status === 403 && body?.code === "email_not_verified") {
+        await startEmailVerification(getGcipCurrentEmail());
+        return;
+      }
       throw new Error(body?.message || "Failed to complete sign-up.");
     }
     const result = (await exchangeRes.json()) as { needsOnboarding?: boolean };
@@ -93,16 +103,15 @@ export default function AuthRegister() {
     try {
       const address = email.trim();
       await signUpGcipWithEmail(address, password);
-      // Anti-bot gate: do NOT exchange a session yet. The account only becomes
-      // real once the person opens the link we're mailing them — the server
-      // refuses to provision an unverified email/password sign-up. (This is
-      // deliberately an email round-trip, not an MFA enrolment: nobody is
-      // asked to set up an authenticator app to create an account.)
-      await sendGcipVerificationEmail();
-      setPendingEmail(address);
-      setResendIn(RESEND_COOLDOWN_SECONDS);
       setPassword("");
       setConfirmPassword("");
+      // Attempt the exchange and let the server decide. When the anti-bot gate
+      // is on it answers 403 email_not_verified and completeSession() switches
+      // to the confirmation panel; when it is off the exchange succeeds and the
+      // person is signed straight in. (The gate is deliberately an email
+      // round-trip, not an MFA enrolment: nobody is asked to set up an
+      // authenticator app to create an account.)
+      await completeSession();
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string } | null;
       switch (err?.code) {
@@ -120,6 +129,29 @@ export default function AuthRegister() {
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Switch the page into the "confirm your email" state and mail the link.
+  // pendingEmail is set BEFORE the send is attempted, and a failed send only
+  // changes the wording: otherwise a throw here would leave the person with a
+  // created GCIP account, a generic error, and no way to resend.
+  const startEmailVerification = async (address: string | null) => {
+    setError(null);
+    setNotice(null);
+    setPendingEmail(address ?? email.trim());
+    try {
+      await sendGcipVerificationEmail();
+      setNotice("We sent you a confirmation link. Open it, then press “I've confirmed my email.”");
+    } catch (e: unknown) {
+      const err = e as { code?: string } | null;
+      setNotice(
+        err?.code === "auth/too-many-requests"
+          ? "We've already sent several emails to this address — check your inbox and spam folder."
+          : "We couldn't send the confirmation email just now. Press “Resend email” to try again.",
+      );
+    } finally {
+      setResendIn(RESEND_COOLDOWN_SECONDS);
     }
   };
 

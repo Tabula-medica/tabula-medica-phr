@@ -722,6 +722,11 @@ export const fitnessConnectionsTable = pgTable(
     provider: text("provider").notNull(),
     terraUserId: text("terra_user_id"),
     terraSessionId: text("terra_session_id"),
+    // Our own opaque nonce, embedded in the auth_success/failure_redirect_url
+    // we hand Terra and echoed back as ?state=. Lets the callback match the
+    // exact connection attempt instead of guessing "most recent pending",
+    // which is spoofable/racy across concurrent attempts or accounts.
+    stateNonce: text("state_nonce"),
     status: text("status").notNull().default("pending"),
     accessScope: text("access_scope").notNull().default("read_only"),
     connectedAt: timestamp("connected_at", { withTimezone: true }),
@@ -732,6 +737,7 @@ export const fitnessConnectionsTable = pgTable(
   },
   (t) => ({
     terraUserIdUx: uniqueIndex("fitness_connections_terra_user_id_ux").on(t.terraUserId),
+    stateNonceUx: uniqueIndex("fitness_connections_state_nonce_ux").on(t.stateNonce),
   })
 );
 
@@ -742,6 +748,40 @@ export const insertFitnessConnectionSchema = createInsertSchema(fitnessConnectio
 
 export type InsertFitnessConnection = z.infer<typeof insertFitnessConnectionSchema>;
 export type FitnessConnection = typeof fitnessConnectionsTable.$inferSelect;
+
+// Idempotency ledger for inbound webhook deliveries (Terra, VitalFriend).
+// A row is inserted with onConflictDoNothing() keyed on (provider,
+// dedupeKey) before processing a delivery; if no row was inserted, the
+// delivery is a duplicate/retry. dedupeKey is a hash of the raw request
+// body, since a vendor retry resends byte-identical content.
+//
+// `status` distinguishes "still being processed" from "done": a claim that
+// finishes successfully is marked `completed` (a later duplicate is acked
+// without reprocessing); a claim whose handler fails is deleted outright
+// (see releaseDeliveryClaim) so a retry can reclaim it immediately. A row
+// left at `processing` past a short lease window means the original
+// request died (crash, timeout) without completing or releasing — a later
+// delivery for the same body is allowed to reclaim and reprocess it rather
+// than being stuck acknowledging a delivery that never actually finished.
+export const webhookDeliveryStatuses = ["processing", "completed"] as const;
+export type WebhookDeliveryStatus = typeof webhookDeliveryStatuses[number];
+
+export const webhookDeliveriesTable = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    status: text("status").notNull().default("processing"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    providerDedupeUx: uniqueIndex("webhook_deliveries_provider_dedupe_ux").on(t.provider, t.dedupeKey),
+  })
+);
+
+export type WebhookDelivery = typeof webhookDeliveriesTable.$inferSelect;
 
 // Non-clinical wellness metrics pulled read-only from a connected fitness
 // app (steps, sleep, calories, HRV, workouts) — distinct from vitalSignsTable,
@@ -755,6 +795,11 @@ export const wellnessMetricTypes = [
   "sleep_score",
   "hrv",
   "workout",
+  // Non-resting average heart rate (e.g. Terra's avg_hr_bpm, which spans
+  // active/exercise periods). Deliberately NOT a clinical vital: it isn't
+  // comparable to a resting-HR threshold and must never feed
+  // vital_signs/monitoring_alerts. Only resting_hr_bpm does that.
+  "avg_heart_rate",
 ] as const;
 export type WellnessMetricType = typeof wellnessMetricTypes[number];
 

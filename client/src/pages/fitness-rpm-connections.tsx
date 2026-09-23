@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { useSEO } from "@/hooks/use-seo";
@@ -173,6 +173,7 @@ function FitnessConnectionsSection() {
                     size="icon"
                     onClick={() => disconnectMutation.mutate(connection.id)}
                     disabled={disconnectMutation.isPending}
+                    aria-label={`Disconnect ${PROVIDER_LABELS[connection.provider as FitnessProvider] || connection.provider}`}
                     data-testid={`button-disconnect-${connection.id}`}
                   >
                     {disconnectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -188,17 +189,22 @@ function FitnessConnectionsSection() {
 
 function RpmDevicesSection() {
   const { toast } = useToast();
+  const [deviceType, setDeviceType] = useState<RpmMonitoringDeviceType | "">("");
 
   const devicesQuery = useQuery<{ success: boolean; devices: RpmDevice[] }>({
     queryKey: ["/api/rpm/devices"],
   });
 
   const enrollMutation = useMutation({
-    mutationFn: (payload: { deviceType: RpmMonitoringDeviceType; externalDeviceId: string; serialNumber?: string }) =>
+    mutationFn: (payload: { deviceType: RpmMonitoringDeviceType; externalDeviceId: string; serialNumber: string }) =>
       apiRequest("POST", "/api/rpm/devices", { provider: "vitalfriend", ...payload }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rpm/devices"] });
-      toast({ title: "Device added", description: "Readings from this device will now appear in your vitals." });
+      setDeviceType("");
+      toast({
+        title: "Device added",
+        description: "We'll finish pairing it as soon as its first reading comes in — this can take a few minutes.",
+      });
     },
     onError: (err: any) => {
       toast({ title: "Couldn't add device", description: err?.message || "Check the device ID and try again.", variant: "destructive" });
@@ -230,20 +236,24 @@ function RpmDevicesSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <form
-          className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end"
+          className="grid gap-3 md:grid-cols-2 items-end"
           onSubmit={(e) => {
             e.preventDefault();
             const form = e.currentTarget;
-            const deviceType = (form.elements.namedItem("deviceType") as HTMLSelectElement)?.value as RpmMonitoringDeviceType;
             const externalDeviceId = (form.elements.namedItem("externalDeviceId") as HTMLInputElement)?.value?.trim();
-            if (!deviceType || !externalDeviceId) return;
-            enrollMutation.mutate({ deviceType, externalDeviceId });
+            const serialNumber = (form.elements.namedItem("serialNumber") as HTMLInputElement)?.value?.trim();
+            if (!deviceType || !externalDeviceId || !serialNumber) return;
+            enrollMutation.mutate({ deviceType, externalDeviceId, serialNumber });
             form.reset();
+            setDeviceType("");
           }}
         >
           <div className="space-y-1">
             <Label htmlFor="deviceType">Device type</Label>
-            <Select name="deviceType" required>
+            {/* Radix Select doesn't render a native named form control, so its
+                value is tracked in state via onValueChange rather than read
+                from form.elements on submit. */}
+            <Select value={deviceType} onValueChange={(v) => setDeviceType(v as RpmMonitoringDeviceType)} required>
               <SelectTrigger id="deviceType" data-testid="select-device-type">
                 <SelectValue placeholder="Select a device" />
               </SelectTrigger>
@@ -260,10 +270,17 @@ function RpmDevicesSection() {
             <Label htmlFor="externalDeviceId">Device ID (printed on the device)</Label>
             <Input id="externalDeviceId" name="externalDeviceId" required data-testid="input-device-id" />
           </div>
+          <div className="space-y-1">
+            <Label htmlFor="serialNumber">Serial number (also printed on the device)</Label>
+            <Input id="serialNumber" name="serialNumber" required data-testid="input-serial-number" />
+          </div>
           <Button type="submit" disabled={enrollMutation.isPending} data-testid="button-add-device">
             {enrollMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add device"}
           </Button>
         </form>
+        <p className="text-xs text-muted-foreground">
+          We confirm the serial number against the device's first reading before it starts appearing in your vitals.
+        </p>
 
         {devicesQuery.isLoading ? (
           <Skeleton className="h-16 rounded-lg" />
@@ -286,6 +303,7 @@ function RpmDevicesSection() {
                   size="icon"
                   onClick={() => removeMutation.mutate(device.id)}
                   disabled={removeMutation.isPending}
+                  aria-label={`Remove ${DEVICE_TYPE_LABELS[device.deviceType as RpmMonitoringDeviceType] || device.deviceType}`}
                   data-testid={`button-remove-device-${device.id}`}
                 >
                   {removeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
