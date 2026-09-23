@@ -388,20 +388,23 @@ export function registerDoDRoutes(
       await hipaaComplianceService.logAuditEvent({
         timestamp: new Date().toISOString(),
         who: {
-          // who.userId is NOT a PHI-encrypted column on hipaa_audit_logs
-          // (only who.userName is, per PHI_COLUMN_MAP) and is also what
-          // hipaaComplianceService's own logger.info call emits verbatim —
-          // so the raw EDIPI (a DoD-issued personal identifier) can't go
-          // here without landing in plaintext logs and an unencrypted DB
-          // column. An unkeyed sha256 isn't enough on its own, though — a
-          // 10-digit EDIPI is only 10^10 possibilities, trivially
-          // rainbow-tableable by anyone who sees this value. hashEdipi()
-          // (already used for the enrollment lookup key above) is keyed
-          // with the server's encryption key, so it can't be brute-forced
-          // the same way. Keep the real EDIPI only in userName, which is
-          // encrypted at rest.
+          // Neither userId nor userName is safe for the raw EDIPI here.
+          // userId isn't a PHI-encrypted column on hipaa_audit_logs (only
+          // userName is, per PHI_COLUMN_MAP), and hipaaComplianceService's
+          // own logger.info call emits it verbatim. userName looked safer
+          // (encrypted at rest via encryptPhiRow when the DB insert
+          // succeeds) but logAuditEvent() always keeps the plaintext
+          // fullEntry in its in-memory auditLogs array too — regardless of
+          // whether the DB write succeeds — and GET /api/hipaa-compliance
+          // /audit-logs returns that in-memory array with no auth check.
+          // So a raw EDIPI in either field is reachable unauthenticated.
+          // hashEdipi() (already used for the enrollment lookup key above)
+          // is keyed with the server's encryption key, so unlike an unkeyed
+          // sha256 (rainbow-tableable over a 10-digit EDIPI's 10^10
+          // possibilities) it's safe to use for both fields — this event
+          // only needs a stable correlation value, not the real EDIPI.
           userId: hashEdipi(edipi),
-          userName: edipi,
+          userName: hashEdipi(edipi),
           userRole: "patient",
           ipAddress: req.ip ?? "unknown",
           userAgent: (req.headers["user-agent"] as string) ?? "unknown",

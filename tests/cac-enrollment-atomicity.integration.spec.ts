@@ -92,7 +92,7 @@ describe.skipIf(!TEST_DATABASE_URL)("CAC enrollment atomicity (real Postgres)", 
     expect(winners[0][0].claimed_by_user_id).toBe(finalRows[0].claimed_by_user_id);
   });
 
-  it("serializes two simultaneous connections re-enrolling the same device_id under different owners into exactly one update", async () => {
+  it("serializes two simultaneous connections re-enrolling an already-owned device_id under different, non-owning accounts into zero updates", async () => {
     await pool.query(
       `INSERT INTO cac_software_certs (edipi_hash, edipi, device_id, public_key_hex, cert_json, platform, expires_at, enrolled_by_user_id)
        VALUES ('hash-of-1111111111', 'encrypted-1111111111', 'shared-device', 'original-key', '{}', 'test', now() + interval '1 year', 'victim')`,
