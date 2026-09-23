@@ -283,6 +283,31 @@ describe("POST /api/auth/cac/verify", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it("rejects a self-consistent cac_hardware/piv_hardware claim even from a key legitimately enrolled as a software cert", async () => {
+    // The enrolled-cert lookup matches on (edipi, publicKeyHex) alone, with
+    // no authMethod filter. Without an explicit reject, a caller who
+    // legitimately enrolled a software cert could request a challenge *and*
+    // verify with authMethod: "cac_hardware" (self-consistent, so the
+    // context-binding check alone doesn't catch it), still match the same
+    // enrolled row, and be minted an IAL3 session for a key that was never
+    // validated as hardware-backed.
+    const handlers = captureHandlers();
+    const keyPair = await generateKeyPair();
+    const publicKeyHex = await exportPublicKeyHex(keyPair.publicKey);
+    await enroll(handlers, "1234567890", publicKeyHex);
+
+    for (const authMethod of ["cac_hardware", "piv_hardware"]) {
+      const { challenge, challengeId } = await getChallenge(handlers, "1234567890", authMethod);
+      const signature = await signChallenge(challenge, keyPair.privateKey);
+
+      const req = fakeReq({ challengeId, edipi: "1234567890", authMethod, publicKeyHex, signature });
+      const res = fakeRes();
+      await handlers.get("/api/auth/cac/verify")!(req, res);
+
+      expect(res.statusCode).toBe(401);
+    }
+  });
+
   it("does not reject when both /challenge and /verify omit authMethod and rely on their (matching) defaults", async () => {
     // The default-mismatch bug: /challenge defaulted to cac_hardware while
     // /verify defaulted to software_cert, so any caller relying on both

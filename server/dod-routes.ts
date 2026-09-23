@@ -294,16 +294,27 @@ export function registerDoDRoutes(
         return res.status(401).json({ error: "Signature required" });
       }
 
+      // The only enrollment mechanism that exists (POST
+      // /api/auth/cac/enroll-software-cert) issues software certs — there is
+      // no cac_hardware/piv_hardware enrollment path, because those need real
+      // X.509 chain validation to DoD Root CA 6 plus OCSP revocation checking
+      // (not implemented). The enrolled-cert lookup below matches on
+      // (edipi, publicKeyHex) alone, with no authMethod filter — without this
+      // explicit rejection first, a caller who legitimately enrolled a
+      // software cert could request a challenge and verify with
+      // authMethod: "cac_hardware"/"piv_hardware" (self-consistent, so the
+      // context-binding check above doesn't catch it), still match the same
+      // enrolled row, and be minted an IAL3 session for a key that was never
+      // validated as hardware-backed at all.
+      if (authMethod !== "software_cert") {
+        return res.status(401).json({ error: "Hardware CAC/PIV certificate validation is not yet implemented" });
+      }
+
       // Proof of possession alone proves nothing about identity — anyone can
       // generate a key pair, sign the challenge, and assert any EDIPI they
       // like. Require the key to be one this EDIPI actually enrolled while
       // authenticated (POST /api/auth/cac/enroll-software-cert), rather than
-      // trusting whatever key the caller asserts in this request. There is
-      // no enrollment path for cac_hardware/piv_hardware yet — those need
-      // real X.509 chain validation to DoD Root CA 6 plus OCSP revocation
-      // checking (still not implemented), so this correctly rejects every
-      // hardware-path attempt too until that exists, rather than treating
-      // hardware auth as more trustworthy than it currently is.
+      // trusting whatever key the caller asserts in this request.
       //
       // `db` is a Drizzle client — its execute() takes exactly one argument
       // and silently ignores a second one, so a raw string with `?`
@@ -325,9 +336,9 @@ export function registerDoDRoutes(
 
       const challengeHash = createHash("sha256").update(stored.challenge).digest("hex");
 
-      const assuranceLevel = authMethod === "cac_hardware" ? "IAL3"
-        : authMethod === "piv_hardware" ? "IAL3"
-        : "IAL2";
+      // authMethod is guaranteed "software_cert" here (hardware methods are
+      // rejected above) — IAL2 is the ceiling for a software-backed key.
+      const assuranceLevel = "IAL2";
 
       const session = {
         sessionId: randomBytes(32).toString("hex"),
