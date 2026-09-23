@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { interoperabilityHubService } from "./interoperability-hub-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This information is for educational and informational purposes only and is NOT clinical decision support or medical advice. It does not replace professional clinical judgment. Always rely on your clinical expertise and institutional protocols for patient care decisions.";
 
@@ -826,20 +821,9 @@ export async function generateAIPatientInsights(providerId: string, patientId: s
   let recommendations: AIRecommendation[];
 
   try {
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      throw new Error("OpenAI not configured");
-    }
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a clinical informatics assistant generating patient summaries for healthcare providers. Generate INFORMATIONAL ONLY insights - never provide clinical decision support or treatment recommendations. Always include appropriate disclaimers. Output must be valid JSON.`,
-        },
-        {
-          role: "user",
-          content: `Analyze this aggregated patient data and provide informational insights:
+    const responseText = await generatePhiSafeText({
+      system: `You are a clinical informatics assistant generating patient summaries for healthcare providers. Generate INFORMATIONAL ONLY insights - never provide clinical decision support or treatment recommendations. Always include appropriate disclaimers. Output must be valid JSON.`,
+      user: `Analyze this aggregated patient data and provide informational insights:
 
 Patient: ${patientData.patientName}, Age ${patientData.demographics.age}, ${patientData.demographics.gender}
 
@@ -858,13 +842,11 @@ Provide JSON with:
   "gaps": [{"type": "string", "description": "string", "priority": "routine|important|urgent", "recommendation": "string"}],
   "recommendations": [{"category": "string", "title": "string", "description": "string", "priority": "low|medium|high", "rationale": "string", "actionable": true}]
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 2000,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const parsed = JSON.parse(responseText || "{}");
     clinicalSummary = parsed.clinicalSummary || "";
     keyFindings = parsed.keyFindings || [];
     trends = parsed.trends || [];

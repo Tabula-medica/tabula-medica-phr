@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface ConformanceProfile {
   id: string;
@@ -791,14 +786,11 @@ ${JSON.stringify(resource.data, null, 2)}
 
 Provide a specific, actionable correction to make this resource conformant. Include the exact value or structure to add/modify.`;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 500,
+        const suggestion = (await generatePhiSafeText({
+          user: prompt,
+          maxTokens: 500,
           temperature: 0.3,
-        });
-
-        const suggestion = response.choices[0]?.message?.content || "Unable to generate suggestion";
+        })) || "Unable to generate suggestion";
         results.push({
           issueId,
           aiSuggestion: suggestion,

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { db } from "./db";
 import { phiDb, decryptPhiRows } from "./storage/phi-storage";
 import { healthGoalsTable, vitalSignsTable } from "@shared/schema";
@@ -40,11 +40,6 @@ function enforceSessionUserId(req: Request, res: Response, next: NextFunction) {
 }
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function generateId(): string {
   return `pedu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -263,23 +258,16 @@ async function generatePersonalizedContent(
   
   for (const condition of context.conditions.slice(0, 3)) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare education content creator. Create personalized educational content for patients.
-            
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare education content creator. Create personalized educational content for patients.
+
 CRITICAL RULES:
 - Use ONLY safe verbs: "shows", "states", "refers to", "means"
 - NEVER provide medical advice or treatment recommendations
 - Focus on educational, factual information
 - Always remind patients to consult their healthcare provider
-- Include practical information patients can discuss with their doctors`
-          },
-          {
-            role: "user",
-            content: `Create an educational article about "${condition}" for a patient with these characteristics:
+- Include practical information patients can discuss with their doctors`,
+        user: `Create an educational article about "${condition}" for a patient with these characteristics:
 - Current health goals: ${context.goals.map(g => g.title).join(", ") || "General wellness"}
 - Recent vital trends: ${context.vitals.map(v => `${v.type}: ${v.status}`).join(", ") || "Normal ranges"}
 - Topics to discuss: ${context.consultationTopics.join(", ") || "General health"}
@@ -293,13 +281,11 @@ Return a JSON object with:
   "keyPoints": ["3-5 key educational points using safe verbs"],
   "relatedTopics": ["2-3 related topics for further reading"],
   "estimatedReadTime": number
-}`
-          }
-        ],
-        response_format: { type: "json_object" }
+}`,
+        responseMimeType: "application/json",
       });
 
-      const content = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const content = JSON.parse(responseText || "{}");
       
       if (content.title) {
         articles.push({

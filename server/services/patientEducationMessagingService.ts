@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { format, addDays, addWeeks, addMonths, parseISO, isAfter, isBefore } from "date-fns";
 import type {
   MessageTemplate,
@@ -18,8 +18,6 @@ import type {
   GoalCategory,
   AICarePlan,
 } from "@shared/schema";
-
-const openai = new OpenAI();
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -183,18 +181,14 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      responseMimeType: "application/json",
       temperature: 0.7,
-      max_tokens: 1500,
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No content generated from AI");
     }

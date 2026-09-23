@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
-import OpenAI, { toFile } from "openai";
+import OpenAI from "openai";
+import { speechToText } from "./replit_integrations/audio/client";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -152,15 +153,8 @@ export function registerClinicalDocumentationRoutes(app: Express) {
                         detectedMime.includes("mp3") ? "mp3" :
                         detectedMime.includes("mp4") ? "mp4" : "webm";
       
-      const audioFile = await toFile(audioBuffer, `recording.${extension}`, {
-        type: detectedMime,
-      });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "gpt-4o-mini-transcribe",
-        response_format: "json",
-      });
+      // GCP Speech-to-Text (BAA) via the shared audio client — not OpenAI Whisper.
+      const transcription = { text: await speechToText(audioBuffer, extension as any) };
 
       logPhiAccess({
         userId,

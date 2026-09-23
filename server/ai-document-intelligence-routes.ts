@@ -1,13 +1,8 @@
 import { Router } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { logPhiAccess } from "./security/hipaa-audit";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface ExtractedInfo {
   dates: Array<{ type: string; value: string; context: string }>;
@@ -83,17 +78,12 @@ Return a JSON object with this structure:
   "vitalSigns": [{"type": "string", "value": "string", "unit": "string"}]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Document type: ${documentType || "Unknown"}\n\nDocument content:\n${documentText.substring(0, 8000)}` },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4096,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Document type: ${documentType || "Unknown"}\n\nDocument content:\n${documentText.substring(0, 8000)}`,
+      responseMimeType: "application/json",
+      maxTokens: 4096,
     });
-
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -165,17 +155,12 @@ Return a JSON object with this structure:
   "relatedDocuments": ["string"]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Document type: ${documentType || "Unknown"}\nExisting tags: ${existingTags?.join(", ") || "none"}\n\nDocument content:\n${documentText.substring(0, 6000)}` },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Document type: ${documentType || "Unknown"}\nExisting tags: ${existingTags?.join(", ") || "none"}\n\nDocument content:\n${documentText.substring(0, 6000)}`,
+      responseMimeType: "application/json",
+      maxTokens: 2048,
     });
-
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -238,17 +223,12 @@ Return a JSON object with this structure:
   "disclaimer": "This summary is for educational purposes only. Please discuss with your healthcare provider."
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Document type: ${documentType || "Unknown"}\n\nDocument content:\n${documentText.substring(0, 10000)}` },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Document type: ${documentType || "Unknown"}\n\nDocument content:\n${documentText.substring(0, 10000)}`,
+      responseMimeType: "application/json",
+      maxTokens: 2048,
     });
-
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }
@@ -337,17 +317,12 @@ Return a JSON object with this structure:
   }
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Document type: ${documentType || "Unknown"}\n\nDocument content:\n${documentText.substring(0, 10000)}` },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 6000,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: `Document type: ${documentType || "Unknown"}\n\nDocument content:\n${documentText.substring(0, 10000)}`,
+      responseMimeType: "application/json",
+      maxTokens: 6000,
     });
-
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }

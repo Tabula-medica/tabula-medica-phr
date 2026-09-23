@@ -21,6 +21,8 @@
  */
 
 import OpenAI from "openai";
+import { medicalSpeechToTextService } from "./services/gcp/medical-speech-to-text";
+import { prepareForStt } from "./lib/audio-transcode";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -92,26 +94,38 @@ class AmbientEncounterService {
     mimeType: string,
     language?: string,
   ): Promise<{ text: string; language?: string }> {
-    const ext = mimeType.includes("webm")
-      ? "webm"
-      : mimeType.includes("mp4")
-        ? "mp4"
-        : mimeType.includes("ogg")
-          ? "ogg"
-          : "wav";
-    const file = new File([audioBuffer], `encounter.${ext}`, { type: mimeType });
+    // PHI-safe transcription: Google Cloud Speech-to-Text (medical model) via ADC —
+    // Google-BAA-covered. Whisper/OpenAI is NOT used (no OpenAI BAA).
+    const ready = await medicalSpeechToTextService.initialize();
+    if (!ready) {
+      throw new Error(
+        "GCP Speech-to-Text unavailable (ADC not resolvable). Transcription disabled — no PHI is sent to OpenAI.",
+      );
+    }
 
-    const transcription = await openai.audio.transcriptions.create({
-      file,
-      model: "whisper-1",
-      language: language || undefined,
-      response_format: "verbose_json",
+    // mp4/aac (Safari MediaRecorder) is transcoded to FLAC; WebM/Opus, Ogg, WAV, MP3
+    // pass through. Fails closed on anything else — never OpenAI, never silent garbage.
+    const { audioContent, encoding, sampleRateHertz } = await prepareForStt(audioBuffer, mimeType);
+
+    const result = await medicalSpeechToTextService.transcribe({
+      audioContent,
+      encoding: encoding as any,
+      sampleRateHertz,
+      languageCode: language || "en-US",
+      model: "medical_conversation",
+      punctuation: true,
+      longRunning: true, // full encounters exceed the ~60s sync-recognize cap
     });
 
-    return {
-      text: (transcription as any).text ?? "",
-      language: (transcription as any).language,
-    };
+    if (!result.transcript || result.model === "local-fallback") {
+      // NOTE: sync recognize caps at ~60s / 10MB. Longer encounters need
+      // long-running recognize + GCS staging (tracked follow-up).
+      throw new Error(
+        "GCP Speech-to-Text returned no transcript (audio may exceed the ~60s sync limit — long-running recognize is the follow-up).",
+      );
+    }
+
+    return { text: result.transcript, language };
   }
 
   async generateSoapNote(transcript: string): Promise<SoapNote> {

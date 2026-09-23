@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 import { automatedAlertingService } from "./automated-alerting";
+import { generatePhiSafeText } from "./ai-gateway";
 import type {
   SecurityAuditLog,
   ComplianceRisk,
@@ -9,13 +9,7 @@ import type {
   ComplianceRiskCategory,
 } from "@shared/schema";
 
-let openai: OpenAI | null = null;
-if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-}
+const aiEnabled = true;
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -400,27 +394,21 @@ class AIAuditLogAnalyzerService {
 
     let aiAnalysis = "AI analysis unavailable - using rule-based detection";
     
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedContext = sanitizePhi(JSON.stringify({
           eventType: log.eventType,
           indicators: indicators.map(i => ({ type: i.type, deviation: i.deviation, significance: i.significance })),
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_AUDIT_ANALYZER_PROMPT },
-            {
-              role: "user",
-              content: `Analyze this security anomaly and provide insights:\n${sanitizedContext}\n\nProvide a brief security assessment focusing on potential risks and recommended actions.`,
-            },
-          ],
-          max_tokens: 300,
+        const text = await generatePhiSafeText({
+          system: NO_CDS_AUDIT_ANALYZER_PROMPT,
+          user: `Analyze this security anomaly and provide insights:\n${sanitizedContext}\n\nProvide a brief security assessment focusing on potential risks and recommended actions.`,
+          maxTokens: 300,
           temperature: 0.3,
         });
 
-        aiAnalysis = response.choices[0]?.message?.content || aiAnalysis;
+        aiAnalysis = text || aiAnalysis;
       } catch (error) {
         console.error("[AIAuditLogAnalyzer] AI analysis failed:", error);
       }
@@ -550,7 +538,7 @@ class AIAuditLogAnalyzerService {
     let aiSummary = "Batch analysis completed with rule-based detection";
     const recommendations: string[] = [];
 
-    if (openai && (foundAnomalies.length > 0 || identifiedThreats.length > 0)) {
+    if (aiEnabled && (foundAnomalies.length > 0 || identifiedThreats.length > 0)) {
       try {
         const sanitizedSummary = sanitizePhi(JSON.stringify({
           logsAnalyzed: logs.length,
@@ -559,20 +547,14 @@ class AIAuditLogAnalyzerService {
           riskScore: riskScoreSummary.overall,
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_AUDIT_ANALYZER_PROMPT },
-            {
-              role: "user",
-              content: `Provide an executive summary and recommendations for this audit analysis:\n${sanitizedSummary}`,
-            },
-          ],
-          max_tokens: 500,
+        const text = await generatePhiSafeText({
+          system: NO_CDS_AUDIT_ANALYZER_PROMPT,
+          user: `Provide an executive summary and recommendations for this audit analysis:\n${sanitizedSummary}`,
+          maxTokens: 500,
           temperature: 0.3,
         });
 
-        aiSummary = response.choices[0]?.message?.content || aiSummary;
+        aiSummary = text || aiSummary;
       } catch (error) {
         console.error("[AIAuditLogAnalyzer] AI summary generation failed:", error);
       }

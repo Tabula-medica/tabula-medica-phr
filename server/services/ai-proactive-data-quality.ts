@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import { createHash } from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const CDS_PROHIBITED_PATTERNS = [
   /recommend|prescribe|diagnose|treat|administer|should take|must take/gi,
@@ -931,7 +931,7 @@ async function analyzeDataQualityWithAI(context: {
   anomalies: AnomalyPattern[];
   risks: DataIntegrityRisk[];
 }): Promise<{ summary: string; recommendations: string[]; prioritizedActions: string[] }> {
-  if (!openai) {
+  if (!aiEnabled) {
     return {
       summary: enforceCdsCompliance("AI analysis unavailable. Review detected issues manually for data quality insights."),
       recommendations: [
@@ -960,22 +960,15 @@ Provide:
 
 Format as JSON with keys: summary, recommendations (array), prioritizedActions (array)`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a healthcare data quality analyst. Provide operational recommendations only. NO clinical decision support, treatment recommendations, or medical advice. Focus on data infrastructure, process improvements, and quality metrics.",
-        },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 1000,
+    const content = await generatePhiSafeText({
+      system: "You are a healthcare data quality analyst. Provide operational recommendations only. NO clinical decision support, treatment recommendations, or medical advice. Focus on data infrastructure, process improvements, and quality metrics.",
+      user: prompt,
+      maxTokens: 1000,
       temperature: 0,
-      response_format: { type: "json_object" },
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     return {
       summary: enforceCdsCompliance(parsed.summary || "Analysis completed"),
@@ -1537,9 +1530,9 @@ export async function generateNarrativeSummary(
   let analyticsImpact = "";
   let recommendedActions: string[] = [];
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const audiencePrompt = audienceLevel === "executive" 
+      const audiencePrompt = audienceLevel === "executive"
         ? "Explain for C-level executives focusing on business impact and risk."
         : audienceLevel === "technical"
         ? "Explain for data engineers focusing on technical root causes and fixes."
@@ -1562,22 +1555,15 @@ Provide your response as JSON with these fields:
 
 CRITICAL: Do NOT provide any clinical decision support, treatment recommendations, or medical advice. Focus ONLY on data quality, infrastructure, and process improvements.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a healthcare data quality analyst. Provide clear explanations of data quality issues. NO clinical decision support, treatment recommendations, or medical advice. Focus on data infrastructure and process improvements.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 1500,
+      const content = await generatePhiSafeText({
+        system: "You are a healthcare data quality analyst. Provide clear explanations of data quality issues. NO clinical decision support, treatment recommendations, or medical advice. Focus on data infrastructure and process improvements.",
+        user: prompt,
+        maxTokens: 1500,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
 
       plainEnglishSummary = enforceCdsCompliance(parsed.plainEnglishSummary || "");
       technicalDetails = enforceCdsCompliance(parsed.technicalDetails || "");

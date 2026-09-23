@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { generateText, getProviderForFeature } from "./ai-provider";
+import { speechToText } from "../replit_integrations/audio/client";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -313,13 +314,8 @@ export async function transcribeVoiceNote(input: VoiceNoteInput): Promise<Transc
     const buffer = Buffer.from(input.audioBase64, "base64");
     const mimeType = input.mimeType || "audio/webm";
     const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("wav") ? "wav" : "webm";
-    const file = new File([buffer], `voice_note.${ext}`, { type: mimeType });
-
-    const transcription = await openai.audio.transcriptions.create({
-      file,
-      model: "gpt-4o-mini-transcribe",
-      response_format: "json",
-    });
+    // GCP Speech-to-Text (BAA) — not OpenAI Whisper.
+    const transcription = { text: await speechToText(buffer, ext as any) };
 
     const structured = await extractStructuredContent(transcription.text);
 
