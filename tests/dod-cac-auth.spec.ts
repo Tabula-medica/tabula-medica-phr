@@ -31,9 +31,8 @@ const enrolledCerts: { edipi: string; deviceId: string; publicKeyHex: string; ex
 // a claim, once made, is never removed by this mock either.
 const edipiClaims = new Map<string, string>();
 
-vi.mock("../server/db", () => ({
-  db: {
-    execute: vi.fn(async (query: SQL) => {
+vi.mock("../server/db", () => {
+  const execute = vi.fn(async (query: SQL) => {
       const { sql: text, params } = toQuery(query);
       if (text.includes("INSERT INTO cac_edipi_claims")) {
         const [claimEdipi, claimedByUserId] = params as string[];
@@ -80,14 +79,41 @@ vi.mock("../server/db", () => ({
         return { rows: match ? [{ public_key_hex: match.publicKeyHex }] : [] };
       }
       throw new Error(`db.execute mock: unhandled query: ${text}`);
-    }),
+  });
+  // enroll-software-cert wraps its claim + upsert in db.transaction(async
+  // (tx) => ...) so a device conflict rolls back an already-committed
+  // EDIPI claim instead of orphaning it. tx just needs to behave like db
+  // here, so the callback gets the same mock object back.
+  const dbMock: { execute: typeof execute; insert: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> } = {
+    execute,
     // hipaaComplianceService.logAuditEvent() writes via db.insert(...).values(...)
     // (Drizzle's fluent builder), not db.execute(sql\`...\`) — stubbed just
     // enough to resolve so the verify handler's audit call doesn't reject.
     insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue({ rows: [] }) })),
-  },
-  pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
-}));
+    // A real Postgres transaction rolls back every write the callback made
+    // if it throws — including an already-succeeded cac_edipi_claims
+    // insert, so a later device conflict can't orphan the claim. This
+    // in-memory mock has no such rollback for free, so it snapshots both
+    // tables first and restores them on throw to match.
+    transaction: vi.fn(async (callback: (tx: typeof dbMock) => Promise<unknown>) => {
+      const claimsSnapshot = new Map(edipiClaims);
+      const certsSnapshot = enrolledCerts.map((c) => ({ ...c }));
+      try {
+        return await callback(dbMock);
+      } catch (err) {
+        edipiClaims.clear();
+        for (const [k, v] of claimsSnapshot) edipiClaims.set(k, v);
+        enrolledCerts.length = 0;
+        enrolledCerts.push(...certsSnapshot);
+        throw err;
+      }
+    }),
+  };
+  return {
+    db: dbMock,
+    pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+  };
+});
 
 import { registerDoDRoutes } from "../server/dod-routes";
 
@@ -419,12 +445,22 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     expect(attackerAttempt.statusCode).toBe(409);
   });
 
-  it("resolves a same-EDIPI enrollment race between two different accounts to exactly one winner", async () => {
-    // The exclusivity check used to be a separate SELECT-then-INSERT
-    // against cac_software_certs, so two concurrent enrollments could both
-    // observe "unclaimed" and both succeed. It's now an atomic
-    // INSERT ... ON CONFLICT (edipi) DO NOTHING against cac_edipi_claims,
-    // whose PRIMARY KEY makes Postgres itself serialize the conflict.
+  it("gives exactly one of two same-EDIPI enrollments from different accounts a claim, whichever request reaches it first", async () => {
+    // This does NOT exercise real database concurrency — the mocked
+    // db.execute() mutates edipiClaims synchronously within a single
+    // microtask, so Promise.all here can't make two calls actually
+    // interleave inside the mock the way two real Postgres connections
+    // could inside a live INSERT. What it does prove: whichever of two
+    // same-EDIPI enrollments reaches the (now atomic, single-statement)
+    // claim first wins, and the second is rejected rather than also
+    // succeeding — i.e. no code path here still does a separate
+    // check-then-insert that this test would incidentally paper over.
+    // The actual concurrent-Postgres guarantee — that INSERT ... ON
+    // CONFLICT (edipi) DO NOTHING on a PRIMARY KEY serializes two real,
+    // simultaneous connections — is a documented Postgres contract, not
+    // application logic, and would need a real-Postgres integration test
+    // (in the style of pg-rate-limit-store.integration.spec.ts) to prove
+    // directly rather than exercised through this in-memory mock.
     const handlers = captureHandlers();
     const keyA = await generateKeyPair();
     const keyB = await generateKeyPair();
@@ -460,6 +496,45 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     const verifyRes = fakeRes();
     await handlers.get("/api/auth/cac/verify")!(verifyReq, verifyRes);
     expect(verifyRes.statusCode).toBe(200);
+  });
+
+  it("does not orphan an EDIPI claim when the same request's device upsert then conflicts", async () => {
+    // The EDIPI claim and the certificate upsert run in one transaction
+    // specifically so this can't happen: claiming edipi succeeds, but the
+    // device_id in the same request belongs to someone else, so the whole
+    // attempt must roll back — including the claim — rather than leaving a
+    // permanent claim on this EDIPI with no certificate behind it, which
+    // would lock out every future caller, including the legitimate owner.
+    const handlers = captureHandlers();
+    const victimKeyPair = await generateKeyPair();
+    const attackerKeyPair = await generateKeyPair();
+    const legitimateKeyPair = await generateKeyPair();
+
+    // A device_id already owned by a different account.
+    await enroll(handlers, "1111111111", await exportPublicKeyHex(victimKeyPair.publicKey), "victim", "victims-device");
+
+    // Attacker claims a brand-new, previously-unclaimed EDIPI, but reuses
+    // the victim's device_id — the device check fails after the EDIPI
+    // claim would otherwise have succeeded.
+    const attackerAttempt = await enroll(
+      handlers,
+      "5555555555",
+      await exportPublicKeyHex(attackerKeyPair.publicKey),
+      "attacker",
+      "victims-device",
+    );
+    expect(attackerAttempt.statusCode).toBe(409);
+
+    // If the claim on 5555555555 had survived, this would 409 too even
+    // though "legit" never touched that EDIPI before.
+    const legitimateAttempt = await enroll(
+      handlers,
+      "5555555555",
+      await exportPublicKeyHex(legitimateKeyPair.publicKey),
+      "legit",
+      "legits-own-device",
+    );
+    expect(legitimateAttempt.statusCode).toBe(200);
   });
 
   it("re-enrolling the same device replaces its key rather than adding a second enrollment (ON CONFLICT (device_id) DO UPDATE)", async () => {

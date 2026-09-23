@@ -43,6 +43,14 @@ async function verifyChallengeSignature(challenge: string, signatureBase64: stri
   }
 }
 
+// Thrown inside the enroll-software-cert transaction to trigger a rollback
+// (any throw does) while still telling the outer catch which 409 to send.
+class EnrollmentConflict extends Error {
+  constructor(public reason: "edipi" | "device") {
+    super(`Enrollment conflict: ${reason}`);
+  }
+}
+
 // ─── Offline sync ─────────────────────────────────────────────────────────────
 
 const SyncPayloadSchema = z.object({
@@ -447,22 +455,14 @@ export function registerDoDRoutes(
       // is atomic in Postgres — concurrent claims on the same edipi
       // serialize on that key's row lock — and the claim row is never
       // deleted, so ownership outlives any individual cert's expiry.
-      const claimAttempt = await db.execute(sql`
-        INSERT INTO cac_edipi_claims (edipi, claimed_by_user_id)
-        VALUES (${edipi}, ${currentUserId})
-        ON CONFLICT (edipi) DO NOTHING
-        RETURNING claimed_by_user_id
-      `);
-      if (!(claimAttempt as { rows?: unknown[] }).rows?.length) {
-        const existingClaim = await db.execute(
-          sql`SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi = ${edipi}`,
-        );
-        const owner = (existingClaim as { rows?: Record<string, unknown>[] }).rows?.[0]?.claimed_by_user_id as string | undefined;
-        if (owner !== currentUserId) {
-          return res.status(409).json({ error: "This EDIPI is already enrolled by a different account" });
-        }
-      }
-
+      //
+      // The claim and the certificate upsert below run in one transaction:
+      // committing the claim alone and then failing (or no-op'ing) the
+      // device upsert would leave a permanent claim on this EDIPI with no
+      // certificate behind it — silently locking every future caller,
+      // including the legitimate owner, out of ever enrolling it. Any
+      // conflict rolls the whole transaction back, so a failed attempt
+      // leaves no trace to squat on the EDIPI.
       const issuedAt = new Date().toISOString();
       const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year
 
@@ -484,45 +484,71 @@ export function registerDoDRoutes(
         // In production: sign with server's CA private key (ECDSA P-384)
         // signature: serverCASign(cert)
       });
-
-      // Store enrollment record (sql`` tagged template — see the note on the
-      // verify handler's lookup above for why raw `?` placeholders don't
-      // actually bind against this Drizzle client).
-      //
-      // device_id is the ON CONFLICT target, but a plain
-      // "DO UPDATE SET public_key_hex = ..." would let anyone re-enroll a
-      // device_id someone else's account already owns: it'd silently swap
-      // in the new key while leaving the OLD row's edipi/enrolled_by_user_id
-      // in place, so the new key would authenticate as the old owner's
-      // identity (verify only matches on edipi + public_key_hex). The
-      // WHERE clause on the UPDATE makes the conflict branch a no-op
-      // (0 rows, no error) unless the existing row is already owned by
-      // this same account — atomically, since Postgres serializes
-      // concurrent INSERTs on the same device_id via its unique index. A
-      // brand-new device_id always inserts and returns a row regardless;
-      // an empty RETURNING therefore only ever means "conflict, different
-      // owner." Also keeps edipi in EXCLUDED's value so a same-owner
-      // re-enrollment under a corrected EDIPI stays consistent, rather
-      // than silently keeping the old row's stale edipi.
       const platformInfo = `${platform} ${platformVersion}`;
-      const enrollResult = await db.execute(sql`
-        INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
-        VALUES (${edipi}, ${deviceId}, ${publicKeyHex}, ${certJson}, ${platformInfo}, NOW(), ${expiresAt}, ${currentUserId})
-        ON CONFLICT (device_id) DO UPDATE SET
-          edipi = EXCLUDED.edipi,
-          public_key_hex = EXCLUDED.public_key_hex,
-          cert_json = EXCLUDED.cert_json,
-          enrolled_at = NOW(),
-          expires_at = EXCLUDED.expires_at
-        WHERE cac_software_certs.enrolled_by_user_id = ${currentUserId}
-        RETURNING device_id
-      `);
-      if (!(enrollResult as { rows?: unknown[] }).rows?.length) {
-        return res.status(409).json({ error: "This device is already enrolled by a different account" });
-      }
+
+      await db.transaction(async (tx) => {
+        const claimAttempt = await tx.execute(sql`
+          INSERT INTO cac_edipi_claims (edipi, claimed_by_user_id)
+          VALUES (${edipi}, ${currentUserId})
+          ON CONFLICT (edipi) DO NOTHING
+          RETURNING claimed_by_user_id
+        `);
+        if (!(claimAttempt as { rows?: unknown[] }).rows?.length) {
+          const existingClaim = await tx.execute(
+            sql`SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi = ${edipi}`,
+          );
+          const owner = (existingClaim as { rows?: Record<string, unknown>[] }).rows?.[0]?.claimed_by_user_id as string | undefined;
+          if (owner !== currentUserId) {
+            throw new EnrollmentConflict("edipi");
+          }
+        }
+
+        // Store enrollment record (sql`` tagged template — see the note on
+        // the verify handler's lookup above for why raw `?` placeholders
+        // don't actually bind against this Drizzle client).
+        //
+        // device_id is the ON CONFLICT target, but a plain
+        // "DO UPDATE SET public_key_hex = ..." would let anyone re-enroll a
+        // device_id someone else's account already owns: it'd silently
+        // swap in the new key while leaving the OLD row's
+        // edipi/enrolled_by_user_id in place, so the new key would
+        // authenticate as the old owner's identity (verify only matches on
+        // edipi + public_key_hex). The WHERE clause on the UPDATE makes the
+        // conflict branch a no-op (0 rows, no error) unless the existing
+        // row is already owned by this same account — atomically, since
+        // Postgres serializes concurrent INSERTs on the same device_id via
+        // its unique index. A brand-new device_id always inserts and
+        // returns a row regardless; an empty RETURNING therefore only ever
+        // means "conflict, different owner." Also keeps edipi in
+        // EXCLUDED's value so a same-owner re-enrollment under a corrected
+        // EDIPI stays consistent, rather than silently keeping the old
+        // row's stale edipi.
+        const enrollResult = await tx.execute(sql`
+          INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
+          VALUES (${edipi}, ${deviceId}, ${publicKeyHex}, ${certJson}, ${platformInfo}, NOW(), ${expiresAt}, ${currentUserId})
+          ON CONFLICT (device_id) DO UPDATE SET
+            edipi = EXCLUDED.edipi,
+            public_key_hex = EXCLUDED.public_key_hex,
+            cert_json = EXCLUDED.cert_json,
+            enrolled_at = NOW(),
+            expires_at = EXCLUDED.expires_at
+          WHERE cac_software_certs.enrolled_by_user_id = ${currentUserId}
+          RETURNING device_id
+        `);
+        if (!(enrollResult as { rows?: unknown[] }).rows?.length) {
+          throw new EnrollmentConflict("device");
+        }
+      });
 
       res.json({ certJson, issuedAt, expiresAt });
     } catch (error) {
+      if (error instanceof EnrollmentConflict) {
+        return res.status(409).json({
+          error: error.reason === "edipi"
+            ? "This EDIPI is already enrolled by a different account"
+            : "This device is already enrolled by a different account",
+        });
+      }
       console.error("[CAC] Enrollment error:", error);
       res.status(500).json({ error: "Enrollment failed" });
     }
