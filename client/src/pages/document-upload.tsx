@@ -34,7 +34,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { UploadedDocument, AutoTagCategory, DocumentAutoTag } from "@shared/schema";
+import type { UploadedDocument, AutoTagCategory, AutoTagSubcategory, DocumentAutoTag } from "@shared/schema";
+import { autoTagSubcategories, autoTagSubcategoryLabels, uploadedDocumentTypeToAutoTagCategory } from "@shared/schema";
 
 const documentTypes = [
   { value: "insurance_card", label: "Insurance Card" },
@@ -74,8 +75,15 @@ const uploadFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   documentDate: z.string().optional(),
   documentType: z.string().min(1, "Document type is required"),
+  subcategory: z.string().optional(),
   tags: z.array(z.string()).default([]),
 });
+
+// Subcategory choices offered for a given document type (via its auto-tag category)
+const getSubcategoryOptions = (documentType: string): AutoTagSubcategory[] => {
+  const category = uploadedDocumentTypeToAutoTagCategory[documentType as keyof typeof uploadedDocumentTypeToAutoTagCategory];
+  return category ? [...autoTagSubcategories[category]] : [];
+};
 
 type UploadFormValues = z.infer<typeof uploadFormSchema>;
 
@@ -107,11 +115,14 @@ interface AutoTagResult {
   documentId: string;
   category: AutoTagCategory;
   categoryLabel: string;
+  subcategory?: AutoTagSubcategory | null;
+  subcategoryLabel?: string | null;
   confidence: number;
   explanation: string;
   suggestedTags: string[];
   isOverridden: boolean;
   overriddenCategory?: AutoTagCategory;
+  overriddenSubcategory?: AutoTagSubcategory | null;
 }
 
 function UploadedDocumentCard({ 
@@ -136,6 +147,8 @@ function UploadedDocumentCard({
   const typeLabel = documentTypes.find(t => t.value === document.documentType)?.label || document.documentType;
   const effectiveCategory = autoTag?.isOverridden ? autoTag.overriddenCategory : autoTag?.category;
   const effectiveCategoryLabel = autoTagCategories.find(c => c.value === effectiveCategory)?.label || effectiveCategory;
+  const effectiveSubcategory = autoTag?.isOverridden ? autoTag.overriddenSubcategory : autoTag?.subcategory;
+  const effectiveSubcategoryLabel = effectiveSubcategory ? autoTagSubcategoryLabels[effectiveSubcategory] : null;
 
   return (
     <Card className="hover-elevate" data-testid={`card-uploaded-doc-${document.id}`}>
@@ -155,6 +168,11 @@ function UploadedDocumentCard({
                 {document.title}
               </h4>
               <Badge variant="secondary">{typeLabel}</Badge>
+              {document.subcategory && (
+                <Badge variant="outline" data-testid={`badge-doc-subcategory-${document.id}`}>
+                  {autoTagSubcategoryLabels[document.subcategory as AutoTagSubcategory] || document.subcategory}
+                </Badge>
+              )}
               {document.scanStatus === "clean" && (
                 <Badge variant="outline" className="text-green-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -189,6 +207,7 @@ function UploadedDocumentCard({
                     <span className="text-sm font-medium">AI Classification</span>
                     <Badge variant={autoTag.isOverridden ? "outline" : "default"} className="text-xs">
                       {effectiveCategoryLabel}
+                      {effectiveSubcategoryLabel && ` · ${effectiveSubcategoryLabel}`}
                       {autoTag.isOverridden && " (Overridden)"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
@@ -270,6 +289,7 @@ export default function DocumentUpload() {
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [selectedDocumentForOverride, setSelectedDocumentForOverride] = useState<string | null>(null);
   const [overrideCategory, setOverrideCategory] = useState<AutoTagCategory>("other");
+  const [overrideSubcategory, setOverrideSubcategory] = useState<string>("none");
   const [overrideReason, setOverrideReason] = useState("");
 
   const form = useForm<UploadFormValues>({
@@ -278,6 +298,7 @@ export default function DocumentUpload() {
       title: "",
       documentDate: "",
       documentType: "other",
+      subcategory: "",
       tags: [],
     },
   });
@@ -336,9 +357,10 @@ export default function DocumentUpload() {
   
   // Override auto-tag mutation
   const overrideTagMutation = useMutation({
-    mutationFn: async (data: { documentId: string; newCategory: AutoTagCategory; reason?: string }) => {
+    mutationFn: async (data: { documentId: string; newCategory: AutoTagCategory; newSubcategory?: string | null; reason?: string }) => {
       const response = await apiRequest("POST", `/api/documents/${data.documentId}/override-tag`, {
         newCategory: data.newCategory,
+        newSubcategory: data.newSubcategory,
         reason: data.reason,
       });
       if (!response.ok) {
@@ -367,15 +389,17 @@ export default function DocumentUpload() {
     const currentAutoTag = documentAutoTags.get(documentId);
     setSelectedDocumentForOverride(documentId);
     setOverrideCategory(currentAutoTag?.category || "other");
+    setOverrideSubcategory(currentAutoTag?.subcategory || "none");
     setOverrideDialogOpen(true);
   };
-  
+
   // Handle submitting override
   const handleOverrideSubmit = () => {
     if (selectedDocumentForOverride) {
       overrideTagMutation.mutate({
         documentId: selectedDocumentForOverride,
         newCategory: overrideCategory,
+        newSubcategory: overrideSubcategory === "none" ? null : overrideSubcategory,
         reason: overrideReason || undefined,
       });
     }
@@ -387,6 +411,7 @@ export default function DocumentUpload() {
       title: string;
       documentDate?: string;
       documentType: string;
+      subcategory?: string;
       tags: string[];
       originalFileName: string;
       mimeType: string;
@@ -453,6 +478,7 @@ export default function DocumentUpload() {
       title: formValues.title,
       documentDate: formValues.documentDate,
       documentType: formValues.documentType,
+      subcategory: formValues.subcategory || undefined,
       tags: formValues.tags,
     });
 
@@ -492,6 +518,7 @@ export default function DocumentUpload() {
         title: formValues.title,
         documentDate: formValues.documentDate,
         documentType: formValues.documentType,
+        subcategory: formValues.subcategory || undefined,
         tags: formValues.tags,
         originalFileName: pendingFile.name,
         mimeType: pendingFile.type,
@@ -558,7 +585,13 @@ export default function DocumentUpload() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Document Type *</FormLabel>
-                        <Select value={field.value} onValueChange={field.onChange}>
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue("subcategory", "");
+                          }}
+                        >
                           <FormControl>
                             <SelectTrigger data-testid="select-doc-type">
                               <SelectValue placeholder="Select document type" />
@@ -580,6 +613,46 @@ export default function DocumentUpload() {
                       </FormItem>
                     )}
                   />
+
+                  {getSubcategoryOptions(form.watch("documentType")).length > 0 && (
+                    <FormField
+                      control={form.control}
+                      name="subcategory"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Subcategory</FormLabel>
+                          <Select
+                            value={field.value || "none"}
+                            onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-doc-subcategory">
+                                <SelectValue placeholder="Select subcategory (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none" data-testid="select-item-subcategory-none">
+                                Not specified
+                              </SelectItem>
+                              {getSubcategoryOptions(form.watch("documentType")).map((sub) => (
+                                <SelectItem
+                                  key={sub}
+                                  value={sub}
+                                  data-testid={`select-item-subcategory-${sub}`}
+                                >
+                                  {autoTagSubcategoryLabels[sub]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Narrow down what kind of {documentTypes.find(t => t.value === form.watch("documentType"))?.label.toLowerCase() || "record"} this is
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <FormField
                     control={form.control}
@@ -752,7 +825,13 @@ export default function DocumentUpload() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="override-category">New Category</Label>
-              <Select value={overrideCategory} onValueChange={(value) => setOverrideCategory(value as AutoTagCategory)}>
+              <Select
+                value={overrideCategory}
+                onValueChange={(value) => {
+                  setOverrideCategory(value as AutoTagCategory);
+                  setOverrideSubcategory("none");
+                }}
+              >
                 <SelectTrigger id="override-category" data-testid="select-override-category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -765,7 +844,29 @@ export default function DocumentUpload() {
                 </SelectContent>
               </Select>
             </div>
-            
+
+            {autoTagSubcategories[overrideCategory].length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="override-subcategory">New Subcategory</Label>
+                <Select value={overrideSubcategory} onValueChange={setOverrideSubcategory}>
+                  <SelectTrigger id="override-subcategory" data-testid="select-override-subcategory">
+                    <SelectValue placeholder="Select subcategory" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" data-testid="select-item-override-subcategory-none">
+                      Not specified
+                    </SelectItem>
+                    {autoTagSubcategories[overrideCategory].map((sub) => (
+                      <SelectItem key={sub} value={sub} data-testid={`select-item-override-subcategory-${sub}`}>
+                        {autoTagSubcategoryLabels[sub]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+
             <div className="space-y-2">
               <Label htmlFor="override-reason">Reason (Optional)</Label>
               <Input

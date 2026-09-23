@@ -92,7 +92,7 @@ class FHIRMessagingService {
       id: "fastenhealth",
       name: "Fasten Health",
       system: "urn:oid:2.16.840.1.113883.4.6",
-      fhirEndpoint: "https://api.fastenhealth.com/fhir/R4",
+      fhirEndpoint: "https://api.connect.fastenhealth.com/fhir/R4",
     });
     console.log("[FHIRMessaging] Service initialized — all connections via Fasten Health");
   }

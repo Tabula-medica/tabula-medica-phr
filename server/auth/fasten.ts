@@ -55,12 +55,14 @@ export interface FastenConnection {
   catalogBrandId?: string;
 }
 
-function basicAuthHeader(): string {
+export function fastenAuthHeader(): string {
   const token = Buffer.from(`${FASTEN_PUBLIC_ID}:${FASTEN_PRIVATE_KEY}`).toString(
     "base64",
   );
   return `Basic ${token}`;
 }
+
+const basicAuthHeader = fastenAuthHeader;
 
 /**
  * Verify an org_connection_id server-side with Fasten's API using our private

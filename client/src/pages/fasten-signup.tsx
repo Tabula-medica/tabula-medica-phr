@@ -56,15 +56,26 @@ export default function FastenSignup() {
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when the account exists but attaching the health-record connection
+  // failed — surfaced with retry/continue instead of being silently dropped.
+  const [linkFailed, setLinkFailed] = useState<string | null>(null);
 
   const gcipReady = isGcipConfigured();
   const phoneE164 = normalizePhoneE164(phone);
 
-  const { data: configData } = useQuery<{ publicId: string; redirectUri: string }>({
+  const { data: configData, isError: configError } = useQuery<{ publicId: string; redirectUri: string }>({
     queryKey: ["/api/fasten-connect/config"],
     retry: 2,
     staleTime: 60000,
   });
+
+  // Without this, a failed config fetch (e.g. a deployment with the Fasten
+  // surface disabled) leaves a silent blank box where the widget should be.
+  useEffect(() => {
+    if (configError) {
+      setWidgetError("Connecting health records isn't available right now. Please try again later or contact support.");
+    }
+  }, [configError]);
 
   // Mount the Fasten Stitch widget for stage 1.
   useEffect(() => {
@@ -147,8 +158,39 @@ export default function FastenSignup() {
 
   useEffect(() => () => clearRecaptcha(), []);
 
+  // Attach the health-record connection to the (already signed-in) account.
+  // The server re-verifies the connection with its private key. Returns true
+  // on success; on failure records a user-visible message and returns false.
+  const attemptLink = async (): Promise<boolean> => {
+    if (!orgConnectionId) return true;
+    try {
+      const res = await fetch("/api/auth/fasten/link", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ orgConnectionId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setLinkFailed(
+          body?.message ||
+            "We couldn't attach your health-record connection to the new account.",
+        );
+        return false;
+      }
+      setLinkFailed(null);
+      return true;
+    } catch {
+      setLinkFailed(
+        "We couldn't reach the server to attach your health-record connection.",
+      );
+      return false;
+    }
+  };
+
   // After the GCIP session is minted, link the verified Fasten connection and
-  // route into the app.
+  // route into the app. A link failure keeps the user here with retry/continue
+  // options — the account itself was created successfully.
   const finishSignup = async () => {
     const idToken = await getGcipIdToken(true);
     if (!idToken) throw new Error("Could not complete sign-in. Please try again.");
@@ -163,20 +205,19 @@ export default function FastenSignup() {
     }
     await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
 
-    // Attach the health-record connection to the new account (server re-verifies).
-    if (orgConnectionId) {
-      try {
-        await fetch("/api/auth/fasten/link", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ orgConnectionId }),
-        });
-      } catch {
-        // Non-fatal: the account exists; records can be re-linked from Connections.
-      }
-    }
+    const linked = await attemptLink();
+    if (!linked) return;
     setLocation("/new-patient-onboarding");
+  };
+
+  const handleRetryLink = async () => {
+    setBusy(true);
+    try {
+      const linked = await attemptLink();
+      if (linked) setLocation("/new-patient-onboarding");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleSendCode = async () => {
@@ -295,7 +336,41 @@ export default function FastenSignup() {
                   </Alert>
                 )}
 
-                {phoneStep === "enter" ? (
+                {linkFailed ? (
+                  <div className="space-y-3" data-testid="signup-link-failed">
+                    <Alert variant="destructive" data-testid="alert-link-failed">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Your account was created, but {linkFailed.charAt(0).toLowerCase() + linkFailed.slice(1)}{" "}
+                        You can retry now, or continue and re-connect your records later from Connections.
+                      </AlertDescription>
+                    </Alert>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      size="lg"
+                      onClick={handleRetryLink}
+                      disabled={busy}
+                      data-testid="button-retry-link"
+                    >
+                      {busy ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Retrying...</>
+                      ) : (
+                        "Try attaching my records again"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setLocation("/new-patient-onboarding")}
+                      disabled={busy}
+                      data-testid="button-continue-without-records"
+                    >
+                      Continue without records for now
+                    </Button>
+                  </div>
+                ) : phoneStep === "enter" ? (
                   <form
                     className="space-y-3"
                     onSubmit={(e) => {

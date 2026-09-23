@@ -202,6 +202,8 @@ export interface IStorage {
   // Unified Patients (Master Patient Index)
   getUnifiedPatients(): Promise<UnifiedPatient[]>;
   getUnifiedPatient(id: string): Promise<UnifiedPatient | undefined>;
+  createUnifiedPatient(patient: Omit<UnifiedPatient, "id" | "createdAt">): Promise<UnifiedPatient>;
+  updateUnifiedPatient(id: string, updates: Partial<UnifiedPatient>): Promise<UnifiedPatient | undefined>;
   getAggregatedPatientData(unifiedPatientId: string): Promise<AggregatedPatientData | undefined>;
 
   // Patients (EHR-specific records)
@@ -3670,6 +3672,24 @@ export class MemStorage implements IStorage {
 
   async getUnifiedPatient(id: string): Promise<UnifiedPatient | undefined> {
     return this.unifiedPatients.get(id);
+  }
+
+  async createUnifiedPatient(patient: Omit<UnifiedPatient, "id" | "createdAt">): Promise<UnifiedPatient> {
+    const newUnified: UnifiedPatient = {
+      ...patient,
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    this.unifiedPatients.set(newUnified.id, newUnified);
+    return newUnified;
+  }
+
+  async updateUnifiedPatient(id: string, updates: Partial<UnifiedPatient>): Promise<UnifiedPatient | undefined> {
+    const existing = this.unifiedPatients.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.unifiedPatients.set(id, updated);
+    return updated;
   }
 
   async getAggregatedPatientData(unifiedPatientId: string): Promise<AggregatedPatientData | undefined> {
