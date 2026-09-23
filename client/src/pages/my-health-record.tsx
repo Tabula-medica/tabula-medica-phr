@@ -14,8 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { LongevityPreventivePanel } from "@/components/longevity-preventive-panel";
 import {
   Pill,
+  ShieldCheck,
   AlertTriangle,
   Scissors,
   Stethoscope,
@@ -632,6 +634,7 @@ const tabs = [
   { value: "social-history", label: "Social History", icon: Users, color: "text-teal-600 dark:text-teal-400", category: "social_history" },
   { value: "vaccines", label: "Vaccines", icon: Syringe, color: "text-green-600 dark:text-green-400", category: "vaccines" },
   { value: "sdoh", label: "SDOH", icon: Home, color: "text-amber-600 dark:text-amber-400", category: "sdoh" },
+  { value: "longevity", label: "Longevity & Prevention", icon: ShieldCheck, color: "text-emerald-600 dark:text-emerald-400", category: "longevity" },
   { value: "timeline", label: "Timeline", icon: Clock, color: "text-gray-600 dark:text-gray-400", category: "timeline" },
   { value: "summary", label: "Summary", icon: FileText, color: "text-gray-600 dark:text-gray-400", category: "summary" },
   { value: "share", label: "Share", icon: Share2, color: "text-gray-600 dark:text-gray-400", category: "share" },
@@ -681,7 +684,7 @@ export default function MyHealthRecord() {
           </div>
 
           <div className="mt-4">
-            {tabs.filter(t => !["timeline", "summary", "share"].includes(t.value)).map((tab) => (
+            {tabs.filter(t => !["longevity", "timeline", "summary", "share"].includes(t.value)).map((tab) => (
               <TabsContent key={tab.value} value={tab.value}>
                 <HealthTab
                   category={tab.category}
@@ -691,6 +694,9 @@ export default function MyHealthRecord() {
                 />
               </TabsContent>
             ))}
+            <TabsContent value="longevity">
+              <LongevityPreventivePanel mode="patient" storageKey="tabula_longevity_prevention" />
+            </TabsContent>
             <TabsContent value="timeline"><TimelineTab /></TabsContent>
             <TabsContent value="summary"><SummaryTab /></TabsContent>
             <TabsContent value="share"><ShareTab /></TabsContent>

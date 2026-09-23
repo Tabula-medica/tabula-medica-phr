@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { chatStorage } from "../chat/storage";
-import { openai, speechToText, voiceChatWithTextModel } from "./client";
+import { openai, speechToText, textToSpeech, voiceChatWithTextModel } from "./client";
 
 export function registerAudioRoutes(app: Express): void {
   // Get all conversations
@@ -87,29 +87,31 @@ export function registerAudioRoutes(app: Express): void {
 
       res.write(`data: ${JSON.stringify({ type: "user_transcript", data: userTranscript })}\n\n`);
 
-      // 5. Stream audio response from gpt-audio-mini
-      const stream = await openai.chat.completions.create({
-        model: "gpt-audio-mini",
-        modalities: ["text", "audio"],
-        audio: { voice, format: "pcm16" },
+      // 5. Get text from Vertex Gemini (via shim, BAA-covered), then synthesize audio via GCP TTS.
+      // NOTE: OpenAI audio modalities (gpt-audio-mini) have no BAA and are blocked by the PHI
+      // guard. This cascade (Vertex text → GCP TTS) is the correct BAA-safe replacement.
+      const textStream = await openai.chat.completions.create({
+        model: "gemini-2.5-flash",
         messages: chatHistory,
         stream: true,
       });
 
       let assistantTranscript = "";
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices?.[0]?.delta as any;
-        if (!delta) continue;
+      for await (const chunk of textStream) {
+        const token = chunk.choices?.[0]?.delta?.content;
+        if (!token) continue;
+        assistantTranscript += token;
+        res.write(`data: ${JSON.stringify({ type: "transcript", data: token })}\n\n`);
+      }
 
-        if (delta?.audio?.transcript) {
-          assistantTranscript += delta.audio.transcript;
-          res.write(`data: ${JSON.stringify({ type: "transcript", data: delta.audio.transcript })}\n\n`);
-        }
-
-        if (delta?.audio?.data) {
-          res.write(`data: ${JSON.stringify({ type: "audio", data: delta.audio.data })}\n\n`);
-        }
+      if (assistantTranscript) {
+        const ttsBuffer = await textToSpeech(
+          assistantTranscript,
+          (voice as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer") || "alloy",
+          "mp3",
+        );
+        res.write(`data: ${JSON.stringify({ type: "audio", data: ttsBuffer.toString("base64") })}\n\n`);
       }
 
       // 6. Save assistant message

@@ -55,6 +55,9 @@ import {
   Baby,
   Hash,
   Globe,
+  TestTubes,
+  ArrowLeftRight,
+  Crown,
   Stethoscope as StethoscopeIcon,
   TestTubes,
   ArrowLeftRight,
@@ -175,6 +178,13 @@ const mainNavItems = [
     titleKey: "sidebar.longevityTracking",
     url: "/longevity-tracking",
     icon: Timer,
+    badge: "new",
+  },
+  {
+    title: "Longevity & Prevention",
+    titleKey: "sidebar.longevityPreventive",
+    url: "/longevity-preventive-health",
+    icon: ShieldCheck,
     badge: "new",
   },
   {

@@ -158,6 +158,7 @@ import rpmDeviceRoutes, { rpmWebhookRouter } from "./routes/rpm-device-routes";
 import aiAuditEngineRoutes from "./ai-audit-engine-routes";
 import personalizedEducationRoutes from "./personalized-education-routes";
 import medicationManagementRoutes from "./medication-management-routes";
+import erxCancellationRoutes from "./erx-cancellation-routes";
 import providerPopulationManagementRoutes from "./provider-population-management-routes";
 import comprehensiveCarePlanRoutes from "./comprehensive-care-plan-routes";
 import enhancedProviderAnalyticsRoutes from "./enhanced-provider-analytics-routes";
@@ -303,6 +304,14 @@ import { registerWebhookAggregatorRoutes } from "./webhook-aggregator-routes";
 import { registerGcpArchitectureRoutes } from "./gcp-architecture-routes";
 import { registerProfilePhotoRoutes } from "./profile-photo-routes";
 import { registerAdvanceDirectivesRoutes } from "./advance-directives-routes";
+import { registerWorldIpsRoutes } from "./world-ips-routes";
+import { registerClinicalWorkflowRoutes } from "./clinical-workflow-routes-v2";
+import { registerHccRoutes } from "./hcc-routes";
+import { registerRvuRoutes } from "./rvu-routes";
+import { registerEngagementRoutes } from "./engagement-routes";
+import { registerHealthSummaryShareRoutes } from "./health-summary-share-routes";
+import { registerAmbientScribeRoutes } from "./ambient-scribe-routes";
+import { registerCareManagementRoutes } from "./care-management-routes";
 import healthQuestionnaireRoutes from "./health-questionnaire-routes";
 import healthReportRoutes from "./health-report-routes";
 import providerCommunicationRoutes from "./provider-communication-routes";
@@ -1202,8 +1211,21 @@ export async function registerRoutes(
       const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
       origin = `${proto}://${host}`;
     }
-    const redirectUri = `${origin}/api/fasten-connect/callback`;
-    console.log("[FastenConnect] Config requested - publicId present:", !!publicId, "redirectUri:", redirectUri);
+    // An explicit FASTEN_HEALTH_REDIRECT_URL wins over host-derived inference.
+    // The redirect URI MUST exactly match one registered in the Fasten Connect
+    // dashboard for this public_id; otherwise Fasten rejects the connection.
+    // The host inference above is Replit-era and breaks on Cloud Run (REPLIT_*
+    // unset -> falls back to x-forwarded-host, which can be the internal
+    // *.run.app URL), so pin it via env to avoid redirect-mismatch failures.
+    const redirectOverride = process.env.FASTEN_HEALTH_REDIRECT_URL?.trim();
+    const redirectUri = redirectOverride || `${origin}/api/fasten-connect/callback`;
+    console.log(
+      "[FastenConnect] Config requested - publicId present:",
+      !!publicId,
+      "redirectUri:",
+      redirectUri,
+      redirectOverride ? "(from FASTEN_HEALTH_REDIRECT_URL)" : "(derived from host)",
+    );
     res.json({ publicId, redirectUri });
   });
 
@@ -1255,6 +1277,59 @@ export async function registerRoutes(
 
     console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
     res.status(200).json({ received: true });
+  });
+
+  // Native-app handoff page. The iOS app opens this in the system browser
+  // (expo-web-browser) with ?redirect=<app deep link>. It renders the Fasten
+  // Stitch widget; on widget.complete it bounces back to the app's custom scheme
+  // with the org_connection_id, which the app then POSTs to
+  // /api/mobile/fasten/link (re-verified server-side). Only the app's own
+  // scheme is allowed as a redirect target to prevent open-redirect abuse.
+  app.get("/fasten-native", (req, res) => {
+    const ALLOWED_SCHEMES = ["tabulamedica://"];
+    const redirect = String(req.query.redirect || "");
+    if (!ALLOWED_SCHEMES.some((s) => redirect.startsWith(s))) {
+      return res.status(400).send("Invalid redirect target.");
+    }
+    const publicId =
+      process.env.FASTEN_HEALTH_CLIENT_ID ||
+      "public_live_8ccv8p175drs4hw1o7g60120ogh36zp4tama0qd4epdn5";
+    // redirect is scheme-validated above; JSON-encode for safe JS embedding.
+    const redirectJs = JSON.stringify(redirect);
+    const publicIdAttr = publicId.replace(/"/g, "&quot;");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect your records</title>
+<link rel="stylesheet" href="https://cdn.fastenhealth.com/connect/v4/fasten-stitch-element.css">
+<script type="module" src="https://cdn.fastenhealth.com/connect/v4/fasten-stitch-element.js"></script>
+<style>body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f8fafc}#wrap{max-width:640px;margin:0 auto;padding:16px}</style>
+</head><body><div id="wrap"><div id="host"></div></div>
+<script>
+  (function () {
+    var REDIRECT = ${redirectJs};
+    function bounce(params) {
+      var sep = REDIRECT.indexOf('?') === -1 ? '?' : '&';
+      window.location.href = REDIRECT + sep + params;
+    }
+    var el = document.createElement('fasten-stitch-element');
+    el.setAttribute('public-id', "${publicIdAttr}");
+    document.getElementById('host').appendChild(el);
+    el.addEventListener('eventBus', function (event) {
+      try {
+        var raw = event && event.detail ? event.detail.data : null;
+        var data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+        var id = data.org_connection_id || data.orgConnectionId;
+        if ((data.event_type === 'connection.complete' || data.connection_status === 'authorized') && id) {
+          bounce('org_connection_id=' + encodeURIComponent(id));
+        } else if (data.event_type === 'connection.error' || data.connection_status === 'failed') {
+          bounce('error=' + encodeURIComponent(data.error_message || 'connection_failed'));
+        }
+      } catch (e) { /* ignore unparseable events */ }
+    });
+  })();
+</script>
+</body></html>`);
   });
 
   // --- Fasten "bring your own identity" sign-in (server/auth/fasten.ts) -----
@@ -1325,6 +1400,8 @@ export async function registerRoutes(
   console.log("[Routes] Personalized Education routes registered at /api/personalized-education/*");
   app.use("/api/medication-management", medicationManagementRoutes);
   console.log("[Routes] Medication Management routes registered at /api/medication-management/*");
+  app.use("/api/erx-cancellation", erxCancellationRoutes);
+  console.log("[Routes] eRx Cancellation routes registered at /api/erx-cancellation/*");
   app.use("/api/provider-population", providerPopulationManagementRoutes);
   app.use("/api/comprehensive-care-plans", comprehensiveCarePlanRoutes);
   app.use("/api/enhanced-provider-analytics", enhancedProviderAnalyticsRoutes);
@@ -1647,6 +1724,14 @@ export async function registerRoutes(
   registerGcpArchitectureRoutes(app);
   registerProfilePhotoRoutes(app);
   registerAdvanceDirectivesRoutes(app);
+  registerWorldIpsRoutes(app);
+  registerClinicalWorkflowRoutes(app);
+  registerHccRoutes(app);
+  registerRvuRoutes(app);
+  registerEngagementRoutes(app);
+  registerHealthSummaryShareRoutes(app);
+  registerAmbientScribeRoutes(app);
+  registerCareManagementRoutes(app);
 
   app.use("/api/health-questionnaire", healthQuestionnaireRoutes);
   console.log("[Routes] Health Questionnaire routes registered at /api/health-questionnaire/*");
@@ -38490,6 +38575,13 @@ startxref
   app.use("/api/pet-health", petHealthRoutes);
   console.log("[Routes] Pet Health routes registered at /api/pet-health/*");
 
+  // ================== Longevity & Preventive Health Routes ==================
+  // Shared protocol module (shared/longevity-preventive.ts) — same plan for the
+  // PHR, the clinician chart and the WorldEHR mirror. Educational, no CDS.
+  const longevityPreventiveRoutes = await import("./routes/longevity-preventive-routes");
+  app.use("/api/longevity-preventive", longevityPreventiveRoutes.default);
+  console.log("[Routes] Longevity & Preventive Health routes registered at /api/longevity-preventive/*");
+
   // ================== Drug Savings Routes ==================
   app.use("/api/drug-savings", drugSavingsRoutes);
   // Mounted as drug-label-lookup (not drug-interactions) because this is a passive
@@ -38559,7 +38651,7 @@ startxref
   app.use("/api/appstore-iap", appStoreIapRoutes);
   console.log("[Routes] App Store IAP routes registered at /api/appstore-iap/*");
 
-  app.use("/api/phr-pipeline", phrPipelineRoutes);
+  app.use("/api/phr-pipeline", isAuthenticated, phrPipelineRoutes);
   console.log("[Routes] PHR Pipeline routes registered at /api/phr-pipeline/*");
 
   app.use("/api/fqhc", fqhcFinderRoutes);

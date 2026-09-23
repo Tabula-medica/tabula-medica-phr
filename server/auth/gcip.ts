@@ -230,9 +230,15 @@ export async function verifyAndResolveGcip(token: string): Promise<User | null> 
   const existing = await resolveGcipUser(claims);
   if (existing) return existing;
   if (requiresEmailVerification(claims)) {
+    // NOTE: this file's `logger` is server/utils/logger, whose signature is
+    // (msg: string, meta?: any) — NOT pino's object-first form. Passing the
+    // object first is a type error and, at runtime, lands the object in the
+    // `msg` field while skipping maskSensitiveData() on the context entirely.
+    // A static message keeps tabula/no-string-form-logger satisfied (it flags
+    // only interpolation and `+` concatenation) and routes meta through masking.
     logger.info(
-      { externalSub: claims.sub, signInProvider: claims.firebase?.sign_in_provider },
-      "[GCIP] refusing to provision unverified email sign-up (verification link not clicked yet)"
+      "[GCIP] refusing to provision unverified email sign-up (verification link not clicked yet)",
+      { externalSub: claims.sub, signInProvider: claims.firebase?.sign_in_provider }
     );
     return null;
   }

@@ -201,6 +201,17 @@ export async function initiateSmartAuth(request: SMARTAuthRequest): Promise<SMAR
   }
   const preset = getFhirPreset(platform);
   const config = getActiveConfig(preset);
+  // getActiveConfig empties the eCW base URL when the practice code cannot be
+  // resolved (it must not fall back to the sandbox tenant). Catch that here,
+  // where we can say precisely what is missing, instead of starting an OAuth
+  // flow with an empty audience.
+  if (platform === "ecw" && !config.fhirBaseUrl) {
+    throw new Error(
+      "eClinicalWorks is not configured for this deployment: set ECW_PRACTICE_CODE to " +
+        "the practice's own code. eCW FHIR base URLs are per-practice, and the sandbox " +
+        "code would return sandbox patients.",
+    );
+  }
   const state = generateState();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
