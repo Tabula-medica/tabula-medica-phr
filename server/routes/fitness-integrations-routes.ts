@@ -31,6 +31,7 @@ import { ingestVitalReading } from "../services/vital-thresholds";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireProfile } from "../services/resolve-profile";
 import { claimDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
+import { phiDb, encryptPhiRow } from "../storage/phi-storage";
 
 const router = Router();
 
@@ -56,14 +57,17 @@ router.post("/webhook", async (req: Request, res: Response) => {
     return res.status(401).json({ success: false, error: "Invalid webhook signature" });
   }
 
-  const { isNew, dedupeKey } = await claimDelivery("terra", rawBody);
-  if (!isNew) {
-    // Already processed (or currently being processed) this exact
-    // delivery — ack without reprocessing so we never double-write vitals.
-    return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
-  }
+  let dedupeKey: string | undefined;
 
   try {
+    const claim = await claimDelivery("terra", rawBody);
+    dedupeKey = claim.dedupeKey;
+    if (!claim.isNew) {
+      // Already processed (or currently being processed) this exact
+      // delivery — ack without reprocessing so we never double-write vitals.
+      return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
+    }
+
     const { type, user, data } = req.body as { type?: string; user?: { user_id?: string }; data?: any[] };
     const terraUserId = user?.user_id;
 
@@ -103,16 +107,18 @@ router.post("/webhook", async (req: Request, res: Response) => {
       }
 
       for (const reading of wellness) {
-        await db.insert(wellnessMetricsTable).values({
-          profileId: connection.profileId,
-          fitnessConnectionId: connection.id,
-          provider: connection.provider,
-          metricType: reading.metricType,
-          value: reading.value.toString(),
-          unit: reading.unit,
-          recordedAt: reading.recordedAt,
-          rawPayload: entry,
-        });
+        await phiDb.insert(wellnessMetricsTable).values(
+          encryptPhiRow("wellnessMetricsTable", {
+            profileId: connection.profileId,
+            fitnessConnectionId: connection.id,
+            provider: connection.provider,
+            metricType: reading.metricType,
+            value: reading.value.toString(),
+            unit: reading.unit,
+            recordedAt: reading.recordedAt,
+            rawPayload: entry,
+          }),
+        );
         wellnessCount++;
       }
     }
@@ -135,9 +141,13 @@ router.post("/webhook", async (req: Request, res: Response) => {
     // Release the delivery claim so Terra's retry (it does retry non-2xx
     // responses) can actually reprocess this instead of being silently
     // deduped away — a transient DB failure must not permanently lose data.
-    await releaseDeliveryClaim("terra", dedupeKey).catch((releaseError) => {
-      console.error("[Fitness Integrations] Failed to release delivery claim:", releaseError);
-    });
+    // dedupeKey is only unset if claimDelivery itself threw, in which case
+    // there's no claim row to release.
+    if (dedupeKey) {
+      await releaseDeliveryClaim("terra", dedupeKey).catch((releaseError) => {
+        console.error("[Fitness Integrations] Failed to release delivery claim:", releaseError);
+      });
+    }
     res.status(500).json({ success: false, error: "Webhook processing failed, will retry" });
   }
 });

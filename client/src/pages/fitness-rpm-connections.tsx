@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { useSEO } from "@/hooks/use-seo";
@@ -189,6 +189,7 @@ function FitnessConnectionsSection() {
 
 function RpmDevicesSection() {
   const { toast } = useToast();
+  const [deviceType, setDeviceType] = useState<RpmMonitoringDeviceType | "">("");
 
   const devicesQuery = useQuery<{ success: boolean; devices: RpmDevice[] }>({
     queryKey: ["/api/rpm/devices"],
@@ -199,6 +200,7 @@ function RpmDevicesSection() {
       apiRequest("POST", "/api/rpm/devices", { provider: "vitalfriend", ...payload }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rpm/devices"] });
+      setDeviceType("");
       toast({
         title: "Device added",
         description: "We'll finish pairing it as soon as its first reading comes in — this can take a few minutes.",
@@ -238,17 +240,20 @@ function RpmDevicesSection() {
           onSubmit={(e) => {
             e.preventDefault();
             const form = e.currentTarget;
-            const deviceType = (form.elements.namedItem("deviceType") as HTMLSelectElement)?.value as RpmMonitoringDeviceType;
             const externalDeviceId = (form.elements.namedItem("externalDeviceId") as HTMLInputElement)?.value?.trim();
             const serialNumber = (form.elements.namedItem("serialNumber") as HTMLInputElement)?.value?.trim();
             if (!deviceType || !externalDeviceId || !serialNumber) return;
             enrollMutation.mutate({ deviceType, externalDeviceId, serialNumber });
             form.reset();
+            setDeviceType("");
           }}
         >
           <div className="space-y-1">
             <Label htmlFor="deviceType">Device type</Label>
-            <Select name="deviceType" required>
+            {/* Radix Select doesn't render a native named form control, so its
+                value is tracked in state via onValueChange rather than read
+                from form.elements on submit. */}
+            <Select value={deviceType} onValueChange={(v) => setDeviceType(v as RpmMonitoringDeviceType)} required>
               <SelectTrigger id="deviceType" data-testid="select-device-type">
                 <SelectValue placeholder="Select a device" />
               </SelectTrigger>

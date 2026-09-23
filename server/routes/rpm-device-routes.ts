@@ -281,12 +281,15 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
     });
   }
 
-  const { isNew, dedupeKey } = await claimDelivery("vitalfriend", rawBody);
-  if (!isNew) {
-    return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
-  }
+  let dedupeKey: string | undefined;
 
   try {
+    const claim = await claimDelivery("vitalfriend", rawBody);
+    dedupeKey = claim.dedupeKey;
+    if (!claim.isNew) {
+      return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
+    }
+
     const { device_id, serial_number, readings } = parsed.data;
 
     const [device] = await db
@@ -313,6 +316,24 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
       }
       await db.update(rpmDevicesTable).set({ status: "active" }).where(eq(rpmDevicesTable.id, device.id));
       logHipaaAudit("DEVICE_ACTIVATED", device.profileId, device.id, "Serial number confirmed on first delivery");
+    } else if (serial_number) {
+      // Re-verify on every subsequent delivery that includes a
+      // serial_number — our ASSUMED spec marks the field optional, so we
+      // can't require it on every call, but whenever it IS present it must
+      // match. This also closes the gap for "active" rows enrolled before
+      // serialNumber was a required field (their serialNumber is null and
+      // can never match a provided value, so a stray/attacker delivery
+      // carrying a serial_number is rejected instead of silently trusted).
+      const serialMatches = !!device.serialNumber && serial_number.trim() === device.serialNumber.trim();
+      if (!serialMatches) {
+        logHipaaAudit(
+          "WEBHOOK_SERIAL_MISMATCH",
+          device.profileId,
+          device.id,
+          "Delivery's serial_number did not match the enrolled device; reading discarded",
+        );
+        return res.status(200).json({ success: true, note: "Device serial mismatch; ignored" });
+      }
     }
 
     let ingested = 0;
@@ -360,9 +381,13 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
     res.json({ success: true, ingested, rejectedUnit });
   } catch (error) {
     console.error("[RPM Devices] Webhook processing error:", error);
-    await releaseDeliveryClaim("vitalfriend", dedupeKey).catch((releaseError) => {
-      console.error("[RPM Devices] Failed to release delivery claim:", releaseError);
-    });
+    // dedupeKey is only unset if claimDelivery itself threw, in which case
+    // there's no claim row to release.
+    if (dedupeKey) {
+      await releaseDeliveryClaim("vitalfriend", dedupeKey).catch((releaseError) => {
+        console.error("[RPM Devices] Failed to release delivery claim:", releaseError);
+      });
+    }
     res.status(500).json({ success: false, error: "Failed to process readings, will retry" });
   }
 });
