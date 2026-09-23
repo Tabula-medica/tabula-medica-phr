@@ -448,6 +448,23 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("rejects a 194-char publicKeyHex that isn't valid hex — Buffer.from(str, 'hex') silently truncates instead of throwing, which would otherwise permanently squat the EDIPI/device with an unusable credential", async () => {
+    const handlers = captureHandlers();
+    // Same length as a real P-384 point (194), but not hex — and missing
+    // the required 0x04 SEC1 uncompressed-point prefix.
+    const notHex = "zz".repeat(97);
+    expect(notHex).toHaveLength(194);
+    const res = await enroll(handlers, "1234567890", notHex);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects a non-string publicKeyHex whose .length happens to be 194", async () => {
+    const handlers = captureHandlers();
+    const fakeArrayWithLength194 = { length: 194 } as unknown as string;
+    const res = await enroll(handlers, "1234567890", fakeArrayWithLength194);
+    expect(res.statusCode).toBe(400);
+  });
+
   it("allows the same account to enroll a second device under an EDIPI it already claimed", async () => {
     const handlers = captureHandlers();
     const firstKeyPair = await generateKeyPair();

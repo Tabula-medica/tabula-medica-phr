@@ -459,13 +459,20 @@ export function registerDoDRoutes(
       }
 
       // Validate public key format (ECDSA P-384 uncompressed = 97 bytes = 194
-      // hex chars). Only P-384 is accepted — verifyChallengeSignature always
-      // imports the key as P-384 (matching client/lib/fips-crypto.ts's
-      // FIPS.SIGN_CURVE), so a 130-char P-256 key would enroll successfully
-      // here but could never pass verification: importKey with
-      // namedCurve: "P-384" rejects a 65-byte P-256 point outright.
-      if (!publicKeyHex || publicKeyHex.length !== 194) {
-        return res.status(400).json({ error: "Invalid public key format — expected ECDSA P-384 uncompressed" });
+      // hex chars, starting with the 0x04 SEC1 uncompressed-point marker).
+      // Only P-384 is accepted — verifyChallengeSignature always imports the
+      // key as P-384 (matching client/lib/fips-crypto.ts's FIPS.SIGN_CURVE),
+      // so a 130-char P-256 key would enroll successfully here but could
+      // never pass verification: importKey with namedCurve: "P-384" rejects
+      // a 65-byte P-256 point outright. The runtime-type + hex-alphabet
+      // check (not just length) matters because Buffer.from(str, "hex")
+      // silently truncates at the first invalid character instead of
+      // throwing, so a non-hex string would otherwise enroll a permanently
+      // unusable credential and squat the EDIPI/device.
+      if (typeof publicKeyHex !== "string" || !/^04[0-9a-fA-F]{192}$/.test(publicKeyHex)) {
+        return res
+          .status(400)
+          .json({ error: "Invalid public key format — expected ECDSA P-384 uncompressed (raw SEC1, 194 hex chars starting with 04)" });
       }
 
       // This app has no independently-verified source of a user's EDIPI
