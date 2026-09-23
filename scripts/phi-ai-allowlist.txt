@@ -11,11 +11,7 @@ server/ai-provider-search-service.ts
 server/index.ts
 server/integrations-debug-routes.ts
 server/monitoring-routes.ts
-# Backlog — migrate each to server/services/ai-gateway.ts:
+# Permanent exceptions — BAA-safe exports or fail-closed stubs:
 # audio/client.ts: exports openai (Vertex shim, BAA) used by voice callers; chat call migrated
 server/replit_integrations/audio/client.ts
-server/replit_integrations/image/client.ts
-server/routes/card-ocr-routes.ts
-server/services/ai-provider.ts
-server/services/document-ocr-service.ts
-server/services/multimodal-document-parser.ts
+# (Backlog empty — all non-BAA callers migrated or fail-closed)

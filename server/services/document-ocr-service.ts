@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import type { AutoTagCategory } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeVision, generatePhiSafeChat } from "./ai-gateway";
 
 export interface ExtractedDocumentData {
   documentId: string;
@@ -51,12 +46,11 @@ class DocumentOcrService {
     console.log(`[OCR] Starting extraction for document ${documentId}: ${fileName}`);
     
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical document OCR and data extraction system. Your job is to:
+      const content = await generatePhiSafeVision({
+        base64Image: imageBase64,
+        imageMimeType: mimeType,
+        prompt: `Extract all information from this medical document image. Document name: ${fileName}`,
+        system: `You are a medical document OCR and data extraction system. Your job is to:
 1. Extract ALL text from the document image
 2. Identify and structure medical information (lab results, medications, diagnoses, etc.)
 3. Categorize the document type
@@ -86,31 +80,11 @@ Respond with valid JSON in this format:
   "procedures": [{"code": "CPT if visible", "description": "procedure", "date": "if visible"}],
   "allergies": ["allergy1", "allergy2"],
   "summary": "brief factual summary of document content - NO interpretation"
-}`
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Extract all information from this medical document image. Document name: ${fileName}`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${imageBase64}`,
-                  detail: "high"
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 4000,
-        response_format: { type: "json_object" }
+}`,
+        responseMimeType: "application/json",
+        maxTokens: 4000,
       });
-
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
       
       const processingTime = Date.now() - startTime;
       
@@ -172,8 +146,7 @@ Respond with valid JSON in this format:
     console.log(`[OCR] Starting text extraction for PDF ${documentId}: ${fileName}`);
     
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const content = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -187,19 +160,17 @@ CRITICAL RULES:
 
 ${NO_CDS_DISCLAIMER}
 
-Respond with valid JSON (same format as image extraction).`
+Respond with valid JSON (same format as image extraction).`,
           },
           {
             role: "user",
-            content: `Extract structured data from this medical document text. Document name: ${fileName}\n\nDocument content:\n${pdfText.slice(0, 8000)}`
-          }
+            content: `Extract structured data from this medical document text. Document name: ${fileName}\n\nDocument content:\n${pdfText.slice(0, 8000)}`,
+          },
         ],
-        max_tokens: 4000,
-        response_format: { type: "json_object" }
+        responseMimeType: "application/json",
+        maxTokens: 4000,
       });
-
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
       
       const processingTime = Date.now() - startTime;
       
