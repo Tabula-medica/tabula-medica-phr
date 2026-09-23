@@ -161,8 +161,14 @@ export function evaluateConsentArtefact(
   // The check that stops one user's request being served under another user's consent.
   const artefactPatient = artefact.patient?.id?.trim().toLowerCase() ?? "";
   const expectedPatient = expectation.abhaAddress.trim().toLowerCase();
-  if (!artefactPatient || !expectedPatient) {
-    refusals.push({ code: "patient-mismatch", detail: "artefact or request is missing an ABHA address" });
+  if (!artefactPatient) {
+    // An artefact with no patient is MALFORMED, not someone else's. Callers treat
+    // `patient-mismatch` as "this grant belongs to another account" and answer 404 on it, so
+    // folding the missing case in there would report an unreadable artefact as another
+    // patient's — and, in stub mode where no artefact exists at all, turn every lookup into a 404.
+    refusals.push({ code: "malformed-artefact", detail: "artefact carries no patient ABHA address" });
+  } else if (!expectedPatient) {
+    refusals.push({ code: "patient-mismatch", detail: "no ABHA address for the requesting account" });
   } else if (artefactPatient !== expectedPatient) {
     refusals.push({ code: "patient-mismatch", detail: "artefact was granted for a different ABHA address" });
   }

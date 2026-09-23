@@ -44,32 +44,44 @@ export async function linkAbhaAddress(
   const externalSub = normalise(abhaAddress);
   if (!userId || !externalSub) throw new Error("userId and abhaAddress are required to link an ABHA identity");
 
+  // Insert first and let the unique (provider, external_sub) index arbitrate.
+  //
+  // A read-then-insert would race: two concurrent verifications can both see "no existing row",
+  // and the loser's insert then fails on the constraint — surfacing as a 500 rather than the
+  // "conflict" this function is supposed to return. Going through the index makes the outcome
+  // deterministic no matter how the calls interleave, because the database decides, not us.
+  const inserted = await db
+    .insert(externalIdentities)
+    .values({
+      userId,
+      provider: ABHA_PROVIDER,
+      externalSub,
+      // The ABHA NUMBER is a national health identifier. It is kept out of `email` and out of any
+      // indexed column, and lives in metadata only so the link can be shown back to the patient.
+      metadata: { abhaNumber: metadata.abhaNumber ?? null },
+      linkedAt: new Date(),
+      lastSeenAt: new Date(),
+    })
+    .onConflictDoNothing({ target: [externalIdentities.provider, externalIdentities.externalSub] })
+    .returning({ id: externalIdentities.id });
+
+  if (inserted.length > 0) return "linked";
+
+  // Nothing inserted ⇒ the row already existed. Read it to see whose it is.
   const [existing] = await db
     .select()
     .from(externalIdentities)
     .where(and(eq(externalIdentities.provider, ABHA_PROVIDER), eq(externalIdentities.externalSub, externalSub)))
     .limit(1);
 
-  if (existing) {
-    if (existing.userId !== userId) return "conflict";
-    await db
-      .update(externalIdentities)
-      .set({ lastSeenAt: new Date() })
-      .where(eq(externalIdentities.id, existing.id));
-    return "already-linked";
-  }
+  // Gone between the two statements: someone deleted the link. Report the conflict rather than
+  // retrying — a caller that sees "conflict" does nothing unsafe, and a retry loop here could
+  // spin against a concurrent writer.
+  if (!existing) return "conflict";
+  if (existing.userId !== userId) return "conflict";
 
-  await db.insert(externalIdentities).values({
-    userId,
-    provider: ABHA_PROVIDER,
-    externalSub,
-    // The ABHA NUMBER is a national health identifier. It is kept out of `email` and out of any
-    // indexed column, and lives in metadata only so the link can be shown back to the patient.
-    metadata: { abhaNumber: metadata.abhaNumber ?? null },
-    linkedAt: new Date(),
-    lastSeenAt: new Date(),
-  });
-  return "linked";
+  await db.update(externalIdentities).set({ lastSeenAt: new Date() }).where(eq(externalIdentities.id, existing.id));
+  return "already-linked";
 }
 
 /** The authenticated user's linked ABHA address, or null. The only source consent routes trust. */

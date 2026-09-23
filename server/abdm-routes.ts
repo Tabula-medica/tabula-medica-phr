@@ -1,14 +1,13 @@
 // ABDM (India) routes for the PHR — connection ops + ABHA enrollment. Uses the shared ABDM lib
 // (server/abdm/*), mirrored from WorldEHR. Stub-by-default; real calls need ABDM_ENABLED + the PHR's
 // own ABDM client creds + Mumbai-proxy egress. Sandbox only until a production BAA.
-import express, { Router, type Request, type Response, type Express } from "express";
+import express, { Router, type Request, type Response, type NextFunction, type Express } from "express";
 import { abdmConfig } from "./abdm/config";
 import { getAbdmSession } from "./abdm/gateway";
 import { requestAbhaOtp, enrolAbhaByOtp } from "./abdm/abha";
 import {
   evaluateConsentArtefact,
   fetchConsentArtefact,
-  getConsentRequestStatus,
   initConsentRequest,
   type ConsentExpectation,
 } from "./abdm/consent";
@@ -147,15 +146,28 @@ router.post("/consent/request", requireAuth, async (req: Request, res: Response)
   }
 });
 
-// GET /api/abdm/consent/request/:consentRequestId — lifecycle status + granted artefact ids.
-router.get("/consent/request/:consentRequestId", requireAuth, async (req: Request, res: Response) => {
-  if (!(await requireLinkedAbha(req, res))) return;
-  try {
-    res.json(await getConsentRequestStatus(String(req.params.consentRequestId), Date.now()));
-  } catch (e) {
-    res.status(502).json({ error: (e as Error).message });
-  }
-});
+// NOTE — there is deliberately NO `GET /consent/request/:consentRequestId` status route.
+//
+// A consentRequestId is a bare gateway identifier: nothing in the status response names the
+// patient it belongs to, so a route serving it would hand any enrolled user the grant status and
+// artefact ids of any consent request id they could name. Binding it to the caller needs the
+// ABDM `on-init` callback that delivers the consentRequestId back to us (we cannot know it at
+// init time — v3 answers asynchronously), and that callback is not built here. `getConsentRequestStatus`
+// in `consent.ts` is the client that work will use. Until then the route stays absent rather than
+// shipped unbound. See docs/abdm-consent-dataflow.md.
+
+/**
+ * True when the artefact belongs to a different patient.
+ *
+ * Such an artefact is answered as 404 carrying nothing else. The evaluation is otherwise safe to
+ * return — it is the caller's own consent — but for someone else's it describes their grant:
+ * consented HI types, the clinical date window, the erase deadline. Blocking the clinical fetch
+ * is not enough if the metadata still leaks, and "not found" also avoids confirming that a
+ * consent id exists at all.
+ */
+function belongsToAnotherPatient(evaluation: { refusals: { code: string }[] }): boolean {
+  return evaluation.refusals.some((r) => r.code === "patient-mismatch");
+}
 
 // GET /api/abdm/consent/:consentId — fetch an artefact and report what it authorises.
 // Returns the EVALUATION, not the raw artefact: the useful answer is "may this be used, and if
@@ -166,12 +178,17 @@ router.get("/consent/:consentId", requireAuth, async (req: Request, res: Respons
   try {
     const { artefact, source } = await fetchConsentArtefact(String(req.params.consentId), Date.now());
     const requested = asStringArray(req.query.hiTypes);
-    const hiTypes = requested.length > 0 ? requested : (artefact?.hiTypes ?? []);
+    // Sanitize the artefact fallback too: hiTypes is network-derived, and a non-string element
+    // would reach `.trim()` inside evaluation and throw.
+    const hiTypes = requested.length > 0 ? requested : asStringArray(artefact?.hiTypes);
     const evaluation = evaluateConsentArtefact(
       artefact,
       { abhaAddress, hiuId: abdmConfig.hiuId, hiTypes } satisfies ConsentExpectation,
       Date.now(),
     );
+    if (belongsToAnotherPatient(evaluation)) {
+      return res.status(404).json({ error: "No such consent for this account" });
+    }
     res.json({ consentId: String(req.params.consentId), source, evaluation });
   } catch (e) {
     res.status(502).json({ error: (e as Error).message });
@@ -199,6 +216,11 @@ router.post("/hi/request", requireAuth, async (req: Request, res: Response) => {
       { abhaAddress, hiuId: abdmConfig.hiuId, hiTypes, dateRange: { from, to } },
       now,
     );
+    if (belongsToAnotherPatient(evaluation)) {
+      // 404 with no evaluation: a 403 describing someone else's grant leaks exactly what the
+      // refusal is meant to protect.
+      return res.status(404).json({ error: "No such consent for this account" });
+    }
     if (!evaluation.authorised) {
       // 403 with the refusal codes: the request was understood and is not permitted.
       return res.status(403).json({ error: "consent does not authorise this request", evaluation });
@@ -246,6 +268,29 @@ transferRouter.post(
       if (e instanceof TransferRefused) return res.status(400).json({ error: e.code });
       res.status(400).json({ error: "transfer could not be processed" });
     }
+  },
+);
+
+/**
+ * Body-parser failures happen in the middleware above, before the handler runs, so the handler's
+ * own try/catch never sees them. Without this they fall through to the global error handler —
+ * which reports the GLOBAL 10mb limit, the wrong number for this route, and only for the
+ * too-large case. Convert both failure modes here instead, so the endpoint answers JSON with the
+ * limit that actually applied.
+ */
+transferRouter.use(
+  (err: Error & { type?: string; status?: number }, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    if (err?.type === "entity.too.large") {
+      return res.status(413).json({
+        error: "transfer-too-large",
+        limit: process.env.ABDM_TRANSFER_BODY_LIMIT ?? "2mb",
+      });
+    }
+    if (err instanceof SyntaxError || err?.type === "entity.parse.failed") {
+      return res.status(400).json({ error: "transfer-body-not-json" });
+    }
+    return next(err);
   },
 );
 
