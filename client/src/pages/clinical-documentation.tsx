@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -1163,8 +1164,8 @@ export default function ClinicalDocumentation() {
 
                     {transcriptionText && (
                       <div className="space-y-2">
-                        <Label>Transcription (editable)</Label>
-                        <Textarea
+                        <Label htmlFor="clinical-documentation-transcription-editable">Transcription (editable)</Label>
+                        <Textarea id="clinical-documentation-transcription-editable"
                           value={transcriptionText}
                           onChange={(e) => setTranscriptionText(e.target.value)}
                           rows={8}
@@ -1187,33 +1188,33 @@ export default function ClinicalDocumentation() {
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-xs text-muted-foreground">Patient</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">Patient</FieldCaption>
                         <p className="font-medium">{sampleEncounter.patientName}</p>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">DOB</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">DOB</FieldCaption>
                         <p className="font-medium">{sampleEncounter.dateOfBirth}</p>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Visit Date</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">Visit Date</FieldCaption>
                         <p className="font-medium">{sampleEncounter.visitDate}</p>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Visit Type</Label>
+                        <FieldCaption className="text-xs text-muted-foreground">Visit Type</FieldCaption>
                         <p className="font-medium">{sampleEncounter.visitType}</p>
                       </div>
                     </div>
 
                     <div>
-                      <Label className="text-xs text-muted-foreground">Chief Complaint</Label>
+                      <FieldCaption className="text-xs text-muted-foreground">Chief Complaint</FieldCaption>
                       <p className="font-medium">{sampleEncounter.chiefComplaint}</p>
                     </div>
 
                     {sampleEncounter.vitalSigns && (
                       <div>
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FieldCaption className="text-xs text-muted-foreground flex items-center gap-1">
                           <Activity className="h-3 w-3" /> Vital Signs
-                        </Label>
+                        </FieldCaption>
                         <div className="flex flex-wrap gap-2 mt-1">
                           <Badge variant="outline">BP: {sampleEncounter.vitalSigns.bloodPressure}</Badge>
                           <Badge variant="outline">HR: {sampleEncounter.vitalSigns.heartRate}</Badge>
@@ -1225,9 +1226,9 @@ export default function ClinicalDocumentation() {
 
                     {sampleEncounter.medications && sampleEncounter.medications.length > 0 && (
                       <div>
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FieldCaption className="text-xs text-muted-foreground flex items-center gap-1">
                           <Pill className="h-3 w-3" /> Current Medications
-                        </Label>
+                        </FieldCaption>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {sampleEncounter.medications.map((med, i) => (
                             <Badge key={i} variant="secondary" className="text-xs">{med}</Badge>
@@ -1238,9 +1239,9 @@ export default function ClinicalDocumentation() {
 
                     {sampleEncounter.allergies && sampleEncounter.allergies.length > 0 && (
                       <div>
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FieldCaption className="text-xs text-muted-foreground flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" /> Allergies
-                        </Label>
+                        </FieldCaption>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {sampleEncounter.allergies.map((allergy, i) => (
                             <Badge key={i} variant="destructive" className="text-xs">{allergy}</Badge>
@@ -1253,8 +1254,8 @@ export default function ClinicalDocumentation() {
 
                 {inputMode === "text" && (
                   <div className="space-y-2">
-                    <Label>Free Text Notes</Label>
-                    <Textarea
+                    <Label htmlFor="clinical-documentation-free-text-notes">Free Text Notes</Label>
+                    <Textarea id="clinical-documentation-free-text-notes"
                       value={freeTextInput}
                       onChange={(e) => setFreeTextInput(e.target.value)}
                       rows={12}
@@ -1287,7 +1288,7 @@ export default function ClinicalDocumentation() {
 
                 {templates.find(t => t.id === selectedTemplate) && (
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Template Sections</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Template Sections</FieldCaption>
                     <div className="flex flex-wrap gap-1">
                       {templates.find(t => t.id === selectedTemplate)?.sections.map((section, i) => (
                         <Badge key={i} variant="outline" className="text-xs">{section}</Badge>

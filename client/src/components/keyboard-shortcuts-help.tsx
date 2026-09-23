@@ -67,16 +67,20 @@ export function KeyboardShortcutsHelp({
   }
 
   return (
+    // The scrim is decoration: no dialog semantics, no tab stop.
+    // Click-to-dismiss is a mouse shortcut for the close button; the keyboard
+    // routes out are Escape and that button.
     <div
       className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Keyboard shortcuts"
+      role="presentation"
       onClick={onClose}
-      data-testid="dialog-keyboard-shortcuts"
     >
       <Card
         ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Keyboard shortcuts"
+        data-testid="dialog-keyboard-shortcuts"
         className="w-full max-w-lg animate-in zoom-in-95 max-h-[80vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
       >

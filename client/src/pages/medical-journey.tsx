@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { LanesOfCare } from "@/components/lanes-of-care";
@@ -353,8 +354,8 @@ export default function MedicalJourneyPage() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Recipient Email (optional)</Label>
-                  <Input
+                  <Label htmlFor="medical-journey-recipient-email-optional">Recipient Email (optional)</Label>
+                  <Input id="medical-journey-recipient-email-optional"
                     placeholder="doctor@hospital.com"
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
@@ -362,8 +363,8 @@ export default function MedicalJourneyPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Purpose</Label>
-                  <Input
+                  <Label htmlFor="medical-journey-purpose">Purpose</Label>
+                  <Input id="medical-journey-purpose"
                     placeholder="e.g., Cardiology consultation"
                     value={sharePurpose}
                     onChange={(e) => setSharePurpose(e.target.value)}
@@ -371,9 +372,9 @@ export default function MedicalJourneyPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Link Expiration</Label>
+                  <Label htmlFor="medical-journey-link-expiration">Link Expiration</Label>
                   <Select value={shareExpiration} onValueChange={setShareExpiration}>
-                    <SelectTrigger data-testid="select-expiration">
+                    <SelectTrigger id="medical-journey-link-expiration" data-testid="select-expiration">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -387,7 +388,7 @@ export default function MedicalJourneyPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Include Sections</Label>
+                  <FieldCaption>Include Sections</FieldCaption>
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: "summary", label: "AI Summary" },
@@ -398,7 +399,7 @@ export default function MedicalJourneyPage() {
                       { id: "landmarks", label: "Landmarks" }
                     ].map(section => (
                       <div key={section.id} className="flex items-center space-x-2">
-                        <Checkbox
+                        <Checkbox aria-label="Include Sections"
                           id={section.id}
                           checked={shareSections.includes(section.id)}
                           onCheckedChange={() => toggleSection(section.id)}
@@ -410,9 +411,9 @@ export default function MedicalJourneyPage() {
                 </div>
                 {shareLink && (
                   <div className="space-y-2 p-3 bg-muted rounded-md">
-                    <Label>Share Link</Label>
+                    <Label htmlFor="medical-journey-share-link">Share Link</Label>
                     <div className="flex gap-2">
-                      <Input value={shareLink} readOnly className="text-xs" data-testid="input-share-link" />
+                      <Input id="medical-journey-share-link" value={shareLink} readOnly className="text-xs" data-testid="input-share-link" />
                       <Button size="sm" variant="outline" onClick={copyToClipboard} data-testid="button-copy-link">
                         <Copy className="w-4 h-4" />
                       </Button>

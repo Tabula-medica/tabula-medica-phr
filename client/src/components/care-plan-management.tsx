@@ -47,6 +47,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 type GoalStatus = "not_started" | "in_progress" | "achieved" | "not_achieved" | "cancelled";
 
@@ -482,7 +483,7 @@ function CarePlanListItem({ plan, onClick }: { plan: CarePlan; onClick: () => vo
   return (
     <div 
       className="p-4 rounded-lg border hover-elevate cursor-pointer"
-      onClick={onClick}
+      {...clickable(onClick)}
       data-testid={`card-care-plan-${plan.id}`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">

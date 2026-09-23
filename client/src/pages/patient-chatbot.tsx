@@ -395,8 +395,8 @@ export default function PatientChatbot() {
           {!draftMessage ? (
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">What would you like to discuss?</label>
-                <Textarea
+                <label htmlFor="patient-chatbot-what-would-you-like-to-discuss" className="text-sm font-medium mb-2 block">What would you like to discuss?</label>
+                <Textarea id="patient-chatbot-what-would-you-like-to-discuss"
                   value={escalationConcern}
                   onChange={(e) => setEscalationConcern(e.target.value)}
                   placeholder="Describe your concern or question..."

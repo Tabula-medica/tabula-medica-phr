@@ -50,6 +50,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { TutorialCard } from "@/components/onboarding";
 import { TranslateButton } from "@/components/translate-button";
+import { clickable } from "@/lib/a11y";
 
 interface DocumentQuote {
   text: string;
@@ -356,7 +357,7 @@ export function DocumentSummaryCard() {
                   <div
                     key={doc.id}
                     className="p-3 rounded-lg border hover-elevate cursor-pointer"
-                    onClick={() => handleSelectDocument(doc.id)}
+                    {...clickable(() => handleSelectDocument(doc.id))}
                     data-testid={`document-${doc.id}`}
                   >
                     <div className="flex items-start gap-3">

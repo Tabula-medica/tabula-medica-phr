@@ -38,6 +38,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
+import { clickable } from "@/lib/a11y";
 
 interface IngestionDashboard {
   totalErrors: number;
@@ -636,7 +637,7 @@ export default function EnhancedDataIngestion() {
                     <div
                       key={error.id}
                       className="flex items-center justify-between p-3 bg-muted rounded-md cursor-pointer hover-elevate"
-                      onClick={() => setSelectedError(error)}
+                      {...clickable(() => setSelectedError(error))}
                       data-testid={`error-item-${error.id}`}
                     >
                       <div className="flex items-center gap-3">
@@ -672,7 +673,7 @@ export default function EnhancedDataIngestion() {
               {errorsData?.errors && errorsData.errors.length > 0 ? (
                 <div className="space-y-3">
                   {errorsData.errors.map((error) => (
-                    <div
+                    <div role="presentation"
                       key={error.id}
                       className={`p-4 rounded-lg border ${error.resolved ? "bg-green-50 dark:bg-green-950/20 border-green-200" : "bg-red-50 dark:bg-red-950/20 border-red-200"} cursor-pointer`}
                       onClick={() => setSelectedError(error)}

@@ -630,8 +630,11 @@ export default function CarePathwaysPage() {
                         </DialogHeader>
                         <div className="space-y-4">
                           <div>
-                            <label className="text-sm font-medium">Notes (Optional)</label>
+                            {/* Rendered once per pathway, so a shared id would
+                                collide; the control is named directly instead. */}
+                            <span className="text-sm font-medium">Notes (Optional)</span>
                             <Textarea
+                              aria-label="Notes (Optional)"
                               placeholder="Add any notes for this assignment..."
                               value={assignNotes}
                               onChange={(e) => setAssignNotes(e.target.value)}

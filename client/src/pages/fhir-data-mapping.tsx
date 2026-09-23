@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import { 
   ArrowRight,
   ArrowLeftRight,
@@ -478,7 +480,7 @@ export default function FHIRDataMappingPage() {
               <Card key={mapping.id} className="hover-elevate" data-testid={`card-mapping-${mapping.id}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleMappingExpanded(mapping.id)}>
+                    <div className="flex items-center gap-2 cursor-pointer" {...clickable(() => toggleMappingExpanded(mapping.id))}>
                       {expandedMappings.has(mapping.id) ? (
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       ) : (
@@ -833,7 +835,7 @@ export default function FHIRDataMappingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <Label>Assigned Mappings</Label>
+                    <FieldCaption>Assigned Mappings</FieldCaption>
                     <div className="flex flex-wrap gap-2">
                       {mappings?.filter(m => m.fhirVersion === connection.fhirVersion || connection.fhirVersion === "STU3").map((mapping) => (
                         <Badge key={mapping.id} variant="outline" className="cursor-pointer hover-elevate">
@@ -895,9 +897,9 @@ export default function FHIRDataMappingPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>FHIR Version *</Label>
+                <Label htmlFor="fhir-data-mapping-fhir-version">FHIR Version *</Label>
                 <Select value={newMapping.fhirVersion} onValueChange={(v) => setNewMapping({ ...newMapping, fhirVersion: v as "R4" | "R5" })}>
-                  <SelectTrigger data-testid="select-fhir-version">
+                  <SelectTrigger id="fhir-data-mapping-fhir-version" data-testid="select-fhir-version">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -907,9 +909,9 @@ export default function FHIRDataMappingPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Target Resource *</Label>
+                <Label htmlFor="fhir-data-mapping-target-resource">Target Resource *</Label>
                 <Select value={newMapping.targetResourceType} onValueChange={(v) => setNewMapping({ ...newMapping, targetResourceType: v })}>
-                  <SelectTrigger data-testid="select-target-resource">
+                  <SelectTrigger id="fhir-data-mapping-target-resource" data-testid="select-target-resource">
                     <SelectValue placeholder="Select resource" />
                   </SelectTrigger>
                   <SelectContent>
@@ -921,9 +923,9 @@ export default function FHIRDataMappingPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Source Entity Type *</Label>
+              <Label htmlFor="fhir-data-mapping-source-entity-type">Source Entity Type *</Label>
               <Select value={newMapping.sourceEntityType} onValueChange={(v) => setNewMapping({ ...newMapping, sourceEntityType: v })}>
-                <SelectTrigger data-testid="select-source-entity">
+                <SelectTrigger id="fhir-data-mapping-source-entity-type" data-testid="select-source-entity">
                   <SelectValue placeholder="Select entity type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -984,9 +986,9 @@ export default function FHIRDataMappingPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Data Type</Label>
+                <Label htmlFor="fhir-data-mapping-data-type">Data Type</Label>
                 <Select value={newField.dataType} onValueChange={(v) => setNewField({ ...newField, dataType: v })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="fhir-data-mapping-data-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -997,9 +999,9 @@ export default function FHIRDataMappingPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Transformation</Label>
+                <Label htmlFor="fhir-data-mapping-transformation">Transformation</Label>
                 <Select value={newField.transformationType} onValueChange={(v) => setNewField({ ...newField, transformationType: v })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="fhir-data-mapping-transformation">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1063,9 +1065,9 @@ export default function FHIRDataMappingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Validation Rule</Label>
+              <Label htmlFor="fhir-data-mapping-validation-rule">Validation Rule</Label>
               <Select value={newValidationRule.rule} onValueChange={(v) => setNewValidationRule({ ...newValidationRule, rule: v })}>
-                <SelectTrigger>
+                <SelectTrigger id="fhir-data-mapping-validation-rule">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

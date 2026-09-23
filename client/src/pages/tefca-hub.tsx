@@ -623,8 +623,8 @@ export default function TefcaHubPage() {
             <CardContent>
               <div className="flex flex-wrap gap-3 items-end">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">From</label>
-                  <Input
+                  <label htmlFor="tefca-hub-from" className="text-xs text-muted-foreground">From</label>
+                  <Input id="tefca-hub-from"
                     type="date"
                     value={auditDateFrom}
                     onChange={(e) => setAuditDateFrom(e.target.value)}
@@ -632,8 +632,8 @@ export default function TefcaHubPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">To</label>
-                  <Input
+                  <label htmlFor="tefca-hub-to" className="text-xs text-muted-foreground">To</label>
+                  <Input id="tefca-hub-to"
                     type="date"
                     value={auditDateTo}
                     onChange={(e) => setAuditDateTo(e.target.value)}
@@ -641,9 +641,9 @@ export default function TefcaHubPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Partner</label>
+                  <label htmlFor="tefca-hub-partner" className="text-xs text-muted-foreground">Partner</label>
                   <Select value={auditPartner} onValueChange={setAuditPartner}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-audit-partner">
+                    <SelectTrigger id="tefca-hub-partner" className="w-[180px]" data-testid="select-audit-partner">
                       <SelectValue placeholder="All Partners" />
                     </SelectTrigger>
                     <SelectContent>
@@ -655,9 +655,9 @@ export default function TefcaHubPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Status</label>
+                  <label htmlFor="tefca-hub-status" className="text-xs text-muted-foreground">Status</label>
                   <Select value={auditStatus} onValueChange={setAuditStatus}>
-                    <SelectTrigger className="w-[140px]" data-testid="select-audit-status">
+                    <SelectTrigger id="tefca-hub-status" className="w-[140px]" data-testid="select-audit-status">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -670,9 +670,9 @@ export default function TefcaHubPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Operation</label>
+                  <label htmlFor="tefca-hub-operation" className="text-xs text-muted-foreground">Operation</label>
                   <Select value={auditOperation} onValueChange={setAuditOperation}>
-                    <SelectTrigger className="w-[140px]" data-testid="select-audit-operation">
+                    <SelectTrigger id="tefca-hub-operation" className="w-[140px]" data-testid="select-audit-operation">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>

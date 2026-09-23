@@ -492,12 +492,12 @@ export default function AIPatientOutreach() {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Channel</Label>
+                    <Label htmlFor="ai-patient-outreach-channel">Channel</Label>
                     <Select 
                       value={messageForm.channel} 
                       onValueChange={(v) => setMessageForm({ ...messageForm, channel: v as 'sms' | 'email' })}
                     >
-                      <SelectTrigger data-testid="select-channel">
+                      <SelectTrigger id="ai-patient-outreach-channel" data-testid="select-channel">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -507,12 +507,12 @@ export default function AIPatientOutreach() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Scenario</Label>
+                    <Label htmlFor="ai-patient-outreach-scenario">Scenario</Label>
                     <Select 
                       value={messageForm.scenario} 
                       onValueChange={(v) => setMessageForm({ ...messageForm, scenario: v })}
                     >
-                      <SelectTrigger data-testid="select-scenario">
+                      <SelectTrigger id="ai-patient-outreach-scenario" data-testid="select-scenario">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -527,16 +527,16 @@ export default function AIPatientOutreach() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Clinic Name</Label>
-                    <Input 
+                    <Label htmlFor="ai-patient-outreach-clinic-name">Clinic Name</Label>
+                    <Input id="ai-patient-outreach-clinic-name" 
                       value={messageForm.clinicName}
                       onChange={(e) => setMessageForm({ ...messageForm, clinicName: e.target.value })}
                       data-testid="input-clinic-name"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone Number</Label>
-                    <Input 
+                    <Label htmlFor="ai-patient-outreach-phone-number">Phone Number</Label>
+                    <Input id="ai-patient-outreach-phone-number" 
                       value={messageForm.phoneNumber}
                       onChange={(e) => setMessageForm({ ...messageForm, phoneNumber: e.target.value })}
                       data-testid="input-phone"
@@ -675,8 +675,8 @@ export default function AIPatientOutreach() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Campaign Name</Label>
-                  <Input 
+                  <Label htmlFor="ai-patient-outreach-campaign-name">Campaign Name</Label>
+                  <Input id="ai-patient-outreach-campaign-name" 
                     value={campaignForm.name}
                     onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
                     placeholder="Q1 Mammogram Outreach"
@@ -684,12 +684,12 @@ export default function AIPatientOutreach() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Patient Criteria</Label>
+                  <Label htmlFor="ai-patient-outreach-patient-criteria">Patient Criteria</Label>
                   <Select 
                     value={campaignForm.criteriaId} 
                     onValueChange={(v) => setCampaignForm({ ...campaignForm, criteriaId: v })}
                   >
-                    <SelectTrigger data-testid="select-criteria">
+                    <SelectTrigger id="ai-patient-outreach-patient-criteria" data-testid="select-criteria">
                       <SelectValue placeholder="Select criteria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -701,8 +701,8 @@ export default function AIPatientOutreach() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea 
+                <Label htmlFor="ai-patient-outreach-description">Description</Label>
+                <Textarea id="ai-patient-outreach-description" 
                   value={campaignForm.description}
                   onChange={(e) => setCampaignForm({ ...campaignForm, description: e.target.value })}
                   placeholder="Describe the campaign purpose and goals"
@@ -710,12 +710,12 @@ export default function AIPatientOutreach() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Channel</Label>
+                <Label htmlFor="ai-patient-outreach-channel-2">Channel</Label>
                 <Select 
                   value={campaignForm.channel} 
                   onValueChange={(v) => setCampaignForm({ ...campaignForm, channel: v as 'sms' | 'email' | 'both' })}
                 >
-                  <SelectTrigger data-testid="select-campaign-channel">
+                  <SelectTrigger id="ai-patient-outreach-channel-2" data-testid="select-campaign-channel">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -774,12 +774,12 @@ export default function AIPatientOutreach() {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
-                    <Label>Appointment Type</Label>
+                    <Label htmlFor="ai-patient-outreach-appointment-type">Appointment Type</Label>
                     <Select 
                       value={appointmentForm.appointmentType} 
                       onValueChange={(v) => setAppointmentForm({ ...appointmentForm, appointmentType: v })}
                     >
-                      <SelectTrigger data-testid="select-appointment-type">
+                      <SelectTrigger id="ai-patient-outreach-appointment-type" data-testid="select-appointment-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -792,8 +792,8 @@ export default function AIPatientOutreach() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input 
+                    <Label htmlFor="ai-patient-outreach-date">Date</Label>
+                    <Input id="ai-patient-outreach-date" 
                       type="date"
                       value={appointmentForm.preferredDate}
                       onChange={(e) => setAppointmentForm({ ...appointmentForm, preferredDate: e.target.value })}
@@ -801,8 +801,8 @@ export default function AIPatientOutreach() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Time</Label>
-                    <Input 
+                    <Label htmlFor="ai-patient-outreach-time">Time</Label>
+                    <Input id="ai-patient-outreach-time" 
                       type="time"
                       value={appointmentForm.preferredTime}
                       onChange={(e) => setAppointmentForm({ ...appointmentForm, preferredTime: e.target.value })}

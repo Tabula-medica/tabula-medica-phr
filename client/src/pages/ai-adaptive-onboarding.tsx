@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
@@ -169,7 +170,7 @@ function QuestionRenderer({
   if (question.type === "single_choice" && question.options) {
     return (
       <div className="space-y-2">
-        <Label>{question.question}</Label>
+        <FieldCaption>{question.question}</FieldCaption>
         <RadioGroup
           value={(value as string) || ""}
           onValueChange={(v) => onChange(v)}

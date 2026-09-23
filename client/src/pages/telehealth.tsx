@@ -23,6 +23,7 @@ import {
   ClipboardList, CheckCircle, Mail, Bell
 } from "lucide-react";
 import type { VideoAppointment, VideoSession, VideoPatientContext, VideoCallStatus } from "@shared/schema";
+import { clickable } from "@/lib/a11y";
 
 interface SessionNote {
   id: string;
@@ -447,6 +448,11 @@ export default function TelehealthPage() {
       <div className="h-screen flex flex-col bg-black" data-testid="container-video-call">
         <div className="flex-1 flex">
           <div className="flex-1 relative">
+            {/* Live peer video. WCAG 2.2 AA 1.2.4 (Captions, Live) applies
+                and is not yet met: real-time captioning needs a transcription
+                service on the media pipeline. Tracked in the accessibility
+                conformance report as a known gap. */}
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -678,8 +684,8 @@ export default function TelehealthPage() {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label>Document Name</Label>
-                          <Input
+                          <Label htmlFor="telehealth-document-name">Document Name</Label>
+                          <Input id="telehealth-document-name"
                             placeholder="e.g., Lab Results - CBC"
                             value={newDocName}
                             onChange={(e) => setNewDocName(e.target.value)}
@@ -687,9 +693,9 @@ export default function TelehealthPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Document Type</Label>
+                          <Label htmlFor="telehealth-document-type">Document Type</Label>
                           <Select value={newDocType} onValueChange={setNewDocType}>
-                            <SelectTrigger data-testid="select-doc-type">
+                            <SelectTrigger id="telehealth-document-type" data-testid="select-doc-type">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -704,8 +710,8 @@ export default function TelehealthPage() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Description (Optional)</Label>
-                          <Textarea
+                          <Label htmlFor="telehealth-description-optional">Description (Optional)</Label>
+                          <Textarea id="telehealth-description-optional"
                             placeholder="Brief description of the document..."
                             value={newDocDescription}
                             onChange={(e) => setNewDocDescription(e.target.value)}
@@ -843,8 +849,8 @@ export default function TelehealthPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <Label>Patient Name</Label>
-                <Input
+                <Label htmlFor="telehealth-patient-name">Patient Name</Label>
+                <Input id="telehealth-patient-name"
                   value={scheduleForm.patientName}
                   onChange={(e) => setScheduleForm(p => ({ ...p, patientName: e.target.value }))}
                   placeholder="Enter patient name"
@@ -852,12 +858,12 @@ export default function TelehealthPage() {
                 />
               </div>
               <div>
-                <Label>Provider</Label>
+                <Label htmlFor="telehealth-provider">Provider</Label>
                 <Select
                   value={scheduleForm.clinicianName}
                   onValueChange={(v) => setScheduleForm(p => ({ ...p, clinicianName: v }))}
                 >
-                  <SelectTrigger data-testid="select-provider">
+                  <SelectTrigger id="telehealth-provider" data-testid="select-provider">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -868,8 +874,8 @@ export default function TelehealthPage() {
                 </Select>
               </div>
               <div>
-                <Label>Date & Time</Label>
-                <Input
+                <Label htmlFor="telehealth-date-time">Date & Time</Label>
+                <Input id="telehealth-date-time"
                   type="datetime-local"
                   value={scheduleForm.scheduledStartTime}
                   onChange={(e) => setScheduleForm(p => ({ ...p, scheduledStartTime: e.target.value }))}
@@ -877,12 +883,12 @@ export default function TelehealthPage() {
                 />
               </div>
               <div>
-                <Label>Duration</Label>
+                <Label htmlFor="telehealth-duration">Duration</Label>
                 <Select
                   value={String(scheduleForm.duration)}
                   onValueChange={(v) => setScheduleForm(p => ({ ...p, duration: Number(v) }))}
                 >
-                  <SelectTrigger data-testid="select-duration">
+                  <SelectTrigger id="telehealth-duration" data-testid="select-duration">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -894,8 +900,8 @@ export default function TelehealthPage() {
                 </Select>
               </div>
               <div>
-                <Label>Reason for Visit</Label>
-                <Input
+                <Label htmlFor="telehealth-reason-for-visit">Reason for Visit</Label>
+                <Input id="telehealth-reason-for-visit"
                   value={scheduleForm.reason}
                   onChange={(e) => setScheduleForm(p => ({ ...p, reason: e.target.value }))}
                   placeholder="e.g., Follow-up, New symptoms"
@@ -903,8 +909,8 @@ export default function TelehealthPage() {
                 />
               </div>
               <div>
-                <Label>Notes (optional)</Label>
-                <Textarea
+                <Label htmlFor="telehealth-notes-optional">Notes (optional)</Label>
+                <Textarea id="telehealth-notes-optional"
                   value={scheduleForm.notes}
                   onChange={(e) => setScheduleForm(p => ({ ...p, notes: e.target.value }))}
                   placeholder="Any additional information"
@@ -1120,10 +1126,10 @@ export default function TelehealthPage() {
                                   ? "bg-primary text-primary-foreground"
                                   : "bg-accent text-accent-foreground"
                               }`}
-                              onClick={() => {
+                              {...clickable(() => {
                                 const apt = appointments.find((a) => a.id === event.id);
                                 if (apt) setSelectedAppointment(apt);
-                              }}
+                              })}
                               data-testid={`calendar-event-${event.id}`}
                             >
                               <p className="font-medium truncate">{event.title}</p>
@@ -1186,10 +1192,10 @@ export default function TelehealthPage() {
                                 <div
                                   key={event.id}
                                   className="text-xs p-1 rounded bg-accent truncate cursor-pointer hover-elevate"
-                                  onClick={() => {
+                                  {...clickable(() => {
                                     const apt = appointments.find((a) => a.id === event.id);
                                     if (apt) setSelectedAppointment(apt);
-                                  }}
+                                  })}
                                   data-testid={`calendar-event-${event.id}`}
                                 >
                                   {event.title}
@@ -1288,7 +1294,7 @@ export default function TelehealthPage() {
                                 ? "bg-primary text-primary-foreground" 
                                 : "border"
                             }`}
-                            onClick={() => setSelectedSummarySession(apt.id)}
+                            {...clickable(() => setSelectedSummarySession(apt.id))}
                             data-testid={`button-summary-${apt.id}`}
                           >
                             <p className="font-medium">{apt.patientName}</p>

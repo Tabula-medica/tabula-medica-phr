@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -897,9 +898,9 @@ export default function ChronicDiseaseManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Condition Type</Label>
+              <Label htmlFor="chronic-disease-manageme-condition-type">Condition Type</Label>
               <Select value={newCondition.conditionType} onValueChange={(v) => setNewCondition({ ...newCondition, conditionType: v })}>
-                <SelectTrigger data-testid="select-condition-type">
+                <SelectTrigger id="chronic-disease-manageme-condition-type" data-testid="select-condition-type">
                   <SelectValue placeholder="Select condition type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -910,8 +911,8 @@ export default function ChronicDiseaseManagement() {
               </Select>
             </div>
             <div>
-              <Label>Condition Name (optional)</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-condition-name-optional">Condition Name (optional)</Label>
+              <Input id="chronic-disease-manageme-condition-name-optional" 
                 value={newCondition.conditionName} 
                 onChange={(e) => setNewCondition({ ...newCondition, conditionName: e.target.value })}
                 placeholder="e.g., Type 2 Diabetes Mellitus"
@@ -919,8 +920,8 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Diagnosis Date (optional)</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-diagnosis-date-optional">Diagnosis Date (optional)</Label>
+              <Input id="chronic-disease-manageme-diagnosis-date-optional" 
                 type="date" 
                 value={newCondition.diagnosisDate} 
                 onChange={(e) => setNewCondition({ ...newCondition, diagnosisDate: e.target.value })}
@@ -928,8 +929,8 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Notes (optional)</Label>
-              <Textarea 
+              <Label htmlFor="chronic-disease-manageme-notes-optional">Notes (optional)</Label>
+              <Textarea id="chronic-disease-manageme-notes-optional" 
                 value={newCondition.notes} 
                 onChange={(e) => setNewCondition({ ...newCondition, notes: e.target.value })}
                 placeholder="Any additional notes about your condition"
@@ -959,8 +960,8 @@ export default function ChronicDiseaseManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Symptom Name</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-symptom-name">Symptom Name</Label>
+              <Input id="chronic-disease-manageme-symptom-name" 
                 value={newSymptom.symptomName} 
                 onChange={(e) => setNewSymptom({ ...newSymptom, symptomName: e.target.value })}
                 placeholder="e.g., Headache, Fatigue, Joint pain"
@@ -968,7 +969,7 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Severity</Label>
+              <FieldCaption>Severity</FieldCaption>
               <RadioGroup 
                 value={newSymptom.severity} 
                 onValueChange={(v) => setNewSymptom({ ...newSymptom, severity: v })}
@@ -990,8 +991,8 @@ export default function ChronicDiseaseManagement() {
               </RadioGroup>
             </div>
             <div>
-              <Label>Description (optional)</Label>
-              <Textarea 
+              <Label htmlFor="chronic-disease-manageme-description-optional">Description (optional)</Label>
+              <Textarea id="chronic-disease-manageme-description-optional" 
                 value={newSymptom.description} 
                 onChange={(e) => setNewSymptom({ ...newSymptom, description: e.target.value })}
                 placeholder="Describe the symptom"
@@ -1004,7 +1005,7 @@ export default function ChronicDiseaseManagement() {
                 onCheckedChange={(v) => setNewSymptom({ ...newSymptom, affectsDaily: v })}
                 data-testid="switch-affects-daily"
               />
-              <Label>Affects daily activities</Label>
+              <FieldCaption>Affects daily activities</FieldCaption>
             </div>
           </div>
           <DialogFooter>
@@ -1029,8 +1030,8 @@ export default function ChronicDiseaseManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Medication Name</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-medication-name">Medication Name</Label>
+              <Input id="chronic-disease-manageme-medication-name" 
                 value={newAdherence.medicationName} 
                 onChange={(e) => setNewAdherence({ ...newAdherence, medicationName: e.target.value })}
                 placeholder="e.g., Metformin 500mg"
@@ -1038,9 +1039,9 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Status</Label>
+              <Label htmlFor="chronic-disease-manageme-status">Status</Label>
               <Select value={newAdherence.status} onValueChange={(v) => setNewAdherence({ ...newAdherence, status: v })}>
-                <SelectTrigger data-testid="select-adherence-status">
+                <SelectTrigger id="chronic-disease-manageme-status" data-testid="select-adherence-status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1052,8 +1053,8 @@ export default function ChronicDiseaseManagement() {
               </Select>
             </div>
             <div>
-              <Label>Scheduled Time</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-scheduled-time">Scheduled Time</Label>
+              <Input id="chronic-disease-manageme-scheduled-time" 
                 type="time" 
                 value={newAdherence.scheduledTime} 
                 onChange={(e) => setNewAdherence({ ...newAdherence, scheduledTime: e.target.value })}
@@ -1061,8 +1062,8 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Notes (optional)</Label>
-              <Textarea 
+              <Label htmlFor="chronic-disease-manageme-notes-optional-2">Notes (optional)</Label>
+              <Textarea id="chronic-disease-manageme-notes-optional-2" 
                 value={newAdherence.notes} 
                 onChange={(e) => setNewAdherence({ ...newAdherence, notes: e.target.value })}
                 placeholder="Any notes about this dose"
@@ -1092,7 +1093,7 @@ export default function ChronicDiseaseManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Category</Label>
+              <FieldCaption>Category</FieldCaption>
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {lifestyleCategories.map((cat) => {
                   const Icon = cat.icon;
@@ -1113,8 +1114,8 @@ export default function ChronicDiseaseManagement() {
               </div>
             </div>
             <div>
-              <Label>Description</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-description">Description</Label>
+              <Input id="chronic-disease-manageme-description" 
                 value={newLifestyle.description} 
                 onChange={(e) => setNewLifestyle({ ...newLifestyle, description: e.target.value })}
                 placeholder="e.g., 30 min walk, salad for lunch"
@@ -1122,8 +1123,8 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Duration (minutes, optional)</Label>
-              <Input 
+              <Label htmlFor="chronic-disease-manageme-duration-minutes-optional">Duration (minutes, optional)</Label>
+              <Input id="chronic-disease-manageme-duration-minutes-optional" 
                 type="number" 
                 value={newLifestyle.duration || ""} 
                 onChange={(e) => setNewLifestyle({ ...newLifestyle, duration: parseInt(e.target.value) || 0 })}
@@ -1132,8 +1133,8 @@ export default function ChronicDiseaseManagement() {
               />
             </div>
             <div>
-              <Label>Notes (optional)</Label>
-              <Textarea 
+              <Label htmlFor="chronic-disease-manageme-notes-optional-3">Notes (optional)</Label>
+              <Textarea id="chronic-disease-manageme-notes-optional-3" 
                 value={newLifestyle.notes} 
                 onChange={(e) => setNewLifestyle({ ...newLifestyle, notes: e.target.value })}
                 placeholder="Any additional notes"

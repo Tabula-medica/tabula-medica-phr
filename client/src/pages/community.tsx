@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users,
@@ -455,8 +456,8 @@ function ShareProgressTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Title</Label>
-            <Input
+            <Label htmlFor="community-title">Title</Label>
+            <Input id="community-title"
               data-testid="input-post-title"
               placeholder="What milestone or insight would you like to share?"
               value={title}
@@ -466,8 +467,8 @@ function ShareProgressTab() {
           </div>
 
           <div className="space-y-2">
-            <Label>Your Story</Label>
-            <Textarea
+            <Label htmlFor="community-your-story">Your Story</Label>
+            <Textarea id="community-your-story"
               data-testid="input-post-content"
               placeholder="Share your experience, tips, or progress update. Remember: do not include personal health information like names, dates of birth, or medical record numbers."
               value={content}
@@ -480,9 +481,9 @@ function ShareProgressTab() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Goal Category</Label>
+              <Label htmlFor="community-goal-category">Goal Category</Label>
               <Select value={goalCategory} onValueChange={setGoalCategory}>
-                <SelectTrigger data-testid="select-goal-category">
+                <SelectTrigger id="community-goal-category" data-testid="select-goal-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -494,9 +495,9 @@ function ShareProgressTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>Privacy Level</Label>
+              <Label htmlFor="community-privacy-level">Privacy Level</Label>
               <Select value={privacyLevel} onValueChange={v => setPrivacyLevel(v as any)}>
-                <SelectTrigger data-testid="select-privacy-level">
+                <SelectTrigger id="community-privacy-level" data-testid="select-privacy-level">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -508,8 +509,8 @@ function ShareProgressTab() {
           </div>
 
           <div className="space-y-2">
-            <Label>Tags (comma-separated)</Label>
-            <Input
+            <Label htmlFor="community-tags-comma-separated">Tags (comma-separated)</Label>
+            <Input id="community-tags-comma-separated"
               data-testid="input-tags"
               placeholder="e.g., milestone, tips, motivation"
               value={tags}
@@ -524,26 +525,26 @@ function ShareProgressTab() {
                 onCheckedChange={setShowMetric}
                 data-testid="switch-show-metric"
               />
-              <Label>Include a progress metric</Label>
+              <FieldCaption>Include a progress metric</FieldCaption>
             </div>
 
             {showMetric && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-md border">
                 <div className="space-y-1">
-                  <Label className="text-xs">Label</Label>
-                  <Input data-testid="input-metric-label" placeholder="Steps" value={metricLabel} onChange={e => setMetricLabel(e.target.value)} />
+                  <Label htmlFor="community-label" className="text-xs">Label</Label>
+                  <Input id="community-label" data-testid="input-metric-label" placeholder="Steps" value={metricLabel} onChange={e => setMetricLabel(e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Current</Label>
-                  <Input data-testid="input-metric-value" type="number" placeholder="8000" value={metricValue} onChange={e => setMetricValue(e.target.value)} />
+                  <Label htmlFor="community-current" className="text-xs">Current</Label>
+                  <Input id="community-current" data-testid="input-metric-value" type="number" placeholder="8000" value={metricValue} onChange={e => setMetricValue(e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Target</Label>
-                  <Input data-testid="input-metric-target" type="number" placeholder="10000" value={metricTarget} onChange={e => setMetricTarget(e.target.value)} />
+                  <Label htmlFor="community-target" className="text-xs">Target</Label>
+                  <Input id="community-target" data-testid="input-metric-target" type="number" placeholder="10000" value={metricTarget} onChange={e => setMetricTarget(e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Unit</Label>
-                  <Input data-testid="input-metric-unit" placeholder="steps" value={metricUnit} onChange={e => setMetricUnit(e.target.value)} />
+                  <Label htmlFor="community-unit" className="text-xs">Unit</Label>
+                  <Input id="community-unit" data-testid="input-metric-unit" placeholder="steps" value={metricUnit} onChange={e => setMetricUnit(e.target.value)} />
                 </div>
               </div>
             )}

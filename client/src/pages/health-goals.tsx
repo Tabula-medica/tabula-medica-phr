@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -232,7 +233,7 @@ function GoalCard({ goal, isSelected, onSelect }: { goal: HealthGoal; isSelected
         </div>
 
         {goal.status === "active" && (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div role="presentation" onClick={(e) => e.stopPropagation()}>
             <Dialog open={progressOpen} onOpenChange={setProgressOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" data-testid={`button-log-progress-${goal.id}`}>
@@ -246,12 +247,12 @@ function GoalCard({ goal, isSelected, onSelect }: { goal: HealthGoal; isSelected
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div className="space-y-2">
-                    <Label>Value ({goal.unit})</Label>
-                    <Input type="number" value={progressValue} onChange={(e) => setProgressValue(e.target.value)} placeholder={`Current: ${goal.currentValue}`} data-testid="input-progress-value" />
+                    <Label htmlFor="health-goals-value">Value ({goal.unit})</Label>
+                    <Input id="health-goals-value" type="number" value={progressValue} onChange={(e) => setProgressValue(e.target.value)} placeholder={`Current: ${goal.currentValue}`} data-testid="input-progress-value" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Note (optional)</Label>
-                    <Input value={progressNote} onChange={(e) => setProgressNote(e.target.value)} placeholder="What helped?" data-testid="input-progress-note" />
+                    <Label htmlFor="health-goals-note-optional">Note (optional)</Label>
+                    <Input id="health-goals-note-optional" value={progressNote} onChange={(e) => setProgressNote(e.target.value)} placeholder="What helped?" data-testid="input-progress-note" />
                   </div>
                 </div>
                 <DialogFooter>
@@ -466,7 +467,7 @@ export default function HealthGoalsPage() {
             <div className="space-y-4 py-2">
               {templates.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Quick Start Templates</Label>
+                  <FieldCaption className="text-sm font-medium">Quick Start Templates</FieldCaption>
                   <div className="grid grid-cols-2 gap-2">
                     {templates.slice(0, 4).map((tmpl) => (
                       <Button key={tmpl.id} variant="outline" size="sm" className="justify-start text-left h-auto py-2" onClick={() => applyTemplate(tmpl)} data-testid={`button-template-${tmpl.id}`}>
@@ -480,18 +481,18 @@ export default function HealthGoalsPage() {
                 </div>
               )}
               <div className="space-y-2">
-                <Label>Goal Title</Label>
-                <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g., Reduce Blood Pressure" data-testid="input-goal-title" />
+                <Label htmlFor="health-goals-goal-title">Goal Title</Label>
+                <Input id="health-goals-goal-title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g., Reduce Blood Pressure" data-testid="input-goal-title" />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Describe your goal..." data-testid="input-goal-description" />
+                <Label htmlFor="health-goals-description">Description</Label>
+                <Textarea id="health-goals-description" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Describe your goal..." data-testid="input-goal-description" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label htmlFor="health-goals-category">Category</Label>
                   <Select value={newCategory} onValueChange={setNewCategory}>
-                    <SelectTrigger data-testid="select-category"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="health-goals-category" data-testid="select-category"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="exercise">Exercise</SelectItem>
                       <SelectItem value="weight">Weight</SelectItem>
@@ -505,9 +506,9 @@ export default function HealthGoalsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label htmlFor="health-goals-priority">Priority</Label>
                   <Select value={newPriority} onValueChange={setNewPriority}>
-                    <SelectTrigger data-testid="select-priority"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="health-goals-priority" data-testid="select-priority"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="high">High</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
@@ -518,17 +519,17 @@ export default function HealthGoalsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Target Value</Label>
-                  <Input type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} placeholder="e.g., 10000" data-testid="input-target-value" />
+                  <Label htmlFor="health-goals-target-value">Target Value</Label>
+                  <Input id="health-goals-target-value" type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} placeholder="e.g., 10000" data-testid="input-target-value" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Unit</Label>
-                  <Input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="e.g., steps/day" data-testid="input-unit" />
+                  <Label htmlFor="health-goals-unit">Unit</Label>
+                  <Input id="health-goals-unit" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="e.g., steps/day" data-testid="input-unit" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Target Date</Label>
-                <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} data-testid="input-target-date" />
+                <Label htmlFor="health-goals-target-date">Target Date</Label>
+                <Input id="health-goals-target-date" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} data-testid="input-target-date" />
               </div>
             </div>
             <DialogFooter>

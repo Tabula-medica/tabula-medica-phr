@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -142,11 +143,11 @@ export default function FHIRSearch() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
-                  <Label>Resource Types</Label>
+                  <FieldCaption>Resource Types</FieldCaption>
                   <div className="space-y-2">
                     {resourceTypes.map((rt) => (
                       <div key={rt.value} className="flex items-center space-x-2">
-                        <Checkbox
+                        <Checkbox aria-label="Resource Types"
                           id={rt.value}
                           checked={selectedResourceTypes.includes(rt.value)}
                           onCheckedChange={() => handleResourceTypeToggle(rt.value)}
@@ -174,9 +175,9 @@ export default function FHIRSearch() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Code Search</Label>
+                  <Label htmlFor="fhir-search-code-search">Code Search</Label>
                   <Select value={codeSystem} onValueChange={(v) => setCodeSystem(v as CodeSystemType)}>
-                    <SelectTrigger data-testid="select-code-system">
+                    <SelectTrigger id="fhir-search-code-search" data-testid="select-code-system">
                       <SelectValue placeholder="Select code system" />
                     </SelectTrigger>
                     <SelectContent>
@@ -222,9 +223,9 @@ export default function FHIRSearch() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Date Range</Label>
+                  <Label htmlFor="fhir-search-date-range">Date Range</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
+                    <Input id="fhir-search-date-range"
                       type="date"
                       value={dateStart}
                       onChange={(e) => setDateStart(e.target.value)}

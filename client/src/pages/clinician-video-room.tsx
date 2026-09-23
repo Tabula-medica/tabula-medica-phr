@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -740,6 +741,11 @@ export default function ClinicianVideoRoomPage() {
         </div>
 
         <div className="flex-1 relative">
+          {/* Live peer video. WCAG 2.2 AA 1.2.4 (Captions, Live) applies
+              and is not yet met: real-time captioning needs a transcription
+              service on the media pipeline. Tracked in the accessibility
+              conformance report as a known gap. */}
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={remoteVideoRef}
             autoPlay
@@ -948,8 +954,8 @@ export default function ClinicianVideoRoomPage() {
 
                 <TabsContent value="soap" className="space-y-3 mt-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Chief Complaint</Label>
-                    <Input
+                    <Label htmlFor="clinician-video-room-chief-complaint" className="text-xs">Chief Complaint</Label>
+                    <Input id="clinician-video-room-chief-complaint"
                       value={noteData.chiefComplaint}
                       onChange={(e) => setNoteData({ ...noteData, chiefComplaint: e.target.value })}
                       placeholder="Patient's main concern..."
@@ -957,8 +963,8 @@ export default function ClinicianVideoRoomPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">History of Present Illness</Label>
-                    <Textarea
+                    <Label htmlFor="clinician-video-room-history-of-present-illness" className="text-xs">History of Present Illness</Label>
+                    <Textarea id="clinician-video-room-history-of-present-illness"
                       value={noteData.historyOfPresentIllness}
                       onChange={(e) => setNoteData({ ...noteData, historyOfPresentIllness: e.target.value })}
                       placeholder="Describe the history..."
@@ -967,8 +973,8 @@ export default function ClinicianVideoRoomPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Physical Exam Findings (if applicable)</Label>
-                    <Textarea
+                    <Label htmlFor="clinician-video-room-physical-exam-findings-if-applicable" className="text-xs">Physical Exam Findings (if applicable)</Label>
+                    <Textarea id="clinician-video-room-physical-exam-findings-if-applicable"
                       value={noteData.physicalExamFindings}
                       onChange={(e) => setNoteData({ ...noteData, physicalExamFindings: e.target.value })}
                       placeholder="Visual observations..."
@@ -977,8 +983,8 @@ export default function ClinicianVideoRoomPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Assessment</Label>
-                    <Textarea
+                    <Label htmlFor="clinician-video-room-assessment" className="text-xs">Assessment</Label>
+                    <Textarea id="clinician-video-room-assessment"
                       value={noteData.assessment}
                       onChange={(e) => setNoteData({ ...noteData, assessment: e.target.value })}
                       placeholder="Clinical assessment..."
@@ -987,8 +993,8 @@ export default function ClinicianVideoRoomPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Plan</Label>
-                    <Textarea
+                    <Label htmlFor="clinician-video-room-plan" className="text-xs">Plan</Label>
+                    <Textarea id="clinician-video-room-plan"
                       value={noteData.plan}
                       onChange={(e) => setNoteData({ ...noteData, plan: e.target.value })}
                       placeholder="Treatment plan..."
@@ -998,8 +1004,8 @@ export default function ClinicianVideoRoomPage() {
                   </div>
                   <Separator />
                   <div className="space-y-1">
-                    <Label className="text-xs">Follow-Up Instructions</Label>
-                    <Textarea
+                    <Label htmlFor="clinician-video-room-follow-up-instructions" className="text-xs">Follow-Up Instructions</Label>
+                    <Textarea id="clinician-video-room-follow-up-instructions"
                       value={noteData.followUpInstructions}
                       onChange={(e) => setNoteData({ ...noteData, followUpInstructions: e.target.value })}
                       placeholder="Patient instructions..."
@@ -1008,8 +1014,8 @@ export default function ClinicianVideoRoomPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Follow-Up Date</Label>
-                    <Input
+                    <Label htmlFor="clinician-video-room-follow-up-date" className="text-xs">Follow-Up Date</Label>
+                    <Input id="clinician-video-room-follow-up-date"
                       type="date"
                       value={noteData.followUpDate}
                       onChange={(e) => setNoteData({ ...noteData, followUpDate: e.target.value })}
@@ -1020,7 +1026,7 @@ export default function ClinicianVideoRoomPage() {
 
                 <TabsContent value="diagnoses" className="space-y-3 mt-3">
                   <div className="flex justify-between items-center">
-                    <Label className="text-sm font-medium">Diagnoses</Label>
+                    <FieldCaption className="text-sm font-medium">Diagnoses</FieldCaption>
                     <Button size="sm" variant="outline" onClick={addDiagnosis} data-testid="button-add-diagnosis">
                       <Plus className="h-3 w-3 mr-1" />
                       Add
@@ -1069,7 +1075,7 @@ export default function ClinicianVideoRoomPage() {
 
                 <TabsContent value="prescriptions" className="space-y-3 mt-3">
                   <div className="flex justify-between items-center">
-                    <Label className="text-sm font-medium">Prescriptions</Label>
+                    <FieldCaption className="text-sm font-medium">Prescriptions</FieldCaption>
                     <Button size="sm" variant="outline" onClick={addPrescription} data-testid="button-add-prescription">
                       <Plus className="h-3 w-3 mr-1" />
                       Add

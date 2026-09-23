@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -117,10 +118,10 @@ function RatingSlider({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-2">
+        <FieldCaption className="flex items-center gap-2">
           {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
           {label}
-        </Label>
+        </FieldCaption>
         <Badge variant="outline">{value}/{max}</Badge>
       </div>
       <Slider
@@ -320,9 +321,9 @@ export function PatientReportedOutcomesCard() {
           <TabsContent value="report" className="space-y-6 mt-4">
             <div className="space-y-4">
               <div>
-                <Label>Report Type</Label>
+                <Label htmlFor="patient-reported-outcome-report-type">Report Type</Label>
                 <Select value={reportType} onValueChange={setReportType}>
-                  <SelectTrigger data-testid="select-report-type">
+                  <SelectTrigger id="patient-reported-outcome-report-type" data-testid="select-report-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -403,8 +404,8 @@ export function PatientReportedOutcomesCard() {
               
               <div className="space-y-4">
                 <div>
-                  <Label>Side Effects (if any)</Label>
-                  <Textarea
+                  <Label htmlFor="patient-reported-outcome-side-effects-if-any">Side Effects (if any)</Label>
+                  <Textarea id="patient-reported-outcome-side-effects-if-any"
                     placeholder="Describe any side effects you've experienced..."
                     value={sideEffects}
                     onChange={(e) => setSideEffects(e.target.value)}
@@ -413,8 +414,8 @@ export function PatientReportedOutcomesCard() {
                 </div>
                 
                 <div>
-                  <Label>Concerns or Issues</Label>
-                  <Textarea
+                  <Label htmlFor="patient-reported-outcome-concerns-or-issues">Concerns or Issues</Label>
+                  <Textarea id="patient-reported-outcome-concerns-or-issues"
                     placeholder="Share any concerns about your care or treatment..."
                     value={concerns}
                     onChange={(e) => setConcerns(e.target.value)}
@@ -423,8 +424,8 @@ export function PatientReportedOutcomesCard() {
                 </div>
                 
                 <div>
-                  <Label>Additional Comments</Label>
-                  <Textarea
+                  <Label htmlFor="patient-reported-outcome-additional-comments">Additional Comments</Label>
+                  <Textarea id="patient-reported-outcome-additional-comments"
                     placeholder="Any other feedback you'd like to share..."
                     value={additionalComments}
                     onChange={(e) => setAdditionalComments(e.target.value)}
@@ -433,7 +434,7 @@ export function PatientReportedOutcomesCard() {
                 </div>
                 
                 <div>
-                  <Label>Would you recommend this care/treatment to others?</Label>
+                  <FieldCaption>Would you recommend this care/treatment to others?</FieldCaption>
                   <div className="flex gap-2 mt-2">
                     <Button 
                       variant={wouldRecommend === true ? "default" : "outline"}
@@ -472,8 +473,8 @@ export function PatientReportedOutcomesCard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>Symptom Name</Label>
-                  <Input
+                  <Label htmlFor="patient-reported-outcome-symptom-name">Symptom Name</Label>
+                  <Input id="patient-reported-outcome-symptom-name"
                     placeholder="e.g., Headache, Fatigue, Nausea..."
                     value={symptomName}
                     onChange={(e) => setSymptomName(e.target.value)}
@@ -490,9 +491,9 @@ export function PatientReportedOutcomesCard() {
                 />
                 
                 <div>
-                  <Label>Frequency</Label>
+                  <Label htmlFor="patient-reported-outcome-frequency">Frequency</Label>
                   <Select value={symptomFrequency} onValueChange={setSymptomFrequency}>
-                    <SelectTrigger data-testid="select-symptom-frequency">
+                    <SelectTrigger id="patient-reported-outcome-frequency" data-testid="select-symptom-frequency">
                       <SelectValue placeholder="How often does this occur?" />
                     </SelectTrigger>
                     <SelectContent>
@@ -507,8 +508,8 @@ export function PatientReportedOutcomesCard() {
                 </div>
                 
                 <div>
-                  <Label>Notes</Label>
-                  <Textarea
+                  <Label htmlFor="patient-reported-outcome-notes">Notes</Label>
+                  <Textarea id="patient-reported-outcome-notes"
                     placeholder="Any additional details about this symptom..."
                     value={symptomNotes}
                     onChange={(e) => setSymptomNotes(e.target.value)}

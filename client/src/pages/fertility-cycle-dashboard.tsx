@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -701,9 +702,9 @@ export default function FertilityCycleDashboard() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Hormone Type</Label>
+              <Label htmlFor="fertility-cycle-dashboar-hormone-type">Hormone Type</Label>
               <Select value={hormoneForm.hormoneType} onValueChange={(v) => setHormoneForm({ ...hormoneForm, hormoneType: v as HormoneType })}>
-                <SelectTrigger data-testid="select-hormone-type"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fertility-cycle-dashboar-hormone-type" data-testid="select-hormone-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="LH">LH (Luteinizing Hormone)</SelectItem>
                   <SelectItem value="E3G">E3G (Estrogen Metabolite)</SelectItem>
@@ -714,18 +715,18 @@ export default function FertilityCycleDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Value ({HORMONE_CONFIG[hormoneForm.hormoneType].unit})</Label>
-                <Input type="number" step="0.1" value={hormoneForm.value} onChange={(e) => setHormoneForm({ ...hormoneForm, value: e.target.value })} placeholder="e.g. 25.4" data-testid="input-hormone-value" />
+                <Label htmlFor="fertility-cycle-dashboar-value">Value ({HORMONE_CONFIG[hormoneForm.hormoneType].unit})</Label>
+                <Input id="fertility-cycle-dashboar-value" type="number" step="0.1" value={hormoneForm.value} onChange={(e) => setHormoneForm({ ...hormoneForm, value: e.target.value })} placeholder="e.g. 25.4" data-testid="input-hormone-value" />
               </div>
               <div className="space-y-2">
-                <Label>Date</Label>
-                <Input type="date" value={hormoneForm.date} onChange={(e) => setHormoneForm({ ...hormoneForm, date: e.target.value })} data-testid="input-hormone-date" />
+                <Label htmlFor="fertility-cycle-dashboar-date">Date</Label>
+                <Input id="fertility-cycle-dashboar-date" type="date" value={hormoneForm.date} onChange={(e) => setHormoneForm({ ...hormoneForm, date: e.target.value })} data-testid="input-hormone-date" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Source</Label>
+              <Label htmlFor="fertility-cycle-dashboar-source">Source</Label>
               <Select value={hormoneForm.source} onValueChange={(v) => setHormoneForm({ ...hormoneForm, source: v as any })}>
-                <SelectTrigger data-testid="select-hormone-source"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fertility-cycle-dashboar-source" data-testid="select-hormone-source"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mira">MIRA Analyzer</SelectItem>
                   <SelectItem value="manual">Manual Entry</SelectItem>
@@ -734,12 +735,12 @@ export default function FertilityCycleDashboard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Test Time (optional)</Label>
-              <Input type="time" value={hormoneForm.testTime} onChange={(e) => setHormoneForm({ ...hormoneForm, testTime: e.target.value })} data-testid="input-hormone-time" />
+              <Label htmlFor="fertility-cycle-dashboar-test-time-optional">Test Time (optional)</Label>
+              <Input id="fertility-cycle-dashboar-test-time-optional" type="time" value={hormoneForm.testTime} onChange={(e) => setHormoneForm({ ...hormoneForm, testTime: e.target.value })} data-testid="input-hormone-time" />
             </div>
             <div className="space-y-2">
-              <Label>Notes (optional)</Label>
-              <Textarea value={hormoneForm.notes} onChange={(e) => setHormoneForm({ ...hormoneForm, notes: e.target.value })} placeholder="Any observations..." data-testid="input-hormone-notes" />
+              <Label htmlFor="fertility-cycle-dashboar-notes-optional">Notes (optional)</Label>
+              <Textarea id="fertility-cycle-dashboar-notes-optional" value={hormoneForm.notes} onChange={(e) => setHormoneForm({ ...hormoneForm, notes: e.target.value })} placeholder="Any observations..." data-testid="input-hormone-notes" />
             </div>
           </div>
           <DialogFooter>
@@ -771,12 +772,12 @@ export default function FertilityCycleDashboard() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Period Start Date</Label>
-              <Input type="date" value={cycleForm.startDate} onChange={(e) => setCycleForm({ ...cycleForm, startDate: e.target.value })} data-testid="input-cycle-start" />
+              <Label htmlFor="fertility-cycle-dashboar-period-start-date">Period Start Date</Label>
+              <Input id="fertility-cycle-dashboar-period-start-date" type="date" value={cycleForm.startDate} onChange={(e) => setCycleForm({ ...cycleForm, startDate: e.target.value })} data-testid="input-cycle-start" />
             </div>
             <div className="space-y-2">
-              <Label>Notes (optional)</Label>
-              <Textarea value={cycleForm.notes} onChange={(e) => setCycleForm({ ...cycleForm, notes: e.target.value })} placeholder="Any observations..." data-testid="input-cycle-notes" />
+              <Label htmlFor="fertility-cycle-dashboar-notes-optional-2">Notes (optional)</Label>
+              <Textarea id="fertility-cycle-dashboar-notes-optional-2" value={cycleForm.notes} onChange={(e) => setCycleForm({ ...cycleForm, notes: e.target.value })} placeholder="Any observations..." data-testid="input-cycle-notes" />
             </div>
           </div>
           <DialogFooter>
@@ -809,17 +810,17 @@ export default function FertilityCycleDashboard() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Provider Name</Label>
-              <Input value={shareForm.providerName} onChange={(e) => setShareForm({ ...shareForm, providerName: e.target.value })} placeholder="Dr. Smith" data-testid="input-provider-name" />
+              <Label htmlFor="fertility-cycle-dashboar-provider-name">Provider Name</Label>
+              <Input id="fertility-cycle-dashboar-provider-name" value={shareForm.providerName} onChange={(e) => setShareForm({ ...shareForm, providerName: e.target.value })} placeholder="Dr. Smith" data-testid="input-provider-name" />
             </div>
             <div className="space-y-2">
-              <Label>Provider Email (optional)</Label>
-              <Input type="email" value={shareForm.providerEmail} onChange={(e) => setShareForm({ ...shareForm, providerEmail: e.target.value })} placeholder="doctor@clinic.com" data-testid="input-provider-email" />
+              <Label htmlFor="fertility-cycle-dashboar-provider-email-optional">Provider Email (optional)</Label>
+              <Input id="fertility-cycle-dashboar-provider-email-optional" type="email" value={shareForm.providerEmail} onChange={(e) => setShareForm({ ...shareForm, providerEmail: e.target.value })} placeholder="doctor@clinic.com" data-testid="input-provider-email" />
             </div>
             <div className="space-y-2">
-              <Label>Link Expires In</Label>
+              <Label htmlFor="fertility-cycle-dashboar-link-expires-in">Link Expires In</Label>
               <Select value={String(shareForm.expiresInDays)} onValueChange={(v) => setShareForm({ ...shareForm, expiresInDays: parseInt(v) })}>
-                <SelectTrigger data-testid="select-share-expiry"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fertility-cycle-dashboar-link-expires-in" data-testid="select-share-expiry"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="7">7 days</SelectItem>
                   <SelectItem value="30">30 days</SelectItem>
@@ -829,7 +830,7 @@ export default function FertilityCycleDashboard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Data to Share</Label>
+              <FieldCaption>Data to Share</FieldCaption>
               <div className="space-y-2">
                 {[
                   { key: "cycle_data", label: "Cycle dates & phases" },
@@ -839,7 +840,7 @@ export default function FertilityCycleDashboard() {
                   { key: "notes", label: "Personal notes" },
                 ].map((perm) => (
                   <div key={perm.key} className="flex items-center gap-2">
-                    <Checkbox
+                    <Checkbox aria-label="Data to Share"
                       id={`perm-${perm.key}`}
                       checked={shareForm.permissions.includes(perm.key)}
                       onCheckedChange={(checked) => {
@@ -882,9 +883,9 @@ export default function FertilityCycleDashboard() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Fertility Goal</Label>
+              <Label htmlFor="fertility-cycle-dashboar-fertility-goal">Fertility Goal</Label>
               <Select value={profileForm.goal} onValueChange={(v) => setProfileForm({ ...profileForm, goal: v as FertilityGoal })}>
-                <SelectTrigger data-testid="select-fertility-goal"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fertility-cycle-dashboar-fertility-goal" data-testid="select-fertility-goal"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="conceive">Trying to Conceive</SelectItem>
                   <SelectItem value="avoid">Fertility Awareness (Avoid)</SelectItem>
@@ -894,18 +895,18 @@ export default function FertilityCycleDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Your Age</Label>
-                <Input type="number" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} placeholder="e.g. 32" data-testid="input-age" />
+                <Label htmlFor="fertility-cycle-dashboar-your-age">Your Age</Label>
+                <Input id="fertility-cycle-dashboar-your-age" type="number" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} placeholder="e.g. 32" data-testid="input-age" />
               </div>
               <div className="space-y-2">
-                <Label>Partner's Age (optional)</Label>
-                <Input type="number" value={profileForm.partnerAge} onChange={(e) => setProfileForm({ ...profileForm, partnerAge: e.target.value })} placeholder="e.g. 34" data-testid="input-partner-age" />
+                <Label htmlFor="fertility-cycle-dashboar-partner-s-age-optional">Partner's Age (optional)</Label>
+                <Input id="fertility-cycle-dashboar-partner-s-age-optional" type="number" value={profileForm.partnerAge} onChange={(e) => setProfileForm({ ...profileForm, partnerAge: e.target.value })} placeholder="e.g. 34" data-testid="input-partner-age" />
               </div>
             </div>
             {profileForm.goal === "conceive" && (
               <div className="space-y-2">
-                <Label>Months Trying to Conceive</Label>
-                <Input type="number" value={profileForm.monthsTrying} onChange={(e) => setProfileForm({ ...profileForm, monthsTrying: e.target.value })} placeholder="e.g. 6" data-testid="input-months-trying" />
+                <Label htmlFor="fertility-cycle-dashboar-months-trying-to-conceive">Months Trying to Conceive</Label>
+                <Input id="fertility-cycle-dashboar-months-trying-to-conceive" type="number" value={profileForm.monthsTrying} onChange={(e) => setProfileForm({ ...profileForm, monthsTrying: e.target.value })} placeholder="e.g. 6" data-testid="input-months-trying" />
               </div>
             )}
           </div>
@@ -941,8 +942,8 @@ export default function FertilityCycleDashboard() {
               </AlertDescription>
             </Alert>
             <div className="space-y-2">
-              <Label>MIRA Device ID</Label>
-              <Input value={miraDeviceId} onChange={(e) => setMiraDeviceId(e.target.value)} placeholder="e.g. MIRA-A1B2C3D4" data-testid="input-mira-device-id" />
+              <Label htmlFor="fertility-cycle-dashboar-mira-device-id">MIRA Device ID</Label>
+              <Input id="fertility-cycle-dashboar-mira-device-id" value={miraDeviceId} onChange={(e) => setMiraDeviceId(e.target.value)} placeholder="e.g. MIRA-A1B2C3D4" data-testid="input-mira-device-id" />
             </div>
             <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
               <p className="font-medium">How to find your Device ID:</p>

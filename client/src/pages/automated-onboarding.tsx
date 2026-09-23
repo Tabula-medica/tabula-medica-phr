@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -414,7 +415,7 @@ export default function AutomatedOnboarding() {
           </div>
 
           <div>
-            <Label>Gender</Label>
+            <FieldCaption>Gender</FieldCaption>
             <RadioGroup
               value={formData.gender}
               onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
@@ -553,12 +554,12 @@ export default function AutomatedOnboarding() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <Label>Exercise Frequency</Label>
+            <Label htmlFor="automated-onboarding-exercise-frequency">Exercise Frequency</Label>
             <Select
               value={formData.lifestyle.exerciseFrequency}
               onValueChange={(value) => setFormData(prev => ({ ...prev, lifestyle: { ...prev.lifestyle, exerciseFrequency: value } }))}
             >
-              <SelectTrigger data-testid="select-exercise">
+              <SelectTrigger id="automated-onboarding-exercise-frequency" data-testid="select-exercise">
                 <SelectValue placeholder="How often do you exercise?" />
               </SelectTrigger>
               <SelectContent>
@@ -573,12 +574,12 @@ export default function AutomatedOnboarding() {
 
         <Card>
           <CardContent className="pt-6">
-            <Label>Sleep (hours per night)</Label>
+            <Label htmlFor="automated-onboarding-sleep-hours-per-night">Sleep (hours per night)</Label>
             <Select
               value={formData.lifestyle.sleepHours?.toString() || "7"}
               onValueChange={(value) => setFormData(prev => ({ ...prev, lifestyle: { ...prev.lifestyle, sleepHours: parseInt(value) } }))}
             >
-              <SelectTrigger data-testid="select-sleep">
+              <SelectTrigger id="automated-onboarding-sleep-hours-per-night" data-testid="select-sleep">
                 <SelectValue placeholder="Average sleep hours" />
               </SelectTrigger>
               <SelectContent>
@@ -594,12 +595,12 @@ export default function AutomatedOnboarding() {
 
         <Card>
           <CardContent className="pt-6">
-            <Label>Smoking Status</Label>
+            <Label htmlFor="automated-onboarding-smoking-status">Smoking Status</Label>
             <Select
               value={formData.lifestyle.smokingStatus}
               onValueChange={(value) => setFormData(prev => ({ ...prev, lifestyle: { ...prev.lifestyle, smokingStatus: value } }))}
             >
-              <SelectTrigger data-testid="select-smoking">
+              <SelectTrigger id="automated-onboarding-smoking-status" data-testid="select-smoking">
                 <SelectValue placeholder="Smoking status" />
               </SelectTrigger>
               <SelectContent>
@@ -613,12 +614,12 @@ export default function AutomatedOnboarding() {
 
         <Card>
           <CardContent className="pt-6">
-            <Label>Stress Level</Label>
+            <Label htmlFor="automated-onboarding-stress-level">Stress Level</Label>
             <Select
               value={formData.lifestyle.stressLevel}
               onValueChange={(value) => setFormData(prev => ({ ...prev, lifestyle: { ...prev.lifestyle, stressLevel: value } }))}
             >
-              <SelectTrigger data-testid="select-stress">
+              <SelectTrigger id="automated-onboarding-stress-level" data-testid="select-stress">
                 <SelectValue placeholder="Your typical stress level" />
               </SelectTrigger>
               <SelectContent>
@@ -804,12 +805,12 @@ export default function AutomatedOnboarding() {
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Goal Category</Label>
+              <Label htmlFor="automated-onboarding-goal-category">Goal Category</Label>
               <Select
                 value={newGoal.category}
                 onValueChange={(value) => setNewGoal(prev => ({ ...prev, category: value }))}
               >
-                <SelectTrigger data-testid="select-goal-category">
+                <SelectTrigger id="automated-onboarding-goal-category" data-testid="select-goal-category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -824,8 +825,8 @@ export default function AutomatedOnboarding() {
               </Select>
             </div>
             <div>
-              <Label>Goal Description</Label>
-              <Input
+              <Label htmlFor="automated-onboarding-goal-description">Goal Description</Label>
+              <Input id="automated-onboarding-goal-description"
                 value={newGoal.description}
                 onChange={(e) => setNewGoal(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="e.g., Walk 10,000 steps daily"

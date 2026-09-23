@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
@@ -1267,7 +1268,7 @@ export default function Engagement() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>New Record Received</Label>
+                  <FieldCaption>New Record Received</FieldCaption>
                   <p className="text-sm text-muted-foreground">When new health records are synced</p>
                 </div>
                 <Switch
@@ -1279,7 +1280,7 @@ export default function Engagement() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Monthly Snapshot Ready</Label>
+                  <FieldCaption>Monthly Snapshot Ready</FieldCaption>
                   <p className="text-sm text-muted-foreground">When your monthly health summary is generated</p>
                 </div>
                 <Switch
@@ -1291,7 +1292,7 @@ export default function Engagement() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Appointment Reminders</Label>
+                  <FieldCaption>Appointment Reminders</FieldCaption>
                   <p className="text-sm text-muted-foreground">Upcoming appointments and follow-ups</p>
                 </div>
                 <Switch
@@ -1316,7 +1317,7 @@ export default function Engagement() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Weekly Digest</Label>
+                  <FieldCaption>Weekly Digest</FieldCaption>
                   <p className="text-sm text-muted-foreground">Summary of your health activity</p>
                 </div>
                 <Switch
@@ -1328,7 +1329,7 @@ export default function Engagement() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Monthly Snapshot Email</Label>
+                  <FieldCaption>Monthly Snapshot Email</FieldCaption>
                   <p className="text-sm text-muted-foreground">Receive your snapshot by email</p>
                 </div>
                 <Switch

@@ -631,8 +631,8 @@ export default function RealtimeFhirQualityDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Dataset Name</label>
-                    <input
+                    <label htmlFor="realtime-fhir-quality-da-dataset-name" className="text-sm font-medium mb-2 block">Dataset Name</label>
+                    <input id="realtime-fhir-quality-da-dataset-name"
                       type="text"
                       placeholder="e.g., Patient Records Q4 2025"
                       value={datasetName}
@@ -642,8 +642,8 @@ export default function RealtimeFhirQualityDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">FHIR Resources (JSON Array)</label>
-                    <Textarea
+                    <label htmlFor="realtime-fhir-quality-da-fhir-resources-json-array" className="text-sm font-medium mb-2 block">FHIR Resources (JSON Array)</label>
+                    <Textarea id="realtime-fhir-quality-da-fhir-resources-json-array"
                       placeholder='[{"resourceType": "Patient", ...}, {"resourceType": "Observation", ...}]'
                       value={profilingResources}
                       onChange={(e) => setProfilingResources(e.target.value)}

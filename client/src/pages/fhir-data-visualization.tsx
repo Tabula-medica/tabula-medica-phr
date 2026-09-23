@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { clickable } from "@/lib/a11y";
 import {
   Dialog,
   DialogContent,
@@ -712,7 +713,7 @@ function ReconciliationSection({
                 <div
                   key={item.id}
                   className="p-4 rounded-lg border hover-elevate cursor-pointer"
-                  onClick={() => onDrillDown(item)}
+                  {...clickable(() => onDrillDown(item))}
                   data-testid={`card-reconciliation-${item.resourceType}`}
                 >
                   <div className="flex items-center justify-between mb-2">

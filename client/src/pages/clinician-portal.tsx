@@ -40,6 +40,7 @@ import {
 import { format } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface PatientSummary {
   id: string;
@@ -477,7 +478,7 @@ export default function ClinicianPortal() {
                         <div
                           key={doc.id}
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate ${selectedDocumentId === doc.id ? "ring-2 ring-primary" : ""}`}
-                          onClick={() => setSelectedDocumentId(doc.id)}
+                          {...clickable(() => setSelectedDocumentId(doc.id))}
                           data-testid={`document-item-${doc.id}`}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -799,7 +800,7 @@ export default function ClinicianPortal() {
                   <div
                     key={item.id}
                     className="flex items-center justify-between p-2 rounded-lg bg-background cursor-pointer hover-elevate"
-                    onClick={() => setSelectedPatientId(item.patientId)}
+                    {...clickable(() => setSelectedPatientId(item.patientId))}
                     data-testid={`urgent-item-${item.id}`}
                   >
                     <span className="text-sm font-medium" data-testid={`text-urgent-title-${item.id}`}>{item.title}</span>
@@ -846,7 +847,7 @@ export default function ClinicianPortal() {
                     <div
                       key={patient.id}
                       className="p-3 rounded-lg border cursor-pointer hover-elevate"
-                      onClick={() => setSelectedPatientId(patient.id)}
+                      {...clickable(() => setSelectedPatientId(patient.id))}
                       data-testid={`patient-item-${patient.id}`}
                     >
                       <div className="flex items-center justify-between gap-4">

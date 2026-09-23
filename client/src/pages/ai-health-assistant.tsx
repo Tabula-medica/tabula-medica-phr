@@ -670,9 +670,9 @@ function AppointmentsSection({ profileId }: { profileId: string }) {
               </DialogHeader>
               <div className="space-y-6 py-4">
                 <div>
-                  <Label>Filter by Specialty</Label>
+                  <Label htmlFor="ai-health-assistant-filter-by-specialty">Filter by Specialty</Label>
                   <Select value={selectedSpecialty} onValueChange={(v) => { setSelectedSpecialty(v); refetchSlots(); }}>
-                    <SelectTrigger className="mt-2" data-testid="select-specialty">
+                    <SelectTrigger id="ai-health-assistant-filter-by-specialty" className="mt-2" data-testid="select-specialty">
                       <SelectValue placeholder="All Specialties" />
                     </SelectTrigger>
                     <SelectContent>

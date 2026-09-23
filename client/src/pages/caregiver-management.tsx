@@ -395,8 +395,8 @@ export default function CaregiverManagement() {
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Name</Label>
-                  <Input
+                  <Label htmlFor="caregiver-management-name">Name</Label>
+                  <Input id="caregiver-management-name"
                     placeholder="John Smith"
                     value={inviteForm.invitedName}
                     onChange={(e) => setInviteForm((p) => ({ ...p, invitedName: e.target.value }))}
@@ -404,8 +404,8 @@ export default function CaregiverManagement() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
+                  <Label htmlFor="caregiver-management-email">Email</Label>
+                  <Input id="caregiver-management-email"
                     type="email"
                     placeholder="john@example.com"
                     value={inviteForm.invitedEmail}
@@ -417,12 +417,12 @@ export default function CaregiverManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Relationship</Label>
+                  <Label htmlFor="caregiver-management-relationship">Relationship</Label>
                   <Select
                     value={inviteForm.relationshipType}
                     onValueChange={(v) => setInviteForm((p) => ({ ...p, relationshipType: v }))}
                   >
-                    <SelectTrigger data-testid="select-relationship">
+                    <SelectTrigger id="caregiver-management-relationship" data-testid="select-relationship">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -433,12 +433,12 @@ export default function CaregiverManagement() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Access Level</Label>
+                  <Label htmlFor="caregiver-management-access-level">Access Level</Label>
                   <Select
                     value={inviteForm.preset}
                     onValueChange={applyPreset}
                   >
-                    <SelectTrigger data-testid="select-access-level">
+                    <SelectTrigger id="caregiver-management-access-level" data-testid="select-access-level">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -452,12 +452,12 @@ export default function CaregiverManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Invitation Expires In</Label>
+                  <Label htmlFor="caregiver-management-invitation-expires-in">Invitation Expires In</Label>
                   <Select
                     value={String(inviteForm.inviteExpiresInDays)}
                     onValueChange={(v) => setInviteForm((p) => ({ ...p, inviteExpiresInDays: Number(v) }))}
                   >
-                    <SelectTrigger data-testid="select-invite-expiry">
+                    <SelectTrigger id="caregiver-management-invitation-expires-in" data-testid="select-invite-expiry">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -469,12 +469,12 @@ export default function CaregiverManagement() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Access Expires After</Label>
+                  <Label htmlFor="caregiver-management-access-expires-after">Access Expires After</Label>
                   <Select
                     value={inviteForm.accessExpiresInDays ? String(inviteForm.accessExpiresInDays) : "never"}
                     onValueChange={(v) => setInviteForm((p) => ({ ...p, accessExpiresInDays: v === "never" ? null : Number(v) }))}
                   >
-                    <SelectTrigger data-testid="select-access-expiry">
+                    <SelectTrigger id="caregiver-management-access-expires-after" data-testid="select-access-expiry">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -541,8 +541,8 @@ export default function CaregiverManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label>Notes (Optional)</Label>
-                <Textarea
+                <Label htmlFor="caregiver-management-notes-optional">Notes (Optional)</Label>
+                <Textarea id="caregiver-management-notes-optional"
                   placeholder="Add any notes about this caregiver's role..."
                   value={inviteForm.notes}
                   onChange={(e) => setInviteForm((p) => ({ ...p, notes: e.target.value }))}
@@ -806,7 +806,7 @@ export default function CaregiverManagement() {
           {selectedCaregiver && (
             <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label>Access Expiry</Label>
+                <Label htmlFor="caregiver-management-access-expiry">Access Expiry</Label>
                 <Select
                   value={selectedCaregiver.accessExpiresAt ? "custom" : "never"}
                   onValueChange={(v) => {
@@ -819,7 +819,7 @@ export default function CaregiverManagement() {
                     }
                   }}
                 >
-                  <SelectTrigger data-testid="select-edit-expiry">
+                  <SelectTrigger id="caregiver-management-access-expiry" data-testid="select-edit-expiry">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -868,8 +868,8 @@ export default function CaregiverManagement() {
               </ScrollArea>
 
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
+                <Label htmlFor="caregiver-management-notes">Notes</Label>
+                <Textarea id="caregiver-management-notes"
                   value={selectedCaregiver.notes || ""}
                   onChange={(e) => setSelectedCaregiver({ ...selectedCaregiver, notes: e.target.value })}
                   data-testid="textarea-edit-notes"

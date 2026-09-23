@@ -46,6 +46,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, formatDistanceToNow } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 interface CarePlan {
   id: string;
@@ -822,7 +823,7 @@ function CarePlanOverview({ carePlans, onSelectPlan }: { carePlans: CarePlan[]; 
               <div
                 key={plan.id}
                 className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover-elevate cursor-pointer"
-                onClick={() => onSelectPlan(plan)}
+                {...clickable(() => onSelectPlan(plan))}
                 data-testid={`care-plan-item-${plan.id}`}
               >
                 <div className="flex items-center gap-3">
@@ -850,7 +851,7 @@ function CarePlanOverview({ carePlans, onSelectPlan }: { carePlans: CarePlan[]; 
               <div
                 key={plan.id}
                 className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg hover-elevate cursor-pointer"
-                onClick={() => onSelectPlan(plan)}
+                {...clickable(() => onSelectPlan(plan))}
                 data-testid={`care-plan-pending-${plan.id}`}
               >
                 <div className="flex items-center gap-3">
@@ -896,7 +897,7 @@ function CarePlanList({ carePlans, onSelectPlan }: { carePlans: CarePlan[]; onSe
           <div
             key={plan.id}
             className="flex items-center justify-between p-3 border rounded-lg hover-elevate cursor-pointer"
-            onClick={() => onSelectPlan(plan)}
+            {...clickable(() => onSelectPlan(plan))}
             data-testid={`care-plan-list-item-${plan.id}`}
           >
             <div className="flex items-center gap-3">

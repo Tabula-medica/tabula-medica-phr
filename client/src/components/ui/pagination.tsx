@@ -45,6 +45,9 @@ const PaginationLink = ({
   size = "icon",
   ...props
 }: PaginationLinkProps) => (
+  // href and content both arrive through {...props}; the rule reads only the
+  // JSX literal here and cannot see them.
+  // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/anchor-is-valid
   <a
     aria-current={isActive ? "page" : undefined}
     className={cn(

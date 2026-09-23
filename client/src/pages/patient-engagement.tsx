@@ -34,6 +34,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { MetricCard } from "@/components/shared";
+import { clickable } from "@/lib/a11y";
 
 const MOCK_PATIENT_ID = "patient_1";
 
@@ -300,7 +301,7 @@ function EducationTab() {
                     <div
                       key={rec.moduleId}
                       className="p-3 border rounded-md hover-elevate cursor-pointer"
-                      onClick={() => generateModuleMutation.mutate(rec.title)}
+                      {...clickable(() => generateModuleMutation.mutate(rec.title))}
                       data-testid={`education-rec-${rec.moduleId}`}
                     >
                       <div className="flex items-start justify-between gap-2">

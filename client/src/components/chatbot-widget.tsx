@@ -496,8 +496,8 @@ export function ChatbotWidget() {
           
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">What would you like to discuss?</label>
-              <Textarea
+              <label htmlFor="chatbot-widget-what-would-you-like-to-discuss" className="text-sm font-medium mb-2 block">What would you like to discuss?</label>
+              <Textarea id="chatbot-widget-what-would-you-like-to-discuss"
                 value={escalationConcern}
                 onChange={(e) => setEscalationConcern(e.target.value)}
                 placeholder="Describe your health concern, question, or request..."
@@ -530,7 +530,7 @@ export function ChatbotWidget() {
             {draftMessage && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Draft Message</label>
+                  <span className="text-sm font-medium">Draft Message</span>
                   <Button variant="ghost" size="sm" onClick={copyDraft}>
                     <Copy className="h-3 w-3 mr-1" />
                     Copy

@@ -414,9 +414,9 @@ export default function ComplianceReporting() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Report Type</Label>
+                  <Label htmlFor="compliance-reporting-report-type">Report Type</Label>
                   <Select value={newReportType} onValueChange={(v) => setNewReportType(v as ReportType)}>
-                    <SelectTrigger data-testid="select-report-type">
+                    <SelectTrigger id="compliance-reporting-report-type" data-testid="select-report-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -429,8 +429,8 @@ export default function ComplianceReporting() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <Input 
+                  <Label htmlFor="compliance-reporting-start-date">Start Date</Label>
+                  <Input id="compliance-reporting-start-date" 
                     type="date" 
                     value={startDate} 
                     onChange={(e) => setStartDate(e.target.value)}
@@ -438,8 +438,8 @@ export default function ComplianceReporting() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>End Date</Label>
-                  <Input 
+                  <Label htmlFor="compliance-reporting-end-date">End Date</Label>
+                  <Input id="compliance-reporting-end-date" 
                     type="date" 
                     value={endDate} 
                     onChange={(e) => setEndDate(e.target.value)}

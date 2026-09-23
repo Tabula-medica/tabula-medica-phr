@@ -469,9 +469,9 @@ export function AIProviderAssistantPanel({
             <ScrollArea className="h-full px-4 pb-4">
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-medium mb-1.5 block">Summary Type</label>
+                  <label htmlFor="ai-provider-assistant-pa-summary-type" className="text-xs font-medium mb-1.5 block">Summary Type</label>
                   <Select value={summaryType} onValueChange={setSummaryType}>
-                    <SelectTrigger className="h-8 text-xs" data-testid="select-summary-type">
+                    <SelectTrigger id="ai-provider-assistant-pa-summary-type" className="h-8 text-xs" data-testid="select-summary-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -485,7 +485,7 @@ export function AIProviderAssistantPanel({
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-medium">Select Data Points ({selectedPoints.length} selected)</label>
+                    <span className="text-xs font-medium">Select Data Points ({selectedPoints.length} selected)</span>
                     {selectedPoints.length > 0 && (
                       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedPoints([])} data-testid="button-clear-selection">
                         Clear all
@@ -506,7 +506,7 @@ export function AIProviderAssistantPanel({
                         const allSelected = points.every(p => isPointSelected(p));
                         return (
                           <div key={category} className="space-y-1">
-                            <div
+                            <div role="presentation"
                               className="flex items-center gap-2 py-1 px-1 cursor-pointer hover:bg-muted/50 rounded"
                               onClick={() => selectAllInCategory(category, points)}
                               data-testid={`category-${category}`}
@@ -518,7 +518,7 @@ export function AIProviderAssistantPanel({
                             </div>
                             <div className="ml-6 space-y-0.5">
                               {points.map((point) => (
-                                <div
+                                <div role="presentation"
                                   key={`${point.category}-${point.id}`}
                                   className="flex items-center gap-2 py-0.5 px-1 cursor-pointer hover:bg-muted/30 rounded"
                                   onClick={() => toggleDataPoint(point)}
@@ -538,8 +538,8 @@ export function AIProviderAssistantPanel({
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium mb-1.5 block">Additional Instructions (optional)</label>
-                  <Textarea
+                  <label htmlFor="ai-provider-assistant-pa-additional-instructions-optional" className="text-xs font-medium mb-1.5 block">Additional Instructions (optional)</label>
+                  <Textarea id="ai-provider-assistant-pa-additional-instructions-optional"
                     value={additionalInstructions}
                     onChange={(e) => setAdditionalInstructions(e.target.value)}
                     placeholder="E.g., Focus on cardiovascular concerns..."

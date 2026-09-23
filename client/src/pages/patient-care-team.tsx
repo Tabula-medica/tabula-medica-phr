@@ -476,14 +476,14 @@ export default function PatientCareTeam() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Role</Label>
+                  <Label htmlFor="patient-care-team-role">Role</Label>
                   <Select
                     value={inviteForm.role}
                     onValueChange={(value: "healthcare_provider" | "family_member" | "caregiver") =>
                       setInviteForm({ ...inviteForm, role: value })
                     }
                   >
-                    <SelectTrigger data-testid="select-invite-role">
+                    <SelectTrigger id="patient-care-team-role" data-testid="select-invite-role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -519,7 +519,7 @@ export default function PatientCareTeam() {
                 )}
                 <Separator />
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Permissions</Label>
+                  <Label htmlFor="perm-records" className="text-sm font-medium">Permissions</Label>
                   <div className="grid gap-3">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="perm-records" className="text-sm font-normal">View Health Records</Label>
@@ -1100,14 +1100,14 @@ export default function PatientCareTeam() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label htmlFor="patient-care-team-category">Category</Label>
                     <Select
                       value={noteForm.category}
                       onValueChange={(value: CareTeamNote["category"]) =>
                         setNoteForm({ ...noteForm, category: value })
                       }
                     >
-                      <SelectTrigger data-testid="select-note-category">
+                      <SelectTrigger id="patient-care-team-category" data-testid="select-note-category">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>

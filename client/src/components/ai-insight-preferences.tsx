@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +116,7 @@ export function AIInsightPreferences({
         <CollapsibleContent>
           <CardContent className="pt-0 px-4 pb-4 space-y-5">
             <div className="space-y-3">
-              <Label className="text-sm flex items-center gap-2">
+              <Label htmlFor="ai-insight-preferences-detail-level" className="text-sm flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 Detail Level
               </Label>
@@ -123,7 +124,7 @@ export function AIInsightPreferences({
                 value={localPrefs.detailLevel}
                 onValueChange={(v) => handleChange("detailLevel", v as InsightPreferences["detailLevel"])}
               >
-                <SelectTrigger data-testid="select-detail-level">
+                <SelectTrigger id="ai-insight-preferences-detail-level" data-testid="select-detail-level">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -135,7 +136,7 @@ export function AIInsightPreferences({
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm flex items-center gap-2">
+              <Label htmlFor="ai-insight-preferences-language-style" className="text-sm flex items-center gap-2">
                 <Languages className="h-4 w-4" />
                 Language Style
               </Label>
@@ -143,7 +144,7 @@ export function AIInsightPreferences({
                 value={localPrefs.language}
                 onValueChange={(v) => handleChange("language", v as InsightPreferences["language"])}
               >
-                <SelectTrigger data-testid="select-language-style">
+                <SelectTrigger id="ai-insight-preferences-language-style" data-testid="select-language-style">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -154,10 +155,10 @@ export function AIInsightPreferences({
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm flex items-center gap-2">
+              <FieldCaption className="text-sm flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 Focus Areas
-              </Label>
+              </FieldCaption>
               <div className="flex flex-wrap gap-2">
                 {FOCUS_AREAS.map((area) => (
                   <Badge
@@ -184,10 +185,10 @@ export function AIInsightPreferences({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-sm flex items-center gap-2">
+                  <FieldCaption className="text-sm flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4" />
                     Highlight Critical
-                  </Label>
+                  </FieldCaption>
                   <p className="text-xs text-muted-foreground">
                     Emphasize critical findings in insights
                   </p>
@@ -201,7 +202,7 @@ export function AIInsightPreferences({
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-sm">Show Confidence Scores</Label>
+                  <FieldCaption className="text-sm">Show Confidence Scores</FieldCaption>
                   <p className="text-xs text-muted-foreground">
                     Display AI confidence levels
                   </p>

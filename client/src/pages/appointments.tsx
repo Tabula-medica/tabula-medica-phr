@@ -351,9 +351,9 @@ export default function Appointments() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Appointment Type</Label>
+                  <Label htmlFor="appointments-appointment-type">Appointment Type</Label>
                   <Select defaultValue="in_person">
-                    <SelectTrigger data-testid="select-apt-type">
+                    <SelectTrigger id="appointments-appointment-type" data-testid="select-apt-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -548,9 +548,9 @@ export default function Appointments() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Priority</Label>
+                      <Label htmlFor="appointments-priority">Priority</Label>
                       <Select value={newNote.priority} onValueChange={(v) => setNewNote({ ...newNote, priority: v })}>
-                        <SelectTrigger data-testid="select-note-priority">
+                        <SelectTrigger id="appointments-priority" data-testid="select-note-priority">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -561,9 +561,9 @@ export default function Appointments() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>For Appointment (Optional)</Label>
+                      <Label htmlFor="appointments-for-appointment-optional">For Appointment (Optional)</Label>
                       <Select value={newNote.appointmentId} onValueChange={(v) => setNewNote({ ...newNote, appointmentId: v })}>
-                        <SelectTrigger data-testid="select-note-appointment">
+                        <SelectTrigger id="appointments-for-appointment-optional" data-testid="select-note-appointment">
                           <SelectValue placeholder="Any visit" />
                         </SelectTrigger>
                         <SelectContent>
@@ -663,9 +663,9 @@ export default function Appointments() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Related Appointment</Label>
+                      <Label htmlFor="appointments-related-appointment">Related Appointment</Label>
                       <Select value={newStep.appointmentId} onValueChange={(v) => setNewStep({ ...newStep, appointmentId: v })}>
-                        <SelectTrigger data-testid="select-step-appointment">
+                        <SelectTrigger id="appointments-related-appointment" data-testid="select-step-appointment">
                           <SelectValue placeholder="None" />
                         </SelectTrigger>
                         <SelectContent>
@@ -755,9 +755,9 @@ export default function Appointments() {
                     <Button variant="outline" size="sm">Browse Files</Button>
                   </div>
                   <div className="space-y-2">
-                    <Label>Document Type</Label>
+                    <Label htmlFor="appointments-document-type">Document Type</Label>
                     <Select defaultValue="other">
-                      <SelectTrigger data-testid="select-doc-type">
+                      <SelectTrigger id="appointments-document-type" data-testid="select-doc-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -769,9 +769,9 @@ export default function Appointments() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Related Appointment (Optional)</Label>
+                    <Label htmlFor="appointments-related-appointment-optional">Related Appointment (Optional)</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-doc-appointment">
+                      <SelectTrigger id="appointments-related-appointment-optional" data-testid="select-doc-appointment">
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
                       <SelectContent>

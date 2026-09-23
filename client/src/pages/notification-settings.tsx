@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -189,7 +190,7 @@ export default function NotificationSettings() {
               <div className="flex items-center gap-3">
                 <Bell className="h-5 w-5 text-primary" />
                 <div>
-                  <Label className="font-medium">In-App</Label>
+                  <FieldCaption className="font-medium">In-App</FieldCaption>
                   <p className="text-xs text-muted-foreground">Show notifications in the app</p>
                 </div>
               </div>
@@ -204,7 +205,7 @@ export default function NotificationSettings() {
               <div className="flex items-center gap-3">
                 <Mail className="h-5 w-5 text-primary" />
                 <div>
-                  <Label className="font-medium">Email</Label>
+                  <FieldCaption className="font-medium">Email</FieldCaption>
                   <p className="text-xs text-muted-foreground">Receive email notifications</p>
                 </div>
               </div>
@@ -219,7 +220,7 @@ export default function NotificationSettings() {
               <div className="flex items-center gap-3">
                 <MessageSquare className="h-5 w-5 text-primary" />
                 <div>
-                  <Label className="font-medium">SMS</Label>
+                  <FieldCaption className="font-medium">SMS</FieldCaption>
                   <p className="text-xs text-muted-foreground">Text message alerts</p>
                 </div>
               </div>
@@ -234,7 +235,7 @@ export default function NotificationSettings() {
               <div className="flex items-center gap-3">
                 <Smartphone className="h-5 w-5 text-primary" />
                 <div>
-                  <Label className="font-medium">Push</Label>
+                  <FieldCaption className="font-medium">Push</FieldCaption>
                   <p className="text-xs text-muted-foreground">Browser push notifications</p>
                 </div>
               </div>
@@ -248,12 +249,12 @@ export default function NotificationSettings() {
 
           {preferences?.channels?.email && (
             <div className="p-4 border rounded-lg">
-              <Label className="font-medium mb-2 block">Email Digest Frequency</Label>
+              <Label htmlFor="notification-settings-email-digest-frequency" className="font-medium mb-2 block">Email Digest Frequency</Label>
               <Select
                 value={preferences?.emailDigest || "daily"}
                 onValueChange={(value) => updatePrefsMutation.mutate({ emailDigest: value as any })}
               >
-                <SelectTrigger className="w-full sm:w-48" data-testid="select-email-digest">
+                <SelectTrigger id="notification-settings-email-digest-frequency" className="w-full sm:w-48" data-testid="select-email-digest">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -285,7 +286,7 @@ export default function NotificationSettings() {
                 <VolumeX className="h-5 w-5 text-muted-foreground" />
               )}
               <div>
-                <Label className="font-medium">Notification Sound</Label>
+                <FieldCaption className="font-medium">Notification Sound</FieldCaption>
                 <p className="text-xs text-muted-foreground">Play sound for new notifications</p>
               </div>
             </div>
@@ -300,7 +301,7 @@ export default function NotificationSettings() {
             <div className="flex items-center gap-3">
               <Smartphone className="h-5 w-5 text-primary" />
               <div>
-                <Label className="font-medium">Vibration</Label>
+                <FieldCaption className="font-medium">Vibration</FieldCaption>
                 <p className="text-xs text-muted-foreground">Vibrate on mobile devices</p>
               </div>
             </div>
@@ -315,7 +316,7 @@ export default function NotificationSettings() {
             <div className="flex items-center gap-3">
               <Info className="h-5 w-5 text-primary" />
               <div>
-                <Label className="font-medium">Show Preview</Label>
+                <FieldCaption className="font-medium">Show Preview</FieldCaption>
                 <p className="text-xs text-muted-foreground">Show message preview in notifications</p>
               </div>
             </div>
@@ -341,7 +342,7 @@ export default function NotificationSettings() {
             <div className="flex items-center gap-3">
               <Moon className="h-5 w-5 text-primary" />
               <div>
-                <Label className="font-medium">Enable Quiet Hours</Label>
+                <FieldCaption className="font-medium">Enable Quiet Hours</FieldCaption>
                 <p className="text-xs text-muted-foreground">Mute non-urgent notifications</p>
               </div>
             </div>
@@ -355,8 +356,8 @@ export default function NotificationSettings() {
           {preferences?.quietHours?.enabled && (
             <div className="grid gap-4 sm:grid-cols-2 p-4 border rounded-lg bg-muted/30">
               <div>
-                <Label className="text-sm mb-2 block">Start Time</Label>
-                <Input
+                <Label htmlFor="notification-settings-start-time" className="text-sm mb-2 block">Start Time</Label>
+                <Input id="notification-settings-start-time"
                   type="time"
                   value={preferences?.quietHours?.start || "22:00"}
                   onChange={(e) => updateQuietHours({ start: e.target.value })}
@@ -364,8 +365,8 @@ export default function NotificationSettings() {
                 />
               </div>
               <div>
-                <Label className="text-sm mb-2 block">End Time</Label>
-                <Input
+                <Label htmlFor="notification-settings-end-time" className="text-sm mb-2 block">End Time</Label>
+                <Input id="notification-settings-end-time"
                   type="time"
                   value={preferences?.quietHours?.end || "07:00"}
                   onChange={(e) => updateQuietHours({ end: e.target.value })}
@@ -405,7 +406,7 @@ export default function NotificationSettings() {
                   <div className="flex items-center gap-3">
                     <Icon className={`h-5 w-5 ${isEnabled ? "text-primary" : "text-muted-foreground"}`} />
                     <div>
-                      <Label className="font-medium">{label}</Label>
+                      <FieldCaption className="font-medium">{label}</FieldCaption>
                       <p className="text-xs text-muted-foreground">{description}</p>
                     </div>
                   </div>

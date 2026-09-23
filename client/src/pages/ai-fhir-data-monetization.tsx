@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -503,11 +503,11 @@ export default function AIFHIRDataMonetization() {
                           </DialogHeader>
                           <div className="space-y-4">
                             <div>
-                              <Label>Estimated Value</Label>
+                              <FieldCaption>Estimated Value</FieldCaption>
                               <p className="text-2xl font-bold">{formatCurrency(dataset.researchValue.estimatedValue)}</p>
                             </div>
                             <div>
-                              <Label>AI Analysis</Label>
+                              <FieldCaption>AI Analysis</FieldCaption>
                               <p className="text-sm text-muted-foreground mt-1">
                                 {dataset.researchValue.aiAnalysis}
                               </p>

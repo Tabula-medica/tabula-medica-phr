@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Database,
   Play,
@@ -582,9 +584,9 @@ export function FHIRAPIExplorer() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Endpoint</Label>
+                      <Label htmlFor="fhir-api-explorer-endpoint">Endpoint</Label>
                       <Select value={selectedEndpoint} onValueChange={setSelectedEndpoint}>
-                        <SelectTrigger data-testid="select-endpoint">
+                        <SelectTrigger id="fhir-api-explorer-endpoint" data-testid="select-endpoint">
                           <SelectValue placeholder="Select endpoint" />
                         </SelectTrigger>
                         <SelectContent>
@@ -597,9 +599,9 @@ export function FHIRAPIExplorer() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Resource Type</Label>
+                      <Label htmlFor="fhir-api-explorer-resource-type">Resource Type</Label>
                       <Select value={selectedResource} onValueChange={setSelectedResource}>
-                        <SelectTrigger data-testid="select-resource">
+                        <SelectTrigger id="fhir-api-explorer-resource-type" data-testid="select-resource">
                           <SelectValue placeholder="Select resource" />
                         </SelectTrigger>
                         <SelectContent>
@@ -615,9 +617,9 @@ export function FHIRAPIExplorer() {
 
                   <div className="flex gap-2">
                     <div className="w-24">
-                      <Label>Method</Label>
+                      <Label htmlFor="fhir-api-explorer-method">Method</Label>
                       <Select value={queryMethod} onValueChange={setQueryMethod}>
-                        <SelectTrigger data-testid="select-method">
+                        <SelectTrigger id="fhir-api-explorer-method" data-testid="select-method">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -630,8 +632,8 @@ export function FHIRAPIExplorer() {
                       </Select>
                     </div>
                     <div className="flex-1">
-                      <Label>Path</Label>
-                      <Input
+                      <Label htmlFor="fhir-api-explorer-path">Path</Label>
+                      <Input id="fhir-api-explorer-path"
                         value={queryPath}
                         onChange={(e) => setQueryPath(e.target.value)}
                         placeholder="/Patient, /Observation?patient=123"
@@ -642,7 +644,7 @@ export function FHIRAPIExplorer() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Query Parameters</Label>
+                      <FieldCaption>Query Parameters</FieldCaption>
                       <Button size="sm" variant="outline" onClick={handleAddParam} data-testid="btn-add-param">
                         <Plus className="h-4 w-4 mr-1" />
                         Add
@@ -678,8 +680,8 @@ export function FHIRAPIExplorer() {
 
                   {(queryMethod === "POST" || queryMethod === "PUT" || queryMethod === "PATCH") && (
                     <div className="space-y-2">
-                      <Label>Request Body (JSON)</Label>
-                      <Textarea
+                      <Label htmlFor="fhir-api-explorer-request-body-json">Request Body (JSON)</Label>
+                      <Textarea id="fhir-api-explorer-request-body-json"
                         value={queryBody}
                         onChange={(e) => setQueryBody(e.target.value)}
                         placeholder='{"resourceType": "Patient", ...}'
@@ -755,11 +757,11 @@ export function FHIRAPIExplorer() {
                           <div
                             key={param.name}
                             className="text-xs p-2 bg-muted/50 rounded cursor-pointer hover:bg-muted"
-                            onClick={() => {
+                            {...clickable(() => {
                               if (!queryParams.find((p) => p.key === param.name)) {
                                 setQueryParams([...queryParams, { key: param.name, value: "" }]);
                               }
-                            }}
+                            })}
                             title={param.description}
                           >
                             <span className="font-mono font-medium">{param.name}</span>
@@ -938,7 +940,7 @@ export function FHIRAPIExplorer() {
                       className={`p-3 rounded-lg cursor-pointer hover:bg-muted ${
                         entry.error ? "bg-destructive/10" : "bg-muted/50"
                       }`}
-                      onClick={() => setQueryResult(entry)}
+                      {...clickable(() => setQueryResult(entry))}
                       data-testid={`history-${entry.id}`}
                     >
                       <div className="flex items-center justify-between">

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { clickable } from "@/lib/a11y";
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -453,7 +454,7 @@ export default function IISReconciliationPage() {
                     <div
                       key={match.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover-elevate cursor-pointer"
-                      onClick={() => setSelectedMatch(match)}
+                      {...clickable(() => setSelectedMatch(match))}
                       data-testid={`card-match-${match.id}`}
                     >
                       <div className="space-y-1">
@@ -722,9 +723,9 @@ export default function IISReconciliationPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Resolution Type</Label>
+              <Label htmlFor="iis-reconciliation-resolution-type">Resolution Type</Label>
               <Select value={resolutionType} onValueChange={setResolutionType}>
-                <SelectTrigger data-testid="select-resolution-type">
+                <SelectTrigger id="iis-reconciliation-resolution-type" data-testid="select-resolution-type">
                   <SelectValue placeholder="Select resolution" />
                 </SelectTrigger>
                 <SelectContent>
@@ -737,8 +738,8 @@ export default function IISReconciliationPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
+              <Label htmlFor="iis-reconciliation-notes">Notes</Label>
+              <Textarea id="iis-reconciliation-notes"
                 value={resolutionNotes}
                 onChange={(e) => setResolutionNotes(e.target.value)}
                 placeholder="Add any notes about this resolution..."

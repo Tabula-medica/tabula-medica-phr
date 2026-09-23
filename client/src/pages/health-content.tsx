@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -304,7 +305,7 @@ export default function HealthContentPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">Conditions</Label>
+                <FieldCaption className="text-sm font-medium">Conditions</FieldCaption>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {patientContext.conditions?.map((condition, i) => (
                     <Badge key={i} variant="secondary">{condition}</Badge>
@@ -312,7 +313,7 @@ export default function HealthContentPage() {
                 </div>
               </div>
               <div>
-                <Label className="text-sm font-medium">Health Goals</Label>
+                <FieldCaption className="text-sm font-medium">Health Goals</FieldCaption>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {patientContext.healthGoals?.map((goal, i) => (
                     <Badge key={i} variant="outline">{goal}</Badge>
@@ -320,7 +321,7 @@ export default function HealthContentPage() {
                 </div>
               </div>
               <div>
-                <Label className="text-sm font-medium">Medications</Label>
+                <FieldCaption className="text-sm font-medium">Medications</FieldCaption>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {patientContext.medications?.map((med, i) => (
                     <Badge key={i} variant="outline"><Pill className="h-3 w-3 mr-1" />{med}</Badge>

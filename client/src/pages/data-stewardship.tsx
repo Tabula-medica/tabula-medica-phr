@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   Users, 
   ClipboardList, 
@@ -316,7 +317,7 @@ export default function DataStewardshipPage() {
                       <div 
                         key={task.id} 
                         className="flex items-center justify-between p-3 border rounded-lg hover-elevate cursor-pointer"
-                        onClick={() => { setActiveTab("tasks"); }}
+                        {...clickable(() => { setActiveTab("tasks"); })}
                         data-testid={`card-recent-task-${task.id}`}
                       >
                         <div className="flex items-center gap-3">
@@ -426,35 +427,35 @@ export default function DataStewardshipPage() {
                         <div className="space-y-4 mt-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-sm text-muted-foreground">Type</label>
+                              <span className="text-sm text-muted-foreground">Type</span>
                               <p className="capitalize">{task.type.replace("_", " ")}</p>
                             </div>
                             <div>
-                              <label className="text-sm text-muted-foreground">Priority</label>
+                              <span className="text-sm text-muted-foreground">Priority</span>
                               <Badge className={priorityColors[task.priority]}>{task.priority}</Badge>
                             </div>
                             <div>
-                              <label className="text-sm text-muted-foreground">Status</label>
+                              <span className="text-sm text-muted-foreground">Status</span>
                               <Badge className={statusColors[task.status]}>{task.status.replace("_", " ")}</Badge>
                             </div>
                             <div>
-                              <label className="text-sm text-muted-foreground">Due Date</label>
+                              <span className="text-sm text-muted-foreground">Due Date</span>
                               <p>{new Date(task.dueDate).toLocaleDateString()}</p>
                             </div>
                           </div>
                           <div>
-                            <label className="text-sm text-muted-foreground">Description</label>
+                            <span className="text-sm text-muted-foreground">Description</span>
                             <p className="mt-1">{task.description}</p>
                           </div>
                           {task.assetName && (
                             <div>
-                              <label className="text-sm text-muted-foreground">Related Asset</label>
+                              <span className="text-sm text-muted-foreground">Related Asset</span>
                               <p className="mt-1">{task.assetName}</p>
                             </div>
                           )}
                           {task.policyName && (
                             <div>
-                              <label className="text-sm text-muted-foreground">Related Policy</label>
+                              <span className="text-sm text-muted-foreground">Related Policy</span>
                               <p className="mt-1">{task.policyName}</p>
                             </div>
                           )}

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -240,13 +241,13 @@ export default function ProviderOutreachPage() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Patient ID</Label>
-                    <Input placeholder="Enter patient ID" data-testid="input-patient-id" />
+                    <Label htmlFor="provider-outreach-patient-id">Patient ID</Label>
+                    <Input id="provider-outreach-patient-id" placeholder="Enter patient ID" data-testid="input-patient-id" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Check-In Type</Label>
+                    <Label htmlFor="provider-outreach-check-in-type">Check-In Type</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-checkin-type">
+                      <SelectTrigger id="provider-outreach-check-in-type" data-testid="select-checkin-type">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -259,9 +260,9 @@ export default function ProviderOutreachPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Frequency</Label>
+                    <Label htmlFor="provider-outreach-frequency">Frequency</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-frequency">
+                      <SelectTrigger id="provider-outreach-frequency" data-testid="select-frequency">
                         <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                       <SelectContent>
@@ -274,8 +275,8 @@ export default function ProviderOutreachPage() {
                     </Select>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label>Use AI personalization</Label>
-                    <Switch defaultChecked data-testid="switch-ai-personalization" />
+                    <Label htmlFor="provider-outreach-use-ai-personalization">Use AI personalization</Label>
+                    <Switch id="provider-outreach-use-ai-personalization" defaultChecked data-testid="switch-ai-personalization" />
                   </div>
                 </div>
                 <DialogFooter>
@@ -302,13 +303,13 @@ export default function ProviderOutreachPage() {
                 <div className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Campaign Name</Label>
-                      <Input placeholder="e.g., Diabetes Care Follow-Up" data-testid="input-campaign-name" />
+                      <Label htmlFor="provider-outreach-campaign-name">Campaign Name</Label>
+                      <Input id="provider-outreach-campaign-name" placeholder="e.g., Diabetes Care Follow-Up" data-testid="input-campaign-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Target Criteria</Label>
+                      <Label htmlFor="provider-outreach-target-criteria">Target Criteria</Label>
                       <Select onValueChange={setSelectedCriteria}>
-                        <SelectTrigger data-testid="select-target-criteria">
+                        <SelectTrigger id="provider-outreach-target-criteria" data-testid="select-target-criteria">
                           <SelectValue placeholder="Select criteria" />
                         </SelectTrigger>
                         <SelectContent>
@@ -323,14 +324,14 @@ export default function ProviderOutreachPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea placeholder="Describe the purpose of this campaign..." data-testid="input-campaign-description" />
+                    <Label htmlFor="provider-outreach-description">Description</Label>
+                    <Textarea id="provider-outreach-description" placeholder="Describe the purpose of this campaign..." data-testid="input-campaign-description" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Communication Type</Label>
+                      <Label htmlFor="provider-outreach-communication-type">Communication Type</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-communication-type">
+                        <SelectTrigger id="provider-outreach-communication-type" data-testid="select-communication-type">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -342,9 +343,9 @@ export default function ProviderOutreachPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Channel</Label>
+                      <Label htmlFor="provider-outreach-channel">Channel</Label>
                       <Select>
-                        <SelectTrigger data-testid="select-channel">
+                        <SelectTrigger id="provider-outreach-channel" data-testid="select-channel">
                           <SelectValue placeholder="Select channel" />
                         </SelectTrigger>
                         <SelectContent>
@@ -358,7 +359,7 @@ export default function ProviderOutreachPage() {
                   </div>
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
-                      <Label>AI Personalization</Label>
+                      <FieldCaption>AI Personalization</FieldCaption>
                       <p className="text-sm text-muted-foreground">Let AI personalize messages for each patient</p>
                     </div>
                     <Switch defaultChecked data-testid="switch-campaign-ai" />
@@ -823,19 +824,19 @@ export default function ProviderOutreachPage() {
                               </DialogHeader>
                               <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                  <Label>Subject Template</Label>
+                                  <FieldCaption>Subject Template</FieldCaption>
                                   <div className="p-3 bg-muted rounded-lg text-sm">
                                     {template.subjectTemplate}
                                   </div>
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Body Template</Label>
+                                  <FieldCaption>Body Template</FieldCaption>
                                   <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap">
                                     {template.bodyTemplate}
                                   </div>
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Variables</Label>
+                                  <FieldCaption>Variables</FieldCaption>
                                   <div className="flex flex-wrap gap-2">
                                     {template.variables.map((v) => (
                                       <Badge key={v} variant="secondary">{`{{${v}}}`}</Badge>
@@ -844,10 +845,10 @@ export default function ProviderOutreachPage() {
                                 </div>
                                 {template.aiPersonalizationPrompt && (
                                   <div className="space-y-2">
-                                    <Label className="flex items-center gap-2">
+                                    <FieldCaption className="flex items-center gap-2">
                                       <Sparkles className="w-4 h-4" />
                                       AI Personalization Prompt
-                                    </Label>
+                                    </FieldCaption>
                                     <div className="p-3 bg-muted rounded-lg text-sm">
                                       {template.aiPersonalizationPrompt}
                                     </div>
@@ -855,9 +856,9 @@ export default function ProviderOutreachPage() {
                                 )}
                                 <Separator />
                                 <div className="space-y-2">
-                                  <Label>Preview with Patient</Label>
+                                  <FieldCaption>Preview with Patient</FieldCaption>
                                   <div className="flex gap-2">
-                                    <Input placeholder="Enter patient ID" className="flex-1" />
+                                    <Input aria-label="Preview with Patient" placeholder="Enter patient ID" className="flex-1" />
                                     <Button
                                       onClick={() => generateMessageMutation.mutate({
                                         patientId: "patient-1",
@@ -876,11 +877,11 @@ export default function ProviderOutreachPage() {
                                 {previewMessage && (
                                   <div className="border rounded-lg p-4 space-y-3">
                                     <div>
-                                      <Label className="text-xs text-muted-foreground">Subject</Label>
+                                      <FieldCaption className="text-xs text-muted-foreground">Subject</FieldCaption>
                                       <p className="font-medium">{previewMessage.subject}</p>
                                     </div>
                                     <div>
-                                      <Label className="text-xs text-muted-foreground">Body</Label>
+                                      <FieldCaption className="text-xs text-muted-foreground">Body</FieldCaption>
                                       <p className="whitespace-pre-wrap text-sm">{previewMessage.body}</p>
                                     </div>
                                   </div>

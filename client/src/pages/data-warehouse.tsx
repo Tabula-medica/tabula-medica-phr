@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -323,9 +324,9 @@ function ExportsTab() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Export Type</Label>
+                  <Label htmlFor="data-warehouse-export-type">Export Type</Label>
                   <Select value={exportType} onValueChange={(v) => setExportType(v as "full" | "incremental")}>
-                    <SelectTrigger data-testid="select-export-type">
+                    <SelectTrigger id="data-warehouse-export-type" data-testid="select-export-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -336,7 +337,7 @@ function ExportsTab() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>De-identify Data</Label>
+                    <FieldCaption>De-identify Data</FieldCaption>
                     <p className="text-xs text-muted-foreground">HIPAA-compliant de-identification</p>
                   </div>
                   <Switch checked={deIdentify} onCheckedChange={setDeIdentify} data-testid="switch-deidentify" />
@@ -510,8 +511,8 @@ function SchedulesTab() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Schedule Name</Label>
-                <Input
+                <Label htmlFor="data-warehouse-schedule-name">Schedule Name</Label>
+                <Input id="data-warehouse-schedule-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Daily incremental export"
@@ -519,8 +520,8 @@ function SchedulesTab() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Run Time (24h format)</Label>
-                <Input
+                <Label htmlFor="data-warehouse-run-time-24h-format">Run Time (24h format)</Label>
+                <Input id="data-warehouse-run-time-24h-format"
                   value={schedule}
                   onChange={(e) => setSchedule(e.target.value)}
                   placeholder="02:00"
@@ -528,9 +529,9 @@ function SchedulesTab() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Export Type</Label>
+                <Label htmlFor="data-warehouse-export-type-2">Export Type</Label>
                 <Select value={exportType} onValueChange={(v) => setExportType(v as "full" | "incremental")}>
-                  <SelectTrigger data-testid="select-schedule-type">
+                  <SelectTrigger id="data-warehouse-export-type-2" data-testid="select-schedule-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -540,8 +541,8 @@ function SchedulesTab() {
                 </Select>
               </div>
               <div className="flex items-center justify-between">
-                <Label>De-identify Data</Label>
-                <Switch checked={deIdentify} onCheckedChange={setDeIdentify} data-testid="switch-schedule-deidentify" />
+                <Label htmlFor="data-warehouse-de-identify-data">De-identify Data</Label>
+                <Switch id="data-warehouse-de-identify-data" checked={deIdentify} onCheckedChange={setDeIdentify} data-testid="switch-schedule-deidentify" />
               </div>
             </div>
             <DialogFooter>

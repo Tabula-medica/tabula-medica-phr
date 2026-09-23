@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -681,12 +682,12 @@ export function FHIRMappingDesigner() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <Label>Select Mapping</Label>
+                    <Label htmlFor="fhir-mapping-designer-select-mapping">Select Mapping</Label>
                     <Select
                       value={selectedMapping || undefined}
                       onValueChange={setSelectedMapping}
                     >
-                      <SelectTrigger data-testid="select-test-mapping">
+                      <SelectTrigger id="fhir-mapping-designer-select-mapping" data-testid="select-test-mapping">
                         <SelectValue placeholder="Choose a mapping to test" />
                       </SelectTrigger>
                       <SelectContent>
@@ -700,8 +701,8 @@ export function FHIRMappingDesigner() {
                   </div>
 
                   <div>
-                    <Label>Source Entity (JSON)</Label>
-                    <Textarea
+                    <Label htmlFor="fhir-mapping-designer-source-entity-json">Source Entity (JSON)</Label>
+                    <Textarea id="fhir-mapping-designer-source-entity-json"
                       value={testInput}
                       onChange={(e) => setTestInput(e.target.value)}
                       placeholder='{"id": "123", "firstName": "John", "lastName": "Doe"}'
@@ -726,7 +727,7 @@ export function FHIRMappingDesigner() {
                 </div>
 
                 <div className="space-y-4">
-                  <Label>Result</Label>
+                  <FieldCaption>Result</FieldCaption>
                   {testResult ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
@@ -776,7 +777,7 @@ export function FHIRMappingDesigner() {
 
                       {testResult.targetResource && (
                         <div>
-                          <Label>Generated FHIR Resource</Label>
+                          <FieldCaption>Generated FHIR Resource</FieldCaption>
                           <pre className="mt-2 p-4 bg-muted rounded text-sm overflow-auto max-h-64 font-mono">
                             {JSON.stringify(testResult.targetResource, null, 2)}
                           </pre>
@@ -810,8 +811,8 @@ export function FHIRMappingDesigner() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Mapping Name *</Label>
-                <Input 
+                <Label htmlFor="fhir-mapping-designer-mapping-name">Mapping Name *</Label>
+                <Input id="fhir-mapping-designer-mapping-name" 
                   placeholder="My Custom Mapping" 
                   data-testid="input-mapping-name"
                   value={newMappingForm.name}
@@ -819,12 +820,12 @@ export function FHIRMappingDesigner() {
                 />
               </div>
               <div>
-                <Label>FHIR Version</Label>
+                <Label htmlFor="fhir-mapping-designer-fhir-version">FHIR Version</Label>
                 <Select 
                   value={newMappingForm.fhirVersion}
                   onValueChange={(v) => setNewMappingForm(prev => ({ ...prev, fhirVersion: v as "R4" | "R5" }))}
                 >
-                  <SelectTrigger data-testid="select-mapping-version">
+                  <SelectTrigger id="fhir-mapping-designer-fhir-version" data-testid="select-mapping-version">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -835,8 +836,8 @@ export function FHIRMappingDesigner() {
               </div>
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea 
+              <Label htmlFor="fhir-mapping-designer-description">Description</Label>
+              <Textarea id="fhir-mapping-designer-description" 
                 placeholder="Describe what this mapping does..." 
                 data-testid="textarea-mapping-desc"
                 value={newMappingForm.description}
@@ -845,12 +846,12 @@ export function FHIRMappingDesigner() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Source Entity Type *</Label>
+                <Label htmlFor="fhir-mapping-designer-source-entity-type">Source Entity Type *</Label>
                 <Select
                   value={newMappingForm.sourceEntityType}
                   onValueChange={(v) => setNewMappingForm(prev => ({ ...prev, sourceEntityType: v }))}
                 >
-                  <SelectTrigger data-testid="select-source-entity">
+                  <SelectTrigger id="fhir-mapping-designer-source-entity-type" data-testid="select-source-entity">
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent>
@@ -861,12 +862,12 @@ export function FHIRMappingDesigner() {
                 </Select>
               </div>
               <div>
-                <Label>Target Resource Type *</Label>
+                <Label htmlFor="fhir-mapping-designer-target-resource-type">Target Resource Type *</Label>
                 <Select
                   value={newMappingForm.targetResourceType}
                   onValueChange={(v) => setNewMappingForm(prev => ({ ...prev, targetResourceType: v }))}
                 >
-                  <SelectTrigger data-testid="select-target-resource">
+                  <SelectTrigger id="fhir-mapping-designer-target-resource-type" data-testid="select-target-resource">
                     <SelectValue placeholder="Select target" />
                   </SelectTrigger>
                   <SelectContent>
@@ -881,8 +882,8 @@ export function FHIRMappingDesigner() {
               </div>
             </div>
             <div>
-              <Label>Target Profile (optional)</Label>
-              <Input 
+              <Label htmlFor="fhir-mapping-designer-target-profile-optional">Target Profile (optional)</Label>
+              <Input id="fhir-mapping-designer-target-profile-optional" 
                 placeholder="http://hl7.org/fhir/..." 
                 data-testid="input-target-profile"
                 value={newMappingForm.targetProfile}
@@ -917,8 +918,8 @@ export function FHIRMappingDesigner() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Profile Name *</Label>
-                <Input 
+                <Label htmlFor="fhir-mapping-designer-profile-name">Profile Name *</Label>
+                <Input id="fhir-mapping-designer-profile-name" 
                   placeholder="My Custom Profile" 
                   data-testid="input-profile-name"
                   value={newProfileForm.name}
@@ -926,12 +927,12 @@ export function FHIRMappingDesigner() {
                 />
               </div>
               <div>
-                <Label>FHIR Version</Label>
+                <Label htmlFor="fhir-mapping-designer-fhir-version-2">FHIR Version</Label>
                 <Select 
                   value={newProfileForm.fhirVersion}
                   onValueChange={(v) => setNewProfileForm(prev => ({ ...prev, fhirVersion: v as "R4" | "R5" }))}
                 >
-                  <SelectTrigger data-testid="select-profile-version">
+                  <SelectTrigger id="fhir-mapping-designer-fhir-version-2" data-testid="select-profile-version">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -942,8 +943,8 @@ export function FHIRMappingDesigner() {
               </div>
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea 
+              <Label htmlFor="fhir-mapping-designer-description-2">Description</Label>
+              <Textarea id="fhir-mapping-designer-description-2" 
                 placeholder="Describe this profile..." 
                 data-testid="textarea-profile-desc"
                 value={newProfileForm.description}
@@ -952,12 +953,12 @@ export function FHIRMappingDesigner() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Base Resource Type *</Label>
+                <Label htmlFor="fhir-mapping-designer-base-resource-type">Base Resource Type *</Label>
                 <Select
                   value={newProfileForm.baseResourceType}
                   onValueChange={(v) => setNewProfileForm(prev => ({ ...prev, baseResourceType: v }))}
                 >
-                  <SelectTrigger data-testid="select-base-resource">
+                  <SelectTrigger id="fhir-mapping-designer-base-resource-type" data-testid="select-base-resource">
                     <SelectValue placeholder="Select base" />
                   </SelectTrigger>
                   <SelectContent>
@@ -969,8 +970,8 @@ export function FHIRMappingDesigner() {
                 </Select>
               </div>
               <div>
-                <Label>Profile URL *</Label>
-                <Input 
+                <Label htmlFor="fhir-mapping-designer-profile-url">Profile URL *</Label>
+                <Input id="fhir-mapping-designer-profile-url" 
                   placeholder="http://example.org/fhir/..." 
                   data-testid="input-profile-url"
                   value={newProfileForm.profileUrl}

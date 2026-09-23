@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   GitBranch, 
   Play, 
@@ -580,10 +581,10 @@ export default function ClinicalWorkflowAutomation() {
                       <div 
                         key={instance.id} 
                         className="flex items-center justify-between rounded-lg border p-3 hover-elevate cursor-pointer"
-                        onClick={() => {
+                        {...clickable(() => {
                           setSelectedInstance(instance);
                           setActiveTab("instances");
-                        }}
+                        })}
                       >
                         <div>
                           <p className="font-medium">{instance.workflowName}</p>
@@ -617,7 +618,7 @@ export default function ClinicalWorkflowAutomation() {
                       <div 
                         key={task.id} 
                         className="flex items-center justify-between rounded-lg border p-3 hover-elevate cursor-pointer"
-                        onClick={() => setActiveTab("tasks")}
+                        {...clickable(() => setActiveTab("tasks"))}
                       >
                         <div>
                           <p className="font-medium">{task.stepName}</p>
@@ -779,17 +780,17 @@ export default function ClinicalWorkflowAutomation() {
                           </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                              <Label>Patient ID (optional)</Label>
+                              <Label htmlFor="patientId">Patient ID (optional)</Label>
                               <Input id="patientId" placeholder="Enter patient ID" data-testid="input-patient-id" />
                             </div>
                             <div className="grid gap-2">
-                              <Label>Patient Name (optional)</Label>
+                              <Label htmlFor="patientName">Patient Name (optional)</Label>
                               <Input id="patientName" placeholder="Enter patient name" data-testid="input-patient-name" />
                             </div>
                             <div className="grid gap-2">
-                              <Label>Priority</Label>
+                              <Label htmlFor="clinical-workflow-automa-priority">Priority</Label>
                               <Select defaultValue="medium">
-                                <SelectTrigger data-testid="select-priority">
+                                <SelectTrigger id="clinical-workflow-automa-priority" data-testid="select-priority">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

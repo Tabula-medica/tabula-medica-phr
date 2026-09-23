@@ -267,7 +267,7 @@ export default function ClinicalSummaries() {
                           <Badge variant="outline" className="ml-2">{item.original.category}</Badge>
                         </CardDescription>
                       </div>
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div role="presentation" className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <SummaryLanguageSwitch 
                           userId={USER_ID} 
                           summaryId={item.original.id}
@@ -467,7 +467,7 @@ export default function ClinicalSummaries() {
           </ScrollArea>
 
           <div className="flex items-center justify-between pt-4 border-t">
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div role="presentation" className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <span className="text-sm text-muted-foreground">Quick translate:</span>
               {selectedSummary && (
                 <SummaryLanguageSwitch 
@@ -503,7 +503,7 @@ export default function ClinicalSummaries() {
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Default Language</label>
+              <span className="text-sm font-medium">Default Language</span>
               <p className="text-xs text-muted-foreground mb-2">
                 All summaries will display in this language by default
               </p>

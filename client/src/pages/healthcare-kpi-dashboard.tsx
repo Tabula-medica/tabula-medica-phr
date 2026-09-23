@@ -1029,9 +1029,9 @@ export default function HealthcareKPIDashboard() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Report Type</Label>
+                            <Label htmlFor="healthcare-kpi-dashboard-report-type">Report Type</Label>
                             <Select value={reportType} onValueChange={setReportType}>
-                              <SelectTrigger data-testid="select-report-type">
+                              <SelectTrigger id="healthcare-kpi-dashboard-report-type" data-testid="select-report-type">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1043,9 +1043,9 @@ export default function HealthcareKPIDashboard() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label>Chart Type</Label>
+                            <Label htmlFor="healthcare-kpi-dashboard-chart-type">Chart Type</Label>
                             <Select value={reportChartType} onValueChange={setReportChartType}>
-                              <SelectTrigger data-testid="select-chart-type">
+                              <SelectTrigger id="healthcare-kpi-dashboard-chart-type" data-testid="select-chart-type">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1058,11 +1058,11 @@ export default function HealthcareKPIDashboard() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Select Metrics</Label>
+                          <Label htmlFor="healthcare-kpi-dashboard-select-metrics">Select Metrics</Label>
                           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
                             {metricsData?.metrics?.map((metric) => (
                               <label key={metric.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input
+                                <input id="healthcare-kpi-dashboard-select-metrics"
                                   type="checkbox"
                                   checked={selectedMetrics.includes(metric.id)}
                                   onChange={(e) => {
@@ -1148,9 +1148,9 @@ export default function HealthcareKPIDashboard() {
                           <Input id="threshold-name" value={thresholdName} onChange={(e) => setThresholdName(e.target.value)} placeholder="Critical Patient Alert" data-testid="input-threshold-name" />
                         </div>
                         <div className="space-y-2">
-                          <Label>Metric</Label>
+                          <Label htmlFor="healthcare-kpi-dashboard-metric">Metric</Label>
                           <Select value={thresholdMetric} onValueChange={setThresholdMetric}>
-                            <SelectTrigger data-testid="select-threshold-metric">
+                            <SelectTrigger id="healthcare-kpi-dashboard-metric" data-testid="select-threshold-metric">
                               <SelectValue placeholder="Select metric..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1162,9 +1162,9 @@ export default function HealthcareKPIDashboard() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Condition</Label>
+                            <Label htmlFor="healthcare-kpi-dashboard-condition">Condition</Label>
                             <Select value={thresholdCondition} onValueChange={setThresholdCondition}>
-                              <SelectTrigger data-testid="select-threshold-condition">
+                              <SelectTrigger id="healthcare-kpi-dashboard-condition" data-testid="select-threshold-condition">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1180,9 +1180,9 @@ export default function HealthcareKPIDashboard() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Severity</Label>
+                          <Label htmlFor="healthcare-kpi-dashboard-severity">Severity</Label>
                           <Select value={thresholdSeverity} onValueChange={setThresholdSeverity}>
-                            <SelectTrigger data-testid="select-threshold-severity">
+                            <SelectTrigger id="healthcare-kpi-dashboard-severity" data-testid="select-threshold-severity">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1193,10 +1193,10 @@ export default function HealthcareKPIDashboard() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Notifications</Label>
+                          <Label htmlFor="healthcare-kpi-dashboard-notifications">Notifications</Label>
                           <div className="flex items-center gap-4">
                             <label className="flex items-center gap-2">
-                              <Switch checked={thresholdEmail} onCheckedChange={setThresholdEmail} />
+                              <Switch id="healthcare-kpi-dashboard-notifications" checked={thresholdEmail} onCheckedChange={setThresholdEmail} />
                               <span className="text-sm">Email</span>
                             </label>
                             <label className="flex items-center gap-2">
@@ -1379,9 +1379,9 @@ export default function HealthcareKPIDashboard() {
                       </DialogHeader>
                       <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                          <Label>Format</Label>
+                          <Label htmlFor="healthcare-kpi-dashboard-format">Format</Label>
                           <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as "csv" | "pdf")}>
-                            <SelectTrigger data-testid="select-export-format">
+                            <SelectTrigger id="healthcare-kpi-dashboard-format" data-testid="select-export-format">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1391,9 +1391,9 @@ export default function HealthcareKPIDashboard() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Data Type</Label>
+                          <Label htmlFor="healthcare-kpi-dashboard-data-type">Data Type</Label>
                           <Select value={exportDataType} onValueChange={setExportDataType}>
-                            <SelectTrigger data-testid="select-export-data-type">
+                            <SelectTrigger id="healthcare-kpi-dashboard-data-type" data-testid="select-export-data-type">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

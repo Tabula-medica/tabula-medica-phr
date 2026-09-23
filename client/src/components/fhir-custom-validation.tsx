@@ -364,9 +364,9 @@ export function FHIRCustomValidation() {
             <CardContent className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Upload File</Label>
+                  <Label htmlFor="fhir-custom-validation-upload-file">Upload File</Label>
                   <div className="flex gap-2">
-                    <input
+                    <input id="fhir-custom-validation-upload-file"
                       ref={fileInputRef}
                       type="file"
                       accept=".json"
@@ -391,9 +391,9 @@ export function FHIRCustomValidation() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Import from URL</Label>
+                  <Label htmlFor="fhir-custom-validation-import-from-url">Import from URL</Label>
                   <div className="flex gap-2">
-                    <Input
+                    <Input id="fhir-custom-validation-import-from-url"
                       placeholder="https://example.org/StructureDefinition/my-profile"
                       value={profileUrl}
                       onChange={(e) => setProfileUrl(e.target.value)}
@@ -585,9 +585,9 @@ export function FHIRCustomValidation() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Profile</Label>
+                  <Label htmlFor="fhir-custom-validation-profile">Profile</Label>
                   <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-                    <SelectTrigger data-testid="select-profile">
+                    <SelectTrigger id="fhir-custom-validation-profile" data-testid="select-profile">
                       <SelectValue placeholder="Select a profile..." />
                     </SelectTrigger>
                     <SelectContent>

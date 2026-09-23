@@ -979,9 +979,9 @@ export default function CaregiverHub() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Response Type</Label>
+              <Label htmlFor="caregiver-hub-response-type">Response Type</Label>
               <Select value={responseType} onValueChange={setResponseType}>
-                <SelectTrigger data-testid="select-response-type">
+                <SelectTrigger id="caregiver-hub-response-type" data-testid="select-response-type">
                   <SelectValue placeholder="Select response type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -993,8 +993,8 @@ export default function CaregiverHub() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Message (Optional)</Label>
-              <Textarea
+              <Label htmlFor="caregiver-hub-message-optional">Message (Optional)</Label>
+              <Textarea id="caregiver-hub-message-optional"
                 value={responseMessage}
                 onChange={(e) => setResponseMessage(e.target.value)}
                 placeholder="Add details about your response or action..."

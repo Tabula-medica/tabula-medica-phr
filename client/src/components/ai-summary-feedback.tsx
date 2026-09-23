@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Star, AlertTriangle, ThumbsUp, Send, MessageSquare, Flag } from "lucide-react";
@@ -20,7 +21,7 @@ interface AiSummaryFeedbackProps {
 function StarRating({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
   return (
     <div className="space-y-1">
-      <Label className="text-sm">{label}</Label>
+      <FieldCaption className="text-sm">{label}</FieldCaption>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <button

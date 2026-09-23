@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   BookOpen,
   Video,
@@ -223,7 +224,7 @@ export function PersonalizedEducationCard({ userId }: PersonalizedEducationCardP
                       <div
                         key={article.id}
                         className="p-4 border rounded-lg hover-elevate cursor-pointer"
-                        onClick={() => setSelectedArticle(article)}
+                        {...clickable(() => setSelectedArticle(article))}
                         data-testid={`article-${article.id}`}
                       >
                         <div className="flex items-start justify-between gap-2">

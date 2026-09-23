@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -496,14 +497,14 @@ export default function HealthDataSources() {
 
           <div className="space-y-4">
             <div>
-              <Label className="text-sm font-medium mb-2 block">Data permissions</Label>
+              <FieldCaption className="text-sm font-medium mb-2 block">Data permissions</FieldCaption>
               <p className="text-xs text-muted-foreground mb-3">
                 Select what data you want to share with Tabula Medica
               </p>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {selectedSource?.scopes.map((scope) => (
                   <div key={scope} className="flex items-center space-x-2">
-                    <Checkbox
+                    <Checkbox aria-label="Data permissions"
                       id={scope}
                       checked={selectedScopes.includes(scope)}
                       onCheckedChange={(checked) => {

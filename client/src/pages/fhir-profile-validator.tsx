@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -248,9 +249,9 @@ function ValidateTab() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>FHIR Profile</Label>
+              <Label htmlFor="fhir-profile-validator-fhir-profile">FHIR Profile</Label>
               <Select value={selectedProfile} onValueChange={setSelectedProfile}>
-                <SelectTrigger data-testid="select-profile">
+                <SelectTrigger id="fhir-profile-validator-fhir-profile" data-testid="select-profile">
                   <SelectValue placeholder="Select a profile" />
                 </SelectTrigger>
                 <SelectContent>
@@ -270,7 +271,7 @@ function ValidateTab() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>FHIR Resource JSON</Label>
+                <FieldCaption>FHIR Resource JSON</FieldCaption>
                 <div className="flex gap-1">
                   <Button 
                     variant="ghost" 

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -239,8 +240,8 @@ export default function LabExplanationPage() {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2 space-y-1">
-                        <Label className="text-xs">Test Name *</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Test Name *</FieldCaption>
+                        <Input aria-label="Test Name *"
                           placeholder="e.g., Glucose, Hemoglobin"
                           value={lab.name}
                           onChange={(e) => updateLab(lab.id, "name", e.target.value)}
@@ -249,8 +250,8 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs">Value *</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Value *</FieldCaption>
+                        <Input aria-label="Value *"
                           placeholder="e.g., 95"
                           value={lab.value}
                           onChange={(e) => updateLab(lab.id, "value", e.target.value)}
@@ -259,8 +260,8 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs">Unit *</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Unit *</FieldCaption>
+                        <Input aria-label="Unit *"
                           placeholder="e.g., mg/dL"
                           value={lab.unit}
                           onChange={(e) => updateLab(lab.id, "unit", e.target.value)}
@@ -269,8 +270,8 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs">Reference Range</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Reference Range</FieldCaption>
+                        <Input aria-label="Reference Range"
                           placeholder="e.g., 70-100"
                           value={lab.reference_range}
                           onChange={(e) => updateLab(lab.id, "reference_range", e.target.value)}
@@ -279,9 +280,9 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs">Flag</Label>
+                        <FieldCaption className="text-xs">Flag</FieldCaption>
                         <Select value={lab.flag} onValueChange={(v) => updateLab(lab.id, "flag", v)}>
-                          <SelectTrigger data-testid={`select-flag-${index}`}>
+                          <SelectTrigger aria-label="Flag" data-testid={`select-flag-${index}`}>
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -295,8 +296,8 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs">Date</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Date</FieldCaption>
+                        <Input aria-label="Date"
                           type="date"
                           value={lab.date}
                           onChange={(e) => updateLab(lab.id, "date", e.target.value)}
@@ -305,8 +306,8 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs">Source</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Source</FieldCaption>
+                        <Input aria-label="Source"
                           placeholder="e.g., Quest Diagnostics"
                           value={lab.source}
                           onChange={(e) => updateLab(lab.id, "source", e.target.value)}
@@ -315,8 +316,8 @@ export default function LabExplanationPage() {
                       </div>
 
                       <div className="col-span-2 space-y-1">
-                        <Label className="text-xs">Record ID</Label>
-                        <Input
+                        <FieldCaption className="text-xs">Record ID</FieldCaption>
+                        <Input aria-label="Record ID"
                           placeholder="e.g., LAB-2024-001"
                           value={lab.record_id}
                           onChange={(e) => updateLab(lab.id, "record_id", e.target.value)}
@@ -333,8 +334,8 @@ export default function LabExplanationPage() {
                 </Button>
 
                 <div className="space-y-2">
-                  <Label className="text-sm">Additional Context (Optional)</Label>
-                  <Textarea
+                  <Label htmlFor="lab-explanation-additional-context-optional" className="text-sm">Additional Context (Optional)</Label>
+                  <Textarea id="lab-explanation-additional-context-optional"
                     placeholder="Paste any additional context from your health record..."
                     value={optionalSnippet}
                     onChange={(e) => setOptionalSnippet(e.target.value)}

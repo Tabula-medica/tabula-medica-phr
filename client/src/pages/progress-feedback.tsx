@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { useToast } from "@/hooks/use-toast";
 import {
   TrendingUp, TrendingDown, Minus, Target, Lightbulb, Heart, Award,
@@ -730,11 +731,11 @@ export default function ProgressFeedbackPage() {
               {selectedAdjustment && (
                 <>
                   <div>
-                    <Label>Adjustment</Label>
+                    <FieldCaption>Adjustment</FieldCaption>
                     <p className="text-sm font-medium">{selectedAdjustment.title}</p>
                   </div>
                   <div>
-                    <Label>Reason for Review</Label>
+                    <FieldCaption>Reason for Review</FieldCaption>
                     <p className="text-sm text-muted-foreground">{selectedAdjustment.clinicianReviewReason}</p>
                   </div>
                 </>

@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   ArrowLeft,
   MessageSquare,
@@ -218,7 +219,7 @@ function ConversationItem({ conv, isSelected, onClick }: { conv: Conversation; i
   return (
     <div
       className={`p-3 cursor-pointer transition-colors rounded-md ${isSelected ? "bg-accent" : "hover-elevate"}`}
-      onClick={onClick}
+      {...clickable(onClick)}
       data-testid={`conversation-item-${conv.id}`}
     >
       <div className="flex items-start gap-3">
@@ -765,9 +766,9 @@ export default function SecureMessaging() {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>To</Label>
+                <Label htmlFor="secure-messaging-to">To</Label>
                 <Select value={newRecipient} onValueChange={setNewRecipient}>
-                  <SelectTrigger data-testid="select-recipient"><SelectValue placeholder="Select care team member" /></SelectTrigger>
+                  <SelectTrigger id="secure-messaging-to" data-testid="select-recipient"><SelectValue placeholder="Select care team member" /></SelectTrigger>
                   <SelectContent>
                     {(teamProfiles.length > 0 ? teamProfiles : careTeam).map(p => (
                       <SelectItem key={p.id} value={p.id}>
@@ -778,12 +779,12 @@ export default function SecureMessaging() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Subject</Label>
-                <Input value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder="e.g., Question about medication" data-testid="input-subject" />
+                <Label htmlFor="secure-messaging-subject">Subject</Label>
+                <Input id="secure-messaging-subject" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder="e.g., Question about medication" data-testid="input-subject" />
               </div>
               <div className="space-y-2">
-                <Label>Message</Label>
-                <Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your message..." className="min-h-[100px]" data-testid="input-message-content" />
+                <Label htmlFor="secure-messaging-message">Message</Label>
+                <Textarea id="secure-messaging-message" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your message..." className="min-h-[100px]" data-testid="input-message-content" />
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Lock className="w-3 h-3" />
@@ -1013,7 +1014,7 @@ export default function SecureMessaging() {
                         if (!lastMsg) return null;
                         const other = conv.participants.find(p => p.role !== "patient");
                         return (
-                          <div key={conv.id} className="flex items-start gap-3 cursor-pointer hover-elevate p-2 rounded-md" onClick={() => { setSelectedConvId(conv.id); setMainTab("messages"); }} data-testid={`recent-comm-${conv.id}`}>
+                          <div key={conv.id} className="flex items-start gap-3 cursor-pointer hover-elevate p-2 rounded-md" {...clickable(() => { setSelectedConvId(conv.id); setMainTab("messages"); })} data-testid={`recent-comm-${conv.id}`}>
                             <Avatar className="w-8 h-8 flex-shrink-0">
                               <AvatarFallback className={`text-xs ${getRoleColor(other?.role || "provider")}`}>
                                 {other ? getInitials(other.name) : "?"}

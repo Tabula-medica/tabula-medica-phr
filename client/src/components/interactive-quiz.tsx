@@ -281,7 +281,7 @@ export function InteractiveQuiz({ quiz, onComplete, onClose }: InteractiveQuizPr
                 const showCorrectness = showExplanation;
 
                 return (
-                  <div
+                  <div role="presentation"
                     key={i}
                     className={cn(
                       "flex items-center space-x-3 p-4 rounded-lg border transition-all",
@@ -322,7 +322,7 @@ export function InteractiveQuiz({ quiz, onComplete, onClose }: InteractiveQuizPr
                 const showCorrectness = showExplanation;
 
                 return (
-                  <div
+                  <div role="presentation"
                     key={option}
                     className={cn(
                       "flex items-center space-x-3 p-4 rounded-lg border transition-all",

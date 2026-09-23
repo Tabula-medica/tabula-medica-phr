@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -389,7 +390,7 @@ export default function AnalyticsDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Export Format</Label>
+                  <FieldCaption>Export Format</FieldCaption>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -426,11 +427,11 @@ export default function AnalyticsDashboard() {
 
                 {cohorts && cohorts.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Filter by Cohorts (Optional)</Label>
+                    <FieldCaption>Filter by Cohorts (Optional)</FieldCaption>
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
                       {cohorts.map((cohort) => (
                         <div key={cohort.id} className="flex items-center space-x-2">
-                          <Checkbox
+                          <Checkbox aria-label="Filter by Cohorts (Optional)"
                             id={`cohort-${cohort.id}`}
                             checked={selectedCohorts.includes(cohort.id)}
                             onCheckedChange={(checked) => {

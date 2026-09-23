@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAccessibility } from "@/components/accessibility-provider";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   Pill, 
   Calendar, 
@@ -309,7 +311,7 @@ export default function GeriatricHome() {
                       <div 
                         key={med.id} 
                         className="p-4 rounded-lg border-2 hover-elevate cursor-pointer"
-                        onClick={() => setSelectedMed(med)}
+                        {...clickable(() => setSelectedMed(med))}
                         data-testid={`medication-${med.id}`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -903,7 +905,7 @@ export default function GeriatricHome() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-base">What side effect did you experience?</Label>
+              <FieldCaption className="text-base">What side effect did you experience?</FieldCaption>
               <div className="grid grid-cols-2 gap-2">
                 {["Nausea", "Dizziness", "Headache", "Fatigue", "Rash", "Other"].map((effect) => (
                   <Button
@@ -919,8 +921,8 @@ export default function GeriatricHome() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-base">Additional notes (optional)</Label>
-              <Textarea
+              <Label htmlFor="geriatric-home-additional-notes-optional" className="text-base">Additional notes (optional)</Label>
+              <Textarea id="geriatric-home-additional-notes-optional"
                 placeholder="Describe what you experienced..."
                 className="text-base min-h-[100px]"
                 value={sideEffectText === "Other" ? "" : undefined}
@@ -953,9 +955,9 @@ export default function GeriatricHome() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-base">Why did you stop taking this medication?</Label>
+              <Label htmlFor="geriatric-home-why-did-you-stop-taking-this-medication" className="text-base">Why did you stop taking this medication?</Label>
               <Select value={stopReason} onValueChange={setStopReason}>
-                <SelectTrigger className="text-base h-12">
+                <SelectTrigger id="geriatric-home-why-did-you-stop-taking-this-medication" className="text-base h-12">
                   <SelectValue placeholder="Select a reason" />
                 </SelectTrigger>
                 <SelectContent>
@@ -995,8 +997,8 @@ export default function GeriatricHome() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-base">Note</Label>
-              <Textarea
+              <Label htmlFor="geriatric-home-note" className="text-base">Note</Label>
+              <Textarea id="geriatric-home-note"
                 placeholder="What would you like to note?"
                 className="text-base min-h-[120px]"
                 value={newNote.note}
@@ -1004,9 +1006,9 @@ export default function GeriatricHome() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-base">Category</Label>
+              <Label htmlFor="geriatric-home-category" className="text-base">Category</Label>
               <Select value={newNote.category} onValueChange={(v) => setNewNote({ ...newNote, category: v })}>
-                <SelectTrigger className="text-base h-12">
+                <SelectTrigger id="geriatric-home-category" className="text-base h-12">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1018,7 +1020,7 @@ export default function GeriatricHome() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-base">Priority</Label>
+              <FieldCaption className="text-base">Priority</FieldCaption>
               <div className="flex gap-2">
                 {["low", "normal", "high"].map((p) => (
                   <Button
@@ -1059,8 +1061,8 @@ export default function GeriatricHome() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-base">Their Name</Label>
-              <Input
+              <Label htmlFor="geriatric-home-their-name" className="text-base">Their Name</Label>
+              <Input id="geriatric-home-their-name"
                 placeholder="Enter name"
                 className="text-base h-12"
                 value={inviteData.name}
@@ -1068,8 +1070,8 @@ export default function GeriatricHome() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-base">Their Email</Label>
-              <Input
+              <Label htmlFor="geriatric-home-their-email" className="text-base">Their Email</Label>
+              <Input id="geriatric-home-their-email"
                 type="email"
                 placeholder="Enter email"
                 className="text-base h-12"
@@ -1078,9 +1080,9 @@ export default function GeriatricHome() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-base">Relationship</Label>
+              <Label htmlFor="geriatric-home-relationship" className="text-base">Relationship</Label>
               <Select value={inviteData.relationship} onValueChange={(v) => setInviteData({ ...inviteData, relationship: v })}>
-                <SelectTrigger className="text-base h-12">
+                <SelectTrigger id="geriatric-home-relationship" className="text-base h-12">
                   <SelectValue placeholder="Select relationship" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1094,9 +1096,9 @@ export default function GeriatricHome() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-base">Access Level</Label>
+              <Label htmlFor="geriatric-home-access-level" className="text-base">Access Level</Label>
               <Select value={inviteData.accessLevel} onValueChange={(v) => setInviteData({ ...inviteData, accessLevel: v })}>
-                <SelectTrigger className="text-base h-12">
+                <SelectTrigger id="geriatric-home-access-level" className="text-base h-12">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

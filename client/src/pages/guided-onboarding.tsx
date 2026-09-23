@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -677,8 +678,8 @@ function FamilyStep({
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>First Name</Label>
-                    <Input 
+                    <FieldCaption>First Name</FieldCaption>
+                    <Input aria-label="First Name" 
                       value={member.firstName}
                       onChange={(e) => onUpdate(member.id, "firstName", e.target.value)}
                       placeholder="First name"
@@ -686,8 +687,8 @@ function FamilyStep({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Last Name</Label>
-                    <Input 
+                    <FieldCaption>Last Name</FieldCaption>
+                    <Input aria-label="Last Name" 
                       value={member.lastName}
                       onChange={(e) => onUpdate(member.id, "lastName", e.target.value)}
                       placeholder="Last name"
@@ -697,12 +698,12 @@ function FamilyStep({
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Relationship</Label>
+                    <FieldCaption>Relationship</FieldCaption>
                     <Select 
                       value={member.relationship} 
                       onValueChange={(v) => onUpdate(member.id, "relationship", v)}
                     >
-                      <SelectTrigger data-testid={`select-member-relationship-${index}`}>
+                      <SelectTrigger aria-label="Relationship" data-testid={`select-member-relationship-${index}`}>
                         <SelectValue placeholder="Select relationship" />
                       </SelectTrigger>
                       <SelectContent>
@@ -717,8 +718,8 @@ function FamilyStep({
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Date of Birth</Label>
-                    <Input 
+                    <FieldCaption>Date of Birth</FieldCaption>
+                    <Input aria-label="Date of Birth" 
                       type="date"
                       value={member.dateOfBirth}
                       onChange={(e) => onUpdate(member.id, "dateOfBirth", e.target.value)}

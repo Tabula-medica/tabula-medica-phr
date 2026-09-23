@@ -546,8 +546,8 @@ export default function PersonalizedCareJourneyPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium">How are you feeling about your care journey?</label>
-                <Textarea
+                <label htmlFor="personalized-care-journe-how-are-you-feeling-about-your-care-jour" className="text-sm font-medium">How are you feeling about your care journey?</label>
+                <Textarea id="personalized-care-journe-how-are-you-feeling-about-your-care-jour"
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
                   placeholder="Share any challenges, successes, or concerns..."

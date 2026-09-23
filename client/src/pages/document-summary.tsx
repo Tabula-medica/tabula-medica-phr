@@ -139,9 +139,9 @@ export default function DocumentSummaryPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Document Type</Label>
+                <Label htmlFor="document-summary-document-type">Document Type</Label>
                 <Select value={documentType} onValueChange={setDocumentType}>
-                  <SelectTrigger data-testid="select-document-type">
+                  <SelectTrigger id="document-summary-document-type" data-testid="select-document-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -154,9 +154,9 @@ export default function DocumentSummaryPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Summary Language</Label>
+                <Label htmlFor="document-summary-summary-language">Summary Language</Label>
                 <Select value={targetLanguage} onValueChange={setTargetLanguage}>
-                  <SelectTrigger data-testid="select-language">
+                  <SelectTrigger id="document-summary-summary-language" data-testid="select-language">
                     <Globe className="h-4 w-4 mr-2" />
                     <SelectValue />
                   </SelectTrigger>
@@ -173,8 +173,8 @@ export default function DocumentSummaryPage() {
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Source System</Label>
-                <Input
+                <Label htmlFor="document-summary-source-system">Source System</Label>
+                <Input id="document-summary-source-system"
                   placeholder="e.g., Fasten Health"
                   value={sourceSystem}
                   onChange={(e) => setSourceSystem(e.target.value)}
@@ -182,8 +182,8 @@ export default function DocumentSummaryPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Document Date</Label>
-                <Input
+                <Label htmlFor="document-summary-document-date">Document Date</Label>
+                <Input id="document-summary-document-date"
                   type="date"
                   value={documentDate}
                   onChange={(e) => setDocumentDate(e.target.value)}
@@ -191,8 +191,8 @@ export default function DocumentSummaryPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Record ID</Label>
-                <Input
+                <Label htmlFor="document-summary-record-id">Record ID</Label>
+                <Input id="document-summary-record-id"
                   placeholder="e.g., DOC-12345"
                   value={recordId}
                   onChange={(e) => setRecordId(e.target.value)}
@@ -202,8 +202,8 @@ export default function DocumentSummaryPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Document Text</Label>
-              <Textarea
+              <Label htmlFor="document-summary-document-text">Document Text</Label>
+              <Textarea id="document-summary-document-text"
                 placeholder="Paste the document text here..."
                 className="min-h-[300px] font-mono text-sm"
                 value={documentText}

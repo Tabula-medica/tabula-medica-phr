@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   FileText,
@@ -441,9 +442,9 @@ export default function HealthReportsPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Date Range</Label>
+                <Label htmlFor="health-reports-date-range">Date Range</Label>
                 <Select value={dateRangeType} onValueChange={setDateRangeType}>
-                  <SelectTrigger data-testid="select-date-range">
+                  <SelectTrigger id="health-reports-date-range" data-testid="select-date-range">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -454,11 +455,11 @@ export default function HealthReportsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Data Types</Label>
+                <FieldCaption>Data Types</FieldCaption>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                   {DATA_TYPES.map(dt => (
                     <div key={dt.id} className="flex items-center space-x-2">
-                      <Checkbox
+                      <Checkbox aria-label="Data Types"
                         id={dt.id}
                         checked={selectedDataTypes.includes(dt.id)}
                         onCheckedChange={() => toggleDataType(dt.id)}
@@ -472,9 +473,9 @@ export default function HealthReportsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Export Format</Label>
+                <Label htmlFor="health-reports-export-format">Export Format</Label>
                 <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as "pdf" | "csv")}>
-                  <SelectTrigger data-testid="select-export-format">
+                  <SelectTrigger id="health-reports-export-format" data-testid="select-export-format">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -535,9 +536,9 @@ export default function HealthReportsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Frequency</Label>
+                <Label htmlFor="health-reports-frequency">Frequency</Label>
                 <Select value={scheduleFrequency} onValueChange={setScheduleFrequency}>
-                  <SelectTrigger data-testid="select-frequency">
+                  <SelectTrigger id="health-reports-frequency" data-testid="select-frequency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -549,11 +550,11 @@ export default function HealthReportsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Data Types</Label>
+                <FieldCaption>Data Types</FieldCaption>
                 <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                   {DATA_TYPES.slice(0, 6).map(dt => (
                     <div key={dt.id} className="flex items-center space-x-2">
-                      <Checkbox
+                      <Checkbox aria-label="Data Types"
                         id={`sched-${dt.id}`}
                         checked={selectedDataTypes.includes(dt.id)}
                         onCheckedChange={() => toggleDataType(dt.id)}

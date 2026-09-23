@@ -353,9 +353,9 @@ function ManagePermissionsDialog({
                 </div>
 
                 <div className="p-3 rounded-lg border bg-card">
-                  <Label className="text-sm font-medium mb-2 block">Access Restriction Level</Label>
+                  <Label htmlFor="caregivers-access-restriction-level" className="text-sm font-medium mb-2 block">Access Restriction Level</Label>
                   <Select value={accessRestriction} onValueChange={setAccessRestriction}>
-                    <SelectTrigger data-testid="select-access-restriction">
+                    <SelectTrigger id="caregivers-access-restriction-level" data-testid="select-access-restriction">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

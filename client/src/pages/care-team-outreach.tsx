@@ -335,9 +335,9 @@ function RecordAttemptDialog({ action, onSuccess }: {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Contact Method</Label>
+          <Label htmlFor="care-team-outreach-contact-method">Contact Method</Label>
           <Select value={method} onValueChange={(v) => setMethod(v as OutreachActionType)}>
-            <SelectTrigger data-testid="select-method">
+            <SelectTrigger id="care-team-outreach-contact-method" data-testid="select-method">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -349,9 +349,9 @@ function RecordAttemptDialog({ action, onSuccess }: {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Patient Response</Label>
+          <Label htmlFor="care-team-outreach-patient-response">Patient Response</Label>
           <Select value={response} onValueChange={(v) => setResponse(v as PatientResponseType)}>
-            <SelectTrigger data-testid="select-response">
+            <SelectTrigger id="care-team-outreach-patient-response" data-testid="select-response">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -369,8 +369,8 @@ function RecordAttemptDialog({ action, onSuccess }: {
       </div>
 
       <div className="space-y-2">
-        <Label>Notes</Label>
-        <Textarea
+        <Label htmlFor="care-team-outreach-notes">Notes</Label>
+        <Textarea id="care-team-outreach-notes"
           placeholder="Notes about the conversation..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -380,8 +380,8 @@ function RecordAttemptDialog({ action, onSuccess }: {
       </div>
 
       <div className="space-y-2">
-        <Label>Next Steps</Label>
-        <Textarea
+        <Label htmlFor="care-team-outreach-next-steps">Next Steps</Label>
+        <Textarea id="care-team-outreach-next-steps"
           placeholder="What should happen next..."
           value={nextSteps}
           onChange={(e) => setNextSteps(e.target.value)}
@@ -590,9 +590,9 @@ export default function CareTeamOutreach() {
 
         <TabsContent value="patients" className="space-y-4">
           <div className="flex items-center gap-4 flex-wrap">
-            <Label>Filter by Priority:</Label>
+            <Label htmlFor="care-team-outreach-filter-by-priority">Filter by Priority:</Label>
             <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as RiskPriorityLevel | "all")}>
-              <SelectTrigger className="w-[180px]" data-testid="select-priority-filter">
+              <SelectTrigger id="care-team-outreach-filter-by-priority" className="w-[180px]" data-testid="select-priority-filter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

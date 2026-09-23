@@ -353,9 +353,9 @@ export default function ShareLinks() {
               {!newShareData ? (
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">What to Share</label>
+                    <label htmlFor="share-links-what-to-share" className="text-sm font-medium">What to Share</label>
                     <Select value={selectedRecordType} onValueChange={setSelectedRecordType}>
-                      <SelectTrigger data-testid="select-record-type">
+                      <SelectTrigger id="share-links-what-to-share" data-testid="select-record-type">
                         <SelectValue placeholder="Select record type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -369,9 +369,9 @@ export default function ShareLinks() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Link Expires In</label>
+                    <label htmlFor="share-links-link-expires-in" className="text-sm font-medium">Link Expires In</label>
                     <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
-                      <SelectTrigger data-testid="select-expiry">
+                      <SelectTrigger id="share-links-link-expires-in" data-testid="select-expiry">
                         <SelectValue placeholder="Select expiry" />
                       </SelectTrigger>
                       <SelectContent>

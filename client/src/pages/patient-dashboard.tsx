@@ -743,9 +743,9 @@ export default function PatientDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">What would you like to report?</label>
+                  <label htmlFor="patient-dashboard-what-would-you-like-to-report" className="text-sm font-medium">What would you like to report?</label>
                   <Select value={outcomeType} onValueChange={setOutcomeType}>
-                    <SelectTrigger className="mt-1" data-testid="select-outcome-type">
+                    <SelectTrigger id="patient-dashboard-what-would-you-like-to-report" className="mt-1" data-testid="select-outcome-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -761,7 +761,7 @@ export default function PatientDashboardPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium">Score: {outcomeScore[0]}/10</label>
+                    <span className="text-sm font-medium">Score: {outcomeScore[0]}/10</span>
                     <span className="text-xs text-muted-foreground">
                       {outcomeScore[0] <= 3 ? "Low" : outcomeScore[0] <= 6 ? "Moderate" : "High"}
                     </span>
@@ -783,8 +783,8 @@ export default function PatientDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Additional Notes (optional)</label>
-                  <Textarea
+                  <label htmlFor="patient-dashboard-additional-notes-optional" className="text-sm font-medium">Additional Notes (optional)</label>
+                  <Textarea id="patient-dashboard-additional-notes-optional"
                     value={outcomeNotes}
                     onChange={(e) => setOutcomeNotes(e.target.value)}
                     placeholder="Any details you'd like to share..."
@@ -867,9 +867,9 @@ export default function PatientDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Category</label>
+                  <label htmlFor="patient-dashboard-category" className="text-sm font-medium">Category</label>
                   <Select value={feedbackCategory} onValueChange={setFeedbackCategory}>
-                    <SelectTrigger className="mt-1" data-testid="select-feedback-category">
+                    <SelectTrigger id="patient-dashboard-category" className="mt-1" data-testid="select-feedback-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -884,7 +884,7 @@ export default function PatientDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Rating</label>
+                  <span className="text-sm font-medium">Rating</span>
                   <div className="flex items-center gap-1 mt-2">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -902,8 +902,8 @@ export default function PatientDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Your Feedback</label>
-                  <Textarea
+                  <label htmlFor="patient-dashboard-your-feedback" className="text-sm font-medium">Your Feedback</label>
+                  <Textarea id="patient-dashboard-your-feedback"
                     value={feedbackComment}
                     onChange={(e) => setFeedbackComment(e.target.value)}
                     placeholder="Tell us about your experience..."

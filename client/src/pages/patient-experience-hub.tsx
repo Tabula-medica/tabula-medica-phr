@@ -28,6 +28,7 @@ import {
   Pill
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface DashboardData {
   patientId: string;
@@ -392,7 +393,7 @@ export default function PatientExperienceHub() {
                           className={`p-4 border-b cursor-pointer hover-elevate ${
                             selectedThread === thread.id ? "bg-muted" : ""
                           }`}
-                          onClick={() => setSelectedThread(thread.id)}
+                          {...clickable(() => setSelectedThread(thread.id))}
                           data-testid={`thread-item-${thread.id}`}
                         >
                           <div className="flex items-center gap-3">

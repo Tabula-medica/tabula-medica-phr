@@ -454,22 +454,22 @@ export default function BackgroundJobsPage() {
                                 <div className="space-y-4">
                                   <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                      <label className="text-sm font-medium">Status</label>
+                                      <span className="text-sm font-medium">Status</span>
                                       <div className="flex items-center gap-2 mt-1">
                                         {getStatusIcon(job.status)}
                                         {getStatusBadge(job.status)}
                                       </div>
                                     </div>
                                     <div>
-                                      <label className="text-sm font-medium">Type</label>
+                                      <span className="text-sm font-medium">Type</span>
                                       <p className="mt-1">{formatTypeLabel(job.type)}</p>
                                     </div>
                                     <div>
-                                      <label className="text-sm font-medium">Source</label>
+                                      <span className="text-sm font-medium">Source</span>
                                       <p className="mt-1">{job.payload.sourceName || "N/A"}</p>
                                     </div>
                                     <div>
-                                      <label className="text-sm font-medium">Processing Time</label>
+                                      <span className="text-sm font-medium">Processing Time</span>
                                       <p className="mt-1">{formatDuration(job.processingTimeMs)}</p>
                                     </div>
                                   </div>
@@ -478,7 +478,7 @@ export default function BackgroundJobsPage() {
                                     <>
                                       <Separator />
                                       <div>
-                                        <label className="text-sm font-medium">Result</label>
+                                        <span className="text-sm font-medium">Result</span>
                                         <div className="mt-2 grid grid-cols-3 gap-4">
                                           <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                                             <p className="text-2xl font-bold text-green-600">{job.result.recordsImported}</p>
@@ -501,7 +501,7 @@ export default function BackgroundJobsPage() {
                                     <>
                                       <Separator />
                                       <div>
-                                        <label className="text-sm font-medium text-red-600">Error</label>
+                                        <span className="text-sm font-medium text-red-600">Error</span>
                                         <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                                           <p className="font-mono text-sm">{job.error.code}</p>
                                           <p className="text-sm text-muted-foreground mt-1">{job.error.message}</p>
