@@ -11,7 +11,7 @@ import {
 } from "./mapper";
 import { storage } from "../storage";
 import type { EhrConnection } from "@shared/schema";
-import { resolvePatientIdentityForUser } from "../services/patient-identity-resolution";
+import { resolveUnifiedPatientForNewSource, attachEhrSourceToUnifiedPatient } from "../services/patient-identity-resolution";
 
 export interface SyncResult {
   success: boolean;
@@ -65,8 +65,10 @@ export async function syncEhrConnection(connection: EhrConnection): Promise<Sync
     // Positive patient ID: before creating a new isolated Patient record,
     // check whether this account already has a matching identity linked
     // through a different EHR connection, so the same person doesn't end up
-    // split across disconnected records.
-    const identity = await resolvePatientIdentityForUser(connection.userId, {
+    // split across disconnected records. The match must run BEFORE
+    // createPatient (it only decides which UnifiedPatient to use); the
+    // source is attached afterward, once the real internal patient id exists.
+    const identityMatch = await resolveUnifiedPatientForNewSource(connection.userId, {
       firstName: patientData.firstName,
       lastName: patientData.lastName,
       dateOfBirth: patientData.dateOfBirth,
@@ -76,12 +78,19 @@ export async function syncEhrConnection(connection: EhrConnection): Promise<Sync
       platform: connection.platform,
       facilityName: connection.facilityName,
       mrn: patientData.mrn,
-      patientId: patientData.mrn || connection.id,
     });
-    patientData.unifiedPatientId = identity.unifiedPatientId;
+    patientData.unifiedPatientId = identityMatch.unifiedPatientId;
 
     const patient = await storage.createPatient(patientData);
     result.patientsAdded = 1;
+
+    await attachEhrSourceToUnifiedPatient(identityMatch, {
+      ehrConnectionId: connection.id,
+      platform: connection.platform,
+      facilityName: connection.facilityName,
+      mrn: patientData.mrn,
+      patientId: patient.id,
+    });
 
     for (const condition of data.conditions) {
       try {

@@ -21,7 +21,7 @@ import {
   parseFhirResources,
   bucketResources,
 } from "./fasten-export-parsing";
-import { resolvePatientIdentityForUser } from "../services/patient-identity-resolution";
+import { resolveUnifiedPatientForNewSource, attachEhrSourceToUnifiedPatient } from "../services/patient-identity-resolution";
 
 // ---------------------------------------------------------------------------
 // Fasten EHI-export ingestion.
@@ -60,15 +60,22 @@ async function findLinkedUserId(orgConnectionId: string): Promise<string | null>
   return identity?.userId ?? null;
 }
 
-async function getOrCreateFastenConnection(userId: string): Promise<EhrConnection> {
+async function getOrCreateFastenConnection(userId: string, orgConnectionId: string): Promise<EhrConnection> {
   const connections = await storage.getEhrConnections(userId);
-  const existing = connections.find(c => c.platform === "fastenhealth");
+  // Match on the specific org connection, not just "any fastenhealth
+  // connection for this user" — a user can link multiple Fasten
+  // organizations, and picking the wrong one would attribute this export's
+  // records to a different organization's patient.
+  const existing = connections.find(
+    c => c.userId === userId && c.platform === "fastenhealth" && c.externalConnectionId === orgConnectionId,
+  );
   if (existing) return existing;
   return storage.createEhrConnection({
     userId,
     platform: "fastenhealth",
     facilityName: FASTEN_FACILITY_NAME,
     status: "connected",
+    externalConnectionId: orgConnectionId,
   });
 }
 
@@ -80,6 +87,11 @@ async function downloadExport(downloadUrl: string): Promise<string | null> {
   try {
     const res = await fetch(downloadUrl, {
       method: "GET",
+      // The allowlist only validates the INITIAL host; fetch() follows
+      // redirects by default, which would let an allowed URL silently
+      // redirect our Fasten credential to an arbitrary host. "error" makes
+      // fetch throw on any redirect response instead of following it.
+      redirect: "error",
       headers: {
         Authorization: fastenAuthHeader(),
         Accept: "application/fhir+json, application/fhir+ndjson, application/json",
@@ -113,7 +125,7 @@ export async function processFastenExportEvent(
     const payload = extractExportPayload(event);
     if (!payload) {
       console.warn(
-        `[HIPAA-AUDIT][FastenConnect] ${ts()} - EXPORT_EVENT_NO_CONNECTION_ID - see preceding WEBHOOK_EVENT log for payload shape`,
+        `[HIPAA-AUDIT][FastenConnect] ${ts()} - EXPORT_EVENT_NO_CONNECTION_ID - preceding WEBHOOK_EVENT log has type/task/redacted-conn only; get a fresh test payload from Fasten to extend the parser`,
       );
       return null;
     }
@@ -126,9 +138,22 @@ export async function processFastenExportEvent(
       return null;
     }
 
+    const connection = await getOrCreateFastenConnection(userId, payload.orgConnectionId);
+
+    // Idempotency: webhooks are at-least-once delivery, and a retried or
+    // replayed patient.ehi_export_success would otherwise re-run every
+    // resource loop below and duplicate the patient's entire clinical
+    // history. Skip re-processing a task we've already imported.
+    if (payload.taskId && connection.lastImportedTaskId === payload.taskId) {
+      console.log(
+        `[HIPAA-AUDIT][FastenConnect] ${ts()} - EXPORT_ALREADY_IMPORTED - conn:${payload.orgConnectionId} task:${payload.taskId}`,
+      );
+      return null;
+    }
+
     if (!payload.downloadUrl) {
       console.warn(
-        `[HIPAA-AUDIT][FastenConnect] ${ts()} - EXPORT_EVENT_NO_DOWNLOAD_URL - conn:${payload.orgConnectionId} task:${payload.taskId ?? "none"} - see preceding WEBHOOK_EVENT log for payload shape`,
+        `[HIPAA-AUDIT][FastenConnect] ${ts()} - EXPORT_EVENT_NO_DOWNLOAD_URL - conn:${payload.orgConnectionId} task:${payload.taskId ?? "none"} - preceding WEBHOOK_EVENT log has type/task/redacted-conn only; get a fresh test payload from Fasten to extend the parser`,
       );
       return null;
     }
@@ -143,7 +168,6 @@ export async function processFastenExportEvent(
     }
     const buckets = bucketResources(resources);
 
-    const connection = await getOrCreateFastenConnection(userId);
     await storage.updateEhrConnection(connection.id, { status: "syncing" });
 
     // One patient row per Fasten connection: reuse it across repeat exports so
@@ -156,8 +180,11 @@ export async function processFastenExportEvent(
 
       // Positive patient ID: this account may already have a matching
       // identity from a different EHR connection — link into it instead of
-      // creating a second, disconnected identity for the same person.
-      const identity = await resolvePatientIdentityForUser(userId, {
+      // creating a second, disconnected identity for the same person. The
+      // match must run BEFORE createPatient (its result only decides which
+      // UnifiedPatient to use); the source is attached to it afterward, once
+      // the real internal patient id exists.
+      const identityMatch = await resolveUnifiedPatientForNewSource(userId, {
         firstName: patientData.firstName,
         lastName: patientData.lastName,
         dateOfBirth: patientData.dateOfBirth,
@@ -167,11 +194,18 @@ export async function processFastenExportEvent(
         platform: connection.platform,
         facilityName: connection.facilityName,
         mrn: patientData.mrn,
-        patientId: patientData.mrn || connection.id,
       });
-      patientData.unifiedPatientId = identity.unifiedPatientId;
+      patientData.unifiedPatientId = identityMatch.unifiedPatientId;
 
       patient = await storage.createPatient(patientData);
+
+      await attachEhrSourceToUnifiedPatient(identityMatch, {
+        ehrConnectionId: connection.id,
+        platform: connection.platform,
+        facilityName: connection.facilityName,
+        mrn: patientData.mrn,
+        patientId: patient.id,
+      });
     }
 
     const result: FastenImportResult = {
@@ -274,6 +308,7 @@ export async function processFastenExportEvent(
       lastSync: new Date().toISOString(),
       patientCount: 1,
       syncError: undefined,
+      lastImportedTaskId: payload.taskId ?? connection.lastImportedTaskId,
       lastSyncResult: {
         success: result.errors.length === 0,
         recordsAdded: result.recordsAdded + result.vitalsAdded + result.medicationsAdded,

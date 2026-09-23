@@ -1277,7 +1277,14 @@ export async function registerRoutes(
       }
     }
 
-    console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
+    // Log only non-sensitive event metadata — never the full payload, which
+    // can carry patient demographics and export/download URLs (PHI must
+    // never land in ordinary application logs).
+    const eventType = String((event as any)?.event_type ?? (event as any)?.type ?? "unknown");
+    const rawConnId = String((event as any)?.data?.org_connection_id ?? (event as any)?.org_connection_id ?? "");
+    const redactedConnId = rawConnId ? `...${rawConnId.slice(-4)}` : "none";
+    const taskId = String((event as any)?.data?.task_id ?? (event as any)?.task_id ?? "none");
+    console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${eventType} Conn:${redactedConnId} Task:${taskId}`);
 
     // A finished EHI export is what actually carries the patient's records:
     // hand it to the import pipeline (fire-and-forget so Fasten always gets a
@@ -7590,20 +7597,28 @@ STRICT NO-CDS CONSTRAINTS:
 
   app.post("/api/prescriptions", requirePermission("medications:write"), auditDataAccess("prescriptions", "create"), async (req, res) => {
     try {
-      const { insertPrescriptionSchema } = await import("@shared/schema");
-      const parsed = insertPrescriptionSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid prescription data", details: parsed.error.errors });
-      }
-
       const userId = (req.user as any)?.claims?.sub as string | undefined;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
+
       // The prescriber's identity is the authenticated session, never a
-      // client-supplied field — a prescription forged with someone else's
-      // providerId would misattribute who legally wrote it.
-      parsed.data.providerId = userId;
+      // client-supplied field (a forged providerId would misattribute who
+      // legally wrote it) — inject it BEFORE validation, since providerId/
+      // providerName are required by the schema and the client no longer
+      // sends them at all.
+      const prescriber = await storage.getUser(userId);
+      const providerName = [prescriber?.firstName, prescriber?.lastName].filter(Boolean).join(" ") || "Unknown Provider";
+
+      const { insertPrescriptionSchema } = await import("@shared/schema");
+      const parsed = insertPrescriptionSchema.safeParse({
+        ...req.body,
+        providerId: userId,
+        providerName,
+      });
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid prescription data", details: parsed.error.errors });
+      }
 
       const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
       const userAgent = req.headers["user-agent"] || "Unknown";

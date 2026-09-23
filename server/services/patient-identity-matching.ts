@@ -12,6 +12,13 @@
  * requires DOB agreement plus at least two other corroborating identity
  * fields (name, email, phone) — one corroborating field only reaches "low"
  * confidence, which is surfaced but not auto-merged.
+ *
+ * Equally important: agreement elsewhere never overrides an explicit
+ * disagreement. If a field is populated on BOTH sides and the values differ
+ * (e.g. two different real, non-empty phone numbers), that is stronger
+ * evidence of two different people than any amount of agreement on other
+ * fields is evidence they're the same — so any such conflict blocks the
+ * match outright ("none"), even when DOB and other names line up.
  */
 
 export type MatchConfidence = "high" | "medium" | "low" | "none";
@@ -42,10 +49,20 @@ function normalizeDob(value: string | undefined): string {
   return (value ?? "").trim().slice(0, 10);
 }
 
+const CORROBORATING_FIELDS: Array<{
+  field: "lastName" | "firstName" | "email" | "phone";
+  normalize: (value: string | undefined) => string;
+}> = [
+  { field: "lastName", normalize },
+  { field: "firstName", normalize },
+  { field: "email", normalize },
+  { field: "phone", normalize: normalizePhone },
+];
+
 /**
  * Compare two identity candidates and rate how confidently they describe the
- * same person. Never returns better than "none" when DOB doesn't match, and
- * never returns better than "low" on DOB agreement alone.
+ * same person. Never returns better than "none" when DOB doesn't match, on
+ * DOB agreement alone, or when any populated-on-both-sides field disagrees.
  */
 export function computeIdentityMatch(
   a: IdentityCandidate,
@@ -60,21 +77,18 @@ export function computeIdentityMatch(
   const matchedFields = ["dateOfBirth"];
   let corroboratingScore = 0;
 
-  if (normalize(a.lastName) && normalize(a.lastName) === normalize(b.lastName)) {
-    matchedFields.push("lastName");
-    corroboratingScore++;
-  }
-  if (normalize(a.firstName) && normalize(a.firstName) === normalize(b.firstName)) {
-    matchedFields.push("firstName");
-    corroboratingScore++;
-  }
-  if (normalize(a.email) && normalize(a.email) === normalize(b.email)) {
-    matchedFields.push("email");
-    corroboratingScore++;
-  }
-  if (normalizePhone(a.phone) && normalizePhone(a.phone) === normalizePhone(b.phone)) {
-    matchedFields.push("phone");
-    corroboratingScore++;
+  for (const { field, normalize: norm } of CORROBORATING_FIELDS) {
+    const va = norm(a[field]);
+    const vb = norm(b[field]);
+    if (!va || !vb) continue; // nothing to compare when either side is blank
+    if (va === vb) {
+      matchedFields.push(field);
+      corroboratingScore++;
+    } else {
+      // Explicit disagreement on a populated field: block the match outright,
+      // regardless of how many other fields agree.
+      return { confidence: "none", matchedFields: [] };
+    }
   }
 
   let confidence: MatchConfidence;

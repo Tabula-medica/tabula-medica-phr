@@ -27,45 +27,57 @@ describe("computeIdentityMatch", () => {
     expect(computeIdentityMatch({ ...base, dateOfBirth: "" }, base).confidence).toBe("none");
   });
 
-  it("does not merge on date of birth agreement alone", () => {
+  it("does not merge on date of birth agreement alone (no other fields provided)", () => {
     const other: IdentityCandidate = {
-      firstName: "John",
-      lastName: "Smith",
+      firstName: "",
+      lastName: "",
       dateOfBirth: base.dateOfBirth,
-      email: "john.smith@example.com",
-      phone: "202-555-9999",
     };
     const result = computeIdentityMatch(base, other);
     expect(result.confidence).toBe("none");
   });
 
-  it("rates DOB + last name only as low confidence", () => {
+  it("blocks the match when any populated field explicitly disagrees, even with 3 other fields agreeing", () => {
+    // Same DOB, first name, and last name, but two independently-provided,
+    // non-empty contact fields disagree — that's stronger evidence of two
+    // different people than the name agreement is evidence of one, so this
+    // must NOT reach "medium"/auto-merge just because email/phone were
+    // silently ignored.
     const other: IdentityCandidate = {
-      firstName: "Janet",
+      firstName: base.firstName,
+      lastName: base.lastName,
+      dateOfBirth: base.dateOfBirth,
+      email: "someoneelse@example.com",
+      phone: "202-555-0000",
+    };
+    const result = computeIdentityMatch(base, other);
+    expect(result.confidence).toBe("none");
+    expect(shouldMerge(result.confidence)).toBe(false);
+  });
+
+  it("rates DOB + last name only as low confidence (other fields simply not provided, not conflicting)", () => {
+    const other: IdentityCandidate = {
+      firstName: "",
       lastName: "Doe",
       dateOfBirth: base.dateOfBirth,
-      email: "different@example.com",
-      phone: "202-555-0000",
     };
     const result = computeIdentityMatch(base, other);
     expect(result.confidence).toBe("low");
     expect(result.matchedFields).toContain("lastName");
   });
 
-  it("rates DOB + last name + first name as medium confidence", () => {
+  it("rates DOB + last name + first name as medium confidence (contact fields not provided)", () => {
     const other: IdentityCandidate = {
       firstName: "Jane",
       lastName: "Doe",
       dateOfBirth: base.dateOfBirth,
-      email: "unrelated@example.com",
-      phone: "202-555-0000",
     };
     const result = computeIdentityMatch(base, other);
     expect(result.confidence).toBe("medium");
   });
 
-  it("rates DOB + name + email or phone as high confidence", () => {
-    const other: IdentityCandidate = { ...base, phone: "202-555-0000" }; // email still matches
+  it("rates DOB + name + email as high confidence when phone isn't provided on either side", () => {
+    const other: IdentityCandidate = { ...base, phone: "" };
     const result = computeIdentityMatch(base, other);
     expect(result.confidence).toBe("high");
     expect(result.matchedFields).toEqual(
