@@ -11,13 +11,8 @@ server/ai-provider-search-service.ts
 server/ai-document-categorization.ts
 server/ai-note-assistant-routes.ts
 server/ambient-encounter-service.ts
-server/appointment-assistant-service.ts
 server/caregiver-mode-service.ts
 server/clinical-documentation-routes.ts
-server/document-summary-service.ts
-server/entity-extraction-service.ts
-server/health-coach-service.ts
-server/health-visualization-service.ts
 server/index.ts
 server/integrations-debug-routes.ts
 server/monitoring-routes.ts
@@ -31,10 +26,7 @@ server/routes/card-ocr-routes.ts
 server/services/ai-automated-documentation-service.ts
 server/services/ai-clinical-documentation.ts
 server/services/ai-document-generation-service.ts
-server/services/ai-fhir-data-quality-engine.ts
 server/services/ai-onboarding-service.ts
 server/services/ai-provider.ts
 server/services/document-ocr-service.ts
 server/services/multimodal-document-parser.ts
-server/symptom-tracker-service.ts
-server/usability-features-service.ts
