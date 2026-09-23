@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { generatePhiSafeText } from "./ai-gateway";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 
 const NO_CDS_DISCLAIMER = "EDUCATIONAL CONTENT ONLY. This AI-generated analysis is for informational and educational purposes ONLY. It does NOT constitute medical advice, diagnosis, or clinical decision support. All clinical decisions must be made by qualified healthcare providers based on their professional judgment, direct patient assessment, and complete medical history. This tool is designed to assist with research and education, not to replace clinical expertise.";
 
@@ -9,7 +10,7 @@ function logHIPAAAudit(action: string, details: Record<string, any>): void {
     service: "AICaseReview",
     action,
     // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: shared audit helper also logs provider-less automated events (ai_analysis_completed, discussion_summary_requested) that have no user
-    userId: details.providerId || "system",
+    userId: details.providerId || SYSTEM_ACTOR,
     caseId: details.caseId,
     details: {
       ...details,

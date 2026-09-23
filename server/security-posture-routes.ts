@@ -4,6 +4,7 @@ import { getAuditLogger } from "./services/integrations/factory";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { requireRole } from "./rbac";
 import { requireUser, getUserId } from "./middleware/require-user";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const router = Router();
 
@@ -18,7 +19,7 @@ async function logSecurityAudit(action: string, details: Record<string, unknown>
       timestamp: new Date().toISOString(),
       action: action,
       resourceType: "SecurityPosture",
-      resourceId: details.resourceId as string || "system",
+      resourceId: details.resourceId as string || SYSTEM_ACTOR,
       userId: userId,
       outcome: "success",
       details: details,

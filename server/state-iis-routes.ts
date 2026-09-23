@@ -3,6 +3,7 @@ import { stateIISConnectorService } from "./services/state-iis-connector-service
 import { iisBackgroundSyncService } from "./services/iis-background-sync-service";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { requireUser, getUserId } from "./middleware/require-user";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const router = Router();
 
@@ -298,7 +299,7 @@ router.get("/verifications/:patientId", requireUser, async (req: Request, res: R
 
 router.get("/health", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = (req as any).user?.id || SYSTEM_ACTOR;
     logPhiAccess({
       userId,
       action: "read",

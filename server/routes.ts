@@ -536,7 +536,7 @@ import {
   getContentCategories,
   getContentTypes,
 } from "./services/personalizedHealthContentService";
-
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 // Simple in-memory rate limiting for 2FA verification
 const rateLimitMap = new Map<string, { attempts: number; resetAt: number }>();
@@ -20235,7 +20235,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         description,
         type: type || "condition",
         criteria,
-        createdBy: createdBy || "system",
+        createdBy: createdBy || SYSTEM_ACTOR,
       });
       res.status(201).json(cohort);
     } catch (error) {
@@ -20303,7 +20303,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         type,
         description,
         parameters: parameters || {},
-        generatedBy: generatedBy || "system",
+        generatedBy: generatedBy || SYSTEM_ACTOR,
       });
       res.status(201).json(report);
     } catch (error) {
