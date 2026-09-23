@@ -284,9 +284,9 @@ export function LongevityPreventivePanel({
               <Input id="lp-age" type="number" min={18} max={120} value={p.age} onChange={(e) => updateProfile({ age: Math.max(18, Math.min(120, Number(e.target.value) || 18)) })} data-testid="input-lp-age" />
             </div>
             <div className="space-y-1">
-              <Label>Sex at birth</Label>
+              <Label htmlFor="lp-sex">Sex at birth</Label>
               <Select value={p.sex} onValueChange={(v) => updateProfile({ sex: v as LongevityProfile["sex"] })}>
-                <SelectTrigger data-testid="select-lp-sex"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="lp-sex" data-testid="select-lp-sex"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="female">Female</SelectItem>
                   <SelectItem value="male">Male</SelectItem>
@@ -294,9 +294,9 @@ export function LongevityPreventivePanel({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Smoking</Label>
+              <Label htmlFor="lp-smoking">Smoking</Label>
               <Select value={p.smokingStatus ?? "never"} onValueChange={(v) => updateProfile({ smokingStatus: v as LongevityProfile["smokingStatus"] })}>
-                <SelectTrigger data-testid="select-lp-smoking"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="lp-smoking" data-testid="select-lp-smoking"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="never">Never</SelectItem>
                   <SelectItem value="former">Former</SelectItem>
@@ -352,9 +352,9 @@ export function LongevityPreventivePanel({
 
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
-              <Label>Guideline set</Label>
+              <Label htmlFor="lp-region">Guideline set</Label>
               <Select value={region} onValueChange={(v) => setState((s) => ({ ...s, regionOverride: v as GuidelineRegion }))}>
-                <SelectTrigger className="w-[220px]" data-testid="select-lp-region"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="lp-region" className="w-[220px]" data-testid="select-lp-region"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="us">United States (USPSTF / ACIP)</SelectItem>
                   <SelectItem value="international">International (WHO / EU)</SelectItem>
@@ -362,9 +362,9 @@ export function LongevityPreventivePanel({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Lab units</Label>
+              <Label htmlFor="lp-units">Lab units</Label>
               <Select value={units} onValueChange={(v) => setState((s) => ({ ...s, units: v as UnitSystem }))}>
-                <SelectTrigger className="w-[180px]" data-testid="select-lp-units"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="lp-units" className="w-[180px]" data-testid="select-lp-units"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="conventional">mg/dL (US, India)</SelectItem>
                   <SelectItem value="si">mmol/L (SI)</SelectItem>
