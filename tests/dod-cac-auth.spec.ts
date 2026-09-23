@@ -3,6 +3,7 @@ import { webcrypto } from "crypto";
 import type { Request, Response } from "express";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
+import { hashEdipi } from "../server/storage/phi-storage";
 
 /**
  * Fake `cac_software_certs` backing the mocked `db.execute` — just enough of
@@ -26,25 +27,29 @@ function toQuery(query: SQL) {
   return dialect.sqlToQuery(query);
 }
 
-const enrolledCerts: { edipi: string; deviceId: string; publicKeyHex: string; expiresAt: number; enrolledByUserId: string }[] = [];
-// edipi -> claimed_by_user_id, mirroring the real cac_edipi_claims table:
-// a claim, once made, is never removed by this mock either.
+// edipi/certJson are now stored as whatever encryptPhi() (real, unmocked)
+// actually produced — this mock never sees plaintext EDIPI, matching the
+// real table, and edipiHash (also real, unmocked hashEdipi()) is what
+// every lookup below actually matches on.
+const enrolledCerts: { edipiHash: string; encryptedEdipi: string; deviceId: string; publicKeyHex: string; expiresAt: number; enrolledByUserId: string }[] = [];
+// edipiHash -> claimed_by_user_id, mirroring the real cac_edipi_claims
+// table: a claim, once made, is never removed by this mock either.
 const edipiClaims = new Map<string, string>();
 
 vi.mock("../server/db", () => {
   const execute = vi.fn(async (query: SQL) => {
       const { sql: text, params } = toQuery(query);
       if (text.includes("INSERT INTO cac_edipi_claims")) {
-        const [claimEdipi, claimedByUserId] = params as string[];
-        if (!edipiClaims.has(claimEdipi)) {
-          edipiClaims.set(claimEdipi, claimedByUserId);
+        const [edipiHash, , claimedByUserId] = params as string[];
+        if (!edipiClaims.has(edipiHash)) {
+          edipiClaims.set(edipiHash, claimedByUserId);
           return { rows: [{ claimed_by_user_id: claimedByUserId }] };
         }
         return { rows: [] }; // ON CONFLICT DO NOTHING — already claimed
       }
       if (text.includes("SELECT claimed_by_user_id FROM cac_edipi_claims")) {
-        const [claimEdipi] = params as string[];
-        const owner = edipiClaims.get(claimEdipi);
+        const [edipiHash] = params as string[];
+        const owner = edipiClaims.get(edipiHash);
         return { rows: owner ? [{ claimed_by_user_id: owner }] : [] };
       }
       if (text.includes("SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs")) {
@@ -52,16 +57,17 @@ vi.mock("../server/db", () => {
         // cac_edipi_claims yet, a cert enrolled before that table existed
         // is still the real claimant. No expires_at filter here either,
         // for the same reason cac_edipi_claims itself never expires.
-        const [claimEdipi] = params as string[];
-        const owners = [...new Set(enrolledCerts.filter((c) => c.edipi === claimEdipi).map((c) => c.enrolledByUserId))];
+        const [edipiHash] = params as string[];
+        const owners = [...new Set(enrolledCerts.filter((c) => c.edipiHash === edipiHash).map((c) => c.enrolledByUserId))];
         return { rows: owners.map((enrolled_by_user_id) => ({ enrolled_by_user_id })) };
       }
       if (text.includes("INSERT INTO cac_software_certs")) {
-        // NOW() in the template isn't a bound param, so the 8 columns map to
-        // only 7 params here: edipi, deviceId, publicKeyHex, certJson,
-        // platformInfo, expiresAt, enrolledByUserId (enrolled_at is NOW()).
-        // A trailing 8th param is the WHERE clause's repeated enrolledByUserId.
-        const [edipi, deviceId, publicKeyHex, , , , enrolledByUserId] = params as string[];
+        // NOW() in the template isn't a bound param, so the 9 columns map
+        // to only 8 params here: edipiHash, encryptedEdipi, deviceId,
+        // publicKeyHex, encryptedCertJson, platformInfo, expiresAt,
+        // enrolledByUserId (enrolled_at is NOW()). A trailing 9th param is
+        // the WHERE clause's repeated enrolledByUserId.
+        const [edipiHash, encryptedEdipi, deviceId, publicKeyHex, , , , enrolledByUserId] = params as string[];
         const existingIndex = enrolledCerts.findIndex((c) => c.deviceId === deviceId);
         // Mirrors the real "... WHERE cac_software_certs.enrolled_by_user_id
         // = $n": a device already owned by a DIFFERENT account never
@@ -74,7 +80,7 @@ vi.mock("../server/db", () => {
         // Same-owner re-enrollment replaces the row (new key/expiry/edipi)
         // rather than adding a second one, so a superseded key stops
         // matching lookups below.
-        const row = { edipi, deviceId, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000, enrolledByUserId };
+        const row = { edipiHash, encryptedEdipi, deviceId, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000, enrolledByUserId };
         if (existingIndex >= 0) {
           enrolledCerts[existingIndex] = row;
         } else {
@@ -83,9 +89,14 @@ vi.mock("../server/db", () => {
         return { rows: [{ device_id: deviceId }] };
       }
       if (text.includes("SELECT public_key_hex FROM cac_software_certs")) {
-        const [edipi, publicKeyHex] = params as string[];
-        const match = enrolledCerts.find((c) => c.edipi === edipi && c.publicKeyHex === publicKeyHex && c.expiresAt > Date.now());
+        const [edipiHash, publicKeyHex] = params as string[];
+        const match = enrolledCerts.find((c) => c.edipiHash === edipiHash && c.publicKeyHex === publicKeyHex && c.expiresAt > Date.now());
         return { rows: match ? [{ public_key_hex: match.publicKeyHex }] : [] };
+      }
+      if (text.includes("SELECT edipi, device_id, platform, enrolled_at, expires_at FROM cac_software_certs")) {
+        const [enrolledByUserId] = params as string[];
+        const matches = enrolledCerts.filter((c) => c.enrolledByUserId === enrolledByUserId && c.expiresAt > Date.now());
+        return { rows: matches.map((c) => ({ edipi: c.encryptedEdipi, device_id: c.deviceId })) };
       }
       throw new Error(`db.execute mock: unhandled query: ${text}`);
   });
@@ -426,6 +437,17 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     edipiClaims.clear();
   });
 
+  it("rejects a P-256 public key — verifyChallengeSignature always imports P-384, so a P-256 enrollment could never pass verification", async () => {
+    const p256KeyPair = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+    const raw = await webcrypto.subtle.exportKey("raw", p256KeyPair.publicKey);
+    const p256PublicKeyHex = Buffer.from(raw).toString("hex");
+    expect(p256PublicKeyHex).toHaveLength(130); // uncompressed P-256 point
+
+    const handlers = captureHandlers();
+    const res = await enroll(handlers, "1234567890", p256PublicKeyHex);
+    expect(res.statusCode).toBe(400);
+  });
+
   it("allows the same account to enroll a second device under an EDIPI it already claimed", async () => {
     const handlers = captureHandlers();
     const firstKeyPair = await generateKeyPair();
@@ -460,8 +482,9 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     const attackerKeyPair = await generateKeyPair();
 
     expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(victimKeyPair.publicKey), "victim")).statusCode).toBe(200);
+    const targetHash = hashEdipi("1234567890");
     enrolledCerts.forEach((c) => {
-      if (c.edipi === "1234567890") c.expiresAt = Date.now() - 1000; // simulate a lapsed cert
+      if (c.edipiHash === targetHash) c.expiresAt = Date.now() - 1000; // simulate a lapsed cert
     });
 
     const attackerAttempt = await enroll(handlers, "1234567890", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker");
@@ -574,7 +597,8 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     // Simulate a cert enrolled before cac_edipi_claims existed: a row in
     // cac_software_certs with no corresponding claims-table entry.
     enrolledCerts.push({
-      edipi: "7777777777",
+      edipiHash: hashEdipi("7777777777"),
+      encryptedEdipi: "unused-in-this-test",
       deviceId: "legacy-owner-device",
       publicKeyHex: await exportPublicKeyHex(legacyOwnerKeyPair.publicKey),
       expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
@@ -617,5 +641,41 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     const newRes = fakeRes();
     await handlers.get("/api/auth/cac/verify")!(newReq, newRes);
     expect(newRes.statusCode).toBe(200);
+  });
+});
+
+describe("GET /api/auth/cac/status", () => {
+  beforeEach(() => {
+    enrolledCerts.length = 0;
+    edipiClaims.clear();
+  });
+
+  it("stores the EDIPI encrypted at rest but returns it decrypted to its own enrolled owner", async () => {
+    const handlers = captureHandlers();
+    const keyPair = await generateKeyPair();
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(keyPair.publicKey), "status-user")).statusCode).toBe(200);
+
+    // The row this mock is standing in for a real database row now holds:
+    // never the plaintext EDIPI, and never even a substring of it.
+    expect(enrolledCerts).toHaveLength(1);
+    expect(enrolledCerts[0].encryptedEdipi).not.toBe("1234567890");
+    expect(enrolledCerts[0].encryptedEdipi).not.toContain("1234567890");
+
+    const res = fakeRes();
+    await handlers.get("/api/auth/cac/status")!(fakeReq(undefined, "status-user"), res);
+    expect(res.statusCode).toBe(200);
+    const body = res.body as { enrolledDevices: { edipi: string; device_id: string }[] };
+    expect(body.enrolledDevices).toEqual([{ edipi: "1234567890", device_id: expect.any(String) }]);
+  });
+
+  it("only returns the calling account's own enrolled devices", async () => {
+    const handlers = captureHandlers();
+    await enroll(handlers, "1111111111", await exportPublicKeyHex((await generateKeyPair()).publicKey), "owner-a", "device-a");
+    await enroll(handlers, "2222222222", await exportPublicKeyHex((await generateKeyPair()).publicKey), "owner-b", "device-b");
+
+    const res = fakeRes();
+    await handlers.get("/api/auth/cac/status")!(fakeReq(undefined, "owner-a"), res);
+    const body = res.body as { enrolledDevices: { device_id: string }[] };
+    expect(body.enrolledDevices).toEqual([{ edipi: "1111111111", device_id: "device-a" }]);
   });
 });

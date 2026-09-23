@@ -30,15 +30,21 @@ describe.skipIf(!TEST_DATABASE_URL)("CAC enrollment atomicity (real Postgres)", 
     await bootstrap.end();
 
     pool = new Pool({ connectionString: dbUrl, options: `-c search_path="${schema}"` });
+    // edipi_hash is the actual conflict target/lookup key — edipi (and
+    // cert_json) are encrypted at rest in the real table, so this test
+    // doesn't need real ciphertext to prove the atomicity properties;
+    // it just needs the same column layout the real queries address.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS cac_edipi_claims (
-        edipi TEXT PRIMARY KEY,
+        edipi_hash TEXT PRIMARY KEY,
+        edipi TEXT NOT NULL,
         claimed_by_user_id TEXT NOT NULL,
         claimed_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS cac_software_certs (
+        edipi_hash TEXT NOT NULL,
         edipi TEXT NOT NULL,
         device_id TEXT PRIMARY KEY,
         public_key_hex TEXT NOT NULL,
@@ -67,11 +73,11 @@ describe.skipIf(!TEST_DATABASE_URL)("CAC enrollment atomicity (real Postgres)", 
     // handler issues inside its transaction.
     const claim = (claimedByUserId: string) =>
       pool.query(
-        `INSERT INTO cac_edipi_claims (edipi, claimed_by_user_id)
-         VALUES ($1, $2)
-         ON CONFLICT (edipi) DO NOTHING
+        `INSERT INTO cac_edipi_claims (edipi_hash, edipi, claimed_by_user_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (edipi_hash) DO NOTHING
          RETURNING claimed_by_user_id`,
-        ["9999999999", claimedByUserId],
+        ["hash-of-9999999999", "encrypted-9999999999", claimedByUserId],
       );
 
     const [resultA, resultB] = await Promise.all([claim("racer-a"), claim("racer-b")]);
@@ -79,8 +85,8 @@ describe.skipIf(!TEST_DATABASE_URL)("CAC enrollment atomicity (real Postgres)", 
 
     expect(winners).toHaveLength(1);
     const { rows: finalRows } = await pool.query(
-      "SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi = $1",
-      ["9999999999"],
+      "SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi_hash = $1",
+      ["hash-of-9999999999"],
     );
     expect(finalRows).toHaveLength(1);
     expect(winners[0][0].claimed_by_user_id).toBe(finalRows[0].claimed_by_user_id);
@@ -88,31 +94,32 @@ describe.skipIf(!TEST_DATABASE_URL)("CAC enrollment atomicity (real Postgres)", 
 
   it("serializes two simultaneous connections re-enrolling the same device_id under different owners into exactly one update", async () => {
     await pool.query(
-      `INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, expires_at, enrolled_by_user_id)
-       VALUES ('1111111111', 'shared-device', 'original-key', '{}', 'test', now() + interval '1 year', 'victim')`,
+      `INSERT INTO cac_software_certs (edipi_hash, edipi, device_id, public_key_hex, cert_json, platform, expires_at, enrolled_by_user_id)
+       VALUES ('hash-of-1111111111', 'encrypted-1111111111', 'shared-device', 'original-key', '{}', 'test', now() + interval '1 year', 'victim')`,
     );
 
     // The exact statement shape the handler issues: ON CONFLICT (device_id)
     // DO UPDATE, gated by a WHERE clause on the existing row's owner.
-    const reEnroll = (edipi: string, publicKeyHex: string, ownerId: string) =>
+    const reEnroll = (edipiHash: string, edipi: string, publicKeyHex: string, ownerId: string) =>
       pool.query(
-        `INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, expires_at, enrolled_by_user_id)
-         VALUES ($1, 'shared-device', $2, '{}', 'test', now() + interval '1 year', $3)
+        `INSERT INTO cac_software_certs (edipi_hash, edipi, device_id, public_key_hex, cert_json, platform, expires_at, enrolled_by_user_id)
+         VALUES ($1, $2, 'shared-device', $3, '{}', 'test', now() + interval '1 year', $4)
          ON CONFLICT (device_id) DO UPDATE SET
+           edipi_hash = EXCLUDED.edipi_hash,
            edipi = EXCLUDED.edipi,
            public_key_hex = EXCLUDED.public_key_hex,
            expires_at = EXCLUDED.expires_at
-         WHERE cac_software_certs.enrolled_by_user_id = $3
+         WHERE cac_software_certs.enrolled_by_user_id = $4
          RETURNING device_id`,
-        [edipi, publicKeyHex, ownerId],
+        [edipiHash, edipi, publicKeyHex, ownerId],
       );
 
     // Two different accounts race to claim the SAME already-owned device.
     // Neither is the current owner ("victim"), so both should be rejected
     // (0 rows) rather than one of them silently overwriting it.
     const [resultA, resultB] = await Promise.all([
-      reEnroll("2222222222", "attacker-a-key", "attacker-a"),
-      reEnroll("3333333333", "attacker-b-key", "attacker-b"),
+      reEnroll("hash-of-2222222222", "encrypted-2222222222", "attacker-a-key", "attacker-a"),
+      reEnroll("hash-of-3333333333", "encrypted-3333333333", "attacker-b-key", "attacker-b"),
     ]);
 
     expect(resultA.rows).toHaveLength(0);
@@ -121,6 +128,6 @@ describe.skipIf(!TEST_DATABASE_URL)("CAC enrollment atomicity (real Postgres)", 
     const { rows } = await pool.query(
       "SELECT edipi, public_key_hex, enrolled_by_user_id FROM cac_software_certs WHERE device_id = 'shared-device'",
     );
-    expect(rows).toEqual([{ edipi: "1111111111", public_key_hex: "original-key", enrolled_by_user_id: "victim" }]);
+    expect(rows).toEqual([{ edipi: "encrypted-1111111111", public_key_hex: "original-key", enrolled_by_user_id: "victim" }]);
   });
 });

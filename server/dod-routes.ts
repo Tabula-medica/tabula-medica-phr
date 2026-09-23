@@ -17,6 +17,8 @@ import { z } from "zod";
 import { authRateLimiter } from "./security/api-protection";
 import { getUserId } from "./middleware/require-user";
 import { hipaaComplianceService } from "./services/hipaa-compliance-service";
+import { hashEdipi } from "./storage/phi-storage";
+import { encryptPhi, decryptPhi } from "./security/phi-encryption";
 
 // ECDSA P-384 / SHA-384 — matches client/lib/fips-crypto.ts's FIPS.SIGN_ALGORITHM
 // / SIGN_CURVE / SIGN_HASH exactly, so a signature produced by that module's
@@ -340,12 +342,16 @@ export function registerDoDRoutes(
       //
       // `db` is a Drizzle client — its execute() takes exactly one argument
       // and silently ignores a second one, so a raw string with `?`
-      // placeholders and a separate params array (the pattern the rest of
-      // this file otherwise uses) never actually binds anything; the `?`
-      // characters go to Postgres as literal, unparameterized text. Use
-      // Drizzle's `sql` tagged template instead, which interpolates safely.
+      // placeholders and a separate params array never actually binds
+      // anything; the `?` characters go to Postgres as literal,
+      // unparameterized text. Use Drizzle's `sql` tagged template instead.
+      //
+      // edipi itself is PHI (a DoD personal identifier) and is encrypted
+      // at rest, so it can't be matched by equality directly — edipi_hash
+      // is the deterministic, keyed hash used for the lookup instead (see
+      // shared/schema.ts's cacSoftwareCertsTable comment).
       const enrolled = await db.execute(
-        sql`SELECT public_key_hex FROM cac_software_certs WHERE edipi = ${edipi} AND public_key_hex = ${publicKeyHex} AND expires_at > NOW()`,
+        sql`SELECT public_key_hex FROM cac_software_certs WHERE edipi_hash = ${hashEdipi(edipi)} AND public_key_hex = ${publicKeyHex} AND expires_at > NOW()`,
       );
       if (!((enrolled as { rows?: unknown[] }).rows?.length)) {
         return res.status(401).json({ error: "No enrolled certificate matches this key for this EDIPI" });
@@ -448,9 +454,14 @@ export function registerDoDRoutes(
         return res.status(400).json({ error: "Invalid EDIPI" });
       }
 
-      // Validate public key format (ECDSA P-384 uncompressed = 97 bytes = 194 hex chars)
-      if (!publicKeyHex || (publicKeyHex.length !== 194 && publicKeyHex.length !== 130)) {
-        return res.status(400).json({ error: "Invalid public key format — expected ECDSA P-384 or P-256 uncompressed" });
+      // Validate public key format (ECDSA P-384 uncompressed = 97 bytes = 194
+      // hex chars). Only P-384 is accepted — verifyChallengeSignature always
+      // imports the key as P-384 (matching client/lib/fips-crypto.ts's
+      // FIPS.SIGN_CURVE), so a 130-char P-256 key would enroll successfully
+      // here but could never pass verification: importKey with
+      // namedCurve: "P-384" rejects a 65-byte P-256 point outright.
+      if (!publicKeyHex || publicKeyHex.length !== 194) {
+        return res.status(400).json({ error: "Invalid public key format — expected ECDSA P-384 uncompressed" });
       }
 
       // This app has no independently-verified source of a user's EDIPI
@@ -506,16 +517,26 @@ export function registerDoDRoutes(
       });
       const platformInfo = `${platform} ${platformVersion}`;
 
+      // edipi is PHI (a DoD personal identifier), and certJson embeds the
+      // same value — both are encrypted before they ever reach a query.
+      // edipiHash (deterministic, keyed) is what claims/lookups/the
+      // ON CONFLICT target actually match on, since encrypted ciphertext
+      // can't be compared by equality (a fresh random IV each call means
+      // encrypting the same EDIPI twice never produces the same bytes).
+      const edipiHash = hashEdipi(edipi);
+      const encryptedEdipi = encryptPhi(edipi);
+      const encryptedCertJson = encryptPhi(certJson);
+
       await db.transaction(async (tx) => {
         const claimAttempt = await tx.execute(sql`
-          INSERT INTO cac_edipi_claims (edipi, claimed_by_user_id)
-          VALUES (${edipi}, ${currentUserId})
-          ON CONFLICT (edipi) DO NOTHING
+          INSERT INTO cac_edipi_claims (edipi_hash, edipi, claimed_by_user_id)
+          VALUES (${edipiHash}, ${encryptedEdipi}, ${currentUserId})
+          ON CONFLICT (edipi_hash) DO NOTHING
           RETURNING claimed_by_user_id
         `);
         if (!(claimAttempt as { rows?: unknown[] }).rows?.length) {
           const existingClaim = await tx.execute(
-            sql`SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi = ${edipi}`,
+            sql`SELECT claimed_by_user_id FROM cac_edipi_claims WHERE edipi_hash = ${edipiHash}`,
           );
           const owner = (existingClaim as { rows?: Record<string, unknown>[] }).rows?.[0]?.claimed_by_user_id as string | undefined;
           if (owner !== currentUserId) {
@@ -533,7 +554,7 @@ export function registerDoDRoutes(
           // claims table itself does — ownership shouldn't lapse just
           // because a cert did.
           const legacyOwners = await tx.execute(
-            sql`SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs WHERE edipi = ${edipi}`,
+            sql`SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs WHERE edipi_hash = ${edipiHash}`,
           );
           const owners = new Set(
             ((legacyOwners as { rows?: Record<string, unknown>[] }).rows ?? []).map((r) => r.enrolled_by_user_id as string),
@@ -559,14 +580,15 @@ export function registerDoDRoutes(
         // Postgres serializes concurrent INSERTs on the same device_id via
         // its unique index. A brand-new device_id always inserts and
         // returns a row regardless; an empty RETURNING therefore only ever
-        // means "conflict, different owner." Also keeps edipi in
+        // means "conflict, different owner." Also keeps edipi_hash/edipi in
         // EXCLUDED's value so a same-owner re-enrollment under a corrected
         // EDIPI stays consistent, rather than silently keeping the old
         // row's stale edipi.
         const enrollResult = await tx.execute(sql`
-          INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
-          VALUES (${edipi}, ${deviceId}, ${publicKeyHex}, ${certJson}, ${platformInfo}, NOW(), ${expiresAt}, ${currentUserId})
+          INSERT INTO cac_software_certs (edipi_hash, edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
+          VALUES (${edipiHash}, ${encryptedEdipi}, ${deviceId}, ${publicKeyHex}, ${encryptedCertJson}, ${platformInfo}, NOW(), ${expiresAt}, ${currentUserId})
           ON CONFLICT (device_id) DO UPDATE SET
+            edipi_hash = EXCLUDED.edipi_hash,
             edipi = EXCLUDED.edipi,
             public_key_hex = EXCLUDED.public_key_hex,
             cert_json = EXCLUDED.cert_json,
@@ -602,9 +624,15 @@ export function registerDoDRoutes(
         SELECT edipi, device_id, platform, enrolled_at, expires_at FROM cac_software_certs
         WHERE enrolled_by_user_id = ${userId} AND expires_at > NOW()
       `);
+      // edipi is encrypted at rest — decrypt it back for its own owner,
+      // the only caller who can ever reach this row (gated on userId above).
+      const enrolledDevices = ((certs as { rows?: Record<string, unknown>[] }).rows ?? []).map((row) => ({
+        ...row,
+        edipi: typeof row.edipi === "string" ? decryptPhi(row.edipi) : row.edipi,
+      }));
 
       res.json({
-        enrolledDevices: (certs as any).rows ?? [],
+        enrolledDevices,
         cacAuthSupported: true,
         hardwareCACRequired: false,  // Set true for IL5
         softwareCertAllowed: true,   // Set false for IL5
