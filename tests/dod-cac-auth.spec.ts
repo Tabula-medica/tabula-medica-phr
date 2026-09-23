@@ -1,23 +1,49 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { webcrypto } from "crypto";
 import type { Request, Response } from "express";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 /**
  * Fake `cac_software_certs` backing the mocked `db.execute` — just enough of
- * its shape (edipi, public_key_hex, expires_at) to support the enroll INSERT
- * and the verify handler's SELECT lookup, mirroring the real table without a
- * live database.
+ * its shape (edipi, public_key_hex, expires_at, enrolled_by_user_id) to
+ * support the enroll INSERT and the verify/status handlers' lookups,
+ * mirroring the real table without a live database.
+ *
+ * The real handlers call db.execute(sql`...`) with a Drizzle `sql` tagged
+ * template, not a plain string — db.execute() takes exactly one argument
+ * and would silently ignore a second one, so a raw string with `?`
+ * placeholders never actually binds anything against this Drizzle client
+ * (that was itself one of the bugs this spec exists to catch). This mock
+ * uses the real PgDialect to turn each SQL object into the same
+ * {sql, params} shape (with genuine $1/$2 placeholders) a real Postgres
+ * call would receive, so a query that's broken this way fails here too,
+ * not just in a real database.
  */
-const enrolledCerts: { edipi: string; publicKeyHex: string; expiresAt: number }[] = [];
+const dialect = new PgDialect();
+
+function toQuery(query: SQL) {
+  return dialect.sqlToQuery(query);
+}
+
+const enrolledCerts: { edipi: string; publicKeyHex: string; expiresAt: number; enrolledByUserId: string }[] = [];
 
 vi.mock("../server/db", () => ({
   db: {
-    execute: vi.fn(async (sql: string, params: unknown[] = []) => {
-      const text = String(sql);
+    execute: vi.fn(async (query: SQL) => {
+      const { sql: text, params } = toQuery(query);
       if (text.includes("INSERT INTO cac_software_certs")) {
-        const [edipi, , publicKeyHex] = params as string[]; // (edipi, deviceId, publicKeyHex, ...)
-        enrolledCerts.push({ edipi, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000 });
+        // NOW() in the template isn't a bound param, so the 8 columns map to
+        // only 7 params here: edipi, deviceId, publicKeyHex, certJson,
+        // platformInfo, expiresAt, enrolledByUserId (enrolled_at is NOW()).
+        const [edipi, , publicKeyHex, , , , enrolledByUserId] = params as string[];
+        enrolledCerts.push({ edipi, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000, enrolledByUserId });
         return { rows: [] };
+      }
+      if (text.includes("SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs")) {
+        const [edipi] = params as string[];
+        const claimants = enrolledCerts.filter((c) => c.edipi === edipi && c.expiresAt > Date.now());
+        return { rows: [...new Set(claimants.map((c) => c.enrolledByUserId))].map((enrolled_by_user_id) => ({ enrolled_by_user_id })) };
       }
       if (text.includes("SELECT public_key_hex FROM cac_software_certs")) {
         const [edipi, publicKeyHex] = params as string[];
@@ -43,8 +69,9 @@ import { registerDoDRoutes } from "../server/dod-routes";
  * the fix: a session only mints when (1) the caller can produce a real
  * ECDSA P-384 signature over the challenge, (2) from a public key that EDIPI
  * actually enrolled while authenticated — not merely a key the caller
- * generated on the spot — and (3) the EDIPI/authMethod match what the
- * challenge was originally issued for.
+ * generated on the spot — (3) the EDIPI/authMethod match what the challenge
+ * was originally issued for, and (4) that enrollment itself wasn't a
+ * different account claiming someone else's already-enrolled EDIPI.
  */
 
 type FakeRes = Response & { statusCode: number; body: unknown };
@@ -89,8 +116,8 @@ async function signChallenge(challenge: string, privateKey: CryptoKey): Promise<
   return Buffer.from(sig).toString("base64");
 }
 
-function fakeReq(body: unknown): Request {
-  return { body, headers: {} } as Request;
+function fakeReq(body: unknown, userId = "test-user"): Request {
+  return { body, headers: {}, _authenticatedUserId: userId } as unknown as Request;
 }
 
 async function getChallenge(handlers: ReturnType<typeof captureHandlers>, edipi = "1234567890", authMethod = "software_cert") {
@@ -99,13 +126,13 @@ async function getChallenge(handlers: ReturnType<typeof captureHandlers>, edipi 
   return res.body as { challenge: string; challengeId: string };
 }
 
-async function enroll(handlers: ReturnType<typeof captureHandlers>, edipi: string, publicKeyHex: string) {
+async function enroll(handlers: ReturnType<typeof captureHandlers>, edipi: string, publicKeyHex: string, userId = "test-user") {
   const res = fakeRes();
   await handlers.get("/api/auth/cac/enroll-software-cert")!(
-    fakeReq({ publicKeyHex, edipi, deviceId: "test-device", platform: "test", platformVersion: "1" }),
+    fakeReq({ publicKeyHex, edipi, deviceId: `test-device-${userId}`, platform: "test", platformVersion: "1" }, userId),
     res,
   );
-  expect(res.statusCode).toBe(200);
+  return res;
 }
 
 describe("POST /api/auth/cac/verify", () => {
@@ -117,7 +144,7 @@ describe("POST /api/auth/cac/verify", () => {
     const handlers = captureHandlers();
     const keyPair = await generateKeyPair();
     const publicKeyHex = await exportPublicKeyHex(keyPair.publicKey);
-    await enroll(handlers, "1234567890", publicKeyHex);
+    expect((await enroll(handlers, "1234567890", publicKeyHex)).statusCode).toBe(200);
 
     const { challenge, challengeId } = await getChallenge(handlers);
     const signature = await signChallenge(challenge, keyPair.privateKey);
@@ -142,11 +169,11 @@ describe("POST /api/auth/cac/verify", () => {
   });
 
   it("rejects a key that was never enrolled for this EDIPI, even with a genuine self-signed signature", async () => {
-    // The second bug: proof of possession of *a* key proves nothing about
-    // identity on its own — an attacker can generate their own key pair,
-    // sign the challenge correctly, and assert any EDIPI. Nothing here was
-    // ever enrolled, so this must be rejected even though the signature
-    // itself is completely valid.
+    // Proof of possession of *a* key proves nothing about identity on its
+    // own — an attacker can generate their own key pair, sign the challenge
+    // correctly, and assert any EDIPI. Nothing here was ever enrolled, so
+    // this must be rejected even though the signature itself is completely
+    // valid.
     const handlers = captureHandlers();
     const { challenge, challengeId } = await getChallenge(handlers);
     const keyPair = await generateKeyPair();
@@ -254,5 +281,56 @@ describe("POST /api/auth/cac/verify", () => {
     await handlers.get("/api/auth/cac/verify")!(req, res);
 
     expect(res.statusCode).toBe(401);
+  });
+
+  it("does not reject when both /challenge and /verify omit authMethod and rely on their (matching) defaults", async () => {
+    // The default-mismatch bug: /challenge defaulted to cac_hardware while
+    // /verify defaulted to software_cert, so any caller relying on both
+    // defaults was always rejected even with an otherwise-perfect request.
+    const handlers = captureHandlers();
+    const keyPair = await generateKeyPair();
+    const publicKeyHex = await exportPublicKeyHex(keyPair.publicKey);
+    await enroll(handlers, "1234567890", publicKeyHex);
+
+    const challengeRes = fakeRes();
+    await handlers.get("/api/auth/cac/challenge")!(fakeReq({ edipi: "1234567890" }), challengeRes); // no authMethod
+    const { challenge, challengeId } = challengeRes.body as { challenge: string; challengeId: string };
+    const signature = await signChallenge(challenge, keyPair.privateKey);
+
+    const req = fakeReq({ challengeId, edipi: "1234567890", publicKeyHex, signature }); // no authMethod here either
+    const res = fakeRes();
+    await handlers.get("/api/auth/cac/verify")!(req, res);
+
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+describe("POST /api/auth/cac/enroll-software-cert", () => {
+  beforeEach(() => {
+    enrolledCerts.length = 0;
+  });
+
+  it("allows the same account to enroll a second device under an EDIPI it already claimed", async () => {
+    const handlers = captureHandlers();
+    const firstKeyPair = await generateKeyPair();
+    const secondKeyPair = await generateKeyPair();
+
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(firstKeyPair.publicKey), "same-user")).statusCode).toBe(200);
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(secondKeyPair.publicKey), "same-user")).statusCode).toBe(200);
+  });
+
+  it("rejects a different account trying to enroll under an EDIPI someone else already claimed", async () => {
+    // This is the actual bug: there's no independently verified source of a
+    // user's EDIPI anywhere in this app, so enrollment alone can never fully
+    // prove identity — but once one account has claimed an EDIPI, a
+    // different account must not be able to silently take it over.
+    const handlers = captureHandlers();
+    const victimKeyPair = await generateKeyPair();
+    const attackerKeyPair = await generateKeyPair();
+
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(victimKeyPair.publicKey), "victim")).statusCode).toBe(200);
+
+    const attackerAttempt = await enroll(handlers, "1234567890", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker");
+    expect(attackerAttempt.statusCode).toBe(409);
   });
 });

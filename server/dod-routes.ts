@@ -12,6 +12,7 @@
 import type { Express, Request, Response } from "express";
 import { randomBytes, createHash, webcrypto } from "crypto";
 import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { authRateLimiter } from "./security/api-protection";
 
@@ -205,7 +206,11 @@ export function registerDoDRoutes(
   // has no other consumer.
   app.post("/api/auth/cac/challenge", authRateLimiter, async (req: Request, res: Response) => {
     try {
-      const { authMethod = "cac_hardware", edipi } = req.body as {
+      // Same default as /verify below — they must match, or any caller that
+      // omits authMethod on both calls (as this app's real client always
+      // does explicitly, but nothing enforces that) gets rejected by the
+      // context-binding check even though both requests are otherwise valid.
+      const { authMethod = "software_cert", edipi } = req.body as {
         authMethod?: string;
         edipi?: string;
       };
@@ -299,9 +304,15 @@ export function registerDoDRoutes(
       // checking (still not implemented), so this correctly rejects every
       // hardware-path attempt too until that exists, rather than treating
       // hardware auth as more trustworthy than it currently is.
+      //
+      // `db` is a Drizzle client — its execute() takes exactly one argument
+      // and silently ignores a second one, so a raw string with `?`
+      // placeholders and a separate params array (the pattern the rest of
+      // this file otherwise uses) never actually binds anything; the `?`
+      // characters go to Postgres as literal, unparameterized text. Use
+      // Drizzle's `sql` tagged template instead, which interpolates safely.
       const enrolled = await db.execute(
-        `SELECT public_key_hex FROM cac_software_certs WHERE edipi = ? AND public_key_hex = ? AND expires_at > NOW()`,
-        [edipi, publicKeyHex],
+        sql`SELECT public_key_hex FROM cac_software_certs WHERE edipi = ${edipi} AND public_key_hex = ${publicKeyHex} AND expires_at > NOW()`,
       );
       if (!((enrolled as { rows?: unknown[] }).rows?.length)) {
         return res.status(401).json({ error: "No enrolled certificate matches this key for this EDIPI" });
@@ -329,18 +340,14 @@ export function registerDoDRoutes(
         signatureValid,
       };
 
-      // Audit log
-      await db.execute(
-        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, metadata, created_at)
-         VALUES (?, ?, ?, ?, ?, NOW())`,
-        [
-          edipi,
-          "cac_auth_success",
-          "session",
-          session.sessionId,
-          JSON.stringify({ authMethod, assuranceLevel, platform: req.headers["user-agent"] })
-        ]
-      );
+      // Audit log (sql`` — same reason as the enrolled-cert lookup above:
+      // this was previously a `?`-placeholder string, which would have
+      // thrown here on every real request, 500ing what should be a 200).
+      const auditMetadata = JSON.stringify({ authMethod, assuranceLevel, platform: req.headers["user-agent"] });
+      await db.execute(sql`
+        INSERT INTO audit_logs (user_id, action, resource_type, resource_id, metadata, created_at)
+        VALUES (${edipi}, 'cac_auth_success', 'session', ${session.sessionId}, ${auditMetadata}, NOW())
+      `);
 
       res.json(session);
     } catch (error) {
@@ -360,6 +367,8 @@ export function registerDoDRoutes(
         platformVersion: string;
       };
 
+      const currentUserId = (req as any)._authenticatedUserId as string;
+
       // Validate EDIPI
       if (!edipi || !/^\d{10}$/.test(edipi)) {
         return res.status(400).json({ error: "Invalid EDIPI" });
@@ -368,6 +377,27 @@ export function registerDoDRoutes(
       // Validate public key format (ECDSA P-384 uncompressed = 97 bytes = 194 hex chars)
       if (!publicKeyHex || (publicKeyHex.length !== 194 && publicKeyHex.length !== 130)) {
         return res.status(400).json({ error: "Invalid public key format — expected ECDSA P-384 or P-256 uncompressed" });
+      }
+
+      // This app has no independently-verified source of a user's EDIPI
+      // anywhere (no field in the schema, no admin-verification workflow) —
+      // edipi here is exactly what the caller typed in, checked only for
+      // format. Real EDIPI verification needs parsing a genuine DoD-issued
+      // certificate's SAN field against a validated X.509 chain, which this
+      // repo can't do. What IS enforceable without that: once an EDIPI has
+      // been claimed by one account, a *different* account can't take it
+      // over. This doesn't verify the EDIPI is correct — a fast-enough
+      // attacker can still be the first to claim an arbitrary EDIPI nobody
+      // has enrolled yet — but it does stop a later attacker from enrolling
+      // a key under an EDIPI someone else already claimed.
+      const existingClaim = await db.execute(
+        sql`SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs WHERE edipi = ${edipi} AND expires_at > NOW()`,
+      );
+      const claimants = new Set(
+        ((existingClaim as { rows?: { enrolled_by_user_id: string }[] }).rows ?? []).map((r) => r.enrolled_by_user_id),
+      );
+      if (claimants.size > 0 && !claimants.has(currentUserId)) {
+        return res.status(409).json({ error: "This EDIPI is already enrolled by a different account" });
       }
 
       const issuedAt = new Date().toISOString();
@@ -392,17 +422,19 @@ export function registerDoDRoutes(
         // signature: serverCASign(cert)
       });
 
-      // Store enrollment record
-      await db.execute(
-        `INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
-         VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)
-         ON CONFLICT (device_id) DO UPDATE SET
-           public_key_hex = EXCLUDED.public_key_hex,
-           cert_json = EXCLUDED.cert_json,
-           enrolled_at = NOW(),
-           expires_at = EXCLUDED.expires_at`,
-        [edipi, deviceId, publicKeyHex, certJson, `${platform} ${platformVersion}`, expiresAt, (req as any)._authenticatedUserId]
-      );
+      // Store enrollment record (sql`` tagged template — see the note on the
+      // verify handler's lookup above for why raw `?` placeholders don't
+      // actually bind against this Drizzle client).
+      const platformInfo = `${platform} ${platformVersion}`;
+      await db.execute(sql`
+        INSERT INTO cac_software_certs (edipi, device_id, public_key_hex, cert_json, platform, enrolled_at, expires_at, enrolled_by_user_id)
+        VALUES (${edipi}, ${deviceId}, ${publicKeyHex}, ${certJson}, ${platformInfo}, NOW(), ${expiresAt}, ${currentUserId})
+        ON CONFLICT (device_id) DO UPDATE SET
+          public_key_hex = EXCLUDED.public_key_hex,
+          cert_json = EXCLUDED.cert_json,
+          enrolled_at = NOW(),
+          expires_at = EXCLUDED.expires_at
+      `);
 
       res.json({ certJson, issuedAt, expiresAt });
     } catch (error) {
@@ -415,11 +447,10 @@ export function registerDoDRoutes(
   app.get("/api/auth/cac/status", requireAuth, async (req: Request, res: Response) => {
     const userId = (req as any)._authenticatedUserId as string;
     try {
-      const certs = await db.execute(
-        `SELECT edipi, device_id, platform, enrolled_at, expires_at FROM cac_software_certs
-         WHERE enrolled_by_user_id = ? AND expires_at > NOW()`,
-        [userId]
-      );
+      const certs = await db.execute(sql`
+        SELECT edipi, device_id, platform, enrolled_at, expires_at FROM cac_software_certs
+        WHERE enrolled_by_user_id = ${userId} AND expires_at > NOW()
+      `);
 
       res.json({
         enrolledDevices: (certs as any).rows ?? [],
