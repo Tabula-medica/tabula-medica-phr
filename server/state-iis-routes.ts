@@ -298,7 +298,7 @@ router.get("/verifications/:patientId", requireUser, async (req: Request, res: R
 
 router.get("/health", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = (req as any).user?.id || "system";
     logPhiAccess({
       userId,
       action: "read",
