@@ -1,10 +1,3 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
-
 export type PermissionLevel = "full" | "read_only" | "emergency_only";
 export type PermissionCategory = "records" | "medications" | "appointments" | "documents" | "messaging" | "care_plans";
 

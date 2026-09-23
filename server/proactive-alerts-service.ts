@@ -7,15 +7,10 @@
  * - All AI-generated content is sanitized before display
  */
 
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 
-// Initialize OpenAI client
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-} catch (e) {
-  console.log("[ProactiveAlerts] OpenAI not configured, using mock responses");
-}
+// AI generation via PHI-safe Vertex/BAA gateway
+const aiEnabled = true;
 
 // Safe verb enforcement
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -250,22 +245,15 @@ export async function generateHealthAlerts(
 
   let alerts: HealthAlert[] = [];
 
-  if (openai) {
+  if (aiEnabled) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: ALERT_ANALYSIS_PROMPT },
-          { 
-            role: "user", 
-            content: `Analyze this patient data for concerning trends:\n${JSON.stringify(dataSummary, null, 2)}` 
-          },
-        ],
+      const content = await generatePhiSafeText({
+        system: ALERT_ANALYSIS_PROMPT,
+        user: `Analyze this patient data for concerning trends:\n${JSON.stringify(dataSummary, null, 2)}`,
         temperature: 0.3,
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         const alertsData = Array.isArray(parsed) ? parsed : (parsed.alerts || []);

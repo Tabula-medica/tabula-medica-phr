@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -239,7 +237,7 @@ class ClaimsAnalysisService {
     const analysis = this.analyzeClaimsData(patientId);
     const NO_CDS_DISCLAIMER = "FINANCIAL AND ADMINISTRATIVE INFORMATION ONLY. This analysis covers billing, costs, and insurance processing. It is NOT medical advice, does NOT interpret health conditions, and does NOT suggest when to seek medical care. Contact your insurance company or healthcare provider with questions.";
 
-    if (!openai) {
+    if (!aiEnabled) {
       return {
         insights: this.generateRuleBasedInsights(analysis),
         summary: `Analysis of ${analysis.totalClaims} claims shows ${(analysis.approvalRate * 100).toFixed(1)}% approval rate with $${analysis.totalPatientResponsibility.toFixed(2)} in patient responsibility. ${NO_CDS_DISCLAIMER}`,
@@ -248,12 +246,8 @@ class ClaimsAnalysisService {
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare BILLING and INSURANCE assistant. You ONLY discuss:
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare BILLING and INSURANCE assistant. You ONLY discuss:
 - Claim approval/denial rates and appeal processes
 - Cost breakdowns and payment responsibilities
 - Insurance processing times and procedures
@@ -269,11 +263,8 @@ ABSOLUTE RULES - VIOLATIONS CAUSE HARM:
 
 End EVERY response with: "[DISCLAIMER: Financial information only. Not medical advice.]"
 
-Format insights as: [CATEGORY] | [BILLING/COST INSIGHT] | [ADMINISTRATIVE ACTION] | [PRIORITY]`
-          },
-          {
-            role: "user",
-            content: `Claims billing summary (financial data only):
+Format insights as: [CATEGORY] | [BILLING/COST INSIGHT] | [ADMINISTRATIVE ACTION] | [PRIORITY]`,
+        user: `Claims billing summary (financial data only):
 - Total Claims: ${analysis.totalClaims}
 - Total Billed: $${analysis.totalCharged.toFixed(2)}
 - Insurance Paid: $${analysis.totalPaid.toFixed(2)}
@@ -281,14 +272,11 @@ Format insights as: [CATEGORY] | [BILLING/COST INSIGHT] | [ADMINISTRATIVE ACTION
 - Approval Rate: ${(analysis.approvalRate * 100).toFixed(1)}%
 - Denial Rate: ${(analysis.denialRate * 100).toFixed(1)}%
 
-Provide 3-4 billing/insurance insights about costs and claims processing only.`
-          }
-        ],
-        max_tokens: 600
+Provide 3-4 billing/insurance insights about costs and claims processing only.`,
+        maxTokens: 600,
       });
 
-      const content = response.choices[0]?.message?.content || "";
-      const lines = content.split("\n").filter(l => l.trim());
+      const lines = (content || "").split("\n").filter(l => l.trim());
       
       let summary = `Billing analysis of ${analysis.totalClaims} claims: ${(analysis.approvalRate * 100).toFixed(1)}% approved, $${analysis.totalPatientResponsibility.toFixed(2)} patient responsibility.`;
       const insights: AIClaimsInsight[] = [];

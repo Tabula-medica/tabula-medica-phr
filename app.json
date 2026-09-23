@@ -18,9 +18,6 @@
       "bundleIdentifier": "com.tabulamedica.app",
       "buildNumber": "2",
       "usesAppleSignIn": true,
-      "config": {
-        "usesNonExemptEncryption": false
-      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Tabula Medica uses Face ID to unlock your encrypted health record.",
         "NSHealthShareUsageDescription": "Tabula Medica reads your Health data to bring it together with your other records in one place you control. Nothing is shared without your explicit consent.",

@@ -1,11 +1,7 @@
 import { Router } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeVision } from "../services/ai-gateway";
 
 const router = Router();
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 interface CardOCRResult {
   cardType: "insurance" | "discount" | "medicare" | "medicaid" | "va" | "unknown";
@@ -101,16 +97,23 @@ router.post("/scan", async (req, res) => {
       return res.status(400).json({ error: "Either imageBase64 or imageUrl is required" });
     }
 
-    const imageContent = imageUrl
-      ? { type: "image_url" as const, image_url: { url: imageUrl } }
-      : { type: "image_url" as const, image_url: { url: `data:image/jpeg;base64,${imageBase64}` } };
+    let base64Image: string;
+    let imageMimeType: string;
+    if (imageUrl) {
+      const imgFetch = await fetch(imageUrl);
+      const imgBuf = await imgFetch.arrayBuffer();
+      base64Image = Buffer.from(imgBuf).toString("base64");
+      imageMimeType = imgFetch.headers.get("content-type") || "image/jpeg";
+    } else {
+      base64Image = imageBase64;
+      imageMimeType = "image/jpeg";
+    }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert medical card OCR system. Extract ALL fields from this insurance, discount, or medical ID card image. 
+    const rawResponse = await generatePhiSafeVision({
+      base64Image,
+      imageMimeType,
+      prompt: `Extract all information from this ${side || "front"} of the medical card:`,
+      system: `You are an expert medical card OCR system. Extract ALL fields from this insurance, discount, or medical ID card image.
 Return a JSON object with these fields (use null for fields not visible):
 {
   "cardType": "insurance" | "discount" | "medicare" | "medicaid" | "va" | "unknown",
@@ -140,20 +143,10 @@ Return a JSON object with these fields (use null for fields not visible):
   "discountPercentage": "string (for discount cards)"
 }
 Be precise with BIN/PCN/Group numbers - these are critical for pharmacy routing. Return ONLY valid JSON.`,
-        },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: `Extract all information from this ${side || "front"} of the medical card:` },
-            imageContent,
-          ],
-        },
-      ],
+      responseMimeType: "application/json",
+      maxTokens: 1000,
       temperature: 0.1,
-      max_tokens: 1000,
     });
-
-    const rawResponse = response.choices[0]?.message?.content || "{}";
     let parsed: any;
     try {
       const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);

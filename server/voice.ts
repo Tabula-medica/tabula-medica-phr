@@ -1,7 +1,15 @@
 import type { Express, Request, Response } from "express";
 import { Buffer } from "node:buffer";
 import { speechToText, textToSpeech, openai } from "./replit_integrations/audio/client";
-import { storage } from "./storage";
+import { requireUser, getUserId, aiUserRateLimiter } from "./middleware/require-user";
+
+// P0-3: voice STT, LLM, and TTS all route through OpenAI (non-BAA) via the Replit
+// integration — voice audio and transcripts are PHI. Gate the entire feature OFF
+// by default until the Vertex/BAA gateway lands (P1). Set VOICE_LLM_ENABLED=true
+// only in an environment where these calls are BAA-covered.
+const VOICE_LLM_ENABLED = process.env.VOICE_LLM_ENABLED === "true";
+const VOICE_DISABLED_MSG =
+  "I can navigate and read your records; free-form questions are temporarily disabled.";
 
 const HEALTH_SYSTEM_PROMPT = `You are a helpful health assistant for Tabula Medica, a patient health records app. 
 You help patients understand their health information and navigate the app.
@@ -68,8 +76,11 @@ function parseVoiceCommand(transcript: string): VoiceCommand {
 }
 
 export function registerVoiceRoutes(app: Express): void {
-  app.post("/api/voice/command", async (req: Request, res: Response) => {
+  app.post("/api/voice/command", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
     try {
+      if (!VOICE_LLM_ENABLED) {
+        return res.json({ transcript: "", response: VOICE_DISABLED_MSG, audio: null, navigation: null, command: "general" });
+      }
       const { audio, format = "webm", language = "en" } = req.body;
       
       if (!audio) {
@@ -99,33 +110,13 @@ export function registerVoiceRoutes(app: Express): void {
         });
         responseText = completion.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you try again?";
       } else if (command.type === "read") {
-        const allergies = await storage.getAllergies();
-        const patients = await storage.getPatients();
-        
-        let allMedications: Array<{ name: string; status: string }> = [];
-        for (const patient of patients) {
-          const meds = await storage.getMedicationsByPatient(patient.id);
-          allMedications = allMedications.concat(meds);
-        }
-        
-        if (transcript.toLowerCase().includes("allerg")) {
-          if (allergies.length > 0) {
-            const allergyNames = allergies.slice(0, 5).map(a => a.name).join(", ");
-            responseText = `You have ${allergies.length} allergies on record: ${allergyNames}.`;
-          } else {
-            responseText = "You have no allergies on record.";
-          }
-        } else if (transcript.toLowerCase().includes("medication")) {
-          const activeMeds = allMedications.filter(m => m.status === "active");
-          if (activeMeds.length > 0) {
-            const medNames = activeMeds.slice(0, 5).map(m => m.name).join(", ");
-            responseText = `You have ${activeMeds.length} active medications: ${medNames}.`;
-          } else {
-            responseText = "You have no active medications on record.";
-          }
-        } else {
-          responseText = "I can read your allergies or medications. Just say 'read my allergies' or 'read my medications'.";
-        }
+        // P0-3: the previous implementation read allergies/medications across ALL
+        // patients via global getters (storage.getAllergies()/getPatients()) — a
+        // cross-patient PHI disclosure. Never call the global getters from a
+        // request path. Until a user-scoped voice reader lands (P1), do not read
+        // record data here; direct the authenticated user to their records screen.
+        getUserId(req);
+        responseText = "You can view your allergies and medications on your records screen.";
       }
       
       const audioResponse = await textToSpeech(responseText, "alloy", "mp3");
@@ -138,13 +129,17 @@ export function registerVoiceRoutes(app: Express): void {
         command: command.type,
       });
     } catch (error) {
-      console.error("Voice command error:", error);
+      // PHI-safe: error objects can carry transcript fragments — log message only.
+      console.error("Voice command error:", error instanceof Error ? error.message : "unknown");
       res.status(500).json({ error: "Failed to process voice command" });
     }
   });
 
-  app.post("/api/voice/explain-term", async (req: Request, res: Response) => {
+  app.post("/api/voice/explain-term", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
     try {
+      if (!VOICE_LLM_ENABLED) {
+        return res.json({ term: "", explanation: VOICE_DISABLED_MSG, audio: null });
+      }
       const { audio, format = "webm" } = req.body;
       
       if (!audio) {
@@ -176,13 +171,16 @@ export function registerVoiceRoutes(app: Express): void {
         audio: audioResponse.toString("base64"),
       });
     } catch (error) {
-      console.error("Voice explain error:", error);
+      console.error("Voice explain error:", error instanceof Error ? error.message : "unknown");
       res.status(500).json({ error: "Failed to explain term" });
     }
   });
 
-  app.post("/api/voice/text-to-speech", async (req: Request, res: Response) => {
+  app.post("/api/voice/text-to-speech", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
     try {
+      if (!VOICE_LLM_ENABLED) {
+        return res.status(503).json({ error: "Voice output is temporarily disabled." });
+      }
       const { text, voice = "alloy" } = req.body;
       
       if (!text) {
@@ -195,7 +193,7 @@ export function registerVoiceRoutes(app: Express): void {
         audio: audioBuffer.toString("base64"),
       });
     } catch (error) {
-      console.error("TTS error:", error);
+      console.error("TTS error:", error instanceof Error ? error.message : "unknown");
       res.status(500).json({ error: "Failed to convert text to speech" });
     }
   });

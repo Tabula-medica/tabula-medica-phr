@@ -24,3 +24,5 @@ google-service-account*.json
 *.visual-check.html
 *.visual-check.*.png
 *.visual-check/
+
+.claude/settings.local.json

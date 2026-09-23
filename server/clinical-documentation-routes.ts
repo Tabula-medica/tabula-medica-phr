@@ -1,11 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
-import OpenAI, { toFile } from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeChat } from "./services/ai-gateway";
+import { speechToText } from "./replit_integrations/audio/client";
 
 interface EncounterData {
   patientName: string;
@@ -152,15 +148,8 @@ export function registerClinicalDocumentationRoutes(app: Express) {
                         detectedMime.includes("mp3") ? "mp3" :
                         detectedMime.includes("mp4") ? "mp4" : "webm";
       
-      const audioFile = await toFile(audioBuffer, `recording.${extension}`, {
-        type: detectedMime,
-      });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "gpt-4o-mini-transcribe",
-        response_format: "json",
-      });
+      // GCP Speech-to-Text (BAA) via the shared audio client — not OpenAI Whisper.
+      const transcription = { text: await speechToText(audioBuffer, extension as any) };
 
       logPhiAccess({
         userId,
@@ -227,8 +216,7 @@ ${data.assessment ? `Assessment: ${data.assessment}` : ""}
 ${data.plan ? `Plan: ${data.plan}` : ""}`;
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -270,11 +258,11 @@ Required sections: Chief Complaint, History of Present Illness, Review of System
             content: inputContext,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2000,
+        responseMimeType: "application/json",
+        maxTokens: 2000,
       });
 
-      const synthesized = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const synthesized = JSON.parse(raw || "{}");
 
       const result: SynthesizedNote = {
         encounterSummary: synthesized.encounterSummary || "Encounter summary unavailable",
@@ -314,8 +302,7 @@ Required sections: Chief Complaint, History of Present Illness, Review of System
 
       const template = targetTemplate || "SOAP";
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -352,11 +339,11 @@ Mark needsReview=true for any field where:
             content: noteText,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1500,
+        responseMimeType: "application/json",
+        maxTokens: 1500,
       });
 
-      const extracted = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const extracted = JSON.parse(raw || "{}");
 
       res.json({
         success: true,
@@ -399,8 +386,7 @@ Mark needsReview=true for any field where:
         if (parts.length > 0) contextBlock = `\n\nPatient Context:\n${parts.join("\n")}`;
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -456,11 +442,11 @@ Only include entities that are explicitly mentioned or clearly implied in the no
             content: `Analyze this clinical note:${contextBlock}\n\n${noteText}`,
           },
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 3000,
+        responseMimeType: "application/json",
+        maxTokens: 3000,
       });
 
-      const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const analysis = JSON.parse(raw || "{}");
 
       logPhiAccess({
         userId,

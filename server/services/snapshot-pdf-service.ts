@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-function getOpenAIClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) {
-    return null;
-  }
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
+const aiEnabled = true;
 
 export interface SnapshotInput {
   problems: Array<{ name: string; onset_date?: string; status?: string; source: string; record_id: string }>;
@@ -169,8 +164,7 @@ export async function generateSnapshotPdf(
     return englishSnapshot;
   }
 
-  const openai = getOpenAIClient();
-  if (!openai) {
+  if (!aiEnabled) {
     if (bilingual) {
       return {
         language: targetLanguage,
@@ -197,14 +191,10 @@ export async function generateSnapshotPdf(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: SNAPSHOT_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: bilingual
-            ? `Create a bilingual snapshot in English and ${targetLanguage}. For each item, provide the English version first, then the ${targetLanguage} translation on a new line prefixed with "→ ".
+    const content = await generatePhiSafeText({
+      system: SNAPSHOT_SYSTEM_PROMPT,
+      user: bilingual
+        ? `Create a bilingual snapshot in English and ${targetLanguage}. For each item, provide the English version first, then the ${targetLanguage} translation on a new line prefixed with "→ ".
 
 Input data:
 Problems: ${JSON.stringify(problems)}
@@ -224,7 +214,7 @@ Return valid JSON:
   "documents": ["English line\\n→ Translation", ...],
   "disclaimer": "English disclaimer\\n${targetLanguage} disclaimer"
 }`
-            : `Translate this snapshot to ${targetLanguage}. Keep drug names, test names, and values exactly as written. Only translate descriptive text.
+        : `Translate this snapshot to ${targetLanguage}. Keep drug names, test names, and values exactly as written. Only translate descriptive text.
 
 Input data:
 Problems: ${JSON.stringify(problems)}
@@ -241,14 +231,11 @@ Return valid JSON:
   "recent_results": [...],
   "documents": [...],
   "disclaimer": "..."
-}`
-        }
-      ],
+}`,
       temperature: 0.2,
-      response_format: { type: "json_object" }
+      responseMimeType: "application/json"
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }

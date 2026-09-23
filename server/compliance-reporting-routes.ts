@@ -8,7 +8,10 @@ import {
   RegulatoryFramework 
 } from "./services/ai-compliance-reporting";
 
+import { requireUser, getUserId } from "./middleware/require-user";
+
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -23,7 +26,7 @@ function sanitizePhi(text: string): string {
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(details)) {
     if (typeof value === "string") {
@@ -79,7 +82,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     }
     
     const { reportType, dateRange, options } = parseResult.data;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("GENERATE_COMPLIANCE_REPORT", "compliance_report", req, {
       reportType,
@@ -154,7 +157,7 @@ router.get("/reports/:id", async (req: Request, res: Response) => {
 
 router.get("/reports/:id/export/pdf", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("EXPORT_REPORT_PDF", "compliance_report", req, { reportId: req.params.id });
     
@@ -184,7 +187,7 @@ router.get("/reports/:id/export/csv", async (req: Request, res: Response) => {
       });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { section } = parseResult.data;
     
     logHipaaAudit("EXPORT_REPORT_CSV", "compliance_report", req, { 
@@ -208,7 +211,7 @@ router.get("/reports/:id/export/csv", async (req: Request, res: Response) => {
 
 router.delete("/reports/:id", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("DELETE_COMPLIANCE_REPORT", "compliance_report", req, { reportId: req.params.id });
     

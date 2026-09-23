@@ -4,12 +4,7 @@
  * Follows strict safety guidelines - educational only, not diagnostic
  */
 
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 // Safe framing verbs (ONLY these 4 allowed)
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -296,17 +291,6 @@ export async function generateDifferentialDiagnosis(
     ? `Patient context shows: ${contextParts.join(" ")}`
     : "Limited demographic data available";
 
-  if (!process.env.OPENAI_API_KEY) {
-    return {
-      patientId,
-      generatedAt: new Date().toISOString(),
-      differentials: getMockDifferentials(patientData),
-      clinicalContext,
-      dataQualityNotes,
-      disclaimer: "Educational reference only. Not a clinical diagnosis. All differentials require clinician evaluation. Sample data shown for illustration.",
-    };
-  }
-
   try {
     const prompt = `You are an AI clinical decision support tool. Analyze the following patient data and generate a differential diagnosis list for clinician review.
 
@@ -337,20 +321,13 @@ Respond in JSON format:
 
 Generate 3-5 differentials ordered by probability.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a clinical decision support AI. Provide educational differential diagnosis suggestions using only safe, non-diagnostic language. Never make definitive diagnoses.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You are a clinical decision support AI. Provide educational differential diagnosis suggestions using only safe, non-diagnostic language. Never make definitive diagnoses.",
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 2000,
+      maxTokens: 2000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }

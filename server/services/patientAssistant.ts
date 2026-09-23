@@ -1,12 +1,8 @@
-import OpenAI from "openai";
+import { generatePhiSafeText, generatePhiSafeChat, generatePhiSafeChatStream } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT, sanitizeNoCDS, sanitizeNoCDSObject } from "../security/no-cds-guardrails";
 import type { MedicalRecord, Medication, Appointment, HealthTip, Patient, LabResult } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface SentimentAnalysis {
   sentiment: "positive" | "neutral" | "concerned" | "anxious" | "frustrated";
@@ -99,13 +95,9 @@ async function getPatientContext(patientId: string): Promise<PatientContext> {
 
 export async function analyzeSentiment(message: string): Promise<SentimentAnalysis> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a sentiment analysis expert for healthcare conversations. Analyze the patient's message to detect their emotional state.
-          
+    const content = await generatePhiSafeText({
+      system: `You are a sentiment analysis expert for healthcare conversations. Analyze the patient's message to detect their emotional state.
+
 Return a JSON object with:
 - sentiment: one of "positive", "neutral", "concerned", "anxious", "frustrated"
 - confidence: 0-1 score
@@ -116,18 +108,13 @@ Consider healthcare-specific cues:
 - Questions about symptoms or side effects often indicate concern
 - Expressions about waiting, delays, or not understanding indicate frustration
 - Mentions of pain, worry, or fear indicate anxiety
-- Positive updates about progress or feeling better indicate positive sentiment`
-        },
-        {
-          role: "user",
-          content: message
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 300,
+- Positive updates about progress or feeling better indicate positive sentiment`,
+      user: message,
+      responseMimeType: "application/json",
+      maxTokens: 300,
     });
 
-    const result = sanitizeNoCDSObject(JSON.parse(response.choices[0]?.message?.content || "{}"));
+    const result = sanitizeNoCDSObject(JSON.parse(content || "{}"));
     return {
       sentiment: result.sentiment || "neutral",
       confidence: result.confidence || 0.5,
@@ -429,7 +416,7 @@ export async function chatWithAssistant(
   
   const systemPrompt = buildSystemPrompt(context, sentiment);
 
-  const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+  const apiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: systemPrompt },
     ...messages.map(m => ({
       role: m.role as "user" | "assistant",
@@ -438,30 +425,17 @@ export async function chatWithAssistant(
   ];
 
   if (stream) {
-    const streamResponse = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: apiMessages,
-      stream: true,
-      max_completion_tokens: 1024,
-    });
-
     return (async function* () {
-      for await (const chunk of streamResponse) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          yield content;
-        }
+      for await (const delta of generatePhiSafeChatStream({ messages: apiMessages, maxTokens: 1024 })) {
+        yield delta;
       }
     })();
   }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: apiMessages,
-    max_completion_tokens: 1024,
-  });
-
-  const message = sanitizeNoCDS(response.choices[0]?.message?.content || "I apologize, but I couldn't process your request. Please try again.");
+  const message = sanitizeNoCDS(
+    (await generatePhiSafeChat({ messages: apiMessages, maxTokens: 1024 })) ||
+    "I apologize, but I couldn't process your request. Please try again."
+  );
   const reminders = extractReminders(context);
   const suggestions = generateSuggestions(context);
 
@@ -487,32 +461,26 @@ export async function explainCondition(patientId: string, conditionName: string)
   const context = await getPatientContext(patientId);
   const systemPrompt = buildSystemPrompt(context);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: `Please explain what "${conditionName}" means in simple, patient-friendly terms. Include common symptoms, what causes it, and general lifestyle tips that might help manage it.` },
-    ],
-    max_completion_tokens: 800,
+  const content = await generatePhiSafeText({
+    system: systemPrompt,
+    user: `Please explain what "${conditionName}" means in simple, patient-friendly terms. Include common symptoms, what causes it, and general lifestyle tips that might help manage it.`,
+    maxTokens: 800,
   });
 
-  return sanitizeNoCDS(response.choices[0]?.message?.content || "I couldn't find information about this condition.");
+  return sanitizeNoCDS(content || "I couldn't find information about this condition.");
 }
 
 export async function explainMedication(patientId: string, medicationName: string): Promise<string> {
   const context = await getPatientContext(patientId);
   const systemPrompt = buildSystemPrompt(context);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: `Please explain what "${medicationName}" is used for in simple terms. Include common side effects to watch for and any important tips for taking this medication safely.` },
-    ],
-    max_completion_tokens: 800,
+  const content = await generatePhiSafeText({
+    system: systemPrompt,
+    user: `Please explain what "${medicationName}" is used for in simple terms. Include common side effects to watch for and any important tips for taking this medication safely.`,
+    maxTokens: 800,
   });
 
-  return sanitizeNoCDS(response.choices[0]?.message?.content || "I couldn't find information about this medication.");
+  return sanitizeNoCDS(content || "I couldn't find information about this medication.");
 }
 
 export async function generateWelcomeMessage(patientId: string): Promise<AssistantResponse> {

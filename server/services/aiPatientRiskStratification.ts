@@ -1,19 +1,7 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient) {
-    try {
-      openaiClient = new OpenAI();
-    } catch (error) {
-      console.log("[AIRiskStratification] OpenAI client not configured, using mock data");
-      return null;
-    }
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 const PROHIBITED_TERMS = [
   "recommend", "recommends", "recommended", "recommending", "recommendation",
@@ -320,24 +308,15 @@ class AIPatientRiskStratificationService {
   }
 
   private async generateDashboard(providerId: string): Promise<RiskStratificationDashboard> {
-    const client = getOpenAIClient();
-    
-    if (client) {
+    if (aiEnabled) {
       try {
-        const response = await client.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: `You are a clinical analytics AI that analyzes patient populations for health stratification. 
+        const content = await generatePhiSafeText({
+          system: `You are a clinical analytics AI that analyzes patient populations for health stratification.
 Generate realistic but fictional patient data for a healthcare dashboard.
-IMPORTANT: Only use these safe verbs: "shows", "states", "refers to", "means". 
+IMPORTANT: Only use these safe verbs: "shows", "states", "refers to", "means".
 Never use: recommend, suggest, advise, should, must, improve, increase, decrease, correlate, predict, indicate, help, support, prevent, treat, diagnose, prescribe, benefit, risk, cause, lead, result, affect, impact.
-Return valid JSON only.`
-            },
-            {
-              role: "user",
-              content: `Generate a stratification dashboard JSON with:
+Return valid JSON only.`,
+          user: `Generate a stratification dashboard JSON with:
 - totalPatients: number around 200-400
 - criticalRiskCount, highRiskCount, moderateRiskCount, lowRiskCount
 - avgRiskScore: 0-100
@@ -345,17 +324,15 @@ Return valid JSON only.`
 - topRiskFactors: array of {factor, patientCount, avgContribution}
 - prioritizedPatients: array of 10 patients with {patientId, patientName, overallRiskScore, riskLevel, riskTrend, summary}
 - trends: array of 7 days with {date, critical, high, moderate, low}
-- insights: array of {id, type, title, description, priority, affectedPatients}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 3000,
+- insights: array of {id, type, title, description, priority, affectedPatients}`,
+          responseMimeType: "application/json",
+          maxTokens: 3000,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(content || "{}");
         return this.sanitizeDashboard(result);
       } catch (error) {
-        console.log("[AIRiskStratification] OpenAI error, using mock data:", error);
+        console.log("[AIRiskStratification] AI gateway error, using mock data:", error);
       }
     }
 
@@ -425,23 +402,14 @@ Return valid JSON only.`
   }
 
   private async generatePatientRiskProfile(patientId: string, comprehensive: boolean = false): Promise<PatientRiskProfile> {
-    const client = getOpenAIClient();
-    
-    if (client && comprehensive) {
+    if (aiEnabled && comprehensive) {
       try {
-        const response = await client.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: `You are a clinical analytics AI generating patient profiles.
+        const content = await generatePhiSafeText({
+          system: `You are a clinical analytics AI generating patient profiles.
 IMPORTANT: Only use these safe verbs: "shows", "states", "refers to", "means".
 Never use: recommend, suggest, advise, should, must, improve, increase, decrease, correlate, predict, indicate, help, support, prevent, treat, diagnose, prescribe, benefit, risk, cause, lead, result, affect, impact.
-Return valid JSON only.`
-            },
-            {
-              role: "user",
-              content: `Generate a comprehensive patient profile JSON for patient ${patientId} with:
+Return valid JSON only.`,
+          user: `Generate a comprehensive patient profile JSON for patient ${patientId} with:
 - patientId, patientName (realistic name)
 - overallRiskScore: 0-100
 - riskLevel: "critical" | "high" | "moderate" | "low"
@@ -450,17 +418,15 @@ Return valid JSON only.`
 - predictions: array of 3-5 predictions with {id, riskType, description, probability, timeframe, confidence, contributingFactors, preventiveActions}
 - summary: 2-3 sentence summary
 - careGaps: array of 2-4 items
-- recentChanges: array of 3-5 recent clinical events`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 2500,
+- recentChanges: array of 3-5 recent clinical events`,
+          responseMimeType: "application/json",
+          maxTokens: 2500,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(content || "{}");
         return this.sanitizePatientProfile(result, 0);
       } catch (error) {
-        console.log("[AIRiskStratification] OpenAI error, using mock data:", error);
+        console.log("[AIRiskStratification] AI gateway error, using mock data:", error);
       }
     }
 

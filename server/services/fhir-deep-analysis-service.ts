@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: This analysis is for informational and educational purposes only. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals based on complete patient information and clinical judgment.";
 
@@ -630,20 +630,19 @@ For each risk, provide:
 
 Return ONLY valid JSON array, no markdown formatting.`;
 
-    if (!openai) {
-      console.log("[FhirDeepAnalysis] OpenAI not configured, using fallback risk predictions");
+    if (!aiEnabled) {
+      console.log("[FhirDeepAnalysis] AI not configured, using fallback risk predictions");
       return this.generateFallbackRiskPredictions(patientId, demographics, conditions, observations);
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
+      const response = await generatePhiSafeText({
+        user: prompt,
         temperature: 0.3,
-        max_tokens: 2000,
+        maxTokens: 2000,
       });
 
-      const content = response.choices[0]?.message?.content?.trim() || "[]";
+      const content = (response || "[]").trim();
       const cleanContent = content.replace(/```json\n?|```\n?/g, "").trim();
       const predictions = JSON.parse(cleanContent);
 
@@ -770,20 +769,19 @@ Identify any drug-drug interactions. For each interaction found, provide:
 
 Return ONLY valid JSON array, no markdown. Return empty array [] if no significant interactions.`;
 
-    if (!openai) {
-      console.log("[FhirDeepAnalysis] OpenAI not configured, using fallback drug interactions");
+    if (!aiEnabled) {
+      console.log("[FhirDeepAnalysis] AI not configured, using fallback drug interactions");
       return this.generateFallbackInteractions(patientId, medications);
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
+      const response = await generatePhiSafeText({
+        user: prompt,
         temperature: 0.2,
-        max_tokens: 1500,
+        maxTokens: 1500,
       });
 
-      const content = response.choices[0]?.message?.content?.trim() || "[]";
+      const content = (response || "[]").trim();
       const cleanContent = content.replace(/```json\n?|```\n?/g, "").trim();
       const interactions = JSON.parse(cleanContent);
 

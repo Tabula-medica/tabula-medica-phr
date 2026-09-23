@@ -62,12 +62,15 @@ import { lazy, Suspense, useState, useEffect } from "react";
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const MyHealthRecord = lazy(() => import("@/pages/my-health-record"));
 const FastenConnect = lazy(() => import("@/pages/fasten-connect"));
+const ProviderOnboarding = lazy(() => import("@/pages/provider-onboarding"));
+const CashPrices = lazy(() => import("@/pages/cash-prices"));
 const EHRCallback = lazy(() => import("@/pages/ehr-callback"));
 const PetHealthRecords = lazy(() => import("@/pages/pet-health-records"));
 const Timeline = lazy(() => import("@/pages/timeline"));
 const Documents = lazy(() => import("@/pages/documents"));
 const CarePackets = lazy(() => import("@/pages/care-packets"));
 const CareIndex = lazy(() => import("@/pages/care-index"));
+const MyCarePage = lazy(() => import("@/pages/my-care"));
 const CareRateCalculator = lazy(() => import("@/pages/care-rate-calculator"));
 const CareShareQr = lazy(() => import("@/pages/care-share-qr"));
 const CareVaVerification = lazy(() => import("@/pages/care-va-verification"));
@@ -120,6 +123,7 @@ const CaregiverPortal = lazy(() => import("@/pages/caregiver-portal"));
 const FamilyVerification = lazy(() => import("@/pages/family-verification"));
 const MyFamily = lazy(() => import("@/pages/my-family"));
 const CMS1500ClaimForm = lazy(() => import("@/pages/cms-1500-claim-form"));
+const RcmCommandCenter = lazy(() => import("@/pages/rcm-command-center"));
 const ProviderDirectory = lazy(() => import("@/pages/provider-directory"));
 const NPILookup = lazy(() => import("@/pages/npi-lookup"));
 const ComplianceExport = lazy(() => import("@/pages/compliance-export"));
@@ -207,12 +211,17 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/my-health-record" component={MyHealthRecord} />
       {tefcaEnabled && <Route path="/fasten-connect" component={FastenConnect} />}
+      <Route path="/provider-onboarding" component={ProviderOnboarding} />
+      <Route path="/join-directory" component={ProviderOnboarding} />
+      <Route path="/cash-prices" component={CashPrices} />
+      <Route path="/find-care" component={CashPrices} />
       <Route path="/ehr-callback" component={EHRCallback} />
       <Route path="/pet-health-records" component={PetHealthRecords} />
       <Route path="/timeline" component={Timeline} />
       <Route path="/documents" component={Documents} />
       <Route path="/care-packets" component={CarePackets} />
       <Route path="/care" component={CareIndex} />
+      <Route path="/care/my" component={MyCarePage} />
       <Route path="/care/find-a-doctor" component={ProviderDirectory} />
       <Route path="/care/eligibility" component={CareRateCalculator} />
       <Route path="/care/share-records" component={CareShareQr} />
@@ -272,6 +281,7 @@ function Router() {
       <Route path="/family-verification" component={FamilyVerification} />
       <Route path="/my-family" component={MyFamily} />
       <Route path="/cms-1500" component={CMS1500ClaimForm} />
+      <Route path="/rcm" component={RcmCommandCenter} />
       <Route path="/find-provider" component={ProviderDirectory} />
       <Route path="/npi-lookup" component={NPILookup} />
       {tefcaEnabled && <Route path="/compliance-export" component={ComplianceExport} />}
@@ -406,6 +416,7 @@ const pageTitles: Record<string, string> = {
   "/family-verification": "Family Verification",
   "/my-family": "My Family",
   "/cms-1500": "Insurance Claim Forms",
+  "/rcm": "RCM Command Center",
   "/find-provider": "Find a Provider",
   "/npi-lookup": "Smart NPI Lookup",
   "/compliance-export": "Compliance Export",

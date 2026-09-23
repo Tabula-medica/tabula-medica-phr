@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 export interface FHIRResource {
   resourceType: string;
@@ -470,7 +463,7 @@ class FHIRStandardsMappingService {
     const details: MappingDetail[] = [];
     const messages: string[] = [];
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!aiEnabled) {
       messages.push("warning: AI-assisted mapping unavailable, using rule-based fallback");
       return {
         data: { note: "AI mapping not available", sourceData },
@@ -481,36 +474,22 @@ class FHIRStandardsMappingService {
     }
 
     try {
-      const client = getOpenAIClient();
-      if (!client) {
-        messages.push("AI mapping unavailable, using rule-based mapping");
-        return this.performRuleBasedMapping(sourceData, sourceFormat, targetFormat);
-      }
-      const response = await client.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare data interoperability expert. Map the provided ${sourceFormat} data to ${targetFormat} format.
-            
+      const responseText = await generatePhiSafeText({
+        system: `You are a healthcare data interoperability expert. Map the provided ${sourceFormat} data to ${targetFormat} format.
+
 IMPORTANT: This is for informational purposes only. Do NOT provide clinical decision support or medical advice.
 Always add the disclaimer: "This mapping is for data transformation only. Verify accuracy before clinical use."
 
 Return a JSON object with:
 - mappedData: The converted data structure
 - fieldMappings: Array of {sourceField, targetField, transformation, confidence}
-- notes: Array of any warnings or notes about the mapping`
-          },
-          {
-            role: "user",
-            content: `Map this ${sourceFormat} data to ${targetFormat}:\n\n${JSON.stringify(sourceData, null, 2)}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 2000
+- notes: Array of any warnings or notes about the mapping`,
+        user: `Map this ${sourceFormat} data to ${targetFormat}:\n\n${JSON.stringify(sourceData, null, 2)}`,
+        responseMimeType: "application/json",
+        maxTokens: 2000
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(responseText || "{}");
       
       if (result.fieldMappings) {
         for (const fm of result.fieldMappings) {

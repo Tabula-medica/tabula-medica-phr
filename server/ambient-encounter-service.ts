@@ -20,9 +20,8 @@
  * must not be used as clinical decision support.
  */
 
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { medicalSpeechToTextService } from "./services/gcp/medical-speech-to-text";
+import { generatePhiSafeChat } from "./services/ai-gateway";
 
 export interface SoapNote {
   subjective: string;
@@ -92,44 +91,62 @@ class AmbientEncounterService {
     mimeType: string,
     language?: string,
   ): Promise<{ text: string; language?: string }> {
-    const ext = mimeType.includes("webm")
-      ? "webm"
-      : mimeType.includes("mp4")
-        ? "mp4"
-        : mimeType.includes("ogg")
-          ? "ogg"
-          : "wav";
-    const file = new File([audioBuffer], `encounter.${ext}`, { type: mimeType });
+    // PHI-safe transcription: Google Cloud Speech-to-Text (medical model) via ADC —
+    // Google-BAA-covered. Whisper/OpenAI is NOT used (no OpenAI BAA). Fails CLOSED
+    // with a clear error rather than leaking PHI or returning silent garbage.
+    const encoding =
+      mimeType.includes("webm") ? "WEBM_OPUS"
+      : mimeType.includes("ogg") ? "OGG_OPUS"
+      : (mimeType.includes("wav") || mimeType.includes("x-wav")) ? "LINEAR16"
+      : (mimeType.includes("mp3") || mimeType.includes("mpeg")) ? "MP3"
+      : null;
+    if (!encoding) {
+      // mp4/aac (Safari MediaRecorder) isn't supported by sync recognize without
+      // transcoding — fail closed rather than leak or guess.
+      throw new Error(
+        `Unsupported audio format "${mimeType}" for GCP Speech-to-Text. ` +
+          `Record as WebM/Opus; mp4/aac needs server-side transcoding (follow-up).`,
+      );
+    }
 
-    const transcription = await openai.audio.transcriptions.create({
-      file,
-      model: "whisper-1",
-      language: language || undefined,
-      response_format: "verbose_json",
+    const ready = await medicalSpeechToTextService.initialize();
+    if (!ready) {
+      throw new Error(
+        "GCP Speech-to-Text unavailable (ADC not resolvable). Transcription disabled — no PHI is sent to OpenAI.",
+      );
+    }
+
+    const result = await medicalSpeechToTextService.transcribe({
+      audioContent: audioBuffer.toString("base64"),
+      encoding: encoding as any,
+      sampleRateHertz: 48000, // OPUS: read from the container header; ignored for WEBM/OGG_OPUS
+      languageCode: language || "en-US",
+      model: "medical_conversation",
+      punctuation: true,
+      longRunning: true, // full encounters exceed the ~60s sync-recognize cap
     });
 
-    return {
-      text: (transcription as any).text ?? "",
-      language: (transcription as any).language,
-    };
+    if (!result.transcript || result.model === "local-fallback") {
+      // NOTE: sync recognize caps at ~60s / 10MB. Longer encounters need
+      // long-running recognize + GCS staging (tracked follow-up).
+      throw new Error(
+        "GCP Speech-to-Text returned no transcript (audio may exceed the ~60s sync limit — long-running recognize is the follow-up).",
+      );
+    }
+
+    return { text: result.transcript, language };
   }
 
   async generateSoapNote(transcript: string): Promise<SoapNote> {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      response_format: { type: "json_object" },
-      temperature: 0.2,
+    const raw = await generatePhiSafeChat({
       messages: [
         { role: "system", content: SOAP_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON SOAP note now.`,
-        },
+        { role: "user", content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON SOAP note now.` },
       ],
+      responseMimeType: "application/json",
+      temperature: 0.2,
     });
-
-    const raw = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw || "{}");
     return {
       subjective: String(parsed.subjective ?? ""),
       objective: String(parsed.objective ?? ""),
@@ -139,21 +156,15 @@ class AmbientEncounterService {
   }
 
   async extractActionItems(transcript: string): Promise<ActionItem[]> {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      response_format: { type: "json_object" },
-      temperature: 0.2,
+    const raw = await generatePhiSafeChat({
       messages: [
         { role: "system", content: ACTION_ITEMS_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON action items now.`,
-        },
+        { role: "user", content: `Visit transcript:\n\n${transcript}\n\nReturn the JSON action items now.` },
       ],
+      responseMimeType: "application/json",
+      temperature: 0.2,
     });
-
-    const raw = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw || "{}");
     const items = Array.isArray(parsed.items) ? parsed.items : [];
     return items.map((item: any) => ({
       type: this.normalizeType(item.type),

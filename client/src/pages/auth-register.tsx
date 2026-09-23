@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { SiGoogle, SiApple } from "react-icons/si";
@@ -287,9 +288,8 @@ export default function AuthRegister() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="register-password" className="text-sm">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="register-password"
-                      type="password"
                       autoComplete="new-password"
                       placeholder="At least 8 characters"
                       value={password}
@@ -299,9 +299,8 @@ export default function AuthRegister() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="register-confirm" className="text-sm">Confirm password</Label>
-                    <Input
+                    <PasswordInput
                       id="register-confirm"
-                      type="password"
                       autoComplete="new-password"
                       placeholder="Re-enter your password"
                       value={confirmPassword}
