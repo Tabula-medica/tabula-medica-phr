@@ -10,9 +10,13 @@ interface SEOProps {
   canonicalPath?: string;
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
   /**
-   * Set `false` on pages that must never be indexed — anything behind auth, or
-   * a surface whose content belongs to one patient. Emits
-   * `noindex, nofollow` and drops the canonical link.
+   * Set `true` on pages that are genuinely public marketing/educational
+   * surfaces. Defaults to `false` — fail closed — because the overwhelming
+   * majority of `useSEO` callers are authenticated, PHI-bearing pages
+   * (dashboard, patient detail, connections, settings, ...), and a page that
+   * forgets to opt out is far worse than one that forgets to opt in. A page
+   * left at the default emits `noindex, nofollow` and carries no canonical
+   * link.
    */
   indexable?: boolean;
 }
@@ -36,7 +40,7 @@ export function useSEO({
   description,
   canonicalPath,
   structuredData,
-  indexable = true,
+  indexable = false,
 }: SEOProps) {
   useEffect(() => {
     const fullTitle = `${title} - ${SITE_NAME}`;

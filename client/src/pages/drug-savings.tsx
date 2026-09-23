@@ -488,6 +488,8 @@ export default function DrugSavings() {
   useSEO({
     title: "Drug Savings & Coupons | Tabula Medica",
     description: "Find manufacturer programs, generic alternatives, and patient assistance to reduce your medication costs.",
+    canonicalPath: "/drug-savings",
+    indexable: true,
   });
 
   const [programSearch, setProgramSearch] = useState("");

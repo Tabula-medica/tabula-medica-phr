@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -769,10 +770,10 @@ function CreateClientDialog({ onClose }: { onClose: () => void }) {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="fhir-external-api-gatewa-fhir-versions">FHIR Versions</Label>
+            <FieldCaption>FHIR Versions</FieldCaption>
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
-                <input id="fhir-external-api-gatewa-fhir-versions"
+                <input
                   type="checkbox"
                   checked={formData.fhirVersions.includes("R4")}
                   onChange={(e) => {

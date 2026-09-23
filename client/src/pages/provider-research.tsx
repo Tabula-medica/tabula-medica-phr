@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   BarChart3,
   PieChart,
@@ -289,12 +290,13 @@ function QueryBuilder({
               const Icon = categoryIcons[cat.id] || BarChart3;
               const isSelected = selectedCategories.includes(cat.id);
               return (
-                <div role="presentation"
+                <div
+                  {...clickable(() => toggleCategory(cat.id), { label: cat.title })}
+                  aria-pressed={isSelected}
                   key={cat.id}
-                  onClick={() => toggleCategory(cat.id)}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors min-h-[44px] ${
-                    isSelected 
-                      ? "bg-primary/10 border-primary" 
+                    isSelected
+                      ? "bg-primary/10 border-primary"
                       : "bg-muted/30 border-transparent hover:bg-muted/50"
                   }`}
                   data-testid={`category-${cat.id}`}

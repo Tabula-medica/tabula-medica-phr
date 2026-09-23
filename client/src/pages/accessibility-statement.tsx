@@ -28,6 +28,7 @@ export default function AccessibilityStatement() {
     description:
       "How Tabula Medica conforms to WCAG 2.2 Level AA and Section 508, what has been tested, the gaps that remain, and how to report an accessibility problem.",
     canonicalPath: "/legal/accessibility",
+    indexable: true,
     structuredData: [
       buildBreadcrumbSchema([
         { name: "Home", path: "/" },
@@ -90,9 +91,13 @@ export default function AccessibilityStatement() {
       <h2>What we have done</h2>
       <ul>
         <li>
-          Every form field in the application has a programmatically associated
-          name, so a screen reader announces which field it is reading rather
-          than just its current value.
+          Automated static analysis and a self-review pass fixed thousands of
+          form fields that had no programmatic name, so a screen reader
+          announces which field it is reading rather than just its current
+          value. This is a large, continuously-changing application, and a
+          new or missed control without a full accessible name can still turn
+          up — the goal is that a report of one gets fixed quickly, not that
+          none will ever exist.
         </li>
         <li>
           Every action that could previously be reached only by clicking can now

@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { FieldCaption } from "@/components/ui/field-caption";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -451,7 +451,7 @@ export default function DocumentTranslationPage() {
             <TabsContent value="input" className="space-y-4 mt-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <FieldCaption>Document Content</FieldCaption>
+                  <Label htmlFor="document-content-input">Document Content</Label>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -480,6 +480,7 @@ export default function DocumentTranslationPage() {
                   </div>
                 </div>
                 <Textarea
+                  id="document-content-input"
                   placeholder="Paste or type your medical document content here..."
                   value={documentContent}
                   onChange={(e) => setDocumentContent(e.target.value)}

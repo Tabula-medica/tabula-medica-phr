@@ -16,7 +16,7 @@
 - **Starter (Free):** 1 hospital/clinic connection, full health timeline, drug savings finder, and FQHC free-care locator.
 - **Pro ($9.99/month or $99.90/year):** Unlimited connections, AI health assistant, care team sharing, up to 6 family profiles, 5 GB encrypted document storage, and wearable device sync (Apple Health, Fitbit, Oura, and more). Includes a 14-day trial.
 
-- **Accessibility:** Targets WCAG 2.2 Level AA and Revised Section 508. Currently **partially conformant** — form labelling, keyboard operability and hover/focus content are met across the application; live captions for telehealth video, captions on the onboarding explainer, colour-contrast measurement and screen-reader testing are open gaps. The published statement lists each gap by name. Do not describe Tabula Medica as "fully accessible" or "508 compliant" without that qualification.
+- **Accessibility:** Targets WCAG 2.2 Level AA and Revised Section 508. Currently **partially conformant** — automated accessibility linting runs on every change and the majority of form labelling and keyboard-operability defects it can detect have been fixed, but this is a large, continuously-changing application and individual controls without a full accessible name still turn up; live captions for telehealth video, captions on the onboarding explainer, colour-contrast measurement and screen-reader testing remain open gaps. The published statement lists each gap by name and is the current source of truth. Do not describe Tabula Medica as "fully accessible" or "508 compliant" without that qualification.
 
 ## Links
 

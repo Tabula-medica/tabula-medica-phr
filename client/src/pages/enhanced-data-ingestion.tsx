@@ -673,10 +673,18 @@ export default function EnhancedDataIngestion() {
               {errorsData?.errors && errorsData.errors.length > 0 ? (
                 <div className="space-y-3">
                   {errorsData.errors.map((error) => (
-                    <div role="presentation"
+                    <div
+                      // Resolved errors have no "Resolve" button, so the card's
+                      // click is the only way to open its details — it needs a
+                      // real keyboard path. Unresolved errors already have one
+                      // via the Resolve button below (which stops propagation),
+                      // so the card stays presentational there to avoid a
+                      // second, duplicate tab stop for the same action.
+                      {...(error.resolved
+                        ? clickable(() => setSelectedError(error), { label: `View details for ${error.code}` })
+                        : { role: "presentation" as const, onClick: () => setSelectedError(error) })}
                       key={error.id}
                       className={`p-4 rounded-lg border ${error.resolved ? "bg-green-50 dark:bg-green-950/20 border-green-200" : "bg-red-50 dark:bg-red-950/20 border-red-200"} cursor-pointer`}
-                      onClick={() => setSelectedError(error)}
                       data-testid={`error-card-${error.id}`}
                     >
                       <div className="flex items-start justify-between gap-4">

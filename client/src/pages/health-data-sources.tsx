@@ -504,7 +504,7 @@ export default function HealthDataSources() {
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {selectedSource?.scopes.map((scope) => (
                   <div key={scope} className="flex items-center space-x-2">
-                    <Checkbox aria-label="Data permissions"
+                    <Checkbox
                       id={scope}
                       checked={selectedScopes.includes(scope)}
                       onCheckedChange={(checked) => {

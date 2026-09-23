@@ -73,6 +73,14 @@ if (process.env.ENABLE_ECW_CHECK === 'false' || process.env.USE_TEFCA === 'true'
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// Set by initializeApp() below. `null` until startup reaches that point,
+// then `true`/`false`. A previous version of this file registered SEO routes
+// AFTER the SPA catch-all, so every server-rendered marketing page silently
+// fell back to the empty shell for a month before anyone noticed — nothing
+// surfaced the failure. This flag exists so a broken re-import of
+// `./seo/routes` fails the readiness probe instead of failing silently again.
+let seoRoutesReady: boolean | null = null;
+
 
 // "/" removed intentionally — it now serves the SPA, not a health check.
 const DEDICATED_HEALTH_PATHS = new Set(["/health", "/api/health", "/_ah/health", "/_ah/start"]);
@@ -157,9 +165,19 @@ declare module "http" {
 }
 
 app.get(["/health", "/api/health", "/_ah/health", "/_ah/start"], async (_req, res) => {
-  const healthy = await checkDbHealth();
+  const dbHealthy = await checkDbHealth();
+  // seoRoutesReady starts null (registration hasn't run yet) and is never
+  // treated as a failure until it is explicitly false — a probe that hits
+  // this endpoint during the brief startup window should not flap red.
+  const seoHealthy = seoRoutesReady !== false;
+  const healthy = dbHealthy && seoHealthy;
   const status = healthy ? "ok" : "degraded";
-  res.status(healthy ? 200 : 503).json({ status, database: healthy ? "connected" : "disconnected", timestamp: new Date().toISOString() });
+  res.status(healthy ? 200 : 503).json({
+    status,
+    database: dbHealthy ? "connected" : "disconnected",
+    seoRoutes: seoRoutesReady === null ? "pending" : seoRoutesReady ? "ok" : "failed",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 import compression from "compression";
@@ -325,8 +343,16 @@ async function initializeApp() {
   try {
     const { registerSeoRoutes } = await import("./seo/routes");
     registerSeoRoutes(app);
+    seoRoutesReady = true;
   } catch (e) {
-    console.error("[Startup] SEO routes failed:", e instanceof Error ? e.message : e);
+    seoRoutesReady = false;
+    console.error(
+      "[Startup] CRITICAL: SEO routes failed to register — every server-rendered marketing page " +
+        "(and /sitemap.xml, /robots.txt) will silently fall back to the SPA shell once serveStatic " +
+        "mounts below. This is the exact production failure this file's SEO ordering fix exists to " +
+        "prevent. /health now reports seoRoutes: \"failed\" until this is resolved and the process restarts.",
+      e instanceof Error ? e.message : e,
+    );
   }
 
   // Serve static SPA next so the frontend works even if later startup steps

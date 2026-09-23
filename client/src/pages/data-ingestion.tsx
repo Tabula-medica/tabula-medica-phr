@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import {
   Upload,
@@ -341,7 +340,7 @@ OBX|5|NM|PLT^Platelet Count^L||225|10^9/L|150-400|N|||F`;
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <FieldCaption>Raw Data</FieldCaption>
+                    <Label htmlFor="raw-data-input">Raw Data</Label>
                     {detectFormatMutation.data && (
                       <Badge variant="secondary" data-testid="badge-detected-format">
                         {FORMAT_ICONS[detectFormatMutation.data.format] || <FileText className="h-4 w-4" />}
@@ -350,6 +349,7 @@ OBX|5|NM|PLT^Platelet Count^L||225|10^9/L|150-400|N|||F`;
                     )}
                   </div>
                   <Textarea
+                    id="raw-data-input"
                     value={rawData}
                     onChange={(e) => setRawData(e.target.value)}
                     placeholder="Paste your health data here (FHIR JSON, HL7 v2, CCD/C-CDA XML, CSV, etc.)"

@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -519,7 +520,7 @@ export default function PatientCareTeam() {
                 )}
                 <Separator />
                 <div className="space-y-3">
-                  <Label htmlFor="perm-records" className="text-sm font-medium">Permissions</Label>
+                  <FieldCaption className="text-sm font-medium">Permissions</FieldCaption>
                   <div className="grid gap-3">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="perm-records" className="text-sm font-normal">View Health Records</Label>
