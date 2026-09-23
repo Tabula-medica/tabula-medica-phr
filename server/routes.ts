@@ -425,6 +425,7 @@ import phrPipelineRoutes from "./routes/phr-pipeline-routes";
 import fqhcFinderRoutes from "./routes/fqhc-finder-routes";
 import sharedLayerRoutes from "./routes/shared-layer-routes";
 import dualModeRoutes from "./routes/dual-mode-routes";
+import auRegionRoutes from "./routes/au-region-routes";
 // nmn-auth0-routes loaded dynamically below — only when AUTH0_ISSUER_BASE_URL is set,
 // so missing Auth0 secrets don't drag the foreign-tenant JWKS fetch into prod boot.
 import type { SyncScheduleInterval, EhrPlatform } from "@shared/schema";
@@ -1770,6 +1771,10 @@ export async function registerRoutes(
 
   // Start automated validation scheduler (runs every 24 hours)
   startValidationScheduler(86400000);
+
+  // AU-region routes (IHI/Medicare/DVA identifiers, MyHR consent, NCTS terminology)
+  app.use("/api/au", auRegionRoutes);
+  console.log("[Routes] AU Region routes registered at /api/au/*");
 
   // Dashboard Stats
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -38374,8 +38379,8 @@ startxref
   app.put("/api/region-preference", async (req: any, res) => {
     try {
       const { region } = req.body;
-      if (region !== "us" && region !== "international") {
-        return res.status(400).json({ error: "Invalid region. Must be 'us' or 'international'." });
+      if (!["us", "au", "international"].includes(region)) {
+        return res.status(400).json({ error: "Invalid region. Must be 'us', 'au', or 'international'." });
       }
       const userId = req.user?.claims?.sub || req.headers["x-user-id"];
       if (userId) {
@@ -38400,10 +38405,12 @@ startxref
     }
 
     const isUS = region === "us";
+    const isAU = region === "au";
 
     res.json({
       region,
       features: {
+        // US-specific
         ehrConnections: isUS,
         dataUnification: isUS,
         fhirDataPipeline: isUS,
@@ -38413,6 +38420,15 @@ startxref
         dataAggregation: isUS,
         migrationQA: isUS,
         smartOnFhir: isUS,
+        // AU-specific
+        myHealthRecord: isAU,
+        auIdentifiers: isAU,       // IHI, Medicare, DVA
+        amtTerminology: isAU,      // Australian Medicines Terminology
+        pbsSubsidies: isAU,        // PBS item codes + benefit types
+        icd10am: isAU,             // Australian ICD-10 modification
+        atsiHealthCheck: isAU,     // 715 ATSI health assessment
+        auPrivacyAct: isAU,        // Privacy Act / APPs compliance mode
+        // Universal
         aiEvidenceAdvisor: true,
         aiHealthTools: true,
         whoGuidelines: !isUS,
@@ -38423,6 +38439,8 @@ startxref
       },
       description: isUS
         ? "US Edition: Full EHR integration via Fasten Health, USCDI compliance, data unification from 25,000+ US healthcare providers"
+        : isAU
+        ? "AU Edition: My Health Record integration, IHI/Medicare/DVA identifiers, AMT/PBS terminology, Australian Privacy Act compliance"
         : "Global Edition: WHO-aligned AI health advisor, evidence-based recommendations in 19 languages",
     });
   });
