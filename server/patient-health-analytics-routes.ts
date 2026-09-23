@@ -1,13 +1,8 @@
 import { Router, Request, Response } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import crypto from "crypto";
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashForAudit(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
@@ -532,19 +527,11 @@ Keep the tone friendly and educational. Use simple language. Avoid medical jargo
 
 IMPORTANT: Include a clear disclaimer that this is educational information only and NOT medical advice.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a friendly health education assistant. You explain health metrics in everyday language. You NEVER provide medical advice, diagnosis, or treatment recommendations. You always remind users to consult healthcare providers for medical concerns." 
-        },
-        { role: "user", content: prompt }
-      ],
-      max_completion_tokens: 600,
-    });
-
-    const explanation = response.choices[0]?.message?.content || "Unable to generate explanation.";
+    const explanation = (await generatePhiSafeText({
+      system: "You are a friendly health education assistant. You explain health metrics in everyday language. You NEVER provide medical advice, diagnosis, or treatment recommendations. You always remind users to consult healthcare providers for medical concerns.",
+      user: prompt,
+      maxTokens: 600,
+    })) || "Unable to generate explanation.";
 
     res.json({
       anomalyId: anomaly.id,
@@ -608,19 +595,11 @@ Create a warm, encouraging summary that:
 
 End with a reminder to discuss any concerns with their healthcare provider.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a warm, encouraging health education assistant. You celebrate health wins and gently encourage healthy habits. You NEVER provide medical advice. You always remind users that healthcare providers are the best source for medical guidance." 
-        },
-        { role: "user", content: prompt }
-      ],
-      max_completion_tokens: 800,
-    });
-
-    const summary = response.choices[0]?.message?.content || "Unable to generate summary.";
+    const summary = (await generatePhiSafeText({
+      system: "You are a warm, encouraging health education assistant. You celebrate health wins and gently encourage healthy habits. You NEVER provide medical advice. You always remind users that healthcare providers are the best source for medical guidance.",
+      user: prompt,
+      maxTokens: 800,
+    })) || "Unable to generate summary.";
 
     res.json({
       summary,

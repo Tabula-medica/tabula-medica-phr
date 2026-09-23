@@ -8,6 +8,7 @@ import {
   FileDown,
   ShieldCheck,
   Sparkles,
+  HeartPulse,
 } from "lucide-react";
 
 interface CareTile {
@@ -19,6 +20,14 @@ interface CareTile {
 }
 
 const TILES: CareTile[] = [
+  {
+    href: "/care/my",
+    title: "My Personalised Care",
+    description:
+      "See your USPSTF preventive screenings, active conditions, and medications at a glance.",
+    icon: HeartPulse,
+    testId: "tile-my-care",
+  },
   {
     href: "/care/find-a-doctor",
     title: "Find a Doctor",

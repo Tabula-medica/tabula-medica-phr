@@ -1,13 +1,15 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash } from "crypto";
-import { 
-  aiPolicyDraftingService, 
+import {
+  aiPolicyDraftingService,
   PolicyCategory,
-  RegulatoryFramework 
+  RegulatoryFramework
 } from "./services/ai-policy-drafting";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -22,7 +24,7 @@ function sanitizePhi(text: string): string {
 }
 
 function logHipaaAudit(action: string, resource: string, req: Request, details: Record<string, unknown>): void {
-  const userId = (req as any).user?.id || "anonymous";
+  const userId = getUserId(req);
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(details)) {
     if (typeof value === "string") {
@@ -151,7 +153,7 @@ router.post("/suggestions", async (req: Request, res: Response) => {
       });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { targetCategory, targetFrameworks, existingPolicies, organizationContext } = parseResult.data;
     
     logHipaaAudit("GENERATE_POLICY_SUGGESTIONS", "policy_draft", req, {
@@ -187,7 +189,7 @@ router.post("/generate-rule", async (req: Request, res: Response) => {
       });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { category, description } = parseResult.data;
     
     logHipaaAudit("GENERATE_RULE_SUGGESTION", "policy_rule", req, { category });
@@ -211,7 +213,7 @@ router.post("/generate-section", async (req: Request, res: Response) => {
       });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { sectionTitle, policyCategory, frameworks } = parseResult.data;
     
     logHipaaAudit("GENERATE_SECTION_CONTENT", "policy_section", req, { 
@@ -243,7 +245,7 @@ router.post("/drafts", async (req: Request, res: Response) => {
       });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     const { templateId, category, frameworks } = parseResult.data;
     
     logHipaaAudit("CREATE_POLICY_DRAFT", "policy_draft", req, { templateId, category });
@@ -312,7 +314,7 @@ router.patch("/drafts/:id", async (req: Request, res: Response) => {
       });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("UPDATE_POLICY_DRAFT", "policy_draft", req, { 
       draftId: req.params.id,
@@ -334,7 +336,7 @@ router.patch("/drafts/:id", async (req: Request, res: Response) => {
 
 router.delete("/drafts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     
     logHipaaAudit("DELETE_POLICY_DRAFT", "policy_draft", req, { draftId: req.params.id });
     

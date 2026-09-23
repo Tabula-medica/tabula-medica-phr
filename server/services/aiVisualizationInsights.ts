@@ -1,10 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface DataPoint {
   date: string;
@@ -84,12 +79,8 @@ export async function generateChartInsights(
   try {
     const prompt = buildInsightPrompt(request);
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare data analyst AI that provides insights about patient health data visualizations. 
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare data analyst AI that provides insights about patient health data visualizations.
 Your role is to:
 1. Identify meaningful trends in the data
 2. Detect anomalies or concerning patterns
@@ -99,18 +90,12 @@ Your role is to:
 
 Always be supportive and encouraging while being honest about concerning patterns.
 Format your response as valid JSON matching the InsightsOutput schema.
-Never provide medical diagnoses - only observations and suggestions to discuss with healthcare providers.`
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1500
+Never provide medical diagnoses - only observations and suggestions to discuss with healthcare providers.`,
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("Empty response from AI");
     }
@@ -312,18 +297,11 @@ export async function generateDashboardInsights(
       }))
     };
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a supportive health analytics AI. Analyze the patient's health dashboard data and provide encouraging, actionable insights.
+    const content = await generatePhiSafeText({
+      system: `You are a supportive health analytics AI. Analyze the patient's health dashboard data and provide encouraging, actionable insights.
 Keep language simple and patient-friendly. Never diagnose - only observe patterns and suggest discussing with healthcare providers when appropriate.
-Respond in valid JSON format.`
-        },
-        {
-          role: "user",
-          content: `Analyze this health dashboard data and provide insights:
+Respond in valid JSON format.`,
+      user: `Analyze this health dashboard data and provide insights:
 
 ${JSON.stringify(summaryData, null, 2)}
 
@@ -339,14 +317,11 @@ Respond in this exact JSON format:
   ]
 }
 
-Provide 2-3 category insights and 2-3 recommendations.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000
+Provide 2-3 category insights and 2-3 recommendations.`,
+      responseMimeType: "application/json",
+      maxTokens: 1000,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("Empty response");
 
     return JSON.parse(content);

@@ -1,7 +1,7 @@
-import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 const NO_CDS_WORKFLOW_PROMPT = `You are an AI-powered Clinical Workflow Automation assistant. Your role is to:
 1. Identify patterns in patient journeys for operational efficiency
@@ -379,7 +379,7 @@ function initializeSampleData(): void {
 class AIClinicalWorkflowAutomation {
   constructor() {
     initializeSampleData();
-    console.log("[AIClinicalWorkflowAutomation] OpenAI client", openai ? "configured" : "not configured");
+    console.log("[AIClinicalWorkflowAutomation] AI gateway", aiEnabled ? "configured" : "not configured");
     console.log("[AIClinicalWorkflowAutomation] Service initialized");
   }
 
@@ -524,7 +524,7 @@ class AIClinicalWorkflowAutomation {
     const journeyPhases: JourneyAnalysisResult["journeyPhases"] = [];
     const detectedPatterns: PatientJourneyPattern[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedData = {
           encounterCount: fhirData.encounters?.length || 0,
@@ -535,13 +535,9 @@ class AIClinicalWorkflowAutomation {
           pendingDocs: fhirData.documentReferences?.filter(d => d.status === "preliminary" || d.status === "entered-in-error").length || 0,
         };
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_WORKFLOW_PROMPT },
-            {
-              role: "user",
-              content: `Analyze patient journey patterns for OPERATIONAL workflow optimization. Patient ID: ${sanitizedPatientId}
+        const response = await generatePhiSafeText({
+          system: NO_CDS_WORKFLOW_PROMPT,
+          user: `Analyze patient journey patterns for OPERATIONAL workflow optimization. Patient ID: ${sanitizedPatientId}
 
 Summary Data:
 - Total Encounters: ${sanitizedData.encounterCount}
@@ -556,14 +552,12 @@ Identify 2-3 operational patterns and workflow issues. For each pattern provide:
 4. Operational impact
 5. Suggested administrative/operational actions (NO clinical recommendations)
 
-Format as JSON array with keys: patternType, description, journeyPhase, operationalImpact, suggestedActions (array).`
-            },
-          ],
+Format as JSON array with keys: patternType, description, journeyPhase, operationalImpact, suggestedActions (array).`,
           temperature: 0.7,
-          max_tokens: 1000,
+          maxTokens: 1000,
         });
 
-        const content = response.choices[0]?.message?.content || "";
+        const content = response || "";
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -732,19 +726,15 @@ Format as JSON array with keys: patternType, description, journeyPhase, operatio
     const careCoordinationNeeds: string[] = [];
     const followUpRequirements: string[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
         const sanitizedRiskFactors = riskFactors.map(f => ({
           factor: f.factor,
           description: sanitizePhi(f.description),
         }));
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_WORKFLOW_PROMPT },
-            {
-              role: "user",
-              content: `Generate OPERATIONAL recommendations for patient readmission risk mitigation. Patient ID: ${sanitizedPatientId}
+        const response = await generatePhiSafeText({
+          system: NO_CDS_WORKFLOW_PROMPT,
+          user: `Generate OPERATIONAL recommendations for patient readmission risk mitigation. Patient ID: ${sanitizedPatientId}
 
 Risk Score: ${riskScore}/100 (${riskLevel})
 Risk Factors:
@@ -755,14 +745,12 @@ Provide recommendations in THREE categories (OPERATIONAL/ADMINISTRATIVE only, NO
 2. careCoordinationNeeds: Care team coordination actions
 3. followUpRequirements: Scheduling and outreach tasks
 
-Format as JSON with these three keys, each containing an array of 2-3 recommendations.`
-            },
-          ],
+Format as JSON with these three keys, each containing an array of 2-3 recommendations.`,
           temperature: 0.7,
-          max_tokens: 600,
+          maxTokens: 600,
         });
 
-        const content = response.choices[0]?.message?.content || "";
+        const content = response || "";
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -845,7 +833,7 @@ Format as JSON with these three keys, each containing an array of 2-3 recommenda
     const sanitizedPatientId = sanitizePhi(patientId);
     const generatedInterventions: ProactiveIntervention[] = [];
 
-    if (openai && patterns.length > 0) {
+    if (aiEnabled && patterns.length > 0) {
       try {
         const patternSummary = patterns.map(p => ({
           type: p.patternType,
@@ -853,13 +841,9 @@ Format as JSON with these three keys, each containing an array of 2-3 recommenda
           phase: p.journeyPhase,
         }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_WORKFLOW_PROMPT },
-            {
-              role: "user",
-              content: `Generate PROACTIVE INTERVENTIONS for the following patient journey patterns. Patient ID: ${sanitizedPatientId}
+        const response = await generatePhiSafeText({
+          system: NO_CDS_WORKFLOW_PROMPT,
+          user: `Generate PROACTIVE INTERVENTIONS for the following patient journey patterns. Patient ID: ${sanitizedPatientId}
 
 Detected Patterns:
 ${patternSummary.map(p => `- ${p.type}: ${p.description} (Phase: ${p.phase})`).join("\n")}
@@ -876,14 +860,12 @@ For each intervention provide (OPERATIONAL/ADMINISTRATIVE only, NO clinical reco
 6. suggestedActions (array of objects with: action, assignee [care_coordinator, scheduler, patient_services, care_team, automated], deadline relative to now)
 7. expectedOutcome
 
-Format as JSON array. Generate 1-2 interventions.`
-            },
-          ],
+Format as JSON array. Generate 1-2 interventions.`,
           temperature: 0.7,
-          max_tokens: 1200,
+          maxTokens: 1200,
         });
 
-        const content = response.choices[0]?.message?.content || "";
+        const content = response || "";
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);

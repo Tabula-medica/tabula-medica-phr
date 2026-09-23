@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const aiEnabled = true;
 
 export interface PatientRecord {
   id: string;
@@ -567,31 +567,21 @@ class AIDataHarmonizationService {
   }
 
   private async getAIConflictResolution(conflict: DataConflict): Promise<{ reasoning: string; confidence: number }> {
-    if (!openai) {
+    if (!aiEnabled) {
       return { reasoning: "AI service unavailable", confidence: 0.7 };
     }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a healthcare data quality expert. Analyze conflicting patient data values and provide reasoning for which value should be selected. Consider data recency, completeness, and typical data quality patterns. This is for data harmonization purposes only, not clinical decision-making.`
-          },
-          {
-            role: "user",
-            content: `Analyze this data conflict for field "${conflict.field}":
+      const content = await generatePhiSafeText({
+        system: `You are a healthcare data quality expert. Analyze conflicting patient data values and provide reasoning for which value should be selected. Consider data recency, completeness, and typical data quality patterns. This is for data harmonization purposes only, not clinical decision-making.`,
+        user: `Analyze this data conflict for field "${conflict.field}":
 ${conflict.values.map(v => `- Value: "${v.value}" from ${v.source} (${v.timestamp})`).join('\n')}
 
-Provide JSON with: recommendedValue, reasoning (brief), confidence (0-1)`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 300
+Provide JSON with: recommendedValue, reasoning (brief), confidence (0-1)`,
+        responseMimeType: "application/json",
+        maxTokens: 300
       });
 
-      const content = response.choices[0].message.content;
       if (content) {
         const parsed = JSON.parse(content);
         return {

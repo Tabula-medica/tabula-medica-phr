@@ -5,8 +5,11 @@ import {
   AlertCategory, 
   AlertStatus 
 } from "../services/compliance-anomaly-service";
+import { requireUser, getUserId } from "../middleware/require-user";
 
 const router = Router();
+
+router.use(requireUser);
 
 router.get("/metadata", (_req: Request, res: Response) => {
   res.json({
@@ -100,7 +103,7 @@ router.get("/alerts/:id", (req: Request, res: Response) => {
 
 router.post("/alerts/:id/acknowledge", (req: Request, res: Response) => {
   try {
-    const userId = req.body.userId || "system";
+    const userId = getUserId(req);
     const alert = complianceAnomalyService.acknowledgeAlert(req.params.id, userId);
     if (!alert) {
       return res.status(404).json({ error: "Alert not found or already acknowledged" });
@@ -115,7 +118,7 @@ router.post("/alerts/:id/acknowledge", (req: Request, res: Response) => {
 
 router.post("/alerts/:id/resolve", (req: Request, res: Response) => {
   try {
-    const userId = req.body.userId || "system";
+    const userId = getUserId(req);
     const alert = complianceAnomalyService.resolveAlert(req.params.id, userId);
     if (!alert) {
       return res.status(404).json({ error: "Alert not found or already resolved" });

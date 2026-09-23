@@ -1,14 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
 
 export interface PatientFeedback {
   id: string;
@@ -204,30 +195,21 @@ class PatientFeedbackAnalysisService {
     });
 
     try {
-      const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI analyzing patient feedback for a healthcare organization. Analyze the feedback and return JSON with:
+      const responseText = await generatePhiSafeText({
+        system: `You are an AI analyzing patient feedback for a healthcare organization. Analyze the feedback and return JSON with:
 - sentiment: { score: -1 to 1, label: very_negative/negative/neutral/positive/very_positive, confidence: 0-1, emotionalTone: array of emotions }
 - themes: array of identified themes (e.g., "wait time", "communication", "staff kindness")
 - keyPhrases: important phrases from the feedback
 - intent: the patient's primary intent (complaint, praise, suggestion, question)
 - actionRequired: boolean if follow-up is needed
 - urgency: immediate/soon/routine/none
-- suggestedResponse: brief suggested response if action required`
-          },
-          {
-            role: "user",
-            content: `Analyze this patient feedback:\nSource: ${feedback.source}\nType: ${feedback.type}\nRating: ${feedback.rating || "N/A"}/5\nContent: "${feedback.content}"`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 800
+- suggestedResponse: brief suggested response if action required`,
+        user: `Analyze this patient feedback:\nSource: ${feedback.source}\nType: ${feedback.type}\nRating: ${feedback.rating || "N/A"}/5\nContent: "${feedback.content}"`,
+        responseMimeType: "application/json",
+        maxTokens: 800
       });
 
-      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const parsed = JSON.parse(responseText || "{}");
 
       const analysis: FeedbackAnalysis = {
         id: `analysis-${Date.now()}`,

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export const ADVANCED_STANDARDIZATION_DISCLAIMER = `DISCLAIMER: This advanced AI FHIR standardization system is for DATA INTEROPERABILITY AND TECHNICAL PURPOSES ONLY. AI-generated mappings, terminology suggestions, and data inferences are for review by qualified healthcare informatics professionals. They do NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations.`;
 
@@ -214,7 +214,7 @@ const CLINICAL_KNOWLEDGE_GRAPH = {
 };
 
 class AIFHIRAdvancedStandardizationService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private versionMappings: Map<string, FHIRVersionMapping> = new Map();
   private terminologySuggestions: Map<string, TerminologySuggestion> = new Map();
   private dataInferences: Map<string, DataInference> = new Map();
@@ -222,23 +222,10 @@ class AIFHIRAdvancedStandardizationService {
   private commonElementAnalyses: Map<string, CommonDataElementAnalysis> = new Map();
 
   constructor() {
-    this.initializeOpenAI();
     this.initializeSampleData();
     console.log("[AIAdvancedStandardization] Service initialized with AI-powered FHIR harmonization");
     console.log("[AIAdvancedStandardization] Features: Version mapping, Terminology suggestion, Data inference, Feedback loop");
     console.log("[AIAdvancedStandardization] NO-CDS compliance enabled for all outputs");
-  }
-
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL: baseURL || undefined });
-      console.log("[AIAdvancedStandardization] OpenAI client configured for intelligent harmonization");
-    } else {
-      console.log("[AIAdvancedStandardization] Using rule-based fallback (AI not configured)");
-    }
   }
 
   private initializeSampleData(): void {
@@ -317,15 +304,11 @@ class AIFHIRAdvancedStandardizationService {
     const resourceType = sourceResource.resourceType || "Unknown";
     const mappingId = `vm-${Date.now()}-${randomUUID().substring(0, 8)}`;
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: AI_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Analyze the structural differences between FHIR ${sourceVersion} and R4 for the following ${resourceType} resource. Identify element mappings, structural changes, and data loss risks.
+        const responseText = await generatePhiSafeText({
+          system: AI_SYSTEM_PROMPT,
+          user: `Analyze the structural differences between FHIR ${sourceVersion} and R4 for the following ${resourceType} resource. Identify element mappings, structural changes, and data loss risks.
 
 Resource: ${JSON.stringify(sourceResource, null, 2)}
 
@@ -333,15 +316,13 @@ Provide a JSON response with:
 1. structuralChanges: Array of changes (type, sourcePath, targetPath, description, breakingChange)
 2. elementMappings: Array of mappings (sourceElement, targetElement, cardinality changes, transformationRequired, dataLossRisk)
 3. overallConfidence: 0-1 score
-4. rationale: Brief explanation`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 2000
+4. rationale: Brief explanation`,
+          responseMimeType: "application/json",
+          maxTokens: 2000
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
-        
+        const aiResult = JSON.parse(responseText || "{}");
+
         const mapping: FHIRVersionMapping = {
           id: mappingId,
           sourceVersion,
@@ -460,15 +441,11 @@ Provide a JSON response with:
 
     const suggestionId = `ts-${Date.now()}-${randomUUID().substring(0, 8)}`;
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: AI_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Map the following clinical text to standardized terminology codes. Context: ${context}
+        const responseText = await generatePhiSafeText({
+          system: AI_SYSTEM_PROMPT,
+          user: `Map the following clinical text to standardized terminology codes. Context: ${context}
 
 Text: "${text}"
 Resource Type: ${resourceType}
@@ -489,14 +466,12 @@ Provide JSON response with:
   ],
   "overallConfidence": 0-1,
   "rationale": "explanation"
-}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500
+}`,
+          responseMimeType: "application/json",
+          maxTokens: 1500
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const aiResult = JSON.parse(responseText || "{}");
 
         const suggestion: TerminologySuggestion = {
           id: suggestionId,
@@ -630,15 +605,11 @@ Provide JSON response with:
 
     const inferenceId = `di-${Date.now()}-${randomUUID().substring(0, 8)}`;
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: AI_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Based on the following patient FHIR resources, infer a reasonable value for the missing field. This is for DATA QUALITY purposes only.
+        const responseText = await generatePhiSafeText({
+          system: AI_SYSTEM_PROMPT,
+          user: `Based on the following patient FHIR resources, infer a reasonable value for the missing field. This is for DATA QUALITY purposes only.
 
 Patient Resources:
 ${JSON.stringify(patientResources.slice(0, 10), null, 2)}
@@ -653,14 +624,12 @@ Using clinical knowledge graphs and the existing data, provide:
   "knowledgeGraphConnections": [{ "nodeType": "...", "nodeName": "...", "relationship": "...", "strength": 0-1 }],
   "confidence": 0-1,
   "rationale": "explanation"
-}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1500
+}`,
+          responseMimeType: "application/json",
+          maxTokens: 1500
         });
 
-        const aiResult = JSON.parse(response.choices[0]?.message?.content || "{}");
+        const aiResult = JSON.parse(responseText || "{}");
 
         const inference: DataInference = {
           id: inferenceId,

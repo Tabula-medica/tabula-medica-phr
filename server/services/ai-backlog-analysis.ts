@@ -1,12 +1,10 @@
-import OpenAI from "openai";
 import { createHash, randomUUID } from "crypto";
 import { aiPolicyEnforcementService, PolicyViolationAssessment, ViolationCategory } from "./ai-policy-enforcement";
 import { aiComplianceMonitoringService } from "./ai-compliance-monitoring";
 import type { ComplianceRisk, ComplianceRiskLevel, ComplianceRegulation } from "@shared/schema";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+const aiEnabled = true;
 
 const NO_CDS_SYSTEM_PROMPT = `You are a healthcare compliance backlog analysis specialist.
 
@@ -707,7 +705,7 @@ class AIBacklogAnalysisService {
   }
 
   private async generateAIRecommendations(items: BacklogItem[], groups: RemediationGroup[]): Promise<string[]> {
-    if (!openai || items.length === 0) {
+    if (!aiEnabled || items.length === 0) {
       return this.getDefaultRecommendations(items, groups);
     }
 
@@ -728,13 +726,9 @@ class AIBacklogAnalysisService {
         })),
       };
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: NO_CDS_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this compliance backlog and provide prioritized remediation recommendations:
+      const response = await generatePhiSafeText({
+        system: NO_CDS_SYSTEM_PROMPT,
+        user: `Analyze this compliance backlog and provide prioritized remediation recommendations:
 
 ${JSON.stringify(summary, null, 2)}
 
@@ -746,13 +740,11 @@ Provide 5-7 actionable recommendations for addressing this backlog efficiently. 
 5. Risk mitigation strategies
 
 Return as a JSON array of recommendation strings.`,
-          },
-        ],
         temperature: 0.3,
-        max_tokens: 1000,
+        maxTokens: 1000,
       });
 
-      const content = response.choices[0]?.message?.content?.trim() || "";
+      const content = response?.trim() || "";
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import {
   PatientMessage,
   MessageType,
@@ -8,12 +8,7 @@ import {
   PatientEngagementSummary,
 } from "@shared/schema";
 
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-} else {
-  console.log("[AIPatientCommunication] OpenAI API key not configured, using fallback responses");
-}
+const aiEnabled = true;
 
 export interface PatientInquiry {
   id: string;
@@ -345,20 +340,16 @@ export async function draftResponseToInquiry(
   inquiry: PatientInquiry,
   context: PatientContext
 ): Promise<AIResponseDraft> {
-  if (!openai) {
+  if (!aiEnabled) {
     return generateFallbackDraft(inquiry, context);
   }
-  
+
   try {
     const contextSummary = buildContextSummary(context);
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HIPAA_SAFE_COMMUNICATION_PROMPT },
-        {
-          role: "user",
-          content: `Draft a personalized response to this patient inquiry.
+
+    const content = await generatePhiSafeText({
+      system: HIPAA_SAFE_COMMUNICATION_PROMPT,
+      user: `Draft a personalized response to this patient inquiry.
 
 PATIENT INQUIRY:
 Subject: ${inquiry.subject}
@@ -383,14 +374,11 @@ Return a JSON object with:
   "reviewReason": "Reason why provider review is needed (if applicable)",
   "confidenceScore": number 0-100 (how confident in this response)
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1500,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     const draft: AIResponseDraft = {
       id: `draft-${Date.now()}`,
@@ -429,18 +417,14 @@ export async function generateAppointmentReminder(
   appointment: UpcomingAppointment,
   context?: PatientContext
 ): Promise<ProactiveMessage> {
-  if (!openai) {
+  if (!aiEnabled) {
     return generateFallbackReminder(patientId, patientName, appointment);
   }
-  
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HIPAA_SAFE_COMMUNICATION_PROMPT },
-        {
-          role: "user",
-          content: `Generate a personalized appointment reminder message.
+    const content = await generatePhiSafeText({
+      system: HIPAA_SAFE_COMMUNICATION_PROMPT,
+      user: `Generate a personalized appointment reminder message.
 
 APPOINTMENT DETAILS:
 Type: ${appointment.type}
@@ -459,14 +443,11 @@ Return a JSON object with:
   "actionItems": ["Things patient may want to prepare or bring"],
   "encouragement": "Supportive closing message"
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 800,
+      responseMimeType: "application/json",
+      maxTokens: 800,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     const message: ProactiveMessage = {
       id: `reminder-${Date.now()}`,
@@ -503,20 +484,16 @@ export async function generateFollowUpMessage(
   context: PatientContext,
   followUpType: "post_visit" | "medication_check" | "wellness_check" | "goal_progress"
 ): Promise<ProactiveMessage> {
-  if (!openai) {
+  if (!aiEnabled) {
     return generateFallbackFollowUp(patientId, patientName, followUpType);
   }
-  
+
   try {
     const contextSummary = buildContextSummary(context);
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: HIPAA_SAFE_COMMUNICATION_PROMPT },
-        {
-          role: "user",
-          content: `Generate a personalized follow-up message for a patient.
+
+    const content = await generatePhiSafeText({
+      system: HIPAA_SAFE_COMMUNICATION_PROMPT,
+      user: `Generate a personalized follow-up message for a patient.
 
 FOLLOW-UP TYPE: ${followUpType}
 PATIENT: ${patientName}
@@ -532,16 +509,13 @@ Return a JSON object with:
   "actionItems": ["Gentle reminders or discussion topics for the patient"],
   "encouragement": "Supportive and motivating closing"
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 800,
+      responseMimeType: "application/json",
+      maxTokens: 800,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
-    const messageType = followUpType === "post_visit" ? "follow_up" : 
+    const messageType = followUpType === "post_visit" ? "follow_up" :
                         followUpType === "medication_check" ? "medication_reminder" : "check_in";
 
     const message: ProactiveMessage = {
@@ -812,21 +786,15 @@ export function getProactiveMessageStats(): {
 }
 
 export async function triagePatientMessage(inquiry: PatientInquiry): Promise<TriageResult> {
-  const openaiClient = openai;
-  
-  if (!openaiClient) {
+  if (!aiEnabled) {
     return generateFallbackTriage(inquiry);
   }
-  
+
   try {
     const departmentInfo = departments.map(d => `${d.code}: ${d.name} - ${d.description}`).join("\n");
-    
-    const response = await openaiClient.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        {
-          role: "system",
-          content: `You are a healthcare message triage assistant. Your role is to analyze patient messages and route them to the appropriate department and staff member.
+
+    const content = await generatePhiSafeText({
+      system: `You are a healthcare message triage assistant. Your role is to analyze patient messages and route them to the appropriate department and staff member.
 
 CRITICAL RULES:
 - This is for routing purposes ONLY, not clinical decision making
@@ -836,10 +804,7 @@ CRITICAL RULES:
 
 AVAILABLE DEPARTMENTS:
 ${departmentInfo}`,
-        },
-        {
-          role: "user",
-          content: `Analyze and triage this patient message:
+      user: `Analyze and triage this patient message:
 
 PATIENT: ${inquiry.patientName} (ID: ${inquiry.patientId})
 SUBJECT: ${inquiry.subject}
@@ -860,14 +825,11 @@ Return a JSON object with:
   "triageNotes": ["Important notes for the person handling this message"],
   "confidence": number 0-100
 }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
+      responseMimeType: "application/json",
+      maxTokens: 1000,
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
 
     const dept = departments.find(d => d.code === parsed.departmentCode) || departments[0];
 

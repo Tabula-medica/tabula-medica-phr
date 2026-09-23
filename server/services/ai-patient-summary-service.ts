@@ -1,13 +1,4 @@
-import OpenAI from "openai";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PatientDemographics {
   id: string;
@@ -100,19 +91,10 @@ export class AIPatientSummaryService {
     }
 
     try {
-      const openai = getOpenAIClient();
-      if (!openai) {
-        return this.generateFallbackSummary(patientData);
-      }
-      
       const prompt = this.buildSummaryPrompt(patientData);
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical documentation assistant that creates clear, informational patient record summaries. 
+
+      const content = await generatePhiSafeText({
+        system: `You are a medical documentation assistant that creates clear, informational patient record summaries.
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - You are STRICTLY PROHIBITED from providing clinical decision support, treatment recommendations, or medical advice
@@ -122,19 +104,13 @@ CRITICAL COMPLIANCE REQUIREMENTS:
 - Use plain language that patients and caregivers can understand
 - Always include appropriate disclaimers
 
-Your role is to help organize and summarize documented medical information for review purposes only.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
+Your role is to help organize and summarize documented medical information for review purposes only.`,
+        user: prompt,
+        responseMimeType: "application/json",
         temperature: 0.3,
-        max_tokens: 2000
+        maxTokens: 2000
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateFallbackSummary(patientData);
       }
