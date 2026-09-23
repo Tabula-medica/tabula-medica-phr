@@ -690,6 +690,154 @@ export type InsertFastenConnection = z.infer<typeof insertFastenConnectionSchema
 export type FastenConnection = typeof fastenConnectionsTable.$inferSelect;
 
 // ============================================
+// FITNESS APP CONNECTIONS (read-only, via Terra)
+// ============================================
+// All connections in this table are read-only by design: Terra's widget
+// auth flow never grants Tabula Medica write access back to the source
+// app, so there is no "scope" column to get wrong — every row here is
+// read-only data ingestion, never a write-back integration.
+
+export const fitnessProviders = [
+  "apple_health",
+  "google_fit",
+  "fitbit",
+  "oura",
+  "garmin",
+  "whoop",
+  "samsung_health",
+  "withings",
+  "polar",
+  "strava",
+] as const;
+export type FitnessProvider = typeof fitnessProviders[number];
+
+export const fitnessConnectionStatuses = ["pending", "connected", "disconnected", "error"] as const;
+export type FitnessConnectionStatus = typeof fitnessConnectionStatuses[number];
+
+export const fitnessConnectionsTable = pgTable(
+  "fitness_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    terraUserId: text("terra_user_id"),
+    terraSessionId: text("terra_session_id"),
+    status: text("status").notNull().default("pending"),
+    accessScope: text("access_scope").notNull().default("read_only"),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
+    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    terraUserIdUx: uniqueIndex("fitness_connections_terra_user_id_ux").on(t.terraUserId),
+  })
+);
+
+export const insertFitnessConnectionSchema = createInsertSchema(fitnessConnectionsTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFitnessConnection = z.infer<typeof insertFitnessConnectionSchema>;
+export type FitnessConnection = typeof fitnessConnectionsTable.$inferSelect;
+
+// Non-clinical wellness metrics pulled read-only from a connected fitness
+// app (steps, sleep, calories, HRV, workouts) — distinct from vitalSignsTable,
+// which is reserved for clinical-grade vitals (see checkVitalThresholds).
+export const wellnessMetricTypes = [
+  "steps",
+  "active_minutes",
+  "calories_burned",
+  "distance_meters",
+  "sleep_minutes",
+  "sleep_score",
+  "hrv",
+  "workout",
+] as const;
+export type WellnessMetricType = typeof wellnessMetricTypes[number];
+
+export const wellnessMetricsTable = pgTable("wellness_metrics", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  fitnessConnectionId: uuid("fitness_connection_id").references(() => fitnessConnectionsTable.id, { onDelete: "set null" }),
+  provider: text("provider").notNull(),
+  metricType: text("metric_type").notNull(),
+  value: text("value").notNull(),
+  unit: text("unit").notNull(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull(),
+  rawPayload: jsonb("raw_payload").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertWellnessMetricSchema = createInsertSchema(wellnessMetricsTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWellnessMetric = z.infer<typeof insertWellnessMetricSchema>;
+export type WellnessMetric = typeof wellnessMetricsTable.$inferSelect;
+
+// ============================================
+// RPM (REMOTE PATIENT MONITORING) DEVICES
+// ============================================
+// Clinical-grade RPM device enrollments (e.g. VitalFriend Vital Buddy /
+// BUDDI cellular BP cuffs, pulse oximeters, glucometers, scales). Readings
+// from these devices are clinical vitals and are written into
+// vitalSignsTable (shared with manual entry) so they flow through the
+// same abnormal-range alerting in monitoringAlertsTable — see
+// server/services/vital-thresholds.ts.
+
+export const rpmDeviceProviders = ["vitalfriend", "other"] as const;
+export type RpmDeviceProvider = typeof rpmDeviceProviders[number];
+
+// Named distinctly from the pre-existing rpmDeviceTypes/RpmDeviceType above
+// (server/onboarding.ts) — those model a generic onboarding-time device
+// registration + setup-instructions flow; this models an actual clinical
+// RPM device connected to a real provider (VitalFriend) that feeds
+// vital_signs. Don't merge the two without checking both call sites.
+export const rpmMonitoringDeviceTypes = [
+  "blood_pressure_cuff",
+  "glucometer",
+  "pulse_oximeter",
+  "scale",
+  "thermometer",
+] as const;
+export type RpmMonitoringDeviceType = typeof rpmMonitoringDeviceTypes[number];
+
+export const rpmDeviceStatuses = ["pending", "active", "inactive", "error"] as const;
+export type RpmDeviceStatus = typeof rpmDeviceStatuses[number];
+
+export const rpmDevicesTable = pgTable(
+  "rpm_devices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("vitalfriend"),
+    externalDeviceId: text("external_device_id").notNull(),
+    deviceType: text("device_type").notNull(),
+    serialNumber: text("serial_number"),
+    status: text("status").notNull().default("pending"),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }),
+    lastReadingAt: timestamp("last_reading_at", { withTimezone: true }),
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    externalDeviceIdUx: uniqueIndex("rpm_devices_external_device_id_ux").on(t.provider, t.externalDeviceId),
+  })
+);
+
+export const insertRpmDeviceSchema = createInsertSchema(rpmDevicesTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRpmDevice = z.infer<typeof insertRpmDeviceSchema>;
+export type RpmDevice = typeof rpmDevicesTable.$inferSelect;
+
+// ============================================
 // ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM
 // ============================================
 

@@ -153,6 +153,8 @@ import aiOutreachOrchestratorRoutes from "./ai-outreach-orchestrator-routes";
 import externalIntegrationRoutes from "./external-integration-routes";
 import ehrIntegrationRoutes from "./ehr-integration-routes";
 import healthTrackingRoutes from "./health-tracking-routes";
+import fitnessIntegrationsRoutes from "./routes/fitness-integrations-routes";
+import rpmDeviceRoutes, { rpmWebhookRouter } from "./routes/rpm-device-routes";
 import aiAuditEngineRoutes from "./ai-audit-engine-routes";
 import personalizedEducationRoutes from "./personalized-education-routes";
 import medicationManagementRoutes from "./medication-management-routes";
@@ -1314,6 +1316,11 @@ export async function registerRoutes(
 
   app.use("/api/ehr-integration", ehrIntegrationRoutes);
   app.use("/api/health-tracking", healthTrackingRoutes);
+  app.use("/api/fitness", fitnessIntegrationsRoutes);
+  console.log("[Routes] Fitness Integrations (read-only, Terra) routes registered at /api/fitness/*");
+  app.use("/api/rpm", rpmWebhookRouter);
+  app.use("/api/rpm", rpmDeviceRoutes);
+  console.log("[Routes] RPM Device (VitalFriend) routes registered at /api/rpm/*");
   app.use("/api/personalized-education", personalizedEducationRoutes);
   console.log("[Routes] Personalized Education routes registered at /api/personalized-education/*");
   app.use("/api/medication-management", medicationManagementRoutes);
