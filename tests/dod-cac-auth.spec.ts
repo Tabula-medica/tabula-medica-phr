@@ -355,8 +355,8 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     const firstKeyPair = await generateKeyPair();
     const secondKeyPair = await generateKeyPair();
 
-    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(firstKeyPair.publicKey), "same-user")).statusCode).toBe(200);
-    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(secondKeyPair.publicKey), "same-user")).statusCode).toBe(200);
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(firstKeyPair.publicKey), "same-user", "device-one")).statusCode).toBe(200);
+    expect((await enroll(handlers, "1234567890", await exportPublicKeyHex(secondKeyPair.publicKey), "same-user", "device-two")).statusCode).toBe(200);
   });
 
   it("rejects a different account trying to enroll under an EDIPI someone else already claimed", async () => {

@@ -21452,6 +21452,27 @@ export const rateLimitHitsTable = pgTable(
   })
 );
 
+// CAC/PIV software-cert enrollment (server/dod-routes.ts). Binds a device's
+// enrolled public key to the EDIPI and account that enrolled it; verify
+// requires a match here before accepting a challenge signature.
+export const cacSoftwareCertsTable = pgTable(
+  "cac_software_certs",
+  {
+    edipi: text("edipi").notNull(),
+    deviceId: text("device_id").primaryKey(),
+    publicKeyHex: text("public_key_hex").notNull(),
+    certJson: text("cert_json").notNull(),
+    platform: text("platform"),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    enrolledByUserId: text("enrolled_by_user_id").notNull(),
+  },
+  (t) => ({
+    // Looked up by edipi on every /verify and /enroll-software-cert call.
+    edipiIdx: index("cac_software_certs_edipi_idx").on(t.edipi),
+  })
+);
+
 // Insert schemas for compliance tables
 export const insertHipaaAuditLogSchema = z.object({
   eventType: z.enum(["PHI_ACCESS", "PHI_MODIFY", "PHI_CREATE", "PHI_DELETE", "LOGIN", "LOGOUT", "MFA_SETUP", "MFA_VERIFY", "SESSION_START", "SESSION_END", "EXPORT", "CONSENT_CHANGE", "ACCESS_DENIED"]),
