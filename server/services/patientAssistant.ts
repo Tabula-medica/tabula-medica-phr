@@ -1,13 +1,8 @@
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./ai-gateway";
+import { generatePhiSafeText, generatePhiSafeChat, generatePhiSafeChatStream } from "./ai-gateway";
 import { storage } from "../storage";
 import { NO_CDS_DISCLAIMER_SHORT, sanitizeNoCDS, sanitizeNoCDSObject } from "../security/no-cds-guardrails";
 import type { MedicalRecord, Medication, Appointment, HealthTip, Patient, LabResult } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export interface SentimentAnalysis {
   sentiment: "positive" | "neutral" | "concerned" | "anxious" | "frustrated";
@@ -421,7 +416,7 @@ export async function chatWithAssistant(
   
   const systemPrompt = buildSystemPrompt(context, sentiment);
 
-  const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+  const apiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: systemPrompt },
     ...messages.map(m => ({
       role: m.role as "user" | "assistant",
@@ -430,30 +425,17 @@ export async function chatWithAssistant(
   ];
 
   if (stream) {
-    const streamResponse = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: apiMessages,
-      stream: true,
-      max_completion_tokens: 1024,
-    });
-
     return (async function* () {
-      for await (const chunk of streamResponse) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          yield content;
-        }
+      for await (const delta of generatePhiSafeChatStream({ messages: apiMessages, maxTokens: 1024 })) {
+        yield delta;
       }
     })();
   }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: apiMessages,
-    max_completion_tokens: 1024,
-  });
-
-  const message = sanitizeNoCDS(response.choices[0]?.message?.content || "I apologize, but I couldn't process your request. Please try again.");
+  const message = sanitizeNoCDS(
+    (await generatePhiSafeChat({ messages: apiMessages, maxTokens: 1024 })) ||
+    "I apologize, but I couldn't process your request. Please try again."
+  );
   const reminders = extractReminders(context);
   const suggestions = generateSuggestions(context);
 

@@ -119,7 +119,6 @@ export async function extractEntities(
   documentContent: string,
   documentName: string
 ): Promise<ExtractedEntities> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return getMockExtractedEntities(documentId, documentName);
@@ -130,7 +129,6 @@ export async function extractEntities(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",

@@ -1,11 +1,4 @@
-import OpenAI from "openai";
-
-let openai: OpenAI | null = null;
-try {
-  openai = new OpenAI();
-} catch (error) {
-  console.log("[PatientEngagementHub] OpenAI client not available, using fallback responses");
-}
+import { generatePhiSafeChat } from "./ai-gateway";
 
 export interface SecureMessage {
   id: string;
@@ -158,36 +151,14 @@ class PatientEngagementHubService {
   private conversations: Map<string, Conversation> = new Map();
   private chatbotSessions: Map<string, ChatbotSession> = new Map();
   private healthGoals: Map<string, HealthGoal> = new Map();
-  private openaiAvailable: boolean = false;
-
   constructor() {
     this.initializeSampleData();
-    this.checkOpenAIAvailability();
     console.log("[PatientEngagementHub] Service initialized");
     console.log("[PatientEngagementHub] Features: Secure messaging, AI chatbot, Health goals tracking");
     console.log("[PatientEngagementHub] HIPAA-compliant message encryption enabled");
   }
 
-  private async checkOpenAIAvailability() {
-    if (!openai) {
-      this.openaiAvailable = false;
-      return;
-    }
-    try {
-      await openai.chat.completions.create({
-        model: "gpt-5.1",
-        messages: [{ role: "user", content: "test" }],
-        max_tokens: 5,
-      });
-      this.openaiAvailable = true;
-      console.log("[PatientEngagementHub] OpenAI integration available for AI chatbot");
-    } catch (error) {
-      this.openaiAvailable = false;
-      console.log("[PatientEngagementHub] OpenAI not available, using fallback responses");
-    }
-  }
-
-  private initializeSampleData() {
+private initializeSampleData() {
     const conv1: Conversation = {
       id: "conv-001",
       patientId: "patient-001",
@@ -483,7 +454,7 @@ class PatientEngagementHubService {
   }): Promise<SecureMessage> {
     let triageResult: { category: string; priority: string; routedTo?: string } = { category: "general", priority: "normal" };
     
-    if (data.senderType === 'patient' && this.openaiAvailable) {
+    if (data.senderType === 'patient') {
       triageResult = await this.triageMessage(data.content);
     }
 
@@ -543,13 +514,8 @@ class PatientEngagementHubService {
   }
 
   private async triageMessage(content: string): Promise<{ category: string; priority: string; routedTo?: string }> {
-    if (!this.openaiAvailable || !openai) {
-      return { category: "general", priority: "normal" };
-    }
-
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -564,11 +530,10 @@ For urgent symptoms like chest pain, difficulty breathing, or severe allergic re
           },
           { role: "user", content: `Triage this patient message: "${content}"` },
         ],
-        response_format: { type: "json_object" },
-        max_tokens: 150,
+        responseMimeType: "application/json",
+        maxTokens: 150,
       });
-
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(raw || "{}");
       return {
         category: result.category || "general",
         priority: result.priority || "normal",
@@ -644,18 +609,13 @@ For urgent symptoms like chest pain, difficulty breathing, or severe allergic re
   private async generateChatbotResponse(session: ChatbotSession, userMessage: string): Promise<ChatbotMessage> {
     const disclaimer = "\n\n*This is an AI assistant providing general information only. For medical advice, please consult your healthcare provider.*";
 
-    if (!this.openaiAvailable || !openai) {
-      return this.getFallbackResponse(session, userMessage);
-    }
-
     try {
       const conversationHistory = session.messages.slice(-6).map(m => ({
         role: m.role as "user" | "assistant",
         content: m.content.replace(disclaimer, ""),
       }));
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -683,11 +643,11 @@ Return a JSON response with:
           ...conversationHistory,
           { role: "user", content: userMessage },
         ],
-        response_format: { type: "json_object" },
-        max_tokens: 500,
+        responseMimeType: "application/json",
+        maxTokens: 500,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(raw || "{}");
 
       return {
         id: `chat-${Date.now()}`,
@@ -907,28 +867,22 @@ Return a JSON response with:
   }
 
   private async generateGoalRecommendations(category: string, title: string): Promise<string[]> {
-    if (!this.openaiAvailable || !openai) {
-      return this.getFallbackRecommendations(category);
-    }
-
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const raw = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
-            content: `Generate 3 brief, actionable health tips for achieving a health goal. 
+            content: `Generate 3 brief, actionable health tips for achieving a health goal.
 Keep each tip under 100 characters. Focus on practical, evidence-based advice.
 Return as a JSON array of strings.
 IMPORTANT: This is general wellness information only, not medical advice.`,
           },
           { role: "user", content: `Goal category: ${category}, Goal: ${title}` },
         ],
-        response_format: { type: "json_object" },
-        max_tokens: 200,
+        responseMimeType: "application/json",
+        maxTokens: 200,
       });
-
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      const result = JSON.parse(raw || "{}");
       return result.recommendations || result.tips || this.getFallbackRecommendations(category);
     } catch (error) {
       return this.getFallbackRecommendations(category);

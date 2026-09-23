@@ -1,14 +1,9 @@
-import OpenAI from "openai";
-import { generatePhiSafeText } from "./ai-gateway";
+import { generatePhiSafeText, generatePhiSafeChatStream, type PhiSafeChatMessage } from "./ai-gateway";
 import { createHash } from "crypto";
 import { storage } from "../storage";
 import { logPhiAccess } from "../security/hipaa-audit";
 import type { AssistantConversation, AssistantMessage, AssistantInsight } from "@shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const HEALTH_ASSISTANT_SYSTEM_PROMPT = `You are a friendly, patient health assistant for Tabula Medica, a personal health records app. Your role is to help patients understand their health information in plain, everyday language.
 
@@ -153,36 +148,26 @@ export class AIHealthAssistantService {
       history = history.slice(-20);
     }
     
-    const messages: OpenAI.ChatCompletionMessageParam[] = [
+    const messages: PhiSafeChatMessage[] = [
       { role: "system", content: HEALTH_ASSISTANT_SYSTEM_PROMPT },
     ];
-    
+
     if (contextMessage) {
       messages.push({ role: "system", content: contextMessage });
     }
-    
+
     messages.push(...history.map(m => ({ role: m.role as "user" | "assistant", content: m.content })));
 
-    const stream = await openai.chat.completions.create({
-      model: "gpt-5.1",
-      messages,
-      stream: true,
-      max_completion_tokens: 2048,
-    });
-
     const self = this;
-    
+
     async function* generateResponse(): AsyncIterable<string> {
       let fullResponse = "";
-      
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          fullResponse += content;
-          yield content;
-        }
+
+      for await (const delta of generatePhiSafeChatStream({ messages, maxTokens: 2048 })) {
+        fullResponse += delta;
+        yield delta;
       }
-      
+
       history.push({ role: "assistant", content: fullResponse });
       self.conversationHistory.set(conversationKey, history);
     }

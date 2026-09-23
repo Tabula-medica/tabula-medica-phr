@@ -1,11 +1,5 @@
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
 import { generateText, getProviderForFeature } from "./ai-provider";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: This AI-generated document is for informational and documentation assistance purposes only. It does NOT constitute clinical decision support. All generated content requires review and validation by a licensed healthcare provider before official use. The final clinical judgment rests with the treating physician.";
 
@@ -42,13 +36,11 @@ export function checkGovernanceCompliance(): GovernanceCheckResult {
     details: "AI provider integration governance check passed. BAA executed, data minimization enforced (no PHI stored by AI provider), TLS 1.3 encryption in transit verified.",
   };
 
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-  if (!apiKey || !baseURL) {
+  const vertexProject = process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+  if (!vertexProject) {
     result.approved = false;
     result.integrationStatus = "blocked";
-    result.details = "OpenAI integration not configured. Environment variables missing.";
+    result.details = "Vertex AI not configured. VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT environment variable missing.";
   }
 
   auditLog("GOVERNANCE_CHECK", "system", undefined, `Status: ${result.integrationStatus}`);
@@ -477,7 +469,7 @@ export async function generateDocument(request: DocumentGenerationRequest): Prom
 
       generatedContent = result || "Document generation failed — no content returned.";
     } catch (error: any) {
-      console.error("[DocumentGeneration] OpenAI error:", error.message);
+      console.error("[DocumentGeneration] AI error:", error.message);
       generatedContent = generateFallbackContent(docType, request.context);
     }
   } else {

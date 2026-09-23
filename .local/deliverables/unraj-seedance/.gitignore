@@ -1,0 +1,5 @@
+# generated media and private references stay out of git
+out/
+refs/
+web/media/
+node_modules/

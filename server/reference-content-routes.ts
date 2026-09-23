@@ -1,7 +1,7 @@
 /**
  * Reference-content reviewer API (Phase 1.1).
  *
- * Reviewer console for the Firecrawl-ingested reference content: list drafts,
+ * Reviewer console for reference content drafts: list drafts,
  * inspect a row, and transition status (draft → in-review → published, or
  * retire). Publishing a patient-education row runs a final NO-CDS compliance
  * check and is blocked if it fails. Reviewer identity + timestamp are recorded.

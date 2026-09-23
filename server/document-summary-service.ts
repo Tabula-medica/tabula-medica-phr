@@ -86,7 +86,6 @@ export async function summarizeDocument(
     source: string;
   }
 ): Promise<DocumentSummary> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return getMockDocumentSummary(documentId, documentMetadata);
@@ -97,7 +96,6 @@ export async function summarizeDocument(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",
