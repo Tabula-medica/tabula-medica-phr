@@ -1,4 +1,8 @@
 import type { EhrPlatform, FhirConfig } from "@shared/schema";
+import {
+  buildEcwBaseUrl,
+  resolveEcwTarget,
+} from "../services/ehr/ecw-client";
 
 export type FhirConnectionMode = "sandbox" | "live";
 
@@ -42,8 +46,28 @@ export function getActiveConfig(preset: FhirEndpointPreset): FhirConfig {
   const envClientId = envKeys ? process.env[envKeys.clientIdEnv] : undefined;
   const envClientSecret = envKeys ? process.env[envKeys.secretEnv] : undefined;
 
+  // eCW FHIR base URLs are per-practice (`.../fhir/r4/{practiceCode}`), so the
+  // preset's URL is only ever right for the sandbox tenant. Resolve the real one
+  // from ECW_PRACTICE_CODE.
+  //
+  // An unresolvable eCW target yields an EMPTY base URL rather than throwing:
+  // this function is called in a loop by /api/fhir/presets, and letting one
+  // misconfigured vendor take down the listing for Epic and athena too would be
+  // a worse failure than the one being prevented. The empty string is caught at
+  // connection time (initiateSmartAuth), where it can be reported precisely.
+  // What must never happen is falling back to the sandbox URL.
+  let fhirBaseUrl = config.fhirBaseUrl;
+  if (preset.platform === "ecw") {
+    try {
+      fhirBaseUrl = buildEcwBaseUrl(resolveEcwTarget(mode === "live" ? "live" : "sandbox"));
+    } catch {
+      fhirBaseUrl = "";
+    }
+  }
+
   return {
     ...config,
+    fhirBaseUrl,
     ...(envClientId ? { clientId: envClientId } : {}),
     ...(envClientSecret ? { clientSecret: envClientSecret } : {}),
   };
@@ -131,21 +155,27 @@ export const FHIR_PRESETS: Record<EhrPlatform, FhirEndpointPreset> = {
     },
   },
 
+  // eCW base URLs are per-practice and are overwritten by getActiveConfig from
+  // ECW_PRACTICE_CODE; the literals below are placeholders, not live endpoints.
+  // Prefer SMART discovery (`.well-known/smart-configuration` on the practice's
+  // base URL) over these OAuth paths — see services/ehr/ecw-client.ts.
   ecw: {
     platform: "ecw",
     name: "eClinicalWorks",
     sandboxConfig: {
       fhirBaseUrl: "https://fhir4.eclinicalworks.com/fhir/r4/IJCEAI",
-      authorizationEndpoint: "https://oauthserver.eclinicalworks.com/oauth/authorize",
-      tokenEndpoint: "https://oauthserver.eclinicalworks.com/oauth/token",
+      authorizationEndpoint: "https://oauthserver.eclinicalworks.com/oauth/oauth2/authorize",
+      tokenEndpoint: "https://oauthserver.eclinicalworks.com/oauth/oauth2/token",
       issuer: "https://oauthserver.eclinicalworks.com",
       scopes: SMART_FHIR_SCOPES,
       usePkce: true,
     },
     productionConfig: {
-      fhirBaseUrl: "https://fhir4.eclinicalworks.com/fhir/r4/IJCEAI",
-      authorizationEndpoint: "https://oauthserver.eclinicalworks.com/oauth/authorize",
-      tokenEndpoint: "https://oauthserver.eclinicalworks.com/oauth/token",
+      // Overwritten per practice at read time. Left non-empty only because
+      // FhirConfig requires the field.
+      fhirBaseUrl: "https://fhir4.eclinicalworks.com/fhir/r4",
+      authorizationEndpoint: "https://oauthserver.eclinicalworks.com/oauth/oauth2/authorize",
+      tokenEndpoint: "https://oauthserver.eclinicalworks.com/oauth/oauth2/token",
       issuer: "https://oauthserver.eclinicalworks.com",
       scopes: SMART_FHIR_SCOPES,
       usePkce: true,

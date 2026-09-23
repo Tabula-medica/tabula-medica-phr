@@ -158,6 +158,7 @@ import rpmDeviceRoutes, { rpmWebhookRouter } from "./routes/rpm-device-routes";
 import aiAuditEngineRoutes from "./ai-audit-engine-routes";
 import personalizedEducationRoutes from "./personalized-education-routes";
 import medicationManagementRoutes from "./medication-management-routes";
+import erxCancellationRoutes from "./erx-cancellation-routes";
 import providerPopulationManagementRoutes from "./provider-population-management-routes";
 import comprehensiveCarePlanRoutes from "./comprehensive-care-plan-routes";
 import enhancedProviderAnalyticsRoutes from "./enhanced-provider-analytics-routes";
@@ -303,6 +304,14 @@ import { registerWebhookAggregatorRoutes } from "./webhook-aggregator-routes";
 import { registerGcpArchitectureRoutes } from "./gcp-architecture-routes";
 import { registerProfilePhotoRoutes } from "./profile-photo-routes";
 import { registerAdvanceDirectivesRoutes } from "./advance-directives-routes";
+import { registerWorldIpsRoutes } from "./world-ips-routes";
+import { registerClinicalWorkflowRoutes } from "./clinical-workflow-routes-v2";
+import { registerHccRoutes } from "./hcc-routes";
+import { registerRvuRoutes } from "./rvu-routes";
+import { registerEngagementRoutes } from "./engagement-routes";
+import { registerHealthSummaryShareRoutes } from "./health-summary-share-routes";
+import { registerAmbientScribeRoutes } from "./ambient-scribe-routes";
+import { registerCareManagementRoutes } from "./care-management-routes";
 import healthQuestionnaireRoutes from "./health-questionnaire-routes";
 import healthReportRoutes from "./health-report-routes";
 import providerCommunicationRoutes from "./provider-communication-routes";
@@ -1391,6 +1400,8 @@ export async function registerRoutes(
   console.log("[Routes] Personalized Education routes registered at /api/personalized-education/*");
   app.use("/api/medication-management", medicationManagementRoutes);
   console.log("[Routes] Medication Management routes registered at /api/medication-management/*");
+  app.use("/api/erx-cancellation", erxCancellationRoutes);
+  console.log("[Routes] eRx Cancellation routes registered at /api/erx-cancellation/*");
   app.use("/api/provider-population", providerPopulationManagementRoutes);
   app.use("/api/comprehensive-care-plans", comprehensiveCarePlanRoutes);
   app.use("/api/enhanced-provider-analytics", enhancedProviderAnalyticsRoutes);
@@ -1713,6 +1724,14 @@ export async function registerRoutes(
   registerGcpArchitectureRoutes(app);
   registerProfilePhotoRoutes(app);
   registerAdvanceDirectivesRoutes(app);
+  registerWorldIpsRoutes(app);
+  registerClinicalWorkflowRoutes(app);
+  registerHccRoutes(app);
+  registerRvuRoutes(app);
+  registerEngagementRoutes(app);
+  registerHealthSummaryShareRoutes(app);
+  registerAmbientScribeRoutes(app);
+  registerCareManagementRoutes(app);
 
   app.use("/api/health-questionnaire", healthQuestionnaireRoutes);
   console.log("[Routes] Health Questionnaire routes registered at /api/health-questionnaire/*");
@@ -6770,7 +6789,7 @@ Respond in JSON format with these fields:
   });
 
   // AI Summary - uses aggregated data from all EHR sources
-  app.post("/api/patients/:id/ai-summary", async (req, res) => {
+  app.post("/api/patients/:id/ai-summary", requirePermission("records:read"), async (req, res) => {
     try {
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
@@ -18236,7 +18255,7 @@ Be thorough but prioritize clinically relevant information. Mark high-relevance 
     return hash.toString(36);
   }
 
-  app.get("/api/patients/:patientId/chart-summary", async (req, res) => {
+  app.get("/api/patients/:patientId/chart-summary", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const forceRefresh = req.query.refresh === "true";
@@ -18396,7 +18415,7 @@ STRICT CONSTRAINTS:
   // AI CHART INSIGHTS - Risk Stratification, History Summary, Care Gaps
   // ============================================
 
-  app.get("/api/patients/:patientId/predictive-risk", requireUser, async (req, res) => {
+  app.get("/api/patients/:patientId/predictive-risk", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
@@ -18415,7 +18434,7 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/history-summary", requireUser, async (req, res) => {
+  app.get("/api/patients/:patientId/history-summary", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
@@ -18434,7 +18453,7 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/care-gaps-ai", requireUser, async (req, res) => {
+  app.get("/api/patients/:patientId/care-gaps-ai", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
