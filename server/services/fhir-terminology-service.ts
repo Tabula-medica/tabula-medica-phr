@@ -373,27 +373,27 @@ class FhirTerminologyService {
     code: string;
     version?: string;
     displayLanguage?: string;
-    userId?: string;
+    userId: string;
   }): LookupResult | null {
     const codeSystemId = this.getCodeSystemIdFromUrl(params.system);
     const systemConcepts = concepts.get(codeSystemId);
     
     if (!systemConcepts) {
-      auditLog("LOOKUP_FAILED", "Concept", params.code, params.userId || "system",
+      auditLog("LOOKUP_FAILED", "Concept", params.code, params.userId,
         `Code system not found: ${params.system}`);
       return null;
     }
 
     const concept = systemConcepts.get(params.code);
     if (!concept) {
-      auditLog("LOOKUP_FAILED", "Concept", params.code, params.userId || "system",
+      auditLog("LOOKUP_FAILED", "Concept", params.code, params.userId,
         `Code not found: ${params.code} in ${params.system}`);
       return null;
     }
 
     const codeSystem = Array.from(codeSystems.values()).find(cs => cs.url === params.system);
 
-    auditLog("LOOKUP_SUCCESS", "Concept", params.code, params.userId || "system",
+    auditLog("LOOKUP_SUCCESS", "Concept", params.code, params.userId,
       `Found: ${concept.display} in ${params.system}`);
 
     return {
@@ -413,14 +413,14 @@ class FhirTerminologyService {
     system: string;
     display?: string;
     coding?: { system: string; code: string; display?: string }[];
-    userId?: string;
+    userId: string;
   }): ValidateCodeResult {
     if (params.valueSet) {
       const valueSet = this.getValueSetByUrl(params.valueSet);
       if (valueSet) {
         const isValid = this.codeInValueSet(params.system, params.code, valueSet);
         
-        auditLog("VALIDATE_CODE", "Concept", params.code, params.userId || "system",
+        auditLog("VALIDATE_CODE", "Concept", params.code, params.userId,
           `Validation against ${params.valueSet}: ${isValid ? "VALID" : "INVALID"}`);
 
         return {
@@ -455,7 +455,7 @@ class FhirTerminologyService {
     code: string;
     system: string;
     targetSystem?: string;
-    userId?: string;
+    userId: string;
   }): TranslateResult {
     let targetMap: ConceptMap | undefined;
 
@@ -468,7 +468,7 @@ class FhirTerminologyService {
     }
 
     if (!targetMap) {
-      auditLog("TRANSLATE_FAILED", "Concept", params.code, params.userId || "system",
+      auditLog("TRANSLATE_FAILED", "Concept", params.code, params.userId,
         `No concept map found for ${params.system} to ${params.targetSystem || "any"}`);
       return { result: false, message: "No suitable concept map found", matches: [] };
     }
@@ -495,7 +495,7 @@ class FhirTerminologyService {
       }
     }
 
-    auditLog("TRANSLATE_SUCCESS", "Concept", params.code, params.userId || "system",
+    auditLog("TRANSLATE_SUCCESS", "Concept", params.code, params.userId,
       `Found ${matches.length} translation(s) from ${params.system}`);
 
     return {
@@ -511,7 +511,7 @@ class FhirTerminologyService {
     filter?: string;
     offset?: number;
     count?: number;
-    userId?: string;
+    userId: string;
   }): ValueSetExpansion | null {
     let valueSet: ValueSet | undefined;
 
@@ -523,7 +523,7 @@ class FhirTerminologyService {
 
     if (!valueSet) {
       auditLog("EXPAND_FAILED", "ValueSet", params.valueSetId || params.url || "unknown",
-        params.userId || "system", "Value set not found");
+        params.userId, "Value set not found");
       return null;
     }
 
@@ -541,7 +541,7 @@ class FhirTerminologyService {
     const count = params.count || 100;
     const paged = contains.slice(offset, offset + count);
 
-    auditLog("EXPAND_SUCCESS", "ValueSet", valueSet.id, params.userId || "system",
+    auditLog("EXPAND_SUCCESS", "ValueSet", valueSet.id, params.userId,
       `Expanded ${paged.length} concepts (filter: ${params.filter || "none"})`);
 
     return {
@@ -571,7 +571,7 @@ class FhirTerminologyService {
     system: string;
     filter: string;
     count?: number;
-    userId?: string;
+    userId: string;
   }): { code: string; display: string; system: string }[] {
     const codeSystemId = this.getCodeSystemIdFromUrl(params.system);
     const systemConcepts = concepts.get(codeSystemId);
@@ -595,7 +595,7 @@ class FhirTerminologyService {
       }
     });
 
-    auditLog("SEARCH_CONCEPTS", "CodeSystem", codeSystemId, params.userId || "system",
+    auditLog("SEARCH_CONCEPTS", "CodeSystem", codeSystemId, params.userId,
       `Found ${results.length} concepts matching "${params.filter}"`);
 
     return results;

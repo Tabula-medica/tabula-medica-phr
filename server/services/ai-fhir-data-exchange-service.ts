@@ -1,16 +1,7 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-const openaiBaseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-let openai: OpenAI | null = null;
-if (openaiApiKey && openaiBaseURL) {
-  openai = new OpenAI({
-    apiKey: openaiApiKey,
-    baseURL: openaiBaseURL,
-  });
-}
+const aiEnabled = true;
 
 export type FHIRVersion = "DSTU2" | "STU3" | "R4" | "R4B" | "R5";
 
@@ -209,7 +200,7 @@ async function generateAIMappingRules(
     c => c.from === sourceVersion && c.to === targetVersion
   );
 
-  if (!openai) {
+  if (!aiEnabled) {
     return knownChanges?.changes.map((change, i) => ({
       id: randomUUID(),
       sourceVersion,
@@ -222,12 +213,8 @@ async function generateAIMappingRules(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR interoperability expert. Generate mapping rules for converting ${resourceType} resources from FHIR ${sourceVersion} to ${targetVersion}.
+    const content = await generatePhiSafeText({
+      system: `You are a FHIR interoperability expert. Generate mapping rules for converting ${resourceType} resources from FHIR ${sourceVersion} to ${targetVersion}.
 
 Return a JSON object with a "rules" array:
 {
@@ -241,18 +228,12 @@ Return a JSON object with a "rules" array:
   ]
 }
 
-Focus on structural changes between versions. Include 3-8 most important mappings.`
-        },
-        {
-          role: "user",
-          content: `Generate mapping rules for ${resourceType} from ${sourceVersion} to ${targetVersion}.${knownChanges ? `\nKnown changes:\n${knownChanges.changes.join("\n")}` : ""}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 600,
+Focus on structural changes between versions. Include 3-8 most important mappings.`,
+      user: `Generate mapping rules for ${resourceType} from ${sourceVersion} to ${targetVersion}.${knownChanges ? `\nKnown changes:\n${knownChanges.changes.join("\n")}` : ""}`,
+      responseMimeType: "application/json",
+      maxTokens: 600,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("No AI response");
 
     const parsed = JSON.parse(content);
@@ -335,17 +316,13 @@ export async function getTransformationRecommendations(
     });
   }
 
-  if (!openai) {
+  if (!aiEnabled) {
     return recommendations;
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR transformation expert. Provide intelligent recommendations for transforming ${resourceType} resources from ${sourceVersion} to ${targetVersion}.
+    const content = await generatePhiSafeText({
+      system: `You are a FHIR transformation expert. Provide intelligent recommendations for transforming ${resourceType} resources from ${sourceVersion} to ${targetVersion}.
 
 Return JSON with recommendations array:
 {
@@ -360,18 +337,12 @@ Return JSON with recommendations array:
   }]
 }
 
-Include 3-5 practical recommendations.`
-        },
-        {
-          role: "user",
-          content: `Recommend transformations for ${resourceType} from ${sourceVersion} to ${targetVersion}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 600,
+Include 3-5 practical recommendations.`,
+      user: `Recommend transformations for ${resourceType} from ${sourceVersion} to ${targetVersion}`,
+      responseMimeType: "application/json",
+      maxTokens: 600,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return recommendations;
 
     const parsed = JSON.parse(content);
@@ -481,29 +452,19 @@ export async function validateWithAIAssistance(
 ): Promise<ValidationResult & { aiInsights?: string[] }> {
   const baseResult = validateAgainstProfile(resource, profileId);
 
-  if (!openai || baseResult.issues.length === 0) {
+  if (!aiEnabled || baseResult.issues.length === 0) {
     return baseResult;
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a FHIR validation expert. Analyze validation issues and provide helpful insights.
-Return JSON: { "insights": ["array of helpful suggestions"] }`
-        },
-        {
-          role: "user",
-          content: `Profile: ${profileId}\nIssues:\n${JSON.stringify(baseResult.issues, null, 2)}\n\nProvide 2-3 insights on how to fix these issues.`
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 300,
+    const content = await generatePhiSafeText({
+      system: `You are a FHIR validation expert. Analyze validation issues and provide helpful insights.
+Return JSON: { "insights": ["array of helpful suggestions"] }`,
+      user: `Profile: ${profileId}\nIssues:\n${JSON.stringify(baseResult.issues, null, 2)}\n\nProvide 2-3 insights on how to fix these issues.`,
+      responseMimeType: "application/json",
+      maxTokens: 300,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       return { ...baseResult, aiInsights: parsed.insights || [] };
@@ -534,7 +495,7 @@ export function getVersionChanges(resourceType: string): typeof FHIR_VERSION_CHA
 export function getServiceMetadata() {
   return {
     version: "1.0.0",
-    aiEnabled: !!openai,
+    aiEnabled,
     supportedVersions: getSupportedVersions(),
     profileCount: COMMON_PROFILES.length,
     features: [
@@ -547,4 +508,4 @@ export function getServiceMetadata() {
   };
 }
 
-console.log("[FHIRDataExchange] Service initialized with", openai ? "AI-powered" : "rule-based", "capabilities");
+console.log("[FHIRDataExchange] Service initialized with", aiEnabled ? "AI-powered" : "rule-based", "capabilities");

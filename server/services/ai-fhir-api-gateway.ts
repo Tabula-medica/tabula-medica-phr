@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -386,7 +386,7 @@ class AIFHIRApiGateway {
   private roundRobinIndex: Map<string, number> = new Map();
   private serverConnections: Map<string, number> = new Map();
   private validationStats = { totalValidations: 0, passed: 0, failed: 0, warnings: 0 };
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
 
   private accessPolicies: Map<string, AccessControlPolicy> = new Map();
   private cache: Map<string, CacheEntry> = new Map();
@@ -446,7 +446,6 @@ class AIFHIRApiGateway {
   };
 
   constructor() {
-    this.initializeOpenAI();
     this.initializeDefaultServers();
     this.initializeDefaultRules();
     this.initializeDefaultAccessPolicies();
@@ -457,21 +456,6 @@ class AIFHIRApiGateway {
     this.startCacheCleanupLoop();
     this.startAnomalyDetectionLoop();
     console.log("[AIFHIRApiGateway] Service initialized");
-  }
-
-  private initializeOpenAI(): void {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-    if (apiKey) {
-      this.openai = new OpenAI({
-        apiKey,
-        baseURL: baseURL || undefined,
-      });
-      console.log("[AIFHIRApiGateway] OpenAI client configured");
-    } else {
-      console.log("[AIFHIRApiGateway] OpenAI not configured, using rule-based suggestions");
-    }
   }
 
   private initializeDefaultServers(): void {
@@ -1256,14 +1240,10 @@ class AIFHIRApiGateway {
     let suggestions: QueryOptimizationSuggestion["suggestions"] = [];
     let aiAnalysis = "";
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const completion = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a FHIR API performance optimization expert. Analyze FHIR queries and provide specific, actionable optimization suggestions.
+        const content = await generatePhiSafeText({
+          system: `You are a FHIR API performance optimization expert. Analyze FHIR queries and provide specific, actionable optimization suggestions.
 
 Focus on:
 1. Query parameter optimization (efficient filters, proper use of _include/_revinclude)
@@ -1288,10 +1268,7 @@ Return your analysis as JSON with this structure:
   ],
   "analysis": "Overall analysis of the query performance"
 }`,
-            },
-            {
-              role: "user",
-              content: `Analyze this FHIR query for optimization opportunities:
+          user: `Analyze this FHIR query for optimization opportunities:
 
 Resource Type: ${resourceType}
 Query: ${redactedQuery}
@@ -1299,13 +1276,11 @@ ${performanceData ? `Current Average Response Time: ${performanceData.averageRes
 ${performanceData?.resultCount !== undefined ? `Result Count: ${performanceData.resultCount}` : ""}
 
 Provide optimization suggestions.`,
-            },
-          ],
           temperature: 0.3,
-          max_tokens: 1000,
+          maxTokens: 1000,
+          responseMimeType: "application/json",
         });
 
-        const content = completion.choices[0]?.message?.content;
         if (content) {
           try {
             const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1593,7 +1568,7 @@ Provide optimization suggestions.`,
     operation: string,
     context: { userId?: string; previousRequests?: number; timeOfDay?: number }
   ): Promise<{ recommendation: string; riskFactors: string[]; suggestedAction: string }> {
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
         const prompt = `Analyze this FHIR API access request for security risk:
 Role: ${userRole}
@@ -1605,17 +1580,12 @@ Hour of day: ${context.timeOfDay || new Date().getHours()}
 
 Provide a brief risk analysis and recommendation. Focus on access patterns, not clinical data. NO clinical decision support.`;
 
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: "You are a healthcare IT security analyst. Analyze access patterns for anomalies. NO clinical advice." },
-            { role: "user", content: prompt },
-          ],
-          max_tokens: 300,
+        const content = await generatePhiSafeText({
+          system: "You are a healthcare IT security analyst. Analyze access patterns for anomalies. NO clinical advice.",
+          user: prompt,
+          maxTokens: 300,
           temperature: 0.3,
-        });
-
-        const content = response.choices[0]?.message?.content || "";
+        }) || "";
         const lines = content.split("\n").filter(l => l.trim());
 
         return {
@@ -2434,7 +2404,7 @@ Provide a brief risk analysis and recommendation. Focus on access patterns, not 
     }
 
     let aiAnalysis: string | undefined;
-    if (this.openai && (riskLevel === "high" || riskLevel === "critical")) {
+    if (this.aiEnabled && (riskLevel === "high" || riskLevel === "critical")) {
       try {
         const prompt = `Analyze this API request risk assessment (data pipeline security analysis, NO clinical decision support):
 Risk Score: ${(overallRiskScore * 100).toFixed(1)}%
@@ -2444,16 +2414,12 @@ Factors: ${factors.map(f => `${f.name}: ${(f.score * 100).toFixed(0)}%`).join(",
 
 Provide brief security recommendations (2-3 sentences, data security focus only).`;
 
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: "You are a healthcare API security analyst. Provide brief, actionable security recommendations. Focus on data protection and access control. NO clinical decision support." },
-            { role: "user", content: prompt },
-          ],
-          max_tokens: 150,
+        aiAnalysis = await generatePhiSafeText({
+          system: "You are a healthcare API security analyst. Provide brief, actionable security recommendations. Focus on data protection and access control. NO clinical decision support.",
+          user: prompt,
+          maxTokens: 150,
           temperature: 0,
-        });
-        aiAnalysis = response.choices[0]?.message?.content || undefined;
+        }) || undefined;
       } catch (error) {
         console.error("[AIFHIRApiGateway] AI risk analysis error:", error);
       }

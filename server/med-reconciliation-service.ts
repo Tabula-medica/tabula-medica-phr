@@ -1,6 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generatePhiSafeText } from "./services/ai-gateway";
 
 async function logPhiAccess(data: {
   userId: string;
@@ -108,21 +106,14 @@ Return JSON:
 Only include suggestions with confidence >= 0.7. Return empty array if no issues found.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a medication list analysis assistant. You help patients identify potential duplicates or conflicts in their medication lists for discussion with their healthcare providers. Never make clinical recommendations.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const content = await generatePhiSafeText({
+      system: "You are a medication list analysis assistant. You help patients identify potential duplicates or conflicts in their medication lists for discussion with their healthcare providers. Never make clinical recommendations.",
+      user: prompt,
       temperature: 0.3,
-      max_tokens: 1500,
-      response_format: { type: "json_object" },
+      maxTokens: 1500,
+      responseMimeType: "application/json",
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return [];
 
     const parsed = JSON.parse(content);

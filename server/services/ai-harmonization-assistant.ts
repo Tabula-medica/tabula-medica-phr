@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeChat } from "./ai-gateway";
 import { aiFhirHarmonizationEngine } from "./ai-fhir-harmonization-engine";
 
 function hashIdentifier(id: string): string {
@@ -208,22 +208,6 @@ const conversationStore = new Map<string, ConversationContext>();
 const analysisStore = new Map<string, ProfileAnalysisResult>();
 const changeHistoryStore = new Map<string, AppliedChange[]>();
 
-let openai: OpenAI | null = null;
-
-function initializeOpenAI(): void {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-  if (apiKey) {
-    openai = new OpenAI({
-      apiKey,
-      baseURL: baseURL || undefined,
-    });
-    console.log("[AIHarmonizationAssistant] OpenAI client configured");
-  } else {
-    console.log("[AIHarmonizationAssistant] OpenAI not configured, using rule-based analysis");
-  }
-}
 
 function initializeSampleData(): void {
   const usCoreProfile: FHIRProfile = {
@@ -381,7 +365,6 @@ function initializeSampleData(): void {
 
 class AIHarmonizationAssistantService {
   constructor() {
-    initializeOpenAI();
     initializeSampleData();
     console.log("[AIHarmonizationAssistant] Service initialized");
   }
@@ -850,47 +833,40 @@ class AIHarmonizationAssistantService {
     let suggestions: string[] = [];
     let actions: AssistantAction[] = [];
 
-    if (openai) {
-      try {
-        const sanitizedMessage = sanitizePhi(userMessage);
-        const recentMessages = context.messages.slice(-10).map(m => ({
-          role: m.role as "user" | "assistant" | "system",
-          content: m.role === "user" ? sanitizePhi(m.content) : m.content,
-        }));
+    try {
+      const sanitizedMessage = sanitizePhi(userMessage);
+      const recentMessages = context.messages.slice(-10).map(m => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: m.role === "user" ? sanitizePhi(m.content) : m.content,
+      }));
 
-        const profiles = this.getProfiles();
-        const pendingSuggestions = this.getSuggestions({ status: "pending" });
-        const inconsistencies = this.getInconsistencies();
+      const profiles = this.getProfiles();
+      const pendingSuggestions = this.getSuggestions({ status: "pending" });
+      const inconsistencies = this.getInconsistencies();
 
-        const contextInfo = `
+      const contextInfo = `
 Available profiles: ${profiles.map(p => `${p.name} (${p.type})`).join(", ")}
 Pending suggestions: ${pendingSuggestions.length}
 Open inconsistencies: ${inconsistencies.length}
 `;
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: NO_CDS_HARMONIZATION_ASSISTANT_PROMPT },
-            { role: "system", content: `Current context:\n${contextInfo}` },
-            ...recentMessages,
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        });
+      assistantContent = await generatePhiSafeChat({
+        messages: [
+          { role: "system", content: NO_CDS_HARMONIZATION_ASSISTANT_PROMPT },
+          { role: "system", content: `Current context:\n${contextInfo}` },
+          ...recentMessages,
+        ],
+        temperature: 0.7,
+        maxTokens: 1000,
+      });
 
-        assistantContent = response.choices[0].message.content || "I understand your question about data harmonization. Let me help you with that.";
-
-        if (sanitizedMessage.toLowerCase().includes("analyze") || sanitizedMessage.toLowerCase().includes("check")) {
-          suggestions = ["Run full profile analysis", "Compare with US Core", "View current inconsistencies"];
-        } else if (sanitizedMessage.toLowerCase().includes("suggestion") || sanitizedMessage.toLowerCase().includes("fix")) {
-          suggestions = ["View pending suggestions", "Apply all high-priority suggestions", "Review suggestion details"];
-        }
-      } catch (error) {
-        console.error("[AIHarmonizationAssistant] Chat error:", error);
-        assistantContent = this.getFallbackResponse(userMessage);
+      if (sanitizedMessage.toLowerCase().includes("analyze") || sanitizedMessage.toLowerCase().includes("check")) {
+        suggestions = ["Run full profile analysis", "Compare with US Core", "View current inconsistencies"];
+      } else if (sanitizedMessage.toLowerCase().includes("suggestion") || sanitizedMessage.toLowerCase().includes("fix")) {
+        suggestions = ["View pending suggestions", "Apply all high-priority suggestions", "Review suggestion details"];
       }
-    } else {
+    } catch (error) {
+      console.error("[AIHarmonizationAssistant] Chat error:", error);
       assistantContent = this.getFallbackResponse(userMessage);
     }
 

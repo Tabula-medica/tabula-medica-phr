@@ -124,8 +124,8 @@ export function encryptPhiRow<T extends Record<string, any>>(
  * Decrypt all PHI columns on a row after reading from the DB.
  * Returns a new object — does not mutate the input.
  *
- * Decryption failures (corrupted ciphertext, key mismatch) leave the
- * field as-is; `phi-encryption::decryptPhi` already logs a warning.
+ * Decryption failures throw `PHI_DECRYPTION_FAILED` (fail-closed per P1-4).
+ * Callers (route handlers) must catch and return 500 — never render ciphertext.
  */
 export function decryptPhiRow<T extends Record<string, any>>(
   tableName: string,

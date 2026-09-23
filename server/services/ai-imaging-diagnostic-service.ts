@@ -1,13 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI();
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 export interface ImagingStudy {
   id: string;
@@ -66,19 +59,17 @@ export class AIImagingDiagnosticService {
     }
 
     try {
-      const openai = getOpenAIClient();
-      if (!openai) {
+      if (!aiEnabled) {
         return this.generateFallbackAnalysis(study, report);
       }
-      
+
       const prompt = this.buildAnalysisPrompt(study, report);
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical documentation assistant that helps organize and explain imaging report content in plain language.
+
+      const content = await generatePhiSafeText({
+        responseMimeType: "application/json",
+        temperature: 0.3,
+        maxTokens: 2000,
+        system: `You are a medical documentation assistant that helps organize and explain imaging report content in plain language.
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - You are STRICTLY PROHIBITED from providing clinical decision support, treatment recommendations, or diagnostic conclusions
@@ -89,19 +80,10 @@ CRITICAL COMPLIANCE REQUIREMENTS:
 - Always include appropriate disclaimers
 - When explaining medical terms, provide educational definitions only
 
-Your role is to help patients and caregivers understand the documented findings in their imaging reports by providing plain-language explanations of medical terminology and organizing the information clearly.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 2000
+Your role is to help patients and caregivers understand the documented findings in their imaging reports by providing plain-language explanations of medical terminology and organizing the information clearly.`,
+        user: prompt
       });
 
-      const content = response.choices[0]?.message?.content;
       if (!content) {
         return this.generateFallbackAnalysis(study, report);
       }
@@ -120,33 +102,22 @@ Your role is to help patients and caregivers understand the documented findings 
 
   async explainImagingTerm(term: string): Promise<{ term: string; definition: string; context: string }> {
     try {
-      const openai = getOpenAIClient();
-      if (!openai) {
+      if (!aiEnabled) {
         return {
           term,
           definition: "A medical imaging term. Please consult your healthcare provider for a detailed explanation.",
           context: "Medical imaging reports"
         };
       }
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical educator explaining radiology terminology to patients in simple terms. Provide clear, educational definitions without any clinical interpretation or medical advice.`
-          },
-          {
-            role: "user",
-            content: `Explain the medical imaging term "${term}" in simple, patient-friendly language. Return JSON: {"term": "${term}", "definition": "simple explanation", "context": "where this term is commonly used in imaging"}`
-          }
-        ],
-        response_format: { type: "json_object" },
+
+      const content = await generatePhiSafeText({
+        responseMimeType: "application/json",
         temperature: 0.3,
-        max_tokens: 500
+        maxTokens: 500,
+        system: `You are a medical educator explaining radiology terminology to patients in simple terms. Provide clear, educational definitions without any clinical interpretation or medical advice.`,
+        user: `Explain the medical imaging term "${term}" in simple, patient-friendly language. Return JSON: {"term": "${term}", "definition": "simple explanation", "context": "where this term is commonly used in imaging"}`
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         return JSON.parse(content);
       }

@@ -1,18 +1,6 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
-let openaiInstance: OpenAI | null = null;
-
-function getOpenAI(): OpenAI | null {
-  if (!openaiInstance) {
-    try {
-      openaiInstance = new OpenAI();
-    } catch {
-      console.log("[ClinicalWorkflowEnhancements] OpenAI client not configured, using rule-based fallback");
-      return null;
-    }
-  }
-  return openaiInstance;
-}
+const aiEnabled = true;
 
 export interface PatientContext {
   patientId: string;
@@ -196,23 +184,15 @@ export async function generateFollowUpSuggestions(ctx: PatientContext): Promise<
   const ruleBased = getRuleBasedSuggestions(ctx);
 
   try {
-    const client = getOpenAI();
-    if (!client) return { suggestions: ruleBased, disclaimer: NO_CDS_DISCLAIMER };
+    if (!aiEnabled) return { suggestions: ruleBased, disclaimer: NO_CDS_DISCLAIMER };
     const contextSummary = buildContextSummary(ctx);
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a clinical workflow assistant. Analyze patient data and suggest follow-up tasks for the care team. Return a JSON object with a "suggestions" array. Each suggestion should have: title (actionable task), rationale (clinical reasoning), priority ("high"|"medium"|"low"), category ("lab"|"appointment"|"medication"|"referral"|"screening"|"monitoring"), suggestedDueDate (ISO date string). Focus on evidence-based recommendations. Do NOT provide diagnoses or treatment decisions. This is informational only (NO-CDS compliant).`
-        },
-        { role: "user", content: contextSummary }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 800,
+    const content = await generatePhiSafeText({
+      system: `You are a clinical workflow assistant. Analyze patient data and suggest follow-up tasks for the care team. Return a JSON object with a "suggestions" array. Each suggestion should have: title (actionable task), rationale (clinical reasoning), priority ("high"|"medium"|"low"), category ("lab"|"appointment"|"medication"|"referral"|"screening"|"monitoring"), suggestedDueDate (ISO date string). Focus on evidence-based recommendations. Do NOT provide diagnoses or treatment decisions. This is informational only (NO-CDS compliant).`,
+      user: contextSummary,
+      responseMimeType: "application/json",
+      maxTokens: 800,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       const rawSuggestions = Array.isArray(parsed) ? parsed : (parsed.suggestions || []);
@@ -258,18 +238,12 @@ export async function generateClinicalDraft(
   let summary = "";
 
   try {
-    const client = getOpenAI();
-    if (!client) throw new Error("OpenAI not configured");
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      max_completion_tokens: 1500,
-    });
-
-    content = response.choices[0]?.message?.content || "";
+    if (!aiEnabled) throw new Error("AI gateway not configured");
+    content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: 1500,
+    }) || "";
     summary = content.substring(0, 200) + (content.length > 200 ? "..." : "");
   } catch (e) {
     console.log("[ClinicalWorkflow] AI draft generation unavailable, using template fallback");
@@ -301,23 +275,15 @@ export async function generateSmartAlerts(ctx: PatientContext): Promise<{ alerts
   const ruleAlerts = getRuleBasedAlerts(ctx);
 
   try {
-    const client = getOpenAI();
-    if (!client) return { alerts: ruleAlerts, disclaimer: NO_CDS_DISCLAIMER };
+    if (!aiEnabled) return { alerts: ruleAlerts, disclaimer: NO_CDS_DISCLAIMER };
     const contextSummary = buildContextSummary(ctx);
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a clinical safety monitoring assistant. Analyze patient data for critical changes and concerning patterns. Return a JSON object with an "alerts" array. Each alert should have: alertType ("critical_lab"|"vital_trend"|"medication_interaction"|"overdue_screening"|"deterioration"), severity ("critical"|"warning"|"info"), title (brief description), message (detailed explanation with data points). Focus on patient safety. This is informational only (NO-CDS compliant) - all alerts must be verified by a clinician.`
-        },
-        { role: "user", content: contextSummary }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 800,
+    const content = await generatePhiSafeText({
+      system: `You are a clinical safety monitoring assistant. Analyze patient data for critical changes and concerning patterns. Return a JSON object with an "alerts" array. Each alert should have: alertType ("critical_lab"|"vital_trend"|"medication_interaction"|"overdue_screening"|"deterioration"), severity ("critical"|"warning"|"info"), title (brief description), message (detailed explanation with data points). Focus on patient safety. This is informational only (NO-CDS compliant) - all alerts must be verified by a clinician.`,
+      user: contextSummary,
+      responseMimeType: "application/json",
+      maxTokens: 800,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
       const rawAlerts = Array.isArray(parsed) ? parsed : (parsed.alerts || []);

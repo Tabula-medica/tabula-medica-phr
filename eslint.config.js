@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import tseslint from "typescript-eslint";
 import noStringFormLoggerPlugin from "./eslint-rules/no-string-form-logger.js";
+import noFallbackIdentityPlugin from "./eslint-rules/no-fallback-identity.js";
 
 // ---------------------------------------------------------------------------
 // Single-source PHI table list — extracted from `phi-column-map.ts` at config
@@ -139,6 +140,7 @@ export default tseslint.config(
       // project-specific to avoid collision with any future third-party
       // plugin we adopt.
       tabula: noStringFormLoggerPlugin,
+      tabulaAuth: noFallbackIdentityPlugin,
     },
     rules: {
       // Disable noisy TS rules so the lint run focuses on the PHI guardrail
@@ -169,6 +171,11 @@ export default tseslint.config(
       // (see tests/logger-smoke.spec.ts). CI lint job's continue-on-error
       // can now flip to false in a follow-up CI extension task.
       "tabula/no-string-form-logger": "error",
+
+      // P0-5 — ban fallback identities (|| "system" / "patient-001" / ...).
+      // WARN during the purge rollout (~600 pre-existing hits); flip to "error"
+      // once `grep -rF '|| "system"' server/` reaches 0.
+      "tabulaAuth/no-fallback-identity": "warn",
     },
   },
 

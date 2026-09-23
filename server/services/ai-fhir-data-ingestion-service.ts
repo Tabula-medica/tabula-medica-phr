@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_COMPLIANCE = "INFORMATIONAL ONLY - AI-generated content for data governance and operational purposes. Not intended for clinical decision-making.";
 
@@ -271,12 +266,8 @@ Plan:
     let confidence = 0.85;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a clinical NLP system that extracts structured medical entities from clinical notes.
+      const content = await generatePhiSafeText({
+        system: `You are a clinical NLP system that extracts structured medical entities from clinical notes.
 Extract the following entity types: conditions, medications, procedures, observations, allergies, vital signs, lab results, diagnoses.
 For each entity, provide:
 - type: one of condition, medication, procedure, observation, allergy, vital_sign, lab_result, diagnosis
@@ -291,18 +282,12 @@ Return a JSON object with:
   "entities": [...],
   "summary": "brief clinical summary",
   "overallConfidence": 0.0-1.0
-}`
-          },
-          {
-            role: "user",
-            content: `Parse this ${note.noteType}:\n\n${note.rawText}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.1
+}`,
+        user: `Parse this ${note.noteType}:\n\n${note.rawText}`,
+        responseMimeType: "application/json",
+        temperature: 0.1,
       });
 
-      const content = response.choices[0]?.message?.content;
       if (content) {
         const parsed = JSON.parse(content);
         entities = parsed.entities || [];

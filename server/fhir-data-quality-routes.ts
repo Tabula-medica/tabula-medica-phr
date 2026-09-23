@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express";
 import { fhirDataQualityService, IssueStatus, ValidationSeverity, ValidationCategory } from "./services/fhir-data-quality-service";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 router.get("/metadata", (req: Request, res: Response) => {
   try {
@@ -15,7 +17,7 @@ router.get("/metadata", (req: Request, res: Response) => {
 
 router.get("/dashboard", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const dashboard = fhirDataQualityService.getDashboard(userId);
     res.json(dashboard);
   } catch (error) {
@@ -26,7 +28,7 @@ router.get("/dashboard", (req: Request, res: Response) => {
 
 router.get("/issues", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const filters = {
       status: req.query.status as IssueStatus | undefined,
       severity: req.query.severity as ValidationSeverity | undefined,
@@ -43,7 +45,7 @@ router.get("/issues", (req: Request, res: Response) => {
 
 router.get("/issues/:id", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const result = fhirDataQualityService.getIssue(req.params.id, userId);
     if (!result) {
       return res.status(404).json({ error: "Issue not found" });
@@ -57,7 +59,7 @@ router.get("/issues/:id", (req: Request, res: Response) => {
 
 router.patch("/issues/:id/status", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { status, notes } = req.body;
     if (!status) {
       return res.status(400).json({ error: "Status is required" });
@@ -75,7 +77,7 @@ router.patch("/issues/:id/status", (req: Request, res: Response) => {
 
 router.post("/issues/:id/suggestion", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const suggestion = await fhirDataQualityService.generateAISuggestion(req.params.id, userId);
     if (!suggestion) {
       return res.status(404).json({ error: "Issue not found" });
@@ -89,7 +91,7 @@ router.post("/issues/:id/suggestion", async (req: Request, res: Response) => {
 
 router.post("/issues/:id/correct", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { correctedValue } = req.body;
     if (correctedValue === undefined) {
       return res.status(400).json({ error: "Corrected value is required" });
@@ -117,7 +119,7 @@ router.get("/rules", (req: Request, res: Response) => {
 
 router.patch("/rules/:id", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const { enabled } = req.body;
     if (enabled === undefined) {
       return res.status(400).json({ error: "Enabled flag is required" });
@@ -135,7 +137,7 @@ router.patch("/rules/:id", (req: Request, res: Response) => {
 
 router.post("/scan", (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId || "system";
+    const userId = getUserId(req);
     const scan = fhirDataQualityService.runValidationScan(userId);
     res.json(scan);
   } catch (error) {

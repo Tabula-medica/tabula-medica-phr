@@ -1,14 +1,3 @@
-import OpenAI from "openai";
-
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openai && process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-}
-
 interface PatientContext {
   patientId: string;
   name: string;

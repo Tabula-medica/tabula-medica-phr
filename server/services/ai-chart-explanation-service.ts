@@ -1,10 +1,5 @@
-import OpenAI from "openai";
 import { healthGraphService, HealthNode, HealthEdge, HealthGraph } from "./health-graph-service";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 const NO_CDS_DISCLAIMER = "This information is for educational purposes only and does not constitute medical advice. Always consult with your healthcare provider for medical decisions.";
 
@@ -219,20 +214,14 @@ Instructions:
 5. Do NOT provide medical advice or treatment recommendations
 6. Keep it under 200 words`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a health educator explaining lab results to patients. Use clear, simple language. Never provide medical advice - only educational explanations. Always suggest discussing findings with their healthcare provider.",
-        },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 400,
+    const text = await generatePhiSafeText({
+      system: "You are a health educator explaining lab results to patients. Use clear, simple language. Never provide medical advice - only educational explanations. Always suggest discussing findings with their healthcare provider.",
+      user: prompt,
+      maxTokens: 400,
       temperature: 0.7,
     });
 
-    return response.choices[0]?.message?.content || "Unable to generate explanation.";
+    return text || "Unable to generate explanation.";
   }
 
   async analyzeMedicationEffects(patientId: string, medicationNodeId: string): Promise<MedicationEffect> {
@@ -335,20 +324,14 @@ ${conditionEffects.map(c => `- ${c.conditionName}: ${c.statusChange}`).join('\n'
 
 Write a 2-3 sentence patient-friendly summary. Do NOT provide medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a health educator. Summarize medication effects objectively without providing medical advice.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 200,
+      const text = await generatePhiSafeText({
+        system: "You are a health educator. Summarize medication effects objectively without providing medical advice.",
+        user: prompt,
+        maxTokens: 200,
         temperature: 0.7,
       });
 
-      return response.choices[0]?.message?.content || "Unable to generate assessment.";
+      return text || "Unable to generate assessment.";
     } catch (error) {
       return `${medication.label} has been taken since ${medication.startDate}. ` +
         (labEffects.length > 0 ? `Some lab values have changed since starting this medication. ` : "") +
@@ -411,20 +394,14 @@ Outcomes: ${episode.outcomes?.join("; ") || "Ongoing"}
 
 Write 2-3 sentences explaining this health journey. Use first person ("Your..."). No medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a health educator helping patients understand their health journey. Be warm, clear, and supportive.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 150,
+      const text = await generatePhiSafeText({
+        system: "You are a health educator helping patients understand their health journey. Be warm, clear, and supportive.",
+        user: prompt,
+        maxTokens: 150,
         temperature: 0.7,
       });
 
-      return response.choices[0]?.message?.content || episode.description;
+      return text || episode.description;
     } catch (error) {
       return episode.description;
     }
@@ -447,20 +424,14 @@ ${sections.map(s => `- ${s.title}`).join('\n')}
 
 Write a 3-4 sentence overview. Use "you/your" language. Mention key health areas and care coordination. No medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a health educator summarizing a patient's health journey. Be encouraging and clear.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 200,
+      const text = await generatePhiSafeText({
+        system: "You are a health educator summarizing a patient's health journey. Be encouraging and clear.",
+        user: prompt,
+        maxTokens: 200,
         temperature: 0.7,
       });
 
-      return response.choices[0]?.message?.content || 
+      return text ||
         `Your health record shows ${conditionCount} conditions being managed with ${medicationCount} medications and ${specialistCount} specialists.`;
     } catch (error) {
       return `Your health record includes ${conditionCount} conditions, ${medicationCount} medications, and care from ${specialistCount} specialists. ` +
@@ -537,20 +508,12 @@ Example: "Your rising creatinine began after starting lisinopril in 2022 and has
 
 Do NOT provide medical advice.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a health educator explaining medical correlations. Use simple language, mention specific dates when relevant. Never provide medical advice.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 300,
+      explanation = await generatePhiSafeText({
+        system: "You are a health educator explaining medical correlations. Use simple language, mention specific dates when relevant. Never provide medical advice.",
+        user: prompt,
+        maxTokens: 300,
         temperature: 0.7,
-      });
-
-      explanation = response.choices[0]?.message?.content || "";
+      }) || "";
     } catch (error) {
       explanation = `${node1.label} and ${node2.label} are both part of your health record. ` +
         (edge ? `They appear to be related (${edge.relationshipType}).` : "Please discuss how they might be connected with your healthcare provider.");

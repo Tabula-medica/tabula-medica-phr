@@ -1,0 +1,21 @@
+# scripts/phi-ai-allowlist.txt — P1-1 backlog (non-BAA AI clients). TWO populations RATCHETED:
+# (1) AI_INTEGRATIONS_OPENAI_* proxy; (2) direct new OpenAI(). Migrate to ai-gateway.ts. Goal: empty.
+#
+# PERMANENT EXCEPTIONS (do not migrate — these are boundary infrastructure):
+#   server/security/phi-ai-boundary.ts — probes new OpenAI() to assert the shim is wired; not PHI-bearing
+server/security/phi-ai-boundary.ts
+server/services/ai-gateway.ts
+server/lib/vertex-openai.ts
+server/lib/baa-chat.ts
+server/utils/openai-client.ts
+# False positive — code is BAA-safe, comment text triggers grep:
+server/ai-provider-search-service.ts
+# Permanent exceptions — env-var bootstrap/checks only, no AI PHI calls:
+server/index.ts
+server/integrations-debug-routes.ts
+server/monitoring-routes.ts
+server/services/ai-provider.ts
+# Permanent exceptions — BAA-safe exports or fail-closed stubs:
+# audio/client.ts: exports openai (Vertex shim, BAA) used by voice callers; chat call migrated
+server/replit_integrations/audio/client.ts
+# (Backlog empty — all non-BAA callers migrated or fail-closed)

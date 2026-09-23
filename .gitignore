@@ -18,3 +18,4 @@ database_backup.json
 *-key.json
 service-account*.json
 google-service-account*.json
+.claude/settings.local.json

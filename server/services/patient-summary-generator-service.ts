@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { getAuditLogger } from "./integrations/factory";
 import { getValidationFailures, type FHIRValidationFailure } from "./fhir-validation-service";
 
@@ -580,17 +580,7 @@ function buildDataContext(patientData: typeof SAMPLE_PATIENT_DATA["patient-001"]
   return lines.join("\n");
 }
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-  }
-  return openaiClient;
-}
+const aiEnabled = true;
 
 async function generateAISummary(
   patientData: typeof SAMPLE_PATIENT_DATA["patient-001"],
@@ -599,7 +589,6 @@ async function generateAISummary(
   focusAreas?: string[],
   dataQualityFlags?: DataQualityFlag[]
 ): Promise<{ summary: string; sections: PatientSummarySection[]; attentionAreas: AttentionArea[] }> {
-  const client = getOpenAIClient();
   const dataContext = buildDataContext(patientData);
   const lengthConfig = SUMMARY_LENGTH_CONFIGS[summaryLength];
 
@@ -647,7 +636,7 @@ Important:
 - Use professional medical terminology appropriate for the role
 - Keep each section concise and actionable for the specific role${focusPrompt}${dataQualityContext}`;
 
-  if (!client) {
+  if (!aiEnabled) {
     return {
       summary: `Patient ${patientData.demographics.name} (${patientData.demographics.gender}, DOB: ${patientData.demographics.dob}) has ${patientData.conditions.length} active conditions and is on ${patientData.medications.length} medications. Recent encounters include ${patientData.encounters.length} visits. This is a fallback summary as AI generation is not available.`,
       sections: [
@@ -679,17 +668,13 @@ Important:
   }
 
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-5.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: dataContext },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: lengthConfig.maxTokens,
+    const content = await generatePhiSafeText({
+      system: systemPrompt,
+      user: dataContext,
+      responseMimeType: "application/json",
+      maxTokens: lengthConfig.maxTokens,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error("No response from AI");
     }

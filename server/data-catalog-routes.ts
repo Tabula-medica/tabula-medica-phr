@@ -7,8 +7,10 @@ import {
   AssetStatus,
 } from "./services/ai-data-catalog";
 import { SensitiveDataType } from "./services/ai-data-discovery-classification";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 function hashIdentifier(id: string): string {
   return createHash("sha256").update(id).digest("hex").substring(0, 16);
@@ -100,7 +102,7 @@ router.get("/assets/:id", async (req: Request, res: Response) => {
 
 router.post("/discover", async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("DISCOVER_ASSETS_INITIATED", { userId });
     
     const result = await aiDataCatalogService.discoverAssets(userId);
@@ -128,7 +130,7 @@ router.patch("/assets/:id", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.errors });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("UPDATE_DATA_ASSET", { assetId: hashIdentifier(id), userId });
     
     const asset = await aiDataCatalogService.updateAsset(id, parseResult.data, userId);
@@ -146,7 +148,7 @@ router.patch("/assets/:id", async (req: Request, res: Response) => {
 router.post("/assets/:id/enrich", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ENRICH_ASSET_WITH_AI", { assetId: hashIdentifier(id), userId });
     
     const enrichment = await aiDataCatalogService.enrichAssetWithAI(id, userId);
@@ -164,7 +166,7 @@ router.post("/assets/:id/enrich", async (req: Request, res: Response) => {
 router.post("/assets/:id/link-policies", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("LINK_GOVERNANCE_POLICIES", { assetId: hashIdentifier(id), userId });
     
     const policies = await aiDataCatalogService.linkGovernancePolicies(id, userId);
@@ -178,7 +180,7 @@ router.post("/assets/:id/link-policies", async (req: Request, res: Response) => 
 router.post("/assets/:id/assess-risk", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ASSESS_ASSET_RISK", { assetId: hashIdentifier(id), userId });
     
     const riskInfo = await aiDataCatalogService.assessAssetRisk(id, userId);
@@ -196,7 +198,7 @@ router.post("/assets/:id/assess-risk", async (req: Request, res: Response) => {
 router.post("/assets/:id/assess-quality", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("ASSESS_ASSET_QUALITY", { assetId: hashIdentifier(id), userId });
     
     const metrics = await aiDataCatalogService.runQualityAssessment(id, userId);
@@ -233,7 +235,7 @@ router.post("/assets/:id/document", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.errors });
     }
     
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("DOCUMENT_ASSET", { assetId: hashIdentifier(id), userId });
     
     const asset = await aiDataCatalogService.documentAsset(id, parseResult.data, userId);
@@ -251,7 +253,7 @@ router.post("/assets/:id/document", async (req: Request, res: Response) => {
 router.post("/assets/:id/certify", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id || "system";
+    const userId = getUserId(req);
     logHipaaAudit("CERTIFY_ASSET", { assetId: hashIdentifier(id), userId });
     
     const asset = await aiDataCatalogService.certifyAsset(id, userId);
