@@ -465,6 +465,25 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("rejects a 194-char, 0x04-prefixed hex string whose (x, y) coordinates are not a point on the P-384 curve", async () => {
+    // Same length, prefix, and hex alphabet as a real key — passes the
+    // regex check — but the coordinates themselves aren't a valid curve
+    // point, which verifyChallengeSignature's importKey would reject at
+    // verify time. Corrupting one byte of a real, valid raw point is an
+    // easy way to get an off-curve value without hand-deriving one: curve
+    // points are astronomically sparse among all possible (x, y) pairs, so
+    // flipping any coordinate byte overwhelmingly lands off-curve.
+    const validRaw = Buffer.from(await exportPublicKeyHex((await generateKeyPair()).publicKey), "hex");
+    validRaw[validRaw.length - 1] ^= 0xff;
+    const offCurveHex = validRaw.toString("hex");
+    expect(offCurveHex).toHaveLength(194);
+    expect(offCurveHex.startsWith("04")).toBe(true);
+
+    const handlers = captureHandlers();
+    const res = await enroll(handlers, "1234567890", offCurveHex);
+    expect(res.statusCode).toBe(400);
+  });
+
   it("allows the same account to enroll a second device under an EDIPI it already claimed", async () => {
     const handlers = captureHandlers();
     const firstKeyPair = await generateKeyPair();
@@ -630,6 +649,40 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
     // own already-(legacy-)claimed EDIPI.
     const legacyOwnerNewDevice = await enroll(handlers, "7777777777", await exportPublicKeyHex((await generateKeyPair()).publicKey), "legacy-owner", "legacy-owners-second-device");
     expect(legacyOwnerNewDevice.statusCode).toBe(200);
+  });
+
+  it("rejects every caller when an EDIPI has more than one distinct legacy cac_software_certs owner, including one of those owners", async () => {
+    // The pre-transaction check-then-insert race this PR closes could, in
+    // principle, have already let two different accounts enroll certs for
+    // the same EDIPI before cac_edipi_claims existed. With two distinct
+    // legacy owners there's no way to tell which is the real claimant from
+    // this data alone, so neither of them — nor anyone else — should be
+    // able to silently win by being first to hit this code path.
+    const handlers = captureHandlers();
+    const edipiHash = hashEdipi("6666666666");
+
+    enrolledCerts.push({
+      edipiHash,
+      encryptedEdipi: "unused-in-this-test",
+      deviceId: "legacy-owner-a-device",
+      publicKeyHex: await exportPublicKeyHex((await generateKeyPair()).publicKey),
+      expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      enrolledByUserId: "legacy-owner-a",
+    });
+    enrolledCerts.push({
+      edipiHash,
+      encryptedEdipi: "unused-in-this-test",
+      deviceId: "legacy-owner-b-device",
+      publicKeyHex: await exportPublicKeyHex((await generateKeyPair()).publicKey),
+      expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      enrolledByUserId: "legacy-owner-b",
+    });
+
+    const thirdPartyAttempt = await enroll(handlers, "6666666666", await exportPublicKeyHex((await generateKeyPair()).publicKey), "unrelated-user", "unrelated-device");
+    expect(thirdPartyAttempt.statusCode).toBe(409);
+
+    const oneOfTheAmbiguousOwnersAttempt = await enroll(handlers, "6666666666", await exportPublicKeyHex((await generateKeyPair()).publicKey), "legacy-owner-a", "legacy-owner-a-second-device");
+    expect(oneOfTheAmbiguousOwnersAttempt.statusCode).toBe(409);
   });
 
   it("re-enrolling the same device replaces its key rather than adding a second enrollment (ON CONFLICT (device_id) DO UPDATE)", async () => {

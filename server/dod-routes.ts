@@ -478,6 +478,22 @@ export function registerDoDRoutes(
           .json({ error: "Invalid public key format — expected ECDSA P-384 uncompressed (raw SEC1, 194 hex chars starting with 04)" });
       }
 
+      // The regex above only checks length/prefix/hex-alphabet — it can't
+      // confirm the (x, y) coordinates it encodes are actually a point on
+      // the P-384 curve. An off-curve point can satisfy that regex while
+      // still permanently failing verifyChallengeSignature's importKey the
+      // same way a wrong-length or non-hex key would, so this claims the
+      // EDIPI/device before ever confirming the key can be used. Mirror
+      // verifyChallengeSignature's own import here — WebCrypto validates
+      // curve membership and rejects an off-curve point with an error —
+      // so an unusable key is caught before the transaction below, not
+      // after it's already squatted someone's claim.
+      try {
+        await webcrypto.subtle.importKey("raw", Buffer.from(publicKeyHex, "hex"), { name: "ECDSA", namedCurve: "P-384" }, true, ["verify"]);
+      } catch {
+        return res.status(400).json({ error: "Invalid public key — not a valid point on the P-384 curve" });
+      }
+
       // This app has no independently-verified source of a user's EDIPI
       // anywhere (no field in the schema, no admin-verification workflow) —
       // edipi here is exactly what the caller typed in, checked only for
@@ -575,7 +591,20 @@ export function registerDoDRoutes(
           const owners = new Set(
             ((legacyOwners as { rows?: Record<string, unknown>[] }).rows ?? []).map((r) => r.enrolled_by_user_id as string),
           );
-          if (owners.size > 0 && !owners.has(currentUserId)) {
+          // More than one distinct legacy owner means the pre-transaction
+          // check-then-insert race this PR closes already let two different
+          // accounts enroll certs for the same EDIPI before cac_edipi_claims
+          // existed. There's no way to tell which one is the real claimant
+          // from this data alone, so — unlike the single-owner case, where
+          // that owner is unambiguously the real claimant — ambiguous legacy
+          // ownership must block every caller, including one of the
+          // ambiguous owners themselves, rather than let whichever of them
+          // happens to hit this path first silently win. (In practice this
+          // table has no legacy data in any real deployment of this app —
+          // it's created by this same PR — but the check should still fail
+          // closed on ambiguity rather than assume there's ever exactly one
+          // legacy owner.)
+          if (owners.size > 1 || (owners.size === 1 && !owners.has(currentUserId))) {
             throw new EnrollmentConflict("edipi");
           }
         }
