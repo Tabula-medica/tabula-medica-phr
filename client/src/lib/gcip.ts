@@ -164,20 +164,12 @@ export async function refreshGcipEmailVerified(): Promise<boolean> {
   return user.emailVerified === true;
 }
 
-/**
- * True when this user signed in with an address they typed themselves
- * (`password` provider) and has not confirmed it yet — the client-side mirror
- * of the server rule in server/auth/email-verification.ts. Google/Apple and
- * phone sign-ins always return false.
- */
-export function needsEmailVerification(user: FirebaseUser | null): boolean {
-  if (!user) return false;
-  if (user.emailVerified) return false;
-  // `providerData` is empty for phone-only users and carries "google.com" /
-  // "apple.com" / "password" otherwise.
-  const usesPassword = user.providerData.some((p) => p.providerId === "password");
-  return usesPassword;
-}
+// NOTE: there is deliberately no client-side `needsEmailVerification(user)`
+// helper. Mirroring the server rule here is what let the client block existing
+// accounts the server would have admitted: the gate applies only when
+// provisioning a NEW user, and only the server knows whether
+// REQUIRE_SIGNUP_EMAIL_VERIFICATION is on. Callers should attempt the session
+// exchange and branch on its 403 `email_not_verified` response instead.
 
 export async function signInGcipWithGoogle(): Promise<FirebaseUser> {
   const provider = new GoogleAuthProvider();

@@ -17,7 +17,6 @@ import {
   sendGcipPasswordReset,
   sendGcipVerificationEmail,
   refreshGcipEmailVerified,
-  needsEmailVerification,
   getGcipCurrentEmail,
   signOutGcip,
   startPhoneSignIn,
@@ -127,14 +126,15 @@ export default function AuthLogin() {
     setError(null);
     setBusy(true);
     try {
-      const user = await signInGcipWithEmail(email.trim(), password);
-      // Anti-bot gate: an email/password account is only usable once its
-      // address has been confirmed. Mail the link (again) and switch to the
-      // confirmation panel instead of signing in.
-      if (needsEmailVerification(user)) {
-        await startEmailVerification(user.email ?? email.trim());
-        return;
-      }
+      await signInGcipWithEmail(email.trim(), password);
+      // The SERVER decides whether this account needs its address confirmed.
+      // Do not pre-empt it here: the gate applies only when provisioning a NEW
+      // account, so an existing account whose Firebase emailVerified is still
+      // false (everyone who signed up before the gate landed) must keep being
+      // able to sign in. The server is also the only side that knows whether
+      // REQUIRE_SIGNUP_EMAIL_VERIFICATION is switched off. completeSession()
+      // opens the confirmation panel when the exchange answers 403
+      // email_not_verified.
       await completeSession();
     } catch (e: unknown) {
       handleSignInError(e, "Sign-in failed. Please try again.");
