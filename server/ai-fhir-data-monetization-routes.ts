@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { z } from "zod";
 import { 
   aiFHIRDataMonetizationService,
@@ -27,7 +28,7 @@ const logAudit = async (
     await comprehensiveAuditTrailService.logAuditEntry(userId, {
       who: {
         userId,
-        userRole: (req as any).user?.role || "system",
+        userRole: (req as any).user?.role || SYSTEM_ACTOR,
         ipAddress: req.ip || "unknown",
         userAgent: req.get("user-agent") || "unknown"
       },

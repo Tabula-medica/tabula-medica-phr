@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import {
   configurableSessionTimeout,
   securePushNotifications,
@@ -175,7 +176,7 @@ router.post("/notifications/test", async (req: Request, res: Response) => {
 
     const notification = securePushNotifications.createSecureNotification({
       userId,
-      type: type || "system",
+      type: type || SYSTEM_ACTOR,
       title: title || "Test Notification",
       body: body || "This is a test notification to verify PHI masking.",
       priority: priority || "normal",

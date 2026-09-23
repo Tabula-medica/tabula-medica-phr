@@ -1,4 +1,5 @@
 import { generatePhiSafeText } from "./ai-gateway";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 export type DataSourceType = 
@@ -760,7 +761,7 @@ Provide a JSON response with:
 
     logPhiAccess({
       // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route apply-rule handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
-      userId: userId || "system",
+      userId: userId || SYSTEM_ACTOR,
       action: "write",
       resourceType: "conflict_resolution",
       resourceId: conflictId,
@@ -919,7 +920,7 @@ Provide a JSON response with:
   }, userId?: string): DataConflict[] {
     logPhiAccess({
       // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route conflicts handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
-      userId: userId || "system",
+      userId: userId || SYSTEM_ACTOR,
       action: "read",
       resourceType: "conflicts",
       resourceId: "list",
@@ -1007,7 +1008,7 @@ Provide a JSON response with:
 
     logPhiAccess({
       // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route accept handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
-      userId: userId || "system",
+      userId: userId || SYSTEM_ACTOR,
       action: "write",
       resourceType: "conflict_resolution",
       resourceId: suggestionId,
@@ -1034,7 +1035,7 @@ Provide a JSON response with:
 
     logPhiAccess({
       // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route reject handler does not yet pass userId; make param required once ai-conflict-resolution-routes.ts passes getUserId(req)
-      userId: userId || "system",
+      userId: userId || SYSTEM_ACTOR,
       action: "write",
       resourceType: "conflict_resolution",
       resourceId: suggestionId,

@@ -1,4 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { logPhiAccess, queryAuditLogs, getPatientAccessReport, getAuditCompliance } from "./security/hipaa-audit";
 import { getComplianceStatus, getSecurityStatus, getTransportSecurityInfo } from "./security";
 import { enforcePolicyCompliance } from "./security/policy-enforcement";
@@ -449,7 +450,7 @@ export function registerSecurityDashboardRoutes(app: Express) {
 
       logPhiAccess({
         userId,
-        patientId: patientId || "system",
+        patientId: patientId || SYSTEM_ACTOR,
         resourceType: "AccessCheck",
         action: "read",
         details: "SIMULATE_ACCESS_CHECK",

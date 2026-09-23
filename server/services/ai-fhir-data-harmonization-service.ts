@@ -1,4 +1,5 @@
 import { generatePhiSafeText } from "./ai-gateway";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 console.log("[AIFHIRDataHarmonization] AI client initialized for AI harmonization (Vertex/BAA gateway)");
@@ -505,7 +506,7 @@ export async function createHarmonizationSession(
   // Log PHI access
   logPhiAccess({
     // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route ai-fhir-data-harmonization-routes.ts:63 calls createHarmonizationSession without a userId; make param required once it passes getUserId(req)
-    userId: userId || "system",
+    userId: userId || SYSTEM_ACTOR,
     action: "read",
     resourceType: "HarmonizationSession",
     resourceId: sessionId,

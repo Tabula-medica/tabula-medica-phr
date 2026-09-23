@@ -1,4 +1,5 @@
 import { generateDocument } from "./ai-document-generation-service";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import { suggestCodesFromNote, type CodeSuggestion } from "./healthcare-nlp-service";
 
 function logWorkflowAudit(details: {
@@ -200,7 +201,7 @@ export async function emitEvent(
       const result = await generateDocument({
         documentTypeId: trigger.documentType,
         // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: event-driven trigger auto-generates documents; providerId is optional because events may fire from automated/system sources with no provider
-        userId: data.providerId || "system",
+        userId: data.providerId || SYSTEM_ACTOR,
         patientId: data.patientId,
         patientName: data.contextData?.patientName,
         context: fields,

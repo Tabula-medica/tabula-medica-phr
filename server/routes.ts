@@ -1,4 +1,5 @@
 import type { Express, Request } from "express";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { createServer, type Server } from "http";
 import { randomUUID, createHmac, timingSafeEqual } from "crypto";
 import { generateSecret, verifySync, generateURI } from "otplib";
@@ -20153,7 +20154,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         description,
         type: type || "condition",
         criteria,
-        createdBy: createdBy || "system",
+        createdBy: createdBy || SYSTEM_ACTOR,
       });
       res.status(201).json(cohort);
     } catch (error) {
@@ -20221,7 +20222,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         type,
         description,
         parameters: parameters || {},
-        generatedBy: generatedBy || "system",
+        generatedBy: generatedBy || SYSTEM_ACTOR,
       });
       res.status(201).json(report);
     } catch (error) {

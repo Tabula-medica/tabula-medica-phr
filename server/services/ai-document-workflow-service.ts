@@ -1,4 +1,5 @@
 import { logPhiAccess } from "../security/hipaa-audit";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import * as docGenService from "./ai-document-generation-service";
 
 const NO_CDS_DISCLAIMER = "DISCLAIMER: Automated workflow suggestions are for documentation assistance purposes only. They do NOT constitute clinical decision support. All generated documents require review and validation by a licensed healthcare provider before official use.";
@@ -219,7 +220,7 @@ initializeDefaultRules();
 
 export function getRules(userId?: string): WorkflowRule[] {
   // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route ai-document-generation-routes.ts:136 calls getRules() without a userId; make param required once it passes getUserId(req)
-  auditLog("RULES_VIEWED", userId || "system", undefined, `Viewed ${rules.size} workflow rules`);
+  auditLog("RULES_VIEWED", userId || SYSTEM_ACTOR, undefined, `Viewed ${rules.size} workflow rules`);
   return Array.from(rules.values()).sort((a, b) => {
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
     return priorityOrder[a.priority] - priorityOrder[b.priority];

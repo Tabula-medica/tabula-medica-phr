@@ -1,4 +1,5 @@
 import { generatePhiSafeText } from "./ai-gateway";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 export type SupportedLanguage =
@@ -1046,7 +1047,7 @@ export async function translateMedicalText(
     logPhiAccess({
       action: "read",
       // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route passes (req as any).userId (typed any, may be undefined); make options.userId required once medical-terminology-translation-routes.ts passes getUserId(req)
-      userId: options.userId || "system",
+      userId: options.userId || SYSTEM_ACTOR,
       patientId: options.patientId,
       resourceType: "MedicalTranslation",
       details: `TRANSLATE: Text to ${targetLanguage} (${text.length} chars)`,
@@ -1151,7 +1152,7 @@ export async function translateHealthSummary(
     logPhiAccess({
       action: "read",
       // eslint-disable-next-line tabulaAuth/no-fallback-identity -- NEEDS REVIEW: route passes (req as any).userId (typed any, may be undefined); make options.userId required once medical-terminology-translation-routes.ts passes getUserId(req)
-      userId: options.userId || "system",
+      userId: options.userId || SYSTEM_ACTOR,
       patientId: options.patientId,
       resourceType: "HealthSummaryTranslation",
       details: `TRANSLATE_SUMMARY: To ${targetLanguage}`,

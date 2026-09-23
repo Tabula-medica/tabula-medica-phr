@@ -22,7 +22,7 @@ export const requireUser: RequestHandler = (req, res, next) => {
 
 /**
  * getUserId — the ONLY acceptable way to read the acting user's id.
- * Throws 401 if absent. REPLACES every `|| "system"` / `|| "demo-patient-001"` /
+ * Throws 401 if absent. REPLACES every `|| SYSTEM_ACTOR` / `|| "demo-patient-001"` /
  * `|| "current-user"` fallback in the codebase (see P0-5).
  */
 export function getUserId(req: Request): string {

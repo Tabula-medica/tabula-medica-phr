@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { securityPostureEngine, CloudProvider, FindingSeverity, FindingStatus, ComplianceFramework, DataClassification } from "./services/security-posture-engine";
 import { getAuditLogger } from "./services/integrations/factory";
 import { isAuthenticated } from "./replit_integrations/auth";
@@ -18,7 +19,7 @@ async function logSecurityAudit(action: string, details: Record<string, unknown>
       timestamp: new Date().toISOString(),
       action: action,
       resourceType: "SecurityPosture",
-      resourceId: details.resourceId as string || "system",
+      resourceId: details.resourceId as string || SYSTEM_ACTOR,
       userId: userId,
       outcome: "success",
       details: details,

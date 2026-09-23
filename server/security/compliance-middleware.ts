@@ -10,6 +10,7 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
+import { SYSTEM_ACTOR } from "./audit-constants";
 import { logPhiAccess } from "./hipaa-audit";
 
 const COMPLIANCE_LOG_PREFIX = "[Compliance]";
@@ -105,7 +106,7 @@ export function hipaaComplianceMiddleware(config: ComplianceConfig = DEFAULT_COM
         userId,
         action: req.method === "GET" || req.method === "HEAD" ? "read" : req.method === "DELETE" ? "delete" : "write",
         resourceType: "ComplianceAudit",
-        patientId: req.params?.patientId || "system",
+        patientId: req.params?.patientId || SYSTEM_ACTOR,
         details: `${req.method} ${req.path} [${res.statusCode}] ${responseTime}ms`,
       });
 

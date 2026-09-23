@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "crypto";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import { getAuditLogger } from "./integrations/factory";
 import { generatePhiSafeText } from "./ai-gateway";
 
@@ -488,7 +489,7 @@ class AIPolicyLifecycleService {
         action: `POLICY_LIFECYCLE_${action}`,
         resourceType: "PolicyLifecycle",
         // eslint-disable-next-line tabulaAuth/no-fallback-identity -- not an identity fallback: this is resourceId (the policy being acted on), userId is a separate required param; "system" here means a policy-less lifecycle event
-        resourceId: policyId || "system",
+        resourceId: policyId || SYSTEM_ACTOR,
         userId,
         outcome: "success",
         details,
