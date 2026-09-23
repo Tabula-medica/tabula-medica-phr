@@ -333,6 +333,10 @@ import { registerMessagingRoutes } from "./messaging-routes";
 import { registerSmsRoutes } from "./sms-routes";
 import { registerProviderCommunicationPortalRoutes } from "./provider-communication-portal-routes";
 import { registerGamificationRoutes } from "./gamification-routes";
+import { registerRobloxEducationRoutes } from "./roblox-education-link-routes";
+import { registerRobloxClinicRoutes } from "./roblox-clinic-routes";
+import { registerLifeStageChallengesRoutes } from "./life-stage-challenges-routes";
+import { registerRobloxCampusRoutes } from "./roblox-campus-routes";
 import researchAggregationRoutes from "./research-aggregation-routes";
 import aiCareCoordinationRoutes from "./ai-care-coordination-routes";
 import careTeamCollaborationRoutes from "./care-team-collaboration-routes";
@@ -1758,7 +1762,11 @@ export async function registerRoutes(
   registerSmsRoutes(app);
   registerProviderCommunicationPortalRoutes(app);
   registerGamificationRoutes(app);
-  
+  registerRobloxEducationRoutes(app);
+  registerRobloxClinicRoutes(app);
+  registerLifeStageChallengesRoutes(app);
+  registerRobloxCampusRoutes(app);
+
   // Research Data Aggregation for Provider Portal
   app.use("/api/research", researchAggregationRoutes);
   console.log("[Routes] Research Data Aggregation routes registered at /api/research/*");

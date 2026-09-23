@@ -75,6 +75,28 @@ Other working documents in this directory:
 - `capacitor-build-playbook.md` — iOS/Android Capacitor build runbook
 - `google-for-startups-narrative.md` — funding pitch material
 
+### Product initiatives
+- `roblox-healthcare-games-concept.md` — "World Clinic" Roblox
+  integration: PHI-free reward-relay architecture, backend routes
+  (`server/roblox-education-link-routes.ts`), dashboard tab, and the
+  `roblox/` Rojo project with 3 working mini-games
+- `roblox-hedis-future-health.md` — "Future Health": HEDIS
+  measure *concepts* taught via fictional NPC patients, rules-based star
+  rating of the player's own pretend clinic, AI (Vertex, PHI-free) used only
+  for Nova's coaching tips; explains why real-provider HEDIS rating was
+  deliberately kept out of the kids' game
+- `roblox-campus-life-concept.md` — "World Clinic: Campus Life"
+  (`roblox-campus/`, `server/roblox-campus-routes.ts`): the teen/college/
+  newlywed tier as a SEPARATE Roblox place (content-maturity labeling), with
+  its own preventive-care measure catalog (mental health, sexual health,
+  substance-use screening, sports physicals, family planning, insurance
+  literacy) handled per Roblox's teen-content boundary
+- `life-stage-challenges-concept.md` — "Life Stage Health Challenges"
+  (`server/life-stage-challenges-routes.ts`, `/life-stage` page): decade-
+  banded preventive-care nudges for 50+ users inside the main app (not
+  Roblox — that audience isn't there), auto-tiered from the profile's real
+  date of birth
+
 ---
 
 ## Notes on document maintenance
