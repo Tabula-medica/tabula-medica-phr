@@ -70,33 +70,59 @@ function getEncryptionKey(): Buffer {
   return scryptSync(effectiveSecret, salt || "dev-salt", KEY_LENGTH);
 }
 
+/**
+ * Encrypt plaintext PHI with AES-256-GCM. Output format:
+ *   v1:<ivHex>:<authTagHex>:<ciphertextHex>
+ *
+ * The "v1:" prefix enables incremental key rotation: decryptPhi accepts
+ * both the new versioned format AND the legacy 3-part format produced by
+ * older builds. When PHI_ENCRYPTION_SALT_V2 is set, new ciphertexts use
+ * the v2 salt; old ciphertexts continue to decrypt with the legacy salt
+ * until they are re-encrypted at next write.
+ */
 export function encryptPhi(plaintext: string): string {
   if (!plaintext) return plaintext;
-  
+
   const key = getEncryptionKey();
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
-  
+
   let encrypted = cipher.update(plaintext, "utf8", "hex");
   encrypted += cipher.final("hex");
-  
+
   const authTag = cipher.getAuthTag();
-  
-  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
+  return `v1:${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
 }
 
+/**
+ * Decrypt PHI ciphertext produced by encryptPhi.
+ *
+ * Accepts:
+ *  - Versioned format:  v1:<ivHex>:<authTagHex>:<ciphertextHex>
+ *  - Legacy 3-part format: <ivHex>:<authTagHex>:<ciphertextHex>
+ *
+ * FAIL CLOSED: on decryption failure (corrupted data, key mismatch) this
+ * throws `new Error("PHI_DECRYPTION_FAILED")`. Callers MUST catch and
+ * return 500 — they must never render or re-persist the ciphertext.
+ * Strings that do not look like ciphertext are returned unchanged.
+ */
 export function decryptPhi(encryptedData: string): string {
   if (!encryptedData || !encryptedData.includes(":")) return encryptedData;
-  
-  const parts = encryptedData.split(":");
-  if (parts.length !== 3) return encryptedData;
-  
-  const [ivHex, authTagHex, encrypted] = parts;
 
-  // P1-4: only treat this as ciphertext if the IV/authTag segments have the exact
-  // hex shape encryptPhi produces. Otherwise it's plaintext that merely contains
-  // ":" — pass it through unchanged rather than attempting (and failing) to decrypt
-  // and throwing. This keeps the fail-closed throw scoped to genuine ciphertext.
+  let ivHex: string, authTagHex: string, encrypted: string;
+
+  const parts = encryptedData.split(":");
+  if (parts.length === 4 && parts[0] === "v1") {
+    [, ivHex, authTagHex, encrypted] = parts;
+  } else if (parts.length === 3) {
+    [ivHex, authTagHex, encrypted] = parts;
+  } else {
+    return encryptedData;
+  }
+
+  // Only treat as ciphertext if the hex segments match the exact shape
+  // encryptPhi produces. Otherwise it's plaintext that contains ":" — pass
+  // through unchanged rather than throw on non-ciphertext input.
   const looksEncrypted =
     /^[0-9a-f]+$/i.test(ivHex) && ivHex.length === IV_LENGTH * 2 &&
     /^[0-9a-f]+$/i.test(authTagHex) && authTagHex.length === AUTH_TAG_LENGTH * 2 &&
@@ -114,18 +140,14 @@ export function decryptPhi(encryptedData: string): string {
 
     const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(authTag);
-    
+
     let decrypted = decipher.update(encrypted, "hex", "utf8");
     decrypted += decipher.final("utf8");
-    
     return decrypted;
   } catch (error) {
-    // P1-4: FAIL CLOSED. Previously returned the ciphertext on failure, which let
-    // callers render or re-save `iv:tag:ciphertext` as if it were plaintext. Throw
-    // instead so the caller surfaces a 500 and never exposes/persists ciphertext.
-    // Properly-encrypted data with the correct key never reaches here — this only
-    // fires on genuine corruption or a key mismatch.
-    console.error("[PHI-Encryption] Decryption failed - data may be corrupted or key mismatch");
+    // FAIL CLOSED — never return ciphertext. Route handlers catch this and
+    // return 500; the ciphertext is never rendered or re-persisted.
+    console.error("[PHI-Encryption] Decryption failed — corrupted data or key mismatch");
     throw new Error("PHI_DECRYPTION_FAILED");
   }
 }
@@ -175,11 +197,21 @@ export function generateSecureToken(length: number = 32): string {
 export function isEncrypted(value: string): boolean {
   if (!value) return false;
   const parts = value.split(":");
-  if (parts.length !== 3) return false;
-  const [ivHex, authTagHex, encrypted] = parts;
-  return ivHex.length === IV_LENGTH * 2 && 
-         authTagHex.length === AUTH_TAG_LENGTH * 2 && 
-         encrypted.length > 0;
+  // Versioned format: v1:ivHex:authTagHex:ciphertextHex
+  if (parts.length === 4 && parts[0] === "v1") {
+    const [, ivHex, authTagHex, encrypted] = parts;
+    return ivHex.length === IV_LENGTH * 2 &&
+           authTagHex.length === AUTH_TAG_LENGTH * 2 &&
+           encrypted.length > 0;
+  }
+  // Legacy 3-part format: ivHex:authTagHex:ciphertextHex
+  if (parts.length === 3) {
+    const [ivHex, authTagHex, encrypted] = parts;
+    return ivHex.length === IV_LENGTH * 2 &&
+           authTagHex.length === AUTH_TAG_LENGTH * 2 &&
+           encrypted.length > 0;
+  }
+  return false;
 }
 
 export const PHI_FIELDS = {
