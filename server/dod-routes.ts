@@ -393,10 +393,14 @@ export function registerDoDRoutes(
           // hipaaComplianceService's own logger.info call emits verbatim —
           // so the raw EDIPI (a DoD-issued personal identifier) can't go
           // here without landing in plaintext logs and an unencrypted DB
-          // column. Hash it for userId (still a stable, queryable
-          // correlation key) and keep the real EDIPI only in userName,
-          // which is encrypted at rest.
-          userId: createHash("sha256").update(edipi).digest("hex"),
+          // column. An unkeyed sha256 isn't enough on its own, though — a
+          // 10-digit EDIPI is only 10^10 possibilities, trivially
+          // rainbow-tableable by anyone who sees this value. hashEdipi()
+          // (already used for the enrollment lookup key above) is keyed
+          // with the server's encryption key, so it can't be brute-forced
+          // the same way. Keep the real EDIPI only in userName, which is
+          // encrypted at rest.
+          userId: hashEdipi(edipi),
           userName: edipi,
           userRole: "patient",
           ipAddress: req.ip ?? "unknown",
@@ -476,8 +480,10 @@ export function registerDoDRoutes(
       // has enrolled yet — but it does stop a later attacker from enrolling
       // a key under an EDIPI someone else already claimed.
       //
-      // Claimed atomically via a dedicated table with edipi as its PRIMARY
-      // KEY, not by SELECT-then-INSERT against cac_software_certs: that
+      // Claimed atomically via a dedicated table with edipiHash (not the
+      // encrypted, non-deterministic edipi ciphertext) as its PRIMARY KEY
+      // and actual conflict target, not by SELECT-then-INSERT against
+      // cac_software_certs: that
       // would (a) let two concurrent enrollments from different accounts
       // both observe "no claimant" and both succeed, and (b) let a claim
       // lapse the moment its cert's expires_at passes, letting a different

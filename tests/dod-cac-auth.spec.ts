@@ -604,7 +604,7 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
       expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
       enrolledByUserId: "legacy-owner",
     });
-    expect(edipiClaims.has("7777777777")).toBe(false);
+    expect(edipiClaims.has(hashEdipi("7777777777"))).toBe(false);
 
     const attackerAttempt = await enroll(handlers, "7777777777", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker", "attacker-device");
     expect(attackerAttempt.statusCode).toBe(409);

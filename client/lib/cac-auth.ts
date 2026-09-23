@@ -219,32 +219,20 @@ async function _hardwareCACFlow(
    * and session management infrastructure that the native module would call into.
    */
 
-  // Fetch challenge from server. authMethod (and edipi) are required by
-  // the server's /challenge endpoint — it 400s if either is omitted,
-  // rather than defaulting — so this flow's own signature would be
-  // rejected outright, not just recorded under the wrong context, once
-  // the native module above is wired up.
-  const challengeRes = await fetch(`${apiBaseUrl}/api/auth/cac/challenge`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ readerType, authMethod: "cac_hardware" }),
-  });
-
-  if (!challengeRes.ok) {
-    throw new Error(`Challenge request failed: ${challengeRes.status}`);
-  }
-
-  const { challenge, challengeId } = await challengeRes.json() as {
-    challenge: string;
-    challengeId: string;
-  };
-
-  // TODO: Replace with actual CryptoTokenKit/NFC implementation
-  // For now, throw to indicate hardware module not yet compiled
+  // TODO: Replace with actual CryptoTokenKit/NFC implementation. The real
+  // flow (see the pseudocode above) must read the card's certificate and
+  // extract its EDIPI from the SAN field BEFORE requesting a challenge —
+  // /challenge requires and validates edipi (400s without it), and reading
+  // the card is the only source of identity on this path (there's no
+  // separate account/session to fall back on, unlike the software-cert
+  // flow's `cert.edipi`). Throwing here, before ever calling /challenge,
+  // avoids a request that's guaranteed to 400 without an EDIPI to send —
+  // a real implementation slots the certificate read in above this line
+  // and passes its extracted edipi into the /challenge call.
   throw new Error(
     "Hardware CAC native module not yet compiled. " +
-    "Install the expo-cac-reader native module and rebuild with EAS. " +
-    `Challenge ID ${challengeId} was generated — use it with your CAC middleware.`
+    "Install the expo-cac-reader native module and rebuild with EAS " +
+    `(reader: ${readerType}).`
   );
 }
 
