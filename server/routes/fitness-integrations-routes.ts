@@ -30,7 +30,7 @@ import {
 import { ingestVitalReading } from "../services/vital-thresholds";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireProfile } from "../services/resolve-profile";
-import { claimDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
+import { claimDelivery, completeDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
 import { phiDb, encryptPhiRow } from "../storage/phi-storage";
 
 const router = Router();
@@ -62,9 +62,10 @@ router.post("/webhook", async (req: Request, res: Response) => {
   try {
     const claim = await claimDelivery("terra", rawBody);
     dedupeKey = claim.dedupeKey;
-    if (!claim.isNew) {
-      // Already processed (or currently being processed) this exact
-      // delivery — ack without reprocessing so we never double-write vitals.
+    if (claim.outcome !== "claimed") {
+      // Already fully processed, or another request is currently
+      // processing this exact delivery within its lease — ack without
+      // reprocessing so we never double-write vitals.
       return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
     }
 
@@ -72,6 +73,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
     const terraUserId = user?.user_id;
 
     if (!terraUserId) {
+      await completeDelivery("terra", dedupeKey);
       return res.status(200).json({ success: true, note: "No user_id on payload; ignored" });
     }
 
@@ -83,7 +85,9 @@ router.post("/webhook", async (req: Request, res: Response) => {
     if (!connection || connection.status === "disconnected") {
       // Connection was revoked on our side but Terra hasn't caught up yet
       // (or this is a stray/test webhook) — ack so Terra stops retrying,
-      // but ingest nothing. Not a transient failure, so the claim stands.
+      // but ingest nothing. Not a transient failure, so the claim is
+      // completed (not released) to prevent reprocessing on retry.
+      await completeDelivery("terra", dedupeKey);
       return res.status(200).json({ success: true, note: "No active connection for this Terra user" });
     }
 
@@ -135,6 +139,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
       `type=${type} clinical=${clinicalCount} wellness=${wellnessCount}`,
     );
 
+    await completeDelivery("terra", dedupeKey);
     res.status(200).json({ success: true, clinicalCount, wellnessCount });
   } catch (error) {
     console.error("[Fitness Integrations] Webhook processing error:", error);

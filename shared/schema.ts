@@ -752,16 +752,29 @@ export type FitnessConnection = typeof fitnessConnectionsTable.$inferSelect;
 // Idempotency ledger for inbound webhook deliveries (Terra, VitalFriend).
 // A row is inserted with onConflictDoNothing() keyed on (provider,
 // dedupeKey) before processing a delivery; if no row was inserted, the
-// delivery is a duplicate/retry and must be acknowledged without
-// reprocessing. dedupeKey is a hash of the raw request body, since a
-// vendor retry resends byte-identical content.
+// delivery is a duplicate/retry. dedupeKey is a hash of the raw request
+// body, since a vendor retry resends byte-identical content.
+//
+// `status` distinguishes "still being processed" from "done": a claim that
+// finishes successfully is marked `completed` (a later duplicate is acked
+// without reprocessing); a claim whose handler fails is deleted outright
+// (see releaseDeliveryClaim) so a retry can reclaim it immediately. A row
+// left at `processing` past a short lease window means the original
+// request died (crash, timeout) without completing or releasing — a later
+// delivery for the same body is allowed to reclaim and reprocess it rather
+// than being stuck acknowledging a delivery that never actually finished.
+export const webhookDeliveryStatuses = ["processing", "completed"] as const;
+export type WebhookDeliveryStatus = typeof webhookDeliveryStatuses[number];
+
 export const webhookDeliveriesTable = pgTable(
   "webhook_deliveries",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     provider: text("provider").notNull(),
     dedupeKey: text("dedupe_key").notNull(),
+    status: text("status").notNull().default("processing"),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (t) => ({
     providerDedupeUx: uniqueIndex("webhook_deliveries_provider_dedupe_ux").on(t.provider, t.dedupeKey),

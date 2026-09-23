@@ -35,7 +35,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { ingestVitalReading } from "../services/vital-thresholds";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireProfile } from "../services/resolve-profile";
-import { claimDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
+import { claimDelivery, completeDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
 
 const router = Router();
 
@@ -286,7 +286,7 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
   try {
     const claim = await claimDelivery("vitalfriend", rawBody);
     dedupeKey = claim.dedupeKey;
-    if (!claim.isNew) {
+    if (claim.outcome !== "claimed") {
       return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
     }
 
@@ -299,6 +299,7 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
 
     if (!device || device.status === "inactive" || device.status === "error") {
       logHipaaAudit("WEBHOOK_UNKNOWN_DEVICE", null, hashIdentifier(device_id), "No enrolled/active device for this device_id");
+      await completeDelivery("vitalfriend", dedupeKey);
       return res.status(200).json({ success: true, note: "No enrolled device for this device_id; ignored" });
     }
 
@@ -312,6 +313,7 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
           device.id,
           "First delivery's serial_number did not match the enrolled device; not activated, reading discarded",
         );
+        await completeDelivery("vitalfriend", dedupeKey);
         return res.status(200).json({ success: true, note: "Device not yet verified; ignored" });
       }
       await db.update(rpmDevicesTable).set({ status: "active" }).where(eq(rpmDevicesTable.id, device.id));
@@ -324,6 +326,9 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
       // serialNumber was a required field (their serialNumber is null and
       // can never match a provided value, so a stray/attacker delivery
       // carrying a serial_number is rejected instead of silently trusted).
+      // scripts/backfill-rpm-legacy-device-reverification.ts additionally
+      // flips any pre-existing active row with no stored serial back to
+      // "pending" so it has to clear the activation check above at all.
       const serialMatches = !!device.serialNumber && serial_number.trim() === device.serialNumber.trim();
       if (!serialMatches) {
         logHipaaAudit(
@@ -332,6 +337,7 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
           device.id,
           "Delivery's serial_number did not match the enrolled device; reading discarded",
         );
+        await completeDelivery("vitalfriend", dedupeKey);
         return res.status(200).json({ success: true, note: "Device serial mismatch; ignored" });
       }
     }
@@ -378,6 +384,7 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
       `${ingested}/${readings.length} readings ingested, ${rejectedUnit} rejected for unrecognized unit`,
     );
 
+    await completeDelivery("vitalfriend", dedupeKey);
     res.json({ success: true, ingested, rejectedUnit });
   } catch (error) {
     console.error("[RPM Devices] Webhook processing error:", error);
