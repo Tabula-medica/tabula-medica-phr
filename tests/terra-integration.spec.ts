@@ -63,6 +63,31 @@ describe("verifyTerraWebhookSignature", () => {
 
     expect(verifyTerraWebhookSignature(Buffer.from(body), signature)).toBe(false);
   });
+
+  it("rejects a stale timestamp even with a valid signature (replay protection)", () => {
+    const body = JSON.stringify({ type: "activity", user: { user_id: "abc" }, data: [] });
+    const nowMs = Date.now();
+    const staleTimestamp = Math.floor((nowMs - 10 * 60 * 1000) / 1000).toString(); // 10 minutes old
+    const signature = signPayload(body, staleTimestamp);
+
+    expect(verifyTerraWebhookSignature(Buffer.from(body), signature, nowMs)).toBe(false);
+  });
+
+  it("accepts a timestamp within the tolerance window", () => {
+    const body = JSON.stringify({ type: "activity", user: { user_id: "abc" }, data: [] });
+    const nowMs = Date.now();
+    const recentTimestamp = Math.floor((nowMs - 60 * 1000) / 1000).toString(); // 1 minute old
+    const signature = signPayload(body, recentTimestamp);
+
+    expect(verifyTerraWebhookSignature(Buffer.from(body), signature, nowMs)).toBe(true);
+  });
+
+  it("rejects a non-numeric timestamp", () => {
+    const body = JSON.stringify({ type: "activity", user: { user_id: "abc" }, data: [] });
+    const signature = signPayload(body, "not-a-number");
+
+    expect(verifyTerraWebhookSignature(Buffer.from(body), signature)).toBe(false);
+  });
 });
 
 describe("mapTerraPayloadToReadings", () => {
@@ -101,5 +126,34 @@ describe("mapTerraPayloadToReadings", () => {
     const { clinical, wellness } = mapTerraPayloadToReadings("nutrition", { metadata: {} });
     expect(clinical).toHaveLength(0);
     expect(wellness).toHaveLength(0);
+  });
+
+  it("routes avg_hr_bpm to wellness, not the clinical resting-heart-rate path", () => {
+    const { clinical, wellness } = mapTerraPayloadToReadings("daily", {
+      metadata: { start_time: "2026-09-20T00:00:00Z" },
+      heart_rate_data: { summary: { avg_hr_bpm: 145, resting_hr_bpm: 58 } },
+    });
+
+    // avg_hr_bpm spans active periods — a normal workout average must
+    // never reach the clinical resting-HR threshold check.
+    expect(wellness).toContainEqual(expect.objectContaining({ metricType: "avg_heart_rate", value: 145, unit: "bpm" }));
+    expect(clinical.filter((r) => r.vitalType === "heart_rate")).toHaveLength(1);
+    expect(clinical).toContainEqual(expect.objectContaining({ vitalType: "heart_rate", value: 58, unit: "bpm" }));
+  });
+
+  it("maps an activity payload's start/end time to a workout wellness reading", () => {
+    const { wellness } = mapTerraPayloadToReadings("activity", {
+      metadata: { start_time: "2026-09-20T07:00:00Z", end_time: "2026-09-20T07:45:00Z" },
+    });
+
+    expect(wellness).toContainEqual(expect.objectContaining({ metricType: "workout", value: 45, unit: "minutes" }));
+  });
+
+  it("does not produce a workout reading when start/end times are missing", () => {
+    const { wellness } = mapTerraPayloadToReadings("activity", {
+      metadata: {},
+    });
+
+    expect(wellness.find((r) => r.metricType === "workout")).toBeUndefined();
   });
 });

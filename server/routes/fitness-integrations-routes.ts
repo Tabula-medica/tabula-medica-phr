@@ -11,18 +11,14 @@
  * are written into vital_signs and run through the same abnormal-range
  * alerting as manually entered or RPM-device vitals — see
  * server/services/vital-thresholds.ts. Everything else (steps, sleep,
- * calories, HRV, workouts) is wellness data only, stored in
- * wellness_metrics, and never triggers a clinical alert.
+ * calories, HRV, avg heart rate, workouts) is wellness data only, stored
+ * in wellness_metrics, and never triggers a clinical alert.
  */
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Request, Response } from "express";
 import { z } from "zod";
+import crypto from "crypto";
 import { db } from "../db";
-import {
-  fitnessConnectionsTable,
-  wellnessMetricsTable,
-  fitnessProviders,
-  type FitnessProvider,
-} from "@shared/schema";
+import { fitnessConnectionsTable, wellnessMetricsTable, fitnessProviders, type FitnessProvider } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import {
   generateWidgetSession,
@@ -32,6 +28,9 @@ import {
   isTerraConfigured,
 } from "../services/terra-integration-service";
 import { ingestVitalReading } from "../services/vital-thresholds";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { requireProfile } from "../services/resolve-profile";
+import { claimDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
 
 const router = Router();
 
@@ -45,24 +44,23 @@ function logHipaaAudit(action: string, profileId: string | null, resourceId: str
   );
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const sessionUserId = (req.session as any)?.userId;
-  if (!sessionUserId) {
-    return res.status(401).json({ success: false, error: "Authentication required" });
-  }
-  (req as any).authenticatedUserId = sessionUserId;
-  next();
-}
-
-// Webhook route is intentionally mounted before requireAuth — Terra calls
-// it directly, with no patient session, authenticated only by signature.
+// Webhook route is intentionally mounted before isAuthenticated — Terra
+// calls it directly, with no patient session, authenticated only by
+// signature.
 router.post("/webhook", async (req: Request, res: Response) => {
   const rawBody = (req as any).rawBody as Buffer | undefined;
   const signature = req.header("terra-signature");
 
   if (!rawBody || !verifyTerraWebhookSignature(rawBody, signature)) {
-    logHipaaAudit("WEBHOOK_SIGNATURE_REJECTED", null, "terra_webhook", "Invalid or missing terra-signature");
+    logHipaaAudit("WEBHOOK_SIGNATURE_REJECTED", null, "terra_webhook", "Invalid, missing, or stale terra-signature");
     return res.status(401).json({ success: false, error: "Invalid webhook signature" });
+  }
+
+  const { isNew, dedupeKey } = await claimDelivery("terra", rawBody);
+  if (!isNew) {
+    // Already processed (or currently being processed) this exact
+    // delivery — ack without reprocessing so we never double-write vitals.
+    return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
   }
 
   try {
@@ -81,7 +79,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
     if (!connection || connection.status === "disconnected") {
       // Connection was revoked on our side but Terra hasn't caught up yet
       // (or this is a stray/test webhook) — ack so Terra stops retrying,
-      // but ingest nothing.
+      // but ingest nothing. Not a transient failure, so the claim stands.
       return res.status(200).json({ success: true, note: "No active connection for this Terra user" });
     }
 
@@ -113,6 +111,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
           value: reading.value.toString(),
           unit: reading.unit,
           recordedAt: reading.recordedAt,
+          rawPayload: entry,
         });
         wellnessCount++;
       }
@@ -133,13 +132,17 @@ router.post("/webhook", async (req: Request, res: Response) => {
     res.status(200).json({ success: true, clinicalCount, wellnessCount });
   } catch (error) {
     console.error("[Fitness Integrations] Webhook processing error:", error);
-    // Still 200 so Terra doesn't hammer retries on a processing bug on our
-    // side; the error is logged for investigation.
-    res.status(200).json({ success: false, error: "Webhook processing failed, logged for review" });
+    // Release the delivery claim so Terra's retry (it does retry non-2xx
+    // responses) can actually reprocess this instead of being silently
+    // deduped away — a transient DB failure must not permanently lose data.
+    await releaseDeliveryClaim("terra", dedupeKey).catch((releaseError) => {
+      console.error("[Fitness Integrations] Failed to release delivery claim:", releaseError);
+    });
+    res.status(500).json({ success: false, error: "Webhook processing failed, will retry" });
   }
 });
 
-router.use(requireAuth);
+router.use(isAuthenticated, requireProfile);
 
 router.get("/providers", (_req: Request, res: Response) => {
   res.json({
@@ -153,7 +156,7 @@ router.get("/providers", (_req: Request, res: Response) => {
 });
 
 router.get("/connections", async (req: Request, res: Response) => {
-  const profileId = (req as any).authenticatedUserId;
+  const profileId = (req as any).resolvedProfileId as string;
   const connections = await db
     .select()
     .from(fitnessConnectionsTable)
@@ -171,7 +174,7 @@ const connectSchema = z.object({
 
 router.post("/connect", async (req: Request, res: Response) => {
   try {
-    const profileId = (req as any).authenticatedUserId;
+    const profileId = (req as any).resolvedProfileId as string;
     const { provider } = connectSchema.parse(req.body);
 
     if (!isTerraConfigured()) {
@@ -182,8 +185,9 @@ router.post("/connect", async (req: Request, res: Response) => {
       });
     }
 
+    const stateNonce = crypto.randomBytes(24).toString("hex");
     const redirectBaseUrl = `${req.protocol}://${req.get("host")}/api/fitness/connect/callback`;
-    const session = await generateWidgetSession(provider as FitnessProvider, profileId, redirectBaseUrl);
+    const session = await generateWidgetSession(provider as FitnessProvider, profileId, redirectBaseUrl, stateNonce);
 
     const [connection] = await db
       .insert(fitnessConnectionsTable)
@@ -191,6 +195,7 @@ router.post("/connect", async (req: Request, res: Response) => {
         profileId,
         provider,
         terraSessionId: session.sessionId,
+        stateNonce,
         status: "pending",
       })
       .returning();
@@ -212,24 +217,36 @@ router.post("/connect", async (req: Request, res: Response) => {
   }
 });
 
-// Terra redirects the patient's browser here after the widget flow. Terra
-// identifies the connected user via the `user_id` query param and echoes
-// back our `reference_id` (the profileId we passed in) plus our `state`
-// (the session id) — see auth_success_redirect_url in generateWidgetSession.
+// Terra redirects the patient's browser here after the widget flow, with
+// our own `state` nonce (set in generateWidgetSession's redirect URLs)
+// echoed back plus Terra's `user_id`. Matching on state — not "most
+// recent pending connection" — means a callback can only ever complete
+// the exact attempt that produced it, even with concurrent attempts or a
+// stale/replayed URL for a different account.
 router.get("/connect/callback", async (req: Request, res: Response) => {
-  const profileId = (req as any).authenticatedUserId;
+  const profileId = (req as any).resolvedProfileId as string;
   const terraUserId = req.query.user_id as string | undefined;
   const status = req.query.status as string | undefined;
+  const state = req.query.state as string | undefined;
 
   try {
+    if (!state) {
+      return res.redirect("/fitness-connections?fitness=error&reason=missing_state");
+    }
+
     const [connection] = await db
       .select()
       .from(fitnessConnectionsTable)
-      .where(and(eq(fitnessConnectionsTable.profileId, profileId), eq(fitnessConnectionsTable.status, "pending")))
-      .orderBy(desc(fitnessConnectionsTable.createdAt));
+      .where(
+        and(
+          eq(fitnessConnectionsTable.profileId, profileId),
+          eq(fitnessConnectionsTable.stateNonce, state),
+          eq(fitnessConnectionsTable.status, "pending"),
+        ),
+      );
 
     if (!connection) {
-      return res.redirect("/connections?fitness=error&reason=no_pending_connection");
+      return res.redirect("/fitness-connections?fitness=error&reason=no_matching_connection");
     }
 
     if (status !== "success" || !terraUserId) {
@@ -237,7 +254,7 @@ router.get("/connect/callback", async (req: Request, res: Response) => {
         .update(fitnessConnectionsTable)
         .set({ status: "error", errorMessage: "User did not complete the Terra widget flow" })
         .where(eq(fitnessConnectionsTable.id, connection.id));
-      return res.redirect("/connections?fitness=error");
+      return res.redirect("/fitness-connections?fitness=error");
     }
 
     await db
@@ -247,16 +264,16 @@ router.get("/connect/callback", async (req: Request, res: Response) => {
 
     logHipaaAudit("CONNECTION_COMPLETED", profileId, connection.id, `provider=${connection.provider}`);
 
-    res.redirect("/connections?fitness=connected");
+    res.redirect("/fitness-connections?fitness=connected");
   } catch (error) {
     console.error("[Fitness Integrations] Callback error:", error);
-    res.redirect("/connections?fitness=error");
+    res.redirect("/fitness-connections?fitness=error");
   }
 });
 
 router.delete("/connections/:id", async (req: Request, res: Response) => {
   try {
-    const profileId = (req as any).authenticatedUserId;
+    const profileId = (req as any).resolvedProfileId as string;
     const { id } = req.params;
 
     const [connection] = await db.select().from(fitnessConnectionsTable).where(eq(fitnessConnectionsTable.id, id));
