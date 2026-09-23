@@ -99,6 +99,7 @@ const FitnessRpmConnections = lazy(() => import("@/pages/fitness-rpm-connections
 const MedicalScribe = lazy(() => import("@/pages/medical-scribe"));
 const VisitSummary = lazy(() => import("@/pages/visit-summary"));
 const PreventiveScreening = lazy(() => import("@/pages/preventive-screening"));
+const LongevityPreventive = lazy(() => import("@/pages/longevity-preventive"));
 const CareGaps = lazy(() => import("@/pages/care-gaps"));
 const AmbientEncounter = lazy(() => import("@/pages/ambient-encounter"));
 const SymptomChecker = lazy(() => import("@/pages/symptom-checker"));
@@ -254,6 +255,7 @@ function Router() {
       <Route path="/medical-scribe" component={MedicalScribe} />
       <Route path="/visit-summary" component={VisitSummary} />
       <Route path="/preventive-screening" component={PreventiveScreening} />
+      <Route path="/longevity-preventive-health" component={LongevityPreventive} />
       <Route path="/care-gaps" component={CareGaps} />
       <Route path="/ambient-encounter" component={AmbientEncounter} />
       <Route path="/symptom-checker" component={SymptomChecker} />
@@ -403,6 +405,7 @@ const pageTitles: Record<string, string> = {
   "/medical-scribe": "Record Visit",
   "/visit-summary": "Visit Summary",
   "/preventive-screening": "Preventive Screening",
+  "/longevity-preventive-health": "Longevity & Preventive Health",
   "/care-gaps": "Preventive Care Gaps",
   "/ambient-encounter": "Visit Recorder",
   "/voice-access": "Voice Access",
