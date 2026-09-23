@@ -17,8 +17,20 @@ import {
   vitalSignsTable,
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
-import { verifyAndResolveGcip } from "./auth/gcip";
+import { verifyAndResolveGcip, verifyGcipToken } from "./auth/gcip";
+import {
+  requiresEmailVerification,
+  EMAIL_NOT_VERIFIED_CODE,
+  EMAIL_NOT_VERIFIED_MESSAGE,
+} from "./auth/email-verification";
 import { recordLoginAndNotify } from "./replit_integrations/auth/replitAuth";
+import {
+  isFastenConfigured,
+  isValidOrgConnectionId,
+  verifyFastenConnection,
+  linkFastenConnection,
+  triggerFastenExport,
+} from "./auth/fasten";
 
 const JWT_ISSUER = "tabula-medica";
 const JWT_AUDIENCE = "tabula-medica-mobile";
@@ -231,6 +243,18 @@ export function registerMobileApiRoutes(app: Express) {
     try {
       const internalUser = await verifyAndResolveGcip(token);
       if (!internalUser) {
+        // Same anti-bot gate as the web exchange: a brand-new email/password
+        // account only exists once the verification link is clicked. Report it
+        // as its own 403 + code so the app can say "check your inbox" rather
+        // than "invalid token".
+        const claims = await verifyGcipToken(token);
+        if (requiresEmailVerification(claims)) {
+          return res.status(403).json({
+            error: "Forbidden",
+            code: EMAIL_NOT_VERIFIED_CODE,
+            message: EMAIL_NOT_VERIFIED_MESSAGE,
+          });
+        }
         return res.status(401).json({ error: "Unauthorized", message: "Invalid token" });
       }
 
@@ -1184,6 +1208,40 @@ export function registerMobileApiRoutes(app: Express) {
     logAudit(req.user!.id, "EHR_DISCONNECTED", "smart_oauth", connectionId);
 
     return res.json({ success: true, message: "EHR connection removed" });
+  }) as RequestHandler);
+
+  // POST /api/mobile/fasten/link - attach a Fasten connection to the mobile user.
+  // The native app opens the Fasten Stitch widget in the system browser, which
+  // hands back an org_connection_id; we RE-VERIFY it server-side with our
+  // private key before linking (a forged id never validates), then kick off the
+  // records export. Mirrors the web /api/auth/fasten/link but with mobile
+  // (GCIP-bearer) auth.
+  app.post("/api/mobile/fasten/link", authMiddleware as RequestHandler, (async (req: AuthenticatedRequest, res: Response) => {
+    if (!isFastenConfigured()) {
+      return res.status(503).json({ message: "Fasten sign-in is not configured." });
+    }
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated." });
+    }
+    const orgConnectionId = req.body?.orgConnectionId;
+    if (!isValidOrgConnectionId(orgConnectionId)) {
+      return res.status(400).json({ message: "Invalid connection id." });
+    }
+    const conn = await verifyFastenConnection(orgConnectionId.trim());
+    if (!conn) {
+      const ts = new Date().toISOString();
+      console.warn(`[HIPAA-AUDIT][FastenConnect] ${ts} - MOBILE_LINK_VERIFY_FAILED - user:${userId} conn:${orgConnectionId}`);
+      return res.status(401).json({ message: "Could not verify that health-record connection." });
+    }
+    const result = await linkFastenConnection(userId, conn);
+    if (result === "conflict") {
+      return res.status(409).json({ message: "That connection is already linked to another account." });
+    }
+    const taskId = await triggerFastenExport(conn.orgConnectionId);
+    const ts = new Date().toISOString();
+    console.log(`[HIPAA-AUDIT][FastenConnect] ${ts} - MOBILE_LINK_SUCCESS - user:${userId} conn:${conn.orgConnectionId} platform:${conn.platformType ?? "unknown"} exportTask:${taskId ?? "none"}`);
+    return res.json({ linked: true, platformType: conn.platformType ?? null, exportStarted: Boolean(taskId) });
   }) as RequestHandler);
 
   // ============================================

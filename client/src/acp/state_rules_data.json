@@ -1,0 +1,304 @@
+{
+  "_meta": {
+    "schema": "tabula.acp.state_rules/1",
+    "purpose": "Portable Advance Care Planning execution-rules pack. ONE source of truth shared by the Tabula EHR (Canvas plugin), PHR, and World EHR. Every jurisdiction below is a STARTER SEED and is counsel_verified:false — the engine must present it as DRAFT / pending legal review and never as legal advice. Values are conservative and must be confirmed against the current statute by counsel before any jurisdiction is presented as execution-ready.",
+    "disclaimer": "This data supports document DRAFTING only. It is not legal advice. Whether a completed directive is legally valid depends on the patient meeting their own state's signing, witness, and/or notary rules at execution time. Confirm with counsel.",
+    "witness_code_legend": {
+      "healthcare_agent": "the person named as healthcare agent/proxy/surrogate",
+      "attending_physician": "the patient's attending physician / treating clinician",
+      "facility_employee": "employee/operator of the treating facility or care provider",
+      "care_provider": "any healthcare provider currently caring for the patient",
+      "beneficiary": "anyone entitled to any portion of the patient's estate (will or intestacy)",
+      "financially_responsible": "person financially responsible for the patient's care",
+      "blood_relative": "spouse or relative by blood, marriage, or adoption",
+      "signer_of_directive": "a person who signs the directive on the patient's behalf"
+    }
+  },
+
+  "US_DEFAULT": {
+    "code": "US_DEFAULT",
+    "name": "Generic (conservative default)",
+    "statutory_form_exists": false,
+    "statutory_citation": "Federal Patient Self-Determination Act (PSDA), 42 U.S.C. §1395cc(f) / §1396a(w)",
+    "form_name": "Advance Directive (Living Will + Healthcare Power of Attorney)",
+    "healthcare_agent_recognized": true,
+    "execution": {
+      "witnesses_required": 2,
+      "notary_required": false,
+      "either_witnesses_or_notary": false,
+      "notary_can_substitute_for_witnesses": true,
+      "min_witness_age": 18
+    },
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "care_provider", "beneficiary", "signer_of_directive"],
+    "recognizes_out_of_state": true,
+    "polst_program": {"available": true, "name": "POLST"},
+    "remote_online_notarization_allowed": false,
+    "electronic_signature_allowed": false,
+    "notes": "Conservative superset used when the patient's state is unknown or not yet seeded: two disinterested adult witnesses AND notarization is the safest belt-and-suspenders execution. Always defer to the patient's actual state of residence.",
+    "counsel_verified": false,
+    "last_reviewed": null,
+    "sources": ["42 U.S.C. §1395cc(f)"]
+  },
+
+  "VA": {
+    "code": "VA",
+    "name": "Virginia",
+    "statutory_form_exists": true,
+    "statutory_citation": "Va. Code §54.1-2981 et seq. (Health Care Decisions Act)",
+    "form_name": "Virginia Advance Medical Directive",
+    "healthcare_agent_recognized": true,
+    "execution": {
+      "witnesses_required": 2,
+      "notary_required": false,
+      "either_witnesses_or_notary": false,
+      "notary_can_substitute_for_witnesses": false,
+      "min_witness_age": 18
+    },
+    "prohibited_witnesses": ["signer_of_directive"],
+    "recognizes_out_of_state": true,
+    "polst_program": {"available": true, "name": "POST (Physician Orders for Scope of Treatment)"},
+    "remote_online_notarization_allowed": true,
+    "electronic_signature_allowed": true,
+    "notes": "Two adult witnesses; notarization not required by statute. Virginia authorizes electronic advance directives and remote notarization. SEED — confirm current witness-eligibility limits with counsel.",
+    "counsel_verified": false,
+    "last_reviewed": null,
+    "sources": ["Va. Code §54.1-2983", "Va. Code §54.1-2984"]
+  },
+
+  "CA": {
+    "code": "CA",
+    "name": "California",
+    "statutory_form_exists": true,
+    "statutory_citation": "Cal. Probate Code §4700 et seq.",
+    "form_name": "California Advance Health Care Directive",
+    "healthcare_agent_recognized": true,
+    "execution": {
+      "witnesses_required": 2,
+      "notary_required": false,
+      "either_witnesses_or_notary": true,
+      "notary_can_substitute_for_witnesses": true,
+      "min_witness_age": 18
+    },
+    "prohibited_witnesses": ["healthcare_agent", "care_provider", "facility_employee"],
+    "special_requirements": ["skilled_nursing_facility_patient_advocate_or_ombudsman_witness"],
+    "recognizes_out_of_state": true,
+    "polst_program": {"available": true, "name": "POLST"},
+    "remote_online_notarization_allowed": false,
+    "electronic_signature_allowed": false,
+    "notes": "May be executed with EITHER two qualified witnesses OR a notary. Patients in a skilled nursing facility additionally require a patient advocate or ombudsman as a witness. Health-care providers/agents are barred as witnesses. SEED — confirm with counsel.",
+    "counsel_verified": false,
+    "last_reviewed": null,
+    "sources": ["Cal. Probate Code §4701", "Cal. Probate Code §4674"]
+  },
+
+  "TX": {
+    "code": "TX",
+    "name": "Texas",
+    "statutory_form_exists": true,
+    "statutory_citation": "Tex. Health & Safety Code §166.031 et seq.",
+    "form_name": "Directive to Physicians and Family or Surrogates (+ Medical Power of Attorney)",
+    "healthcare_agent_recognized": true,
+    "execution": {
+      "witnesses_required": 2,
+      "notary_required": false,
+      "either_witnesses_or_notary": true,
+      "notary_can_substitute_for_witnesses": true,
+      "min_witness_age": 18
+    },
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "care_provider", "facility_employee", "beneficiary", "financially_responsible", "blood_relative"],
+    "witness_qualification_note": "At least ONE witness must not be any of the prohibited categories (Texas 'qualified witness' rule).",
+    "recognizes_out_of_state": true,
+    "polst_program": {"available": false, "name": null},
+    "remote_online_notarization_allowed": true,
+    "electronic_signature_allowed": true,
+    "notes": "Directive to Physicians requires two witnesses OR notarization; at least one witness must meet the qualified-witness restrictions. Medical Power of Attorney is a separate statutory instrument. SEED — confirm with counsel.",
+    "counsel_verified": false,
+    "last_reviewed": null,
+    "sources": ["Tex. Health & Safety Code §166.032", "Tex. Health & Safety Code §166.003"]
+  },
+
+  "FL": {
+    "code": "FL",
+    "name": "Florida",
+    "statutory_form_exists": true,
+    "statutory_citation": "Fla. Stat. Ch. 765",
+    "form_name": "Florida Living Will + Designation of Health Care Surrogate",
+    "healthcare_agent_recognized": true,
+    "execution": {
+      "witnesses_required": 2,
+      "notary_required": false,
+      "either_witnesses_or_notary": false,
+      "notary_can_substitute_for_witnesses": false,
+      "min_witness_age": 18
+    },
+    "prohibited_witnesses": ["healthcare_agent"],
+    "witness_qualification_note": "At least ONE witness must be neither the patient's spouse nor a blood relative.",
+    "recognizes_out_of_state": true,
+    "polst_program": {"available": false, "name": null},
+    "remote_online_notarization_allowed": true,
+    "electronic_signature_allowed": true,
+    "notes": "Two adult witnesses; at least one must not be a spouse or blood relative. Notarization not required. The surrogate should not act as a witness. SEED — confirm with counsel.",
+    "counsel_verified": false,
+    "last_reviewed": null,
+    "sources": ["Fla. Stat. §765.302", "Fla. Stat. §765.202"]
+  },
+
+  "NY": {
+    "code": "NY",
+    "name": "New York",
+    "statutory_form_exists": true,
+    "statutory_citation": "N.Y. Public Health Law Art. 29-C (Health Care Proxy)",
+    "form_name": "New York Health Care Proxy (+ Living Will by common law)",
+    "healthcare_agent_recognized": true,
+    "execution": {
+      "witnesses_required": 2,
+      "notary_required": false,
+      "either_witnesses_or_notary": false,
+      "notary_can_substitute_for_witnesses": false,
+      "min_witness_age": 18
+    },
+    "prohibited_witnesses": ["healthcare_agent"],
+    "recognizes_out_of_state": true,
+    "polst_program": {"available": true, "name": "MOLST"},
+    "remote_online_notarization_allowed": true,
+    "electronic_signature_allowed": true,
+    "living_will_note": "New York has no living-will statute; living-will wishes are given effect under common law (Matter of O'Connor) and are best expressed alongside a statutory Health Care Proxy.",
+    "notes": "Health Care Proxy requires two adult witnesses; the appointed agent may not be a witness. New York uses MOLST for portable medical orders. SEED — confirm with counsel.",
+    "counsel_verified": false,
+    "last_reviewed": null,
+    "sources": ["N.Y. Pub. Health Law §2981", "N.Y. Pub. Health Law §2994-a"]
+  },
+
+  "IL": {
+    "code": "IL", "name": "Illinois", "statutory_form_exists": true,
+    "statutory_citation": "755 ILCS 45/4 (Power of Attorney for Health Care) + 755 ILCS 35 (Living Will Act)",
+    "form_name": "Illinois Statutory Short Form Power of Attorney for Health Care (+ Living Will Declaration)",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": false, "notary_can_substitute_for_witnesses": false, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "signer_of_directive"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "Illinois POLST (IDPH Uniform POLST)"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "The statutory Power of Attorney for Health Care needs 1 disinterested witness (agent/physician disqualified); the Living Will Declaration needs 2 witnesses. Conservative floor of 2 shown. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["755 ILCS 45/4-5.1", "755 ILCS 35/3"]
+  },
+
+  "PA": {
+    "code": "PA", "name": "Pennsylvania", "statutory_form_exists": true,
+    "statutory_citation": "20 Pa.C.S. Ch. 54 (Health Care)",
+    "form_name": "Pennsylvania Advance Health Care Directive (Living Will + Health Care Power of Attorney)",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": false, "notary_can_substitute_for_witnesses": false, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "signer_of_directive"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "Pennsylvania Orders for Life-Sustaining Treatment (POLST)"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "Two adult witnesses; notarization not required. The agent should not witness. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["20 Pa.C.S. §5452", "20 Pa.C.S. §5471"]
+  },
+
+  "OH": {
+    "code": "OH", "name": "Ohio", "statutory_form_exists": true,
+    "statutory_citation": "Ohio Rev. Code §2133 (Living Will) + §1337.11–.17 (Health Care POA)",
+    "form_name": "Ohio Living Will Declaration + Health Care Power of Attorney",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": true, "notary_can_substitute_for_witnesses": true, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "facility_employee", "blood_relative"],
+    "recognizes_out_of_state": true, "polst_program": {"available": false, "name": null},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "May be executed with two disinterested witnesses OR a notary. Witnesses may not be related, the attending physician, or the agent. Ohio uses DNR Comfort Care rather than a statewide POLST. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["Ohio Rev. Code §2133.02", "Ohio Rev. Code §1337.12"]
+  },
+
+  "GA": {
+    "code": "GA", "name": "Georgia", "statutory_form_exists": true,
+    "statutory_citation": "O.C.G.A. §31-32 (Georgia Advance Directive for Health Care Act)",
+    "form_name": "Georgia Advance Directive for Health Care",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": false, "notary_can_substitute_for_witnesses": false, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "facility_employee"],
+    "witness_qualification_note": "At least one witness must not be an heir or beneficiary of the patient's estate.",
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "Georgia POLST"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "Two witnesses; the agent and the attending physician may not witness, and at least one witness must not be an estate beneficiary. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["O.C.G.A. §31-32-5"]
+  },
+
+  "NC": {
+    "code": "NC", "name": "North Carolina", "statutory_form_exists": true,
+    "statutory_citation": "N.C. Gen. Stat. §32A-15 to -27 (Health Care POA) + §90-320 to -323 (Natural Death)",
+    "form_name": "North Carolina Health Care Power of Attorney + Advance Directive for a Natural Death (Living Will)",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": true, "either_witnesses_or_notary": false, "notary_can_substitute_for_witnesses": false, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "care_provider", "facility_employee", "blood_relative", "beneficiary"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "North Carolina MOST (Medical Orders for Scope of Treatment)"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "North Carolina requires BOTH two qualified witnesses AND notarization. Witnesses may not be related, treating providers, estate beneficiaries, or the agent. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["N.C. Gen. Stat. §32A-16", "N.C. Gen. Stat. §90-321"]
+  },
+
+  "MI": {
+    "code": "MI", "name": "Michigan", "statutory_form_exists": true,
+    "statutory_citation": "MCL §700.5506–.5515 (Designation of Patient Advocate)",
+    "form_name": "Michigan Designation of Patient Advocate (Durable Power of Attorney for Health Care)",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": false, "notary_can_substitute_for_witnesses": false, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "facility_employee", "blood_relative", "beneficiary"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "Michigan Physician Orders for Scope of Treatment (MI-POST)"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "living_will_note": "Michigan has no living-will statute; end-of-life wishes are expressed through the Designation of Patient Advocate.",
+    "notes": "Two witnesses; witnesses may not be the patient's spouse, parent, child, grandchild, sibling, presumptive heir, physician, beneficiary, or a health-facility employee, nor the advocate. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["MCL §700.5506", "MCL §700.5507"]
+  },
+
+  "NJ": {
+    "code": "NJ", "name": "New Jersey", "statutory_form_exists": true,
+    "statutory_citation": "N.J.S.A. 26:2H-53 et seq. (Advance Directives for Health Care Act)",
+    "form_name": "New Jersey Advance Directive for Health Care (Proxy + Instruction Directive)",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": true, "notary_can_substitute_for_witnesses": true, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "signer_of_directive"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "New Jersey POLST"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "Execute with either two adult witnesses OR acknowledgement before a notary/attorney/other authorized official. The agent may not witness. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["N.J.S.A. 26:2H-56"]
+  },
+
+  "WA": {
+    "code": "WA", "name": "Washington", "statutory_form_exists": true,
+    "statutory_citation": "RCW 70.122 (Natural Death Act) + RCW 11.125 (Uniform Power of Attorney Act)",
+    "form_name": "Washington Health Care Directive (Living Will) + Durable Power of Attorney for Health Care",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": true, "notary_can_substitute_for_witnesses": true, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "attending_physician", "care_provider", "blood_relative", "beneficiary"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "Washington POLST"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "Health Care Directive requires two qualified witnesses; the durable power of attorney may be witnessed or notarized. Witnesses may not be treating providers, related by blood/marriage, entitled to the estate, or the agent. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["RCW 70.122.030", "RCW 11.125.040"]
+  },
+
+  "AZ": {
+    "code": "AZ", "name": "Arizona", "statutory_form_exists": true,
+    "statutory_citation": "A.R.S. §36-3221 (Health Care Power of Attorney) + §36-3261 (Living Will)",
+    "form_name": "Arizona Health Care Power of Attorney + Living Will",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 1, "notary_required": false, "either_witnesses_or_notary": true, "notary_can_substitute_for_witnesses": true, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent", "care_provider", "facility_employee", "blood_relative", "beneficiary"],
+    "recognizes_out_of_state": true, "polst_program": {"available": false, "name": null},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "notes": "Arizona allows ONE qualified witness OR a notary. The witness may not be the agent, related to the patient, entitled to the estate, or involved in the patient's health care. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["A.R.S. §36-3221", "A.R.S. §36-3261"]
+  },
+
+  "MA": {
+    "code": "MA", "name": "Massachusetts", "statutory_form_exists": true,
+    "statutory_citation": "M.G.L. c.201D (Health Care Proxy)",
+    "form_name": "Massachusetts Health Care Proxy",
+    "healthcare_agent_recognized": true,
+    "execution": {"witnesses_required": 2, "notary_required": false, "either_witnesses_or_notary": false, "notary_can_substitute_for_witnesses": false, "min_witness_age": 18},
+    "prohibited_witnesses": ["healthcare_agent"],
+    "recognizes_out_of_state": true, "polst_program": {"available": true, "name": "Massachusetts MOLST"},
+    "remote_online_notarization_allowed": true, "electronic_signature_allowed": true,
+    "living_will_note": "Massachusetts has no living-will statute; the Health Care Proxy naming an agent is the operative instrument, optionally paired with a personal values/instruction statement.",
+    "notes": "Two adult witnesses; the agent may not witness. Massachusetts uses MOLST for portable medical orders. SEED — confirm with counsel.",
+    "counsel_verified": false, "last_reviewed": null, "sources": ["M.G.L. c.201D §2"]
+  }
+}

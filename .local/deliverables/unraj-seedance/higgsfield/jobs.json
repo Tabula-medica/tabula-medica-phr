@@ -1,0 +1,117 @@
+{
+  "_readme": "Six Seedance 2.0 jobs for the Higgsfield MCP video-generation tool. Field names follow Higgsfield's CLI MODELS.md for seedance_2_0 exactly: aspect_ratio, duration (integer), resolution (480p/720p/1080p/4k), generate_audio, image-references (<=9), video-references (<=3), audio-references (<=3), <=12 refs total; mode fast = 480p/720p only, std for 1080p/4k. Reference paths are local files to upload; out/keepers/<id>.mp4 is produced by `node generate.mjs --keep <id>:<seed>` (or by copying the chosen Higgsfield download there) before job 06 runs. Seed policy: `seeds` is per job; draft jobs are set to 1, finals to 3 (or 2 for the social cut). Reference paths under refs/ are optional for jobs 01, 02 and 05 (skip them if the file is absent) and required for job 06. Run drafts (draft:true) first.",
+  "server": "https://mcp.higgsfield.ai/mcp",
+  "model": {
+    "job_set_type": "seedance_2_0",
+    "draft_mode": "fast",
+    "final_mode": "std",
+    "cheap_alternative": "seedance_2_0_mini",
+    "long_form_option": "seedance_2_5",
+    "draft_seeds": 1
+  },
+  "jobs": [
+    {
+      "id": "01-hero-loop",
+      "draft": true,
+      "seeds": 1,
+      "duration": 8,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "generate_audio": false,
+      "notes": "Hero background. Draft first. Loop check: last frame should match first.",
+      "prompt": "【Style】Museum documentary, macro cinematography, near-black background with a single warm shaft of light as if from a mine opening, deep indigo and gold palette, ultra-clean, no text, no logos, no people. 【Duration】8 seconds, designed to loop: the final frame composition matches the opening frame. [00:00-00:03] Shot 1: Extreme close-up of a large oval-cut diamond resting on dark stone, edges catching a slow warm light from the upper left. Dust motes drift. Camera holds fixed. [00:03-00:06] Shot 2 (continuous, no cut): The diamond rotates a slow quarter turn; internal facets flare briefly in gold, then settle to cool white. [00:06-00:08] Shot 3 (continuous): The light dims back toward the opening state as the rotation completes, so the loop restarts invisibly. Camera: fixed, completely still, shallow depth of field. Motion is slow, smooth, stable, gradual. Avoid: text, letters, numbers, logos, hands, faces, crowns or royal regalia, jitter, temporal flicker, fast motion, lens flare streaks, camera shake.",
+      "image-references": [
+        "refs/diamond.png"
+      ],
+      "video-references": [],
+      "audio-references": [],
+      "mode": "fast",
+      "image-references-optional": true
+    },
+    {
+      "id": "02-story-of-the-stone",
+      "draft": false,
+      "seeds": 3,
+      "duration": 15,
+      "aspect_ratio": "16:9",
+      "resolution": "1080p",
+      "generate_audio": true,
+      "notes": "Longest clip; run after 01 is approved so the diamond and palette match. Captions live in HTML.",
+      "prompt": "【Style】Prestige historical documentary, 35mm, natural and candle light, restrained colour grade, score of solo sarangi over a low drone, ambient sound per location. Same oval diamond in every shot, referencing @Image1 if provided. 【Duration】15 seconds, four shots with clean cuts. [00:00-00:04] Shot 1 \"Golconda\": Torch-lit mine gallery in the Deccan, rough stone walls, a miner's hands (no face) lifting a rough stone toward the light. Camera: slow push-in on the hands. [00:04-00:08] Shot 2 \"The court\": A Mughal-era durbar hall at dusk, marble and inlay, the cut diamond on a velvet cushion at the centre of a low table, attendants seen only as silhouettes in the background. Camera: slow orbit, one quarter turn. [00:08-00:12] Shot 3 \"1849\": A quiet Lahore treaty room, a small boy's hand (a child of about ten, no face shown) resting beside a sealed document on a table as the diamond is lifted away out of frame. Camera: fixed, the object leaves the frame. [00:12-00:15] Shot 4 \"The Tower\": Grey London light through a barred window falls on the same diamond inside a glass case; a faint reflection of the case edge; rain on the window. Camera: slow pull-out. One camera move per shot. No readable text on the document. No faces of identifiable people. Avoid: text, logos, crowns, portraits, violence, modern people, jitter, temporal flicker, identity drift of the diamond, bent fingers.",
+      "image-references": [
+        "refs/diamond.png"
+      ],
+      "video-references": [],
+      "audio-references": [],
+      "mode": "std",
+      "image-references-optional": true
+    },
+    {
+      "id": "03-empire-ledger",
+      "draft": true,
+      "seeds": 1,
+      "duration": 10,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "generate_audio": false,
+      "notes": "No audio. Ledger and map writing must stay illegible.",
+      "prompt": "【Style】Archival, tactile, cinematic macro, warm lamplight on aged paper, indigo ink, brass and gold accents, no readable text (all writing is blurred or abstract marks), no people. 【Duration】10 seconds, two shots. [00:00-00:05] Shot 1: A large leather-bound ledger lying open on a dark desk. Columns of indistinct ink entries. A brass weight holds a page flat. Camera: slow push-in across the page; the ink lines catch the light one by one as if being tallied. [00:05-00:10] Shot 2: Cut. A hand-drawn antique map of the Indian subcontinent on the same desk. Thin gold threads rise from many points across India and drift off the edge of the map toward the top-left, leaving faint marks where they began. Camera: fixed, slight top-down angle. One camera move per shot. Writing on the ledger and map must not be legible. Avoid: readable text, real place names, flags, coins with faces, jitter, temporal flicker, fast motion.",
+      "image-references": [],
+      "video-references": [],
+      "audio-references": [],
+      "mode": "fast"
+    },
+    {
+      "id": "04-one-billion-voices",
+      "draft": false,
+      "seeds": 3,
+      "duration": 12,
+      "aspect_ratio": "16:9",
+      "resolution": "1080p",
+      "generate_audio": true,
+      "notes": "Audio on (layered voices, no words). Reject any frame resembling a real public figure.",
+      "prompt": "【Style】Warm, documentary, natural light, real unposed people, wide range of ages and skin tones from across India and the Indian diaspora, dignified and calm. Sound: many soft overlapping voices in different Indian languages, indistinct, rising gently under a tabla heartbeat. 【Duration】12 seconds, four shots, each ending on the same gesture: a hand placed flat over the heart. [00:00-00:03] Shot 1: A grandmother in a cotton sari on a Kerala verandah at morning, looks to camera, places her hand over her heart. Camera fixed, medium close-up. [00:03-00:06] Shot 2: Cut. A young Sikh man in a turban on a Punjab field edge at golden hour, same gesture. Camera: gentle push-in. [00:06-00:09] Shot 3: Cut. A woman in a London office lobby with the city visible through glass behind her, same gesture. Camera fixed. [00:09-00:12] Shot 4: Cut. A group of six people of different ages on a rooftop in Mumbai at dusk, all making the gesture together. Camera: slow pull-out. Consistency: the gesture is identical in every shot. No signs, no placards, no readable text, no flags. Avoid: text, logos, flags, recognisable celebrities or politicians, crowds with raised fists, stereotyped costume, jitter, temporal flicker, bent limbs.",
+      "image-references": [],
+      "video-references": [],
+      "audio-references": [],
+      "mode": "std"
+    },
+    {
+      "id": "05-return-home",
+      "draft": true,
+      "seeds": 1,
+      "duration": 8,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "generate_audio": true,
+      "notes": "Closing beat. Single continuous shot.",
+      "prompt": "【Style】Quiet, hopeful, cinematic, dawn light, sandstone and marble, saffron and white palette, no people, no text. 【Duration】8 seconds, one continuous shot. [00:00-00:04] An empty velvet cushion on a low marble plinth inside a sandstone hall in Delhi, morning light beginning to enter from a jali screen on the right, dust in the beams. [00:04-00:08] The light reaches the cushion and a soft glow gathers at its centre, resolving into the oval diamond from @Image1 resting where it belongs. The frame settles. Camera: single very slow push-in, stable. Sound: one low note that rises and resolves as the light arrives. Avoid: text, logos, crowns, people, jitter, temporal flicker, fast motion, lens flare streaks.",
+      "image-references": [
+        "refs/diamond.png"
+      ],
+      "video-references": [],
+      "audio-references": [],
+      "mode": "fast",
+      "image-references-optional": true
+    },
+    {
+      "id": "06-social-vertical",
+      "draft": false,
+      "seeds": 2,
+      "duration": 8,
+      "aspect_ratio": "9:16",
+      "resolution": "1080p",
+      "generate_audio": true,
+      "notes": "Needs refs: refs/diamond.png (image) + out/keepers/04-one-billion-voices.mp4 (video; promote the chosen 04 seed first). Run last.",
+      "prompt": "Rhythm, cut timing, and colour palette reference @Video1 only. The diamond references @Image1. 【Style】Vertical, phone-native, dark indigo with gold light, tabla heartbeat under a sarangi line. 【Duration】8 seconds, two shots. Keep the lower third of the frame clear and dark for captions. [00:00-00:04] Shot 1: Macro of the oval diamond turning slowly in a shaft of warm light, centred in the upper two thirds of the vertical frame. Camera fixed. [00:04-00:08] Shot 2: Cut. A young woman on a Mumbai rooftop at dusk looks to camera and places her hand over her heart, framed in the upper two thirds. Camera: slow push-in. Avoid: text, logos, flags, identity drift, jitter, temporal flicker, fast motion.",
+      "image-references": [
+        "refs/diamond.png"
+      ],
+      "video-references": [
+        "out/keepers/04-one-billion-voices.mp4"
+      ],
+      "audio-references": [],
+      "mode": "std"
+    }
+  ]
+}

@@ -23,6 +23,7 @@ if (gcpKeyJson && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerMobileApiRoutes } from "./mobile-api-routes";
+import { registerAbdmTransferRoute } from "./abdm-routes";
 import { adminVhostMiddleware, vhostDiag } from "./middleware/admin-vhost";
 
 import { serveStatic, markApiRoutesReady } from "./static";
@@ -50,6 +51,7 @@ import {
   getGcpAuditStatus,
 } from "./security";
 import { logPhiKeyFingerprints } from "./security/phi-encryption";
+import { assertPhiAiBoundary } from "./security/phi-ai-boundary";
 import { 
   requestCorrelationMiddleware, 
   createLogger,
@@ -177,6 +179,11 @@ app.use(gcpAuditMiddleware);
 // override via AI_BLOCKED_COUNTRIES env var).
 import { geoCountryMiddleware } from "./middleware/geo-country";
 import { aiCountryGate } from "./middleware/ai-country-gate";
+import { redactPath } from "./security/redact-path";
+import {
+  UNAUTHENTICATED_BODY_LIMITS,
+  bodyLimitFor,
+} from "./security/body-limits";
 app.use(geoCountryMiddleware());
 app.use(aiCountryGate());
 
@@ -190,8 +197,29 @@ applyAuthRateLimiting(app);
 
 app.use(unifiedComplianceMiddleware());
 
+// ABDM (India) HIP data-push endpoint. Mounted here, ahead of the global JSON parser and CSRF,
+// because it is a machine-to-machine callback: it needs its own smaller body limit (body-parser
+// skips an already-parsed body) and cannot carry a CSRF token. No-op unless ABDM_ENABLED.
+registerAbdmTransferRoute(app);
+
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "10mb";
 const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "10mb";
+
+/**
+ * Caps for the endpoints an anonymous client can reach. The table, and the
+ * reasoning behind it, live in `server/security/body-limits.ts`.
+ *
+ * Mounted BEFORE the global parsers on purpose — body-parser skips a request
+ * whose body is already parsed, so the stricter limit is the one that applies
+ * and an oversized body is refused before it is read into memory.
+ */
+for (const { path, limit } of UNAUTHENTICATED_BODY_LIMITS) {
+  // Both parsers: a carrier posts form-encoded, a browser form posts
+  // form-encoded, a client posts JSON, and a cap that covers only one of
+  // them is not a cap.
+  app.use(path, express.json({ limit }));
+  app.use(path, express.urlencoded({ extended: false, limit }));
+}
 
 app.use(
   express.json({
@@ -208,9 +236,15 @@ app.use(csrfProtection);
 
 app.use((err: Error & { type?: string; status?: number }, req: Request, res: Response, next: NextFunction) => {
   if (err.type === "entity.too.large") {
+    // Report the limit that actually rejected this request, read from the
+    // same table that mounted it — a 413 naming the global 10mb for a route
+    // capped at 64kb sends the caller off to debug the wrong number.
+    const capped = bodyLimitFor(req.path);
     return res.status(413).json({
       error: "PAYLOAD_TOO_LARGE",
-      message: "Request body exceeds size limit. Maximum allowed: " + JSON_BODY_LIMIT,
+      message:
+        "Request body exceeds size limit. Maximum allowed: " +
+        (capped ? capped.limit : JSON_BODY_LIMIT),
       requestId: getRequestId(req),
     });
   }
@@ -243,7 +277,10 @@ app.use((req, res, next) => {
         timestamp: new Date().toISOString(),
         request_id: getRequestId(req),
         method: req.method,
-        path: path,
+        // Gated on /api today; redacted anyway so this line stays safe if the
+        // gate ever widens. Relying on a filter elsewhere is what produced
+        // rounds 5 and 11.
+        path: redactPath(path),
         status: res.statusCode,
         duration_ms: duration,
         actor_id: user?.claims?.sub,
@@ -258,6 +295,23 @@ app.use((req, res, next) => {
 phiLogger.info("Security compliance status", getComplianceStatus());
 phiLogger.info("HIPAA audit compliance", getAuditCompliance());
 logPhiKeyFingerprints();
+
+// Refuse to serve traffic if PHI-bearing AI would reach a non-BAA endpoint.
+// Deliberately before any route registration: a broken boundary is not a
+// degraded feature, it is patient data going somewhere it legally cannot.
+{
+  const boundary = assertPhiAiBoundary();
+  phiLogger.info("PHI-AI boundary verified", {
+    provider: boundary.provider,
+    baseUrlHost: (() => {
+      try {
+        return new URL(boundary.baseURL).host;
+      } catch {
+        return "unparseable";
+      }
+    })(),
+  });
+}
 
 async function initializeApp() {
   // Serve static SPA FIRST so the frontend works even if later startup steps

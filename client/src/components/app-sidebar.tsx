@@ -55,10 +55,14 @@ import {
   Baby,
   Hash,
   Globe,
+  TestTubes,
+  ArrowLeftRight,
+  Crown,
   Stethoscope as StethoscopeIcon,
   TestTubes,
   ArrowLeftRight,
   Crown,
+  Tag,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -115,6 +119,13 @@ const mainNavItems = [
     requiresTefca: true,
   },
   {
+    title: "Cash Prices",
+    titleKey: "sidebar.cashPrices",
+    url: "/cash-prices",
+    icon: Tag,
+    badge: null,
+  },
+  {
     title: "Symptom Checker",
     titleKey: "sidebar.symptomChecker",
     url: "/symptom-checker",
@@ -167,6 +178,13 @@ const mainNavItems = [
     titleKey: "sidebar.longevityTracking",
     url: "/longevity-tracking",
     icon: Timer,
+    badge: "new",
+  },
+  {
+    title: "Longevity & Prevention",
+    titleKey: "sidebar.longevityPreventive",
+    url: "/longevity-preventive-health",
+    icon: ShieldCheck,
     badge: "new",
   },
   {
@@ -484,6 +502,12 @@ const adminItems = [
     title: "Clinician Dashboard",
     url: "/clinician-dashboard",
     icon: Stethoscope,
+  },
+  {
+    title: "RCM Command Center",
+    url: "/rcm",
+    icon: DollarSign,
+    badge: "new",
   },
   {
     title: "Patients",

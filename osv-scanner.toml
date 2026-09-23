@@ -1,8 +1,12 @@
-# All previously-ignored vulnerabilities have been resolved by upgrading the
-# affected transitive dependencies via npm overrides in:
-#   - package.json (root)
-#   - tabula-medica-mobile/package.json
-#   - artifacts/mockup-sandbox/package.json
+# OSV-Scanner configuration (v2 PackageOverrides / IgnoredVulns syntax).
 #
-# Re-add ignore entries here if a future osv-scanner version flags an
-# unfixable transitive vulnerability. Use the v2 PackageOverrides syntax.
+# Policy: fix transitive vulnerabilities with npm overrides in package.json
+# first (see the `overrides` block). Add an ignore entry here ONLY when the
+# fixed version is a breaking major that a direct dependency cannot consume,
+# and always record the reason and an expiry-style review note so the entry
+# is re-evaluated instead of forgotten. `npm audit --omit=dev --audit-level=high`
+# remains the blocking gate independent of this file.
+
+[[IgnoredVulns]]
+id = "GHSA-528h-pc64-c93x"
+reason = """stream-json 1.9.1 via firebase-tools (CLI/deploy tooling, not a runtime server dependency). The fixed release (stream-json >= 3.5.0) drops the `stream-json/filters/*` and `stream-json/streamers/*` subpath entry points that firebase-tools 15.x requires (database/import, commands/auth-import, frameworks/next), so overriding it breaks `firebase` deploys. Review when firebase-tools ships a release depending on stream-json 3.x."""

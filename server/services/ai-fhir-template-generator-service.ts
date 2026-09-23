@@ -1,9 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { generatePhiSafeText } from "./ai-gateway";
 
 export type FHIRResourceType =
   | "Patient"
@@ -225,17 +220,13 @@ export async function generateFHIRTemplate(
   const systemPrompt = generateSystemPrompt(request);
   const userPrompt = generateUserPrompt(request);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+  const content = await generatePhiSafeText({
+    system: systemPrompt,
+    user: userPrompt,
+    responseMimeType: "application/json",
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
   if (!content) {
     throw new Error("No response from AI model");
   }

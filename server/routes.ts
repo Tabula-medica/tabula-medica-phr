@@ -24,7 +24,7 @@ import {
   type AccessLevel,
   accounts,
 } from "@shared/schema";
-import OpenAI from "openai";
+import { generatePhiSafeChat, generatePhiSafeChatStream } from "./services/ai-gateway";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import {
   isFastenConfigured,
@@ -37,6 +37,7 @@ import { verifyStepUpAssertion, STEP_UP_FAILURE_MESSAGES } from "./auth/step-up"
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
+import { registerAbdmRoutes } from "./abdm-routes";
 import { registerComplianceRoutes } from "./compliance/compliance-routes";
 import { registerCompAiRoutes } from "./compai-routes";
 import { registerPhiAuditRoutes } from "./phi-audit-routes";
@@ -153,9 +154,12 @@ import aiOutreachOrchestratorRoutes from "./ai-outreach-orchestrator-routes";
 import externalIntegrationRoutes from "./external-integration-routes";
 import ehrIntegrationRoutes from "./ehr-integration-routes";
 import healthTrackingRoutes from "./health-tracking-routes";
+import fitnessIntegrationsRoutes from "./routes/fitness-integrations-routes";
+import rpmDeviceRoutes, { rpmWebhookRouter } from "./routes/rpm-device-routes";
 import aiAuditEngineRoutes from "./ai-audit-engine-routes";
 import personalizedEducationRoutes from "./personalized-education-routes";
 import medicationManagementRoutes from "./medication-management-routes";
+import erxCancellationRoutes from "./erx-cancellation-routes";
 import providerPopulationManagementRoutes from "./provider-population-management-routes";
 import comprehensiveCarePlanRoutes from "./comprehensive-care-plan-routes";
 import enhancedProviderAnalyticsRoutes from "./enhanced-provider-analytics-routes";
@@ -301,6 +305,14 @@ import { registerWebhookAggregatorRoutes } from "./webhook-aggregator-routes";
 import { registerGcpArchitectureRoutes } from "./gcp-architecture-routes";
 import { registerProfilePhotoRoutes } from "./profile-photo-routes";
 import { registerAdvanceDirectivesRoutes } from "./advance-directives-routes";
+import { registerWorldIpsRoutes } from "./world-ips-routes";
+import { registerClinicalWorkflowRoutes } from "./clinical-workflow-routes-v2";
+import { registerHccRoutes } from "./hcc-routes";
+import { registerRvuRoutes } from "./rvu-routes";
+import { registerEngagementRoutes } from "./engagement-routes";
+import { registerHealthSummaryShareRoutes } from "./health-summary-share-routes";
+import { registerAmbientScribeRoutes } from "./ambient-scribe-routes";
+import { registerCareManagementRoutes } from "./care-management-routes";
 import healthQuestionnaireRoutes from "./health-questionnaire-routes";
 import healthReportRoutes from "./health-report-routes";
 import providerCommunicationRoutes from "./provider-communication-routes";
@@ -316,6 +328,7 @@ import consolidatedHealthRoutes from "./consolidated-health-routes";
 import documentSummarizationRoutes from "./document-summarization-routes";
 import carePacketsRoutes from "./care-packets-routes";
 import { supportResourcesRoutes } from "./support-resources-routes";
+import { referenceContentRoutes } from "./reference-content-routes";
 import { caregiverPermissionsRoutes } from "./caregiver-permissions-routes";
 import { caregiverDashboardRoutes } from "./caregiver-dashboard-routes";
 import { caregiverHealthDashboardRoutes } from "./caregiver-health-dashboard-routes";
@@ -332,6 +345,10 @@ import { registerMessagingRoutes } from "./messaging-routes";
 import { registerSmsRoutes } from "./sms-routes";
 import { registerProviderCommunicationPortalRoutes } from "./provider-communication-portal-routes";
 import { registerGamificationRoutes } from "./gamification-routes";
+import { registerRobloxEducationRoutes } from "./roblox-education-link-routes";
+import { registerRobloxClinicRoutes } from "./roblox-clinic-routes";
+import { registerLifeStageChallengesRoutes } from "./life-stage-challenges-routes";
+import { registerRobloxCampusRoutes } from "./roblox-campus-routes";
 import researchAggregationRoutes from "./research-aggregation-routes";
 import aiCareCoordinationRoutes from "./ai-care-coordination-routes";
 import careTeamCollaborationRoutes from "./care-team-collaboration-routes";
@@ -351,6 +368,7 @@ import { registerCommunicationAnalyticsRoutes } from "./ai-communication-analyti
 import aiClinicalDocumentationRoutes from "./ai-clinical-documentation-routes";
 import aiPatientProfileSummaryRoutes from "./ai-patient-profile-summary-routes";
 import personalizedHealthSummaryRoutes from "./personalized-health-summary-routes";
+import myCareRoutes from "./my-care-routes";
 import enhancedAIHealthJourneyRoutes from "./routes/enhanced-ai-health-journey-routes";
 import secureHealthShareRoutes from "./secure-health-share-routes";
 import interoperabilityHubRoutes from "./interoperability-hub-routes";
@@ -406,6 +424,7 @@ import insuranceLearningRoutes from "./routes/insurance-learning-routes";
 import familyVerificationRoutes from "./routes/family-verification-routes";
 import familyHubRoutes from "./family-hub-routes";
 import { requireFeature } from "./middleware/require-feature";
+import { requireUser, getUserId } from "./middleware/require-user";
 import enterpriseSavingsRoutes from "./enterprise-savings-routes";
 import uninsuredResourcesRoutes from "./routes/uninsured-resources-routes";
 import cmsMarketplaceRoutes from "./routes/cms-marketplace-routes";
@@ -417,11 +436,13 @@ import payerFhirRoutes from "./routes/payer-fhir-routes";
 import internalAnalyticsRoutes from "./routes/internal-analytics-routes";
 import extractionPipelineRoutes from "./routes/extraction-pipeline-routes";
 import billsEobRoutes from "./routes/bills-eob-routes";
+import rcmRoutes from "./rcm/routes";
 import appStoreIapRoutes from "./routes/appstore-iap-routes";
 import phrPipelineRoutes from "./routes/phr-pipeline-routes";
 import fqhcFinderRoutes from "./routes/fqhc-finder-routes";
 import sharedLayerRoutes from "./routes/shared-layer-routes";
 import dualModeRoutes from "./routes/dual-mode-routes";
+import auRegionRoutes from "./routes/au-region-routes";
 // nmn-auth0-routes loaded dynamically below — only when AUTH0_ISSUER_BASE_URL is set,
 // so missing Auth0 secrets don't drag the foreign-tenant JWKS fetch into prod boot.
 import type { SyncScheduleInterval, EhrPlatform } from "@shared/schema";
@@ -553,10 +574,6 @@ function resetRateLimit(userId: string): void {
   rateLimitMap.delete(userId);
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 // Helper functions for health analytics chart data
 function buildLabChartData(labResults: any[]): any[] {
@@ -709,14 +726,12 @@ Generate a JSON response with:
   "positiveNotes": ["1-2 positive health observations"]
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.1",
+    const raw = await generatePhiSafeChat({
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 500,
+      maxTokens: 500,
     });
-    
-    const content = response.choices[0]?.message?.content || "{}";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    const jsonMatch = (raw || "{}").match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
@@ -885,6 +900,9 @@ export async function registerRoutes(
   
   // Register consent management routes (GDPR/HIPAA)
   registerConsentRoutes(app);
+
+  // Register ABDM (India) routes — connection ops + ABHA enrollment (stub until ABDM_ENABLED + creds)
+  registerAbdmRoutes(app);
   
   // Compliance routes already registered earlier for CDS blocking
   
@@ -899,13 +917,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/voice/multilingual", async (req, res) => {
+  app.post("/api/voice/multilingual", requireUser, async (req, res) => {
     try {
       const { audio, format, inputLanguage, outputLanguage, context } = req.body;
       if (!audio) {
         return res.status(400).json({ error: "Audio data (base64) is required" });
       }
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const result = await processVoiceAccess({
         audio,
         format,
@@ -921,10 +939,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/voice/transcribe", async (req, res) => {
+  app.post("/api/voice/transcribe", requireUser, async (req, res) => {
     try {
       const { audio, format } = req.body;
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       if (!audio) {
         return res.status(400).json({ error: "Audio data (base64) is required" });
       }
@@ -946,10 +964,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/voice/synthesize", async (req, res) => {
+  app.post("/api/voice/synthesize", requireUser, async (req, res) => {
     try {
       const { text, language, voice } = req.body;
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
       }
@@ -972,13 +990,13 @@ export async function registerRoutes(
   });
 
   // Document Translation API
-  app.post("/api/translate/document", async (req, res) => {
+  app.post("/api/translate/document", requireUser, async (req, res) => {
     try {
       const { content, sourceLanguage, targetLanguage, documentType } = req.body;
       if (!content) {
         return res.status(400).json({ error: "Document content is required" });
       }
-      const userId = (req as any).user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const result = await translateMedicalDocument({
         content,
         sourceLanguage,
@@ -1194,8 +1212,21 @@ export async function registerRoutes(
       const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
       origin = `${proto}://${host}`;
     }
-    const redirectUri = `${origin}/api/fasten-connect/callback`;
-    console.log("[FastenConnect] Config requested - publicId present:", !!publicId, "redirectUri:", redirectUri);
+    // An explicit FASTEN_HEALTH_REDIRECT_URL wins over host-derived inference.
+    // The redirect URI MUST exactly match one registered in the Fasten Connect
+    // dashboard for this public_id; otherwise Fasten rejects the connection.
+    // The host inference above is Replit-era and breaks on Cloud Run (REPLIT_*
+    // unset -> falls back to x-forwarded-host, which can be the internal
+    // *.run.app URL), so pin it via env to avoid redirect-mismatch failures.
+    const redirectOverride = process.env.FASTEN_HEALTH_REDIRECT_URL?.trim();
+    const redirectUri = redirectOverride || `${origin}/api/fasten-connect/callback`;
+    console.log(
+      "[FastenConnect] Config requested - publicId present:",
+      !!publicId,
+      "redirectUri:",
+      redirectUri,
+      redirectOverride ? "(from FASTEN_HEALTH_REDIRECT_URL)" : "(derived from host)",
+    );
     res.json({ publicId, redirectUri });
   });
 
@@ -1264,6 +1295,59 @@ export async function registerRoutes(
     res.status(200).json({ received: true });
   });
 
+  // Native-app handoff page. The iOS app opens this in the system browser
+  // (expo-web-browser) with ?redirect=<app deep link>. It renders the Fasten
+  // Stitch widget; on widget.complete it bounces back to the app's custom scheme
+  // with the org_connection_id, which the app then POSTs to
+  // /api/mobile/fasten/link (re-verified server-side). Only the app's own
+  // scheme is allowed as a redirect target to prevent open-redirect abuse.
+  app.get("/fasten-native", (req, res) => {
+    const ALLOWED_SCHEMES = ["tabulamedica://"];
+    const redirect = String(req.query.redirect || "");
+    if (!ALLOWED_SCHEMES.some((s) => redirect.startsWith(s))) {
+      return res.status(400).send("Invalid redirect target.");
+    }
+    const publicId =
+      process.env.FASTEN_HEALTH_CLIENT_ID ||
+      "public_live_8ccv8p175drs4hw1o7g60120ogh36zp4tama0qd4epdn5";
+    // redirect is scheme-validated above; JSON-encode for safe JS embedding.
+    const redirectJs = JSON.stringify(redirect);
+    const publicIdAttr = publicId.replace(/"/g, "&quot;");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect your records</title>
+<link rel="stylesheet" href="https://cdn.fastenhealth.com/connect/v4/fasten-stitch-element.css">
+<script type="module" src="https://cdn.fastenhealth.com/connect/v4/fasten-stitch-element.js"></script>
+<style>body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f8fafc}#wrap{max-width:640px;margin:0 auto;padding:16px}</style>
+</head><body><div id="wrap"><div id="host"></div></div>
+<script>
+  (function () {
+    var REDIRECT = ${redirectJs};
+    function bounce(params) {
+      var sep = REDIRECT.indexOf('?') === -1 ? '?' : '&';
+      window.location.href = REDIRECT + sep + params;
+    }
+    var el = document.createElement('fasten-stitch-element');
+    el.setAttribute('public-id', "${publicIdAttr}");
+    document.getElementById('host').appendChild(el);
+    el.addEventListener('eventBus', function (event) {
+      try {
+        var raw = event && event.detail ? event.detail.data : null;
+        var data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+        var id = data.org_connection_id || data.orgConnectionId;
+        if ((data.event_type === 'connection.complete' || data.connection_status === 'authorized') && id) {
+          bounce('org_connection_id=' + encodeURIComponent(id));
+        } else if (data.event_type === 'connection.error' || data.connection_status === 'failed') {
+          bounce('error=' + encodeURIComponent(data.error_message || 'connection_failed'));
+        }
+      } catch (e) { /* ignore unparseable events */ }
+    });
+  })();
+</script>
+</body></html>`);
+  });
+
   // --- Fasten "bring your own identity" sign-in (server/auth/fasten.ts) -----
   // The Stitch widget hands the browser an org_connection_id on widget.complete.
   // /verify is a lightweight UX check; /link is the security boundary: it
@@ -1323,10 +1407,17 @@ export async function registerRoutes(
 
   app.use("/api/ehr-integration", ehrIntegrationRoutes);
   app.use("/api/health-tracking", healthTrackingRoutes);
+  app.use("/api/fitness", fitnessIntegrationsRoutes);
+  console.log("[Routes] Fitness Integrations (read-only, Terra) routes registered at /api/fitness/*");
+  app.use("/api/rpm", rpmWebhookRouter);
+  app.use("/api/rpm", rpmDeviceRoutes);
+  console.log("[Routes] RPM Device (VitalFriend) routes registered at /api/rpm/*");
   app.use("/api/personalized-education", personalizedEducationRoutes);
   console.log("[Routes] Personalized Education routes registered at /api/personalized-education/*");
   app.use("/api/medication-management", medicationManagementRoutes);
   console.log("[Routes] Medication Management routes registered at /api/medication-management/*");
+  app.use("/api/erx-cancellation", erxCancellationRoutes);
+  console.log("[Routes] eRx Cancellation routes registered at /api/erx-cancellation/*");
   app.use("/api/provider-population", providerPopulationManagementRoutes);
   app.use("/api/comprehensive-care-plans", comprehensiveCarePlanRoutes);
   app.use("/api/enhanced-provider-analytics", enhancedProviderAnalyticsRoutes);
@@ -1339,6 +1430,8 @@ export async function registerRoutes(
   app.use("/api/health-journey", personalizedHealthJourneyRoutes);
   console.log("[Routes] Personalized Health Journey routes registered at /api/health-journey/*");
   app.use("/api/enhanced-health-journey", enhancedHealthJourneyRoutes);
+  app.use("/api/reference-content", referenceContentRoutes);
+  console.log("[Routes] Reference-content reviewer routes registered at /api/reference-content/*");
   console.log("[Routes] Enhanced Health Journey routes registered at /api/enhanced-health-journey/*");
   registerCarePathwayRoutes(app);
   console.log("[Routes] Provider Population Management routes registered at /api/provider-population/*");
@@ -1647,6 +1740,14 @@ export async function registerRoutes(
   registerGcpArchitectureRoutes(app);
   registerProfilePhotoRoutes(app);
   registerAdvanceDirectivesRoutes(app);
+  registerWorldIpsRoutes(app);
+  registerClinicalWorkflowRoutes(app);
+  registerHccRoutes(app);
+  registerRvuRoutes(app);
+  registerEngagementRoutes(app);
+  registerHealthSummaryShareRoutes(app);
+  registerAmbientScribeRoutes(app);
+  registerCareManagementRoutes(app);
 
   app.use("/api/health-questionnaire", healthQuestionnaireRoutes);
   console.log("[Routes] Health Questionnaire routes registered at /api/health-questionnaire/*");
@@ -1769,7 +1870,11 @@ export async function registerRoutes(
   registerSmsRoutes(app);
   registerProviderCommunicationPortalRoutes(app);
   registerGamificationRoutes(app);
-  
+  registerRobloxEducationRoutes(app);
+  registerRobloxClinicRoutes(app);
+  registerLifeStageChallengesRoutes(app);
+  registerRobloxCampusRoutes(app);
+
   // Research Data Aggregation for Provider Portal
   app.use("/api/research", researchAggregationRoutes);
   console.log("[Routes] Research Data Aggregation routes registered at /api/research/*");
@@ -1783,6 +1888,10 @@ export async function registerRoutes(
 
   // Start automated validation scheduler (runs every 24 hours)
   startValidationScheduler(86400000);
+
+  // AU-region routes (IHI/Medicare/DVA identifiers, MyHR consent, NCTS terminology)
+  app.use("/api/au", auRegionRoutes);
+  console.log("[Routes] AU Region routes registered at /api/au/*");
 
   // Dashboard Stats
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -2508,17 +2617,17 @@ export async function registerRoutes(
   });
 
   // AI chatbot for patient queries
-  app.post("/api/ai-engagement/chatbot", async (req, res) => {
+  app.post("/api/ai-engagement/chatbot", requireUser, async (req, res) => {
     try {
       const validationResult = chatbotQuerySchema.safeParse(req.body);
       if (!validationResult.success) {
-        return res.status(400).json({ 
-          error: "Validation failed", 
-          details: validationResult.error.flatten().fieldErrors 
+        return res.status(400).json({
+          error: "Validation failed",
+          details: validationResult.error.flatten().fieldErrors
         });
       }
       const { patientId, query, conversationHistory } = validationResult.data;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2535,11 +2644,11 @@ export async function registerRoutes(
   });
 
   // Generate personalized health education
-  app.get("/api/ai-engagement/education/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/education/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { topic, format } = req.query;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2562,7 +2671,7 @@ export async function registerRoutes(
   // Get high-risk patients for interventions (admin/provider view)
   app.get("/api/ai-engagement/high-risk-patients", requireAnyPermission("admin:audit", "provider:view_patients"), async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -2589,7 +2698,7 @@ export async function registerRoutes(
         });
       }
       const { patientId, interventionType, reason } = validationResult.data;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2617,11 +2726,11 @@ export async function registerRoutes(
   // ========================================
   
   // Get personalized health education content based on conditions and activity
-  app.get("/api/ai-engagement/education-recommendations/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/education-recommendations/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const { format, focusArea, maxResults } = req.query;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2643,10 +2752,10 @@ export async function registerRoutes(
   });
 
   // Generate proactive outreach for a specific patient
-  app.get("/api/ai-engagement/proactive-outreach/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/proactive-outreach/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2665,7 +2774,7 @@ export async function registerRoutes(
   // Identify all patients needing outreach (admin/provider view)
   app.get("/api/ai-engagement/outreach-campaign", requireAnyPermission("admin:audit", "provider:view_patients"), async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -2682,10 +2791,10 @@ export async function registerRoutes(
   });
 
   // Get personalized health goals for a patient
-  app.get("/api/ai-engagement/health-goals/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/health-goals/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2702,10 +2811,10 @@ export async function registerRoutes(
   });
 
   // Get patient health timeline with goals progress and historical data
-  app.get("/api/ai-engagement/health-timeline/:patientId", async (req, res) => {
+  app.get("/api/ai-engagement/health-timeline/:patientId", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logPhiAccess({
         userId,
         patientId,
@@ -2802,7 +2911,7 @@ export async function registerRoutes(
   app.post("/api/ai-communication/summarize-message", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { messageId, threadId, patientId, content, subject, threadHistory } = req.body;
       
       if (!messageId || !content) {
@@ -2856,7 +2965,7 @@ export async function registerRoutes(
   app.post("/api/ai-communication/follow-up-draft", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { patientId, triggerType, triggerData } = req.body;
       
       if (!patientId || !triggerType) {
@@ -2936,7 +3045,7 @@ export async function registerRoutes(
   app.get("/api/care-team/tasks", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       logPhiAccess({
         userId,
@@ -2958,7 +3067,7 @@ export async function registerRoutes(
   app.post("/api/care-team/tasks", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Unknown";
       
       const validationResult = insertCareTeamTaskSchema.safeParse(req.body);
@@ -2986,7 +3095,7 @@ export async function registerRoutes(
   app.get("/api/care-team/tasks/care-plan/:carePlanId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       logPhiAccess({
@@ -3021,7 +3130,7 @@ export async function registerRoutes(
   app.get("/api/care-team/tasks/patient/:patientId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logPhiAccess({
@@ -3044,7 +3153,7 @@ export async function registerRoutes(
   app.patch("/api/care-team/tasks/:taskId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Unknown";
       const { taskId } = req.params;
       
@@ -3064,7 +3173,7 @@ export async function registerRoutes(
   app.post("/api/care-team/handoffs", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertCareHandoffSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -3091,7 +3200,7 @@ export async function registerRoutes(
   app.get("/api/care-team/handoffs/care-plan/:carePlanId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       logPhiAccess({
@@ -3126,7 +3235,7 @@ export async function registerRoutes(
   app.patch("/api/care-team/handoffs/:handoffId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Unknown";
       const { handoffId } = req.params;
       const { status, notes } = req.body;
@@ -3147,7 +3256,7 @@ export async function registerRoutes(
   app.post("/api/care-team/notes", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertCareTeamNoteSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -3174,7 +3283,7 @@ export async function registerRoutes(
   app.get("/api/care-team/notes/care-plan/:carePlanId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       const viewerRole = req.query.role as string || undefined;
       
@@ -3198,7 +3307,7 @@ export async function registerRoutes(
   app.post("/api/care-team/notes/:noteId/read", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { noteId } = req.params;
       
       const note = careTeamCollab.markNoteAsRead(noteId, userId);
@@ -3217,7 +3326,7 @@ export async function registerRoutes(
   app.get("/api/care-team/activities/care-plan/:carePlanId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
       
@@ -3671,7 +3780,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/patient/:patientId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       
       logPhiAccess({
@@ -3694,7 +3803,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/my-plans", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const carePlans = collaborativeCarePlan.getCarePlansByContributor(userId);
       res.json(carePlans);
     } catch (error) {
@@ -3707,7 +3816,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/:carePlanId", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.getCollaborativeCarePlan(carePlanId);
@@ -3734,7 +3843,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       
       const carePlan = collaborativeCarePlan.createCollaborativeCarePlan(
@@ -3762,7 +3871,7 @@ export async function registerRoutes(
   app.patch("/api/collaborative-care-plans/:carePlanId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId } = req.params;
@@ -3802,7 +3911,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/goals", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId } = req.params;
@@ -3838,7 +3947,7 @@ export async function registerRoutes(
   app.patch("/api/collaborative-care-plans/:carePlanId/goals/:goalId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId, goalId } = req.params;
@@ -3867,7 +3976,7 @@ export async function registerRoutes(
   app.delete("/api/collaborative-care-plans/:carePlanId/goals/:goalId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId, goalId } = req.params;
@@ -3895,7 +4004,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/interventions", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { carePlanId } = req.params;
@@ -3935,7 +4044,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/contributors", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const contributor = collaborativeCarePlan.addContributor({
@@ -3974,7 +4083,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/:carePlanId/versions", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.getCollaborativeCarePlan(carePlanId);
@@ -4027,7 +4136,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/acknowledge", requireRole("patient", "provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Patient";
       const { carePlanId } = req.params;
       
@@ -4090,7 +4199,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/suggestions/generate", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.getCollaborativeCarePlan(carePlanId);
@@ -4121,7 +4230,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/suggestions/:suggestionId/review", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const { suggestionId } = req.params;
       const { status, notes } = req.body;
@@ -4149,7 +4258,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/suggestions/:suggestionId/apply", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || "Provider";
       const userRole = user?.claims?.role || "provider";
       const { suggestionId } = req.params;
@@ -4176,7 +4285,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/lock", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       const { reason } = req.body;
       
@@ -4196,7 +4305,7 @@ export async function registerRoutes(
   app.post("/api/collaborative-care-plans/:carePlanId/unlock", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const carePlan = collaborativeCarePlan.unlockCarePlan(carePlanId, userId);
@@ -4218,7 +4327,7 @@ export async function registerRoutes(
   app.get("/api/collaborative-care-plans/:carePlanId/access", requireRole("provider", "admin", "patient"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const { carePlanId } = req.params;
       
       const access = collaborativeCarePlan.getContributorAccess(carePlanId, userId);
@@ -4239,7 +4348,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/generate", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { patientContext, primaryCondition, additionalNotes } = req.body;
       
       if (!patientContext || !primaryCondition) {
@@ -4266,7 +4375,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/suggest-tasks", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4293,7 +4402,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/suggest-interventions", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext, goalId } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4320,7 +4429,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/optimize", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4347,7 +4456,7 @@ export async function registerRoutes(
   app.post("/api/ai-care-plan/progress-summary", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const { carePlan, patientContext } = req.body;
       
       if (!carePlan || !patientContext) {
@@ -4742,10 +4851,10 @@ export async function registerRoutes(
   console.log("[Routes] AI Progress Feedback routes registered at /api/progress-feedback");
   const aiProgressFeedbackService = await import("./services/aiProgressFeedbackService");
 
-  app.get("/api/progress-feedback/:patientId", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       const forceRefresh = req.query.refresh === "true";
 
@@ -4769,10 +4878,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/trends", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/trends", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4795,10 +4904,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/encouragement", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/encouragement", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4822,10 +4931,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/goals", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/goals", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4848,10 +4957,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/adjustments", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/adjustments", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4962,10 +5071,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/goals/:goalId", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/goals/:goalId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "patient-default";
+      const userId = getUserId(req);
       const { patientId, goalId } = req.params;
 
       logPhiAccess({
@@ -4994,9 +5103,9 @@ export async function registerRoutes(
   const predictiveAnalytics = await import("./services/predictiveAnalytics");
 
   // Get feature adoption trends and predictions
-  app.get("/api/predictive-dashboard/feature-adoption", async (req, res) => {
+  app.get("/api/predictive-dashboard/feature-adoption", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -5013,9 +5122,9 @@ export async function registerRoutes(
   });
 
   // Get churn mitigation dashboard
-  app.get("/api/predictive-dashboard/churn-mitigation", async (req, res) => {
+  app.get("/api/predictive-dashboard/churn-mitigation", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -5032,10 +5141,10 @@ export async function registerRoutes(
   });
 
   // Get specific user churn mitigation strategy
-  app.get("/api/predictive-dashboard/churn-mitigation/:userId", async (req, res) => {
+  app.get("/api/predictive-dashboard/churn-mitigation/:userId", requireUser, async (req, res) => {
     try {
       const { userId: targetUserId } = req.params;
-      const userId = (req as any).session?.userId || "system";
+      const userId = getUserId(req);
       logSecurityEvent({
         userId,
         eventType: "admin_access",
@@ -5090,15 +5199,7 @@ export async function registerRoutes(
       if (content && eventType === "manual_entry") {
         try {
           console.log("[Journal] Starting AI analysis...");
-          const OpenAI = (await import("openai")).default;
-          const openai = new OpenAI({
-            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-            timeout: 15000, // 15 second timeout
-          });
-
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+          const raw = await generatePhiSafeChat({
             messages: [
               {
                 role: "system",
@@ -5123,11 +5224,11 @@ Respond in JSON format with these fields:
                 content: `Journal entry title: "${title}"\n\nContent: "${content}"\n\nMood: ${mood || "not specified"}\n\nSymptoms reported: ${symptoms?.join(", ") || "none"}`
               }
             ],
-            response_format: { type: "json_object" },
+            responseMimeType: "application/json",
           });
 
           console.log("[Journal] AI analysis complete");
-          const analysisResult = JSON.parse(completion.choices[0].message.content || "{}");
+          const analysisResult = JSON.parse(raw || "{}");
           aiAnalysis = {
             ...analysisResult,
             confidenceScore: 0.85,
@@ -5557,7 +5658,7 @@ Respond in JSON format with these fields:
     try {
       const { patientId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       await logPhiAccess({
         userId,
@@ -5584,7 +5685,7 @@ Respond in JSON format with these fields:
   app.post("/api/immunizations", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertImmunizationSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -5617,7 +5718,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getImmunization(id);
       if (!existing) {
@@ -5651,7 +5752,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getImmunization(id);
       if (!existing) {
@@ -5690,7 +5791,7 @@ Respond in JSON format with these fields:
       const { patientId } = req.params;
       const { metricType } = req.query;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       await logPhiAccess({
         userId,
@@ -5722,7 +5823,7 @@ Respond in JSON format with these fields:
   app.post("/api/health-metrics", requireRole("patient", "provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertAdvancedHealthMetricSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -5755,7 +5856,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getAdvancedHealthMetric(id);
       if (!existing) {
@@ -5794,7 +5895,7 @@ Respond in JSON format with these fields:
       const { patientId } = req.params;
       const { conditionType } = req.query;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       await logPhiAccess({
         userId,
@@ -5826,7 +5927,7 @@ Respond in JSON format with these fields:
   app.post("/api/condition-proms", requireRole("patient", "provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const validationResult = insertConditionSpecificPROMSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -5859,7 +5960,7 @@ Respond in JSON format with these fields:
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       
       const existing = await storage.getConditionSpecificPROM(id);
       if (!existing) {
@@ -6779,18 +6880,13 @@ STRICT NO-CDS CONSTRAINTS:
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      for await (const content of generatePhiSafeChatStream({
         messages: [
           { role: "system", content: "You are a QUOTE-FIRST health record summarizer. EVERY claim MUST start with a direct quote from the records, followed by plain-language explanation. ABSOLUTELY NO recommendations, advice, risk assessments, or action items. Only allowed verbs: 'shows', 'states', 'indicates', 'lists', 'records'. Forbidden words: 'should', 'must', 'need', 'recommend', 'advise', 'concerning', 'important', 'urgent', 'normal', 'abnormal'." },
           { role: "user", content: prompt }
         ],
-        stream: true,
-        max_completion_tokens: 1024,
-      });
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
+        maxTokens: 1024,
+      })) {
         if (content) {
           res.write(`data: ${JSON.stringify({ content })}\n\n`);
         }
@@ -7297,6 +7393,22 @@ STRICT NO-CDS CONSTRAINTS:
     } catch (error) {
       console.error("Error fetching pharmacies:", error);
       res.status(500).json({ error: "Failed to fetch pharmacies" });
+    }
+  });
+
+  // Typeahead: search pharmacies by name + city via the public NPPES registry.
+  // Registered BEFORE /:id so "search" isn't captured as an id.
+  app.get("/api/pharmacies/search", requirePermission("records:read"), async (req, res) => {
+    try {
+      const { searchPharmacies } = await import("./services/pharmacy-lookup");
+      const name = typeof req.query.name === "string" ? req.query.name : "";
+      const city = typeof req.query.city === "string" ? req.query.city : undefined;
+      const state = typeof req.query.state === "string" ? req.query.state : undefined;
+      const results = await searchPharmacies(name, city, state);
+      res.json({ results });
+    } catch (error) {
+      console.error("Error searching pharmacies:", error);
+      res.status(500).json({ error: "Failed to search pharmacies" });
     }
   });
 
@@ -8056,7 +8168,7 @@ STRICT NO-CDS CONSTRAINTS:
     const connections = await storage.getEhrConnections();
     const patients = await storage.getPatients();
     const user = req.user as { claims?: { sub?: string } } | undefined;
-    const currentUserId = user?.claims?.sub || "current-user";
+    const currentUserId = getUserId(req);
     const timelineEvents: UnifiedTimelineEvent[] = [];
 
     for (const patient of patients) {
@@ -8247,8 +8359,7 @@ STRICT NO-CDS CONSTRAINTS:
             `[${e.date}] ${e.type}: ${e.title}${e.description ? ' - ' + e.description.slice(0, 100) : ''}`
           ).join('\n');
 
-          const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+          narrative = await generatePhiSafeChat({
             messages: [
               {
                 role: "system",
@@ -8259,11 +8370,9 @@ STRICT NO-CDS CONSTRAINTS:
                 content: `Please provide a plain-language chronological summary of these health events:\n\n${eventSummaries}`
               }
             ],
-            max_tokens: 500,
+            maxTokens: 500,
             temperature: 0.3,
-          });
-
-          narrative = response.choices[0]?.message?.content || "Unable to generate summary at this time.";
+          }) || "Unable to generate summary at this time.";
         } catch (narrativeError) {
           console.error("Error generating narrative:", narrativeError);
           narrative = "Unable to generate an AI summary at this time. Please review your timeline events below.";
@@ -8455,7 +8564,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/reminders", requirePermission("medications:read"), auditDataAccess("medication_reminders", "list"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const reminders = await storage.getMedicationReminders(userId);
       res.json(reminders);
     } catch (error) {
@@ -8468,7 +8577,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/reminders", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const createReminderSchema = z.object({
         medicationId: z.string().min(1),
@@ -8509,7 +8618,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.patch("/api/medications/reminders/:id", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const updateSchema = z.object({
@@ -8545,7 +8654,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.delete("/api/medications/reminders/:id", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingReminder = await storage.getMedicationReminder(id);
@@ -8568,7 +8677,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/adherence", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const { missedDoseReasons } = await import("@shared/schema");
       
@@ -8632,7 +8741,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/adherence/stats", requirePermission("medications:read"), auditDataAccess("medication_adherence", "view"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { medicationId, periodDays } = req.query;
       
       const stats = await storage.getMedicationAdherenceStats(
@@ -8652,7 +8761,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/adherence/records", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { medicationId } = req.query;
       
       const records = await storage.getMedicationAdherenceRecords(
@@ -8671,7 +8780,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/adherence/patterns", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const records = await storage.getMedicationAdherenceRecords(userId);
       const { analyzeAdherencePatterns } = await import("./medication-ai");
@@ -8688,7 +8797,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/coaching", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const sessions = await storage.getAdherenceCoachingSessions(userId);
       res.json(sessions);
@@ -8702,7 +8811,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/coaching/check-in", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const records = await storage.getMedicationAdherenceRecords(userId);
       const { analyzeAdherencePatterns, generateProactiveCoaching } = await import("./medication-ai");
@@ -8726,7 +8835,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/coaching/:id/complete", requirePermission("medications:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const session = await storage.getAdherenceCoachingSession(id);
@@ -8749,7 +8858,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/interactions", requirePermission("medications:read"), auditDataAccess("drug_interactions", "list"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const interactions = await storage.getDrugInteractions(userId);
       res.json(interactions);
     } catch (error) {
@@ -8762,7 +8871,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/analyze", requirePermission("medications:read"), auditDataAccess("medication_analysis", "view"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const { analyzePatientMedications } = await import("./medication-ai");
       const analysis = await analyzePatientMedications(userId);
@@ -8778,7 +8887,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/interactions/:id/acknowledge", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingInteraction = await storage.getDrugInteraction(id);
@@ -8798,7 +8907,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.get("/api/medications/insights", requirePermission("medications:read"), auditDataAccess("medication_insights", "list"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const insights = await storage.getMedicationAIInsights(userId);
       res.json(insights);
     } catch (error) {
@@ -8811,7 +8920,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.patch("/api/medications/insights/:id/read", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingInsight = await storage.getMedicationAIInsight(id);
@@ -8834,7 +8943,7 @@ STRICT NO-CDS CONSTRAINTS:
   app.post("/api/medications/insights/:id/dismiss", requirePermission("medications:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existingInsight = await storage.getMedicationAIInsight(id);
@@ -8958,18 +9067,17 @@ Provide:
 
 IMPORTANT: Only provide educational information. Do NOT provide medical advice, recommendations, or diagnosis. Keep the explanation factual and neutral.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const explanation = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a helpful medical education assistant that explains medical terms in plain English. Never provide medical advice or recommendations." },
           { role: "user", content: prompt }
         ],
-        max_completion_tokens: 256,
+        maxTokens: 256,
       });
 
       res.json({
         term,
-        explanation: response.choices[0]?.message?.content || "No explanation available",
+        explanation: explanation || "No explanation available",
       });
     } catch (error) {
       console.error("Error explaining term:", error);
@@ -10541,7 +10649,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/assistant/conversations", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const conversations = await storage.getAssistantConversations(userId);
       res.json(conversations);
@@ -10555,7 +10663,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/assistant/conversations/:id", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const conversation = await storage.getAssistantConversation(req.params.id);
       if (!conversation || conversation.userId !== userId) {
@@ -10574,7 +10682,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/conversations", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { patientId, title } = req.body;
       
       const conversation = await storage.createAssistantConversation({
@@ -10594,7 +10702,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/assistant/conversations/:id", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       await storage.deleteAssistantConversation(req.params.id, userId);
       res.json({ success: true });
@@ -10608,7 +10716,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/conversations/:id/messages", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { message, patientId, language } = req.body;
       
       if (!message || message.trim().length === 0) {
@@ -10688,7 +10796,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/conversations/:id/stream", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { message, patientId, language } = req.body;
       
       if (!message || message.trim().length === 0) {
@@ -10817,7 +10925,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/assistant/ask", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { question, patientId, language } = req.body;
       
       if (!question || question.trim().length === 0) {
@@ -10863,7 +10971,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/dashboard", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const stats = await storage.getPrivacyDashboardStats(userId);
       const summaries = await storage.getConsentSummaries(userId);
@@ -10879,7 +10987,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/recipients", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const recipients = await storage.getSharingRecipients(userId);
       res.json(recipients);
@@ -10893,7 +11001,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/privacy/recipients", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertSharingRecipientSchema.safeParse({
         ...req.body,
@@ -10926,7 +11034,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.patch("/api/privacy/recipients/:id", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const existing = await storage.getSharingRecipient(id);
@@ -10963,7 +11071,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/privacy/recipients/:id", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       await storage.deleteSharingRecipient(id, userId);
@@ -10988,7 +11096,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/recipients/:id/consents", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const recipient = await storage.getSharingRecipient(id);
@@ -11008,7 +11116,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.put("/api/privacy/recipients/:id/consents", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       const { consents } = req.body;
       
@@ -11051,7 +11159,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/consents", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const consents = await storage.getDataSharingConsents(userId);
       res.json(consents);
@@ -11065,7 +11173,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/privacy/consents", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertDataSharingConsentSchema.safeParse({
         ...req.body,
@@ -11100,7 +11208,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/privacy/consents/:id", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const consent = await storage.getDataSharingConsent(id);
@@ -11133,7 +11241,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/policies", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const policies = await storage.getDefaultSharingPolicies(userId);
       res.json(policies);
@@ -11147,7 +11255,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.put("/api/privacy/policies", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertDefaultSharingPolicySchema.safeParse({
         ...req.body,
@@ -11181,7 +11289,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/audit-log", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 50;
       
       const logs = await storage.getConsentAuditLogs(userId, limit);
@@ -11196,7 +11304,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/privacy/check", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { patientUserId, category } = req.query;
       
       if (!patientUserId || !category) {
@@ -11228,7 +11336,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/preferences", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const prefs = await storage.getResearchPreferences(userId);
       res.json(prefs || {
@@ -11249,7 +11357,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.put("/api/research/preferences", requirePermission("security:write"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const parsed = insertResearchPreferencesSchema.safeParse({
         ...req.body,
@@ -11281,7 +11389,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/datasets", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const datasets = await storage.getDeidentifiedDatasets(userId);
       res.json(datasets);
@@ -11295,7 +11403,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/stats", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const stats = await getDatasetStats(userId);
       res.json(stats);
@@ -11309,7 +11417,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/research/datasets", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const { method, purpose, categories, dateShiftDays, ageThreshold, zipCodeTruncation } = req.body;
       
@@ -11394,7 +11502,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/datasets/:id", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const dataset = await storage.getDeidentifiedDataset(id);
@@ -11414,7 +11522,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/datasets/:id/download", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       const { format } = req.query;
       
@@ -11471,7 +11579,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.delete("/api/research/datasets/:id", requirePermission("records:export"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       
       const dataset = await storage.getDeidentifiedDataset(id);
@@ -11493,7 +11601,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/research/audit-log", requirePermission("security:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const logs = await storage.getDeidentificationAuditLogsByUser(userId);
       res.json(logs);
@@ -11511,7 +11619,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/risk-assessments", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const assessments = await storage.getHealthRiskAssessments(patientId);
       res.json(assessments);
@@ -11525,7 +11633,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/health-insights/risk-assessments/generate", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const assessments = await generateHealthRiskAssessment(patientId);
       res.json(assessments);
@@ -11556,7 +11664,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/coaching", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const sessions = await storage.getHealthCoachingSessions(patientId);
       res.json(sessions);
@@ -11570,7 +11678,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/health-insights/coaching", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const { goalType, customGoal } = req.body;
       
       if (!goalType) {
@@ -11668,7 +11776,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/personalized", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const insights = await storage.getPersonalizedHealthInsights(patientId);
       res.json(insights);
@@ -11682,7 +11790,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.post("/api/health-insights/personalized/generate", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const insights = await generatePersonalizedInsights(patientId);
       res.json(insights);
@@ -11725,7 +11833,7 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   app.get("/api/health-insights/dashboard", requirePermission("records:read"), async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [riskAssessments, coachingSessions, personalizedInsights] = await Promise.all([
         storage.getHealthRiskAssessments(patientId),
@@ -11755,10 +11863,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // ============================================
 
   // Analyze health data and generate predictive risk assessments
-  app.post("/api/health-insights/predictive/analyze", async (req, res) => {
+  app.post("/api/health-insights/predictive/analyze", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [medications, allergies, conditions, labResults] = await Promise.all([
         storage.getMedicationsByPatient(patientId),
@@ -11807,10 +11915,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Generate AI-powered patient health summary
-  app.post("/api/health-insights/summary/generate", async (req, res) => {
+  app.post("/api/health-insights/summary/generate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [medications, allergies, conditions, labResults] = await Promise.all([
         storage.getMedicationsByPatient(patientId),
@@ -11844,10 +11952,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get lab trend analysis
-  app.get("/api/health-insights/lab-trends", async (req, res) => {
+  app.get("/api/health-insights/lab-trends", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const timeframeDays = parseInt(req.query.days as string) || 365;
       
       const labResults = await storage.getLabResultsByPatient(patientId);
@@ -11868,10 +11976,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get combined predictive insights (summary + risks + trends)
-  app.get("/api/health-insights/predictive", async (req, res) => {
+  app.get("/api/health-insights/predictive", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [medications, allergies, conditions, labResults, wearableConnections, wearableData] = await Promise.all([
         storage.getMedicationsByPatient(patientId),
@@ -11978,10 +12086,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // ============================================
 
   // Get personalized content recommendations
-  app.get("/api/content-recommendations", async (req, res) => {
+  app.get("/api/content-recommendations", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [conditions, medications, labResults] = await Promise.all([
         storage.getProblemsByPatient(patientId),
@@ -12038,10 +12146,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get enhanced health trend analysis
-  app.get("/api/health-insights/trends/enhanced", async (req, res) => {
+  app.get("/api/health-insights/trends/enhanced", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [labResults, vitals] = await Promise.all([
         storage.getLabResultsByPatient(patientId),
@@ -12071,10 +12179,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get early warning indicators
-  app.get("/api/health-insights/warnings", async (req, res) => {
+  app.get("/api/health-insights/warnings", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [conditions, medications, labResults, vitals] = await Promise.all([
         storage.getProblemsByPatient(patientId),
@@ -12109,10 +12217,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get combined insights dashboard data (recommendations + trends + warnings)
-  app.get("/api/health-insights/enhanced-dashboard", async (req, res) => {
+  app.get("/api/health-insights/enhanced-dashboard", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const [conditions, medications, labResults, vitals] = await Promise.all([
         storage.getProblemsByPatient(patientId),
@@ -12257,10 +12365,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // ============================================
 
   // Get gamification summary (stats, badges, streaks, nudges)
-  app.get("/api/gamification/summary", async (req, res) => {
+  app.get("/api/gamification/summary", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const { 
         createInitialPlayerStats, 
@@ -12348,10 +12456,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Record daily check-in and update streak
-  app.post("/api/gamification/checkin", async (req, res) => {
+  app.post("/api/gamification/checkin", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const { 
         updateStreak, 
@@ -12406,10 +12514,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Award points for goal progress
-  app.post("/api/gamification/award-points", async (req, res) => {
+  app.post("/api/gamification/award-points", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const { category, description, goalId } = req.body;
       
@@ -12454,10 +12562,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get leaderboard
-  app.get("/api/gamification/leaderboard", async (req, res) => {
+  app.get("/api/gamification/leaderboard", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const type = (req.query.type as "weekly" | "monthly" | "all_time") || "weekly";
       
       const { generateAnonymousLeaderboard, createInitialPlayerStats } = await import("./gamification-engine");
@@ -12513,10 +12621,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   });
 
   // Get point history
-  app.get("/api/gamification/points/history", async (req, res) => {
+  app.get("/api/gamification/points/history", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 20;
       
       const transactions = await storage.getPointTransactions(patientId, limit);
@@ -12535,10 +12643,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
   // PATIENT ENGAGEMENT ENHANCEMENTS
   // ============================================
 
-  app.post("/api/gamification/record-adherence", async (req, res) => {
+  app.post("/api/gamification/record-adherence", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const { medicationName, action } = req.body;
 
       const { createPointTransaction, calculateLevel, createInitialPlayerStats, updateStreak } = await import("./gamification-engine");
@@ -12592,10 +12700,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
     }
   });
 
-  app.get("/api/gamification/adherence-stats", async (req, res) => {
+  app.get("/api/gamification/adherence-stats", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const streaks = await storage.getStreakRecords(patientId);
       const medStreak = streaks.find(s => s.streakType === "medication_adherence");
@@ -12636,10 +12744,10 @@ IMPORTANT: Only provide educational information. Do NOT provide medical advice, 
     }
   });
 
-  app.post("/api/gamification/record-journal", async (req, res) => {
+  app.post("/api/gamification/record-journal", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const { entryType } = req.body;
 
       const { createPointTransaction, calculateLevel, createInitialPlayerStats } = await import("./gamification-engine");
@@ -12778,14 +12886,13 @@ Generate a JSON response with this structure:
   "disclaimer": "This analysis is for informational purposes only and does not constitute medical advice, diagnosis, or treatment. Always consult with the treating physician."
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const raw = await generatePhiSafeChat({
         messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4096,
+        responseMimeType: "application/json",
+        maxTokens: 4096,
       });
 
-      const analysis = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const analysis = JSON.parse(raw || "{}");
       analysis.generatedAt = new Date().toISOString();
       analysis.analysisId = `ai-assist-${Date.now()}`;
 
@@ -12880,14 +12987,13 @@ Generate a JSON response:
   "disclaimer": "These predictions are based on historical data patterns and are for informational purposes only. They do not constitute medical advice. Always consult with your healthcare provider for medical decisions."
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const rawPrediction = await generatePhiSafeChat({
         messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 4096,
+        responseMimeType: "application/json",
+        maxTokens: 4096,
       });
 
-      const prediction = JSON.parse(response.choices[0]?.message?.content || "{}");
+      const prediction = JSON.parse(rawPrediction || "{}");
       prediction.generatedAt = new Date().toISOString();
       prediction.patientId = patientId;
 
@@ -12920,10 +13026,10 @@ Generate a JSON response:
   };
 
   // Get message threads for a patient
-  app.get("/api/messages/threads", async (req, res) => {
+  app.get("/api/messages/threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       res.json(threads);
@@ -12934,10 +13040,10 @@ Generate a JSON response:
   });
 
   // Get unread message count for the current user
-  app.get("/api/messages/unread-count", async (req, res) => {
+  app.get("/api/messages/unread-count", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       const totalUnread = threads.reduce((sum, thread) => sum + thread.unreadCount, 0);
@@ -12950,10 +13056,10 @@ Generate a JSON response:
   });
 
   // Get recent message notifications for the notification dropdown
-  app.get("/api/messages/notifications/recent", async (req, res) => {
+  app.get("/api/messages/notifications/recent", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       
@@ -12983,10 +13089,10 @@ Generate a JSON response:
   });
 
   // Mark all messages as read
-  app.post("/api/messages/mark-all-read", async (req, res) => {
+  app.post("/api/messages/mark-all-read", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const threads = await storage.getMessageThreads(patientId);
       for (const thread of threads) {
@@ -13003,11 +13109,11 @@ Generate a JSON response:
   });
 
   // Get a specific thread with messages
-  app.get("/api/messages/threads/:id", async (req, res) => {
+  app.get("/api/messages/threads/:id", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const thread = await storage.getMessageThread(id);
       
@@ -13033,10 +13139,10 @@ Generate a JSON response:
   });
 
   // Create a new message thread
-  app.post("/api/messages/threads", async (req, res) => {
+  app.post("/api/messages/threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       const validation = insertMessageThreadSchema.safeParse({
         ...req.body,
@@ -13057,11 +13163,11 @@ Generate a JSON response:
   });
 
   // Archive a thread
-  app.post("/api/messages/threads/:id/archive", async (req, res) => {
+  app.post("/api/messages/threads/:id/archive", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       
       // Verify ownership
       if (!await verifyThreadOwnership(id, patientId)) {
@@ -13077,11 +13183,11 @@ Generate a JSON response:
   });
 
   // Close a thread
-  app.post("/api/messages/threads/:id/close", async (req, res) => {
+  app.post("/api/messages/threads/:id/close", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify ownership
       if (!await verifyThreadOwnership(id, userId)) {
@@ -13100,11 +13206,11 @@ Generate a JSON response:
   });
 
   // Mark all messages in a thread as read
-  app.post("/api/messages/threads/:id/read", async (req, res) => {
+  app.post("/api/messages/threads/:id/read", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify ownership
       if (!await verifyThreadOwnership(id, userId)) {
@@ -13120,11 +13226,11 @@ Generate a JSON response:
   });
 
   // Send a message in a thread
-  app.post("/api/messages/threads/:id/messages", async (req, res) => {
+  app.post("/api/messages/threads/:id/messages", requireUser, async (req, res) => {
     try {
       const { id: threadId } = req.params;
       const user = req.user as any;
-      const senderId = user?.claims?.sub || "current-user";
+      const senderId = getUserId(req);
       const senderName = user?.claims?.name || "Patient";
       
       // Verify ownership/participation
@@ -13173,11 +13279,11 @@ Generate a JSON response:
   });
 
   // Delete a message (only message owner can delete)
-  app.delete("/api/messages/:id", async (req, res) => {
+  app.delete("/api/messages/:id", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify message ownership
       const message = await storage.getSecureMessage(id);
@@ -13197,11 +13303,11 @@ Generate a JSON response:
   });
 
   // Delete an attachment (only uploader can delete)
-  app.delete("/api/messages/attachments/:id", async (req, res) => {
+  app.delete("/api/messages/attachments/:id", requireUser, async (req, res) => {
     try {
       const { id } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Verify attachment ownership via message
       const attachments = await storage.getMessageAttachments(id);
@@ -13244,7 +13350,7 @@ Generate a JSON response:
     if (!user) {
       return { patientId: "", authorized: false };
     }
-    const patientId = user.claims?.sub || "current-user";
+    const patientId = getUserId(req);
     // In production, add additional role-based checks here
     // e.g., user.role must include 'patient' or 'care_coordinator' with EHR access
     return { patientId, authorized: true };
@@ -13408,10 +13514,10 @@ Generate a JSON response:
   // ============================================
 
   // Get all wearable connections for user
-  app.get("/api/wearables/connections", async (req, res) => {
+  app.get("/api/wearables/connections", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const connections = await storage.getWearableConnections(userId);
       res.json(connections);
     } catch (error) {
@@ -13436,10 +13542,10 @@ Generate a JSON response:
   });
 
   // Create new wearable connection
-  app.post("/api/wearables/connections", async (req, res) => {
+  app.post("/api/wearables/connections", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const connection = await storage.createWearableConnection({
         ...req.body,
         userId,
@@ -13505,10 +13611,10 @@ Generate a JSON response:
   // ============================================
 
   // Get wearable data records with filters
-  app.get("/api/wearables/data", async (req, res) => {
+  app.get("/api/wearables/data", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { dataType, startDate, endDate } = req.query;
       
       const records = await storage.getWearableDataRecords(
@@ -13525,10 +13631,10 @@ Generate a JSON response:
   });
 
   // Get latest data for a specific type
-  app.get("/api/wearables/data/latest/:dataType", async (req, res) => {
+  app.get("/api/wearables/data/latest/:dataType", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { dataType } = req.params;
       
       const record = await storage.getLatestWearableData(userId, dataType as any);
@@ -13559,10 +13665,10 @@ Generate a JSON response:
   // ============================================
 
   // Get all external data sources (EHR + Wearables combined)
-  app.get("/api/data-sources", async (req, res) => {
+  app.get("/api/data-sources", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const sources = await storage.getAllExternalDataSources(userId);
       res.json(sources);
     } catch (error) {
@@ -13587,10 +13693,10 @@ Generate a JSON response:
   // ============================================
 
   // Get onboarding status
-  app.get("/api/onboarding/status", async (req, res) => {
+  app.get("/api/onboarding/status", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const status = await storage.getOnboardingStatus(userId);
       res.json(status || { hasCompletedOnboarding: false, completedSteps: [] });
     } catch (error) {
@@ -13600,10 +13706,10 @@ Generate a JSON response:
   });
 
   // Complete onboarding
-  app.post("/api/onboarding/complete", async (req, res) => {
+  app.post("/api/onboarding/complete", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { completedSteps, goals } = req.body;
 
       // Validate completedSteps
@@ -13689,10 +13795,10 @@ Generate a JSON response:
   });
 
   // Complete patient registration with full form data
-  app.post("/api/patient-onboarding/complete", async (req, res) => {
+  app.post("/api/patient-onboarding/complete", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       // Validate request body with Zod
       const { z } = await import("zod");
@@ -14048,7 +14154,7 @@ Generate a JSON response:
   app.post("/api/care-plans", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const createdBy = user?.claims?.sub || "system";
+      const createdBy = getUserId(req);
       
       const { insertCarePlanSchema } = await import("@shared/schema");
       const validation = insertCarePlanSchema.safeParse({ ...req.body, createdBy });
@@ -14451,11 +14557,7 @@ Generate a JSON response:
         // Run AI analysis for the alert
         let aiAnalysis = "";
         try {
-          const OpenAI = (await import("openai")).default;
-          const openai = new OpenAI();
-          
-          const aiResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
+          aiAnalysis = await generatePhiSafeChat({
             messages: [
               {
                 role: "system",
@@ -14474,10 +14576,8 @@ Answers: ${JSON.stringify(processedAnswers, null, 2)}
 Provide a brief clinical analysis and recommended actions.`
               }
             ],
-            max_tokens: 300,
-          });
-          
-          aiAnalysis = aiResponse.choices[0]?.message?.content || "";
+            maxTokens: 300,
+          }) || "";
         } catch (aiError) {
           console.error("AI analysis error:", aiError);
           aiAnalysis = "AI analysis unavailable. Manual review recommended.";
@@ -17668,16 +17768,12 @@ Secure Healthcare System`;
       const medications = await storage.getMedicationsByPatient(patientId);
       const conditions = await storage.getConditions(patientId);
       
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI();
-      
       const context = {
         medications: medications.map(m => m.name).slice(0, 5),
         conditions: conditions.map(c => c.name).slice(0, 5),
       };
-      
-      const aiResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
+
+      const rawTips = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -17692,12 +17788,11 @@ Conditions: ${context.conditions.join(", ") || "None specified"}
 Return JSON array of tips.`
           }
         ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
+        responseMimeType: "application/json",
+        maxTokens: 1000,
       });
-      
-      const content = aiResponse.choices[0]?.message?.content;
-      const parsedTips = content ? JSON.parse(content) : { tips: [] };
+
+      const parsedTips = rawTips ? JSON.parse(rawTips) : { tips: [] };
       const generatedTips = parsedTips.tips || [];
       
       // Save and deliver tips
@@ -17892,20 +17987,18 @@ IMPORTANT:
 4. Include clear warning signs that would require immediate care
 5. This is educational only - always include a disclaimer`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const rawTriage = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a medical triage AI assistant. Provide helpful, accurate, and safe guidance while always recommending professional medical consultation for concerning symptoms. Never provide definitive diagnoses." },
           { role: "user", content: prompt }
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const analysisText = completion.choices[0]?.message?.content || "{}";
       let analysis;
       try {
-        analysis = JSON.parse(analysisText);
+        analysis = JSON.parse(rawTriage || "{}");
       } catch {
         analysis = {
           summary: "Unable to analyze symptoms. Please consult a healthcare provider.",
@@ -18086,17 +18179,16 @@ Generate a comprehensive yet concise medical summary. Return a JSON object with:
 
 Be thorough but prioritize clinically relevant information. Mark high-relevance items that providers should focus on.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const rawSummary = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a clinical AI assistant specializing in medical record summarization. Always respond with valid JSON." },
           { role: "user", content: prompt }
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+      const aiResult = JSON.parse(rawSummary || "{}");
 
       // Build the medical summary
       const summary: MedicalSummary = {
@@ -18326,17 +18418,16 @@ STRICT CONSTRAINTS:
 
       let aiResult: any;
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
+        const rawChart = await generatePhiSafeChat({
           messages: [
             { role: "system", content: "You are a clinical chart summarization AI. Always respond with valid JSON. Never provide clinical recommendations or decision support." },
             { role: "user", content: prompt }
           ],
-          response_format: { type: "json_object" },
+          responseMimeType: "application/json",
           temperature: 0.2,
-          max_completion_tokens: 1200,
+          maxTokens: 1200,
         });
-        aiResult = JSON.parse(response.choices[0].message.content || "{}");
+        aiResult = JSON.parse(rawChart || "{}");
       } catch (aiError) {
         console.error("AI chart summary generation failed, using fallback:", aiError);
         aiResult = {
@@ -18389,14 +18480,14 @@ STRICT CONSTRAINTS:
   // AI CHART INSIGHTS - Risk Stratification, History Summary, Care Gaps
   // ============================================
 
-  app.get("/api/patients/:patientId/predictive-risk", async (req, res) => {
+  app.get("/api/patients/:patientId/predictive-risk", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      const userId = (req as any).session?.userId || (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { logPhiAccess } = await import("./security/hipaa-audit");
       await logPhiAccess({ userId, patientId, resourceType: "PredictiveRiskStratification", action: "read", details: `AI predictive risk stratification accessed for patient ${patientId}`, requestPath: req.path, requestMethod: req.method });
       const { getPredictiveRiskStratification } = await import("./services/ai-chart-insights-service");
@@ -18408,14 +18499,14 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/history-summary", async (req, res) => {
+  app.get("/api/patients/:patientId/history-summary", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      const userId = (req as any).session?.userId || (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { logPhiAccess } = await import("./security/hipaa-audit");
       await logPhiAccess({ userId, patientId, resourceType: "ComprehensiveHistorySummary", action: "read", details: `AI comprehensive history summary accessed for patient ${patientId}`, requestPath: req.path, requestMethod: req.method });
       const { getComprehensiveHistorySummary } = await import("./services/ai-chart-insights-service");
@@ -18427,14 +18518,14 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/care-gaps-ai", async (req, res) => {
+  app.get("/api/patients/:patientId/care-gaps-ai", requireUser, async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      const userId = (req as any).session?.userId || (req as any).user?.id || "system";
+      const userId = getUserId(req);
       const { logPhiAccess } = await import("./security/hipaa-audit");
       await logPhiAccess({ userId, patientId, resourceType: "CareGapAnalysis", action: "read", details: `AI care gap analysis accessed for patient ${patientId}`, requestPath: req.path, requestMethod: req.method });
       const { getCareGapAnalysis } = await import("./services/ai-chart-insights-service");
@@ -18806,18 +18897,17 @@ Return a JSON object:
 
 Focus on actionable, clinically relevant predictions. Be specific about risk factors and interventions.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const rawForecast = await generatePhiSafeChat({
         messages: [
           { role: "system", content: "You are a clinical AI assistant specializing in predictive health analytics. Always respond with valid JSON. Your predictions should be evidence-based and actionable." },
           { role: "user", content: prompt }
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.3,
       });
 
-      const aiResult = JSON.parse(response.choices[0].message.content || "{}");
-      
+      const aiResult = JSON.parse(rawForecast || "{}");
+
       // Store each forecast
       const savedForecasts = [];
       const dataSources: ("conditions" | "medications" | "labs" | "vitals" | "proms" | "triage" | "family_history" | "lifestyle")[] = [];
@@ -19087,8 +19177,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
              "pointsReward": 50
            }`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5.1",
+      const rawEducation = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -19096,16 +19185,15 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
           },
           { role: "user", content: prompt },
         ],
-        response_format: { type: "json_object" },
+        responseMimeType: "application/json",
         temperature: 0.7,
       });
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
+      if (!rawEducation) {
         throw new Error("No response from AI");
       }
 
-      const generated = JSON.parse(response);
+      const generated = JSON.parse(rawEducation);
       const now = new Date().toISOString();
 
       if (type === "article") {
@@ -19976,7 +20064,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
   // ============================================
 
   // Universal search endpoint with AI natural language processing
-  app.post("/api/search", async (req, res) => {
+  app.post("/api/search", requireUser, async (req, res) => {
     try {
       const { query, patientId, filters, isVoiceQuery, queryLanguage } = req.body;
       const startTime = Date.now();
@@ -19986,8 +20074,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
       let nlpFilters: SearchFilters = filters || {};
 
       try {
-        const nlpResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
+        const rawNlp = await generatePhiSafeChat({
           messages: [
             {
               role: "system",
@@ -20013,11 +20100,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
               content: query,
             },
           ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 200,
+          responseMimeType: "application/json",
+          maxTokens: 200,
         });
 
-        const parsed = JSON.parse(nlpResponse.choices[0]?.message?.content || "{}");
+        const parsed = JSON.parse(rawNlp || "{}");
         interpretedQuery = parsed.searchTerms || query;
         if (parsed.dataTypes) nlpFilters.dataTypes = parsed.dataTypes;
         if (parsed.dateFrom) nlpFilters.dateFrom = parsed.dateFrom;
@@ -20038,7 +20125,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const executionTimeMs = Date.now() - startTime;
 
       // Save search query for history
-      const userId = (req as any).user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const searchQuery: SearchQuery = {
         id: randomUUID(),
         patientId,
@@ -20097,9 +20184,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Get recent searches
-  app.get("/api/search/history", async (req, res) => {
+  app.get("/api/search/history", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.claims?.sub || "anonymous";
+      const userId = getUserId(req);
       const limit = parseInt(req.query.limit as string) || 10;
       const searches = await storage.getRecentSearches(userId, limit);
       res.json(searches);
@@ -20116,13 +20203,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
 
       // Transcribe audio using Whisper
       const audioBuffer = Buffer.from(audioBase64, "base64");
-      const audioFile = new File([audioBuffer], "audio.webm", { type: "audio/webm" });
-
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-1",
-        language: language || undefined,
-      });
+      // GCP Speech-to-Text (BAA) via the shared audio client — not OpenAI Whisper.
+      const { speechToText } = await import("./replit_integrations/audio/client");
+      const transcription = { text: await speechToText(audioBuffer, "webm") };
 
       // Perform search with transcribed text
       const searchResponse = await fetch(`http://localhost:5000/api/search`, {
@@ -20361,7 +20444,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       const user = (req as any).user;
-      const generatedBy = user?.claims?.email || user?.claims?.sub || "system";
+      const generatedBy = user?.claims?.email || getUserId(req);
 
       const report = await generateReport({
         name,
@@ -21581,7 +21664,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const user = req.user as any;
       const incident = await storage.createSafetyIncident({
         ...req.body,
-        reporterId: user?.claims?.sub || "system",
+        reporterId: getUserId(req),
       });
       res.status(201).json(incident);
     } catch (error) {
@@ -21774,7 +21857,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_schedule_optimization",
         resourceType: "appointment",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI scheduling optimization",
         accessType: "read",
         phiFields: ["patientId", "conditions", "medications"],
@@ -21816,7 +21899,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_prior_auth_generation",
         resourceType: "prior_authorization",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI prior authorization generation",
         accessType: "create",
         phiFields: ["patientId", "conditions", "medications", "procedures"],
@@ -21864,7 +21947,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_prior_auth_status_check",
         resourceType: "prior_authorization",
         resourceId: req.params.requestId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "Prior authorization status check",
         accessType: "read",
         phiFields: ["requestId", "status"],
@@ -21898,7 +21981,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_visit_summary_generation",
         resourceType: "visit_summary",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI visit summary generation",
         accessType: "create",
         phiFields: ["patientId", "visitDate", "chiefComplaint", "clinicalNotes"],
@@ -21948,7 +22031,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_referral_generation",
         resourceType: "referral",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI referral letter generation",
         accessType: "create",
         phiFields: ["patientId", "conditions", "medications", "reason"],
@@ -21997,7 +22080,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_intake_form_generation",
         resourceType: "intake_form",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI adaptive intake form generation",
         accessType: "create",
         phiFields: ["patientId", "conditions", "medications"],
@@ -22039,7 +22122,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "ai_intake_analysis",
         resourceType: "intake_response",
         resourceId: parsed.data.patientId,
-        userId: userId || "system",
+        userId: userId,
         accessReason: "AI intake response analysis",
         accessType: "read",
         phiFields: ["patientId", "responses"],
@@ -22151,7 +22234,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "export_policy_created",
         resourceType: "export_policy",
         resourceId: policy.id,
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         accessReason: "Admin created export policy",
         accessType: "create",
         phiFields: [],
@@ -22177,7 +22260,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "export_policy_updated",
         resourceType: "export_policy",
         resourceId: req.params.id,
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         accessReason: "Admin updated export policy",
         accessType: "update",
         phiFields: [],
@@ -22200,7 +22283,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         action: "export_policy_deleted",
         resourceType: "export_policy",
         resourceId: req.params.id,
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         accessReason: "Admin deleted export policy",
         accessType: "delete",
         phiFields: [],
@@ -22337,7 +22420,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/export-control/requests/:id/approve", requireRole("admin", "provider"), async (req, res) => {
     try {
       const user = req.user as any;
-      const approverId = user?.claims?.sub || "system";
+      const approverId = getUserId(req);
       
       const request = await storage.approveExportRequest(req.params.id, approverId);
       if (!request) {
@@ -22365,7 +22448,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/export-control/requests/:id/deny", requireRole("admin", "provider"), async (req, res) => {
     try {
       const user = req.user as any;
-      const approverId = user?.claims?.sub || "system";
+      const approverId = getUserId(req);
       const reason = req.body.reason || "No reason provided";
       
       const request = await storage.denyExportRequest(req.params.id, approverId, reason);
@@ -23607,7 +23690,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "patient";
       
       const validationResult = documentAnalysisRequestSchema.safeParse(req.body);
@@ -23676,7 +23759,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "patient";
 
       await logPhiAccess({
@@ -23710,7 +23793,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     try {
       const { patientId } = req.params;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "patient";
 
       await logPhiAccess({
@@ -23850,7 +23933,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/alerts", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
 
       const { patientId, status, severity } = req.query;
@@ -23880,7 +23963,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/alerts/:alertId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
 
@@ -23909,7 +23992,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/alerts/:alertId/acknowledge", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userName = user?.claims?.name || user?.claims?.email || "Unknown";
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
@@ -23939,7 +24022,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/alerts/:alertId/resolve", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
 
@@ -23975,7 +24058,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/alerts/:alertId/escalate", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { alertId } = req.params;
 
@@ -24011,7 +24094,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/interventions", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
 
       const { patientId, alertId, status } = req.query;
@@ -24041,7 +24124,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/interventions/:interventionId/approve", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { interventionId } = req.params;
 
@@ -24070,7 +24153,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/interventions/:interventionId/complete", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { interventionId } = req.params;
 
@@ -24106,7 +24189,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.post("/api/health-monitoring/analyze/:patientId", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
       const { patientId } = req.params;
 
@@ -24176,7 +24259,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   app.get("/api/health-monitoring/dashboard", requireRole("provider", "admin"), async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "system";
+      const userId = getUserId(req);
       const userRole = (req as any).userRole || "provider";
 
       await logPhiAccess({
@@ -24243,6 +24326,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   console.log("[Routes] Provider Integration Hub routes registered at /api/provider-integration");
 
   const providerIntegration = await import("./services/providerIntegration");
+  const providerDirectoryStore = await import("./services/providerDirectoryStore");
   const {
     providerSearchFiltersSchema,
     insertFhirEhrConnectionSchema,
@@ -24269,7 +24353,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const patientId = req.query.patientId as string || user?.claims?.sub;
       
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "EHR_Connection",
         action: "read",
@@ -24304,7 +24388,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       );
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: data.patientId,
         resourceType: "EHR_Connection",
         action: "create",
@@ -24327,7 +24411,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const syncLog = await providerIntegration.ehrIntegrationService.syncConnection(connectionId, resourceTypes);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: syncLog.patientId,
         resourceType: "EHR_Sync",
         action: "create",
@@ -24362,7 +24446,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const connection = providerIntegration.ehrIntegrationService.getConnection(connectionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection?.patientId || "unknown",
         resourceType: "FHIR_Patient_Record",
         action: "read",
@@ -24390,7 +24474,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const connection = providerIntegration.ehrIntegrationService.getConnection(connectionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection?.patientId || "unknown",
         resourceType: "FHIR_Lab_Results",
         action: "read",
@@ -24413,7 +24497,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const connection = providerIntegration.ehrIntegrationService.getConnection(connectionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection?.patientId || "unknown",
         resourceType: "FHIR_Medication_History",
         action: "read",
@@ -24472,7 +24556,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const result = await providerIntegration.ehrIntegrationService.sendPrescriptionToEhr(connectionId, validationResult.data);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection.patientId,
         resourceType: "FHIR_Prescription_Transmission",
         action: "create",
@@ -24507,7 +24591,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const result = await providerIntegration.ehrIntegrationService.sendReferralToEhr(connectionId, validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: connection.patientId,
         resourceType: "FHIR_Referral_Transmission",
         action: "create",
@@ -24532,7 +24616,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       );
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         resourceType: "External_Provider_Query",
         action: "read",
         details: `Queried external provider ${providerId} on ${ehrSystem} network`,
@@ -24545,13 +24629,97 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
+  // Underinsured "Sesame" cash-pay marketplace — proxied server-to-server
+  // (public, non-PHI provider + cash-price data) and served same-origin so the
+  // PHR can show a "pay-cash, find-a-price" tab without CORS.
+  app.get("/api/marketplace/categories", requireRole("patient", "provider", "admin", "caregiver"), async (_req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace("/marketplace/categories");
+    res.json(r.data);
+  });
+  // Cash-price lookup: category=LAB|IMAGING|RX, q=service, zip. Returns quotes low→high.
+  app.get("/api/marketplace/price-lookup", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace("/marketplace/price-lookup", {
+      category: typeof req.query.category === "string" ? req.query.category : undefined,
+      q: typeof req.query.q === "string" ? req.query.q : undefined,
+      zip: typeof req.query.zip === "string" ? req.query.zip : undefined,
+    });
+    res.json(r.data);
+  });
+  app.get("/api/marketplace/providers/:id", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
+    const { proxyMarketplace } = await import("./services/marketplace-proxy");
+    const r = await proxyMarketplace(`/marketplace/providers/${encodeURIComponent(req.params.id)}`);
+    res.json(r.data);
+  });
+
+  // Provider self-onboarding: add a provider (+ primary location) to the
+  // persisted directory. Held as status "pending" until an admin approves,
+  // so it doesn't surface in search (which filters status = 'active') yet.
+  app.post("/api/provider-integration/providers/apply", requireRole("provider", "admin"), async (req, res) => {
+    try {
+      const b = req.body ?? {};
+      const loc = b.location ?? {};
+      if (!b.npi || !b.firstName || !b.lastName || !b.primarySpecialty || !loc.zipCode || !loc.city) {
+        return res.status(400).json({ error: "Missing required fields (npi, firstName, lastName, primarySpecialty, location.city, location.zipCode)" });
+      }
+      const { createProvider } = await import("./services/providerDirectoryStore");
+      const user = req.user as any;
+      const isAdmin = user?.claims?.role === "admin";
+      const providerId = await createProvider({
+        npi: String(b.npi),
+        firstName: b.firstName,
+        lastName: b.lastName,
+        credentials: b.credentials,
+        providerType: b.providerType || "physician",
+        specialties: Array.isArray(b.specialties) && b.specialties.length ? b.specialties : [b.primarySpecialty],
+        primarySpecialty: b.primarySpecialty,
+        languages: b.languages,
+        acceptingNewPatients: b.acceptingNewPatients,
+        bio: b.bio,
+        // Admins adding a provider can publish immediately; self-serve is pending.
+        status: isAdmin ? "active" : "pending",
+        location: {
+          name: loc.name || `${b.firstName} ${b.lastName}`,
+          addressLine1: loc.addressLine1 || "",
+          addressLine2: loc.addressLine2,
+          city: loc.city,
+          state: loc.state || "",
+          zipCode: loc.zipCode,
+          phone: loc.phone || "",
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        },
+      });
+      res.status(201).json({ providerId, status: isAdmin ? "active" : "pending" });
+    } catch (error: any) {
+      console.error("[Provider Integration] Error onboarding provider:", error);
+      res.status(500).json({ error: error?.message || "Failed to onboard provider" });
+    }
+  });
+
+  // Admin: approve (activate) a pending provider so it appears in search.
+  app.post("/api/provider-integration/providers/:providerId/approve", requireRole("admin"), async (req, res) => {
+    try {
+      const { setProviderStatus } = await import("./services/providerDirectoryStore");
+      await setProviderStatus(req.params.providerId, "active");
+      res.json({ ok: true, providerId: req.params.providerId, status: "active" });
+    } catch (error: any) {
+      console.error("[Provider Integration] Error approving provider:", error);
+      res.status(500).json({ error: error?.message || "Failed to approve provider" });
+    }
+  });
+
   // Provider Directory Routes
   app.get("/api/provider-integration/providers", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const validationResult = providerSearchFiltersSchema.safeParse(req.query);
       const filters = validationResult.success ? validationResult.data : {};
-      
-      const result = providerIntegration.providerDirectoryService.searchProviders(filters as any);
+
+      // Prefer the persisted directory (zip + specialty search over Postgres);
+      // fall back to the in-memory directory when no providers are seeded.
+      const persisted = await providerDirectoryStore.searchProvidersDb(filters as any);
+      const result = persisted ?? providerIntegration.providerDirectoryService.searchProviders(filters as any);
       res.json(result);
     } catch (error) {
       console.error("[Provider Integration] Error searching providers:", error);
@@ -24589,7 +24757,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   // AI-Powered Provider Search Routes
   console.log("[Routes] AI Provider Search routes registered at /api/provider-integration/ai-search");
 
-  app.get("/api/provider-integration/ai-search/suggestions", async (req, res) => {
+  app.get("/api/provider-integration/ai-search/suggestions", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== "string") {
@@ -24605,7 +24773,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/provider-integration/ai-search/autocomplete", async (req, res) => {
+  app.get("/api/provider-integration/ai-search/autocomplete", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== "string") {
@@ -24621,7 +24789,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/provider-integration/ai-search/semantic", async (req, res) => {
+  app.post("/api/provider-integration/ai-search/semantic", requireRole("patient", "provider", "admin", "caregiver"), async (req, res) => {
     try {
       const { query } = req.body;
       if (!query || typeof query !== "string") {
@@ -24630,7 +24798,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
 
       const user = req.user as any;
       logPhiAccess({
-        userId: user?.claims?.sub || "anonymous",
+        userId: getUserId(req),
         resourceType: "AI_Provider_Search",
         action: "ai_analysis",
         details: `Semantic search performed: ${query.substring(0, 50)}...`,
@@ -24698,7 +24866,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "EPrescription",
         action: "read",
@@ -24724,7 +24892,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const prescription = providerIntegration.prescriptionRoutingService.createPrescription(validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: prescription.patientId,
         resourceType: "EPrescription",
         action: "create",
@@ -24746,7 +24914,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const prescription = await providerIntegration.prescriptionRoutingService.sendPrescription(prescriptionId);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: prescription.patientId,
         resourceType: "EPrescription",
         action: "update",
@@ -24783,7 +24951,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "SpecialistReferral",
         action: "read",
@@ -24838,7 +25006,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: userId || "system",
+        userId: userId,
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "read",
@@ -24863,7 +25031,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const referral = providerIntegration.referralManagementService.createReferral(validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "create",
@@ -24889,7 +25057,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "update",
@@ -24915,7 +25083,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: referral.patientId,
         resourceType: "SpecialistReferral",
         action: "update",
@@ -24964,7 +25132,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "ProviderAvailability",
         action: "update",
@@ -24996,7 +25164,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "PatientInsurance",
         action: "read",
@@ -25056,7 +25224,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const { patientId } = req.params;
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "read",
@@ -25098,7 +25266,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const booking = providerIntegration.appointmentBookingService.createBooking(validationResult.data as any);
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: booking.patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "create",
@@ -25156,7 +25324,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: user?.claims?.sub || "system",
+        userId: getUserId(req),
         patientId: booking.patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "update",
@@ -25190,7 +25358,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const booking = providerIntegration.appointmentBookingService.cancelBooking(
         bookingId,
         reason || "Cancelled by user",
-        userId || "system"
+        userId
       );
 
       if (!booking) {
@@ -25198,7 +25366,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       }
 
       logPhiAccess({
-        userId: userId || "system",
+        userId: userId,
         patientId: booking.patientId,
         resourceType: "ProviderAppointmentBooking",
         action: "delete",
@@ -25217,11 +25385,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   // ============================================
 
   // Document Sharing
-  app.get("/api/documents/:documentId/shares", async (req, res) => {
+  app.get("/api/documents/:documentId/shares", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25239,11 +25407,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/documents/:documentId/shares", async (req, res) => {
+  app.post("/api/documents/:documentId/shares", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const validationResult = insertDocumentShareSchema.safeParse({
         ...req.body,
@@ -25270,11 +25438,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/documents/shares/:shareId", async (req, res) => {
+  app.delete("/api/documents/shares/:shareId", requireUser, async (req, res) => {
     try {
       const { shareId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.revokeDocumentShare(shareId);
 
@@ -25294,11 +25462,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Document Annotations
-  app.get("/api/documents/:documentId/annotations", async (req, res) => {
+  app.get("/api/documents/:documentId/annotations", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25316,11 +25484,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/documents/:documentId/annotations", async (req, res) => {
+  app.post("/api/documents/:documentId/annotations", requireUser, async (req, res) => {
     try {
       const { documentId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const authorName = user?.claims?.first_name || "Patient";
       const authorRole = "patient";
 
@@ -25351,11 +25519,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/documents/annotations/:annotationId", async (req, res) => {
+  app.delete("/api/documents/annotations/:annotationId", requireUser, async (req, res) => {
     try {
       const { annotationId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteDocumentAnnotation(annotationId);
 
@@ -25386,11 +25554,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/documents/annotations/:annotationId/replies", async (req, res) => {
+  app.post("/api/documents/annotations/:annotationId/replies", requireUser, async (req, res) => {
     try {
       const { annotationId } = req.params;
       const user = req.user as any;
-      const authorId = user?.claims?.sub || "current-user";
+      const authorId = getUserId(req);
       const authorName = user?.claims?.first_name || "Patient";
       const authorRole = "patient";
 
@@ -25414,11 +25582,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Care Plan Tasks
-  app.get("/api/care-plans/:carePlanId/tasks", async (req, res) => {
+  app.get("/api/care-plans/:carePlanId/tasks", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25436,11 +25604,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/care-plans/:carePlanId/tasks", async (req, res) => {
+  app.post("/api/care-plans/:carePlanId/tasks", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const createdById = user?.claims?.sub || "current-user";
+      const createdById = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertCarePlanTaskSchema.safeParse({
@@ -25468,11 +25636,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.patch("/api/care-plans/tasks/:taskId", async (req, res) => {
+  app.patch("/api/care-plans/tasks/:taskId", requireUser, async (req, res) => {
     try {
       const { taskId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const validationResult = updateCarePlanTaskSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -25499,11 +25667,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/care-plans/tasks/:taskId", async (req, res) => {
+  app.delete("/api/care-plans/tasks/:taskId", requireUser, async (req, res) => {
     try {
       const { taskId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteCarePlanTask(taskId);
 
@@ -25523,11 +25691,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Care Plan Progress Updates
-  app.get("/api/care-plans/:carePlanId/progress", async (req, res) => {
+  app.get("/api/care-plans/:carePlanId/progress", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25545,11 +25713,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/care-plans/:carePlanId/progress", async (req, res) => {
+  app.post("/api/care-plans/:carePlanId/progress", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const authorId = user?.claims?.sub || "current-user";
+      const authorId = getUserId(req);
       const authorName = user?.claims?.first_name || "Patient";
       const authorRole = "patient";
 
@@ -25592,11 +25760,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/care-plans/:carePlanId/collaborators", async (req, res) => {
+  app.post("/api/care-plans/:carePlanId/collaborators", requireUser, async (req, res) => {
     try {
       const { carePlanId } = req.params;
       const user = req.user as any;
-      const addedById = user?.claims?.sub || "current-user";
+      const addedById = getUserId(req);
 
       const validationResult = insertCarePlanCollaboratorSchema.safeParse({
         ...req.body,
@@ -25635,10 +25803,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Shared Notes
-  app.get("/api/shared-notes", async (req, res) => {
+  app.get("/api/shared-notes", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25656,11 +25824,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/shared-notes/:noteId", async (req, res) => {
+  app.get("/api/shared-notes/:noteId", requireUser, async (req, res) => {
     try {
       const { noteId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const note = await storage.getSharedNote(noteId);
       if (!note) {
@@ -25682,10 +25850,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/shared-notes", async (req, res) => {
+  app.post("/api/shared-notes", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertSharedNoteSchema.safeParse(req.body);
@@ -25710,11 +25878,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.patch("/api/shared-notes/:noteId", async (req, res) => {
+  app.patch("/api/shared-notes/:noteId", requireUser, async (req, res) => {
     try {
       const { noteId } = req.params;
       const user = req.user as any;
-      const editorId = user?.claims?.sub || "current-user";
+      const editorId = getUserId(req);
       const editorName = user?.claims?.first_name || "Patient";
 
       const validationResult = updateSharedNoteSchema.safeParse(req.body);
@@ -25742,11 +25910,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/shared-notes/:noteId", async (req, res) => {
+  app.delete("/api/shared-notes/:noteId", requireUser, async (req, res) => {
     try {
       const { noteId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteSharedNote(noteId);
 
@@ -25766,10 +25934,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Whiteboards
-  app.get("/api/whiteboards", async (req, res) => {
+  app.get("/api/whiteboards", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25787,11 +25955,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/whiteboards/:whiteboardId", async (req, res) => {
+  app.get("/api/whiteboards/:whiteboardId", requireUser, async (req, res) => {
     try {
       const { whiteboardId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const whiteboard = await storage.getWhiteboard(whiteboardId);
       if (!whiteboard) {
@@ -25813,10 +25981,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/whiteboards", async (req, res) => {
+  app.post("/api/whiteboards", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertWhiteboardSchema.safeParse(req.body);
@@ -25841,11 +26009,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.patch("/api/whiteboards/:whiteboardId", async (req, res) => {
+  app.patch("/api/whiteboards/:whiteboardId", requireUser, async (req, res) => {
     try {
       const { whiteboardId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const validationResult = updateWhiteboardSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -25872,11 +26040,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.delete("/api/whiteboards/:whiteboardId", async (req, res) => {
+  app.delete("/api/whiteboards/:whiteboardId", requireUser, async (req, res) => {
     try {
       const { whiteboardId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       await storage.deleteWhiteboard(whiteboardId);
 
@@ -25896,10 +26064,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Group Message Threads
-  app.get("/api/collab-message-threads", async (req, res) => {
+  app.get("/api/collab-message-threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -25917,11 +26085,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.get("/api/collab-message-threads/:threadId", async (req, res) => {
+  app.get("/api/collab-message-threads/:threadId", requireUser, async (req, res) => {
     try {
       const { threadId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       const thread = await storage.getCollabMessageThread(threadId);
       if (!thread) {
@@ -25943,10 +26111,10 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/collab-message-threads", async (req, res) => {
+  app.post("/api/collab-message-threads", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
       const createdByName = user?.claims?.first_name || "Patient";
 
       const validationResult = insertCollabMessageThreadSchema.safeParse(req.body);
@@ -26015,11 +26183,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Thread Messages
-  app.get("/api/collab-message-threads/:threadId/messages", async (req, res) => {
+  app.get("/api/collab-message-threads/:threadId/messages", requireUser, async (req, res) => {
     try {
       const { threadId } = req.params;
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "current-user";
+      const patientId = getUserId(req);
 
       logPhiAccess({
         userId: patientId,
@@ -26037,11 +26205,11 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
-  app.post("/api/collab-message-threads/:threadId/messages", async (req, res) => {
+  app.post("/api/collab-message-threads/:threadId/messages", requireUser, async (req, res) => {
     try {
       const { threadId } = req.params;
       const user = req.user as any;
-      const senderId = user?.claims?.sub || "current-user";
+      const senderId = getUserId(req);
       const senderName = user?.claims?.first_name || "Patient";
       const senderRole = "patient";
 
@@ -27565,7 +27733,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       const dashboard = await journeyAnalyticsService.getDashboard(filter);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "anonymous",
+        userId: userId,
         eventType: "data_access",
         description: "Admin accessed journey analytics dashboard",
         ipAddress: req.ip || "Unknown",
@@ -32571,10 +32739,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   console.log("[Routes] Profile Management routes registered at /api/profiles");
   
   // Get all profiles for the current user
-  app.get("/api/profiles", async (req, res) => {
+  app.get("/api/profiles", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -32585,7 +32753,8 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       const profiles = await storage.getProfiles(userId);
-      res.json(profiles);
+      const { formatMrn } = await import("@shared/mrn");
+      res.json(profiles.map((p) => ({ ...p, mrn: formatMrn(p.id) })));
     } catch (error) {
       console.error("[ProfileManagement] Get profiles error:", error);
       res.status(500).json({ error: "Failed to get profiles" });
@@ -32593,10 +32762,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get profile summaries (for profile switcher UI)
-  app.get("/api/profiles/summaries", async (req, res) => {
+  app.get("/api/profiles/summaries", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -32615,10 +32784,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get active profile
-  app.get("/api/profiles/active", async (req, res) => {
+  app.get("/api/profiles/active", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       const activeProfile = await storage.getActiveProfile(userId);
       
@@ -32658,8 +32827,9 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         action: "read",
         details: `Accessed active profile: ${activeProfile.firstName} ${activeProfile.lastName}`,
       });
-      
-      res.json(activeProfile);
+
+      const { formatMrn } = await import("@shared/mrn");
+      res.json({ ...activeProfile, mrn: formatMrn(activeProfile.id) });
     } catch (error) {
       console.error("[ProfileManagement] Get active profile error:", error);
       res.status(500).json({ error: "Failed to get active profile" });
@@ -32667,10 +32837,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get single profile by ID
-  app.get("/api/profiles/:id", async (req, res) => {
+  app.get("/api/profiles/:id", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
 
       const profile = await storage.getProfile(id);
@@ -32688,7 +32858,8 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         details: `Accessed profile: ${profile.firstName} ${profile.lastName} (${profile.relationship})`,
       });
 
-      res.json(profile);
+      const { formatMrn } = await import("@shared/mrn");
+      res.json({ ...profile, mrn: formatMrn(profile.id) });
     } catch (error) {
       console.error("[ProfileManagement] Get profile error:", error);
       res.status(500).json({ error: "Failed to get profile" });
@@ -32696,10 +32867,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Create new profile (add dependent)
-  app.post("/api/profiles", async (req, res) => {
+  app.post("/api/profiles", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { firstName, lastName, dateOfBirth, gender, relationship, profileType, notes, medicalRecordNumber, insuranceId, emergencyContact } = req.body;
 
       if (!firstName || !lastName || !relationship) {
@@ -32763,10 +32934,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Update profile
-  app.patch("/api/profiles/:id", async (req, res) => {
+  app.patch("/api/profiles/:id", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
       const updates = req.body;
 
@@ -32800,10 +32971,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Delete profile
-  app.delete("/api/profiles/:id", async (req, res) => {
+  app.delete("/api/profiles/:id", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
 
       const profile = await storage.getProfile(id);
@@ -32843,10 +33014,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Switch active profile
-  app.post("/api/profiles/:id/activate", async (req, res) => {
+  app.post("/api/profiles/:id/activate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { id } = req.params;
 
       const profile = await storage.getProfile(id);
@@ -32886,10 +33057,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get profile analytics events
-  app.get("/api/profiles/analytics/events", async (req, res) => {
+  app.get("/api/profiles/analytics/events", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const profileId = req.query.profileId as string | undefined;
 
       logPhiAccess({
@@ -33337,10 +33508,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Submit check-in response (patient-facing)
-  app.post("/api/provider-outreach/check-ins/:id/responses", async (req, res) => {
+  app.post("/api/provider-outreach/check-ins/:id/responses", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
       const { responses } = req.body;
 
       const checkIn = aiPatientOutreachService.getCheckIn(req.params.id);
@@ -33625,10 +33796,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   console.log("[Routes] Quick Share routes registered at /api/quick-share");
 
   // Generate quick share (QR code, secure link, or PDF)
-  app.post("/api/quick-share/generate", async (req, res) => {
+  app.post("/api/quick-share/generate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || req.body.patientId || "patient-default";
+      const patientId = getUserId(req);
       const { recordType = "summary", mode = "qr", expiresIn = "72h" } = req.body;
 
       logPhiAccess({
@@ -33807,10 +33978,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Generate PDF snapshot
-  app.post("/api/quick-share/pdf", async (req, res) => {
+  app.post("/api/quick-share/pdf", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || req.body.patientId || "patient-default";
+      const patientId = getUserId(req);
       const { recordType = "summary" } = req.body;
 
       logPhiAccess({
@@ -33890,10 +34061,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get active shares for a patient
-  app.get("/api/quick-share/active", async (req, res) => {
+  app.get("/api/quick-share/active", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
 
       const activeShares: Array<{
         shareId: string;
@@ -34056,10 +34227,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Get access log for a specific share
-  app.get("/api/quick-share/:shareId/access-log", async (req, res) => {
+  app.get("/api/quick-share/:shareId/access-log", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
       const { shareId } = req.params;
 
       const shareData = quickShareTokens.get(shareId);
@@ -34094,10 +34265,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   });
 
   // Revoke a share
-  app.delete("/api/quick-share/:shareId", async (req, res) => {
+  app.delete("/api/quick-share/:shareId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-default";
+      const patientId = getUserId(req);
       const { shareId } = req.params;
 
       const shareData = quickShareTokens.get(shareId);
@@ -36440,7 +36611,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Care team accessed high-risk patient list",
         ipAddress: req.ip || "Unknown",
@@ -36485,7 +36656,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const talkingPoints = await careTeamOutreachService.generateTalkingPoints(patientId);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_interaction",
         description: "AI talking points generated for patient outreach",
         ipAddress: req.ip || "Unknown",
@@ -36530,7 +36701,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const action = await careTeamOutreachService.createOutreachAction(parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_creation",
         description: `Outreach action created: ${action.actionType}`,
         ipAddress: req.ip || "Unknown",
@@ -36603,7 +36774,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const action = await careTeamOutreachService.recordAttempt(actionId, parseResult.data, performedBy);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: `Outreach attempt recorded: ${parseResult.data.response}`,
         ipAddress: req.ip || "Unknown",
@@ -36636,7 +36807,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const action = await careTeamOutreachService.updateOutcome(actionId, parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Patient outreach outcome recorded",
         ipAddress: req.ip || "Unknown",
@@ -36682,7 +36853,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const createdActions = await careTeamOutreachService.autoScheduleOutreach();
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_interaction",
         description: "AI auto-scheduled patient outreach actions",
         ipAddress: req.ip || "Unknown",
@@ -36717,7 +36888,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlan = await aiCarePlanService.generateCarePlan(parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_interaction",
         description: "AI care plan generated for patient",
         ipAddress: req.ip || "Unknown",
@@ -36748,7 +36919,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlans = await aiCarePlanService.getCarePlans(filter);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Care plans list accessed",
         ipAddress: req.ip || "Unknown",
@@ -36777,7 +36948,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Care plan detail accessed",
         ipAddress: req.ip || "Unknown",
@@ -36810,7 +36981,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const updatedGoal = await aiCarePlanService.updateGoal(planId, goalId, parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan goal updated",
         ipAddress: req.ip || "Unknown",
@@ -36843,7 +37014,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const updatedIntervention = await aiCarePlanService.updateIntervention(planId, interventionId, parseResult.data);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan intervention updated",
         ipAddress: req.ip || "Unknown",
@@ -36874,7 +37045,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const intervention = await aiCarePlanService.addInterventionFromLibrary(planId, libraryItemId, customization);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Intervention added to care plan from library",
         ipAddress: req.ip || "Unknown",
@@ -36900,7 +37071,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlan = await aiCarePlanService.submitForReview(planId);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan submitted for review",
         ipAddress: req.ip || "Unknown",
@@ -36940,7 +37111,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: `Care plan ${parseResult.data.action}: ${parseResult.data.comments || "No comments"}`,
         ipAddress: req.ip || "Unknown",
@@ -36966,7 +37137,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const carePlan = await aiCarePlanService.activateCarePlan(planId);
 
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Care plan activated",
         ipAddress: req.ip || "Unknown",
@@ -37032,7 +37203,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const content = await patientEducationMessagingService.generateEducationContent(parseResult.data);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_generation",
         description: "AI education content generated",
         ipAddress: req.ip || "Unknown",
@@ -37064,7 +37235,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const schedule = await patientEducationMessagingService.createMessageSchedule(parseResult.data);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_create",
         description: "Message schedule created",
         ipAddress: req.ip || "Unknown",
@@ -37094,7 +37265,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Message schedules accessed",
         ipAddress: req.ip || "Unknown",
@@ -37124,7 +37295,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_update",
         description: "Message schedule cancelled",
         ipAddress: req.ip || "Unknown",
@@ -37159,7 +37330,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       );
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "message_sent",
         description: "Patient message sent",
         ipAddress: req.ip || "Unknown",
@@ -37195,7 +37366,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       });
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Patient messages accessed",
         ipAddress: req.ip || "Unknown",
@@ -37228,7 +37399,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       // Patients can only access their own messages
       if (userRole === "patient" && message.patientId !== userId) {
         await storage.createSecurityAuditLog({
-          userId: userId || "system",
+          userId: userId,
           eventType: "access_denied",
           description: "Unauthorized attempt to access another patient's message",
           ipAddress: req.ip || "Unknown",
@@ -37239,7 +37410,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Patient message detail accessed",
         ipAddress: req.ip || "Unknown",
@@ -37273,7 +37444,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       // Patients can only record interactions on their own messages
       if (userRole === "patient" && message.patientId !== userId) {
         await storage.createSecurityAuditLog({
-          userId: userId || "system",
+          userId: userId,
           eventType: "access_denied",
           description: "Unauthorized attempt to record interaction on another patient's message",
           ipAddress: req.ip || "Unknown",
@@ -37298,7 +37469,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       );
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "message_interaction",
         description: `Message ${parseResult.data.interactionType}`,
         ipAddress: req.ip || "Unknown",
@@ -37324,7 +37495,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const interactions = patientEducationMessagingService.getMessageInteractions(id);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Message interactions accessed",
         ipAddress: req.ip || "Unknown",
@@ -37355,7 +37526,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       );
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "data_access",
         description: "Patient engagement summary accessed",
         ipAddress: req.ip || "Unknown",
@@ -37398,7 +37569,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const result = await patientEducationMessagingService.processScheduledMessages();
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "system_action",
         description: "Scheduled messages processed",
         ipAddress: req.ip || "Unknown",
@@ -37431,7 +37602,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const schedules = await patientEducationMessagingService.autoGenerateSchedulesFromCarePlan(carePlan);
       
       await storage.createSecurityAuditLog({
-        userId: userId || "system",
+        userId: userId,
         eventType: "ai_generation",
         description: "Auto-generated message schedules from care plan",
         ipAddress: req.ip || "Unknown",
@@ -37629,11 +37800,11 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   console.log("[Routes] Health Data Sources routes registered at /api/health-data-sources/*");
 
   // Packet Export - Create and share health record packets
-  app.post("/api/packets/create", async (req, res) => {
+  app.post("/api/packets/create", requireUser, async (req, res) => {
     try {
       const { config, expiration, accessControl } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -37659,11 +37830,11 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     }
   });
 
-  app.post("/api/packets/download", async (req, res) => {
+  app.post("/api/packets/download", requireUser, async (req, res) => {
     try {
       const { config } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -37710,10 +37881,10 @@ startxref
   // ================== Simplified Mode API Routes ==================
   
   // Get simplified/important documents list
-  app.get("/api/documents/simplified", async (req, res) => {
+  app.get("/api/documents/simplified", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const documents = await storage.getDocuments(userId);
       
@@ -37733,10 +37904,10 @@ startxref
   });
 
   // Get last uploaded document
-  app.get("/api/documents/last-upload", async (req, res) => {
+  app.get("/api/documents/last-upload", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       const documents = await storage.getDocuments(userId);
       
@@ -37775,11 +37946,11 @@ startxref
   });
 
   // Create share packet (simplified)
-  app.post("/api/share/create-packet", async (req, res) => {
+  app.post("/api/share/create-packet", requireUser, async (req, res) => {
     try {
       const { type, expiryDays, pinProtected } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       
       logPhiAccess({
         userId,
@@ -37810,11 +37981,11 @@ startxref
   });
 
   // Download PDF packet (simplified)
-  app.post("/api/share/download-pdf", async (req, res) => {
+  app.post("/api/share/download-pdf", requireUser, async (req, res) => {
     try {
       const { type } = req.body;
       const user = req.user as any;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -37880,6 +38051,8 @@ startxref
   app.use("/api/patient-profile-summary", aiPatientProfileSummaryRoutes);
   app.use("/api/personalized-health-summary", personalizedHealthSummaryRoutes);
   console.log("[Routes] Personalized Health Summary routes registered at /api/personalized-health-summary/*");
+  app.use("/api/my", myCareRoutes);
+  console.log("[Routes] My Care routes registered at /api/my/*");
 
   app.use("/api/ai-health-journey-enhanced", enhancedAIHealthJourneyRoutes);
   console.log("[Routes] Enhanced AI Health Journey routes registered at /api/ai-health-journey-enhanced/*");
@@ -38400,8 +38573,8 @@ startxref
   app.put("/api/region-preference", async (req: any, res) => {
     try {
       const { region } = req.body;
-      if (region !== "us" && region !== "international") {
-        return res.status(400).json({ error: "Invalid region. Must be 'us' or 'international'." });
+      if (!["us", "au", "international"].includes(region)) {
+        return res.status(400).json({ error: "Invalid region. Must be 'us', 'au', or 'international'." });
       }
       const userId = req.user?.claims?.sub || req.headers["x-user-id"];
       if (userId) {
@@ -38426,10 +38599,12 @@ startxref
     }
 
     const isUS = region === "us";
+    const isAU = region === "au";
 
     res.json({
       region,
       features: {
+        // US-specific
         ehrConnections: isUS,
         dataUnification: isUS,
         fhirDataPipeline: isUS,
@@ -38439,6 +38614,15 @@ startxref
         dataAggregation: isUS,
         migrationQA: isUS,
         smartOnFhir: isUS,
+        // AU-specific
+        myHealthRecord: isAU,
+        auIdentifiers: isAU,       // IHI, Medicare, DVA
+        amtTerminology: isAU,      // Australian Medicines Terminology
+        pbsSubsidies: isAU,        // PBS item codes + benefit types
+        icd10am: isAU,             // Australian ICD-10 modification
+        atsiHealthCheck: isAU,     // 715 ATSI health assessment
+        auPrivacyAct: isAU,        // Privacy Act / APPs compliance mode
+        // Universal
         aiEvidenceAdvisor: true,
         aiHealthTools: true,
         whoGuidelines: !isUS,
@@ -38449,6 +38633,8 @@ startxref
       },
       description: isUS
         ? "US Edition: Full EHR integration via Fasten Health, USCDI compliance, data unification from 25,000+ US healthcare providers"
+        : isAU
+        ? "AU Edition: My Health Record integration, IHI/Medicare/DVA identifiers, AMT/PBS terminology, Australian Privacy Act compliance"
         : "Global Edition: WHO-aligned AI health advisor, evidence-based recommendations in 19 languages",
     });
   });
@@ -38481,6 +38667,13 @@ startxref
   // ================== Pet Health Routes ==================
   app.use("/api/pet-health", petHealthRoutes);
   console.log("[Routes] Pet Health routes registered at /api/pet-health/*");
+
+  // ================== Longevity & Preventive Health Routes ==================
+  // Shared protocol module (shared/longevity-preventive.ts) — same plan for the
+  // PHR, the clinician chart and the WorldEHR mirror. Educational, no CDS.
+  const longevityPreventiveRoutes = await import("./routes/longevity-preventive-routes");
+  app.use("/api/longevity-preventive", longevityPreventiveRoutes.default);
+  console.log("[Routes] Longevity & Preventive Health routes registered at /api/longevity-preventive/*");
 
   // ================== Drug Savings Routes ==================
   app.use("/api/drug-savings", drugSavingsRoutes);
@@ -38543,11 +38736,15 @@ startxref
   app.use("/api/bills-eob", billsEobRoutes);
   console.log("[Routes] Bills & EOB routes registered at /api/bills-eob/*");
 
+  // ================== Outpatient RCM (World EHR) Routes ==================
+  app.use("/api/rcm", isAuthenticated, requireRole("admin", "provider", "clinician"), rcmRoutes);
+  console.log("[Routes] Outpatient RCM routes registered at /api/rcm/* (eligibility, prior-auth, charge capture, coding, scrubber, claims, ERA, denials, patient financials, contracts, analytics, voice, agents)");
+
   // ================== App Store IAP Routes ==================
   app.use("/api/appstore-iap", appStoreIapRoutes);
   console.log("[Routes] App Store IAP routes registered at /api/appstore-iap/*");
 
-  app.use("/api/phr-pipeline", phrPipelineRoutes);
+  app.use("/api/phr-pipeline", isAuthenticated, phrPipelineRoutes);
   console.log("[Routes] PHR Pipeline routes registered at /api/phr-pipeline/*");
 
   app.use("/api/fqhc", fqhcFinderRoutes);

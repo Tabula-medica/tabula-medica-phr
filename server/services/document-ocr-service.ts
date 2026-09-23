@@ -1,10 +1,8 @@
-import OpenAI from "openai";
 import type { AutoTagCategory } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { documentOcrResultsTable } from "@shared/schema";
+import { generatePhiSafeVision, generatePhiSafeChat } from "./ai-gateway";
+import { db } from "../db";
+import { eq, and } from "drizzle-orm";
 
 export interface ExtractedDocumentData {
   documentId: string;
@@ -51,12 +49,11 @@ class DocumentOcrService {
     console.log(`[OCR] Starting extraction for document ${documentId}: ${fileName}`);
     
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical document OCR and data extraction system. Your job is to:
+      const content = await generatePhiSafeVision({
+        base64Image: imageBase64,
+        imageMimeType: mimeType,
+        prompt: `Extract all information from this medical document image. Document name: ${fileName}`,
+        system: `You are a medical document OCR and data extraction system. Your job is to:
 1. Extract ALL text from the document image
 2. Identify and structure medical information (lab results, medications, diagnoses, etc.)
 3. Categorize the document type
@@ -86,31 +83,11 @@ Respond with valid JSON in this format:
   "procedures": [{"code": "CPT if visible", "description": "procedure", "date": "if visible"}],
   "allergies": ["allergy1", "allergy2"],
   "summary": "brief factual summary of document content - NO interpretation"
-}`
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Extract all information from this medical document image. Document name: ${fileName}`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${imageBase64}`,
-                  detail: "high"
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 4000,
-        response_format: { type: "json_object" }
+}`,
+        responseMimeType: "application/json",
+        maxTokens: 4000,
       });
-
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
       
       const processingTime = Date.now() - startTime;
       
@@ -172,8 +149,7 @@ Respond with valid JSON in this format:
     console.log(`[OCR] Starting text extraction for PDF ${documentId}: ${fileName}`);
     
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const content = await generatePhiSafeChat({
         messages: [
           {
             role: "system",
@@ -187,19 +163,17 @@ CRITICAL RULES:
 
 ${NO_CDS_DISCLAIMER}
 
-Respond with valid JSON (same format as image extraction).`
+Respond with valid JSON (same format as image extraction).`,
           },
           {
             role: "user",
-            content: `Extract structured data from this medical document text. Document name: ${fileName}\n\nDocument content:\n${pdfText.slice(0, 8000)}`
-          }
+            content: `Extract structured data from this medical document text. Document name: ${fileName}\n\nDocument content:\n${pdfText.slice(0, 8000)}`,
+          },
         ],
-        max_tokens: 4000,
-        response_format: { type: "json_object" }
+        responseMimeType: "application/json",
+        maxTokens: 4000,
       });
-
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content || "{}");
       
       const processingTime = Date.now() - startTime;
       
@@ -284,80 +258,109 @@ export interface DocumentSearchResult {
 }
 
 class DocumentSearchService {
-  private extractedDocuments: Map<string, ExtractedDocumentData> = new Map();
-  
-  addDocument(data: ExtractedDocumentData) {
-    this.extractedDocuments.set(data.documentId, data);
+  async addDocument(userId: string, profileId: string | null, data: ExtractedDocumentData): Promise<void> {
+    await db
+      .insert(documentOcrResultsTable)
+      .values({
+        userId,
+        profileId: profileId || null,
+        documentId: data.documentId,
+        extractedText: data.extractedText,
+        structuredData: data.structuredData as Record<string, unknown>,
+        category: data.category,
+        confidence: data.confidence,
+        rawOcrText: data.rawOcrText || null,
+        processingTime: data.processingTime,
+        extractedAt: data.extractedAt,
+      })
+      .onConflictDoUpdate({
+        target: [documentOcrResultsTable.userId, documentOcrResultsTable.documentId],
+        set: {
+          profileId: profileId || null,
+          extractedText: data.extractedText,
+          structuredData: data.structuredData as Record<string, unknown>,
+          category: data.category,
+          confidence: data.confidence,
+          rawOcrText: data.rawOcrText || null,
+          processingTime: data.processingTime,
+          extractedAt: data.extractedAt,
+        },
+      });
   }
-  
-  search(params: DocumentSearchParams): DocumentSearchResult[] {
+
+  async search(userId: string, params: DocumentSearchParams): Promise<DocumentSearchResult[]> {
+    const rows = await db
+      .select()
+      .from(documentOcrResultsTable)
+      .where(eq(documentOcrResultsTable.userId, userId));
+
     const results: DocumentSearchResult[] = [];
-    
-    const entries = Array.from(this.extractedDocuments.entries());
-    for (const [docId, doc] of entries) {
+    for (const row of rows) {
+      const doc = row.structuredData as ExtractedDocumentData["structuredData"];
+      const docId = row.documentId;
+
       if (params.patientId && !docId.includes(params.patientId)) continue;
-      if (params.category && doc.category !== params.category) continue;
-      
-      if (params.dateFrom && doc.structuredData.documentDate) {
-        if (new Date(doc.structuredData.documentDate) < new Date(params.dateFrom)) continue;
+      if (params.category && row.category !== params.category) continue;
+
+      if (params.dateFrom && doc.documentDate) {
+        if (new Date(doc.documentDate) < new Date(params.dateFrom)) continue;
       }
-      if (params.dateTo && doc.structuredData.documentDate) {
-        if (new Date(doc.structuredData.documentDate) > new Date(params.dateTo)) continue;
+      if (params.dateTo && doc.documentDate) {
+        if (new Date(doc.documentDate) > new Date(params.dateTo)) continue;
       }
-      
-      if (params.provider && doc.structuredData.provider) {
-        if (!doc.structuredData.provider.toLowerCase().includes(params.provider.toLowerCase())) continue;
+
+      if (params.provider && doc.provider) {
+        if (!doc.provider.toLowerCase().includes(params.provider.toLowerCase())) continue;
       }
-      if (params.facility && doc.structuredData.facility) {
-        if (!doc.structuredData.facility.toLowerCase().includes(params.facility.toLowerCase())) continue;
+      if (params.facility && doc.facility) {
+        if (!doc.facility.toLowerCase().includes(params.facility.toLowerCase())) continue;
       }
-      
-      if (params.hasMedications && (!doc.structuredData.medications || doc.structuredData.medications.length === 0)) continue;
-      if (params.hasDiagnoses && (!doc.structuredData.diagnoses || doc.structuredData.diagnoses.length === 0)) continue;
-      if (params.hasLabResults && (!doc.structuredData.labResults || doc.structuredData.labResults.length === 0)) continue;
-      
+
+      if (params.hasMedications && (!doc.medications || doc.medications.length === 0)) continue;
+      if (params.hasDiagnoses && (!doc.diagnoses || doc.diagnoses.length === 0)) continue;
+      if (params.hasLabResults && (!doc.labResults || doc.labResults.length === 0)) continue;
+
       let matchScore = 50;
       const matchedTerms: string[] = [];
-      
+
       if (params.query) {
         const query = params.query.toLowerCase();
         const searchableText = [
-          doc.extractedText,
-          doc.structuredData.summary,
-          doc.structuredData.provider,
-          doc.structuredData.facility,
-          ...(doc.structuredData.medications?.map(m => m.name) || []),
-          ...(doc.structuredData.diagnoses?.map(d => d.description) || []),
-          ...(doc.structuredData.labResults?.map(l => l.test) || [])
+          row.extractedText,
+          doc.summary,
+          doc.provider,
+          doc.facility,
+          ...(doc.medications?.map(m => m.name) || []),
+          ...(doc.diagnoses?.map(d => d.description) || []),
+          ...(doc.labResults?.map(l => l.test) || []),
         ].filter(Boolean).join(" ").toLowerCase();
-        
+
         if (!searchableText.includes(query)) continue;
-        
-        const queryTerms = query.split(/\s+/);
-        for (const term of queryTerms) {
+
+        for (const term of query.split(/\s+/)) {
           if (searchableText.includes(term)) {
             matchedTerms.push(term);
             matchScore += 10;
           }
         }
       }
-      
-      const snippet = doc.structuredData.summary || 
-        doc.extractedText.slice(0, 200) + (doc.extractedText.length > 200 ? "..." : "");
-      
+
+      const snippet =
+        doc.summary || row.extractedText.slice(0, 200) + (row.extractedText.length > 200 ? "..." : "");
+
       results.push({
         documentId: docId,
-        title: doc.structuredData.documentType || "Document",
-        category: doc.category,
-        date: doc.structuredData.documentDate || doc.extractedAt,
-        facility: doc.structuredData.facility,
-        provider: doc.structuredData.provider,
+        title: doc.documentType || "Document",
+        category: row.category as any,
+        date: doc.documentDate || row.extractedAt,
+        facility: doc.facility,
+        provider: doc.provider,
         matchScore,
         matchedTerms,
-        snippet
+        snippet,
       });
     }
-    
+
     if (params.sortBy === "date") {
       results.sort((a, b) => {
         const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -371,15 +374,34 @@ class DocumentSearchService {
         return params.sortOrder === "asc" ? diff : -diff;
       });
     }
-    
+
     const offset = params.offset || 0;
     const limit = params.limit || 50;
-    
     return results.slice(offset, offset + limit);
   }
-  
-  getDocument(documentId: string): ExtractedDocumentData | undefined {
-    return this.extractedDocuments.get(documentId);
+
+  async getDocument(userId: string, documentId: string): Promise<ExtractedDocumentData | undefined> {
+    const rows = await db
+      .select()
+      .from(documentOcrResultsTable)
+      .where(and(
+        eq(documentOcrResultsTable.userId, userId),
+        eq(documentOcrResultsTable.documentId, documentId),
+      ))
+      .limit(1);
+
+    if (rows.length === 0) return undefined;
+    const row = rows[0];
+    return {
+      documentId: row.documentId,
+      extractedText: row.extractedText,
+      structuredData: row.structuredData as ExtractedDocumentData["structuredData"],
+      category: row.category as AutoTagCategory,
+      confidence: row.confidence,
+      rawOcrText: row.rawOcrText || undefined,
+      processingTime: row.processingTime,
+      extractedAt: row.extractedAt,
+    };
   }
 }
 

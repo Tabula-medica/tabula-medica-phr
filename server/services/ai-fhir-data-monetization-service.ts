@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface ResearchDataset {
   id: string;
@@ -303,7 +303,7 @@ export interface PolicyEnforcementResult {
 }
 
 class AIFHIRDataMonetizationService {
-  private openai: OpenAI | null = null;
+  private aiEnabled = true;
   private datasets: Map<string, ResearchDataset> = new Map();
   private anonymizationJobs: Map<string, AnonymizationJob> = new Map();
   private listings: Map<string, MarketplaceListing> = new Map();
@@ -312,13 +312,7 @@ class AIFHIRDataMonetizationService {
   private usageLogs: DataUsageLog[] = [];
 
   constructor() {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
-      console.log("[AIFHIRDataMonetization] OpenAI client initialized");
-    } else {
-      console.log("[AIFHIRDataMonetization] OpenAI API key not configured, using fallback");
-    }
+    console.log("[AIFHIRDataMonetization] AI client initialized (Vertex/BAA gateway)");
     if (process.env.NODE_ENV !== 'production') {
       this.initializeSampleData();
     }
@@ -640,31 +634,21 @@ class AIFHIRDataMonetizationService {
     aiRecommendations += "- Including social determinants of health data increases value by 25%\n";
     aiRecommendations += "- Real-world evidence datasets are preferred for regulatory submissions";
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a healthcare data marketplace expert. Analyze datasets and provide recommendations for maximizing research value while ensuring compliance. Keep recommendations concise and actionable."
-            },
-            {
-              role: "user",
-              content: `Analyze these datasets for research value:\n${JSON.stringify(filtered.map(d => ({
-                name: d.name,
-                recordCount: d.recordCount,
-                conditions: d.conditions,
-                qualityScore: d.dataQualityScore,
-                resourceTypes: d.resourceTypes
-              })), null, 2)}\n\nProvide specific recommendations for maximizing their market value.`
-            }
-          ],
-          max_tokens: 500
-        });
-        aiRecommendations = response.choices[0].message.content || aiRecommendations;
+        aiRecommendations = await generatePhiSafeText({
+          system: "You are a healthcare data marketplace expert. Analyze datasets and provide recommendations for maximizing research value while ensuring compliance. Keep recommendations concise and actionable.",
+          user: `Analyze these datasets for research value:\n${JSON.stringify(filtered.map(d => ({
+            name: d.name,
+            recordCount: d.recordCount,
+            conditions: d.conditions,
+            qualityScore: d.dataQualityScore,
+            resourceTypes: d.resourceTypes
+          })), null, 2)}\n\nProvide specific recommendations for maximizing their market value.`,
+          maxTokens: 500
+        }) || aiRecommendations;
       } catch (error) {
-        console.error("[AIFHIRDataMonetization] OpenAI error:", error);
+        console.error("[AIFHIRDataMonetization] AI error:", error);
       }
     }
 
@@ -733,25 +717,15 @@ class AIFHIRDataMonetizationService {
     let aiAnalysis = `Dataset valued at $${estimatedValue.toLocaleString()} based on ${factors.length} key factors. `;
     aiAnalysis += `Primary value drivers: ${factors.sort((a, b) => b.contribution - a.contribution).slice(0, 2).map(f => f.factor).join(" and ")}.`;
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a healthcare data valuation expert. Provide concise analysis of dataset value for research markets."
-            },
-            {
-              role: "user",
-              content: `Analyze this dataset's market value:\nName: ${dataset.name}\nRecords: ${dataset.recordCount}\nConditions: ${dataset.conditions.join(", ")}\nQuality: ${dataset.dataQualityScore}%\nEstimated Value: $${estimatedValue.toLocaleString()}\n\nProvide a 2-3 sentence analysis of the valuation.`
-            }
-          ],
-          max_tokens: 200
-        });
-        aiAnalysis = response.choices[0].message.content || aiAnalysis;
+        aiAnalysis = await generatePhiSafeText({
+          system: "You are a healthcare data valuation expert. Provide concise analysis of dataset value for research markets.",
+          user: `Analyze this dataset's market value:\nName: ${dataset.name}\nRecords: ${dataset.recordCount}\nConditions: ${dataset.conditions.join(", ")}\nQuality: ${dataset.dataQualityScore}%\nEstimated Value: $${estimatedValue.toLocaleString()}\n\nProvide a 2-3 sentence analysis of the valuation.`,
+          maxTokens: 200
+        }) || aiAnalysis;
       } catch (error) {
-        console.error("[AIFHIRDataMonetization] OpenAI valuation error:", error);
+        console.error("[AIFHIRDataMonetization] AI valuation error:", error);
       }
     }
 
@@ -1001,25 +975,15 @@ class AIFHIRDataMonetizationService {
       aiAnalysis += "Additional review recommended before approval.";
     }
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a data access risk analyst. Provide concise risk assessments for healthcare data sharing requests."
-            },
-            {
-              role: "user",
-              content: `Assess this data access request:\nRequester: ${request.requesterOrganization} (${request.requesterType})\nPurpose: ${request.purpose}\nDataset: ${listing.title}\nAccess Level: ${request.requestedAccessLevel}\nIRB: ${request.irbApprovalNumber || "Not provided"}\n\nProvide a 2-3 sentence risk assessment.`
-            }
-          ],
-          max_tokens: 200
-        });
-        aiAnalysis = response.choices[0].message.content || aiAnalysis;
+        aiAnalysis = await generatePhiSafeText({
+          system: "You are a data access risk analyst. Provide concise risk assessments for healthcare data sharing requests.",
+          user: `Assess this data access request:\nRequester: ${request.requesterOrganization} (${request.requesterType})\nPurpose: ${request.purpose}\nDataset: ${listing.title}\nAccess Level: ${request.requestedAccessLevel}\nIRB: ${request.irbApprovalNumber || "Not provided"}\n\nProvide a 2-3 sentence risk assessment.`,
+          maxTokens: 200
+        }) || aiAnalysis;
       } catch (error) {
-        console.error("[AIFHIRDataMonetization] OpenAI risk assessment error:", error);
+        console.error("[AIFHIRDataMonetization] AI risk assessment error:", error);
       }
     }
 
@@ -1116,25 +1080,17 @@ class AIFHIRDataMonetizationService {
       });
     }
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a healthcare legal expert specializing in data sharing agreements. Suggest additional protective clauses based on the use case."
-            },
-            {
-              role: "user",
-              content: `Suggest 1-2 additional protective clauses for a data sharing agreement:\nPurpose: ${request.purpose}\nRequester Type: ${request.requesterType}\nAccess Level: ${request.requestedAccessLevel}\nDuration: ${request.duration}\n\nProvide clauses in JSON format: [{title: string, content: string, required: boolean}]`
-            }
-          ],
-          max_tokens: 300
+        const content = await generatePhiSafeText({
+          system: "You are a healthcare legal expert specializing in data sharing agreements. Suggest additional protective clauses based on the use case.",
+          user: `Suggest 1-2 additional protective clauses for a data sharing agreement:\nPurpose: ${request.purpose}\nRequester Type: ${request.requesterType}\nAccess Level: ${request.requestedAccessLevel}\nDuration: ${request.duration}\n\nProvide clauses in JSON format: [{title: string, content: string, required: boolean}]`,
+          maxTokens: 300,
+          responseMimeType: "application/json"
         });
-        
+
         try {
-          const suggestedClauses = JSON.parse(response.choices[0].message.content || "[]");
+          const suggestedClauses = JSON.parse(content || "[]");
           if (Array.isArray(suggestedClauses)) {
             terms.customClauses.push(...suggestedClauses);
           }
@@ -1142,7 +1098,7 @@ class AIFHIRDataMonetizationService {
           // Use default clauses if parsing fails
         }
       } catch (error) {
-        console.error("[AIFHIRDataMonetization] OpenAI agreement generation error:", error);
+        console.error("[AIFHIRDataMonetization] AI agreement generation error:", error);
       }
     }
 
@@ -1216,25 +1172,15 @@ class AIFHIRDataMonetizationService {
     aiAnalysis += `Found ${violations.length} violations and ${warnings.length} warnings. `;
     aiAnalysis += violations.length === 0 ? "Agreement is compliant." : "Remediation required before execution.";
 
-    if (this.openai) {
+    if (this.aiEnabled) {
       try {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are a healthcare compliance expert specializing in ${checkType.toUpperCase()} regulations for data sharing agreements.`
-            },
-            {
-              role: "user",
-              content: `Review this agreement for ${checkType.toUpperCase()} compliance:\nTerms: ${JSON.stringify(agreement.terms, null, 2)}\n\nProvide a concise 2-3 sentence compliance assessment.`
-            }
-          ],
-          max_tokens: 200
-        });
-        aiAnalysis = response.choices[0].message.content || aiAnalysis;
+        aiAnalysis = await generatePhiSafeText({
+          system: `You are a healthcare compliance expert specializing in ${checkType.toUpperCase()} regulations for data sharing agreements.`,
+          user: `Review this agreement for ${checkType.toUpperCase()} compliance:\nTerms: ${JSON.stringify(agreement.terms, null, 2)}\n\nProvide a concise 2-3 sentence compliance assessment.`,
+          maxTokens: 200
+        }) || aiAnalysis;
       } catch (error) {
-        console.error("[AIFHIRDataMonetization] OpenAI compliance check error:", error);
+        console.error("[AIFHIRDataMonetization] AI compliance check error:", error);
       }
     }
 

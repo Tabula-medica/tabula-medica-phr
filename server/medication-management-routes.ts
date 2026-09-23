@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./services/ai-gateway";
 import { z } from "zod";
 import { phiDb, encryptPhiRow, decryptPhiRow, decryptPhiRows } from "./storage/phi-storage";
 import { 
@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { logger } from "./lib/logger";
+import { handleDoseChange } from "./services/erx-cancellation-service";
 
 const createMedicationSchema = z.object({
   name: z.string().min(1, "Medication name is required"),
@@ -61,11 +62,6 @@ const checkInteractionsSchema = z.object({
 });
 
 const router = Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function hashIdentifier(id: string): string {
   return id.slice(0, 8) + "***";
@@ -199,7 +195,51 @@ router.patch("/medications/:medicationId", requireAuth, enforceSessionUserId, as
       .returning();
     const medication = encMedication ? decryptPhiRow("medicationsTable", encMedication) : encMedication;
 
-    res.json({ success: true, medication });
+    // A dose change supersedes the prescription sitting at the pharmacy. Cancel
+    // the old one so the previous strength is not dispensed alongside the new.
+    // A failure here must not fail the medication update itself — the request is
+    // reconciled by the queue sweep instead.
+    let erxCancellation: Awaited<ReturnType<typeof handleDoseChange>> | null = null;
+    try {
+      erxCancellation = await handleDoseChange({
+        profileId,
+        medicationId,
+        medicationName: medication?.name ?? existingMed.name,
+        previousDose: existingMed.dose,
+        newDose: medication?.dose ?? existingMed.dose,
+        initiatedBy: profileId,
+        initiatorRole: "patient",
+        pharmacyNcpdpId: updates.pharmacyNcpdpId ?? null,
+        pharmacyName: updates.pharmacyName ?? null,
+        prescriberNpi: updates.prescriberNpi ?? null,
+        prescriberName: updates.prescriberName ?? null,
+        rxReferenceNumber: updates.rxReferenceNumber ?? null,
+        daysSupplyRemaining: updates.daysSupplyRemaining ?? null,
+      });
+    } catch (error) {
+      logger.error(
+        { component: "MedMgmt", err: error, medicationId: hashIdentifier(medicationId) },
+        "Dose-change eRx cancellation could not be created",
+      );
+    }
+
+    res.json({
+      success: true,
+      medication,
+      erxCancellation: erxCancellation?.triggered
+        ? {
+            triggered: true,
+            requestId: erxCancellation.request?.id,
+            status: erxCancellation.request?.status,
+            requiresPrescriberApproval: erxCancellation.request?.requiresPrescriberApproval,
+            reason: erxCancellation.assessment.reason,
+            message:
+              erxCancellation.request?.requiresPrescriberApproval
+                ? "The prior prescription's cancellation is awaiting prescriber approval. Nothing has been sent to the pharmacy yet."
+                : "A cancellation for the prior prescription has been queued for the pharmacy.",
+          }
+        : { triggered: false, reason: erxCancellation?.assessment.reason ?? "not_evaluated" },
+    });
   } catch (error) {
     logger.error({ component: "MedMgmt", err: error }, "Error updating medication");
     res.status(500).json({ success: false, error: "Failed to update medication" });
@@ -528,12 +568,8 @@ async function checkDrugInteractionsWithAI(profileId: string, medications: any[]
   try {
     const medNames = medications.map(m => m.name).join(", ");
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a medication information assistant. Analyze potential drug interactions between the provided medications.
+    const content = await generatePhiSafeText({
+      system: `You are a medication information assistant. Analyze potential drug interactions between the provided medications.
 
 IMPORTANT SAFETY GUIDELINES:
 - Only use approved language: "shows", "states", "refers to", "means"
@@ -549,18 +585,12 @@ Return a JSON array of potential interactions. Each interaction should have:
 - description: string (educational description of the interaction)
 - recommendation: string (frame as "discuss with your healthcare provider")
 
-If no significant interactions are found, return an empty array.`
-        },
-        {
-          role: "user",
-          content: `Analyze potential interactions between these medications: ${medNames}`
-        }
-      ],
-      response_format: { type: "json_object" },
+If no significant interactions are found, return an empty array.`,
+      user: `Analyze potential interactions between these medications: ${medNames}`,
+      responseMimeType: "application/json",
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return [];
 
     const parsed = JSON.parse(content);

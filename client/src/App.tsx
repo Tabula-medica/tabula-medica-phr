@@ -62,12 +62,15 @@ import { lazy, Suspense, useState, useEffect } from "react";
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const MyHealthRecord = lazy(() => import("@/pages/my-health-record"));
 const FastenConnect = lazy(() => import("@/pages/fasten-connect"));
+const ProviderOnboarding = lazy(() => import("@/pages/provider-onboarding"));
+const CashPrices = lazy(() => import("@/pages/cash-prices"));
 const EHRCallback = lazy(() => import("@/pages/ehr-callback"));
 const PetHealthRecords = lazy(() => import("@/pages/pet-health-records"));
 const Timeline = lazy(() => import("@/pages/timeline"));
 const Documents = lazy(() => import("@/pages/documents"));
 const CarePackets = lazy(() => import("@/pages/care-packets"));
 const CareIndex = lazy(() => import("@/pages/care-index"));
+const MyCarePage = lazy(() => import("@/pages/my-care"));
 const CareRateCalculator = lazy(() => import("@/pages/care-rate-calculator"));
 const CareShareQr = lazy(() => import("@/pages/care-share-qr"));
 const CareVaVerification = lazy(() => import("@/pages/care-va-verification"));
@@ -92,9 +95,11 @@ const AIEvidenceAdvisor = lazy(() => import("@/pages/ai-evidence-advisor"));
 const HealthAssistant = lazy(() => import("@/pages/health-assistant"));
 const HealthJournal = lazy(() => import("@/pages/health-journal"));
 const HealthGoals = lazy(() => import("@/pages/health-goals"));
+const FitnessRpmConnections = lazy(() => import("@/pages/fitness-rpm-connections"));
 const MedicalScribe = lazy(() => import("@/pages/medical-scribe"));
 const VisitSummary = lazy(() => import("@/pages/visit-summary"));
 const PreventiveScreening = lazy(() => import("@/pages/preventive-screening"));
+const LongevityPreventive = lazy(() => import("@/pages/longevity-preventive"));
 const CareGaps = lazy(() => import("@/pages/care-gaps"));
 const AmbientEncounter = lazy(() => import("@/pages/ambient-encounter"));
 const SymptomChecker = lazy(() => import("@/pages/symptom-checker"));
@@ -120,6 +125,7 @@ const CaregiverPortal = lazy(() => import("@/pages/caregiver-portal"));
 const FamilyVerification = lazy(() => import("@/pages/family-verification"));
 const MyFamily = lazy(() => import("@/pages/my-family"));
 const CMS1500ClaimForm = lazy(() => import("@/pages/cms-1500-claim-form"));
+const RcmCommandCenter = lazy(() => import("@/pages/rcm-command-center"));
 const ProviderDirectory = lazy(() => import("@/pages/provider-directory"));
 const NPILookup = lazy(() => import("@/pages/npi-lookup"));
 const ComplianceExport = lazy(() => import("@/pages/compliance-export"));
@@ -157,6 +163,7 @@ const SharedHealthDataViewer = lazy(() => import("@/pages/shared-health-data-vie
 const Connections = lazy(() => import("@/pages/connections"));
 const IntakeHistory = lazy(() => import("@/pages/intake-history"));
 const Medications = lazy(() => import("@/pages/medications"));
+const ErxCancellations = lazy(() => import("@/pages/erx-cancellations"));
 const Conditions = lazy(() => import("@/pages/conditions"));
 const LabResults = lazy(() => import("@/pages/lab-results"));
 const Vitals = lazy(() => import("@/pages/vitals"));
@@ -168,6 +175,7 @@ const Security = lazy(() => import("@/pages/security"));
 const Privacy = lazy(() => import("@/pages/privacy"));
 const CDSDisabled = lazy(() => import("@/pages/cds-disabled"));
 const GamificationDashboard = lazy(() => import("@/pages/gamification-dashboard"));
+const LifeStageChallenges = lazy(() => import("@/pages/life-stage-challenges"));
 const ComprehensivePatientProfile = lazy(() => import("@/pages/comprehensive-patient-profile"));
 const HealthGoalTracking = lazy(() => import("@/pages/health-goal-tracking"));
 const AuditLogs = lazy(() => import("@/pages/audit-logs"));
@@ -207,12 +215,17 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/my-health-record" component={MyHealthRecord} />
       {tefcaEnabled && <Route path="/fasten-connect" component={FastenConnect} />}
+      <Route path="/provider-onboarding" component={ProviderOnboarding} />
+      <Route path="/join-directory" component={ProviderOnboarding} />
+      <Route path="/cash-prices" component={CashPrices} />
+      <Route path="/find-care" component={CashPrices} />
       <Route path="/ehr-callback" component={EHRCallback} />
       <Route path="/pet-health-records" component={PetHealthRecords} />
       <Route path="/timeline" component={Timeline} />
       <Route path="/documents" component={Documents} />
       <Route path="/care-packets" component={CarePackets} />
       <Route path="/care" component={CareIndex} />
+      <Route path="/care/my" component={MyCarePage} />
       <Route path="/care/find-a-doctor" component={ProviderDirectory} />
       <Route path="/care/eligibility" component={CareRateCalculator} />
       <Route path="/care/share-records" component={CareShareQr} />
@@ -239,9 +252,11 @@ function Router() {
       <Route path="/health-assistant" component={HealthAssistant} />
       <Route path="/health-journal" component={HealthJournal} />
       <Route path="/health-goals" component={HealthGoals} />
+      <Route path="/fitness-connections" component={FitnessRpmConnections} />
       <Route path="/medical-scribe" component={MedicalScribe} />
       <Route path="/visit-summary" component={VisitSummary} />
       <Route path="/preventive-screening" component={PreventiveScreening} />
+      <Route path="/longevity-preventive-health" component={LongevityPreventive} />
       <Route path="/care-gaps" component={CareGaps} />
       <Route path="/ambient-encounter" component={AmbientEncounter} />
       <Route path="/symptom-checker" component={SymptomChecker} />
@@ -272,6 +287,7 @@ function Router() {
       <Route path="/family-verification" component={FamilyVerification} />
       <Route path="/my-family" component={MyFamily} />
       <Route path="/cms-1500" component={CMS1500ClaimForm} />
+      <Route path="/rcm" component={RcmCommandCenter} />
       <Route path="/find-provider" component={ProviderDirectory} />
       <Route path="/npi-lookup" component={NPILookup} />
       {tefcaEnabled && <Route path="/compliance-export" component={ComplianceExport} />}
@@ -282,6 +298,7 @@ function Router() {
       <Route path="/assessments" component={Assessments} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/achievements" component={GamificationDashboard} />
+      <Route path="/life-stage" component={LifeStageChallenges} />
       <Route path="/settings" component={Settings} />
       <Route path="/settings/notifications" component={NotificationSettings} />
       <Route path="/settings/security" component={SecuritySettings} />
@@ -320,6 +337,7 @@ function Router() {
       <Route path="/medplum" component={MedplumFHIR} />
       <Route path="/intake-history" component={IntakeHistory} />
       <Route path="/medications" component={Medications} />
+      <Route path="/erx-cancellations" component={ErxCancellations} />
       <Route path="/conditions" component={Conditions} />
       <Route path="/lab-results" component={LabResults} />
       <Route path="/vitals" component={Vitals} />
@@ -389,6 +407,7 @@ const pageTitles: Record<string, string> = {
   "/medical-scribe": "Record Visit",
   "/visit-summary": "Visit Summary",
   "/preventive-screening": "Preventive Screening",
+  "/longevity-preventive-health": "Longevity & Preventive Health",
   "/care-gaps": "Preventive Care Gaps",
   "/ambient-encounter": "Visit Recorder",
   "/voice-access": "Voice Access",
@@ -406,6 +425,7 @@ const pageTitles: Record<string, string> = {
   "/family-verification": "Family Verification",
   "/my-family": "My Family",
   "/cms-1500": "Insurance Claim Forms",
+  "/rcm": "RCM Command Center",
   "/find-provider": "Find a Provider",
   "/npi-lookup": "Smart NPI Lookup",
   "/compliance-export": "Compliance Export",
@@ -436,8 +456,10 @@ const pageTitles: Record<string, string> = {
   "/login": "Sign In",
   "/consent": "Privacy Consent",
   "/connections": "Data Sources",
+  "/fitness-connections": "Fitness & Remote Monitoring",
   "/intake-history": "Health History",
   "/medications": "Medications",
+  "/erx-cancellations": "Prescription Cancellations",
   "/conditions": "Conditions",
   "/lab-results": "Lab Results",
   "/vitals": "Vitals",

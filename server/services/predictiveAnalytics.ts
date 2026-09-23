@@ -1,9 +1,5 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { storage } from "../storage";
-
-function getOpenAIClient(): OpenAI {
-  return new OpenAI();
-}
 
 export interface FeatureAdoptionTrend {
   featureId: string;
@@ -83,17 +79,14 @@ Return a JSON object with:
 - recommendations: string[] of actionable items
 - insights: array of { type, message, priority }`;
 
-    const response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a product analytics expert. Analyze feature adoption patterns and provide predictions with actionable recommendations. Return valid JSON only." },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 2000,
+    const responseText = await generatePhiSafeText({
+      system: "You are a product analytics expert. Analyze feature adoption patterns and provide predictions with actionable recommendations. Return valid JSON only.",
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const result = JSON.parse(responseText || "{}");
     return {
       overallAdoptionRate: result.overallAdoptionRate || 75,
       predictedAdoptionRate30Days: result.predictedAdoptionRate30Days || 78,
@@ -131,18 +124,15 @@ Return a JSON object with:
 - recommendedInterventions: array of { intervention, targetUsers, expectedRetention }
 - insights: key observations`;
 
-    const response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a customer success expert specializing in churn prevention. Analyze risk factors and provide actionable mitigation strategies. Return valid JSON only." },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 2000,
+    const responseText = await generatePhiSafeText({
+      system: "You are a customer success expert specializing in churn prevention. Analyze risk factors and provide actionable mitigation strategies. Return valid JSON only.",
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 2000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(responseText || "{}");
+
     const strategies: ChurnMitigationStrategy[] = (result.mitigationStrategies || []).map((s: any) => ({
       userId: s.userId || "user-1",
       userName: s.userName || "User",
@@ -198,18 +188,15 @@ Return a JSON object with:
 - predictedChurnDate: ISO date string if applicable
 - engagementScore: number (0-100)`;
 
-    const response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a customer success expert. Analyze user data and provide personalized churn prevention strategies. Return valid JSON only." },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1500,
+    const responseText = await generatePhiSafeText({
+      system: "You are a customer success expert. Analyze user data and provide personalized churn prevention strategies. Return valid JSON only.",
+      user: prompt,
+      responseMimeType: "application/json",
+      maxTokens: 1500,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const result = JSON.parse(responseText || "{}");
+
     return {
       userId,
       userName,

@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { dedupTriggerService, type DedupTriggerResult } from "./dedup-trigger-service";
+import { generatePhiSafeText } from "./ai-gateway";
 
 export interface PipelineStageResult {
   stage: string;
@@ -93,6 +94,30 @@ const pipelineRunHistory: Map<string, PipelineRunResult[]> = new Map();
 class PHROrchestrationService {
   private backgroundSyncIntervals: Map<string, NodeJS.Timeout> = new Map();
 
+  private async getActiveFastenConnectionsForUser(userId: string): Promise<any[]> {
+    const { db } = await import("../db");
+    const { fastenConnectionsTable, patientsTable } = await import("@shared/schema");
+    const { and, eq, inArray } = await import("drizzle-orm");
+
+    const ownedPatients = await db
+      .select({ saidPatientId: patientsTable.saidPatientId })
+      .from(patientsTable)
+      .where(eq(patientsTable.userId, userId));
+    const ownedSaidPatientIds = ownedPatients.map((p) => p.saidPatientId).filter(Boolean);
+
+    if (ownedSaidPatientIds.length === 0) {
+      return [];
+    }
+
+    return await db
+      .select()
+      .from(fastenConnectionsTable)
+      .where(and(
+        eq(fastenConnectionsTable.status, "active"),
+        inArray(fastenConnectionsTable.saidPatientId, ownedSaidPatientIds)
+      ));
+  }
+
   async runFullPipeline(userId: string, connectionIds?: string[]): Promise<PipelineRunResult> {
     const runId = `phr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startedAt = new Date().toISOString();
@@ -163,12 +188,8 @@ class PHROrchestrationService {
 
       let activeConnections: any[] = [];
       try {
-        const { db } = await import("../db");
-        const { fastenConnectionsTable } = await import("@shared/schema");
-        const { eq } = await import("drizzle-orm");
-        const rows = await db.select().from(fastenConnectionsTable).where(eq(fastenConnectionsTable.status, "active"));
-        activeConnections = rows;
-        console.log(`[PHR Pipeline] Found ${activeConnections.length} active Fasten connections in DB`);
+        activeConnections = await this.getActiveFastenConnectionsForUser(userId);
+        console.log(`[PHR Pipeline] Found ${activeConnections.length} active Fasten connections for user ${userId}`);
       } catch (dbErr) {
         console.log(`[PHR Pipeline] DB lookup skipped (${String(dbErr).slice(0, 80)}), using synthetic data`);
       }
@@ -704,17 +725,10 @@ class PHROrchestrationService {
     const queryLower = query.toLowerCase();
 
     try {
-      const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI();
-
       const fhirContext = this.buildFhirContextForVoice(userId);
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a HIPAA-compliant health record voice assistant for Tabula Medica.
+      const aiAnswer = await generatePhiSafeText({
+        system: `You are a HIPAA-compliant health record voice assistant for Tabula Medica.
 You answer patient questions about their health records by querying their FHIR data.
 Always cite your sources with ResourceType, ID, and date.
 Be specific with dates, values, and provider names.
@@ -723,17 +737,10 @@ Never provide medical advice — only report what is in the records.
 
 Patient's FHIR records context:
 ${JSON.stringify(fhirContext, null, 2)}`,
-          },
-          {
-            role: "user",
-            content: query,
-          },
-        ],
+        user: query,
         temperature: 0.2,
-        max_tokens: 500,
-      });
-
-      const aiAnswer = response.choices[0]?.message?.content || "";
+        maxTokens: 500,
+      }) || "";
 
       const sources = this.extractSourcesFromContext(fhirContext, queryLower);
 
@@ -741,7 +748,7 @@ ${JSON.stringify(fhirContext, null, 2)}`,
         answer: aiAnswer,
         sources,
         confidence: 0.92 + Math.random() * 0.06,
-        model: "gpt-4o",
+        model: "vertex-gemini-2.5-flash",
         queryParsed: query,
       };
     } catch (aiErr) {
@@ -977,11 +984,8 @@ ${JSON.stringify(fhirContext, null, 2)}`,
 
     let connectedSources = 3;
     try {
-      const { db } = await import("../db");
-      const { fastenConnectionsTable } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-      const rows = await db.select().from(fastenConnectionsTable).where(eq(fastenConnectionsTable.status, "active"));
-      connectedSources = Math.max(rows.length, 3);
+      const rows = await this.getActiveFastenConnectionsForUser(userId);
+      connectedSources = rows.length;
     } catch { }
 
     return {

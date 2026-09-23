@@ -1,15 +1,11 @@
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import crypto from "crypto";
 
-const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-const openaiBaseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+// PHI-bearing generation runs through the Vertex/BAA gateway (P1-1.2).
+const aiEnabled = true;
 
-const openai = openaiApiKey && openaiBaseURL 
-  ? new OpenAI({ apiKey: openaiApiKey, baseURL: openaiBaseURL }) 
-  : null;
-
-if (openai) {
-  console.log("[AIWorkflowAutomation] OpenAI client initialized for event-driven automation");
+if (aiEnabled) {
+  console.log("[AIWorkflowAutomation] Vertex/BAA gateway enabled for event-driven automation");
 }
 
 const NO_CDS_DISCLAIMER = "CRITICAL COMPLIANCE NOTICE: This automation is for DATA QUALITY, GOVERNANCE, and OPERATIONAL efficiency purposes ONLY. It does NOT provide clinical decision support, treatment recommendations, or medical advice. All outputs must be reviewed by qualified personnel. This system explicitly DOES NOT make clinical decisions.";
@@ -646,38 +642,29 @@ export class AIWorkflowAutomationService {
     let recommendations: string[] = [];
     let score = 85;
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const responseText = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a healthcare DATA QUALITY analyst. Analyze FHIR events for DATA QUALITY issues only.
 DO NOT provide any clinical interpretations or recommendations.
 Focus ONLY on: data completeness, consistency, format compliance, and timeliness.
 
-Return JSON with: issues (array of data quality issues), recommendations (array of data governance actions), score (0-100 data quality score).`
-            },
-            {
-              role: "user",
-              content: `Analyze this FHIR event for DATA QUALITY issues only:
+Return JSON with: issues (array of data quality issues), recommendations (array of data governance actions), score (0-100 data quality score).`,
+          user: `Analyze this FHIR event for DATA QUALITY issues only:
 Event Type: ${event.eventType}
 Resource Type: ${event.resourceType}
 Patient ID: ${event.patientId}
 Source System: ${event.sourceSystem}
 Timestamp: ${event.timestamp.toISOString()}
 
-Generate data quality assessment with issues and recommendations.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1000
+Generate data quality assessment with issues and recommendations.`,
+          responseMimeType: "application/json",
+          maxTokens: 1000,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         issues = (result.issues || []).map((i: any, idx: number) => ({
           id: `issue-${assessmentId}-${idx}`,
           category: i.category || "general",
@@ -773,14 +760,10 @@ Generate data quality assessment with issues and recommendations.`
     let alertType: MedicationDataAlert["alertType"] = "potential_data_conflict";
     let severity: MedicationDataAlert["severity"] = "medium";
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const responseText = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a healthcare DATA QUALITY analyst focusing on MEDICATION DATA quality.
 DO NOT provide clinical drug interaction warnings or treatment recommendations.
@@ -788,24 +771,19 @@ Focus ONLY on: data consistency, format compliance, completeness, and source con
 
 This is NOT a clinical drug interaction check. This is DATA QUALITY analysis only.
 
-Return JSON with: alertType (potential_data_conflict|missing_dosage_info|format_inconsistency|temporal_gap|duplicate_entry), severity (critical|high|medium|low), medications (array of data issues), dataQualityImpact (string), suggestedDataRemediation (string).`
-            },
-            {
-              role: "user",
-              content: `Analyze this medication-related FHIR event for DATA QUALITY issues only:
+Return JSON with: alertType (potential_data_conflict|missing_dosage_info|format_inconsistency|temporal_gap|duplicate_entry), severity (critical|high|medium|low), medications (array of data issues), dataQualityImpact (string), suggestedDataRemediation (string).`,
+          user: `Analyze this medication-related FHIR event for DATA QUALITY issues only:
 Resource Type: ${event.resourceType}
 Resource ID: ${event.resourceId}
 Patient ID: ${event.patientId}
 Source System: ${event.sourceSystem}
 
-Generate medication DATA QUALITY alert if issues found. Focus on data consistency, not clinical implications.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 800
+Generate medication DATA QUALITY alert if issues found. Focus on data consistency, not clinical implications.`,
+          responseMimeType: "application/json",
+          maxTokens: 800,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         if (result.medications && result.medications.length > 0) {
           medications = result.medications;
           alertType = result.alertType || "potential_data_conflict";
@@ -851,35 +829,26 @@ Generate medication DATA QUALITY alert if issues found. Focus on data consistenc
     let taskType: RemediationTask["taskType"] = "manual_review";
     let priority: RemediationTask["priority"] = "medium";
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const responseText = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a healthcare DATA GOVERNANCE specialist creating remediation tasks.
 DO NOT include any clinical recommendations or treatment-related actions.
 Focus ONLY on: data correction, source reconciliation, quality improvement.
 
-Return JSON with: title (string), description (string), taskType (data_correction|source_reconciliation|manual_review|automated_fix|escalation), priority (urgent|high|medium|low), suggestedActions (array of strings).`
-            },
-            {
-              role: "user",
-              content: `Create a data remediation task for these DATA QUALITY issues:
+Return JSON with: title (string), description (string), taskType (data_correction|source_reconciliation|manual_review|automated_fix|escalation), priority (urgent|high|medium|low), suggestedActions (array of strings).`,
+          user: `Create a data remediation task for these DATA QUALITY issues:
 Issues: ${JSON.stringify(criticalIssues)}
 Related Medication Alerts: ${JSON.stringify(alerts.map(a => ({ id: a.id, type: a.alertType, severity: a.severity })))}
 
-Generate remediation task focused on DATA GOVERNANCE, not clinical actions.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 600
+Generate remediation task focused on DATA GOVERNANCE, not clinical actions.`,
+          responseMimeType: "application/json",
+          maxTokens: 600,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         title = result.title || title;
         description = result.description || "";
         taskType = result.taskType || taskType;
@@ -929,36 +898,27 @@ Generate remediation task focused on DATA GOVERNANCE, not clinical actions.`
     let riskReduction = "";
     let complianceImpact: string[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const responseText = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are a healthcare SECURITY specialist providing infrastructure recommendations.
 Focus on: access control, encryption, audit logging, network security configurations.
 
-Return JSON with: recommendedConfiguration (object), rationale (string), implementationSteps (array of strings), riskReduction (string), complianceImpact (array of compliance framework references).`
-            },
-            {
-              role: "user",
-              content: `Generate security configuration recommendation:
+Return JSON with: recommendedConfiguration (object), rationale (string), implementationSteps (array of strings), riskReduction (string), complianceImpact (array of compliance framework references).`,
+          user: `Generate security configuration recommendation:
 Finding ID: ${findingId}
 Severity: ${findingSeverity}
 Category: ${category}
 Current Configuration: ${JSON.stringify(currentConfig)}
 
-Provide specific, actionable security recommendations for healthcare infrastructure.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 800
+Provide specific, actionable security recommendations for healthcare infrastructure.`,
+          responseMimeType: "application/json",
+          maxTokens: 800,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         recommendedConfig = result.recommendedConfiguration || {};
         rationale = result.rationale || "";
         implementationSteps = result.implementationSteps || [];
@@ -1309,37 +1269,28 @@ Provide specific, actionable security recommendations for healthcare infrastruct
     let summary = "";
     let recommendations: string[] = [];
 
-    if (openai) {
+    if (aiEnabled) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `${NO_CDS_DISCLAIMER}
+        const responseText = await generatePhiSafeText({
+          system: `${NO_CDS_DISCLAIMER}
 
 You are generating an ADMINISTRATIVE discharge summary for care coordination purposes.
 DO NOT provide clinical recommendations, treatment plans, or medical advice.
 Focus on: administrative data, scheduling, care coordination, and documentation completeness.
 
-Return JSON with: summary (string), sections (array of {title, content}), recommendations (array of administrative actions).`
-            },
-            {
-              role: "user",
-              content: `Generate an administrative discharge summary for:
+Return JSON with: summary (string), sections (array of {title, content}), recommendations (array of administrative actions).`,
+          user: `Generate an administrative discharge summary for:
 Patient ID: ${trigger.patientId}
 Trigger: ${trigger.triggeredBy}
 Event Source: ${event?.sourceSystem || "Unknown"}
 Timestamp: ${new Date().toISOString()}
 
-Focus on care coordination, follow-up scheduling, and administrative completeness.`
-            }
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 1000
+Focus on care coordination, follow-up scheduling, and administrative completeness.`,
+          responseMimeType: "application/json",
+          maxTokens: 1000,
         });
 
-        const result = JSON.parse(response.choices[0].message.content || "{}");
+        const result = JSON.parse(responseText || "{}");
         summary = result.summary || "Discharge summary generated for care coordination purposes.";
         sections = (result.sections || []).map((s: any) => ({
           title: s.title || "Section",
@@ -1375,7 +1326,7 @@ Focus on care coordination, follow-up scheduling, and administrative completenes
       metadata: {
         generatedBy: "AI Workflow Automation",
         eventSource: event?.sourceSystem || "Unknown",
-        aiAssisted: !!openai
+        aiAssisted: aiEnabled
       }
     };
   }

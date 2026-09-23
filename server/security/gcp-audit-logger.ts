@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { getRequestId } from "./production-logger";
 import { isPhiProtectedRoute } from "./tls-middleware";
+import { redactPath } from "./redact-path";
+import { forwardSecurityEvent } from "./siem-forwarder";
 
 const GCP_PROJECT = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT_ID;
 const LOG_NAME = "tabula-medica-audit";
@@ -153,7 +155,7 @@ export const gcpAuditMiddleware: RequestHandler = (req: Request, res: Response, 
       requestId: getRequestId(req),
       actor: extractActorId(req),
       method: req.method,
-      path: req.path,
+      path: redactPath(req.path),
       statusCode,
       durationMs: duration,
       ip: req.ip || req.socket?.remoteAddress || "unknown",
@@ -177,6 +179,19 @@ export const gcpAuditMiddleware: RequestHandler = (req: Request, res: Response, 
       };
       console.log(JSON.stringify({ _securityEvent: true, ...secEntry }));
       writeToGcp(securityLog, secEntry, "WARNING");
+      forwardSecurityEvent({
+        eventType: secEntry.eventType,
+        timestamp: entry.timestamp,
+        riskLevel: "high",
+        actor: entry.actor,
+        ip: entry.ip,
+        requestId: entry.requestId,
+        path: entry.path,
+        method: entry.method,
+        statusCode,
+        country: req.country,
+        details: { resourceType: entry.resourceType, phiRoute: isPhi },
+      });
     }
   });
 
@@ -197,6 +212,15 @@ export async function logSecurityEvent(event: {
   };
 
   console.log(JSON.stringify({ _securityEvent: true, ...entry }));
+  // Fan out to the SIEM (no-op unless SIEM_HEC_URL/SIEM_HEC_TOKEN are set).
+  forwardSecurityEvent({
+    eventType: entry.eventType,
+    timestamp: entry.timestamp,
+    riskLevel: entry.riskLevel,
+    actor: entry.actor,
+    ip: entry.ip,
+    details: entry.details,
+  });
   await writeToGcp(securityLog, entry as any, event.riskLevel === "critical" ? "CRITICAL" : "WARNING");
 }
 

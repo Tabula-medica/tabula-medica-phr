@@ -1,11 +1,6 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
+import { generatePhiSafeText } from "./ai-gateway";
 import { logPhiAccess } from "../security/hipaa-audit";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 const NO_CDS_DISCLAIMER = `DISCLAIMER: This consolidated patient view is for INFORMATIONAL PURPOSES ONLY. It does NOT constitute clinical decision support, medical advice, diagnosis, or treatment recommendations. All clinical decisions must be made by qualified healthcare professionals.`;
 
@@ -475,16 +470,13 @@ Upcoming Appointments: ${patient.upcomingAppointments.length}
 
 Focus on data completeness and care coordination status only. No clinical advice.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You provide healthcare data integration summaries. Never provide clinical advice or recommendations. Focus only on data completeness and care coordination status." },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 200
+    const aiText = await generatePhiSafeText({
+      system: "You provide healthcare data integration summaries. Never provide clinical advice or recommendations. Focus only on data completeness and care coordination status.",
+      user: prompt,
+      maxTokens: 200
     });
 
-    return response.choices[0]?.message?.content || generateFallbackSummary(patient);
+    return aiText || generateFallbackSummary(patient);
   } catch {
     return generateFallbackSummary(patient);
   }

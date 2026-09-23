@@ -1,10 +1,17 @@
 import passport from "passport";
+import { sessionBindingMiddleware } from "../../security/session-binding";
+import { aiRuntimeGuard } from "../../security/ai-runtime-guard";
 import session from "express-session";
 import type { Express, RequestHandler, Request } from "express";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
 import { storage } from "../../storage";
 import { verifyAndResolveGcip, verifyGcipToken } from "../../auth/gcip";
+import {
+  requiresEmailVerification,
+  EMAIL_NOT_VERIFIED_CODE,
+  EMAIL_NOT_VERIFIED_MESSAGE,
+} from "../../auth/email-verification";
 
 interface SessionUserClaims {
   sub: string;
@@ -206,6 +213,12 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Identity + AI runtime controls (must run after session/passport so
+  // req.user and req.session exist). Both default to monitor mode; flip
+  // SESSION_BINDING_MODE / AI_GUARD_MODE to "enforce" once telemetry is clean.
+  app.use(sessionBindingMiddleware());
+  app.use(aiRuntimeGuard());
+
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
@@ -257,6 +270,21 @@ export async function setupAuth(app: Express) {
 
       const internalUser = await verifyAndResolveGcip(token);
       if (!internalUser) {
+        // Anti-bot: an email/password sign-up that hasn't clicked its
+        // verification link yet is not an error the user should read as
+        // "sign-in broken" — it's "go check your inbox". Answer with a
+        // distinct 403 + code so the auth pages can render that state.
+        // (Existing accounts resolve above and never reach this branch, so
+        // enabling the gate cannot lock anyone out of an account they have.)
+        if (requiresEmailVerification(claims)) {
+          logAuthAttempt("GCIP_SESSION_EXCHANGE_EMAIL_UNVERIFIED", req, {
+            sub: claims.sub,
+          });
+          return res.status(403).json({
+            code: EMAIL_NOT_VERIFIED_CODE,
+            message: EMAIL_NOT_VERIFIED_MESSAGE,
+          });
+        }
         logAuthAttempt("GCIP_SESSION_EXCHANGE_NO_USER", req, {
           sub: claims.sub,
         });

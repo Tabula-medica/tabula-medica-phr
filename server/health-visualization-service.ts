@@ -143,7 +143,6 @@ async function generateTrendInsights(
   medications: MedicationAdherencePoint[],
   labs: LabResultPoint[]
 ): Promise<TrendInsight[]> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   if (!isAiConfigured()) {
     return getMockInsights();
@@ -154,7 +153,6 @@ async function generateTrendInsights(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
