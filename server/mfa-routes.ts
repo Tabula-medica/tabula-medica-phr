@@ -29,9 +29,25 @@ function getUserEmail(req: Request): string | null {
 }
 
 /**
+ * How long a mutation will wait on the mail provider before answering the
+ * client. The MFA state change has already committed by this point, so the
+ * only thing at stake is whether we can report the send as confirmed. Kept
+ * well under a typical client request budget: a provider stall must not
+ * push the response past the client's timeout, or the client may retry a
+ * mutation that already took effect (a retried enrollment would issue a
+ * fresh set of recovery codes and invalidate the ones just shown).
+ */
+const EMAIL_CONFIRM_DEADLINE_MS = Number(
+  process.env.MFA_EMAIL_CONFIRM_DEADLINE_MS || 3_000
+);
+
+/**
  * Fire the out-of-band security email for an MFA change. Best-effort by
  * design: a mail failure is logged and surfaced as a boolean, never
  * thrown, so it can't undo an MFA change that already committed.
+ *
+ * Returns false when the send is still in flight at the deadline — the
+ * mail may still go out, we just can't promise it in this response.
  */
 async function notifyMfaChange(
   userId: string,
@@ -39,18 +55,35 @@ async function notifyMfaChange(
   event: MfaEmailEvent,
   extra: { recoveryCodesRemaining?: number } = {}
 ): Promise<boolean> {
-  try {
-    const ctx = getAuditContext(req);
-    const outcome = await sendMfaSecurityEmail(userId, getUserEmail(req), event, {
-      ipAddress: ctx.ipAddress,
-      userAgent: ctx.userAgent,
-      occurredAt: new Date(),
-      recoveryCodesRemaining: extra.recoveryCodesRemaining,
-    });
-    return outcome.sent;
-  } catch (err: any) {
+  const ctx = getAuditContext(req);
+  const send = sendMfaSecurityEmail(userId, getUserEmail(req), event, {
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+    occurredAt: new Date(),
+    recoveryCodesRemaining: extra.recoveryCodesRemaining,
+  }).catch((err: any) => {
+    // Also catches a rejection that lands after the deadline, so a slow
+    // failure can't surface as an unhandled rejection.
     console.error(`[MFA] security email for "${event}" threw:`, err?.message);
-    return false;
+    return { sent: false as const };
+  });
+
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), EMAIL_CONFIRM_DEADLINE_MS);
+  });
+
+  try {
+    const outcome = await Promise.race([send, deadline]);
+    if (outcome === null) {
+      console.warn(
+        `[MFA] security email for "${event}" still pending at ${EMAIL_CONFIRM_DEADLINE_MS}ms — responding without confirmation`
+      );
+      return false;
+    }
+    return outcome.sent;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

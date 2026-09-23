@@ -24,8 +24,33 @@ const FROM_DEFAULT =
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
-/** Cap on the REST send so a stalled provider can't hang a request handler. */
-const REST_TIMEOUT_MS = Number(process.env.RESEND_TIMEOUT_MS || 10_000);
+/** Cap on a send so a stalled provider can't hang a request handler. */
+const SEND_TIMEOUT_MS = Number(process.env.RESEND_TIMEOUT_MS || 10_000);
+
+/**
+ * Bound a promise that carries no cancellation of its own. The SDK's
+ * `emails.send` takes no AbortSignal, so without this a stalled provider
+ * holds the caller's request open indefinitely — the REST path's
+ * AbortSignal.timeout does not cover it.
+ */
+function withDeadline<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 export interface SendEmailOptions {
   to: string | string[];
@@ -88,7 +113,7 @@ async function sendViaRest(options: SendEmailOptions): Promise<EmailResult> {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(REST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       body: JSON.stringify({
         from: options.from || FROM_DEFAULT,
         to: Array.isArray(options.to) ? options.to : [options.to],
@@ -137,15 +162,19 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
   }
 
   try {
-    const result = await client.emails.send({
-      from: options.from || FROM_DEFAULT,
-      to: Array.isArray(options.to) ? options.to : [options.to],
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
-      reply_to: options.replyTo,
-      tags: options.tags,
-    });
+    const result: any = await withDeadline<any>(
+      client.emails.send({
+        from: options.from || FROM_DEFAULT,
+        to: Array.isArray(options.to) ? options.to : [options.to],
+        subject: options.subject,
+        text: options.text,
+        html: options.html,
+        reply_to: options.replyTo,
+        tags: options.tags,
+      }),
+      SEND_TIMEOUT_MS,
+      "Resend SDK send",
+    );
     if (result?.error) {
       return {
         ok: false,
