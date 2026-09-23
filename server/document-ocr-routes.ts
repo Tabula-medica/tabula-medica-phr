@@ -73,7 +73,7 @@ export function registerDocumentOcrRoutes(app: Express): void {
       }
 
       if (result.data) {
-        documentSearchService.addDocument(userId, result.data);
+        await documentSearchService.addDocument(userId, patientId, result.data);
       }
 
       await logPhiAccess({
@@ -120,7 +120,7 @@ export function registerDocumentOcrRoutes(app: Express): void {
       }
 
       if (result.data) {
-        documentSearchService.addDocument(userId, result.data);
+        await documentSearchService.addDocument(userId, patientId, result.data);
       }
 
       await logPhiAccess({
@@ -151,7 +151,7 @@ export function registerDocumentOcrRoutes(app: Express): void {
 
       const userId = getUserId(req);
       const params: DocumentSearchParams = parsed.data;
-      const results = documentSearchService.search(userId, params);
+      const results = await documentSearchService.search(userId, params);
 
       const patientId = params.patientId || "unknown";
       
@@ -179,9 +179,9 @@ export function registerDocumentOcrRoutes(app: Express): void {
     try {
       const { documentId } = req.params;
       const userId = getUserId(req);
-      // P0-4: getDocument is namespaced by userId — a document owned by another
-      // user is not returned (404), closing the bare-ID IDOR.
-      const document = documentSearchService.getDocument(userId, documentId);
+      // P0-4: getDocument is scoped by userId — a document owned by another user
+      // returns undefined → 404, closing the bare-ID IDOR.
+      const document = await documentSearchService.getDocument(userId, documentId);
 
       if (!document) {
         return res.status(404).json({ error: "Document not found" });

@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 const SAFE_VERBS = ["shows", "states", "refers to", "means"];
@@ -208,14 +207,6 @@ export interface ProgressFeedback {
   nextMilestones: string[];
 }
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!openaiClient && process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openaiClient;
-}
 
 const CACHE_TTL = 15 * 60 * 1000;
 const feedbackCache = new Map<string, { data: ProgressFeedback; timestamp: number }>();
@@ -618,16 +609,6 @@ export async function generateProgressFeedback(
     if (cached) {
       return cached;
     }
-  }
-
-  const client = getOpenAIClient();
-  
-  if (!client) {
-    console.log("[AIProgressFeedback] OpenAI not configured, using mock data");
-    const mockFeedback = generateMockProgressFeedback(patientId);
-    const safeFeedback = ensureSafeContent(mockFeedback);
-    setCachedFeedback(patientId, safeFeedback);
-    return safeFeedback;
   }
 
   try {
