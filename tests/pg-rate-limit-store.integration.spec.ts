@@ -47,6 +47,7 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
         reset_time TIMESTAMPTZ NOT NULL
       )
     `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS rate_limit_hits_reset_time_idx ON rate_limit_hits (reset_time)`);
   });
 
   afterAll(async () => {
