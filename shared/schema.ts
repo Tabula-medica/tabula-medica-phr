@@ -21036,19 +21036,6 @@ export const rateLimitHitsTable = pgTable("rate_limit_hits", {
   resetTime: timestamp("reset_time", { withTimezone: true }).notNull(),
 });
 
-// The HMAC key pg-rate-limit-store.ts hashes rate-limit keys with. Lives in
-// the database (not an env var like SESSION_SECRET) specifically so it stays
-// identical across every Cloud Run revision/instance regardless of secret
-// rotation timing — a value read from an env var at process start can
-// legitimately differ between an old and a new revision serving traffic
-// concurrently during a rollout, which would split one caller's counter in
-// two and double their effective limit for the overlap window. Single row
-// (id = 1), lazily provisioned on first use.
-export const rateLimitKeySecretTable = pgTable("rate_limit_key_secret", {
-  id: integer("id").primaryKey(),
-  secret: text("secret").notNull(),
-});
-
 // Insert schemas for compliance tables
 export const insertHipaaAuditLogSchema = z.object({
   eventType: z.enum(["PHI_ACCESS", "PHI_MODIFY", "PHI_CREATE", "PHI_DELETE", "LOGIN", "LOGOUT", "MFA_SETUP", "MFA_VERIFY", "SESSION_START", "SESSION_END", "EXPORT", "CONSENT_CHANGE", "ACCESS_DENIED"]),

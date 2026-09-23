@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { Pool } from "pg";
+import { randomBytes } from "crypto";
 import { PgRateLimitStore } from "../server/security/pg-rate-limit-store";
 
 /**
@@ -14,15 +15,31 @@ import { PgRateLimitStore } from "../server/security/pg-rate-limit-store";
  *
  * Skipped outside CI (or anywhere without TEST_DATABASE_URL) rather than
  * failing local `npm test` runs that don't have a Postgres instance handy.
+ *
+ * Everything this spec creates lives inside its own, uniquely-named Postgres
+ * schema (via the pool's `search_path`), not the default `public` schema —
+ * so if `TEST_DATABASE_URL` is ever pointed at a real dev/prod database by
+ * mistake, this suite can't create, truncate, rename, or drop that
+ * database's actual `rate_limit_hits` table. Teardown drops only this run's
+ * own schema.
  */
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
   const dbUrl = TEST_DATABASE_URL as string;
+  const schema = `rate_limit_test_${randomBytes(6).toString("hex")}`;
   let pool: Pool;
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: dbUrl });
+    // A bootstrap connection (default search_path) creates the isolated
+    // schema; the actual test pool then defaults every connection it opens
+    // into that schema, so the store's unqualified "rate_limit_hits" table
+    // name resolves inside it, never the caller's real public schema.
+    const bootstrap = new Pool({ connectionString: dbUrl });
+    await bootstrap.query(`CREATE SCHEMA "${schema}"`);
+    await bootstrap.end();
+
+    pool = new Pool({ connectionString: dbUrl, options: `-c search_path="${schema}"` });
     await pool.query(`
       CREATE TABLE IF NOT EXISTS rate_limit_hits (
         key TEXT PRIMARY KEY,
@@ -30,18 +47,13 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
         reset_time TIMESTAMPTZ NOT NULL
       )
     `);
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS rate_limit_key_secret (
-        id INTEGER PRIMARY KEY,
-        secret TEXT NOT NULL
-      )
-    `);
   });
 
   afterAll(async () => {
-    await pool.query("DROP TABLE IF EXISTS rate_limit_hits");
-    await pool.query("DROP TABLE IF EXISTS rate_limit_key_secret");
     await pool.end();
+    const bootstrap = new Pool({ connectionString: dbUrl });
+    await bootstrap.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await bootstrap.end();
   });
 
   beforeEach(async () => {
@@ -98,25 +110,6 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
     await deadPool.end();
   });
 
-  it("converges every instance on one HMAC key even when they all race to provision it on their very first call", async () => {
-    // The actual scenario the HMAC-key-in-the-database design exists for:
-    // several fresh Cloud Run instances (or revisions) cold-starting at once,
-    // each hitting getKeySecret() for the first time simultaneously. If they
-    // didn't converge on one secret, each would hash "racer" to a different
-    // row and this test would see 10 separate counters of 1, not one of 10.
-    await pool.query("DELETE FROM rate_limit_key_secret");
-    const racers = Array.from({ length: 10 }, () => new PgRateLimitStore(pool, "race_test"));
-    racers.forEach((s) => s.init({ windowMs: 15 * 60 * 1000 }));
-
-    await Promise.all(racers.map((s) => s.increment("racer")));
-
-    const seenCounts = await Promise.all(racers.map((s) => s.get("racer")));
-    for (const seen of seenCounts) expect(seen?.totalHits).toBe(10);
-
-    const secretRowCount = await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_key_secret");
-    expect(secretRowCount.rows[0].n).toBe(1);
-  });
-
   it("rejects with Postgres error 42P01 when the schema hasn't been published yet — the pre-deploy gap this store must fail loud on", async () => {
     // Simulates the real deploy hazard this test exists to catch: Cloud Run
     // traffic promoted before `rate_limit_hits` has been applied to the
@@ -129,5 +122,27 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
     } finally {
       await pool.query("ALTER TABLE rate_limit_hits_temp_rename RENAME TO rate_limit_hits");
     }
+  });
+
+  it("sweeps a row expired well in the past on a real table, without touching one still in its window", async () => {
+    const store = new PgRateLimitStore(pool, "sweep_test");
+    store.init({ windowMs: 15 * 60 * 1000 });
+    // A caller who hit the limiter once, two days ago, and never came back.
+    await pool.query(
+      `INSERT INTO rate_limit_hits (key, hits, reset_time) VALUES ($1, 1, now() - interval '2 days')`,
+      [store["scopedKey"]("long-gone-caller")],
+    );
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0); // force the sweep to run
+    try {
+      await store.increment("fresh-caller"); // any increment can trigger the sweep as a side effect
+      await new Promise((r) => setTimeout(r, 50)); // the sweep is fire-and-forget; give it a moment to land
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    const remainingKeys = await pool.query("SELECT key FROM rate_limit_hits");
+    expect(remainingKeys.rows.map((r) => r.key)).not.toContain(store["scopedKey"]("long-gone-caller"));
+    expect((await store.get("fresh-caller"))?.totalHits).toBe(1); // its own fresh row is untouched
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PgRateLimitStore, type Queryable } from "../server/security/pg-rate-limit-store";
 
 /**
@@ -12,32 +12,20 @@ import { PgRateLimitStore, type Queryable } from "../server/security/pg-rate-lim
  * which runs against a real `postgres` service container in CI.
  */
 type FakeRow = { hits: number; reset_time: Date };
-type FakeSecretRow = { secret: string };
-type FakeQueryResult = { rows: (FakeRow | FakeSecretRow)[] };
+type FakeQueryResult = { rows: FakeRow[] };
 
-function fakeQueryable(): Queryable & { rows: Map<string, { hits: number; resetTime: Date }> } {
+function fakeQueryable(): Queryable & {
+  rows: Map<string, { hits: number; resetTime: Date }>;
+  deleteCalls: { sql: string; params: unknown[] }[];
+} {
   const rows = new Map<string, { hits: number; resetTime: Date }>();
-  let secret: string | undefined;
+  const deleteCalls: { sql: string; params: unknown[] }[] = [];
   const run = async (sql: string, params?: unknown[]): Promise<FakeQueryResult> => {
     const text = String(sql);
-
-    if (text.includes("rate_limit_key_secret")) {
-      if (text.startsWith("INSERT INTO")) {
-        const [candidate] = params as [string];
-        if (secret === undefined) {
-          secret = candidate;
-          return { rows: [{ secret }] };
-        }
-        return { rows: [] }; // ON CONFLICT DO NOTHING — already provisioned
-      }
-      if (text.startsWith("SELECT")) {
-        return { rows: [{ secret: secret as string }] };
-      }
-      throw new Error(`fakeQueryable: unhandled secret-table query: ${text}`);
-    }
+    const p = params ?? [];
 
     if (text.startsWith("INSERT INTO")) {
-      const [key, intervalStr] = params as [string, string];
+      const [key, intervalStr] = p as [string, string];
       const windowMs = parseInt(intervalStr, 10);
       const now = new Date();
       const existing = rows.get(key);
@@ -50,20 +38,26 @@ function fakeQueryable(): Queryable & { rows: Map<string, { hits: number; resetT
     }
 
     if (text.startsWith("UPDATE") && text.includes("hits = GREATEST")) {
-      const [key] = params as [string];
+      const [key] = p as [string];
       const existing = rows.get(key);
       if (existing) existing.hits = Math.max(existing.hits - 1, 0);
       return { rows: [] };
     }
 
     if (text.startsWith("DELETE")) {
-      const [key] = params as [string];
-      rows.delete(key);
+      deleteCalls.push({ sql: text, params: p });
+      if (text.includes("WHERE key = $1")) {
+        const [key] = p as [string];
+        rows.delete(key);
+      } else {
+        // The opportunistic expiry sweep: no params, matches by reset_time.
+        for (const [key, row] of rows) if (row.resetTime < new Date()) rows.delete(key);
+      }
       return { rows: [] };
     }
 
     if (text.startsWith("SELECT")) {
-      const [key] = params as [string];
+      const [key] = p as [string];
       const existing = rows.get(key);
       if (!existing || existing.resetTime <= new Date()) return { rows: [] };
       return { rows: [{ hits: existing.hits, reset_time: existing.resetTime }] };
@@ -71,7 +65,7 @@ function fakeQueryable(): Queryable & { rows: Map<string, { hits: number; resetT
 
     throw new Error(`fakeQueryable: unhandled query: ${text}`);
   };
-  return { query: run as Queryable["query"], rows };
+  return { query: run as Queryable["query"], rows, deleteCalls };
 }
 
 describe("PgRateLimitStore", () => {
@@ -149,5 +143,26 @@ describe("PgRateLimitStore", () => {
     brokenStore.init({ windowMs: 1000 });
     await expect(brokenStore.increment("k5")).rejects.toThrow("connection refused");
     await expect(brokenStore.get("k5")).rejects.toThrow("connection refused");
+  });
+
+  it("opportunistically sweeps long-expired rows on the lucky roll, without touching hits still in their window", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0); // always below CLEANUP_PROBABILITY
+    try {
+      await store.increment("k6");
+      expect(pool.deleteCalls.some((c) => c.params.length === 0)).toBe(true); // the sweep, not resetKey
+      expect((await store.get("k6"))?.totalHits).toBe(1); // its own fresh row survives the sweep
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("never sweeps when the random roll lands above the cleanup probability", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    try {
+      await store.increment("k7");
+      expect(pool.deleteCalls.some((c) => c.params.length === 0)).toBe(false);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 });
