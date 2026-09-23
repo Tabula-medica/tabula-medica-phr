@@ -36,6 +36,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Link } from "wouter";
+import { clickable } from "@/lib/a11y";
 
 interface Document {
   id: string;
@@ -262,7 +263,7 @@ export default function DocumentAnalysis() {
               <ScrollArea className="h-80">
                 <div className="space-y-2">
                   {documents.map((doc) => (
-                    <div
+                    <div role="presentation"
                       key={doc.id}
                       className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
                         selectedDocs.has(doc.id) 
@@ -575,7 +576,7 @@ export default function DocumentAnalysis() {
                             className={`p-2 rounded cursor-pointer text-sm ${
                               compareDoc1 === doc.id ? "bg-primary/20" : "hover-elevate"
                             }`}
-                            onClick={() => setCompareDoc1(doc.id)}
+                            {...clickable(() => setCompareDoc1(doc.id))}
                             data-testid={`compare-doc1-${doc.id}`}
                           >
                             {doc.title}
@@ -592,7 +593,7 @@ export default function DocumentAnalysis() {
                             className={`p-2 rounded cursor-pointer text-sm ${
                               compareDoc2 === doc.id ? "bg-primary/20" : "hover-elevate"
                             }`}
-                            onClick={() => setCompareDoc2(doc.id)}
+                            {...clickable(() => setCompareDoc2(doc.id))}
                             data-testid={`compare-doc2-${doc.id}`}
                           >
                             {doc.title}

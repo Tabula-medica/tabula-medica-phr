@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -183,8 +184,8 @@ function initializeSampleApps(): void {
       createdAt: now
     },
     launchConfig: {
-      launchUrl: "https://api.fastenhealth.com/fhir/launch",
-      redirectUrls: ["https://api.fastenhealth.com/callback"],
+      launchUrl: "https://api.connect.fastenhealth.com/fhir/launch",
+      redirectUrls: ["https://api.connect.fastenhealth.com/callback"],
       launchContext: ["patient", "practitioner", "standalone"],
       supportedResponseTypes: ["code"],
       pkceRequired: true,
@@ -619,7 +620,7 @@ class SmartAppRegistrationService {
     }
 
     // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: SMART-app connection events include backend/client-credentials connections with no user actor
-    auditLog("CONNECTION_EVENT", "SMARTApp", event.appId, event.userId || "system",
+    auditLog("CONNECTION_EVENT", "SMARTApp", event.appId, event.userId || SYSTEM_ACTOR,
       `${event.eventType} - ${event.status}`);
 
     return fullEvent;

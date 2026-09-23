@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -260,12 +261,12 @@ export default function CustomFhirConnection() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label>Authentication Type</Label>
+                <Label htmlFor="custom-fhir-connection-authentication-type">Authentication Type</Label>
                 <Select
                   value={config.authType}
                   onValueChange={(v) => updateField("authType", v as AuthType)}
                 >
-                  <SelectTrigger data-testid="select-auth-type">
+                  <SelectTrigger id="custom-fhir-connection-authentication-type" data-testid="select-auth-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -441,11 +442,11 @@ export default function CustomFhirConnection() {
               <Separator />
 
               <div className="space-y-4">
-                <Label>Resources to Sync</Label>
+                <FieldCaption>Resources to Sync</FieldCaption>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {resourceTypes.map((resource: { type: string; description: string }) => (
                     <div key={resource.type} className="flex items-start space-x-2">
-                      <Checkbox
+                      <Checkbox aria-label="Resources to Sync"
                         id={`resource-${resource.type}`}
                         checked={selectedResources.includes(resource.type)}
                         onCheckedChange={(checked) => {

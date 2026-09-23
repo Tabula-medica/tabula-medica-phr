@@ -377,9 +377,9 @@ export default function AIFHIRAnalytics() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Select Patient</label>
+                    <label htmlFor="ai-fhir-analytics-select-patient" className="text-sm font-medium">Select Patient</label>
                     <Select value={selectedPatient} onValueChange={setSelectedPatient} data-testid="select-patient">
-                      <SelectTrigger data-testid="select-patient-trigger">
+                      <SelectTrigger id="ai-fhir-analytics-select-patient" data-testid="select-patient-trigger">
                         <SelectValue placeholder="Choose a patient" />
                       </SelectTrigger>
                       <SelectContent>
@@ -392,9 +392,9 @@ export default function AIFHIRAnalytics() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Model Type</label>
+                    <label htmlFor="ai-fhir-analytics-model-type" className="text-sm font-medium">Model Type</label>
                     <Select value={selectedModelType} onValueChange={setSelectedModelType} data-testid="select-model-type">
-                      <SelectTrigger data-testid="select-model-type-trigger">
+                      <SelectTrigger id="ai-fhir-analytics-model-type" data-testid="select-model-type-trigger">
                         <SelectValue placeholder="Choose model type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -547,9 +547,9 @@ export default function AIFHIRAnalytics() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Trend Type</label>
+                    <label htmlFor="ai-fhir-analytics-trend-type" className="text-sm font-medium">Trend Type</label>
                     <Select value={selectedTrendType} onValueChange={setSelectedTrendType} data-testid="select-trend-type">
-                      <SelectTrigger data-testid="select-trend-type-trigger">
+                      <SelectTrigger id="ai-fhir-analytics-trend-type" data-testid="select-trend-type-trigger">
                         <SelectValue placeholder="Choose trend type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -562,9 +562,9 @@ export default function AIFHIRAnalytics() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Condition (Optional)</label>
+                    <label htmlFor="ai-fhir-analytics-condition-optional" className="text-sm font-medium">Condition (Optional)</label>
                     <Select value={trendCondition} onValueChange={setTrendCondition} data-testid="select-trend-condition">
-                      <SelectTrigger data-testid="select-trend-condition-trigger">
+                      <SelectTrigger id="ai-fhir-analytics-condition-optional" data-testid="select-trend-condition-trigger">
                         <SelectValue placeholder="All conditions" />
                       </SelectTrigger>
                       <SelectContent>
@@ -712,9 +712,9 @@ export default function AIFHIRAnalytics() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Report Type</label>
+                    <label htmlFor="ai-fhir-analytics-report-type" className="text-sm font-medium">Report Type</label>
                     <Select value={selectedReportType} onValueChange={setSelectedReportType} data-testid="select-report-type">
-                      <SelectTrigger data-testid="select-report-type-trigger">
+                      <SelectTrigger id="ai-fhir-analytics-report-type" data-testid="select-report-type-trigger">
                         <SelectValue placeholder="Choose report type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -727,9 +727,9 @@ export default function AIFHIRAnalytics() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Patient (Optional)</label>
+                    <label htmlFor="ai-fhir-analytics-patient-optional" className="text-sm font-medium">Patient (Optional)</label>
                     <Select data-testid="select-report-patient">
-                      <SelectTrigger data-testid="select-report-patient-trigger">
+                      <SelectTrigger id="ai-fhir-analytics-patient-optional" data-testid="select-report-patient-trigger">
                         <SelectValue placeholder="All patients" />
                       </SelectTrigger>
                       <SelectContent>

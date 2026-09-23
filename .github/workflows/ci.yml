@@ -1,0 +1,74 @@
+name: CI
+
+# Baseline gate for every change: the checks a contributor runs locally, run
+# once per push and pull request. Before this workflow existed the only
+# automated check was the PHI-AI boundary guard, so a type error, a failing
+# test or a broken build could reach main unnoticed.
+#
+# Two existing checks are deliberately NOT gated here, because both fail on
+# main today and gating on them would fail every pull request for work none of
+# them touch. Run each locally, drive its count to zero, then promote it to a
+# job:
+#
+#   npm run lint:server  — 198 errors. 117 are the F1 encryption programme's
+#                          open backlog (direct `db.*` writes to PHI tables,
+#                          string-form logger calls), tracked in
+#                          `.local/deliverables/f1-action-items.md`; the rest
+#                          are `prefer-const` and `no-unsafe-function-type`.
+#   npm run check        — 1,387 pre-existing type errors, mostly Drizzle and
+#                          Zod inference drift in `server/` plus the
+#                          `@capacitor/*` modules that only exist in the native
+#                          shell.
+#
+# Accessibility regressions are caught regardless: `react/jsx-no-duplicate-props`
+# runs in the accessibility lint job, which covers the one class of defect
+# (a discarded duplicate `id` or `role`) that would otherwise need typecheck.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege for GITHUB_TOKEN. Every job here only reads the repository —
+# nothing writes commits, comments, releases or packages — so the default
+# broader grant is unnecessary standing authority on a workflow that runs
+# arbitrary pull-request code.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: ${{ matrix.task.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Every task reports independently, so one failure does not hide the rest.
+      fail-fast: false
+      matrix:
+        task:
+          - name: Accessibility lint
+            run: npm run lint:a11y
+          - name: Accessibility tests
+            run: npm run test:a11y
+          - name: Tests
+            run: npm test
+          - name: Build
+            run: npm run build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: ${{ matrix.task.name }}
+        run: ${{ matrix.task.run }}

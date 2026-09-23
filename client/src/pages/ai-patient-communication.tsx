@@ -766,9 +766,9 @@ export default function AIPatientCommunicationPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Message Type</Label>
+              <Label htmlFor="ai-patient-communication-message-type">Message Type</Label>
               <Select value={generateType} onValueChange={(v: "reminder" | "follow_up") => setGenerateType(v)}>
-                <SelectTrigger data-testid="select-message-type">
+                <SelectTrigger id="ai-patient-communication-message-type" data-testid="select-message-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -779,8 +779,8 @@ export default function AIPatientCommunicationPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Patient ID</Label>
-                <Input
+                <Label htmlFor="ai-patient-communication-patient-id">Patient ID</Label>
+                <Input id="ai-patient-communication-patient-id"
                   placeholder="e.g., patient-1"
                   value={newMessagePatient.id}
                   onChange={(e) => setNewMessagePatient({ ...newMessagePatient, id: e.target.value })}
@@ -788,8 +788,8 @@ export default function AIPatientCommunicationPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Patient Name</Label>
-                <Input
+                <Label htmlFor="ai-patient-communication-patient-name">Patient Name</Label>
+                <Input id="ai-patient-communication-patient-name"
                   placeholder="e.g., John Smith"
                   value={newMessagePatient.name}
                   onChange={(e) => setNewMessagePatient({ ...newMessagePatient, name: e.target.value })}
@@ -802,8 +802,8 @@ export default function AIPatientCommunicationPage() {
                 <h4 className="font-medium">Appointment Details</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Appointment Type</Label>
-                    <Input
+                    <Label htmlFor="ai-patient-communication-appointment-type">Appointment Type</Label>
+                    <Input id="ai-patient-communication-appointment-type"
                       placeholder="e.g., Annual Checkup"
                       value={appointmentDetails.type}
                       onChange={(e) => setAppointmentDetails({ ...appointmentDetails, type: e.target.value })}
@@ -811,8 +811,8 @@ export default function AIPatientCommunicationPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Provider</Label>
-                    <Input
+                    <Label htmlFor="ai-patient-communication-provider">Provider</Label>
+                    <Input id="ai-patient-communication-provider"
                       placeholder="e.g., Dr. Smith"
                       value={appointmentDetails.provider}
                       onChange={(e) => setAppointmentDetails({ ...appointmentDetails, provider: e.target.value })}
@@ -822,8 +822,8 @@ export default function AIPatientCommunicationPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Date/Time</Label>
-                    <Input
+                    <Label htmlFor="ai-patient-communication-date-time">Date/Time</Label>
+                    <Input id="ai-patient-communication-date-time"
                       type="datetime-local"
                       value={appointmentDetails.scheduledDate}
                       onChange={(e) => setAppointmentDetails({ ...appointmentDetails, scheduledDate: e.target.value })}
@@ -831,8 +831,8 @@ export default function AIPatientCommunicationPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Location</Label>
-                    <Input
+                    <Label htmlFor="ai-patient-communication-location">Location</Label>
+                    <Input id="ai-patient-communication-location"
                       placeholder="e.g., Main Clinic"
                       value={appointmentDetails.location}
                       onChange={(e) => setAppointmentDetails({ ...appointmentDetails, location: e.target.value })}
@@ -844,9 +844,9 @@ export default function AIPatientCommunicationPage() {
             )}
             {generateType === "follow_up" && (
               <div className="space-y-2">
-                <Label>Follow-up Type</Label>
+                <Label htmlFor="ai-patient-communication-follow-up-type">Follow-up Type</Label>
                 <Select value={followUpType} onValueChange={(v: any) => setFollowUpType(v)}>
-                  <SelectTrigger data-testid="select-followup-type">
+                  <SelectTrigger id="ai-patient-communication-follow-up-type" data-testid="select-followup-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

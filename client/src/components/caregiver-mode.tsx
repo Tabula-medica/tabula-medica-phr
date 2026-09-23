@@ -48,6 +48,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface Dependent {
   id: string;
@@ -141,7 +142,7 @@ function DependentProfile({ dependent, onSelect }: { dependent: CaregiverDepende
   return (
     <div
       className="p-4 rounded-lg border hover-elevate cursor-pointer"
-      onClick={onSelect}
+      {...clickable(onSelect)}
       data-testid={`card-dependent-${dependent.dependent.id}`}
     >
       <div className="flex items-start gap-4">

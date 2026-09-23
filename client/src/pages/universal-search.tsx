@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -274,7 +275,7 @@ export default function UniversalSearchPage() {
               <CollapsibleContent className="pt-4 border-t">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label>Filter by Data Type</Label>
+                    <FieldCaption>Filter by Data Type</FieldCaption>
                     {(selectedDataTypes.length > 0 || dateFrom || dateTo) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters} data-testid="button-clear-filters">
                         <X className="h-4 w-4 mr-1" />
@@ -284,7 +285,7 @@ export default function UniversalSearchPage() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     {(Object.keys(DATA_TYPE_LABELS) as SearchableDataType[]).map((dataType) => (
-                      <div
+                      <div role="presentation"
                         key={dataType}
                         className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
                           selectedDataTypes.includes(dataType)
@@ -305,8 +306,8 @@ export default function UniversalSearchPage() {
                   </div>
                   <div className="flex gap-4">
                     <div className="space-y-2">
-                      <Label>From Date</Label>
-                      <Input
+                      <Label htmlFor="universal-search-from-date">From Date</Label>
+                      <Input id="universal-search-from-date"
                         type="date"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
@@ -314,8 +315,8 @@ export default function UniversalSearchPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>To Date</Label>
-                      <Input
+                      <Label htmlFor="universal-search-to-date">To Date</Label>
+                      <Input id="universal-search-to-date"
                         type="date"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}

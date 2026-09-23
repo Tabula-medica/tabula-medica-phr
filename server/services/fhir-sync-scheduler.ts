@@ -1,4 +1,5 @@
 import { fhirAuditService, FhirAuditOutcome } from "./fhir-audit-service";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 
 export type SyncDirection = "bidirectional" | "push" | "pull";
 export type SyncFrequency = "realtime" | "hourly" | "daily" | "weekly" | "custom";
@@ -906,7 +907,7 @@ class FHIRSyncScheduler {
     conflict.resolutionStrategy = strategy;
     conflict.resolvedData = resolvedData;
     // eslint-disable-next-line tabulaAuth/no-fallback-identity -- legitimate system actor: automated scheduler sync (line ~736 this.resolveConflict) resolves conflicts with no user; request path passes a real userId
-    conflict.resolvedBy = userId || "system";
+    conflict.resolvedBy = userId || SYSTEM_ACTOR;
     conflict.resolvedAt = new Date().toISOString();
     
     this.addLog({

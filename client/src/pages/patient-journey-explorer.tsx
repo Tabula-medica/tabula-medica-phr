@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Map,
   Activity,
@@ -468,7 +469,7 @@ export default function PatientJourneyExplorer() {
                             className={`p-3 border rounded-lg hover-elevate cursor-pointer ${
                               selectedNode?.id === node.id ? "ring-2 ring-primary" : ""
                             } ${node.isCritical ? "border-l-4 border-l-orange-500" : ""}`}
-                            onClick={() => setSelectedNode(node)}
+                            {...clickable(() => setSelectedNode(node))}
                             data-testid={`node-${node.id}`}
                           >
                             <div className="flex items-center justify-between">

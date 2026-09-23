@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import { 
   CheckCircle2,
@@ -32,6 +33,7 @@ import {
   Wand2
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface ValidationIssue {
   id: string;
@@ -390,10 +392,10 @@ export default function FhirDataQuality() {
                         <div
                           key={issue.id}
                           className="flex items-center justify-between p-3 border rounded-lg hover-elevate cursor-pointer"
-                          onClick={() => {
+                          {...clickable(() => {
                             setSelectedIssue(issue);
                             setActiveTab("issues");
-                          }}
+                          })}
                           data-testid={`recent-issue-${issue.id}`}
                         >
                           <div className="flex items-center gap-3">
@@ -645,11 +647,11 @@ export default function FhirDataQuality() {
           {selectedIssue && (
             <div className="space-y-4">
               <div>
-                <Label>Issue</Label>
+                <FieldCaption>Issue</FieldCaption>
                 <p className="text-sm text-muted-foreground">{selectedIssue.message}</p>
               </div>
               <div>
-                <Label>Current Value</Label>
+                <FieldCaption>Current Value</FieldCaption>
                 <p className="text-sm font-mono bg-muted p-2 rounded">
                   {JSON.stringify(selectedIssue.currentValue)}
                 </p>

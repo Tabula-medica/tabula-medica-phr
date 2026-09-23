@@ -365,8 +365,8 @@ export function AIOnboardingAgent({
           <div className="border rounded-md p-3 space-y-2 bg-muted/30" data-testid="interaction-checker-panel">
             <p className="text-xs font-medium">Check Medication-Allergy Interactions</p>
             <div>
-              <label className="text-xs text-muted-foreground">Medications (comma-separated)</label>
-              <Input
+              <label htmlFor="ai-onboarding-agent-medications-comma-separated" className="text-xs text-muted-foreground">Medications (comma-separated)</label>
+              <Input id="ai-onboarding-agent-medications-comma-separated"
                 value={medicationsInput}
                 onChange={(e) => setMedicationsInput(e.target.value)}
                 placeholder="e.g. Amoxicillin, Ibuprofen"
@@ -375,8 +375,8 @@ export function AIOnboardingAgent({
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Allergies (comma-separated)</label>
-              <Input
+              <label htmlFor="ai-onboarding-agent-allergies-comma-separated" className="text-xs text-muted-foreground">Allergies (comma-separated)</label>
+              <Input id="ai-onboarding-agent-allergies-comma-separated"
                 value={allergiesInput}
                 onChange={(e) => setAllergiesInput(e.target.value)}
                 placeholder="e.g. Penicillin, Sulfa"

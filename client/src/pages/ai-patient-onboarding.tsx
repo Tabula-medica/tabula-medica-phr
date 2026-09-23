@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -1003,8 +1004,8 @@ function InlineFormCard({
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">First Name</Label>
-              <Input
+              <Label htmlFor="ai-patient-onboarding-first-name" className="text-xs">First Name</Label>
+              <Input id="ai-patient-onboarding-first-name"
                 placeholder="First name"
                 value={formData.firstName || ""}
                 onChange={e => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
@@ -1013,8 +1014,8 @@ function InlineFormCard({
               />
             </div>
             <div>
-              <Label className="text-xs">Last Name</Label>
-              <Input
+              <Label htmlFor="ai-patient-onboarding-last-name" className="text-xs">Last Name</Label>
+              <Input id="ai-patient-onboarding-last-name"
                 placeholder="Last name"
                 value={formData.lastName || ""}
                 onChange={e => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
@@ -1023,8 +1024,8 @@ function InlineFormCard({
               />
             </div>
             <div>
-              <Label className="text-xs">Date of Birth</Label>
-              <Input
+              <Label htmlFor="ai-patient-onboarding-date-of-birth" className="text-xs">Date of Birth</Label>
+              <Input id="ai-patient-onboarding-date-of-birth"
                 type="date"
                 value={formData.dateOfBirth || ""}
                 onChange={e => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
@@ -1033,8 +1034,8 @@ function InlineFormCard({
               />
             </div>
             <div>
-              <Label className="text-xs">Phone</Label>
-              <Input
+              <Label htmlFor="ai-patient-onboarding-phone" className="text-xs">Phone</Label>
+              <Input id="ai-patient-onboarding-phone"
                 placeholder="Phone number"
                 value={formData.phone || ""}
                 onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
@@ -1043,8 +1044,8 @@ function InlineFormCard({
               />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs">Email</Label>
-              <Input
+              <Label htmlFor="ai-patient-onboarding-email" className="text-xs">Email</Label>
+              <Input id="ai-patient-onboarding-email"
                 type="email"
                 placeholder="Email address"
                 value={formData.email || ""}
@@ -1079,8 +1080,8 @@ function InlineFormCard({
           {listItems.map((item, idx) => (
             <div key={idx} className="grid grid-cols-4 gap-2 items-end" data-testid={`form-medication-row-${idx}`}>
               <div>
-                <Label className="text-xs">Medication</Label>
-                <Input
+                <FieldCaption className="text-xs">Medication</FieldCaption>
+                <Input aria-label="Medication"
                   placeholder="Name"
                   value={item.name || ""}
                   onChange={e => {
@@ -1092,8 +1093,8 @@ function InlineFormCard({
                 />
               </div>
               <div>
-                <Label className="text-xs">Dosage</Label>
-                <Input
+                <FieldCaption className="text-xs">Dosage</FieldCaption>
+                <Input aria-label="Dosage"
                   placeholder="e.g., 500mg"
                   value={item.dosage || ""}
                   onChange={e => {
@@ -1105,8 +1106,8 @@ function InlineFormCard({
                 />
               </div>
               <div>
-                <Label className="text-xs">Frequency</Label>
-                <Input
+                <FieldCaption className="text-xs">Frequency</FieldCaption>
+                <Input aria-label="Frequency"
                   placeholder="e.g., twice daily"
                   value={item.frequency || ""}
                   onChange={e => {
@@ -1163,8 +1164,8 @@ function InlineFormCard({
           {listItems.map((item, idx) => (
             <div key={idx} className="grid grid-cols-4 gap-2 items-end" data-testid={`form-allergy-row-${idx}`}>
               <div>
-                <Label className="text-xs">Allergen</Label>
-                <Input
+                <FieldCaption className="text-xs">Allergen</FieldCaption>
+                <Input aria-label="Allergen"
                   placeholder="e.g., Penicillin"
                   value={item.allergen || ""}
                   onChange={e => {
@@ -1176,8 +1177,8 @@ function InlineFormCard({
                 />
               </div>
               <div>
-                <Label className="text-xs">Reaction</Label>
-                <Input
+                <FieldCaption className="text-xs">Reaction</FieldCaption>
+                <Input aria-label="Reaction"
                   placeholder="e.g., Rash, hives"
                   value={item.reaction || ""}
                   onChange={e => {
@@ -1189,7 +1190,7 @@ function InlineFormCard({
                 />
               </div>
               <div>
-                <Label className="text-xs">Severity</Label>
+                <FieldCaption className="text-xs">Severity</FieldCaption>
                 <Select
                   value={item.severity || "moderate"}
                   onValueChange={val => {
@@ -1198,7 +1199,7 @@ function InlineFormCard({
                     setListItems(updated);
                   }}
                 >
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger aria-label="Severity" className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1254,8 +1255,8 @@ function InlineFormCard({
           {listItems.map((item, idx) => (
             <div key={idx} className="grid grid-cols-4 gap-2 items-end" data-testid={`form-condition-row-${idx}`}>
               <div>
-                <Label className="text-xs">Condition</Label>
-                <Input
+                <FieldCaption className="text-xs">Condition</FieldCaption>
+                <Input aria-label="Condition"
                   placeholder="e.g., Hypertension"
                   value={item.name || ""}
                   onChange={e => {
@@ -1267,8 +1268,8 @@ function InlineFormCard({
                 />
               </div>
               <div>
-                <Label className="text-xs">Diagnosis Date</Label>
-                <Input
+                <FieldCaption className="text-xs">Diagnosis Date</FieldCaption>
+                <Input aria-label="Diagnosis Date"
                   type="date"
                   value={item.diagnosisDate || ""}
                   onChange={e => {
@@ -1280,7 +1281,7 @@ function InlineFormCard({
                 />
               </div>
               <div>
-                <Label className="text-xs">Status</Label>
+                <FieldCaption className="text-xs">Status</FieldCaption>
                 <Select
                   value={item.status || "active"}
                   onValueChange={val => {
@@ -1289,7 +1290,7 @@ function InlineFormCard({
                     setListItems(updated);
                   }}
                 >
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger aria-label="Status" className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

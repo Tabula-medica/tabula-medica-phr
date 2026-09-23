@@ -33,7 +33,9 @@ import {
   linkFastenConnection,
   triggerFastenExport,
 } from "./auth/fasten";
+import { verifyStepUpAssertion, STEP_UP_FAILURE_MESSAGES } from "./auth/step-up";
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
 import { registerAbdmRoutes } from "./abdm-routes";
@@ -447,9 +449,9 @@ import auRegionRoutes from "./routes/au-region-routes";
 import type { SyncScheduleInterval, EhrPlatform } from "@shared/schema";
 
 const FASTEN_HEALTH_CONFIG = {
-  baseUrl: "https://api.fastenhealth.com/fhir/R4",
-  authorizationEndpoint: "https://api.fastenhealth.com/oauth/authorize",
-  tokenEndpoint: "https://api.fastenhealth.com/oauth/token",
+  baseUrl: "https://api.connect.fastenhealth.com/fhir/R4",
+  authorizationEndpoint: "https://api.connect.fastenhealth.com/oauth/authorize",
+  tokenEndpoint: "https://api.connect.fastenhealth.com/oauth/token",
   scopes: ["launch/patient", "patient/Patient.read", "patient/Condition.read", "patient/Observation.read", "patient/MedicationRequest.read", "patient/DiagnosticReport.read", "patient/AllergyIntolerance.read", "patient/Immunization.read", "patient/Procedure.read", "openid", "fhirUser"],
   clientId: process.env.FASTEN_HEALTH_CLIENT_ID || "",
   usePkce: true,
@@ -1276,6 +1278,21 @@ export async function registerRoutes(
     }
 
     console.log(`[HIPAA-AUDIT][FastenConnect] ${timestamp} - WEBHOOK_EVENT - Type:${event?.event_type || "unknown"} - ${JSON.stringify(event)}`);
+
+    // A finished EHI export is what actually carries the patient's records:
+    // hand it to the import pipeline (fire-and-forget so Fasten always gets a
+    // prompt 200 and never retries because our import was slow).
+    import("./auth/fasten-export-parsing")
+      .then(({ isFastenExportSuccessEvent }) => {
+        if (!isFastenExportSuccessEvent(event)) return;
+        return import("./auth/fasten-import").then(({ processFastenExportEvent }) =>
+          processFastenExportEvent(event).then(() => undefined),
+        );
+      })
+      .catch((err) => {
+        console.error(`[FastenConnect] Export import dispatch error: ${err?.message}`);
+      });
+
     res.status(200).json({ received: true });
   });
 
@@ -7578,6 +7595,55 @@ STRICT NO-CDS CONSTRAINTS:
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid prescription data", details: parsed.error.errors });
       }
+
+      const userId = (req.user as any)?.claims?.sub as string | undefined;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      // The prescriber's identity is the authenticated session, never a
+      // client-supplied field — a prescription forged with someone else's
+      // providerId would misattribute who legally wrote it.
+      parsed.data.providerId = userId;
+
+      const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
+      const userAgent = req.headers["user-agent"] || "Unknown";
+
+      // DEA EPCS (21 CFR 1311): creating a controlled-substance prescription
+      // requires a fresh, TOTP-backed step-up re-authentication on top of the
+      // normal session — see server/auth/step-up.ts.
+      if (parsed.data.isControlledSubstance) {
+        const stepUpToken = req.headers["x-step-up-token"] as string | undefined;
+        const stepUp = await verifyStepUpAssertion(stepUpToken, userId);
+        if (!stepUp.ok) {
+          await storage.createSecurityAuditLog({
+            userId,
+            eventType: "permission_denied",
+            description: `DEA EPCS step-up verification failed (${stepUp.reason})`,
+            metadata: {
+              deaSchedule: parsed.data.deaSchedule ?? "unspecified",
+              reason: stepUp.reason,
+            },
+            ipAddress,
+            userAgent,
+          });
+          return res.status(401).json({
+            error: "step_up_required",
+            reason: stepUp.reason,
+            message: STEP_UP_FAILURE_MESSAGES[stepUp.reason],
+          });
+        }
+        await storage.createSecurityAuditLog({
+          userId,
+          eventType: "data_access",
+          description: "DEA EPCS step-up verification succeeded for controlled-substance prescription",
+          metadata: {
+            deaSchedule: parsed.data.deaSchedule ?? "unspecified",
+          },
+          ipAddress,
+          userAgent,
+        });
+      }
+
       const prescription = await storage.createPrescription(parsed.data);
       res.status(201).json(prescription);
     } catch (error) {
@@ -20254,7 +20320,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         description,
         type: type || "condition",
         criteria,
-        createdBy: createdBy || "system",
+        createdBy: createdBy || SYSTEM_ACTOR,
       });
       res.status(201).json(cohort);
     } catch (error) {
@@ -20322,7 +20388,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         type,
         description,
         parameters: parameters || {},
-        generatedBy: generatedBy || "system",
+        generatedBy: generatedBy || SYSTEM_ACTOR,
       });
       res.status(201).json(report);
     } catch (error) {
@@ -35977,7 +36043,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || await getSamplePatientId();
-      const { name, size, contentType, title, documentDate, documentType, tags } = req.body;
+      const { name, size, contentType, title, documentDate, documentType, subcategory, tags } = req.body;
       const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
       const userAgent = req.headers["user-agent"] || "Unknown";
 
@@ -36040,13 +36106,14 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       res.json({
         uploadURL,
         objectPath,
-        metadata: { 
-          name, 
-          size, 
+        metadata: {
+          name,
+          size,
           contentType,
           title,
           documentDate,
           documentType,
+          subcategory,
           tags,
         },
       });
@@ -36064,11 +36131,12 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "Unknown";
       const userAgent = req.headers["user-agent"] || "Unknown";
 
-      const { 
-        objectPath, 
-        title, 
-        documentDate, 
-        documentType, 
+      const {
+        objectPath,
+        title,
+        documentDate,
+        documentType,
+        subcategory,
         tags,
         originalFileName,
         mimeType,
@@ -36077,6 +36145,18 @@ Return to clinic in 2 weeks for glucose monitoring.`;
 
       if (!objectPath || !title || !originalFileName) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // A subcategory is only accepted when it belongs to the auto-tag category
+      // the chosen document type maps onto
+      const { uploadedDocumentTypeToAutoTagCategory, isValidSubcategory } = await import("@shared/schema");
+      let validatedSubcategory: string | undefined;
+      if (subcategory) {
+        const mappedCategory = uploadedDocumentTypeToAutoTagCategory[(documentType || "other") as keyof typeof uploadedDocumentTypeToAutoTagCategory];
+        if (!mappedCategory || !isValidSubcategory(mappedCategory, subcategory)) {
+          return res.status(400).json({ error: `Invalid subcategory "${subcategory}" for document type "${documentType || "other"}"` });
+        }
+        validatedSubcategory = subcategory;
       }
 
       // Get patient ID for the user
@@ -36090,6 +36170,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       const doc = await storage.createUploadedDocument({
         patientId,
         documentType: documentType || "other",
+        subcategory: validatedSubcategory,
         title,
         documentDate,
         tags: tags || [],
@@ -36107,9 +36188,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         userId,
         eventType: "document_upload_success",
         description: "User successfully uploaded document",
-        metadata: { 
+        metadata: {
           documentId: "[REDACTED]",
           documentType: documentType || "other",
+          subcategory: validatedSubcategory || "none",
         },
         ipAddress,
         userAgent,
@@ -36121,6 +36203,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
           id: doc.id,
           title: doc.title,
           documentType: doc.documentType,
+          subcategory: doc.subcategory,
           uploadedAt: doc.uploadedAt,
         },
       });
@@ -36331,7 +36414,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       }
 
       // Import the document tagging service
-      const { classifyDocumentWithExplanation, saveDocumentAutoTag, autoTagCategoryLabels } = await import("./document-tagging-service");
+      const { classifyDocumentWithExplanation, saveDocumentAutoTag, autoTagCategoryLabels, autoTagSubcategoryLabels } = await import("./document-tagging-service");
 
       // Classify the document with AI
       const result = await classifyDocumentWithExplanation(
@@ -36348,10 +36431,11 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       await storage.createSecurityAuditLog({
         userId,
         eventType: "doc_autotag_applied",
-        description: `AI auto-tagged document as ${autoTagCategoryLabels[result.category]}`,
+        description: `AI auto-tagged document as ${autoTagCategoryLabels[result.category]}${autoTag.subcategory ? ` (${autoTagSubcategoryLabels[autoTag.subcategory]})` : ""}`,
         metadata: {
           documentId: "[REDACTED]",
           category: result.category,
+          subcategory: autoTag.subcategory || "none",
           confidence: result.confidence.toString(),
           isAiClassified: "true",
         },
@@ -36364,6 +36448,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         autoTag: {
           ...autoTag,
           categoryLabel: autoTagCategoryLabels[result.category],
+          subcategoryLabel: autoTag.subcategory ? autoTagSubcategoryLabels[autoTag.subcategory] : null,
         },
       });
     } catch (error) {
@@ -36376,22 +36461,26 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   app.get("/api/documents/:documentId/auto-tag", requirePermission("documents:read"), async (req, res) => {
     try {
       const { documentId } = req.params;
-      const { getDocumentAutoTag, autoTagCategoryLabels, getEffectiveCategory } = await import("./document-tagging-service");
+      const { getDocumentAutoTag, autoTagCategoryLabels, autoTagSubcategoryLabels, getEffectiveCategory, getEffectiveSubcategory } = await import("./document-tagging-service");
 
       const autoTag = getDocumentAutoTag(documentId);
-      
+
       if (!autoTag) {
         return res.status(404).json({ error: "No auto-tag found for this document" });
       }
 
       const effectiveCategory = getEffectiveCategory(autoTag);
+      const effectiveSubcategory = getEffectiveSubcategory(autoTag);
 
       res.json({
         autoTag: {
           ...autoTag,
           categoryLabel: autoTagCategoryLabels[autoTag.category],
+          subcategoryLabel: autoTag.subcategory ? autoTagSubcategoryLabels[autoTag.subcategory] : null,
           effectiveCategory,
           effectiveCategoryLabel: autoTagCategoryLabels[effectiveCategory],
+          effectiveSubcategory,
+          effectiveSubcategoryLabel: effectiveSubcategory ? autoTagSubcategoryLabels[effectiveSubcategory] : null,
         },
       });
     } catch (error) {
@@ -36416,15 +36505,17 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         return res.status(400).json({ error: "Invalid request body", details: parseResult.error.errors });
       }
 
-      const { newCategory, newTags, reason } = parseResult.data;
-      const { overrideDocumentAutoTag, autoTagCategoryLabels, getDocumentAutoTag } = await import("./document-tagging-service");
+      const { newCategory, newSubcategory, newTags, reason } = parseResult.data;
+      const { overrideDocumentAutoTag, autoTagCategoryLabels, autoTagSubcategoryLabels, getDocumentAutoTag } = await import("./document-tagging-service");
+      const { isValidSubcategory } = await import("@shared/schema");
 
       // Get original auto-tag for logging
       const originalAutoTag = getDocumentAutoTag(documentId);
       const originalCategory = originalAutoTag?.category || "unknown";
 
       // Apply the override
-      const updatedAutoTag = overrideDocumentAutoTag(documentId, newCategory, newTags, reason, userId);
+      const validatedSubcategory = newSubcategory && isValidSubcategory(newCategory, newSubcategory) ? newSubcategory : null;
+      const updatedAutoTag = overrideDocumentAutoTag(documentId, newCategory, newTags, reason, userId, validatedSubcategory);
 
       if (!updatedAutoTag) {
         return res.status(404).json({ error: "No auto-tag found for this document to override" });
@@ -36434,11 +36525,12 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       await storage.createSecurityAuditLog({
         userId,
         eventType: "doc_autotag_overridden",
-        description: `User overrode auto-tag from ${autoTagCategoryLabels[originalCategory as keyof typeof autoTagCategoryLabels] || originalCategory} to ${autoTagCategoryLabels[newCategory]}`,
+        description: `User overrode auto-tag from ${autoTagCategoryLabels[originalCategory as keyof typeof autoTagCategoryLabels] || originalCategory} to ${autoTagCategoryLabels[newCategory]}${validatedSubcategory ? ` (${autoTagSubcategoryLabels[validatedSubcategory]})` : ""}`,
         metadata: {
           documentId: "[REDACTED]",
           originalCategory,
           newCategory,
+          newSubcategory: validatedSubcategory || "none",
           reason: reason ? "[REDACTED]" : undefined,
         },
         ipAddress,
@@ -36450,7 +36542,9 @@ Return to clinic in 2 weeks for glucose monitoring.`;
         autoTag: {
           ...updatedAutoTag,
           categoryLabel: autoTagCategoryLabels[updatedAutoTag.category],
+          subcategoryLabel: updatedAutoTag.subcategory ? autoTagSubcategoryLabels[updatedAutoTag.subcategory] : null,
           effectiveCategoryLabel: autoTagCategoryLabels[newCategory],
+          effectiveSubcategoryLabel: validatedSubcategory ? autoTagSubcategoryLabels[validatedSubcategory] : null,
         },
       });
     } catch (error) {

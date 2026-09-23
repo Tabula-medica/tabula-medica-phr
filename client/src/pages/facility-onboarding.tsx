@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -473,8 +474,8 @@ export default function FacilityOnboardingPage() {
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <Label>Facility name *</Label>
-                      <Input
+                      <Label htmlFor="facility-onboarding-facility-name">Facility name *</Label>
+                      <Input id="facility-onboarding-facility-name"
                         value={manualFacility.facilityName}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, facilityName: e.target.value }))}
                         placeholder="e.g., Memorial Hospital"
@@ -482,28 +483,28 @@ export default function FacilityOnboardingPage() {
                       />
                     </div>
                     <div>
-                      <Label>City *</Label>
-                      <Input
+                      <Label htmlFor="facility-onboarding-city">City *</Label>
+                      <Input id="facility-onboarding-city"
                         value={manualFacility.city}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, city: e.target.value }))}
                         data-testid="input-manual-city"
                       />
                     </div>
                     <div>
-                      <Label>State *</Label>
-                      <Input
+                      <Label htmlFor="facility-onboarding-state">State *</Label>
+                      <Input id="facility-onboarding-state"
                         value={manualFacility.state}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, state: e.target.value }))}
                         data-testid="input-manual-state"
                       />
                     </div>
                     <div>
-                      <Label>Facility type *</Label>
+                      <Label htmlFor="facility-onboarding-facility-type">Facility type *</Label>
                       <Select
                         value={manualFacility.facilityType}
                         onValueChange={(v) => setManualFacility(prev => ({ ...prev, facilityType: v as FacilityType }))}
                       >
-                        <SelectTrigger data-testid="select-manual-type">
+                        <SelectTrigger id="facility-onboarding-facility-type" data-testid="select-manual-type">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -514,32 +515,32 @@ export default function FacilityOnboardingPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Country</Label>
-                      <Input
+                      <Label htmlFor="facility-onboarding-country">Country</Label>
+                      <Input id="facility-onboarding-country"
                         value={manualFacility.country}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, country: e.target.value }))}
                         data-testid="input-manual-country"
                       />
                     </div>
                     <div>
-                      <Label>Phone (optional)</Label>
-                      <Input
+                      <Label htmlFor="facility-onboarding-phone-optional">Phone (optional)</Label>
+                      <Input id="facility-onboarding-phone-optional"
                         value={manualFacility.phone}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, phone: e.target.value }))}
                         data-testid="input-manual-phone"
                       />
                     </div>
                     <div>
-                      <Label>Website (optional)</Label>
-                      <Input
+                      <Label htmlFor="facility-onboarding-website-optional">Website (optional)</Label>
+                      <Input id="facility-onboarding-website-optional"
                         value={manualFacility.website}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, website: e.target.value }))}
                         data-testid="input-manual-website"
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <Label>Notes (optional)</Label>
-                      <Textarea
+                      <Label htmlFor="facility-onboarding-notes-optional">Notes (optional)</Label>
+                      <Textarea id="facility-onboarding-notes-optional"
                         value={manualFacility.notes}
                         onChange={(e) => setManualFacility(prev => ({ ...prev, notes: e.target.value }))}
                         placeholder="e.g., near my old house"
@@ -676,8 +677,8 @@ export default function FacilityOnboardingPage() {
                         <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">A) Facility Identity</h4>
                         <div className="grid gap-3">
                           <div>
-                            <Label>Facility name</Label>
-                            <Input
+                            <FieldCaption>Facility name</FieldCaption>
+                            <Input aria-label="Facility name"
                               value={facility.facilityName}
                               disabled
                               className="bg-muted"
@@ -685,7 +686,7 @@ export default function FacilityOnboardingPage() {
                             />
                           </div>
                           <div>
-                            <Label>Facility type</Label>
+                            <FieldCaption>Facility type</FieldCaption>
                             <Select
                               value={facility.facilityType}
                               onValueChange={(value) => updateFacilityMutation.mutate({
@@ -693,7 +694,7 @@ export default function FacilityOnboardingPage() {
                                 data: { facilityType: value as FacilityType }
                               })}
                             >
-                              <SelectTrigger data-testid={`select-facility-type-${facility.id}`}>
+                              <SelectTrigger aria-label="Facility type" data-testid={`select-facility-type-${facility.id}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -705,8 +706,8 @@ export default function FacilityOnboardingPage() {
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div>
-                              <Label>City</Label>
-                              <Input
+                              <FieldCaption>City</FieldCaption>
+                              <Input aria-label="City"
                                 value={facility.city || ""}
                                 disabled
                                 className="bg-muted"
@@ -714,8 +715,8 @@ export default function FacilityOnboardingPage() {
                               />
                             </div>
                             <div>
-                              <Label>State</Label>
-                              <Input
+                              <FieldCaption>State</FieldCaption>
+                              <Input aria-label="State"
                                 value={facility.state || ""}
                                 disabled
                                 className="bg-muted"
@@ -725,8 +726,8 @@ export default function FacilityOnboardingPage() {
                           </div>
                           {facility.country && facility.country !== "USA" && (
                             <div>
-                              <Label>Country</Label>
-                              <Input
+                              <FieldCaption>Country</FieldCaption>
+                              <Input aria-label="Country"
                                 value={facility.country}
                                 disabled
                                 className="bg-muted"
@@ -743,8 +744,8 @@ export default function FacilityOnboardingPage() {
                         <p className="text-xs text-muted-foreground">Helps with deduplication and record retrieval</p>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div>
-                            <Label>First visit year (optional)</Label>
-                            <Input
+                            <FieldCaption>First visit year (optional)</FieldCaption>
+                            <Input aria-label="First visit year (optional)"
                               type="number"
                               placeholder="e.g., 2018"
                               min="1900"
@@ -759,8 +760,8 @@ export default function FacilityOnboardingPage() {
                             />
                           </div>
                           <div>
-                            <Label>Most recent visit year (optional)</Label>
-                            <Input
+                            <FieldCaption>Most recent visit year (optional)</FieldCaption>
+                            <Input aria-label="Most recent visit year (optional)"
                               type="number"
                               placeholder="e.g., 2024"
                               min="1900"
@@ -842,7 +843,7 @@ export default function FacilityOnboardingPage() {
 
                         {facility.hasPortalAccount === "yes" && (
                           <div className="pl-4 border-l-2 border-primary/20 space-y-2">
-                            <Label className="text-sm">I know my portal login</Label>
+                            <FieldCaption className="text-sm">I know my portal login</FieldCaption>
                             <div className="flex gap-2">
                               <Button
                                 variant={facility.knowsPortalLogin === true ? "default" : "outline"}

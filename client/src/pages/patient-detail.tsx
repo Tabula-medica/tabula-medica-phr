@@ -1921,9 +1921,9 @@ function RefillRequestForm({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Urgency</Label>
+        <Label htmlFor="patient-detail-urgency">Urgency</Label>
         <Select value={urgency} onValueChange={setUrgency}>
-          <SelectTrigger data-testid="select-urgency">
+          <SelectTrigger id="patient-detail-urgency" data-testid="select-urgency">
             <SelectValue placeholder="Select urgency" />
           </SelectTrigger>
           <SelectContent>
@@ -1936,9 +1936,9 @@ function RefillRequestForm({
 
       {pharmacies.length > 0 && (
         <div className="space-y-2">
-          <Label>Pharmacy</Label>
+          <Label htmlFor="patient-detail-pharmacy">Pharmacy</Label>
           <Select value={pharmacyId} onValueChange={setPharmacyId}>
-            <SelectTrigger data-testid="select-pharmacy">
+            <SelectTrigger id="patient-detail-pharmacy" data-testid="select-pharmacy">
               <SelectValue placeholder="Select pharmacy" />
             </SelectTrigger>
             <SelectContent>
@@ -1964,8 +1964,8 @@ function RefillRequestForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Notes (optional)</Label>
-        <Textarea
+        <Label htmlFor="patient-detail-notes-optional">Notes (optional)</Label>
+        <Textarea id="patient-detail-notes-optional"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Any additional information for your provider..."
@@ -2008,9 +2008,9 @@ function PrescriptionTransferForm({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Current Pharmacy</Label>
+        <Label htmlFor="patient-detail-current-pharmacy">Current Pharmacy</Label>
         <Select value={fromPharmacyId} onValueChange={setFromPharmacyId}>
-          <SelectTrigger data-testid="select-from-pharmacy">
+          <SelectTrigger id="patient-detail-current-pharmacy" data-testid="select-from-pharmacy">
             <SelectValue placeholder="Select current pharmacy" />
           </SelectTrigger>
           <SelectContent>
@@ -2025,9 +2025,9 @@ function PrescriptionTransferForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Transfer To</Label>
+        <Label htmlFor="patient-detail-transfer-to">Transfer To</Label>
         <Select value={toPharmacyId} onValueChange={setToPharmacyId}>
-          <SelectTrigger data-testid="select-to-pharmacy">
+          <SelectTrigger id="patient-detail-transfer-to" data-testid="select-to-pharmacy">
             <SelectValue placeholder="Select destination pharmacy" />
           </SelectTrigger>
           <SelectContent>
@@ -2041,8 +2041,8 @@ function PrescriptionTransferForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Reason (optional)</Label>
-        <Textarea
+        <Label htmlFor="patient-detail-reason-optional">Reason (optional)</Label>
+        <Textarea id="patient-detail-reason-optional"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Why are you transferring this prescription?"

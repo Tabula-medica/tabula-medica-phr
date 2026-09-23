@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -789,7 +790,7 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
 
             <TabsContent value="annotations" className="flex-1 overflow-auto p-2 m-0">
               <div className="mb-3">
-                <Label className="text-xs">Annotation Color</Label>
+                <FieldCaption className="text-xs">Annotation Color</FieldCaption>
                 <div className="flex gap-1 mt-1">
                   {ANNOTATION_COLORS.map((color) => (
                     <button
@@ -918,19 +919,19 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
               {selectedStudy && (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Patient</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Patient</FieldCaption>
                     <p className="text-sm">{selectedStudy.patientName}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Study Date</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Study Date</FieldCaption>
                     <p className="text-sm">{selectedStudy.studyDate}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Description</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Description</FieldCaption>
                     <p className="text-sm">{selectedStudy.studyDescription}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Modalities</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Modalities</FieldCaption>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {selectedStudy.modalitiesInStudy.map((mod) => (
                         <Badge key={mod} variant="outline">{mod}</Badge>
@@ -938,7 +939,7 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Series/Instances</Label>
+                    <FieldCaption className="text-xs text-muted-foreground">Series/Instances</FieldCaption>
                     <p className="text-sm">{selectedStudy.numberOfSeries} series, {selectedStudy.numberOfInstances} images</p>
                   </div>
                   <Separator />
@@ -966,8 +967,8 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Label</Label>
-              <Input
+              <Label htmlFor="dicom-viewer-label">Label</Label>
+              <Input id="dicom-viewer-label"
                 value={newAnnotation.label}
                 onChange={(e) => setNewAnnotation((prev) => ({ ...prev, label: e.target.value }))}
                 placeholder="e.g., Suspicious lesion"
@@ -975,8 +976,8 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
               />
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea
+              <Label htmlFor="dicom-viewer-description">Description</Label>
+              <Textarea id="dicom-viewer-description"
                 value={newAnnotation.description}
                 onChange={(e) => setNewAnnotation((prev) => ({ ...prev, description: e.target.value }))}
                 placeholder="Detailed notes about this finding..."
@@ -985,8 +986,8 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Diagnosis Code (ICD-10)</Label>
-                <Input
+                <Label htmlFor="dicom-viewer-diagnosis-code-icd-10">Diagnosis Code (ICD-10)</Label>
+                <Input id="dicom-viewer-diagnosis-code-icd-10"
                   value={newAnnotation.diagnosisCode}
                   onChange={(e) => setNewAnnotation((prev) => ({ ...prev, diagnosisCode: e.target.value }))}
                   placeholder="e.g., C34.1"
@@ -994,8 +995,8 @@ export function DICOMViewer({ studyId, patientId, onClose }: DICOMViewerProps) {
                 />
               </div>
               <div>
-                <Label>Diagnosis Display</Label>
-                <Input
+                <Label htmlFor="dicom-viewer-diagnosis-display">Diagnosis Display</Label>
+                <Input id="dicom-viewer-diagnosis-display"
                   value={newAnnotation.diagnosisDisplay}
                   onChange={(e) => setNewAnnotation((prev) => ({ ...prev, diagnosisDisplay: e.target.value }))}
                   placeholder="e.g., Lung cancer"

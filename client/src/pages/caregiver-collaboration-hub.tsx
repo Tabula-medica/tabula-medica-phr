@@ -1224,8 +1224,8 @@ export default function CaregiverCollaborationHub() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Task Title</Label>
-              <Input
+              <Label htmlFor="caregiver-collaboration--task-title">Task Title</Label>
+              <Input id="caregiver-collaboration--task-title"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                 placeholder="Enter task title"
@@ -1233,8 +1233,8 @@ export default function CaregiverCollaborationHub() {
               />
             </div>
             <div>
-              <Label>Description (optional)</Label>
-              <Textarea
+              <Label htmlFor="caregiver-collaboration--description-optional">Description (optional)</Label>
+              <Textarea id="caregiver-collaboration--description-optional"
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                 placeholder="Add details..."
@@ -1242,9 +1242,9 @@ export default function CaregiverCollaborationHub() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Category</Label>
+                <Label htmlFor="caregiver-collaboration--category">Category</Label>
                 <Select value={newTask.category} onValueChange={(v: any) => setNewTask({ ...newTask, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="caregiver-collaboration--category"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="medication">Medication</SelectItem>
                     <SelectItem value="appointment">Appointment</SelectItem>
@@ -1257,9 +1257,9 @@ export default function CaregiverCollaborationHub() {
                 </Select>
               </div>
               <div>
-                <Label>Priority</Label>
+                <Label htmlFor="caregiver-collaboration--priority">Priority</Label>
                 <Select value={newTask.priority} onValueChange={(v: any) => setNewTask({ ...newTask, priority: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="caregiver-collaboration--priority"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="normal">Normal</SelectItem>
@@ -1270,9 +1270,9 @@ export default function CaregiverCollaborationHub() {
               </div>
             </div>
             <div>
-              <Label>Assign To</Label>
+              <Label htmlFor="caregiver-collaboration--assign-to">Assign To</Label>
               <Select value={newTask.assignedTo} onValueChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
-                <SelectTrigger><SelectValue placeholder="Select team member" /></SelectTrigger>
+                <SelectTrigger id="caregiver-collaboration--assign-to"><SelectValue placeholder="Select team member" /></SelectTrigger>
                 <SelectContent>
                   {sampleTeamMembers.map(m => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -1282,12 +1282,12 @@ export default function CaregiverCollaborationHub() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Due Date</Label>
-                <Input type="date" value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                <Label htmlFor="caregiver-collaboration--due-date">Due Date</Label>
+                <Input id="caregiver-collaboration--due-date" type="date" value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
               </div>
               <div>
-                <Label>Due Time</Label>
-                <Input type="time" value={newTask.dueTime} onChange={(e) => setNewTask({ ...newTask, dueTime: e.target.value })} />
+                <Label htmlFor="caregiver-collaboration--due-time">Due Time</Label>
+                <Input id="caregiver-collaboration--due-time" type="time" value={newTask.dueTime} onChange={(e) => setNewTask({ ...newTask, dueTime: e.target.value })} />
               </div>
             </div>
           </div>
@@ -1307,9 +1307,9 @@ export default function CaregiverCollaborationHub() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="caregiver-collaboration--category-2">Category</Label>
               <Select value={newJournalEntry.category} onValueChange={(v: any) => setNewJournalEntry({ ...newJournalEntry, category: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="caregiver-collaboration--category-2"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="observation">Observation</SelectItem>
                   <SelectItem value="medication">Medication</SelectItem>
@@ -1322,8 +1322,8 @@ export default function CaregiverCollaborationHub() {
               </Select>
             </div>
             <div>
-              <Label>Entry</Label>
-              <Textarea
+              <Label htmlFor="caregiver-collaboration--entry">Entry</Label>
+              <Textarea id="caregiver-collaboration--entry"
                 value={newJournalEntry.content}
                 onChange={(e) => setNewJournalEntry({ ...newJournalEntry, content: e.target.value })}
                 placeholder="What would you like to record?"

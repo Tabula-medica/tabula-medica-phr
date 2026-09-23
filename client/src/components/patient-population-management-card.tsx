@@ -791,8 +791,8 @@ export function PatientPopulationManagementCard() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Patient ID</Label>
-                <Input
+                <Label htmlFor="patient-population-manag-patient-id">Patient ID</Label>
+                <Input id="patient-population-manag-patient-id"
                   value={newTask.patientId}
                   onChange={(e) => setNewTask({ ...newTask, patientId: e.target.value })}
                   placeholder="patient-001"
@@ -800,8 +800,8 @@ export function PatientPopulationManagementCard() {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Patient Name</Label>
-                <Input
+                <Label htmlFor="patient-population-manag-patient-name">Patient Name</Label>
+                <Input id="patient-population-manag-patient-name"
                   value={newTask.patientName}
                   onChange={(e) => setNewTask({ ...newTask, patientName: e.target.value })}
                   placeholder="John Smith"
@@ -810,8 +810,8 @@ export function PatientPopulationManagementCard() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Title</Label>
-              <Input
+              <Label htmlFor="patient-population-manag-title">Title</Label>
+              <Input id="patient-population-manag-title"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                 placeholder="Task title"
@@ -820,9 +820,9 @@ export function PatientPopulationManagementCard() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Task Type</Label>
+                <Label htmlFor="patient-population-manag-task-type">Task Type</Label>
                 <Select value={newTask.taskType} onValueChange={(v) => setNewTask({ ...newTask, taskType: v })}>
-                  <SelectTrigger data-testid="select-task-type">
+                  <SelectTrigger id="patient-population-manag-task-type" data-testid="select-task-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -836,9 +836,9 @@ export function PatientPopulationManagementCard() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Priority</Label>
+                <Label htmlFor="patient-population-manag-priority">Priority</Label>
                 <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
-                  <SelectTrigger data-testid="select-task-priority">
+                  <SelectTrigger id="patient-population-manag-priority" data-testid="select-task-priority">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -852,9 +852,9 @@ export function PatientPopulationManagementCard() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Assign To</Label>
+                <Label htmlFor="patient-population-manag-assign-to">Assign To</Label>
                 <Select value={newTask.assignedTo} onValueChange={(v) => setNewTask({ ...newTask, assignedTo: v })}>
-                  <SelectTrigger data-testid="select-task-assignee">
+                  <SelectTrigger id="patient-population-manag-assign-to" data-testid="select-task-assignee">
                     <SelectValue placeholder="Select team member" />
                   </SelectTrigger>
                   <SelectContent>
@@ -865,8 +865,8 @@ export function PatientPopulationManagementCard() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Due Date</Label>
-                <Input
+                <Label htmlFor="patient-population-manag-due-date">Due Date</Label>
+                <Input id="patient-population-manag-due-date"
                   type="date"
                   value={newTask.dueDate}
                   onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
@@ -875,8 +875,8 @@ export function PatientPopulationManagementCard() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Description</Label>
-              <Textarea
+              <Label htmlFor="patient-population-manag-description">Description</Label>
+              <Textarea id="patient-population-manag-description"
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                 placeholder="Task description..."

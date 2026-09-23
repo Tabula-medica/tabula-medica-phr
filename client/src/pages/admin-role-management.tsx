@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import { 
   Shield, Users, UserPlus, Settings, Brain, CheckCircle2, 
   AlertTriangle, ArrowUp, ArrowDown, Minus, Eye, ChevronRight,
@@ -351,7 +352,7 @@ export default function AdminRoleManagement() {
                         <div
                           key={role.id}
                           className={`p-3 rounded-lg cursor-pointer hover-elevate ${selectedRole?.id === role.id ? "bg-primary/10 border border-primary" : "bg-muted/50"}`}
-                          onClick={() => setSelectedRole(role)}
+                          {...clickable(() => setSelectedRole(role))}
                           data-testid={`role-item-${role.id}`}
                         >
                           <div className="flex items-center justify-between">
@@ -468,8 +469,8 @@ export default function AdminRoleManagement() {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label>User ID</Label>
-                        <Input
+                        <Label htmlFor="admin-role-management-user-id">User ID</Label>
+                        <Input id="admin-role-management-user-id"
                           placeholder="user-xxx"
                           value={newAssignment.userId}
                           onChange={(e) => setNewAssignment({ ...newAssignment, userId: e.target.value })}
@@ -477,8 +478,8 @@ export default function AdminRoleManagement() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>User Name</Label>
-                        <Input
+                        <Label htmlFor="admin-role-management-user-name">User Name</Label>
+                        <Input id="admin-role-management-user-name"
                           placeholder="John Doe"
                           value={newAssignment.userName}
                           onChange={(e) => setNewAssignment({ ...newAssignment, userName: e.target.value })}
@@ -486,8 +487,8 @@ export default function AdminRoleManagement() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input
+                        <Label htmlFor="admin-role-management-email">Email</Label>
+                        <Input id="admin-role-management-email"
                           type="email"
                           placeholder="user@example.com"
                           value={newAssignment.userEmail}
@@ -496,9 +497,9 @@ export default function AdminRoleManagement() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Role</Label>
+                        <Label htmlFor="admin-role-management-role">Role</Label>
                         <Select value={newAssignment.roleId} onValueChange={(v) => setNewAssignment({ ...newAssignment, roleId: v })}>
-                          <SelectTrigger data-testid="select-role">
+                          <SelectTrigger id="admin-role-management-role" data-testid="select-role">
                             <SelectValue placeholder="Select a role" />
                           </SelectTrigger>
                           <SelectContent>
@@ -509,8 +510,8 @@ export default function AdminRoleManagement() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Reason (Optional)</Label>
-                        <Input
+                        <Label htmlFor="admin-role-management-reason-optional">Reason (Optional)</Label>
+                        <Input id="admin-role-management-reason-optional"
                           placeholder="Reason for assignment"
                           value={newAssignment.reason}
                           onChange={(e) => setNewAssignment({ ...newAssignment, reason: e.target.value })}

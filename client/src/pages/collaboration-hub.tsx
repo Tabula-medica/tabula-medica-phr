@@ -387,12 +387,12 @@ export default function CollaborationHub() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Priority</Label>
+                          <Label htmlFor="collaboration-hub-priority">Priority</Label>
                           <Select 
                             value={newTask.priority} 
                             onValueChange={(v) => setNewTask({ ...newTask, priority: v as any })}
                           >
-                            <SelectTrigger data-testid="select-task-priority">
+                            <SelectTrigger id="collaboration-hub-priority" data-testid="select-task-priority">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -531,12 +531,12 @@ export default function CollaborationHub() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Type</Label>
+                          <Label htmlFor="collaboration-hub-type">Type</Label>
                           <Select 
                             value={newThreadData.threadType} 
                             onValueChange={(v) => setNewThreadData({ ...newThreadData, threadType: v as any })}
                           >
-                            <SelectTrigger data-testid="select-thread-type">
+                            <SelectTrigger id="collaboration-hub-type" data-testid="select-thread-type">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

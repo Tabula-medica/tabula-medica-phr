@@ -536,9 +536,9 @@ export default function FHIRDataSummaries() {
 
         <div className="flex gap-4 mb-6 flex-wrap">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-sm font-medium mb-2 block">View Type</label>
+            <label htmlFor="fhir-data-summaries-view-type" className="text-sm font-medium mb-2 block">View Type</label>
             <Select value={selectedView} onValueChange={(v) => setSelectedView(v as ViewType)}>
-              <SelectTrigger data-testid="trigger-view-type">
+              <SelectTrigger id="fhir-data-summaries-view-type" data-testid="trigger-view-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -577,9 +577,9 @@ export default function FHIRDataSummaries() {
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <label className="text-sm font-medium mb-2 block">Summary For</label>
+            <label htmlFor="fhir-data-summaries-summary-for" className="text-sm font-medium mb-2 block">Summary For</label>
             <Select value={audience} onValueChange={(v) => setAudience(v as AudienceType)}>
-              <SelectTrigger data-testid="trigger-audience">
+              <SelectTrigger id="fhir-data-summaries-summary-for" data-testid="trigger-audience">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

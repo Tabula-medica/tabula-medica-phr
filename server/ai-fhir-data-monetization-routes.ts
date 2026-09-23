@@ -10,6 +10,7 @@ import {
 } from "./services/ai-fhir-data-monetization-service";
 import { comprehensiveAuditTrailService } from "./services/comprehensive-audit-trail-service";
 import { requireUser, getUserId } from "./middleware/require-user";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const router = Router();
 
@@ -27,7 +28,7 @@ const logAudit = async (
     await comprehensiveAuditTrailService.logAuditEntry(userId, {
       who: {
         userId,
-        userRole: (req as any).user?.role || "system",
+        userRole: (req as any).user?.role || SYSTEM_ACTOR,
         ipAddress: req.ip || "unknown",
         userAgent: req.get("user-agent") || "unknown"
       },

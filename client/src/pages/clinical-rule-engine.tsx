@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -439,8 +440,8 @@ export default function ClinicalRuleEngine() {
               <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Patient Age (Years)</Label>
-                    <Input 
+                    <Label htmlFor="clinical-rule-engine-patient-age-years">Patient Age (Years)</Label>
+                    <Input id="clinical-rule-engine-patient-age-years" 
                       type="number" 
                       value={simulationContext.ageYears}
                       onChange={(e) => setSimulationContext({ ...simulationContext, ageYears: parseInt(e.target.value) || 0 })}
@@ -448,12 +449,12 @@ export default function ClinicalRuleEngine() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Population View</Label>
+                    <Label htmlFor="clinical-rule-engine-population-view">Population View</Label>
                     <Select 
                       value={simulationContext.populationView}
                       onValueChange={(value) => setSimulationContext({ ...simulationContext, populationView: value })}
                     >
-                      <SelectTrigger data-testid="select-population-view">
+                      <SelectTrigger id="clinical-rule-engine-population-view" data-testid="select-population-view">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -467,8 +468,8 @@ export default function ClinicalRuleEngine() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Conditions (comma-separated)</Label>
-                  <Input 
+                  <Label htmlFor="clinical-rule-engine-conditions-comma-separated">Conditions (comma-separated)</Label>
+                  <Input id="clinical-rule-engine-conditions-comma-separated" 
                     value={simulationContext.conditions.join(", ")}
                     onChange={(e) => setSimulationContext({ 
                       ...simulationContext, 
@@ -479,8 +480,8 @@ export default function ClinicalRuleEngine() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Medications (comma-separated)</Label>
-                  <Input 
+                  <Label htmlFor="clinical-rule-engine-medications-comma-separated">Medications (comma-separated)</Label>
+                  <Input id="clinical-rule-engine-medications-comma-separated" 
                     value={simulationContext.medications.join(", ")}
                     onChange={(e) => setSimulationContext({ 
                       ...simulationContext, 
@@ -491,8 +492,8 @@ export default function ClinicalRuleEngine() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Allergies (comma-separated)</Label>
-                  <Input 
+                  <Label htmlFor="clinical-rule-engine-allergies-comma-separated">Allergies (comma-separated)</Label>
+                  <Input id="clinical-rule-engine-allergies-comma-separated" 
                     value={simulationContext.allergies.join(", ")}
                     onChange={(e) => setSimulationContext({ 
                       ...simulationContext, 
@@ -510,7 +511,7 @@ export default function ClinicalRuleEngine() {
                     
                     {simulationResults.tasks.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="text-green-600 dark:text-green-400">Generated Tasks ({simulationResults.tasks.length})</Label>
+                        <FieldCaption className="text-green-600 dark:text-green-400">Generated Tasks ({simulationResults.tasks.length})</FieldCaption>
                         <ScrollArea className="h-40 rounded border p-2">
                           {simulationResults.tasks.map((task) => (
                             <div key={task.id} className="flex items-center justify-between py-2 border-b last:border-0">
@@ -527,7 +528,7 @@ export default function ClinicalRuleEngine() {
 
                     {simulationResults.warnings.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="text-yellow-600 dark:text-yellow-400">Warnings ({simulationResults.warnings.length})</Label>
+                        <FieldCaption className="text-yellow-600 dark:text-yellow-400">Warnings ({simulationResults.warnings.length})</FieldCaption>
                         {simulationResults.warnings.map((warn, idx) => (
                           <div key={idx} className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
                             <AlertTriangle className="w-4 h-4 text-yellow-600" />
@@ -539,7 +540,7 @@ export default function ClinicalRuleEngine() {
 
                     {simulationResults.blockedTasks.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="text-red-600 dark:text-red-400">Blocked Tasks ({simulationResults.blockedTasks.length})</Label>
+                        <FieldCaption className="text-red-600 dark:text-red-400">Blocked Tasks ({simulationResults.blockedTasks.length})</FieldCaption>
                         {simulationResults.blockedTasks.map((blocked, idx) => (
                           <div key={idx} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded">
                             <Shield className="w-4 h-4 text-red-600" />
@@ -583,12 +584,12 @@ export default function ClinicalRuleEngine() {
               <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Domain</Label>
+                    <Label htmlFor="clinical-rule-engine-domain">Domain</Label>
                     <Select 
                       value={newRule.domain}
                       onValueChange={(value) => setNewRule({ ...newRule, domain: value })}
                     >
-                      <SelectTrigger data-testid="select-new-rule-domain">
+                      <SelectTrigger id="clinical-rule-engine-domain" data-testid="select-new-rule-domain">
                         <SelectValue placeholder="Select domain" />
                       </SelectTrigger>
                       <SelectContent>
@@ -599,12 +600,12 @@ export default function ClinicalRuleEngine() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label htmlFor="clinical-rule-engine-category">Category</Label>
                     <Select 
                       value={newRule.category}
                       onValueChange={(value) => setNewRule({ ...newRule, category: value })}
                     >
-                      <SelectTrigger data-testid="select-new-rule-category">
+                      <SelectTrigger id="clinical-rule-engine-category" data-testid="select-new-rule-category">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -621,8 +622,8 @@ export default function ClinicalRuleEngine() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Rule Name</Label>
-                  <Input 
+                  <Label htmlFor="clinical-rule-engine-rule-name">Rule Name</Label>
+                  <Input id="clinical-rule-engine-rule-name" 
                     value={newRule.name}
                     onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
                     placeholder="e.g., Annual Eye Exam"
@@ -630,8 +631,8 @@ export default function ClinicalRuleEngine() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea 
+                  <Label htmlFor="clinical-rule-engine-description">Description</Label>
+                  <Textarea id="clinical-rule-engine-description" 
                     value={newRule.description}
                     onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
                     placeholder="Describe when and why this task should be generated..."
@@ -640,12 +641,12 @@ export default function ClinicalRuleEngine() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Priority</Label>
+                    <Label htmlFor="clinical-rule-engine-priority">Priority</Label>
                     <Select 
                       value={newRule.priority}
                       onValueChange={(value) => setNewRule({ ...newRule, priority: value })}
                     >
-                      <SelectTrigger data-testid="select-new-rule-priority">
+                      <SelectTrigger id="clinical-rule-engine-priority" data-testid="select-new-rule-priority">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -657,8 +658,8 @@ export default function ClinicalRuleEngine() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Interval (Months)</Label>
-                    <Input 
+                    <Label htmlFor="clinical-rule-engine-interval-months">Interval (Months)</Label>
+                    <Input id="clinical-rule-engine-interval-months" 
                       type="number"
                       value={newRule.intervalMonths}
                       onChange={(e) => setNewRule({ ...newRule, intervalMonths: parseInt(e.target.value) || 0 })}
@@ -666,8 +667,8 @@ export default function ClinicalRuleEngine() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Grace Period (Days)</Label>
-                    <Input 
+                    <Label htmlFor="clinical-rule-engine-grace-period-days">Grace Period (Days)</Label>
+                    <Input id="clinical-rule-engine-grace-period-days" 
                       type="number"
                       value={newRule.gracePeriodDays}
                       onChange={(e) => setNewRule({ ...newRule, gracePeriodDays: parseInt(e.target.value) || 0 })}
@@ -960,26 +961,26 @@ export default function ClinicalRuleEngine() {
                                         <AccordionContent>
                                           <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
                                             <div>
-                                              <Label className="text-xs text-muted-foreground">Title</Label>
+                                              <FieldCaption className="text-xs text-muted-foreground">Title</FieldCaption>
                                               <p className="font-medium">{rule.taskDefinition.title}</p>
                                             </div>
                                             <div>
-                                              <Label className="text-xs text-muted-foreground">Category</Label>
+                                              <FieldCaption className="text-xs text-muted-foreground">Category</FieldCaption>
                                               <p className="font-medium capitalize">{rule.taskDefinition.category}</p>
                                             </div>
                                             <div className="col-span-2">
-                                              <Label className="text-xs text-muted-foreground">Description</Label>
+                                              <FieldCaption className="text-xs text-muted-foreground">Description</FieldCaption>
                                               <p className="text-sm">{rule.taskDefinition.description}</p>
                                             </div>
                                             {rule.taskDefinition.estimatedDurationMinutes && (
                                               <div>
-                                                <Label className="text-xs text-muted-foreground">Duration</Label>
+                                                <FieldCaption className="text-xs text-muted-foreground">Duration</FieldCaption>
                                                 <p className="font-medium">{rule.taskDefinition.estimatedDurationMinutes} minutes</p>
                                               </div>
                                             )}
                                             {rule.taskDefinition.providerTypes && (
                                               <div>
-                                                <Label className="text-xs text-muted-foreground">Provider Types</Label>
+                                                <FieldCaption className="text-xs text-muted-foreground">Provider Types</FieldCaption>
                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                   {rule.taskDefinition.providerTypes.map((type, idx) => (
                                                     <Badge key={idx} variant="secondary" className="text-xs">{type}</Badge>

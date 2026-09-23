@@ -41,6 +41,7 @@ import {
   LineChart
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { clickable } from "@/lib/a11y";
 
 interface PerformanceMetrics {
   accuracy?: number;
@@ -1311,7 +1312,7 @@ export default function AIModelManagement() {
                       <div 
                         key={experiment.id} 
                         className="cursor-pointer rounded-lg border p-4 hover-elevate"
-                        onClick={() => setSelectedExperiment(experiment)}
+                        {...clickable(() => setSelectedExperiment(experiment))}
                         data-testid={`experiment-card-${experiment.id}`}
                       >
                         <div className="flex items-start justify-between gap-2">

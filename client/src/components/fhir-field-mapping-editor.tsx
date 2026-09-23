@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -169,9 +170,9 @@ function TransformationEditor({
   return (
     <div className="space-y-4">
       <div>
-        <Label>Transformation Type</Label>
+        <Label htmlFor="fhir-field-mapping-edito-transformation-type">Transformation Type</Label>
         <Select value={type} onValueChange={handleTypeChange}>
-          <SelectTrigger data-testid="select-transform-type">
+          <SelectTrigger id="fhir-field-mapping-edito-transformation-type" data-testid="select-transform-type">
             <SelectValue placeholder="Select transformation" />
           </SelectTrigger>
           <SelectContent>
@@ -190,8 +191,8 @@ function TransformationEditor({
       {type === "concat" && (
         <div className="space-y-2">
           <div>
-            <Label>Separator</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-separator">Separator</Label>
+            <Input id="fhir-field-mapping-edito-separator"
               value={params.separator || ""}
               onChange={(e) => handleParamChange("separator", e.target.value)}
               placeholder="e.g., ' ' or '-'"
@@ -199,8 +200,8 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>Additional Fields (comma-separated)</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-additional-fields-comma-separated">Additional Fields (comma-separated)</Label>
+            <Input id="fhir-field-mapping-edito-additional-fields-comma-separated"
               value={params.fields?.join(",") || ""}
               onChange={(e) => handleParamChange("fields", e.target.value.split(",").filter(Boolean))}
               placeholder="field1, field2"
@@ -213,8 +214,8 @@ function TransformationEditor({
       {type === "split" && (
         <div className="space-y-2">
           <div>
-            <Label>Delimiter</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-delimiter">Delimiter</Label>
+            <Input id="fhir-field-mapping-edito-delimiter"
               value={params.delimiter || ""}
               onChange={(e) => handleParamChange("delimiter", e.target.value)}
               placeholder="e.g., ',' or ' '"
@@ -222,8 +223,8 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>Index (0-based)</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-index-0-based">Index (0-based)</Label>
+            <Input id="fhir-field-mapping-edito-index-0-based"
               type="number"
               value={params.index || 0}
               onChange={(e) => handleParamChange("index", parseInt(e.target.value))}
@@ -236,12 +237,12 @@ function TransformationEditor({
 
       {type === "date_format" && (
         <div>
-          <Label>Date Format</Label>
+          <Label htmlFor="fhir-field-mapping-edito-date-format">Date Format</Label>
           <Select
             value={params.format || "YYYY-MM-DD"}
             onValueChange={(v) => handleParamChange("format", v)}
           >
-            <SelectTrigger data-testid="select-date-format">
+            <SelectTrigger id="fhir-field-mapping-edito-date-format" data-testid="select-date-format">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -256,12 +257,12 @@ function TransformationEditor({
 
       {type === "code_lookup" && (
         <div>
-          <Label>Lookup Table</Label>
+          <Label htmlFor="fhir-field-mapping-edito-lookup-table">Lookup Table</Label>
           <Select
             value={params.table || ""}
             onValueChange={(v) => handleParamChange("table", v)}
           >
-            <SelectTrigger data-testid="select-lookup-table">
+            <SelectTrigger id="fhir-field-mapping-edito-lookup-table" data-testid="select-lookup-table">
               <SelectValue placeholder="Select lookup table" />
             </SelectTrigger>
             <SelectContent>
@@ -276,8 +277,8 @@ function TransformationEditor({
 
       {type === "reference" && (
         <div>
-          <Label>Resource Type</Label>
-          <Input
+          <Label htmlFor="fhir-field-mapping-edito-resource-type">Resource Type</Label>
+          <Input id="fhir-field-mapping-edito-resource-type"
             value={params.resourceType || ""}
             onChange={(e) => handleParamChange("resourceType", e.target.value)}
             placeholder="e.g., Patient, Practitioner"
@@ -289,8 +290,8 @@ function TransformationEditor({
       {type === "codeable_concept" && (
         <div className="space-y-2">
           <div>
-            <Label>Code System URL</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-code-system-url">Code System URL</Label>
+            <Input id="fhir-field-mapping-edito-code-system-url"
               value={params.system || ""}
               onChange={(e) => handleParamChange("system", e.target.value)}
               placeholder="e.g., http://loinc.org"
@@ -298,12 +299,12 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>Lookup Table (optional)</Label>
+            <Label htmlFor="fhir-field-mapping-edito-lookup-table-optional">Lookup Table (optional)</Label>
             <Select
               value={params.table || ""}
               onValueChange={(v) => handleParamChange("table", v)}
             >
-              <SelectTrigger data-testid="select-code-table">
+              <SelectTrigger id="fhir-field-mapping-edito-lookup-table-optional" data-testid="select-code-table">
                 <SelectValue placeholder="Select lookup table" />
               </SelectTrigger>
               <SelectContent>
@@ -319,8 +320,8 @@ function TransformationEditor({
       {type === "quantity" && (
         <div className="space-y-2">
           <div>
-            <Label>Unit</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-unit">Unit</Label>
+            <Input id="fhir-field-mapping-edito-unit"
               value={params.unit || ""}
               onChange={(e) => handleParamChange("unit", e.target.value)}
               placeholder="e.g., kg, mmHg"
@@ -328,8 +329,8 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>UCUM Code (optional)</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-ucum-code-optional">UCUM Code (optional)</Label>
+            <Input id="fhir-field-mapping-edito-ucum-code-optional"
               value={params.ucumCode || ""}
               onChange={(e) => handleParamChange("ucumCode", e.target.value)}
               placeholder="e.g., kg, mm[Hg]"
@@ -337,8 +338,8 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>System URL (optional)</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-system-url-optional">System URL (optional)</Label>
+            <Input id="fhir-field-mapping-edito-system-url-optional"
               value={params.system || "http://unitsofmeasure.org"}
               onChange={(e) => handleParamChange("system", e.target.value)}
               placeholder="http://unitsofmeasure.org"
@@ -351,8 +352,8 @@ function TransformationEditor({
       {type === "period" && (
         <div className="space-y-2">
           <div>
-            <Label>Start Field</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-start-field">Start Field</Label>
+            <Input id="fhir-field-mapping-edito-start-field"
               value={params.startField || ""}
               onChange={(e) => handleParamChange("startField", e.target.value)}
               placeholder="e.g., startDate"
@@ -360,8 +361,8 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>End Field</Label>
-            <Input
+            <Label htmlFor="fhir-field-mapping-edito-end-field">End Field</Label>
+            <Input id="fhir-field-mapping-edito-end-field"
               value={params.endField || ""}
               onChange={(e) => handleParamChange("endField", e.target.value)}
               placeholder="e.g., endDate"
@@ -369,12 +370,12 @@ function TransformationEditor({
             />
           </div>
           <div>
-            <Label>Date Format</Label>
+            <Label htmlFor="fhir-field-mapping-edito-date-format-2">Date Format</Label>
             <Select
               value={params.format || "YYYY-MM-DD"}
               onValueChange={(v) => handleParamChange("format", v)}
             >
-              <SelectTrigger data-testid="select-period-format">
+              <SelectTrigger id="fhir-field-mapping-edito-date-format-2" data-testid="select-period-format">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -389,8 +390,8 @@ function TransformationEditor({
 
       {type === "custom_script" && (
         <div>
-          <Label>Custom Script (JavaScript)</Label>
-          <Textarea
+          <Label htmlFor="fhir-field-mapping-edito-custom-script-javascript">Custom Script (JavaScript)</Label>
+          <Textarea id="fhir-field-mapping-edito-custom-script-javascript"
             value={params.script || ""}
             onChange={(e) => handleParamChange("script", e.target.value)}
             placeholder="return value.toUpperCase();"
@@ -500,7 +501,7 @@ function FieldMappingRow({
           <div className="mt-4 pt-4 border-t space-y-4">
             {mapping.transformation && (
               <div>
-                <Label className="text-xs text-muted-foreground">Transformation</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Transformation</FieldCaption>
                 <div className="bg-muted rounded p-2 mt-1">
                   <p className="text-sm font-medium">{mapping.transformation.type}</p>
                   {Object.keys(mapping.transformation.params || {}).length > 0 && (
@@ -514,14 +515,14 @@ function FieldMappingRow({
             
             {mapping.defaultValue !== undefined && (
               <div>
-                <Label className="text-xs text-muted-foreground">Default Value</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Default Value</FieldCaption>
                 <p className="text-sm font-mono mt-1">{JSON.stringify(mapping.defaultValue)}</p>
               </div>
             )}
             
             {mapping.condition && (
               <div>
-                <Label className="text-xs text-muted-foreground">Condition</Label>
+                <FieldCaption className="text-xs text-muted-foreground">Condition</FieldCaption>
                 <div className="bg-muted rounded p-2 mt-1 text-sm">
                   {mapping.condition.field} {mapping.condition.operator} {mapping.condition.value}
                 </div>
@@ -863,8 +864,8 @@ export function FHIRFieldMappingEditor({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Source Field</Label>
-                <Input
+                <Label htmlFor="fhir-field-mapping-edito-source-field">Source Field</Label>
+                <Input id="fhir-field-mapping-edito-source-field"
                   value={newFieldForm.sourceField}
                   onChange={(e) => setNewFieldForm({ ...newFieldForm, sourceField: e.target.value })}
                   placeholder="e.g., firstName"
@@ -872,8 +873,8 @@ export function FHIRFieldMappingEditor({
                 />
               </div>
               <div>
-                <Label>Target Field</Label>
-                <Input
+                <Label htmlFor="fhir-field-mapping-edito-target-field">Target Field</Label>
+                <Input id="fhir-field-mapping-edito-target-field"
                   value={newFieldForm.targetField}
                   onChange={(e) => setNewFieldForm({ ...newFieldForm, targetField: e.target.value })}
                   placeholder="e.g., name[0].given[0]"
@@ -883,12 +884,12 @@ export function FHIRFieldMappingEditor({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Data Type</Label>
+                <Label htmlFor="fhir-field-mapping-edito-data-type">Data Type</Label>
                 <Select
                   value={newFieldForm.dataType}
                   onValueChange={(v) => setNewFieldForm({ ...newFieldForm, dataType: v })}
                 >
-                  <SelectTrigger data-testid="select-data-type">
+                  <SelectTrigger id="fhir-field-mapping-edito-data-type" data-testid="select-data-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -901,8 +902,8 @@ export function FHIRFieldMappingEditor({
                 </Select>
               </div>
               <div>
-                <Label>Default Value (optional)</Label>
-                <Input
+                <Label htmlFor="fhir-field-mapping-edito-default-value-optional">Default Value (optional)</Label>
+                <Input id="fhir-field-mapping-edito-default-value-optional"
                   value={newFieldForm.defaultValue}
                   onChange={(e) => setNewFieldForm({ ...newFieldForm, defaultValue: e.target.value })}
                   placeholder="Default if empty"
@@ -916,7 +917,7 @@ export function FHIRFieldMappingEditor({
                 onCheckedChange={(v) => setNewFieldForm({ ...newFieldForm, required: v })}
                 data-testid="switch-field-required"
               />
-              <Label>Required field</Label>
+              <FieldCaption>Required field</FieldCaption>
             </div>
             <Separator />
             <TransformationEditor
@@ -945,8 +946,8 @@ export function FHIRFieldMappingEditor({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Extension URL</Label>
-              <Input
+              <Label htmlFor="fhir-field-mapping-edito-extension-url">Extension URL</Label>
+              <Input id="fhir-field-mapping-edito-extension-url"
                 value={newExtensionForm.extensionUrl}
                 onChange={(e) => setNewExtensionForm({ ...newExtensionForm, extensionUrl: e.target.value })}
                 placeholder="http://hl7.org/fhir/StructureDefinition/..."
@@ -954,8 +955,8 @@ export function FHIRFieldMappingEditor({
               />
             </div>
             <div>
-              <Label>Source Field</Label>
-              <Input
+              <Label htmlFor="fhir-field-mapping-edito-source-field-2">Source Field</Label>
+              <Input id="fhir-field-mapping-edito-source-field-2"
                 value={newExtensionForm.sourceField}
                 onChange={(e) => setNewExtensionForm({ ...newExtensionForm, sourceField: e.target.value })}
                 placeholder="e.g., race"
@@ -963,12 +964,12 @@ export function FHIRFieldMappingEditor({
               />
             </div>
             <div>
-              <Label>Value Type</Label>
+              <Label htmlFor="fhir-field-mapping-edito-value-type">Value Type</Label>
               <Select
                 value={newExtensionForm.valueType}
                 onValueChange={(v) => setNewExtensionForm({ ...newExtensionForm, valueType: v })}
               >
-                <SelectTrigger data-testid="select-ext-value-type">
+                <SelectTrigger id="fhir-field-mapping-edito-value-type" data-testid="select-ext-value-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1003,8 +1004,8 @@ export function FHIRFieldMappingEditor({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Target Field</Label>
-              <Input
+              <Label htmlFor="fhir-field-mapping-edito-target-field-2">Target Field</Label>
+              <Input id="fhir-field-mapping-edito-target-field-2"
                 value={newValidationForm.field}
                 onChange={(e) => setNewValidationForm({ ...newValidationForm, field: e.target.value })}
                 placeholder="e.g., name[0].family"
@@ -1012,12 +1013,12 @@ export function FHIRFieldMappingEditor({
               />
             </div>
             <div>
-              <Label>Rule Type</Label>
+              <Label htmlFor="fhir-field-mapping-edito-rule-type">Rule Type</Label>
               <Select
                 value={newValidationForm.rule}
                 onValueChange={(v) => setNewValidationForm({ ...newValidationForm, rule: v })}
               >
-                <SelectTrigger data-testid="select-validation-rule">
+                <SelectTrigger id="fhir-field-mapping-edito-rule-type" data-testid="select-validation-rule">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1063,8 +1064,8 @@ export function FHIRFieldMappingEditor({
               </div>
             )}
             <div>
-              <Label>Error Message</Label>
-              <Input
+              <Label htmlFor="fhir-field-mapping-edito-error-message">Error Message</Label>
+              <Input id="fhir-field-mapping-edito-error-message"
                 value={newValidationForm.errorMessage}
                 onChange={(e) => setNewValidationForm({ ...newValidationForm, errorMessage: e.target.value })}
                 placeholder="Validation error message"

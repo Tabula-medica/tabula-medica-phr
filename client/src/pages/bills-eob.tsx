@@ -153,9 +153,9 @@ function AddBillDialog({ onSuccess }: { onSuccess: () => void }) {
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Document Type</Label>
+            <Label htmlFor="bills-eob-document-type">Document Type</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger data-testid="select-bill-type"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="bills-eob-document-type" data-testid="select-bill-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="medical-bill">Medical Bill</SelectItem>
                 <SelectItem value="eob">EOB (Explanation of Benefits)</SelectItem>

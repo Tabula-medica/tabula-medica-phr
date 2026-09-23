@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface ChatMessage {
   id: string;
@@ -235,7 +236,7 @@ export default function PolicyChatbot() {
                           className={`p-2 rounded cursor-pointer hover-elevate flex items-center justify-between group ${
                             currentSessionId === session.id ? "bg-muted" : ""
                           }`}
-                          onClick={() => loadSession(session.id)}
+                          {...clickable(() => loadSession(session.id))}
                           data-testid={`session-${session.id}`}
                         >
                           <div className="min-w-0 flex-1">

@@ -10,8 +10,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import { 
   Brain, 
   TrendingUp, 
@@ -406,7 +408,7 @@ export default function FHIRDataLakeAnalytics() {
                   <div
                     key={alert.id}
                     className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover-elevate cursor-pointer"
-                    onClick={() => { setSelectedAlert(alert); setActiveTab("alerts"); }}
+                    {...clickable(() => { setSelectedAlert(alert); setActiveTab("alerts"); })}
                     data-testid={`alert-item-${alert.id}`}
                   >
                     <div className={`w-2 h-2 mt-2 rounded-full ${severityColors[alert.severity]}`} />
@@ -438,7 +440,7 @@ export default function FHIRDataLakeAnalytics() {
                     <div
                       key={insight.id}
                       className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover-elevate cursor-pointer"
-                      onClick={() => { setSelectedInsight(insight); setActiveTab("insights"); }}
+                      {...clickable(() => { setSelectedInsight(insight); setActiveTab("insights"); })}
                       data-testid={`insight-item-${insight.id}`}
                     >
                       <Icon className="w-5 h-5 mt-0.5 text-primary" />
@@ -877,13 +879,13 @@ export default function FHIRDataLakeAnalytics() {
             <CardContent className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Report Type</Label>
+                  <Label htmlFor="fhir-data-lake-analytics-report-type">Report Type</Label>
                   <Select
                     value={reportConfig.type}
                     onValueChange={(value) => setReportConfig({ ...reportConfig, type: value })}
                     data-testid="select-report-type"
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="fhir-data-lake-analytics-report-type">
                       <SelectValue placeholder="Select report type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -897,8 +899,8 @@ export default function FHIRDataLakeAnalytics() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Report Title <span className="text-red-500">*</span></Label>
-                  <Input
+                  <Label htmlFor="fhir-data-lake-analytics-report-title">Report Title <span className="text-red-500">*</span></Label>
+                  <Input id="fhir-data-lake-analytics-report-title"
                     placeholder="Enter report title"
                     value={reportConfig.title}
                     onChange={(e) => {
@@ -918,11 +920,11 @@ export default function FHIRDataLakeAnalytics() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Include Sections</Label>
+                <FieldCaption>Include Sections</FieldCaption>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   {['metrics', 'trends', 'alerts', 'insights', 'recommendations'].map((section) => (
                     <div key={section} className="flex items-center gap-2">
-                      <Checkbox
+                      <Checkbox aria-label="Include Sections"
                         id={section}
                         checked={reportConfig.includeSections.includes(section)}
                         onCheckedChange={(checked) => {

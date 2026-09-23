@@ -149,9 +149,9 @@ function AddPetDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Species</Label>
+              <Label htmlFor="pet-health-records-species">Species</Label>
               <Select value={species} onValueChange={setSpecies}>
-                <SelectTrigger data-testid="select-pet-species"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="pet-health-records-species" data-testid="select-pet-species"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="dog">Dog</SelectItem>
                   <SelectItem value="cat">Cat</SelectItem>
@@ -184,9 +184,9 @@ function AddPetDialog({ onSuccess }: { onSuccess: () => void }) {
             <Input id="pet-microchip" placeholder="e.g., 985112345678901" value={microchipNumber} onChange={(e) => setMicrochipNumber(e.target.value)} data-testid="input-pet-microchip" />
           </div>
           <div className="space-y-2">
-            <Label>Spay/Neuter Status</Label>
+            <Label htmlFor="pet-health-records-spay-neuter-status">Spay/Neuter Status</Label>
             <Select value={spayNeuterStatus} onValueChange={setSpayNeuterStatus}>
-              <SelectTrigger data-testid="select-pet-spay-neuter"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="pet-health-records-spay-neuter-status" data-testid="select-pet-spay-neuter"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="spayed">Spayed</SelectItem>
                 <SelectItem value="neutered">Neutered</SelectItem>
@@ -367,9 +367,9 @@ function VaccinationsTab({ pet }: { pet: Pet }) {
             <DialogHeader><DialogTitle>Add Vaccination</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Vaccine Name</Label>
+                <Label htmlFor="pet-health-records-vaccine-name">Vaccine Name</Label>
                 <Select value={vaccineName} onValueChange={setVaccineName}>
-                  <SelectTrigger data-testid="select-vaccine-name"><SelectValue placeholder="Select vaccine" /></SelectTrigger>
+                  <SelectTrigger id="pet-health-records-vaccine-name" data-testid="select-vaccine-name"><SelectValue placeholder="Select vaccine" /></SelectTrigger>
                   <SelectContent>
                     {commonVaccines.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                     <SelectItem value="other">Other</SelectItem>
@@ -378,27 +378,27 @@ function VaccinationsTab({ pet }: { pet: Pet }) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Date Administered</Label>
-                  <Input type="date" value={dateAdministered} onChange={(e) => setDateAdministered(e.target.value)} data-testid="input-vax-date" />
+                  <Label htmlFor="pet-health-records-date-administered">Date Administered</Label>
+                  <Input id="pet-health-records-date-administered" type="date" value={dateAdministered} onChange={(e) => setDateAdministered(e.target.value)} data-testid="input-vax-date" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Expiration Date</Label>
-                  <Input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} data-testid="input-vax-expiration" />
+                  <Label htmlFor="pet-health-records-expiration-date">Expiration Date</Label>
+                  <Input id="pet-health-records-expiration-date" type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} data-testid="input-vax-expiration" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Veterinarian</Label>
-                  <Input placeholder="Dr. Smith" value={veterinarian} onChange={(e) => setVeterinarian(e.target.value)} data-testid="input-vax-vet" />
+                  <Label htmlFor="pet-health-records-veterinarian">Veterinarian</Label>
+                  <Input id="pet-health-records-veterinarian" placeholder="Dr. Smith" value={veterinarian} onChange={(e) => setVeterinarian(e.target.value)} data-testid="input-vax-vet" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Lot Number</Label>
-                  <Input placeholder="Lot #" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} data-testid="input-vax-lot" />
+                  <Label htmlFor="pet-health-records-lot-number">Lot Number</Label>
+                  <Input id="pet-health-records-lot-number" placeholder="Lot #" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} data-testid="input-vax-lot" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-vax-notes" />
+                <Label htmlFor="pet-health-records-notes">Notes</Label>
+                <Textarea id="pet-health-records-notes" placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-vax-notes" />
               </div>
             </div>
             <DialogFooter>
@@ -498,28 +498,28 @@ function MedicationsTab({ pet }: { pet: Pet }) {
             <DialogHeader><DialogTitle>Add Medication</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Medication Name</Label>
-                <Input placeholder="e.g., Heartgard Plus" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-med-name" />
+                <Label htmlFor="pet-health-records-medication-name">Medication Name</Label>
+                <Input id="pet-health-records-medication-name" placeholder="e.g., Heartgard Plus" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-med-name" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Dosage</Label>
-                  <Input placeholder="e.g., 68 mcg" value={dosage} onChange={(e) => setDosage(e.target.value)} data-testid="input-med-dosage" />
+                  <Label htmlFor="pet-health-records-dosage">Dosage</Label>
+                  <Input id="pet-health-records-dosage" placeholder="e.g., 68 mcg" value={dosage} onChange={(e) => setDosage(e.target.value)} data-testid="input-med-dosage" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Frequency</Label>
-                  <Input placeholder="e.g., Monthly" value={frequency} onChange={(e) => setFrequency(e.target.value)} data-testid="input-med-frequency" />
+                  <Label htmlFor="pet-health-records-frequency">Frequency</Label>
+                  <Input id="pet-health-records-frequency" placeholder="e.g., Monthly" value={frequency} onChange={(e) => setFrequency(e.target.value)} data-testid="input-med-frequency" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-med-start" />
+                  <Label htmlFor="pet-health-records-start-date">Start Date</Label>
+                  <Input id="pet-health-records-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-med-start" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label htmlFor="pet-health-records-status">Status</Label>
                   <Select value={status} onValueChange={setStatus}>
-                    <SelectTrigger data-testid="select-med-status"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="pet-health-records-status" data-testid="select-med-status"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="discontinued">Discontinued</SelectItem>
@@ -529,12 +529,12 @@ function MedicationsTab({ pet }: { pet: Pet }) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Prescribed By</Label>
-                <Input placeholder="Dr. Smith" value={prescribedBy} onChange={(e) => setPrescribedBy(e.target.value)} data-testid="input-med-prescribed-by" />
+                <Label htmlFor="pet-health-records-prescribed-by">Prescribed By</Label>
+                <Input id="pet-health-records-prescribed-by" placeholder="Dr. Smith" value={prescribedBy} onChange={(e) => setPrescribedBy(e.target.value)} data-testid="input-med-prescribed-by" />
               </div>
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-med-notes" />
+                <Label htmlFor="pet-health-records-notes-2">Notes</Label>
+                <Textarea id="pet-health-records-notes-2" placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-med-notes" />
               </div>
             </div>
             <DialogFooter>
@@ -631,33 +631,33 @@ function VetVisitsTab({ pet }: { pet: Pet }) {
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Visit Date</Label>
-                  <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} data-testid="input-visit-date" />
+                  <Label htmlFor="pet-health-records-visit-date">Visit Date</Label>
+                  <Input id="pet-health-records-visit-date" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} data-testid="input-visit-date" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Veterinarian</Label>
-                  <Input placeholder="Dr. Johnson" value={veterinarian} onChange={(e) => setVeterinarian(e.target.value)} data-testid="input-visit-vet" />
+                  <Label htmlFor="pet-health-records-veterinarian-2">Veterinarian</Label>
+                  <Input id="pet-health-records-veterinarian-2" placeholder="Dr. Johnson" value={veterinarian} onChange={(e) => setVeterinarian(e.target.value)} data-testid="input-visit-vet" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Clinic</Label>
-                <Input placeholder="Happy Paws Clinic" value={clinic} onChange={(e) => setClinic(e.target.value)} data-testid="input-visit-clinic" />
+                <Label htmlFor="pet-health-records-clinic">Clinic</Label>
+                <Input id="pet-health-records-clinic" placeholder="Happy Paws Clinic" value={clinic} onChange={(e) => setClinic(e.target.value)} data-testid="input-visit-clinic" />
               </div>
               <div className="space-y-2">
-                <Label>Reason for Visit</Label>
-                <Input placeholder="Annual checkup" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="input-visit-reason" />
+                <Label htmlFor="pet-health-records-reason-for-visit">Reason for Visit</Label>
+                <Input id="pet-health-records-reason-for-visit" placeholder="Annual checkup" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="input-visit-reason" />
               </div>
               <div className="space-y-2">
-                <Label>Diagnosis</Label>
-                <Textarea placeholder="Diagnosis details..." value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} data-testid="input-visit-diagnosis" />
+                <Label htmlFor="pet-health-records-diagnosis">Diagnosis</Label>
+                <Textarea id="pet-health-records-diagnosis" placeholder="Diagnosis details..." value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} data-testid="input-visit-diagnosis" />
               </div>
               <div className="space-y-2">
-                <Label>Treatment</Label>
-                <Textarea placeholder="Treatment provided..." value={treatment} onChange={(e) => setTreatment(e.target.value)} data-testid="input-visit-treatment" />
+                <Label htmlFor="pet-health-records-treatment">Treatment</Label>
+                <Textarea id="pet-health-records-treatment" placeholder="Treatment provided..." value={treatment} onChange={(e) => setTreatment(e.target.value)} data-testid="input-visit-treatment" />
               </div>
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-visit-notes" />
+                <Label htmlFor="pet-health-records-notes-3">Notes</Label>
+                <Textarea id="pet-health-records-notes-3" placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-visit-notes" />
               </div>
             </div>
             <DialogFooter>
@@ -753,9 +753,9 @@ function StateRecordsTab({ pet }: { pet: Pet }) {
             <DialogHeader><DialogTitle>Add State Record</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Record Type</Label>
+                <Label htmlFor="pet-health-records-record-type">Record Type</Label>
                 <Select value={recordType} onValueChange={setRecordType}>
-                  <SelectTrigger data-testid="select-record-type"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="pet-health-records-record-type" data-testid="select-record-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="license">License</SelectItem>
                     <SelectItem value="registration">Registration</SelectItem>
@@ -766,33 +766,33 @@ function StateRecordsTab({ pet }: { pet: Pet }) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>License/Registration Number</Label>
-                <Input placeholder="e.g., DL-2024-12345" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} data-testid="input-license-number" />
+                <Label htmlFor="pet-health-records-license-registration-number">License/Registration Number</Label>
+                <Input id="pet-health-records-license-registration-number" placeholder="e.g., DL-2024-12345" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} data-testid="input-license-number" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Registration Date</Label>
-                  <Input type="date" value={registrationDate} onChange={(e) => setRegistrationDate(e.target.value)} data-testid="input-reg-date" />
+                  <Label htmlFor="pet-health-records-registration-date">Registration Date</Label>
+                  <Input id="pet-health-records-registration-date" type="date" value={registrationDate} onChange={(e) => setRegistrationDate(e.target.value)} data-testid="input-reg-date" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Expiration Date</Label>
-                  <Input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} data-testid="input-reg-expiration" />
+                  <Label htmlFor="pet-health-records-expiration-date-2">Expiration Date</Label>
+                  <Input id="pet-health-records-expiration-date-2" type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} data-testid="input-reg-expiration" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>County</Label>
-                  <Input placeholder="e.g., Los Angeles" value={county} onChange={(e) => setCounty(e.target.value)} data-testid="input-county" />
+                  <Label htmlFor="pet-health-records-county">County</Label>
+                  <Input id="pet-health-records-county" placeholder="e.g., Los Angeles" value={county} onChange={(e) => setCounty(e.target.value)} data-testid="input-county" />
                 </div>
                 <div className="space-y-2">
-                  <Label>State</Label>
-                  <Input placeholder="e.g., CA" value={stateVal} onChange={(e) => setStateVal(e.target.value)} data-testid="input-state" />
+                  <Label htmlFor="pet-health-records-state">State</Label>
+                  <Input id="pet-health-records-state" placeholder="e.g., CA" value={stateVal} onChange={(e) => setStateVal(e.target.value)} data-testid="input-state" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label htmlFor="pet-health-records-status-2">Status</Label>
                 <Select value={statusVal} onValueChange={setStatusVal}>
-                  <SelectTrigger data-testid="select-record-status"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="pet-health-records-status-2" data-testid="select-record-status"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="expired">Expired</SelectItem>
@@ -802,8 +802,8 @@ function StateRecordsTab({ pet }: { pet: Pet }) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-record-notes" />
+                <Label htmlFor="pet-health-records-notes-4">Notes</Label>
+                <Textarea id="pet-health-records-notes-4" placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-record-notes" />
               </div>
             </div>
             <DialogFooter>

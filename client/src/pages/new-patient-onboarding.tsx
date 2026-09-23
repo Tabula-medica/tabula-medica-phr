@@ -246,9 +246,9 @@ function ProfileStep({
           />
         </div>
         <div>
-          <Label>Gender *</Label>
+          <Label htmlFor="new-patient-onboarding-gender">Gender *</Label>
           <Select value={data.gender} onValueChange={(v) => update("gender", v)}>
-            <SelectTrigger data-testid="select-gender">
+            <SelectTrigger id="new-patient-onboarding-gender" data-testid="select-gender">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -332,9 +332,9 @@ function ProfileStep({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <Label>Preferred Language</Label>
+          <Label htmlFor="new-patient-onboarding-preferred-language">Preferred Language</Label>
           <Select value={data.preferredLanguage} onValueChange={(v) => update("preferredLanguage", v)}>
-            <SelectTrigger data-testid="select-language">
+            <SelectTrigger id="new-patient-onboarding-preferred-language" data-testid="select-language">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -348,9 +348,9 @@ function ProfileStep({
           </Select>
         </div>
         <div>
-          <Label>Communication Preference</Label>
+          <Label htmlFor="new-patient-onboarding-communication-preference">Communication Preference</Label>
           <Select value={data.communicationPreference} onValueChange={(v) => update("communicationPreference", v)}>
-            <SelectTrigger data-testid="select-comm-pref">
+            <SelectTrigger id="new-patient-onboarding-communication-preference" data-testid="select-comm-pref">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -368,9 +368,9 @@ function ProfileStep({
         <p className="text-xs text-muted-foreground mb-3">USCDI required fields — optional but helps improve care quality reporting</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <Label>Race</Label>
+            <Label htmlFor="new-patient-onboarding-race">Race</Label>
             <Select value={data.race} onValueChange={(v) => update("race", v)}>
-              <SelectTrigger data-testid="select-race">
+              <SelectTrigger id="new-patient-onboarding-race" data-testid="select-race">
                 <SelectValue placeholder="Select (optional)" />
               </SelectTrigger>
               <SelectContent>
@@ -385,9 +385,9 @@ function ProfileStep({
             </Select>
           </div>
           <div>
-            <Label>Ethnicity</Label>
+            <Label htmlFor="new-patient-onboarding-ethnicity">Ethnicity</Label>
             <Select value={data.ethnicity} onValueChange={(v) => update("ethnicity", v)}>
-              <SelectTrigger data-testid="select-ethnicity">
+              <SelectTrigger id="new-patient-onboarding-ethnicity" data-testid="select-ethnicity">
                 <SelectValue placeholder="Select (optional)" />
               </SelectTrigger>
               <SelectContent>
@@ -430,9 +430,9 @@ function ProfileStep({
             />
           </div>
           <div>
-            <Label>Issuing State</Label>
+            <Label htmlFor="new-patient-onboarding-issuing-state">Issuing State</Label>
             <Select value={data.stateIdIssuingState} onValueChange={(v) => update("stateIdIssuingState", v)}>
-              <SelectTrigger data-testid="select-issuing-state">
+              <SelectTrigger id="new-patient-onboarding-issuing-state" data-testid="select-issuing-state">
                 <SelectValue placeholder="State" />
               </SelectTrigger>
               <SelectContent>
@@ -460,9 +460,9 @@ function ProfileStep({
             />
           </div>
           <div>
-            <Label>Relationship</Label>
+            <Label htmlFor="new-patient-onboarding-relationship">Relationship</Label>
             <Select value={data.emergencyContact.relationship} onValueChange={(v) => updateEmergencyContact("relationship", v)}>
-              <SelectTrigger data-testid="select-ec-relationship">
+              <SelectTrigger id="new-patient-onboarding-relationship" data-testid="select-ec-relationship">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>

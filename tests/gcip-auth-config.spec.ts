@@ -47,7 +47,11 @@ function parseCsp(csp: string): Map<string, string[]> {
 
 describe("GCIP auth deployment configuration", () => {
   it("allows Firebase and federated auth endpoints in the production CSP", () => {
+    const prevProject = process.env.GCIP_PROJECT_ID;
+    process.env.GCIP_PROJECT_ID = "united-planet-485003-n7-9f345";
     const headers = collectSecurityHeaders("production");
+    if (prevProject === undefined) delete process.env.GCIP_PROJECT_ID;
+    else process.env.GCIP_PROJECT_ID = prevProject;
     const csp = headers.get("Content-Security-Policy");
     expect(csp).toBeDefined();
 

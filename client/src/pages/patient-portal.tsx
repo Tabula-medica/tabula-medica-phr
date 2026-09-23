@@ -136,6 +136,7 @@ import {
   Brain,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 interface PortalMessage {
   id: string;
@@ -1940,7 +1941,7 @@ function PreventiveCareSection() {
                   <div
                     key={slot.id}
                     className="p-4 rounded-lg border hover-elevate cursor-pointer"
-                    onClick={() => scheduleMutation.mutate({ slotId: slot.id, careGapId: selectedGapId || undefined })}
+                    {...clickable(() => scheduleMutation.mutate({ slotId: slot.id, careGapId: selectedGapId || undefined }))}
                     data-testid={`slot-${slot.id}`}
                   >
                     <div className="flex items-center justify-between">

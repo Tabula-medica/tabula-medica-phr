@@ -23,6 +23,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { logSecurityEvent } from "./gcp-audit-logger";
 import { getRequestId } from "./production-logger";
+import { SYSTEM_ACTOR } from "./audit-constants";
 
 export type InjectionCategory =
   | "instruction_override"
@@ -498,7 +499,7 @@ export function auditModelOutput(output: string, ctx: { feature: string; actor?:
   if (result.flagged) {
     void logSecurityEvent({
       eventType: "ai_output_exfiltration_pattern",
-      actor: ctx.actor || "system",
+      actor: ctx.actor || SYSTEM_ACTOR,
       riskLevel: "high",
       details: { feature: ctx.feature, requestId: ctx.requestId, findings: result.findings },
     });

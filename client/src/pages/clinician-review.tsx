@@ -24,6 +24,7 @@ import { DifferentialDiagnosisCard } from "@/components/differential-diagnosis";
 import { ClinicalNotesCard } from "@/components/clinical-notes";
 import { ReferralLetterCard, PrescriptionDraftCard, CommunicationSummaryCard } from "@/components/clinician-automation";
 import { format } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 // Sample patient list
 const MOCK_PATIENTS = [
@@ -77,7 +78,7 @@ interface PatientCardProps {
 function PatientCard({ patient, isSelected, onClick }: PatientCardProps) {
   return (
     <div
-      onClick={onClick}
+      {...clickable(onClick)}
       className={`p-4 rounded-lg border cursor-pointer transition-colors ${
         isSelected ? "border-primary bg-primary/5" : "hover-elevate"
       }`}

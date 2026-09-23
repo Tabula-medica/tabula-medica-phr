@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -369,16 +369,16 @@ export function AdvancedSearchFilter({
               <div className="grid gap-4 md:grid-cols-2">
                 {showTypeFilter && typeOptions.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Event Types</Label>
+                    <FieldCaption className="text-sm font-medium">Event Types</FieldCaption>
                     <ScrollArea className="h-36 rounded-md border p-2">
                       <div className="space-y-1">
                         {typeOptions.map(option => (
-                          <div
+                          <div role="presentation"
                             key={option.id}
                             className="flex items-center space-x-2 p-1 rounded hover-elevate cursor-pointer"
                             onClick={() => toggleType(option.id)}
                           >
-                            <Checkbox
+                            <Checkbox aria-label="Event Types"
                               id={`type-${option.id}`}
                               checked={filters.selectedTypes.includes(option.id)}
                               onCheckedChange={() => toggleType(option.id)}
@@ -400,16 +400,16 @@ export function AdvancedSearchFilter({
 
                 {showTagFilter && tagOptions.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Tags</Label>
+                    <FieldCaption className="text-sm font-medium">Tags</FieldCaption>
                     <ScrollArea className="h-36 rounded-md border p-2">
                       <div className="space-y-1">
                         {tagOptions.map(option => (
-                          <div
+                          <div role="presentation"
                             key={option.id}
                             className="flex items-center space-x-2 p-1 rounded hover-elevate cursor-pointer"
                             onClick={() => toggleTag(option.id)}
                           >
-                            <Checkbox
+                            <Checkbox aria-label="Tags"
                               id={`tag-${option.id}`}
                               checked={filters.selectedTags.includes(option.id)}
                               onCheckedChange={() => toggleTag(option.id)}

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   CreditCard,
   FileText,
@@ -580,7 +581,7 @@ export default function Benefits() {
                   <div 
                     key={auth.id}
                     className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
-                    onClick={() => handleViewAuth(auth)}
+                    {...clickable(() => handleViewAuth(auth))}
                     data-testid={`card-auth-${auth.id}`}
                   >
                     <div className="flex items-center gap-4">
@@ -769,9 +770,9 @@ export default function Benefits() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Department</Label>
+              <Label htmlFor="benefits-department">Department</Label>
               <Select value={messageDept} onValueChange={setMessageDept}>
-                <SelectTrigger data-testid="select-message-dept">
+                <SelectTrigger id="benefits-department" data-testid="select-message-dept">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>

@@ -711,9 +711,9 @@ export default function PatientImmunizationPortal() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Select State</Label>
+              <Label htmlFor="patient-immunization-por-select-state">Select State</Label>
               <Select value={selectedStateCode} onValueChange={setSelectedStateCode}>
-                <SelectTrigger data-testid="select-state">
+                <SelectTrigger id="patient-immunization-por-select-state" data-testid="select-state">
                   <SelectValue placeholder="Choose a state..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -726,9 +726,9 @@ export default function PatientImmunizationPortal() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Consent Type</Label>
+              <Label htmlFor="patient-immunization-por-consent-type">Consent Type</Label>
               <Select value={consentType} onValueChange={setConsentType}>
-                <SelectTrigger data-testid="select-consent-type">
+                <SelectTrigger id="patient-immunization-por-consent-type" data-testid="select-consent-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -778,8 +778,8 @@ export default function PatientImmunizationPortal() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Reason for Revoking (Optional)</Label>
-              <Textarea 
+              <Label htmlFor="patient-immunization-por-reason-for-revoking-optional">Reason for Revoking (Optional)</Label>
+              <Textarea id="patient-immunization-por-reason-for-revoking-optional" 
                 value={revokeReason}
                 onChange={(e) => setRevokeReason(e.target.value)}
                 placeholder="Please let us know why you're revoking consent..."

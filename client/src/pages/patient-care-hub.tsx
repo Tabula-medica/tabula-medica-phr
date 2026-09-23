@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -279,9 +280,9 @@ export default function PatientCareHub() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Gender</Label>
+                  <Label htmlFor="patient-care-hub-gender">Gender</Label>
                   <Select value={patientGender} onValueChange={(v) => setPatientGender(v as "male" | "female")}>
-                    <SelectTrigger data-testid="select-gender">
+                    <SelectTrigger id="patient-care-hub-gender" data-testid="select-gender">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -291,9 +292,9 @@ export default function PatientCareHub() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Smoking Status</Label>
+                  <Label htmlFor="patient-care-hub-smoking-status">Smoking Status</Label>
                   <Select value={smokingStatus} onValueChange={setSmokingStatus}>
-                    <SelectTrigger data-testid="select-smoking">
+                    <SelectTrigger id="patient-care-hub-smoking-status" data-testid="select-smoking">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -305,7 +306,7 @@ export default function PatientCareHub() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={useAI} onCheckedChange={setUseAI} />
-                  <Label>Use AI-enhanced recommendations</Label>
+                  <FieldCaption>Use AI-enhanced recommendations</FieldCaption>
                 </div>
                 <Button 
                   className="w-full" 
@@ -583,9 +584,9 @@ export default function PatientCareHub() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Select Summary</Label>
+                  <Label htmlFor="patient-care-hub-select-summary">Select Summary</Label>
                   <Select value={selectedSummary} onValueChange={setSelectedSummary}>
-                    <SelectTrigger data-testid="select-summary">
+                    <SelectTrigger id="patient-care-hub-select-summary" data-testid="select-summary">
                       <SelectValue placeholder="Choose a clinical summary..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -597,9 +598,9 @@ export default function PatientCareHub() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Target Language</Label>
+                  <Label htmlFor="patient-care-hub-target-language">Target Language</Label>
                   <Select value={targetLanguage} onValueChange={setTargetLanguage}>
-                    <SelectTrigger data-testid="select-language">
+                    <SelectTrigger id="patient-care-hub-target-language" data-testid="select-language">
                       <SelectValue placeholder="Choose language..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -702,8 +703,8 @@ export default function PatientCareHub() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Text to Translate</Label>
-                    <Textarea 
+                    <Label htmlFor="patient-care-hub-text-to-translate">Text to Translate</Label>
+                    <Textarea id="patient-care-hub-text-to-translate" 
                       value={customText}
                       onChange={(e) => setCustomText(e.target.value)}
                       placeholder="Enter health-related text to translate..."

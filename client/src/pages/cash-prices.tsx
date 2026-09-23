@@ -88,13 +88,13 @@ export default function CashPrices() {
           </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
             <div className="space-y-1.5">
-              <Label>{active.label}</Label>
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={active.placeholder}
+              <Label htmlFor="cash-prices-service">{active.label}</Label>
+              <Input id="cash-prices-service" value={q} onChange={(e) => setQ(e.target.value)} placeholder={active.placeholder}
                 onKeyDown={(e) => e.key === "Enter" && search()} data-testid="input-service" />
             </div>
             <div className="space-y-1.5">
-              <Label>ZIP (optional)</Label>
-              <Input value={zip} onChange={(e) => setZip(e.target.value)} inputMode="numeric" placeholder="22314" data-testid="input-zip" />
+              <Label htmlFor="cash-prices-zip">ZIP (optional)</Label>
+              <Input id="cash-prices-zip" value={zip} onChange={(e) => setZip(e.target.value)} inputMode="numeric" placeholder="22314" data-testid="input-zip" />
             </div>
           </div>
           <Button className="w-full" onClick={search} disabled={busy || !q.trim()} data-testid="button-search-prices">

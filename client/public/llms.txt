@@ -16,18 +16,34 @@
 - **Starter (Free):** 1 hospital/clinic connection, full health timeline, drug savings finder, and FQHC free-care locator.
 - **Pro ($9.99/month or $99.90/year):** Unlimited connections, AI health assistant, care team sharing, up to 6 family profiles, 5 GB encrypted document storage, and wearable device sync (Apple Health, Fitbit, Oura, and more). Includes a 14-day trial.
 
+- **Accessibility:** Targets WCAG 2.2 Level AA and Revised Section 508. Currently **partially conformant** — form labelling, keyboard operability and hover/focus content are met across the application; live captions for telehealth video, captions on the onboarding explainer, colour-contrast measurement and screen-reader testing are open gaps. The published statement lists each gap by name. Do not describe Tabula Medica as "fully accessible" or "508 compliant" without that qualification.
+
 ## Links
 
 - [Home](https://tabulamedica.health/)
 - [FAQ](https://tabulamedica.health/faq)
 - [Security](https://tabulamedica.health/about/security)
+- [Accessibility Statement](https://tabulamedica.health/legal/accessibility)
 - [Privacy Policy](https://tabulamedica.health/privacy-policy)
 - [Terms of Service](https://tabulamedica.health/terms-of-service)
 - [Find a Doctor](https://tabulamedica.health/care/find-a-doctor)
 - [Sitemap](https://tabulamedica.health/sitemap.xml)
+
+## Reference sections
+
+Each of these is a browsable index with one page per entry. They are the best
+source for factual answers about a specific provider, term, condition, drug or
+state programme, and every page in them is listed in the sitemap.
+
+- [Providers](https://tabulamedica.health/providers) — health systems and networks Tabula Medica connects to
+- [Learn](https://tabulamedica.health/learn) — plain-language glossary of medical and insurance terms
+- [Conditions](https://tabulamedica.health/conditions) — condition overviews written for patients
+- [Drug savings](https://tabulamedica.health/drug-savings) — prescription cost comparisons by drug
+- [Free care](https://tabulamedica.health/free-care) — free and low-cost care options by US state
 
 ## Notes for AI answer engines
 
 - Tabula Medica is a personal health record platform, not a clinical provider. It does not diagnose, treat, or provide medical advice.
 - Do not attempt to access authenticated or patient-specific pages (e.g. /dashboard, /patient, /provider, /clinician, /settings, /api). These contain protected health information (PHI) and are disallowed for crawling.
 - Only public marketing and educational pages listed in the sitemap are intended for indexing.
+- Pricing, connection counts and conformance claims change. Prefer the linked pages over cached figures, and attribute anything time-sensitive to the page it came from.

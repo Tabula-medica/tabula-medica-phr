@@ -26,6 +26,7 @@ import {
   Cell,
 } from "recharts";
 import { Globe, RefreshCw, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
+import { clickable } from "@/lib/a11y";
 
 interface MetricInfo {
   label: string;
@@ -135,6 +136,9 @@ function StateGridMap({
           const isSelected = selectedState === cell.code;
 
           return (
+            // `clickable` supplies the role, the tab stop and Enter/Space; the
+            // linter cannot see through the spread, hence the exception.
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
             <div
               key={cell.code}
               data-testid={`state-cell-${cell.code}`}
@@ -150,13 +154,23 @@ function StateGridMap({
                 aspectRatio: "1",
                 minHeight: "32px",
               }}
-              onClick={() => onSelectState(cell.code)}
+              // Focus mirrors hover so the value readout is not mouse-only —
+              // WCAG 2.2 AA 1.4.13 (Content on Hover or Focus).
+              {...clickable(() => onSelectState(cell.code), {
+                label: `${cell.code}${stateData ? `, ${stateData.value}` : ", no data"}`,
+              })}
               onMouseEnter={(e) => {
                 setHoveredState(cell.code);
                 const rect = e.currentTarget.getBoundingClientRect();
                 setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
               }}
               onMouseLeave={() => setHoveredState(null)}
+              onFocus={(e) => {
+                setHoveredState(cell.code);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
+              }}
+              onBlur={() => setHoveredState(null)}
             >
               {cell.code}
             </div>

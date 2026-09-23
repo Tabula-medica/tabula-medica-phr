@@ -167,7 +167,7 @@ export function EducationRecommendationWidget({
         <ScrollArea className={compact ? "max-h-48" : "max-h-72"}>
           <div className="space-y-3">
             {displayedRecs.map((rec) => (
-              <div
+              <div role="presentation"
                 key={rec.id}
                 className="flex items-start gap-3 p-3 rounded-md border hover-elevate cursor-pointer"
                 onClick={() => {

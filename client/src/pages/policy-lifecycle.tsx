@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -715,8 +716,8 @@ function ConflictResolutionDialog({
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Resolution Notes</label>
-            <Textarea
+            <label htmlFor="policy-lifecycle-resolution-notes" className="text-sm font-medium mb-2 block">Resolution Notes</label>
+            <Textarea id="policy-lifecycle-resolution-notes"
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
               placeholder="Describe how this conflict was resolved..."
@@ -1050,7 +1051,7 @@ function DraftingTab() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Regulatory Frameworks</Label>
+                <FieldCaption>Regulatory Frameworks</FieldCaption>
                 <div className="flex flex-wrap gap-2">
                   {["HIPAA", "GDPR", "SOC2", "PCI_DSS", "NIST"].map((reg) => (
                     <Badge
@@ -1071,7 +1072,7 @@ function DraftingTab() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Data Types</Label>
+                <FieldCaption>Data Types</FieldCaption>
                 <div className="flex flex-wrap gap-2">
                   {["PHI", "PII", "PCI", "audit_log", "operational"].map((dt) => (
                     <Badge

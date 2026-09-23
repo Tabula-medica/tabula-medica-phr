@@ -28,6 +28,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface KeyValueItem {
   label: string;
@@ -120,7 +121,7 @@ function ProvenanceRow({ provenance, onViewFull }: { provenance: ProvenanceInfo;
   return (
     <div 
       className="flex items-center justify-between py-3 cursor-pointer hover-elevate rounded-lg px-2 -mx-2" 
-      onClick={onViewFull}
+      {...clickable(onViewFull)}
       data-testid="row-provenance"
     >
       <div className="flex items-center gap-3 flex-wrap">

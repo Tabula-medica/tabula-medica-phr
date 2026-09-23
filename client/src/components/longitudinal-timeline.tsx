@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { clickable } from "@/lib/a11y";
 import {
   ZoomIn,
   ZoomOut,
@@ -161,7 +162,7 @@ export function LongitudinalTimeline({ events, startDate, endDate, onEventClick 
               width: event.type === "point" ? 24 : width,
               height: 20,
             }}
-            onClick={() => onEventClick?.(event)}
+            {...clickable(() => onEventClick?.(event))}
             data-testid={`timeline-event-${event.id}`}
           >
             {event.type === "point" ? (
@@ -261,8 +262,12 @@ export function LongitudinalTimeline({ events, startDate, endDate, onEventClick 
             })}
           </div>
           
+          {/* Drag-to-pan is a pointer shortcut. The keyboard equivalent is
+              the pan and zoom buttons above, so this viewport stays layout:
+              no role, no tab stop, nothing extra to tab past. */}
           <div
             ref={scrollContainerRef}
+            role="presentation"
             className="flex-1 overflow-hidden cursor-grab active:cursor-grabbing"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}

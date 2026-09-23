@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Play, Pause, Square, Plus, Trash2, Settings, Eye, Download, GitMerge,
   CheckCircle, XCircle, Clock, ArrowRight, Sparkles, FileText, Bell,
@@ -253,8 +255,8 @@ export default function AIFHIRWorkflowBuilder() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label>Workflow Name</Label>
-                    <Input
+                    <Label htmlFor="ai-fhir-workflow-builder-workflow-name">Workflow Name</Label>
+                    <Input id="ai-fhir-workflow-builder-workflow-name"
                       value={newWorkflowName}
                       onChange={(e) => setNewWorkflowName(e.target.value)}
                       placeholder="Enter workflow name..."
@@ -262,9 +264,9 @@ export default function AIFHIRWorkflowBuilder() {
                     />
                   </div>
                   <div>
-                    <Label>Start from Template</Label>
+                    <Label htmlFor="ai-fhir-workflow-builder-start-from-template">Start from Template</Label>
                     <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                      <SelectTrigger data-testid="select-template">
+                      <SelectTrigger id="ai-fhir-workflow-builder-start-from-template" data-testid="select-template">
                         <SelectValue placeholder="Select a template..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -427,7 +429,7 @@ export default function AIFHIRWorkflowBuilder() {
                             className={`p-3 rounded-lg border cursor-pointer transition-colors hover-elevate ${
                               selectedWorkflow?.id === workflow.id ? "border-primary bg-primary/5" : ""
                             }`}
-                            onClick={() => setSelectedWorkflow(workflow)}
+                            {...clickable(() => setSelectedWorkflow(workflow))}
                             data-testid={`workflow-item-${workflow.id}`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -538,7 +540,7 @@ export default function AIFHIRWorkflowBuilder() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Triggers</Label>
+                          <FieldCaption className="text-sm font-medium">Triggers</FieldCaption>
                           <div className="mt-1 space-y-1">
                             {selectedWorkflow.triggers?.map((trigger, i) => (
                               <Badge key={i} variant="secondary" className="mr-1">
@@ -548,7 +550,7 @@ export default function AIFHIRWorkflowBuilder() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Settings</Label>
+                          <FieldCaption className="text-sm font-medium">Settings</FieldCaption>
                           <div className="mt-1 text-sm text-muted-foreground">
                             <p>Auto-retry: {selectedWorkflow.autoRetry ? "Yes" : "No"}</p>
                             <p>Notify on complete: {selectedWorkflow.notifyOnComplete ? "Yes" : "No"}</p>
@@ -622,7 +624,7 @@ export default function AIFHIRWorkflowBuilder() {
                             className={`p-3 rounded-lg border cursor-pointer transition-colors hover-elevate ${
                               selectedExecution?.id === execution.id ? "border-primary bg-primary/5" : ""
                             }`}
-                            onClick={() => setSelectedExecution(execution)}
+                            {...clickable(() => setSelectedExecution(execution))}
                             data-testid={`execution-item-${execution.id}`}
                           >
                             <div className="flex items-start justify-between gap-2">

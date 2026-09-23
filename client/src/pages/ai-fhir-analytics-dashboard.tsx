@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Brain, Search, AlertTriangle, TrendingUp, Users, Activity, Zap,
   MessageSquare, BarChart3, LineChart, ShieldAlert, ChevronRight,
@@ -453,7 +454,7 @@ export default function AIFHIRAnalyticsDashboard() {
                 <ScrollArea className="h-[400px]">
                   <div className="space-y-3">
                     {queryHistoryData?.queries.slice(0, 10).map((q) => (
-                      <div key={q.id} className="p-3 border rounded-lg hover-elevate cursor-pointer" onClick={() => setNlQuery(q.originalQuery)}>
+                      <div key={q.id} className="p-3 border rounded-lg hover-elevate cursor-pointer" {...clickable(() => setNlQuery(q.originalQuery))}>
                         <p className="text-sm font-medium line-clamp-2">{q.originalQuery}</p>
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                           <Badge variant="outline">{q.results.totalMatches} matches</Badge>
@@ -480,9 +481,9 @@ export default function AIFHIRAnalyticsDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Analysis Type</Label>
+                  <Label htmlFor="ai-fhir-analytics-dashbo-analysis-type">Analysis Type</Label>
                   <Select onValueChange={(v) => generatePredictionMutation.mutate({ analysisType: v })} data-testid="select-analysis-type">
-                    <SelectTrigger>
+                    <SelectTrigger id="ai-fhir-analytics-dashbo-analysis-type">
                       <SelectValue placeholder="Select type..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -640,9 +641,9 @@ export default function AIFHIRAnalyticsDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Forecast Type</Label>
+                  <Label htmlFor="ai-fhir-analytics-dashbo-forecast-type">Forecast Type</Label>
                   <Select onValueChange={(v) => generateForecastMutation.mutate({ forecastType: v })} data-testid="select-forecast-type">
-                    <SelectTrigger>
+                    <SelectTrigger id="ai-fhir-analytics-dashbo-forecast-type">
                       <SelectValue placeholder="Select type..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -654,8 +655,8 @@ export default function AIFHIRAnalyticsDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Condition (Optional)</Label>
-                  <Input placeholder="e.g., Diabetes, Hypertension" data-testid="input-forecast-condition" />
+                  <Label htmlFor="ai-fhir-analytics-dashbo-condition-optional">Condition (Optional)</Label>
+                  <Input id="ai-fhir-analytics-dashbo-condition-optional" placeholder="e.g., Diabetes, Hypertension" data-testid="input-forecast-condition" />
                 </div>
                 <Button className="w-full gap-2" onClick={() => generateForecastMutation.mutate({ forecastType: "condition_prevalence", condition: "Diabetes", timeHorizon: "6 months" })} disabled={generateForecastMutation.isPending} data-testid="button-generate-forecast">
                   <LineChart className="h-4 w-4" />

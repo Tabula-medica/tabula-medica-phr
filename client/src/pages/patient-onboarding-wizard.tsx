@@ -901,12 +901,12 @@ export default function PatientOnboardingWizard() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Preferred Language</Label>
+                <Label htmlFor="patient-onboarding-wizar-preferred-language">Preferred Language</Label>
                 <Select
                   value={profile.preferredLanguage}
                   onValueChange={(value) => setProfile({ ...profile, preferredLanguage: value })}
                 >
-                  <SelectTrigger data-testid="select-language">
+                  <SelectTrigger id="patient-onboarding-wizar-preferred-language" data-testid="select-language">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1817,9 +1817,9 @@ export default function PatientOnboardingWizard() {
               )}
 
               <div className="space-y-2">
-                <Label className="text-sm">Ask a question about connecting</Label>
+                <Label htmlFor="patient-onboarding-wizar-ask-a-question-about-connecting" className="text-sm">Ask a question about connecting</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <Input id="patient-onboarding-wizar-ask-a-question-about-connecting"
                     value={guideQuestion}
                     onChange={(e) => setGuideQuestion(e.target.value)}
                     placeholder="e.g., What if I forgot my password?"

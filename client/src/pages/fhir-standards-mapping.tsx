@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -35,6 +36,7 @@ import {
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface SupportedStandard {
   id: string;
@@ -300,9 +302,9 @@ function StandardsMappingTab() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Source Format</Label>
+                <Label htmlFor="fhir-standards-mapping-source-format">Source Format</Label>
                 <Select value={sourceFormat} onValueChange={setSourceFormat}>
-                  <SelectTrigger data-testid="select-source-format">
+                  <SelectTrigger id="fhir-standards-mapping-source-format" data-testid="select-source-format">
                     <SelectValue placeholder="Select source format" />
                   </SelectTrigger>
                   <SelectContent>
@@ -313,9 +315,9 @@ function StandardsMappingTab() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Target Format</Label>
+                <Label htmlFor="fhir-standards-mapping-target-format">Target Format</Label>
                 <Select value={targetFormat} onValueChange={setTargetFormat}>
-                  <SelectTrigger data-testid="select-target-format">
+                  <SelectTrigger id="fhir-standards-mapping-target-format" data-testid="select-target-format">
                     <SelectValue placeholder="Select target format" />
                   </SelectTrigger>
                   <SelectContent>
@@ -328,8 +330,8 @@ function StandardsMappingTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>Source Data (JSON)</Label>
-              <Textarea
+              <Label htmlFor="fhir-standards-mapping-source-data-json">Source Data (JSON)</Label>
+              <Textarea id="fhir-standards-mapping-source-data-json"
                 value={sourceData}
                 onChange={(e) => setSourceData(e.target.value)}
                 placeholder="Paste your source data here..."
@@ -532,9 +534,9 @@ function ProfileValidationTab() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Validation Profile</Label>
+              <Label htmlFor="fhir-standards-mapping-validation-profile">Validation Profile</Label>
               <Select value={selectedProfile} onValueChange={setSelectedProfile}>
-                <SelectTrigger data-testid="select-profile">
+                <SelectTrigger id="fhir-standards-mapping-validation-profile" data-testid="select-profile">
                   <SelectValue placeholder="Select a profile" />
                 </SelectTrigger>
                 <SelectContent>
@@ -547,7 +549,7 @@ function ProfileValidationTab() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <Label>FHIR Resource (JSON)</Label>
+                <FieldCaption>FHIR Resource (JSON)</FieldCaption>
                 <Button variant="ghost" size="sm" onClick={loadSampleResource} data-testid="button-load-sample">Load Sample Patient</Button>
               </div>
               <Textarea value={resourceData} onChange={(e) => setResourceData(e.target.value)} placeholder="Paste your FHIR resource here..." className="font-mono text-sm min-h-[300px]" data-testid="textarea-resource" />
@@ -646,7 +648,7 @@ function ProfileValidationTab() {
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
                   {profiles?.map(p => (
-                    <div key={p.id} className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedProfile === p.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`} onClick={() => setSelectedProfile(p.id)} data-testid={`profile-${p.id}`}>
+                    <div key={p.id} className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedProfile === p.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`} {...clickable(() => setSelectedProfile(p.id))} data-testid={`profile-${p.id}`}>
                       <div className="flex items-center justify-between mb-1">
                         <p className="font-medium text-sm">{p.name}</p>
                         <Badge variant="secondary" className="text-xs">{p.type}</Badge>

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Database,
   FileText,
@@ -614,9 +616,9 @@ export default function DataCatalog() {
                     />
                   </div>
                   <div className="w-40">
-                    <Label>Domain</Label>
+                    <Label htmlFor="data-catalog-domain">Domain</Label>
                     <Select value={domainFilter} onValueChange={setDomainFilter}>
-                      <SelectTrigger data-testid="select-domain">
+                      <SelectTrigger id="data-catalog-domain" data-testid="select-domain">
                         <SelectValue placeholder="All domains" />
                       </SelectTrigger>
                       <SelectContent>
@@ -628,9 +630,9 @@ export default function DataCatalog() {
                     </Select>
                   </div>
                   <div className="w-40">
-                    <Label>Status</Label>
+                    <Label htmlFor="data-catalog-status">Status</Label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger data-testid="select-status">
+                      <SelectTrigger id="data-catalog-status" data-testid="select-status">
                         <SelectValue placeholder="All statuses" />
                       </SelectTrigger>
                       <SelectContent>
@@ -643,9 +645,9 @@ export default function DataCatalog() {
                     </Select>
                   </div>
                   <div className="w-40">
-                    <Label>Risk Level</Label>
+                    <Label htmlFor="data-catalog-risk-level">Risk Level</Label>
                     <Select value={riskFilter} onValueChange={setRiskFilter}>
-                      <SelectTrigger data-testid="select-risk">
+                      <SelectTrigger id="data-catalog-risk-level" data-testid="select-risk">
                         <SelectValue placeholder="All risk levels" />
                       </SelectTrigger>
                       <SelectContent>
@@ -690,10 +692,10 @@ export default function DataCatalog() {
                               className={`p-3 rounded-md border cursor-pointer transition-colors ${
                                 selectedAsset?.id === asset.id ? "bg-accent" : "hover-elevate"
                               }`}
-                              onClick={() => {
+                              {...clickable(() => {
                                 setSelectedAsset(asset);
                                 fetchAssetDetails(asset.id);
-                              }}
+                              })}
                               data-testid={`card-asset-${asset.id}`}
                             >
                               <div className="flex items-start justify-between gap-2">
@@ -754,31 +756,31 @@ export default function DataCatalog() {
                         <TabsContent value="overview">
                           <div className="space-y-4">
                             <div>
-                              <Label className="text-xs text-muted-foreground">Description</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">Description</FieldCaption>
                               <p className="text-sm">{selectedAsset.description}</p>
                             </div>
                             <Separator />
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <Label className="text-xs text-muted-foreground">Domain</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Domain</FieldCaption>
                                 <p className="text-sm">{domainLabels[selectedAsset.domain] || selectedAsset.domain}</p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Criticality</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Criticality</FieldCaption>
                                 <p className="text-sm capitalize">{selectedAsset.businessCriticality}</p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Data Owner</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Data Owner</FieldCaption>
                                 <p className="text-sm">{selectedAsset.dataOwner || "Not assigned"}</p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Data Steward</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Data Steward</FieldCaption>
                                 <p className="text-sm">{selectedAsset.dataSteward || "Not assigned"}</p>
                               </div>
                             </div>
                             <Separator />
                             <div>
-                              <Label className="text-xs text-muted-foreground">Sensitive Data Types</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">Sensitive Data Types</FieldCaption>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {selectedAsset.sensitiveDataTypes.map((type) => (
                                   <Badge key={type} variant="secondary">{type}</Badge>
@@ -786,7 +788,7 @@ export default function DataCatalog() {
                               </div>
                             </div>
                             <div>
-                              <Label className="text-xs text-muted-foreground">Tags</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">Tags</FieldCaption>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {selectedAsset.tags.map((tag) => (
                                   <Badge key={tag} variant="outline">{tag}</Badge>
@@ -821,7 +823,7 @@ export default function DataCatalog() {
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label className="text-xs text-muted-foreground">Quality Score</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Quality Score</FieldCaption>
                                 <div className="flex items-center gap-2">
                                   <Badge variant={qualityColors[selectedAsset.qualityScore] as any}>
                                     {selectedAsset.qualityScore}
@@ -849,7 +851,7 @@ export default function DataCatalog() {
                               <>
                                 <Separator />
                                 <div>
-                                  <Label className="text-xs text-muted-foreground">Issues ({selectedAsset.qualityMetrics.issues.length})</Label>
+                                  <FieldCaption className="text-xs text-muted-foreground">Issues ({selectedAsset.qualityMetrics.issues.length})</FieldCaption>
                                   <div className="space-y-2 mt-2">
                                     {selectedAsset.qualityMetrics.issues.map((issue: any) => (
                                       <div key={issue.id} className="p-2 rounded border bg-muted/50">
@@ -873,7 +875,7 @@ export default function DataCatalog() {
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label className="text-xs text-muted-foreground">Compliance Status</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Compliance Status</FieldCaption>
                                 <div className="flex items-center gap-2">
                                   <Badge variant={selectedAsset.governanceInfo.complianceStatus === "compliant" ? "default" : "destructive"}>
                                     {selectedAsset.governanceInfo.complianceStatus}
@@ -889,7 +891,7 @@ export default function DataCatalog() {
                               </Button>
                             </div>
                             <div>
-                              <Label className="text-xs text-muted-foreground">Regulatory Frameworks</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">Regulatory Frameworks</FieldCaption>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {selectedAsset.governanceInfo.regulatoryFrameworks.map((reg) => (
                                   <Badge key={reg} variant="secondary">{reg}</Badge>
@@ -898,9 +900,9 @@ export default function DataCatalog() {
                             </div>
                             <Separator />
                             <div>
-                              <Label className="text-xs text-muted-foreground">
+                              <FieldCaption className="text-xs text-muted-foreground">
                                 Applicable Policies ({selectedAsset.governanceInfo.applicablePolicies.length})
-                              </Label>
+                              </FieldCaption>
                               {selectedAsset.governanceInfo.applicablePolicies.length > 0 ? (
                                 <div className="space-y-2 mt-2">
                                   {selectedAsset.governanceInfo.applicablePolicies.map((policy: any) => (
@@ -919,11 +921,11 @@ export default function DataCatalog() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <Label className="text-xs text-muted-foreground">Audit Trail</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Audit Trail</FieldCaption>
                                 <p className="text-sm">{selectedAsset.governanceInfo.auditTrailEnabled ? "Enabled" : "Disabled"}</p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Consent Required</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Consent Required</FieldCaption>
                                 <p className="text-sm">{selectedAsset.governanceInfo.consentRequired ? "Yes" : "No"}</p>
                               </div>
                             </div>
@@ -934,7 +936,7 @@ export default function DataCatalog() {
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label className="text-xs text-muted-foreground">Risk Level</Label>
+                                <FieldCaption className="text-xs text-muted-foreground">Risk Level</FieldCaption>
                                 <Badge variant={riskColors[selectedAsset.riskInfo.overallRiskLevel] as any} className="text-lg px-3 py-1">
                                   {selectedAsset.riskInfo.overallRiskLevel.toUpperCase()}
                                 </Badge>
@@ -958,7 +960,7 @@ export default function DataCatalog() {
                             )}
                             <Separator />
                             <div>
-                              <Label className="text-xs text-muted-foreground">Risk Factors ({selectedAsset.riskInfo.riskFactors.length})</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">Risk Factors ({selectedAsset.riskInfo.riskFactors.length})</FieldCaption>
                               <div className="space-y-2 mt-2">
                                 {selectedAsset.riskInfo.riskFactors.map((factor: any, idx: number) => (
                                   <div key={idx} className="p-2 rounded border">
@@ -974,7 +976,7 @@ export default function DataCatalog() {
                               </div>
                             </div>
                             <div>
-                              <Label className="text-xs text-muted-foreground">Mitigations</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">Mitigations</FieldCaption>
                               <ul className="list-disc list-inside text-sm mt-1">
                                 {selectedAsset.riskInfo.mitigations.map((mit, idx) => (
                                   <li key={idx}>{mit}</li>
@@ -987,7 +989,7 @@ export default function DataCatalog() {
                         <TabsContent value="ai">
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                              <Label className="text-xs text-muted-foreground">AI Enrichment</Label>
+                              <FieldCaption className="text-xs text-muted-foreground">AI Enrichment</FieldCaption>
                               <Button size="sm" onClick={() => enrichMutation.mutate(selectedAsset.id)} disabled={enrichMutation.isPending} data-testid="button-enrich-ai">
                                 <Sparkles className="h-4 w-4 mr-1" />
                                 {enrichMutation.isPending ? "Enriching..." : "Enrich with AI"}
@@ -996,12 +998,12 @@ export default function DataCatalog() {
                             {selectedAsset.aiEnrichment ? (
                               <div className="space-y-4">
                                 <div>
-                                  <Label className="text-xs text-muted-foreground">AI-Generated Description</Label>
+                                  <FieldCaption className="text-xs text-muted-foreground">AI-Generated Description</FieldCaption>
                                   <p className="text-sm mt-1">{selectedAsset.aiEnrichment.generatedDescription}</p>
                                 </div>
                                 {selectedAsset.aiEnrichment.suggestedTags.length > 0 && (
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Suggested Tags</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Suggested Tags</FieldCaption>
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {selectedAsset.aiEnrichment.suggestedTags.map((tag) => (
                                         <Badge key={tag} variant="outline">{tag}</Badge>
@@ -1011,7 +1013,7 @@ export default function DataCatalog() {
                                 )}
                                 {selectedAsset.aiEnrichment.qualityRecommendations.length > 0 && (
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Quality Recommendations</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Quality Recommendations</FieldCaption>
                                     <ul className="list-disc list-inside text-sm mt-1">
                                       {selectedAsset.aiEnrichment.qualityRecommendations.map((rec, idx) => (
                                         <li key={idx}>{rec}</li>
@@ -1021,7 +1023,7 @@ export default function DataCatalog() {
                                 )}
                                 {selectedAsset.aiEnrichment.governanceRecommendations.length > 0 && (
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Governance Recommendations</Label>
+                                    <FieldCaption className="text-xs text-muted-foreground">Governance Recommendations</FieldCaption>
                                     <ul className="list-disc list-inside text-sm mt-1">
                                       {selectedAsset.aiEnrichment.governanceRecommendations.map((rec, idx) => (
                                         <li key={idx}>{rec}</li>
@@ -1072,10 +1074,10 @@ export default function DataCatalog() {
               {selectedAsset ? (
                 <div className="grid md:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FieldCaption className="text-xs text-muted-foreground flex items-center gap-1">
                       <ArrowDownRight className="h-3 w-3" />
                       Upstream Sources ({selectedAsset.lineage.upstream.length})
-                    </Label>
+                    </FieldCaption>
                     <div className="space-y-2 mt-2">
                       {selectedAsset.lineage.upstream.length > 0 ? (
                         selectedAsset.lineage.upstream.map((node: any) => (
@@ -1101,10 +1103,10 @@ export default function DataCatalog() {
                   </div>
 
                   <div>
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FieldCaption className="text-xs text-muted-foreground flex items-center gap-1">
                       <ArrowUpRight className="h-3 w-3" />
                       Downstream Consumers ({selectedAsset.lineage.downstream.length})
-                    </Label>
+                    </FieldCaption>
                     <div className="space-y-2 mt-2">
                       {selectedAsset.lineage.downstream.length > 0 ? (
                         selectedAsset.lineage.downstream.map((node: any) => (

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -267,8 +268,8 @@ function RulesTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Source Resource Type</Label>
-                  <Input
+                  <Label htmlFor="fhir-transformation-source-resource-type">Source Resource Type</Label>
+                  <Input id="fhir-transformation-source-resource-type"
                     data-testid="input-source-resource"
                     value={newRule.sourceResourceType}
                     onChange={(e) => setNewRule({ ...newRule, sourceResourceType: e.target.value })}
@@ -276,8 +277,8 @@ function RulesTab() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Target Resource Type</Label>
-                  <Input
+                  <Label htmlFor="fhir-transformation-target-resource-type">Target Resource Type</Label>
+                  <Input id="fhir-transformation-target-resource-type"
                     data-testid="input-target-resource"
                     value={newRule.targetResourceType}
                     onChange={(e) => setNewRule({ ...newRule, targetResourceType: e.target.value })}
@@ -287,8 +288,8 @@ function RulesTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Source Path</Label>
-                  <Input
+                  <Label htmlFor="fhir-transformation-source-path">Source Path</Label>
+                  <Input id="fhir-transformation-source-path"
                     data-testid="input-source-path"
                     value={newRule.sourcePath}
                     onChange={(e) => setNewRule({ ...newRule, sourcePath: e.target.value })}
@@ -296,8 +297,8 @@ function RulesTab() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Target Path</Label>
-                  <Input
+                  <Label htmlFor="fhir-transformation-target-path">Target Path</Label>
+                  <Input id="fhir-transformation-target-path"
                     data-testid="input-target-path"
                     value={newRule.targetPath}
                     onChange={(e) => setNewRule({ ...newRule, targetPath: e.target.value })}
@@ -307,12 +308,12 @@ function RulesTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Source Data Type</Label>
+                  <Label htmlFor="fhir-transformation-source-data-type">Source Data Type</Label>
                   <Select
                     value={newRule.sourceDataType}
                     onValueChange={(v) => setNewRule({ ...newRule, sourceDataType: v })}
                   >
-                    <SelectTrigger data-testid="select-source-data-type">
+                    <SelectTrigger id="fhir-transformation-source-data-type" data-testid="select-source-data-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -323,12 +324,12 @@ function RulesTab() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Target Data Type</Label>
+                  <Label htmlFor="fhir-transformation-target-data-type">Target Data Type</Label>
                   <Select
                     value={newRule.targetDataType}
                     onValueChange={(v) => setNewRule({ ...newRule, targetDataType: v })}
                   >
-                    <SelectTrigger data-testid="select-target-data-type">
+                    <SelectTrigger id="fhir-transformation-target-data-type" data-testid="select-target-data-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -340,8 +341,8 @@ function RulesTab() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Transformation Logic</Label>
-                <Textarea
+                <Label htmlFor="fhir-transformation-transformation-logic">Transformation Logic</Label>
+                <Textarea id="fhir-transformation-transformation-logic"
                   data-testid="input-transformation-logic"
                   value={newRule.transformationLogic}
                   onChange={(e) => setNewRule({ ...newRule, transformationLogic: e.target.value })}
@@ -529,8 +530,8 @@ function MappingsTab() {
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Input Resource (JSON)</Label>
-                        <Textarea
+                        <FieldCaption>Input Resource (JSON)</FieldCaption>
+                        <Textarea aria-label="Input Resource (JSON)"
                           data-testid="input-test-resource"
                           value={testInput}
                           onChange={(e) => setTestInput(e.target.value)}
@@ -538,7 +539,7 @@ function MappingsTab() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Output</Label>
+                        <FieldCaption>Output</FieldCaption>
                         <div className="bg-muted rounded-md p-4 h-[300px] overflow-auto">
                           {testOutput ? (
                             <div className="space-y-2">
@@ -699,8 +700,8 @@ function SuggestionsTab() {
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Sample FHIR Resource</Label>
-              <Textarea
+              <Label htmlFor="fhir-transformation-sample-fhir-resource">Sample FHIR Resource</Label>
+              <Textarea id="fhir-transformation-sample-fhir-resource"
                 data-testid="input-sample-resource"
                 value={sampleResource}
                 onChange={(e) => setSampleResource(e.target.value)}
@@ -709,9 +710,9 @@ function SuggestionsTab() {
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Target Data Model</Label>
+                <Label htmlFor="fhir-transformation-target-data-model">Target Data Model</Label>
                 <Select value={selectedModel} onValueChange={setSelectedModel}>
-                  <SelectTrigger data-testid="select-target-model">
+                  <SelectTrigger id="fhir-transformation-target-data-model" data-testid="select-target-model">
                     <SelectValue placeholder="Select target model..." />
                   </SelectTrigger>
                   <SelectContent>

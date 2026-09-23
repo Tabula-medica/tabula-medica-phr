@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   LineChart,
   Line,
@@ -1086,7 +1087,7 @@ export default function HealthInsightsDashboard() {
                           lab.status !== "normal" ? "border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20" :
                           ""
                         }`}
-                        onClick={() => setSelectedLabCode(lab.testCode)}
+                        {...clickable(() => setSelectedLabCode(lab.testCode))}
                         data-testid={`lab-${lab.id}`}
                       >
                         <div className="flex items-center justify-between flex-wrap gap-2">

@@ -620,9 +620,9 @@ export default function HealthcareAnalyticsDashboard() {
             <CardContent>
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Patient</label>
+                  <label htmlFor="healthcare-analytics-das-patient" className="text-sm font-medium">Patient</label>
                   <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                    <SelectTrigger className="w-48" data-testid="select-patient">
+                    <SelectTrigger id="healthcare-analytics-das-patient" className="w-48" data-testid="select-patient">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -635,9 +635,9 @@ export default function HealthcareAnalyticsDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Prediction Type</label>
+                  <label htmlFor="healthcare-analytics-das-prediction-type" className="text-sm font-medium">Prediction Type</label>
                   <Select value={selectedPredictionType} onValueChange={setSelectedPredictionType}>
-                    <SelectTrigger className="w-48" data-testid="select-prediction-type">
+                    <SelectTrigger id="healthcare-analytics-das-prediction-type" className="w-48" data-testid="select-prediction-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -891,12 +891,12 @@ export default function HealthcareAnalyticsDashboard() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Conditions</Label>
+                  <Label htmlFor="healthcare-analytics-das-conditions">Conditions</Label>
                   <Select
                     value={populationConditions.join(",")}
                     onValueChange={(value) => setPopulationConditions(value.split(","))}
                   >
-                    <SelectTrigger data-testid="select-conditions">
+                    <SelectTrigger id="healthcare-analytics-das-conditions" data-testid="select-conditions">
                       <SelectValue placeholder="Select conditions" />
                     </SelectTrigger>
                     <SelectContent>
@@ -908,12 +908,12 @@ export default function HealthcareAnalyticsDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Risk Levels</Label>
+                  <Label htmlFor="healthcare-analytics-das-risk-levels">Risk Levels</Label>
                   <Select
                     value={populationRiskLevels.join(",")}
                     onValueChange={(value) => setPopulationRiskLevels(value.split(","))}
                   >
-                    <SelectTrigger data-testid="select-risk-levels">
+                    <SelectTrigger id="healthcare-analytics-das-risk-levels" data-testid="select-risk-levels">
                       <SelectValue placeholder="Select risk levels" />
                     </SelectTrigger>
                     <SelectContent>

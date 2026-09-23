@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface HealthNode {
   id: string;
@@ -878,10 +879,10 @@ export default function HealthGraphPage() {
                           <div
                             key={sym.id}
                             className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover-elevate ${selectedSymptom === sym.id ? "bg-accent" : ""}`}
-                            onClick={() => {
+                            {...clickable(() => {
                               setSelectedSymptom(selectedSymptom === sym.id ? null : sym.id);
                               setSelectedCondition(null);
-                            }}
+                            })}
                             data-testid={`symptom-item-${sym.id}`}
                           >
                             <Activity className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />

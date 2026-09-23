@@ -290,9 +290,9 @@ export default function ComplianceExport() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Export Format</Label>
+                    <Label htmlFor="compliance-export-export-format">Export Format</Label>
                     <Select value={tefcaFormat} onValueChange={setTefcaFormat}>
-                      <SelectTrigger data-testid="tefca-format-select">
+                      <SelectTrigger id="compliance-export-export-format" data-testid="tefca-format-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -302,9 +302,9 @@ export default function ComplianceExport() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Filter by Status</Label>
+                    <Label htmlFor="compliance-export-filter-by-status">Filter by Status</Label>
                     <Select value={tefcaStatus} onValueChange={setTefcaStatus}>
-                      <SelectTrigger data-testid="tefca-status-select">
+                      <SelectTrigger id="compliance-export-filter-by-status" data-testid="tefca-status-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -320,8 +320,8 @@ export default function ComplianceExport() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Date From</Label>
-                    <Input
+                    <Label htmlFor="compliance-export-date-from">Date From</Label>
+                    <Input id="compliance-export-date-from"
                       type="date"
                       value={tefcaDateFrom}
                       onChange={(e) => setTefcaDateFrom(e.target.value)}
@@ -329,8 +329,8 @@ export default function ComplianceExport() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Date To</Label>
-                    <Input
+                    <Label htmlFor="compliance-export-date-to">Date To</Label>
+                    <Input id="compliance-export-date-to"
                       type="date"
                       value={tefcaDateTo}
                       onChange={(e) => setTefcaDateTo(e.target.value)}
@@ -342,12 +342,12 @@ export default function ComplianceExport() {
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
+                  <Label htmlFor="compliance-export-encryption-password" className="flex items-center gap-2">
                     <Lock className="h-3.5 w-3.5" />
                     Encryption Password
                   </Label>
                   <div className="relative">
-                    <Input
+                    <Input id="compliance-export-encryption-password"
                       type={showTefcaPassword ? "text" : "password"}
                       placeholder="Minimum 8 characters"
                       value={tefcaPassword}
@@ -461,9 +461,9 @@ export default function ComplianceExport() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Export Format</Label>
+                    <Label htmlFor="compliance-export-export-format-2">Export Format</Label>
                     <Select value={auditFormat} onValueChange={setAuditFormat}>
-                      <SelectTrigger data-testid="audit-format-select">
+                      <SelectTrigger id="compliance-export-export-format-2" data-testid="audit-format-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -473,9 +473,9 @@ export default function ComplianceExport() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Filter by Severity</Label>
+                    <Label htmlFor="compliance-export-filter-by-severity">Filter by Severity</Label>
                     <Select value={auditSeverity} onValueChange={setAuditSeverity}>
-                      <SelectTrigger data-testid="audit-severity-select">
+                      <SelectTrigger id="compliance-export-filter-by-severity" data-testid="audit-severity-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -491,8 +491,8 @@ export default function ComplianceExport() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Date From</Label>
-                    <Input
+                    <Label htmlFor="compliance-export-date-from-2">Date From</Label>
+                    <Input id="compliance-export-date-from-2"
                       type="date"
                       value={auditDateFrom}
                       onChange={(e) => setAuditDateFrom(e.target.value)}
@@ -500,8 +500,8 @@ export default function ComplianceExport() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Date To</Label>
-                    <Input
+                    <Label htmlFor="compliance-export-date-to-2">Date To</Label>
+                    <Input id="compliance-export-date-to-2"
                       type="date"
                       value={auditDateTo}
                       onChange={(e) => setAuditDateTo(e.target.value)}
@@ -512,9 +512,9 @@ export default function ComplianceExport() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Filter by Category</Label>
+                    <Label htmlFor="compliance-export-filter-by-category">Filter by Category</Label>
                     <Select value={auditCategory} onValueChange={setAuditCategory}>
-                      <SelectTrigger data-testid="audit-category-select">
+                      <SelectTrigger id="compliance-export-filter-by-category" data-testid="audit-category-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -533,9 +533,9 @@ export default function ComplianceExport() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>PHI Access Filter</Label>
+                    <Label htmlFor="compliance-export-phi-access-filter">PHI Access Filter</Label>
                     <Select value={auditPhiOnly ? "phi" : "all"} onValueChange={(v) => setAuditPhiOnly(v === "phi")}>
-                      <SelectTrigger data-testid="audit-phi-select">
+                      <SelectTrigger id="compliance-export-phi-access-filter" data-testid="audit-phi-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -549,12 +549,12 @@ export default function ComplianceExport() {
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
+                  <Label htmlFor="compliance-export-encryption-password-2" className="flex items-center gap-2">
                     <Lock className="h-3.5 w-3.5" />
                     Encryption Password
                   </Label>
                   <div className="relative">
-                    <Input
+                    <Input id="compliance-export-encryption-password-2"
                       type={showAuditPassword ? "text" : "password"}
                       placeholder="Minimum 8 characters"
                       value={auditPassword}

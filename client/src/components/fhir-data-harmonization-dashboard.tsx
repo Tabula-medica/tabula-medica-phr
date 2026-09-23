@@ -350,8 +350,8 @@ export function FHIRDataHarmonizationDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label data-testid="label-fhir-resources">FHIR Resources (JSON Array)</Label>
-                <Textarea
+                <Label htmlFor="fhir-data-harmonization--fhir-resources-json-array" data-testid="label-fhir-resources">FHIR Resources (JSON Array)</Label>
+                <Textarea id="fhir-data-harmonization--fhir-resources-json-array"
                   placeholder='[{"resourceType": "Patient", ...}, {"resourceType": "Condition", ...}]'
                   className={`font-mono text-sm ${jsonError ? "border-destructive" : ""}`}
                   rows={10}
@@ -631,8 +631,8 @@ export function FHIRDataHarmonizationDashboard() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label data-testid="label-source-code">Source Code</Label>
-                  <Input
+                  <Label htmlFor="fhir-data-harmonization--source-code" data-testid="label-source-code">Source Code</Label>
+                  <Input id="fhir-data-harmonization--source-code"
                     placeholder="e.g., 73211009"
                     value={sourceCode}
                     onChange={(e) => setSourceCode(e.target.value)}
@@ -640,9 +640,9 @@ export function FHIRDataHarmonizationDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label data-testid="label-source-system">Source System</Label>
+                  <Label htmlFor="fhir-data-harmonization--source-system" data-testid="label-source-system">Source System</Label>
                   <Select value={sourceSystem} onValueChange={setSourceSystem}>
-                    <SelectTrigger data-testid="select-source-system">
+                    <SelectTrigger id="fhir-data-harmonization--source-system" data-testid="select-source-system">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -655,9 +655,9 @@ export function FHIRDataHarmonizationDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label data-testid="label-target-system">Target System</Label>
+                  <Label htmlFor="fhir-data-harmonization--target-system" data-testid="label-target-system">Target System</Label>
                   <Select value={targetSystem} onValueChange={setTargetSystem}>
-                    <SelectTrigger data-testid="select-target-system">
+                    <SelectTrigger id="fhir-data-harmonization--target-system" data-testid="select-target-system">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

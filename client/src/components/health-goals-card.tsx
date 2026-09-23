@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Target, Plus, TrendingUp, TrendingDown, Minus, CheckCircle, AlertCircle, Clock, Loader2, Activity, Heart, Scale, Footprints, Droplet, Moon, Pill } from "lucide-react";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { clickable } from "@/lib/a11y";
 
 interface HealthGoal {
   id: string;
@@ -392,7 +393,7 @@ export function HealthGoalsCard({ userId }: HealthGoalsCardProps) {
                     <div
                       key={goal.id}
                       className="p-4 border rounded-lg hover-elevate cursor-pointer"
-                      onClick={() => setSelectedGoal(goal)}
+                      {...clickable(() => setSelectedGoal(goal))}
                       data-testid={`goal-card-${goal.id}`}
                     >
                       <div className="flex items-start justify-between gap-4">

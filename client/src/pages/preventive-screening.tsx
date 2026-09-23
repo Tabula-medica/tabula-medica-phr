@@ -600,9 +600,9 @@ function ScreeningsTab() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Sex</Label>
+              <Label htmlFor="preventive-screening-sex" className="text-xs">Sex</Label>
               <Select value={sex} onValueChange={(v) => setSex(v as Sex | "")}>
-                <SelectTrigger data-testid="select-screening-sex">
+                <SelectTrigger id="preventive-screening-sex" data-testid="select-screening-sex">
                   <SelectValue placeholder="Select sex" />
                 </SelectTrigger>
                 <SelectContent>
@@ -612,9 +612,9 @@ function ScreeningsTab() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Category</Label>
+              <Label htmlFor="preventive-screening-category" className="text-xs">Category</Label>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger data-testid="select-screening-category">
+                <SelectTrigger id="preventive-screening-category" data-testid="select-screening-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -626,10 +626,10 @@ function ScreeningsTab() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Search</Label>
+              <Label htmlFor="preventive-screening-search" className="text-xs">Search</Label>
               <div className="relative">
                 <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
-                <Input
+                <Input id="preventive-screening-search"
                   placeholder="Search screenings..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

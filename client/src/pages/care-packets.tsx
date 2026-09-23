@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -943,7 +944,7 @@ export default function CarePackets() {
           {!generatedLink ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Packet Type</Label>
+                <FieldCaption>Packet Type</FieldCaption>
                 <div className="p-3 bg-muted rounded-lg flex items-center gap-2">
                   {selectedPacket && (
                     <>
@@ -1011,9 +1012,9 @@ export default function CarePackets() {
               </Alert>
 
               <div className="space-y-2">
-                <Label>Secure Link</Label>
+                <Label htmlFor="care-packets-secure-link">Secure Link</Label>
                 <div className="flex gap-2">
-                  <Input 
+                  <Input id="care-packets-secure-link" 
                     value={generatedLink.secureLink} 
                     readOnly 
                     className="font-mono text-sm"
@@ -1031,7 +1032,7 @@ export default function CarePackets() {
               </div>
 
               <div className="space-y-2">
-                <Label>Access Code</Label>
+                <FieldCaption>Access Code</FieldCaption>
                 <div className="p-3 bg-muted rounded-lg font-mono text-lg tracking-widest text-center">
                   {generatedLink.accessCode}
                 </div>

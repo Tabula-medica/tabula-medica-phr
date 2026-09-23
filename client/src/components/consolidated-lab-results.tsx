@@ -27,6 +27,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { format } from "date-fns";
+import { clickable } from "@/lib/a11y";
 
 interface ConsolidatedLabResult {
   id: string;
@@ -350,7 +351,7 @@ export function ConsolidatedLabResultsCard({ patientId = "patient-001" }: { pati
                         ? "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20"
                         : ""
                     }`}
-                    onClick={() => setExpandedResult(expandedResult === result.id ? null : result.id)}
+                    {...clickable(() => setExpandedResult(expandedResult === result.id ? null : result.id))}
                     data-testid={`lab-result-row-${result.id}`}
                   >
                     <div className="flex items-center justify-between gap-3">

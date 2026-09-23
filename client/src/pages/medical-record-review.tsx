@@ -31,6 +31,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { StatusBadge } from "@/components/shared";
+import { clickable } from "@/lib/a11y";
 
 interface ExtractedDiagnosis {
   code?: string;
@@ -298,7 +299,7 @@ export default function MedicalRecordReview() {
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
                             selectedPatient === patient.patientId ? "border-primary bg-primary/5" : ""
                           }`}
-                          onClick={() => setSelectedPatient(patient.patientId)}
+                          {...clickable(() => setSelectedPatient(patient.patientId))}
                           data-testid={`card-patient-${patient.patientId}`}
                         >
                           <div className="flex items-center justify-between">

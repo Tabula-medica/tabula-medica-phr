@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -296,8 +297,8 @@ function AttachDocumentDialog({ recordType, recordId }: { recordType: string; re
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label>File</Label>
-            <Input
+            <Label htmlFor="health-records-file">File</Label>
+            <Input id="health-records-file"
               ref={fileInputRef}
               type="file"
               onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
@@ -305,9 +306,9 @@ function AttachDocumentDialog({ recordType, recordId }: { recordType: string; re
             />
           </div>
           <div className="grid gap-2">
-            <Label>Document Type</Label>
+            <Label htmlFor="health-records-document-type">Document Type</Label>
             <Select value={docType} onValueChange={setDocType}>
-              <SelectTrigger data-testid={`select-doc-type-${recordType}-${recordId}`}>
+              <SelectTrigger id="health-records-document-type" data-testid={`select-doc-type-${recordType}-${recordId}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -318,8 +319,8 @@ function AttachDocumentDialog({ recordType, recordId }: { recordType: string; re
             </Select>
           </div>
           <div className="grid gap-2">
-            <Label>Notes (optional)</Label>
-            <Textarea
+            <Label htmlFor="health-records-notes-optional">Notes (optional)</Label>
+            <Textarea id="health-records-notes-optional"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Additional notes about this document..."
@@ -375,8 +376,8 @@ function FilterBar({ filters, onChange }: { filters: FilterState; onChange: (f: 
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="grid gap-1">
-            <Label className="text-xs">Start Date</Label>
-            <Input
+            <Label htmlFor="health-records-start-date" className="text-xs">Start Date</Label>
+            <Input id="health-records-start-date"
               type="date"
               value={filters.dateFrom}
               onChange={(e) => onChange({ ...filters, dateFrom: e.target.value })}
@@ -384,8 +385,8 @@ function FilterBar({ filters, onChange }: { filters: FilterState; onChange: (f: 
             />
           </div>
           <div className="grid gap-1">
-            <Label className="text-xs">End Date</Label>
-            <Input
+            <Label htmlFor="health-records-end-date" className="text-xs">End Date</Label>
+            <Input id="health-records-end-date"
               type="date"
               value={filters.dateTo}
               onChange={(e) => onChange({ ...filters, dateTo: e.target.value })}
@@ -393,10 +394,10 @@ function FilterBar({ filters, onChange }: { filters: FilterState; onChange: (f: 
             />
           </div>
           <div className="grid gap-1">
-            <Label className="text-xs">Provider</Label>
+            <Label htmlFor="health-records-provider" className="text-xs">Provider</Label>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+              <Input id="health-records-provider"
                 className="pl-8"
                 placeholder="Search provider..."
                 value={filters.provider}
@@ -406,9 +407,9 @@ function FilterBar({ filters, onChange }: { filters: FilterState; onChange: (f: 
             </div>
           </div>
           <div className="grid gap-1">
-            <Label className="text-xs">Sort Order</Label>
+            <Label htmlFor="health-records-sort-order" className="text-xs">Sort Order</Label>
             <Select value={filters.sortOrder} onValueChange={(v) => onChange({ ...filters, sortOrder: v as "newest" | "oldest" })}>
-              <SelectTrigger data-testid="select-sort-order">
+              <SelectTrigger id="health-records-sort-order" data-testid="select-sort-order">
                 <ArrowUpDown className="w-4 h-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -1046,9 +1047,9 @@ function PersonalMetricsTab() {
               }}>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label>Metric Type</Label>
+                    <Label htmlFor="health-records-metric-type">Metric Type</Label>
                     <Select name="metricType" defaultValue="weight">
-                      <SelectTrigger data-testid="select-metric-type"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="health-records-metric-type" data-testid="select-metric-type"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {Object.entries(metricTypeLabels).map(([key, label]) => (
                           <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -1058,17 +1059,17 @@ function PersonalMetricsTab() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>Value</Label>
-                      <Input name="value" type="number" step="0.1" required data-testid="input-metric-value" />
+                      <Label htmlFor="health-records-value">Value</Label>
+                      <Input id="health-records-value" name="value" type="number" step="0.1" required data-testid="input-metric-value" />
                     </div>
                     <div className="grid gap-2">
-                      <Label>Unit</Label>
-                      <Input name="unit" placeholder="lbs, mmHg, etc." required data-testid="input-metric-unit" />
+                      <Label htmlFor="health-records-unit">Unit</Label>
+                      <Input id="health-records-unit" name="unit" placeholder="lbs, mmHg, etc." required data-testid="input-metric-unit" />
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Notes (optional)</Label>
-                    <Textarea name="notes" placeholder="Any additional notes..." data-testid="input-metric-notes" />
+                    <Label htmlFor="health-records-notes-optional-2">Notes (optional)</Label>
+                    <Textarea id="health-records-notes-optional-2" name="notes" placeholder="Any additional notes..." data-testid="input-metric-notes" />
                   </div>
                 </div>
                 <DialogFooter>
@@ -1136,9 +1137,9 @@ function PersonalMetricsTab() {
               }}>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label>Metric Type</Label>
+                    <Label htmlFor="health-records-metric-type-2">Metric Type</Label>
                     <Select name="metricType" defaultValue="weight">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="health-records-metric-type-2"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {Object.entries(metricTypeLabels).map(([key, label]) => (
                           <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -1148,19 +1149,19 @@ function PersonalMetricsTab() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>Target Value</Label>
-                      <Input name="targetValue" type="number" step="0.1" required data-testid="input-goal-value" />
+                      <Label htmlFor="health-records-target-value">Target Value</Label>
+                      <Input id="health-records-target-value" name="targetValue" type="number" step="0.1" required data-testid="input-goal-value" />
                     </div>
                     <div className="grid gap-2">
-                      <Label>Unit</Label>
-                      <Input name="unit" placeholder="lbs, steps, etc." required data-testid="input-goal-unit" />
+                      <Label htmlFor="health-records-unit-2">Unit</Label>
+                      <Input id="health-records-unit-2" name="unit" placeholder="lbs, steps, etc." required data-testid="input-goal-unit" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>Comparison</Label>
+                      <Label htmlFor="health-records-comparison">Comparison</Label>
                       <Select name="comparison" defaultValue="less_than">
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger id="health-records-comparison"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="less_than">Less than</SelectItem>
                           <SelectItem value="greater_than">Greater than</SelectItem>
@@ -1169,9 +1170,9 @@ function PersonalMetricsTab() {
                       </Select>
                     </div>
                     <div className="grid gap-2">
-                      <Label>Frequency</Label>
+                      <Label htmlFor="health-records-frequency">Frequency</Label>
                       <Select name="frequency" defaultValue="daily">
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger id="health-records-frequency"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="daily">Daily</SelectItem>
                           <SelectItem value="weekly">Weekly</SelectItem>
@@ -1313,9 +1314,9 @@ function SharingTab() {
             }}>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>Recipient Type</Label>
+                  <Label htmlFor="health-records-recipient-type">Recipient Type</Label>
                   <Select name="recipientType" defaultValue="provider">
-                    <SelectTrigger data-testid="select-recipient-type"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="health-records-recipient-type" data-testid="select-recipient-type"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="provider">Healthcare Provider</SelectItem>
                       <SelectItem value="caregiver">Caregiver</SelectItem>
@@ -1325,15 +1326,15 @@ function SharingTab() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Recipient Name</Label>
-                  <Input name="recipientName" placeholder="Dr. Jane Smith" required data-testid="input-recipient-name" />
+                  <Label htmlFor="health-records-recipient-name">Recipient Name</Label>
+                  <Input id="health-records-recipient-name" name="recipientName" placeholder="Dr. Jane Smith" required data-testid="input-recipient-name" />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Recipient Email/ID</Label>
-                  <Input name="recipientId" placeholder="jane.smith@hospital.com" required data-testid="input-recipient-id" />
+                  <Label htmlFor="health-records-recipient-email-id">Recipient Email/ID</Label>
+                  <Input id="health-records-recipient-email-id" name="recipientId" placeholder="jane.smith@hospital.com" required data-testid="input-recipient-id" />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Data Categories</Label>
+                  <FieldCaption>Data Categories</FieldCaption>
                   <div className="flex flex-wrap gap-2" data-testid="category-selector">
                     {DATA_CATEGORIES.map((cat) => (
                       <Badge
@@ -1352,9 +1353,9 @@ function SharingTab() {
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label>Access Level</Label>
+                  <Label htmlFor="health-records-access-level">Access Level</Label>
                   <Select name="accessLevel" defaultValue="view">
-                    <SelectTrigger data-testid="select-access-level"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="health-records-access-level" data-testid="select-access-level"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="view">View Only</SelectItem>
                       <SelectItem value="view_and_download">View & Download</SelectItem>
@@ -1495,8 +1496,8 @@ function DocumentsTab() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>File</Label>
-                  <Input
+                  <Label htmlFor="health-records-file-2">File</Label>
+                  <Input id="health-records-file-2"
                     ref={uploadInputRef}
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.tiff,.txt,.csv,.doc,.docx"
@@ -1505,9 +1506,9 @@ function DocumentsTab() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Document Type</Label>
+                  <Label htmlFor="health-records-document-type-2">Document Type</Label>
                   <Select value={uploadDocType} onValueChange={setUploadDocType}>
-                    <SelectTrigger data-testid="select-upload-doc-type">
+                    <SelectTrigger id="health-records-document-type-2" data-testid="select-upload-doc-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1518,8 +1519,8 @@ function DocumentsTab() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Notes (optional)</Label>
-                  <Textarea
+                  <Label htmlFor="health-records-notes-optional-3">Notes (optional)</Label>
+                  <Textarea id="health-records-notes-optional-3"
                     value={uploadNotes}
                     onChange={(e) => setUploadNotes(e.target.value)}
                     placeholder="Add any notes about this document..."

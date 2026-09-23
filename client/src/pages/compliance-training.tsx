@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import { 
   GraduationCap, 
   BookOpen, 
@@ -742,10 +743,10 @@ export default function ComplianceTraining() {
                           <div 
                             key={content.id}
                             className="p-3 rounded-lg bg-muted/50"
-                            onClick={() => markContentCompleteMutation.mutate({
+                            {...clickable(() => markContentCompleteMutation.mutate({
                               moduleId: selectedModule.id,
                               contentId: content.id
-                            })}
+                            }))}
                           >
                             <h4 className="text-sm font-medium">{content.title}</h4>
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">

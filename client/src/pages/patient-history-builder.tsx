@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -838,7 +839,7 @@ export default function PatientHistoryBuilder() {
               {/* Selected conditions */}
               {selectedConditions.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Your Selected Conditions</Label>
+                  <FieldCaption>Your Selected Conditions</FieldCaption>
                   <div className="flex flex-wrap gap-2">
                     {selectedConditions.map((condition) => (
                       <Badge key={condition.code} variant="secondary" className="py-1.5 px-3">
@@ -867,7 +868,7 @@ export default function PatientHistoryBuilder() {
                   {filteredConditions.map((condition) => {
                     const isSelected = selectedConditions.some(c => c.code === condition.code);
                     return (
-                      <div
+                      <div role="presentation"
                         key={condition.code}
                         className={`flex items-center justify-between p-3 rounded-md cursor-pointer hover-elevate ${
                           isSelected ? "bg-primary/10" : ""
@@ -923,7 +924,7 @@ export default function PatientHistoryBuilder() {
               {/* Selected surgeries with timeline */}
               {selectedSurgeries.length > 0 && (
                 <div className="space-y-3">
-                  <Label>Your Surgical History</Label>
+                  <Label htmlFor="patient-history-builder-your-surgical-history">Your Surgical History</Label>
                   {selectedSurgeries.map((surgery) => (
                     <Card key={surgery.code} className="p-3">
                       <div className="flex items-center justify-between">
@@ -934,7 +935,7 @@ export default function PatientHistoryBuilder() {
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <Input
+                            <Input id="patient-history-builder-your-surgical-history"
                               type="number"
                               placeholder="Year"
                               className="w-24"
@@ -969,7 +970,7 @@ export default function PatientHistoryBuilder() {
                   {filteredSurgeries.map((surgery) => {
                     const isSelected = selectedSurgeries.some(s => s.code === surgery.code);
                     return (
-                      <div
+                      <div role="presentation"
                         key={surgery.code}
                         className={`flex items-center justify-between p-3 rounded-md cursor-pointer hover-elevate ${
                           isSelected ? "bg-primary/10" : ""
@@ -1022,7 +1023,7 @@ export default function PatientHistoryBuilder() {
               {/* Selected allergies */}
               {selectedAllergies.length > 0 && (
                 <div className="space-y-3">
-                  <Label>Your Allergies</Label>
+                  <Label htmlFor="patient-history-builder-your-allergies">Your Allergies</Label>
                   {selectedAllergies.map((allergy) => (
                     <Card key={allergy.name} className="p-3">
                       <div className="flex items-center justify-between">
@@ -1044,7 +1045,7 @@ export default function PatientHistoryBuilder() {
                               ));
                             }}
                           >
-                            <SelectTrigger className="w-28" data-testid={`select-severity-${allergy.name}`}>
+                            <SelectTrigger id="patient-history-builder-your-allergies" className="w-28" data-testid={`select-severity-${allergy.name}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1081,7 +1082,7 @@ export default function PatientHistoryBuilder() {
                       {filteredDrugAllergies.map((allergy) => {
                         const isSelected = selectedAllergies.some(a => a.name === allergy.name);
                         return (
-                          <div
+                          <div role="presentation"
                             key={allergy.name}
                             className={`flex items-center justify-between p-3 rounded-md cursor-pointer hover-elevate ${
                               isSelected ? "bg-primary/10" : ""
@@ -1109,7 +1110,7 @@ export default function PatientHistoryBuilder() {
                       {filteredFoodAllergies.map((allergy) => {
                         const isSelected = selectedAllergies.some(a => a.name === allergy.name);
                         return (
-                          <div
+                          <div role="presentation"
                             key={allergy.name}
                             className={`flex items-center justify-between p-3 rounded-md cursor-pointer hover-elevate ${
                               isSelected ? "bg-primary/10" : ""
@@ -1181,7 +1182,7 @@ export default function PatientHistoryBuilder() {
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {familyHistoryConditions.map((condition) => (
-                          <div
+                          <div role="presentation"
                             key={condition.name}
                             className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover-elevate ${
                               member.conditions.includes(condition.name) ? "bg-primary/10" : ""
@@ -1226,12 +1227,12 @@ export default function PatientHistoryBuilder() {
                 <h4 className="font-medium">Tobacco Use</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Smoking Status</Label>
+                    <Label htmlFor="patient-history-builder-smoking-status">Smoking Status</Label>
                     <Select
                       value={socialHistory.smokingStatus}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, smokingStatus: value })}
                     >
-                      <SelectTrigger data-testid="select-smoking-status">
+                      <SelectTrigger id="patient-history-builder-smoking-status" data-testid="select-smoking-status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1243,12 +1244,12 @@ export default function PatientHistoryBuilder() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Vaping Status</Label>
+                    <Label htmlFor="patient-history-builder-vaping-status">Vaping Status</Label>
                     <Select
                       value={socialHistory.vapingStatus}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, vapingStatus: value })}
                     >
-                      <SelectTrigger data-testid="select-vaping-status">
+                      <SelectTrigger id="patient-history-builder-vaping-status" data-testid="select-vaping-status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1260,12 +1261,12 @@ export default function PatientHistoryBuilder() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Chewing Tobacco</Label>
+                    <Label htmlFor="patient-history-builder-chewing-tobacco">Chewing Tobacco</Label>
                     <Select
                       value={socialHistory.chewingStatus}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, chewingStatus: value })}
                     >
-                      <SelectTrigger data-testid="select-chewing-status">
+                      <SelectTrigger id="patient-history-builder-chewing-tobacco" data-testid="select-chewing-status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1280,8 +1281,8 @@ export default function PatientHistoryBuilder() {
                 {(socialHistory.smokingStatus === "current" || socialHistory.smokingStatus === "former") && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-4 border-l-2 border-muted">
                     <div className="space-y-2">
-                      <Label>Packs per Day</Label>
-                      <Input
+                      <Label htmlFor="patient-history-builder-packs-per-day">Packs per Day</Label>
+                      <Input id="patient-history-builder-packs-per-day"
                         placeholder="e.g., 1"
                         value={socialHistory.packsPerDay || ""}
                         onChange={(e) => setSocialHistory({ ...socialHistory, packsPerDay: e.target.value })}
@@ -1289,8 +1290,8 @@ export default function PatientHistoryBuilder() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Years Smoked</Label>
-                      <Input
+                      <Label htmlFor="patient-history-builder-years-smoked">Years Smoked</Label>
+                      <Input id="patient-history-builder-years-smoked"
                         placeholder="e.g., 10"
                         value={socialHistory.smokingYears || ""}
                         onChange={(e) => setSocialHistory({ ...socialHistory, smokingYears: e.target.value })}
@@ -1299,8 +1300,8 @@ export default function PatientHistoryBuilder() {
                     </div>
                     {socialHistory.smokingStatus === "former" && (
                       <div className="space-y-2">
-                        <Label>Year Quit</Label>
-                        <Input
+                        <Label htmlFor="patient-history-builder-year-quit">Year Quit</Label>
+                        <Input id="patient-history-builder-year-quit"
                           placeholder="e.g., 2020"
                           value={socialHistory.quitYear || ""}
                           onChange={(e) => setSocialHistory({ ...socialHistory, quitYear: e.target.value })}
@@ -1319,12 +1320,12 @@ export default function PatientHistoryBuilder() {
                 <h4 className="font-medium">Alcohol Use</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Alcohol Status</Label>
+                    <Label htmlFor="patient-history-builder-alcohol-status">Alcohol Status</Label>
                     <Select
                       value={socialHistory.alcoholStatus}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, alcoholStatus: value })}
                     >
-                      <SelectTrigger data-testid="select-alcohol-status">
+                      <SelectTrigger id="patient-history-builder-alcohol-status" data-testid="select-alcohol-status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1338,8 +1339,8 @@ export default function PatientHistoryBuilder() {
                   </div>
                   {socialHistory.alcoholStatus && socialHistory.alcoholStatus !== "never" && socialHistory.alcoholStatus !== "former" && (
                     <div className="space-y-2">
-                      <Label>Drinks per Week</Label>
-                      <Input
+                      <Label htmlFor="patient-history-builder-drinks-per-week">Drinks per Week</Label>
+                      <Input id="patient-history-builder-drinks-per-week"
                         placeholder="e.g., 7"
                         value={socialHistory.drinksPerWeek || ""}
                         onChange={(e) => setSocialHistory({ ...socialHistory, drinksPerWeek: e.target.value })}
@@ -1356,12 +1357,12 @@ export default function PatientHistoryBuilder() {
               <div className="space-y-4">
                 <h4 className="font-medium">Physical Activity</h4>
                 <div className="space-y-2">
-                  <Label>Exercise Frequency</Label>
+                  <Label htmlFor="patient-history-builder-exercise-frequency">Exercise Frequency</Label>
                   <Select
                     value={socialHistory.exerciseFrequency}
                     onValueChange={(value) => setSocialHistory({ ...socialHistory, exerciseFrequency: value })}
                   >
-                    <SelectTrigger data-testid="select-exercise-frequency">
+                    <SelectTrigger id="patient-history-builder-exercise-frequency" data-testid="select-exercise-frequency">
                       <SelectValue placeholder="Select frequency" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1381,12 +1382,12 @@ export default function PatientHistoryBuilder() {
                 <h4 className="font-medium">Social Determinants of Health</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Housing Status</Label>
+                    <Label htmlFor="patient-history-builder-housing-status">Housing Status</Label>
                     <Select
                       value={socialHistory.housingStatus || ""}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, housingStatus: value })}
                     >
-                      <SelectTrigger data-testid="select-housing-status">
+                      <SelectTrigger id="patient-history-builder-housing-status" data-testid="select-housing-status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1399,12 +1400,12 @@ export default function PatientHistoryBuilder() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Food Security</Label>
+                    <Label htmlFor="patient-history-builder-food-security">Food Security</Label>
                     <Select
                       value={socialHistory.foodSecurity || ""}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, foodSecurity: value })}
                     >
-                      <SelectTrigger data-testid="select-food-security">
+                      <SelectTrigger id="patient-history-builder-food-security" data-testid="select-food-security">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1415,12 +1416,12 @@ export default function PatientHistoryBuilder() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Transportation Access</Label>
+                    <Label htmlFor="patient-history-builder-transportation-access">Transportation Access</Label>
                     <Select
                       value={socialHistory.transportationAccess || ""}
                       onValueChange={(value) => setSocialHistory({ ...socialHistory, transportationAccess: value })}
                     >
-                      <SelectTrigger data-testid="select-transportation">
+                      <SelectTrigger id="patient-history-builder-transportation-access" data-testid="select-transportation">
                         <SelectValue placeholder="Select access" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1551,7 +1552,7 @@ export default function PatientHistoryBuilder() {
               {/* Selected medications */}
               {selectedMedications.length > 0 && (
                 <div className="space-y-3">
-                  <Label>Your Medications</Label>
+                  <Label htmlFor="patient-history-builder-your-medications">Your Medications</Label>
                   {selectedMedications.map((med) => (
                     <Card key={med.name} className="p-3">
                       <div className="flex items-center justify-between">
@@ -1568,7 +1569,7 @@ export default function PatientHistoryBuilder() {
                               ));
                             }}
                           >
-                            <SelectTrigger className="w-24" data-testid={`select-strength-${med.name}`}>
+                            <SelectTrigger id="patient-history-builder-your-medications" className="w-24" data-testid={`select-strength-${med.name}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1621,7 +1622,7 @@ export default function PatientHistoryBuilder() {
                   {filteredMedications.map((med) => {
                     const isSelected = selectedMedications.some(m => m.name === med.name);
                     return (
-                      <div
+                      <div role="presentation"
                         key={med.name}
                         className={`flex items-center justify-between p-3 rounded-md cursor-pointer hover-elevate ${
                           isSelected ? "bg-primary/10" : ""

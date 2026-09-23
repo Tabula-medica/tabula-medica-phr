@@ -503,8 +503,8 @@ export default function PatientFeaturesPage() {
                     <Input id="symptomName" name="symptomName" placeholder="e.g., Headache" required data-testid="input-symptom-name" />
                   </div>
                   <div>
-                    <Label>Severity (1-10)</Label>
-                    <Input name="severity" type="number" min="1" max="10" defaultValue="5" required data-testid="input-symptom-severity" />
+                    <Label htmlFor="patient-features-severity-1-10">Severity (1-10)</Label>
+                    <Input id="patient-features-severity-1-10" name="severity" type="number" min="1" max="10" defaultValue="5" required data-testid="input-symptom-severity" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -518,16 +518,16 @@ export default function PatientFeaturesPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <Label>Mood (1-10)</Label>
-                      <Input name="mood" type="number" min="1" max="10" defaultValue="5" data-testid="input-mood" />
+                      <Label htmlFor="patient-features-mood-1-10">Mood (1-10)</Label>
+                      <Input id="patient-features-mood-1-10" name="mood" type="number" min="1" max="10" defaultValue="5" data-testid="input-mood" />
                     </div>
                     <div>
-                      <Label>Energy (1-10)</Label>
-                      <Input name="energy" type="number" min="1" max="10" defaultValue="5" data-testid="input-energy" />
+                      <Label htmlFor="patient-features-energy-1-10">Energy (1-10)</Label>
+                      <Input id="patient-features-energy-1-10" name="energy" type="number" min="1" max="10" defaultValue="5" data-testid="input-energy" />
                     </div>
                     <div>
-                      <Label>Sleep (1-10)</Label>
-                      <Input name="sleep" type="number" min="1" max="10" defaultValue="5" data-testid="input-sleep" />
+                      <Label htmlFor="patient-features-sleep-1-10">Sleep (1-10)</Label>
+                      <Input id="patient-features-sleep-1-10" name="sleep" type="number" min="1" max="10" defaultValue="5" data-testid="input-sleep" />
                     </div>
                   </div>
                   <div>

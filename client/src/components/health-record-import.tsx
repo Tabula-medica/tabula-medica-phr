@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -263,7 +264,11 @@ export function HealthRecordImport({
           </TabsList>
 
           <TabsContent value="upload" className="space-y-4">
+            {/* Drag-and-drop is a pointer shortcut for the "Browse Files"
+                button below, which wraps a real file input. The zone itself
+                is layout, so it carries no role and takes no tab stop. */}
             <div
+              role="presentation"
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -306,7 +311,7 @@ export function HealthRecordImport({
 
             {files.length > 0 && (
               <div className="space-y-2 mt-4">
-                <Label>Selected Files</Label>
+                <FieldCaption>Selected Files</FieldCaption>
                 {files.map((uploadedFile, index) => (
                   <div 
                     key={index}

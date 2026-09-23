@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 import {
   Pill,
   CheckCircle,
@@ -413,7 +415,7 @@ export default function MedAccuracy() {
                       )}
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label className="text-sm font-medium">Are you taking this?</Label>
+                      <FieldCaption className="text-sm font-medium">Are you taking this?</FieldCaption>
                       <RadioGroup
                         value={med.status}
                         onValueChange={(value) => handleStatusChange(med.id, value as MedStatus)}
@@ -459,7 +461,7 @@ export default function MedAccuracy() {
                 <div 
                   key={med.id}
                   className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
-                  onClick={() => handleViewMed(med)}
+                  {...clickable(() => handleViewMed(med))}
                   data-testid={`row-med-${med.id}`}
                 >
                   <div className="flex items-center gap-3">
@@ -639,9 +641,9 @@ export default function MedAccuracy() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Export Format</Label>
+              <Label htmlFor="med-accuracy-export-format">Export Format</Label>
               <Select value={exportFormat} onValueChange={setExportFormat}>
-                <SelectTrigger data-testid="select-export-format">
+                <SelectTrigger id="med-accuracy-export-format" data-testid="select-export-format">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -751,7 +753,7 @@ export default function MedAccuracy() {
               <Separator />
 
               <div>
-                <Label className="text-sm font-medium mb-2 block">Update Status</Label>
+                <FieldCaption className="text-sm font-medium mb-2 block">Update Status</FieldCaption>
                 <RadioGroup
                   value={selectedMed.status}
                   onValueChange={(value) => {

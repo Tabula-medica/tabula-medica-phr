@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,6 +30,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { clickable } from "@/lib/a11y";
 
 interface AuditLogEntry {
   id: string;
@@ -264,9 +266,9 @@ export default function AuditLogs() {
             </div>
             
             <div className="space-y-2">
-              <Label>Action Type</Label>
+              <Label htmlFor="audit-logs-action-type">Action Type</Label>
               <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger data-testid="select-action">
+                <SelectTrigger id="audit-logs-action-type" data-testid="select-action">
                   <SelectValue placeholder="All actions" />
                 </SelectTrigger>
                 <SelectContent>
@@ -280,9 +282,9 @@ export default function AuditLogs() {
             </div>
 
             <div className="space-y-2">
-              <Label>Resource Type</Label>
+              <Label htmlFor="audit-logs-resource-type">Resource Type</Label>
               <Select value={resourceFilter} onValueChange={setResourceFilter}>
-                <SelectTrigger data-testid="select-resource">
+                <SelectTrigger id="audit-logs-resource-type" data-testid="select-resource">
                   <SelectValue placeholder="All resources" />
                 </SelectTrigger>
                 <SelectContent>
@@ -296,9 +298,9 @@ export default function AuditLogs() {
             </div>
 
             <div className="space-y-2">
-              <Label>Time Range</Label>
+              <Label htmlFor="audit-logs-time-range">Time Range</Label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger data-testid="select-date-range">
+                <SelectTrigger id="audit-logs-time-range" data-testid="select-date-range">
                   <SelectValue placeholder="Select range" />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,7 +362,7 @@ export default function AuditLogs() {
                     <div
                       key={log.id}
                       className="flex items-start gap-4 p-3 rounded-lg border hover-elevate cursor-pointer"
-                      onClick={() => setSelectedLog(log)}
+                      {...clickable(() => setSelectedLog(log))}
                       data-testid={`log-${log.id}`}
                     >
                       <div className="h-10 w-10 rounded bg-muted flex items-center justify-center shrink-0">
@@ -417,17 +419,17 @@ export default function AuditLogs() {
             <div className="mt-6 space-y-6">
               <div className="space-y-4">
                 <div>
-                  <Label className="text-muted-foreground text-xs">Action</Label>
+                  <FieldCaption className="text-muted-foreground text-xs">Action</FieldCaption>
                   <p className="font-medium">{selectedLog.action}</p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground text-xs">Resource Type</Label>
+                    <FieldCaption className="text-muted-foreground text-xs">Resource Type</FieldCaption>
                     <p>{selectedLog.resourceType}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Resource ID</Label>
+                    <FieldCaption className="text-muted-foreground text-xs">Resource ID</FieldCaption>
                     <p className="font-mono text-sm">{selectedLog.resourceId || "N/A"}</p>
                   </div>
                 </div>
@@ -435,23 +437,23 @@ export default function AuditLogs() {
                 <Separator />
                 
                 <div>
-                  <Label className="text-muted-foreground text-xs">Timestamp</Label>
+                  <FieldCaption className="text-muted-foreground text-xs">Timestamp</FieldCaption>
                   <p>{new Date(selectedLog.timestamp).toLocaleString()}</p>
                 </div>
                 
                 <div>
-                  <Label className="text-muted-foreground text-xs">User</Label>
+                  <FieldCaption className="text-muted-foreground text-xs">User</FieldCaption>
                   <p>{selectedLog.userName}</p>
                   <p className="text-xs text-muted-foreground font-mono">{selectedLog.userId}</p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground text-xs">IP Address</Label>
+                    <FieldCaption className="text-muted-foreground text-xs">IP Address</FieldCaption>
                     <p className="font-mono text-sm">{selectedLog.ipAddress}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Outcome</Label>
+                    <FieldCaption className="text-muted-foreground text-xs">Outcome</FieldCaption>
                     <Badge className={outcomeStyles[selectedLog.outcome]}>
                       {selectedLog.outcome}
                     </Badge>
@@ -459,7 +461,7 @@ export default function AuditLogs() {
                 </div>
                 
                 <div>
-                  <Label className="text-muted-foreground text-xs">User Agent</Label>
+                  <FieldCaption className="text-muted-foreground text-xs">User Agent</FieldCaption>
                   <p className="text-xs font-mono break-all">{selectedLog.userAgent}</p>
                 </div>
                 
@@ -477,7 +479,7 @@ export default function AuditLogs() {
                 
                 {selectedLog.details && (
                   <div>
-                    <Label className="text-muted-foreground text-xs">Additional Details</Label>
+                    <FieldCaption className="text-muted-foreground text-xs">Additional Details</FieldCaption>
                     <pre className="mt-1 p-3 bg-muted rounded text-xs overflow-auto">
                       {JSON.stringify(selectedLog.details, null, 2)}
                     </pre>

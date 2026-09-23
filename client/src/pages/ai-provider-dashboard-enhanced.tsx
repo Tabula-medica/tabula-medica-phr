@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
+import { clickable } from "@/lib/a11y";
 
 interface DashboardStats {
   providerId: string;
@@ -757,7 +758,7 @@ PLAN:
                       <div
                         key={patient.patientId}
                         className={`p-3 rounded-lg cursor-pointer hover-elevate ${selectedPatientId === patient.patientId ? "bg-primary/10 border border-primary" : "border"}`}
-                        onClick={() => setSelectedPatientId(patient.patientId)}
+                        {...clickable(() => setSelectedPatientId(patient.patientId))}
                         data-testid={`patient-${patient.patientId}`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -1365,9 +1366,9 @@ PLAN:
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Patient</label>
+                  <label htmlFor="ai-provider-dashboard-en-patient" className="text-sm font-medium mb-1 block">Patient</label>
                   <Select value={selectedPatientId || ""} onValueChange={setSelectedPatientId}>
-                    <SelectTrigger data-testid="select-referral-patient">
+                    <SelectTrigger id="ai-provider-dashboard-en-patient" data-testid="select-referral-patient">
                       <SelectValue placeholder="Select patient" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1380,8 +1381,8 @@ PLAN:
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Target Specialty</label>
-                  <Input
+                  <label htmlFor="ai-provider-dashboard-en-target-specialty" className="text-sm font-medium mb-1 block">Target Specialty</label>
+                  <Input id="ai-provider-dashboard-en-target-specialty"
                     placeholder="e.g., Endocrinology, Cardiology"
                     value={referralSpecialty}
                     onChange={(e) => setReferralSpecialty(e.target.value)}
@@ -1389,8 +1390,8 @@ PLAN:
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Referring Diagnosis</label>
-                  <Input
+                  <label htmlFor="ai-provider-dashboard-en-referring-diagnosis" className="text-sm font-medium mb-1 block">Referring Diagnosis</label>
+                  <Input id="ai-provider-dashboard-en-referring-diagnosis"
                     placeholder="e.g., Suboptimally controlled Type 2 Diabetes"
                     value={referralDiagnosis}
                     onChange={(e) => setReferralDiagnosis(e.target.value)}
@@ -1398,9 +1399,9 @@ PLAN:
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Urgency</label>
+                  <label htmlFor="ai-provider-dashboard-en-urgency" className="text-sm font-medium mb-1 block">Urgency</label>
                   <Select value={referralUrgency} onValueChange={setReferralUrgency}>
-                    <SelectTrigger data-testid="select-referral-urgency">
+                    <SelectTrigger id="ai-provider-dashboard-en-urgency" data-testid="select-referral-urgency">
                       <SelectValue placeholder="Select urgency" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1411,8 +1412,8 @@ PLAN:
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Provider Name</label>
-                  <Input
+                  <label htmlFor="ai-provider-dashboard-en-provider-name" className="text-sm font-medium mb-1 block">Provider Name</label>
+                  <Input id="ai-provider-dashboard-en-provider-name"
                     placeholder="e.g., Dr. Smith"
                     value={referralProviderName}
                     onChange={(e) => setReferralProviderName(e.target.value)}
@@ -1420,8 +1421,8 @@ PLAN:
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Additional Notes</label>
-                  <Textarea
+                  <label htmlFor="ai-provider-dashboard-en-additional-notes" className="text-sm font-medium mb-1 block">Additional Notes</label>
+                  <Textarea id="ai-provider-dashboard-en-additional-notes"
                     placeholder="Any additional context for the referral..."
                     value={referralNotes}
                     onChange={(e) => setReferralNotes(e.target.value)}
@@ -1642,8 +1643,8 @@ PLAN:
                 )}
 
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Duration</label>
-                  <Input
+                  <label htmlFor="ai-provider-dashboard-en-duration" className="text-sm font-medium mb-1 block">Duration</label>
+                  <Input id="ai-provider-dashboard-en-duration"
                     placeholder="e.g., 3 days, 2 weeks"
                     value={symptomDuration}
                     onChange={(e) => setSymptomDuration(e.target.value)}
@@ -1652,9 +1653,9 @@ PLAN:
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Severity</label>
+                  <label htmlFor="ai-provider-dashboard-en-severity" className="text-sm font-medium mb-1 block">Severity</label>
                   <Select value={symptomSeverity} onValueChange={setSymptomSeverity}>
-                    <SelectTrigger data-testid="select-dx-severity">
+                    <SelectTrigger id="ai-provider-dashboard-en-severity" data-testid="select-dx-severity">
                       <SelectValue placeholder="Select severity" />
                     </SelectTrigger>
                     <SelectContent>

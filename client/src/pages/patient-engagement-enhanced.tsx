@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   MessageSquare,
   Bot,
@@ -281,7 +282,7 @@ export default function PatientEngagementEnhanced() {
               <CardContent className="p-0">
                 <ScrollArea className="h-[500px]">
                   {conversations.map((conv) => (
-                    <div key={conv.id} className={`p-4 border-b cursor-pointer hover-elevate ${selectedConversation?.id === conv.id ? "bg-accent" : ""}`} onClick={() => setSelectedConversation(conv)} data-testid={`conversation-${conv.id}`}>
+                    <div key={conv.id} className={`p-4 border-b cursor-pointer hover-elevate ${selectedConversation?.id === conv.id ? "bg-accent" : ""}`} {...clickable(() => setSelectedConversation(conv))} data-testid={`conversation-${conv.id}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -493,7 +494,7 @@ export default function PatientEngagementEnhanced() {
             <DialogContent>
               <DialogHeader><DialogTitle>Update Progress</DialogTitle><DialogDescription>Record your current progress for {selectedGoal?.title}</DialogDescription></DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Current Value ({selectedGoal?.unit})</Label><Input type="number" value={progressValue} onChange={(e) => setProgressValue(e.target.value)} placeholder={`Enter value in ${selectedGoal?.unit}`} data-testid="input-progress-value" /></div>
+                <div className="space-y-2"><Label htmlFor="patient-engagement-enhan-current-value">Current Value ({selectedGoal?.unit})</Label><Input id="patient-engagement-enhan-current-value" type="number" value={progressValue} onChange={(e) => setProgressValue(e.target.value)} placeholder={`Enter value in ${selectedGoal?.unit}`} data-testid="input-progress-value" /></div>
                 <div className="flex items-center justify-between text-sm"><span>Previous: {selectedGoal?.currentValue} {selectedGoal?.unit}</span><span>Target: {selectedGoal?.targetValue} {selectedGoal?.unit}</span></div>
               </div>
               <DialogFooter>

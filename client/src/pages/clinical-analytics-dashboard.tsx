@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   BarChart3,
   TrendingUp,
@@ -731,7 +732,7 @@ export default function ClinicalAnalyticsDashboard() {
                     <div 
                       key={rt.id}
                       className="p-3 rounded-lg border hover-elevate cursor-pointer"
-                      onClick={() => setSelectedReportType(rt.id)}
+                      {...clickable(() => setSelectedReportType(rt.id))}
                       data-testid={`report-type-${rt.id}`}
                     >
                       <div className="flex items-center gap-2">

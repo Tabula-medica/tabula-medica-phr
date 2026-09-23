@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Database,
   Upload,
@@ -357,8 +358,8 @@ export default function FhirDataIntegration() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Name</Label>
-                  <Input
+                  <Label htmlFor="fhir-data-integration-name">Name</Label>
+                  <Input id="fhir-data-integration-name"
                     value={newIntegrationName}
                     onChange={(e) => setNewIntegrationName(e.target.value)}
                     placeholder="My Data Integration"
@@ -366,8 +367,8 @@ export default function FhirDataIntegration() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input
+                  <Label htmlFor="fhir-data-integration-description">Description</Label>
+                  <Input id="fhir-data-integration-description"
                     value={newIntegrationDesc}
                     onChange={(e) => setNewIntegrationDesc(e.target.value)}
                     placeholder="Optional description"
@@ -375,8 +376,8 @@ export default function FhirDataIntegration() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Source System</Label>
-                  <Input
+                  <Label htmlFor="fhir-data-integration-source-system">Source System</Label>
+                  <Input id="fhir-data-integration-source-system"
                     value={newIntegrationSystem}
                     onChange={(e) => setNewIntegrationSystem(e.target.value)}
                     placeholder="e.g., Hospital, Lab System"
@@ -384,9 +385,9 @@ export default function FhirDataIntegration() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Source Format</Label>
+                  <Label htmlFor="fhir-data-integration-source-format">Source Format</Label>
                   <Select value={newIntegrationFormat} onValueChange={setNewIntegrationFormat}>
-                    <SelectTrigger data-testid="select-source-format">
+                    <SelectTrigger id="fhir-data-integration-source-format" data-testid="select-source-format">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -434,7 +435,7 @@ export default function FhirDataIntegration() {
                           className={`p-3 rounded-lg border cursor-pointer hover-elevate transition-colors ${
                             selectedIntegration?.id === integration.id ? "border-primary bg-primary/5" : ""
                           }`}
-                          onClick={() => setSelectedIntegration(integration)}
+                          {...clickable(() => setSelectedIntegration(integration))}
                           data-testid={`integration-card-${integration.id}`}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -584,8 +585,8 @@ export default function FhirDataIntegration() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Sample Data (JSON)</Label>
-                        <Textarea
+                        <Label htmlFor="fhir-data-integration-sample-data-json">Sample Data (JSON)</Label>
+                        <Textarea id="fhir-data-integration-sample-data-json"
                           value={sampleDataInput}
                           onChange={(e) => setSampleDataInput(e.target.value)}
                           placeholder='[{"mrn": "12345", "first_name": "John", "last_name": "Doe", "date_of_birth": "1985-03-15", "gender": "M"}]'
@@ -655,8 +656,8 @@ export default function FhirDataIntegration() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Data to Transform (JSON)</Label>
-                        <Textarea
+                        <Label htmlFor="fhir-data-integration-data-to-transform-json">Data to Transform (JSON)</Label>
+                        <Textarea id="fhir-data-integration-data-to-transform-json"
                           value={dataToTransform}
                           onChange={(e) => setDataToTransform(e.target.value)}
                           placeholder='[{"mrn": "12345", "first_name": "John", "last_name": "Doe", ...}]'

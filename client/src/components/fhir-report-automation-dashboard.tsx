@@ -289,9 +289,9 @@ export function FHIRReportAutomationDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label data-testid="label-report-template">Report Template</Label>
+                <Label htmlFor="fhir-report-automation-d-report-template" data-testid="label-report-template">Report Template</Label>
                 <Select value={selectedConfig} onValueChange={setSelectedConfig}>
-                  <SelectTrigger data-testid="select-report-template">
+                  <SelectTrigger id="fhir-report-automation-d-report-template" data-testid="select-report-template">
                     <SelectValue placeholder="Select a report template" />
                   </SelectTrigger>
                   <SelectContent>
@@ -308,8 +308,8 @@ export function FHIRReportAutomationDashboard() {
               </div>
 
               <div className="space-y-2">
-                <Label data-testid="label-fhir-resources">FHIR Resources (JSON Array)</Label>
-                <Textarea
+                <Label htmlFor="fhir-report-automation-d-fhir-resources-json-array" data-testid="label-fhir-resources">FHIR Resources (JSON Array)</Label>
+                <Textarea id="fhir-report-automation-d-fhir-resources-json-array"
                   placeholder='[{"resourceType": "Patient", "id": "1", ...}, ...]'
                   className={`font-mono text-sm ${jsonError ? "border-destructive" : ""}`}
                   rows={10}

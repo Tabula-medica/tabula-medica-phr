@@ -35,6 +35,7 @@ import {
   Mail
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 
 interface PatientCaseSummary {
   id: string;
@@ -320,10 +321,10 @@ export default function ProviderCollaborationHub() {
                         <div
                           key={summary.id}
                           className="p-3 border rounded-lg hover-elevate cursor-pointer"
-                          onClick={() => {
+                          {...clickable(() => {
                             setSelectedSummary(summary);
                             setSelectedTab("case-summary");
-                          }}
+                          })}
                           data-testid={`summary-item-${summary.id}`}
                         >
                           <div className="flex items-center justify-between">
@@ -360,10 +361,10 @@ export default function ProviderCollaborationHub() {
                         <div
                           key={comm.id}
                           className="p-3 border rounded-lg hover-elevate cursor-pointer"
-                          onClick={() => {
+                          {...clickable(() => {
                             setSelectedCommunication(comm);
                             setSelectedTab("communication");
-                          }}
+                          })}
                           data-testid={`comm-item-${comm.id}`}
                         >
                           <div className="flex items-center justify-between">
@@ -406,12 +407,12 @@ export default function ProviderCollaborationHub() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Patient</Label>
+                    <Label htmlFor="provider-collaboration-h-patient">Patient</Label>
                     <Select
                       value={summaryForm.patientId}
                       onValueChange={(v) => setSummaryForm({ ...summaryForm, patientId: v })}
                     >
-                      <SelectTrigger data-testid="select-patient-summary">
+                      <SelectTrigger id="provider-collaboration-h-patient" data-testid="select-patient-summary">
                         <SelectValue placeholder="Select patient" />
                       </SelectTrigger>
                       <SelectContent>
@@ -422,12 +423,12 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Consulting Specialty</Label>
+                    <Label htmlFor="provider-collaboration-h-consulting-specialty">Consulting Specialty</Label>
                     <Select
                       value={summaryForm.consultingSpecialty}
                       onValueChange={(v) => setSummaryForm({ ...summaryForm, consultingSpecialty: v })}
                     >
-                      <SelectTrigger data-testid="select-specialty">
+                      <SelectTrigger id="provider-collaboration-h-consulting-specialty" data-testid="select-specialty">
                         <SelectValue placeholder="Select specialty" />
                       </SelectTrigger>
                       <SelectContent>
@@ -439,12 +440,12 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Summary Type</Label>
+                    <Label htmlFor="provider-collaboration-h-summary-type">Summary Type</Label>
                     <Select
                       value={summaryForm.summaryType}
                       onValueChange={(v) => setSummaryForm({ ...summaryForm, summaryType: v })}
                     >
-                      <SelectTrigger data-testid="select-summary-type">
+                      <SelectTrigger id="provider-collaboration-h-summary-type" data-testid="select-summary-type">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -456,8 +457,8 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Additional Context (Optional)</Label>
-                    <Textarea
+                    <Label htmlFor="provider-collaboration-h-additional-context-optional">Additional Context (Optional)</Label>
+                    <Textarea id="provider-collaboration-h-additional-context-optional"
                       placeholder="Add any additional clinical context..."
                       value={summaryForm.additionalContext}
                       onChange={(e) => setSummaryForm({ ...summaryForm, additionalContext: e.target.value })}
@@ -577,12 +578,12 @@ export default function ProviderCollaborationHub() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Patient</Label>
+                    <Label htmlFor="provider-collaboration-h-patient-2">Patient</Label>
                     <Select
                       value={researchForm.patientId}
                       onValueChange={(v) => setResearchForm({ ...researchForm, patientId: v })}
                     >
-                      <SelectTrigger data-testid="select-patient-research">
+                      <SelectTrigger id="provider-collaboration-h-patient-2" data-testid="select-patient-research">
                         <SelectValue placeholder="Select patient" />
                       </SelectTrigger>
                       <SelectContent>
@@ -593,8 +594,8 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Case Context</Label>
-                    <Textarea
+                    <Label htmlFor="provider-collaboration-h-case-context">Case Context</Label>
+                    <Textarea id="provider-collaboration-h-case-context"
                       placeholder="Describe the clinical question or complex case scenario..."
                       value={researchForm.caseContext}
                       onChange={(e) => setResearchForm({ ...researchForm, caseContext: e.target.value })}
@@ -604,8 +605,8 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Clinical Keywords (Optional)</Label>
-                    <Input
+                    <Label htmlFor="provider-collaboration-h-clinical-keywords-optional">Clinical Keywords (Optional)</Label>
+                    <Input id="provider-collaboration-h-clinical-keywords-optional"
                       placeholder="e.g., diabetes, nephropathy, SGLT2 inhibitors"
                       value={researchForm.clinicalKeywords}
                       onChange={(e) => setResearchForm({ ...researchForm, clinicalKeywords: e.target.value })}
@@ -712,12 +713,12 @@ export default function ProviderCollaborationHub() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Patient</Label>
+                    <Label htmlFor="provider-collaboration-h-patient-3">Patient</Label>
                     <Select
                       value={commForm.patientId}
                       onValueChange={(v) => setCommForm({ ...commForm, patientId: v })}
                     >
-                      <SelectTrigger data-testid="select-patient-comm">
+                      <SelectTrigger id="provider-collaboration-h-patient-3" data-testid="select-patient-comm">
                         <SelectValue placeholder="Select patient" />
                       </SelectTrigger>
                       <SelectContent>
@@ -728,8 +729,8 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Receiving Provider Name</Label>
-                    <Input
+                    <Label htmlFor="provider-collaboration-h-receiving-provider-name">Receiving Provider Name</Label>
+                    <Input id="provider-collaboration-h-receiving-provider-name"
                       placeholder="e.g., Smith"
                       value={commForm.toProviderName}
                       onChange={(e) => setCommForm({ ...commForm, toProviderName: e.target.value })}
@@ -738,12 +739,12 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Provider Specialty</Label>
+                    <Label htmlFor="provider-collaboration-h-provider-specialty">Provider Specialty</Label>
                     <Select
                       value={commForm.toProviderSpecialty}
                       onValueChange={(v) => setCommForm({ ...commForm, toProviderSpecialty: v })}
                     >
-                      <SelectTrigger data-testid="select-provider-specialty">
+                      <SelectTrigger id="provider-collaboration-h-provider-specialty" data-testid="select-provider-specialty">
                         <SelectValue placeholder="Select specialty" />
                       </SelectTrigger>
                       <SelectContent>
@@ -755,12 +756,12 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Communication Type</Label>
+                    <Label htmlFor="provider-collaboration-h-communication-type">Communication Type</Label>
                     <Select
                       value={commForm.communicationType}
                       onValueChange={(v) => setCommForm({ ...commForm, communicationType: v })}
                     >
-                      <SelectTrigger data-testid="select-comm-type">
+                      <SelectTrigger id="provider-collaboration-h-communication-type" data-testid="select-comm-type">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -772,8 +773,8 @@ export default function ProviderCollaborationHub() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Specific Request (Optional)</Label>
-                    <Textarea
+                    <Label htmlFor="provider-collaboration-h-specific-request-optional">Specific Request (Optional)</Label>
+                    <Textarea id="provider-collaboration-h-specific-request-optional"
                       placeholder="What specifically would you like to communicate?"
                       value={commForm.specificRequest}
                       onChange={(e) => setCommForm({ ...commForm, specificRequest: e.target.value })}

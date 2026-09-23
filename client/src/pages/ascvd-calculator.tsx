@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -218,13 +219,13 @@ export default function ASCVDCalculatorPage() {
               <CardContent className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Age (40-79) *</Label>
-                    <Input type="number" min={20} max={99} value={formInputs.age} onChange={e => updateField("age", parseInt(e.target.value) || 0)} data-testid="input-age" />
+                    <Label htmlFor="ascvd-calculator-age-40-79">Age (40-79) *</Label>
+                    <Input id="ascvd-calculator-age-40-79" type="number" min={20} max={99} value={formInputs.age} onChange={e => updateField("age", parseInt(e.target.value) || 0)} data-testid="input-age" />
                   </div>
                   <div>
-                    <Label>Biological Sex *</Label>
+                    <Label htmlFor="ascvd-calculator-biological-sex">Biological Sex *</Label>
                     <Select value={formInputs.sex} onValueChange={v => updateField("sex", v as Sex)}>
-                      <SelectTrigger data-testid="select-sex"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="ascvd-calculator-biological-sex" data-testid="select-sex"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
@@ -234,9 +235,9 @@ export default function ASCVDCalculatorPage() {
                 </div>
 
                 <div>
-                  <Label>Race/Ethnicity *</Label>
+                  <Label htmlFor="ascvd-calculator-race-ethnicity">Race/Ethnicity *</Label>
                   <Select value={formInputs.race} onValueChange={v => updateField("race", v as Race)}>
-                    <SelectTrigger data-testid="select-race"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="ascvd-calculator-race-ethnicity" data-testid="select-race"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="white">White / Other</SelectItem>
                       <SelectItem value="african_american">African American</SelectItem>
@@ -250,29 +251,29 @@ export default function ASCVDCalculatorPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Total Cholesterol (mg/dL) *</Label>
-                    <Input type="number" min={100} max={400} value={formInputs.totalCholesterol} onChange={e => updateField("totalCholesterol", parseInt(e.target.value) || 0)} data-testid="input-total-cholesterol" />
+                    <Label htmlFor="ascvd-calculator-total-cholesterol-mg-dl">Total Cholesterol (mg/dL) *</Label>
+                    <Input id="ascvd-calculator-total-cholesterol-mg-dl" type="number" min={100} max={400} value={formInputs.totalCholesterol} onChange={e => updateField("totalCholesterol", parseInt(e.target.value) || 0)} data-testid="input-total-cholesterol" />
                   </div>
                   <div>
-                    <Label>HDL Cholesterol (mg/dL) *</Label>
-                    <Input type="number" min={20} max={150} value={formInputs.hdlCholesterol} onChange={e => updateField("hdlCholesterol", parseInt(e.target.value) || 0)} data-testid="input-hdl" />
+                    <Label htmlFor="ascvd-calculator-hdl-cholesterol-mg-dl">HDL Cholesterol (mg/dL) *</Label>
+                    <Input id="ascvd-calculator-hdl-cholesterol-mg-dl" type="number" min={20} max={150} value={formInputs.hdlCholesterol} onChange={e => updateField("hdlCholesterol", parseInt(e.target.value) || 0)} data-testid="input-hdl" />
                   </div>
                 </div>
 
                 <div>
-                  <Label>LDL Cholesterol (mg/dL)</Label>
-                  <Input type="number" min={30} max={300} value={formInputs.ldlCholesterol || ""} onChange={e => updateField("ldlCholesterol", e.target.value ? parseInt(e.target.value) : undefined)} placeholder="Optional — used for statin guidance" data-testid="input-ldl" />
+                  <Label htmlFor="ascvd-calculator-ldl-cholesterol-mg-dl">LDL Cholesterol (mg/dL)</Label>
+                  <Input id="ascvd-calculator-ldl-cholesterol-mg-dl" type="number" min={30} max={300} value={formInputs.ldlCholesterol || ""} onChange={e => updateField("ldlCholesterol", e.target.value ? parseInt(e.target.value) : undefined)} placeholder="Optional — used for statin guidance" data-testid="input-ldl" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Systolic Blood Pressure (mmHg) *</Label>
-                    <Input type="number" min={80} max={250} value={formInputs.systolicBP} onChange={e => updateField("systolicBP", parseInt(e.target.value) || 0)} data-testid="input-sbp" />
+                    <Label htmlFor="ascvd-calculator-systolic-blood-pressure-mmhg">Systolic Blood Pressure (mmHg) *</Label>
+                    <Input id="ascvd-calculator-systolic-blood-pressure-mmhg" type="number" min={80} max={250} value={formInputs.systolicBP} onChange={e => updateField("systolicBP", parseInt(e.target.value) || 0)} data-testid="input-sbp" />
                   </div>
                   <div className="flex items-end pb-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={formInputs.onBPMeds} onCheckedChange={v => updateField("onBPMeds", v)} data-testid="switch-bp-meds" />
-                      <Label className="text-sm">On BP Medication</Label>
+                      <FieldCaption className="text-sm">On BP Medication</FieldCaption>
                     </div>
                   </div>
                 </div>
@@ -282,11 +283,11 @@ export default function ASCVDCalculatorPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-2">
                     <Switch checked={formInputs.diabetic} onCheckedChange={v => updateField("diabetic", v)} data-testid="switch-diabetic" />
-                    <Label>Diabetes</Label>
+                    <FieldCaption>Diabetes</FieldCaption>
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch checked={formInputs.smoker} onCheckedChange={v => updateField("smoker", v)} data-testid="switch-smoker" />
-                    <Label>Current Smoker</Label>
+                    <FieldCaption>Current Smoker</FieldCaption>
                   </div>
                 </div>
 
@@ -295,18 +296,18 @@ export default function ASCVDCalculatorPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>A1C (%)</Label>
-                    <Input type="number" step="0.1" min={3} max={15} value={formInputs.a1c || ""} onChange={e => updateField("a1c", e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="e.g., 5.7" data-testid="input-a1c" />
+                    <Label htmlFor="ascvd-calculator-a1c">A1C (%)</Label>
+                    <Input id="ascvd-calculator-a1c" type="number" step="0.1" min={3} max={15} value={formInputs.a1c || ""} onChange={e => updateField("a1c", e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="e.g., 5.7" data-testid="input-a1c" />
                   </div>
                   <div>
-                    <Label>BMI</Label>
-                    <Input type="number" step="0.1" min={15} max={60} value={formInputs.bmi || ""} onChange={e => updateField("bmi", e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="e.g., 28.5" data-testid="input-bmi" />
+                    <Label htmlFor="ascvd-calculator-bmi">BMI</Label>
+                    <Input id="ascvd-calculator-bmi" type="number" step="0.1" min={15} max={60} value={formInputs.bmi || ""} onChange={e => updateField("bmi", e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="e.g., 28.5" data-testid="input-bmi" />
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Switch checked={formInputs.familyHistory || false} onCheckedChange={v => updateField("familyHistory", v)} data-testid="switch-family-history" />
-                  <Label>Family history of premature ASCVD</Label>
+                  <FieldCaption>Family history of premature ASCVD</FieldCaption>
                 </div>
 
                 <Button

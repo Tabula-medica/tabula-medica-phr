@@ -114,36 +114,36 @@ export default function ProviderOnboarding() {
       <Card>
         <CardHeader><CardTitle className="text-base">About you</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5"><Label>First name</Label><Input value={f.firstName} onChange={set("firstName")} data-testid="input-first-name" /></div>
-          <div className="space-y-1.5"><Label>Last name</Label><Input value={f.lastName} onChange={set("lastName")} data-testid="input-last-name" /></div>
-          <div className="space-y-1.5"><Label>NPI (10 digits)</Label><Input value={f.npi} onChange={set("npi")} inputMode="numeric" placeholder="1234567890" data-testid="input-npi" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-firstName">First name</Label><Input id="provider-onboarding-firstName" value={f.firstName} onChange={set("firstName")} data-testid="input-first-name" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-lastName">Last name</Label><Input id="provider-onboarding-lastName" value={f.lastName} onChange={set("lastName")} data-testid="input-last-name" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-npi">NPI (10 digits)</Label><Input id="provider-onboarding-npi" value={f.npi} onChange={set("npi")} inputMode="numeric" placeholder="1234567890" data-testid="input-npi" /></div>
           <div className="space-y-1.5">
-            <Label>Provider type</Label>
+            <Label htmlFor="provider-onboarding-provider-type">Provider type</Label>
             <Select value={f.providerType} onValueChange={(v) => setF({ ...f, providerType: v })}>
-              <SelectTrigger data-testid="select-provider-type"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="provider-onboarding-provider-type" data-testid="select-provider-type"><SelectValue /></SelectTrigger>
               <SelectContent>{providerTypes.map((t) => <SelectItem key={t} value={t}>{label(t)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Primary specialty</Label>
+            <Label htmlFor="provider-onboarding-specialty">Primary specialty</Label>
             <Select value={f.primarySpecialty} onValueChange={(v) => setF({ ...f, primarySpecialty: v })}>
-              <SelectTrigger data-testid="select-specialty"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="provider-onboarding-specialty" data-testid="select-specialty"><SelectValue /></SelectTrigger>
               <SelectContent>{providerSpecialties.map((s) => <SelectItem key={s} value={s}>{label(s)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5"><Label>Languages (comma-separated)</Label><Input value={f.languages} onChange={set("languages")} placeholder="English, Spanish" data-testid="input-languages" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-languages">Languages (comma-separated)</Label><Input id="provider-onboarding-languages" value={f.languages} onChange={set("languages")} placeholder="English, Spanish" data-testid="input-languages" /></div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Practice location</CardTitle><CardDescription>Used for the ZIP-radius search.</CardDescription></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2"><Label>Practice name</Label><Input value={f.locName} onChange={set("locName")} placeholder="e.g., Riverside Family Care" data-testid="input-loc-name" /></div>
-          <div className="space-y-1.5 sm:col-span-2"><Label>Address</Label><Input value={f.addressLine1} onChange={set("addressLine1")} data-testid="input-address" /></div>
-          <div className="space-y-1.5"><Label>City</Label><Input value={f.city} onChange={set("city")} data-testid="input-city" /></div>
-          <div className="space-y-1.5"><Label>State</Label><Input value={f.state} onChange={set("state")} maxLength={2} placeholder="VA" data-testid="input-state" /></div>
-          <div className="space-y-1.5"><Label>ZIP code</Label><Input value={f.zipCode} onChange={set("zipCode")} inputMode="numeric" placeholder="22314" data-testid="input-zip" /></div>
-          <div className="space-y-1.5"><Label>Phone</Label><Input value={f.phone} onChange={set("phone")} inputMode="tel" data-testid="input-phone" /></div>
+          <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="provider-onboarding-locName">Practice name</Label><Input id="provider-onboarding-locName" value={f.locName} onChange={set("locName")} placeholder="e.g., Riverside Family Care" data-testid="input-loc-name" /></div>
+          <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="provider-onboarding-addressLine1">Address</Label><Input id="provider-onboarding-addressLine1" value={f.addressLine1} onChange={set("addressLine1")} data-testid="input-address" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-city">City</Label><Input id="provider-onboarding-city" value={f.city} onChange={set("city")} data-testid="input-city" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-state">State</Label><Input id="provider-onboarding-state" value={f.state} onChange={set("state")} maxLength={2} placeholder="VA" data-testid="input-state" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-zipCode">ZIP code</Label><Input id="provider-onboarding-zipCode" value={f.zipCode} onChange={set("zipCode")} inputMode="numeric" placeholder="22314" data-testid="input-zip" /></div>
+          <div className="space-y-1.5"><Label htmlFor="provider-onboarding-phone">Phone</Label><Input id="provider-onboarding-phone" value={f.phone} onChange={set("phone")} inputMode="tel" data-testid="input-phone" /></div>
         </CardContent>
       </Card>
 

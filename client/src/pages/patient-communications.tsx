@@ -527,9 +527,9 @@ function TriggerCommunicationDialog({ patientId }: { patientId: string }) {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Event Type</Label>
+            <Label htmlFor="patient-communications-event-type">Event Type</Label>
             <Select value={eventType} onValueChange={setEventType}>
-              <SelectTrigger data-testid="select-event-type">
+              <SelectTrigger id="patient-communications-event-type" data-testid="select-event-type">
                 <SelectValue placeholder="Select event type" />
               </SelectTrigger>
               <SelectContent>

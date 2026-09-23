@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
+import { clickable } from "@/lib/a11y";
 import {
   Search,
   ExternalLink,
@@ -163,10 +164,10 @@ function CMSEligibilityPanel() {
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
             <div>
-              <Label className="text-sm font-medium mb-1 block">Annual Household Income</Label>
+              <Label htmlFor="uninsured-resources-annual-household-income" className="text-sm font-medium mb-1 block">Annual Household Income</Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Input id="uninsured-resources-annual-household-income"
                   value={income}
                   onChange={(e) => setIncome(e.target.value)}
                   placeholder="e.g., 35000"
@@ -177,9 +178,9 @@ function CMSEligibilityPanel() {
               </div>
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">Household Size</Label>
+              <Label htmlFor="uninsured-resources-household-size" className="text-sm font-medium mb-1 block">Household Size</Label>
               <Select value={household} onValueChange={setHousehold}>
-                <SelectTrigger data-testid="select-household-size">
+                <SelectTrigger id="uninsured-resources-household-size" data-testid="select-household-size">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -190,8 +191,8 @@ function CMSEligibilityPanel() {
               </Select>
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">ZIP Code</Label>
-              <Input
+              <Label htmlFor="uninsured-resources-zip-code" className="text-sm font-medium mb-1 block">ZIP Code</Label>
+              <Input id="uninsured-resources-zip-code"
                 value={zipCode}
                 onChange={(e) => setZipCode(e.target.value)}
                 placeholder="e.g., 90210"
@@ -200,8 +201,8 @@ function CMSEligibilityPanel() {
               />
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">Your Age</Label>
-              <Input
+              <Label htmlFor="uninsured-resources-your-age" className="text-sm font-medium mb-1 block">Your Age</Label>
+              <Input id="uninsured-resources-your-age"
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 placeholder="e.g., 35"
@@ -210,8 +211,8 @@ function CMSEligibilityPanel() {
               />
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">State</Label>
-              <Input
+              <Label htmlFor="uninsured-resources-state" className="text-sm font-medium mb-1 block">State</Label>
+              <Input id="uninsured-resources-state"
                 value={state}
                 onChange={(e) => setState(e.target.value)}
                 placeholder="e.g., CA, TX, NY"
@@ -480,10 +481,10 @@ function FindHelpPanel() {
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label className="text-sm font-medium mb-1 block">ZIP Code</Label>
+              <Label htmlFor="uninsured-resources-zip-code-2" className="text-sm font-medium mb-1 block">ZIP Code</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Input id="uninsured-resources-zip-code-2"
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
                   placeholder="e.g., 10001"
@@ -494,9 +495,9 @@ function FindHelpPanel() {
               </div>
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">Category</Label>
+              <Label htmlFor="uninsured-resources-category" className="text-sm font-medium mb-1 block">Category</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger data-testid="select-findhelp-category">
+                <SelectTrigger id="uninsured-resources-category" data-testid="select-findhelp-category">
                   <SelectValue placeholder="All categories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -517,9 +518,9 @@ function FindHelpPanel() {
               </Select>
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">Search Radius</Label>
+              <Label htmlFor="uninsured-resources-search-radius" className="text-sm font-medium mb-1 block">Search Radius</Label>
               <Select value={radius} onValueChange={setRadius}>
-                <SelectTrigger data-testid="select-findhelp-radius">
+                <SelectTrigger id="uninsured-resources-search-radius" data-testid="select-findhelp-radius">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -576,7 +577,7 @@ function FindHelpPanel() {
                   <div
                     key={q.id}
                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${screeningAnswers[q.id] ? "bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700" : "hover:bg-muted/50"}`}
-                    onClick={() => toggleScreeningAnswer(q.id)}
+                    {...clickable(() => toggleScreeningAnswer(q.id))}
                     data-testid={`screening-question-${q.id}`}
                   >
                     <div className={`mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${screeningAnswers[q.id] ? "bg-blue-600 border-blue-600" : "border-muted-foreground/40"}`}>
@@ -1452,16 +1453,16 @@ function SesameCarePanel() {
             <CardContent className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <Label className="text-sm font-medium mb-1 block">ZIP Code</Label>
+                  <Label htmlFor="uninsured-resources-zip-code-3" className="text-sm font-medium mb-1 block">ZIP Code</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input value={zipCode} onChange={e => setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="e.g., 10001" className="pl-9" maxLength={5} data-testid="input-sesame-zip" />
+                    <Input id="uninsured-resources-zip-code-3" value={zipCode} onChange={e => setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="e.g., 10001" className="pl-9" maxLength={5} data-testid="input-sesame-zip" />
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium mb-1 block">Specialty</Label>
+                  <Label htmlFor="uninsured-resources-specialty" className="text-sm font-medium mb-1 block">Specialty</Label>
                   <Select value={specialty} onValueChange={setSpecialty}>
-                    <SelectTrigger data-testid="select-sesame-specialty">
+                    <SelectTrigger id="uninsured-resources-specialty" data-testid="select-sesame-specialty">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

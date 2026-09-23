@@ -220,12 +220,18 @@ export default function ClinicianProviderDirectory() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <TypeIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                <h3
-                  className="font-semibold truncate cursor-pointer hover:underline"
-                  onClick={() => handleViewProvider(provider)}
-                  data-testid={`link-provider-name-${provider.id}`}
-                >
-                  {provider.name}
+                {/* The heading keeps its heading role — screen-reader users
+                    navigate this directory by heading — and the control lives
+                    inside it, the way a linked headline works. */}
+                <h3 className="font-semibold truncate">
+                  <button
+                    type="button"
+                    className="cursor-pointer hover:underline text-left truncate w-full"
+                    onClick={() => handleViewProvider(provider)}
+                    data-testid={`link-provider-name-${provider.id}`}
+                  >
+                    {provider.name}
+                  </button>
                 </h3>
               </div>
 
@@ -379,9 +385,9 @@ export default function ClinicianProviderDirectory() {
             <CardContent className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <Label className="text-sm mb-2 block">Provider Type</Label>
+                  <Label htmlFor="clinician-provider-direc-provider-type" className="text-sm mb-2 block">Provider Type</Label>
                   <Select value={selectedType} onValueChange={setSelectedType}>
-                    <SelectTrigger data-testid="select-provider-type">
+                    <SelectTrigger id="clinician-provider-direc-provider-type" data-testid="select-provider-type">
                       <SelectValue placeholder="All types" />
                     </SelectTrigger>
                     <SelectContent>
@@ -396,9 +402,9 @@ export default function ClinicianProviderDirectory() {
                 </div>
 
                 <div>
-                  <Label className="text-sm mb-2 block">Specialty</Label>
+                  <Label htmlFor="clinician-provider-direc-specialty" className="text-sm mb-2 block">Specialty</Label>
                   <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
-                    <SelectTrigger data-testid="select-specialty">
+                    <SelectTrigger id="clinician-provider-direc-specialty" data-testid="select-specialty">
                       <SelectValue placeholder="All specialties" />
                     </SelectTrigger>
                     <SelectContent>
@@ -413,9 +419,9 @@ export default function ClinicianProviderDirectory() {
                 </div>
 
                 <div>
-                  <Label className="text-sm mb-2 block">City</Label>
+                  <Label htmlFor="clinician-provider-direc-city" className="text-sm mb-2 block">City</Label>
                   <Select value={selectedCity} onValueChange={setSelectedCity}>
-                    <SelectTrigger data-testid="select-city">
+                    <SelectTrigger id="clinician-provider-direc-city" data-testid="select-city">
                       <SelectValue placeholder="All cities" />
                     </SelectTrigger>
                     <SelectContent>
@@ -430,9 +436,9 @@ export default function ClinicianProviderDirectory() {
                 </div>
 
                 <div>
-                  <Label className="text-sm mb-2 block">Connection Status</Label>
+                  <Label htmlFor="clinician-provider-direc-connection-status" className="text-sm mb-2 block">Connection Status</Label>
                   <Select value={selectedConnectionStatus} onValueChange={setSelectedConnectionStatus}>
-                    <SelectTrigger data-testid="select-connection-status">
+                    <SelectTrigger id="clinician-provider-direc-connection-status" data-testid="select-connection-status">
                       <SelectValue placeholder="Any status" />
                     </SelectTrigger>
                     <SelectContent>

@@ -159,7 +159,7 @@ IMPORTANT: This is an AI-generated draft summary for clinician review. All clini
   };
 }
 
-const sampleDraft = generateSampleDraft("enc-sample-001", "patient-001");
+const sampleDraft = generateSampleDraft("enc-sample-001", "dev-demo-patient");
 drafts.set(sampleDraft.encounterId, sampleDraft);
 
 router.get("/encounters/:encounterId/ai-draft", (req: Request, res: Response) => {
@@ -167,7 +167,7 @@ router.get("/encounters/:encounterId/ai-draft", (req: Request, res: Response) =>
   let draft = drafts.get(encounterId);
 
   if (!draft) {
-    draft = generateSampleDraft(encounterId, req.query.patientId as string || "patient-001");
+    draft = generateSampleDraft(encounterId, req.query.patientId as string || getUserId(req));
     drafts.set(encounterId, draft);
   }
 

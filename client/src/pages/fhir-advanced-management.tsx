@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -386,8 +387,8 @@ function NewBulkOperationForm({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Operation Name</Label>
-        <Input 
+        <Label htmlFor="fhir-advanced-management-operation-name">Operation Name</Label>
+        <Input id="fhir-advanced-management-operation-name" 
           value={name} 
           onChange={(e) => setName(e.target.value)} 
           placeholder="Enter operation name"
@@ -395,8 +396,8 @@ function NewBulkOperationForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Description (optional)</Label>
-        <Input 
+        <Label htmlFor="fhir-advanced-management-description-optional">Description (optional)</Label>
+        <Input id="fhir-advanced-management-description-optional" 
           value={description} 
           onChange={(e) => setDescription(e.target.value)} 
           placeholder="Enter description"
@@ -404,9 +405,9 @@ function NewBulkOperationForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Operation Type</Label>
+        <Label htmlFor="fhir-advanced-management-operation-type">Operation Type</Label>
         <Select value={operation} onValueChange={(v) => setOperation(v as "create" | "update" | "delete")}>
-          <SelectTrigger data-testid="select-bulk-op-type">
+          <SelectTrigger id="fhir-advanced-management-operation-type" data-testid="select-bulk-op-type">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -417,9 +418,9 @@ function NewBulkOperationForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Resource Type</Label>
+        <Label htmlFor="fhir-advanced-management-resource-type">Resource Type</Label>
         <Select value={resourceType} onValueChange={setResourceType}>
-          <SelectTrigger data-testid="select-bulk-resource-type">
+          <SelectTrigger id="fhir-advanced-management-resource-type" data-testid="select-bulk-resource-type">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -432,11 +433,11 @@ function NewBulkOperationForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Target Systems</Label>
+        <FieldCaption>Target Systems</FieldCaption>
         <div className="grid grid-cols-2 gap-2">
           {systems.map((sys) => (
             <div key={sys.id} className="flex items-center space-x-2">
-              <Checkbox
+              <Checkbox aria-label="Target Systems"
                 id={`sys-${sys.id}`}
                 checked={selectedSystems.includes(sys.id)}
                 onCheckedChange={(checked) => {
@@ -655,9 +656,9 @@ function AdvancedSearchTab() {
         <CardContent className="space-y-4">
           <div className="flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[200px]">
-              <Label>Full-text Search</Label>
+              <Label htmlFor="fhir-advanced-management-full-text-search">Full-text Search</Label>
               <div className="flex gap-2 mt-1">
-                <Input
+                <Input id="fhir-advanced-management-full-text-search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search resources..."
@@ -678,7 +679,7 @@ function AdvancedSearchTab() {
 
           <div className="flex gap-4 flex-wrap">
             <div>
-              <Label>Resource Types</Label>
+              <FieldCaption>Resource Types</FieldCaption>
               <div className="flex gap-2 mt-1 flex-wrap">
                 {resourceTypes?.data?.map((type) => (
                   <Badge
@@ -700,10 +701,10 @@ function AdvancedSearchTab() {
               </div>
             </div>
             <div>
-              <Label>Sort By</Label>
+              <Label htmlFor="fhir-advanced-management-sort-by">Sort By</Label>
               <div className="flex gap-2 mt-1">
                 <Select value={sortField} onValueChange={setSortField}>
-                  <SelectTrigger className="w-40" data-testid="select-sort-field">
+                  <SelectTrigger id="fhir-advanced-management-sort-by" className="w-40" data-testid="select-sort-field">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

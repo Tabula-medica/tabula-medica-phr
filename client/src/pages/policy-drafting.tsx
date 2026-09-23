@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -368,12 +369,12 @@ export default function PolicyDrafting() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Policy Category</Label>
+                  <Label htmlFor="policy-drafting-policy-category">Policy Category</Label>
                   <Select 
                     value={selectedCategory} 
                     onValueChange={(v) => setSelectedCategory(v as PolicyCategory)}
                   >
-                    <SelectTrigger data-testid="select-category">
+                    <SelectTrigger id="policy-drafting-policy-category" data-testid="select-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -385,11 +386,11 @@ export default function PolicyDrafting() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Regulatory Frameworks</Label>
+                  <FieldCaption>Regulatory Frameworks</FieldCaption>
                   <div className="grid grid-cols-2 gap-2">
                     {frameworks.map(fw => (
                       <div key={fw.value} className="flex items-center space-x-2">
-                        <Checkbox 
+                        <Checkbox aria-label="Regulatory Frameworks" 
                           id={fw.value}
                           checked={selectedFrameworks.includes(fw.value)}
                           onCheckedChange={() => toggleFramework(fw.value)}
@@ -430,12 +431,12 @@ export default function PolicyDrafting() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label htmlFor="policy-drafting-category">Category</Label>
                   <Select 
                     value={selectedCategory} 
                     onValueChange={(v) => setSelectedCategory(v as PolicyCategory)}
                   >
-                    <SelectTrigger data-testid="select-rule-category">
+                    <SelectTrigger id="policy-drafting-category" data-testid="select-rule-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -447,8 +448,8 @@ export default function PolicyDrafting() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Rule Requirement</Label>
-                  <Textarea 
+                  <Label htmlFor="policy-drafting-rule-requirement">Rule Requirement</Label>
+                  <Textarea id="policy-drafting-rule-requirement" 
                     placeholder="Describe what this rule should enforce..."
                     value={ruleDescription}
                     onChange={(e) => setRuleDescription(e.target.value)}

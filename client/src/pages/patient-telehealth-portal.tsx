@@ -760,9 +760,9 @@ export default function PatientTelehealthPortal() {
 
                   <Card>
                     <CardContent className="p-3 space-y-2">
-                      <Label className="text-sm">Generate Educational Content</Label>
+                      <Label htmlFor="patient-telehealth-porta-generate-educational-content" className="text-sm">Generate Educational Content</Label>
                       <div className="flex gap-2">
-                        <Input
+                        <Input id="patient-telehealth-porta-generate-educational-content"
                           placeholder="Enter a health topic..."
                           value={educationTopic}
                           onChange={(e) => setEducationTopic(e.target.value)}
@@ -900,7 +900,7 @@ export default function PatientTelehealthPortal() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Provider</Label>
+              <Label htmlFor="patient-telehealth-porta-provider">Provider</Label>
               <Select
                 value={scheduleForm.clinicianId}
                 onValueChange={(v) => {
@@ -908,7 +908,7 @@ export default function PatientTelehealthPortal() {
                   setScheduleForm((f) => ({ ...f, clinicianId: v, clinicianName: name }));
                 }}
               >
-                <SelectTrigger data-testid="select-provider">
+                <SelectTrigger id="patient-telehealth-porta-provider" data-testid="select-provider">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -918,8 +918,8 @@ export default function PatientTelehealthPortal() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Date & Time</Label>
-              <Input
+              <Label htmlFor="patient-telehealth-porta-date-time">Date & Time</Label>
+              <Input id="patient-telehealth-porta-date-time"
                 type="datetime-local"
                 value={scheduleForm.date}
                 onChange={(e) => setScheduleForm((f) => ({ ...f, date: e.target.value }))}
@@ -928,9 +928,9 @@ export default function PatientTelehealthPortal() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Duration</Label>
+              <Label htmlFor="patient-telehealth-porta-duration">Duration</Label>
               <Select value={scheduleForm.duration} onValueChange={(v) => setScheduleForm((f) => ({ ...f, duration: v }))}>
-                <SelectTrigger data-testid="select-duration">
+                <SelectTrigger id="patient-telehealth-porta-duration" data-testid="select-duration">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -942,8 +942,8 @@ export default function PatientTelehealthPortal() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Reason for Visit</Label>
-              <Textarea
+              <Label htmlFor="patient-telehealth-porta-reason-for-visit">Reason for Visit</Label>
+              <Textarea id="patient-telehealth-porta-reason-for-visit"
                 placeholder="Describe the reason for your visit..."
                 value={scheduleForm.reason}
                 onChange={(e) => setScheduleForm((f) => ({ ...f, reason: e.target.value }))}

@@ -289,7 +289,7 @@ function QueryBuilder({
               const Icon = categoryIcons[cat.id] || BarChart3;
               const isSelected = selectedCategories.includes(cat.id);
               return (
-                <div
+                <div role="presentation"
                   key={cat.id}
                   onClick={() => toggleCategory(cat.id)}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors min-h-[44px] ${
