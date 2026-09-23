@@ -1,15 +1,16 @@
 import type { Express } from "express";
-import { 
-  unifiedCommunicationHub, 
-  ConversationType, 
-  TelehealthStatus 
+import {
+  unifiedCommunicationHub,
+  ConversationType,
+  TelehealthStatus
 } from "./services/unified-communication-hub-service";
 import { z } from "zod";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 export function registerCommunicationHubRoutes(app: Express) {
-  app.get("/api/communication-hub/stats", async (req, res) => {
+  app.get("/api/communication-hub/stats", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const stats = unifiedCommunicationHub.getHubStats(userId);
       res.json(stats);
     } catch (error: any) {
@@ -17,9 +18,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/conversations", async (req, res) => {
+  app.get("/api/communication-hub/conversations", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const type = req.query.type as ConversationType | undefined;
       const includeArchived = req.query.includeArchived === "true";
 
@@ -30,9 +31,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/conversations/:conversationId", async (req, res) => {
+  app.get("/api/communication-hub/conversations/:conversationId", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const { conversationId } = req.params;
 
       const conversation = unifiedCommunicationHub.getConversation(conversationId, userId);
@@ -45,10 +46,10 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/conversations", async (req, res) => {
+  app.post("/api/communication-hub/conversations", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
-      const userName = (req as any).user?.name || "Sample User";
+      const userId = getUserId(req);
+      const userName = (req as any).user?.displayName || (req as any).user?.email || userId;
 
       const schema = z.object({
         type: z.enum(["patient_provider", "care_team", "internal", "broadcast"]),
@@ -73,9 +74,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/conversations/:conversationId/messages", async (req, res) => {
+  app.get("/api/communication-hub/conversations/:conversationId/messages", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const { conversationId } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
       const before = req.query.before as string | undefined;
@@ -87,10 +88,10 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/conversations/:conversationId/messages", async (req, res) => {
+  app.post("/api/communication-hub/conversations/:conversationId/messages", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
-      const userName = (req as any).user?.name || "Sample User";
+      const userId = getUserId(req);
+      const userName = (req as any).user?.displayName || (req as any).user?.email || userId;
       const userRole = (req as any).user?.role || "patient";
       const { conversationId } = req.params;
 
@@ -122,9 +123,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/communication-hub/messages/:messageId/read", async (req, res) => {
+  app.patch("/api/communication-hub/messages/:messageId/read", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const { messageId } = req.params;
       const { conversationId } = req.body;
 
@@ -135,9 +136,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/documents", async (req, res) => {
+  app.get("/api/communication-hub/documents", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const sent = req.query.sent === "true";
       const received = req.query.received === "true";
 
@@ -148,10 +149,10 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/documents/share", async (req, res) => {
+  app.post("/api/communication-hub/documents/share", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "provider-001";
-      const userName = (req as any).user?.name || "Dr. Sample Provider";
+      const userId = getUserId(req);
+      const userName = (req as any).user?.displayName || (req as any).user?.email || userId;
 
       const schema = z.object({
         recipientId: z.string(),
@@ -177,9 +178,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/documents/:shareId/access", async (req, res) => {
+  app.post("/api/communication-hub/documents/:shareId/access", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const { shareId } = req.params;
       const { accessType } = req.body;
 
@@ -193,9 +194,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/documents/:shareId/receipts", async (req, res) => {
+  app.get("/api/communication-hub/documents/:shareId/receipts", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "provider-001";
+      const userId = getUserId(req);
       const { shareId } = req.params;
 
       const receipts = unifiedCommunicationHub.getDocumentReadReceipt(shareId, userId);
@@ -208,9 +209,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/telehealth", async (req, res) => {
+  app.get("/api/communication-hub/telehealth", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const status = req.query.status as TelehealthStatus | undefined;
       const upcoming = req.query.upcoming === "true";
 
@@ -221,10 +222,10 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/telehealth", async (req, res) => {
+  app.post("/api/communication-hub/telehealth", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "provider-001";
-      const userName = (req as any).user?.name || "Dr. Sample Provider";
+      const userId = getUserId(req);
+      const userName = (req as any).user?.displayName || (req as any).user?.email || userId;
 
       const schema = z.object({
         appointmentId: z.string().optional(),
@@ -248,9 +249,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/telehealth/:sessionId/start", async (req, res) => {
+  app.post("/api/communication-hub/telehealth/:sessionId/start", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const { sessionId } = req.params;
 
       const session = unifiedCommunicationHub.startTelehealthSession(sessionId, userId);
@@ -263,9 +264,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.post("/api/communication-hub/telehealth/:sessionId/end", async (req, res) => {
+  app.post("/api/communication-hub/telehealth/:sessionId/end", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "provider-001";
+      const userId = getUserId(req);
       const { sessionId } = req.params;
       const { notes } = req.body;
 
@@ -279,9 +280,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.get("/api/communication-hub/notifications", async (req, res) => {
+  app.get("/api/communication-hub/notifications", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const unreadOnly = req.query.unreadOnly === "true";
       const type = req.query.type as any;
 
@@ -292,9 +293,9 @@ export function registerCommunicationHubRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/communication-hub/notifications/:notificationId/read", async (req, res) => {
+  app.patch("/api/communication-hub/notifications/:notificationId/read", requireUser, async (req, res) => {
     try {
-      const userId = (req as any).user?.id || "patient-001";
+      const userId = getUserId(req);
       const { notificationId } = req.params;
 
       const success = unifiedCommunicationHub.markNotificationAsRead(notificationId, userId);

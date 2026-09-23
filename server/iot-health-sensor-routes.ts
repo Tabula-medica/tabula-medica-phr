@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { iotHealthSensorService, type SensorType, type AlertStatus, type AlertSeverity } from "./services/iot-health-sensor-service";
 import { z } from "zod";
 
@@ -69,10 +70,9 @@ const trendAnalysisSchema = z.object({
 });
 
 export function registerIoTHealthSensorRoutes(app: Express): void {
-  app.get("/api/iot-sensors/dashboard", async (req, res) => {
+  app.get("/api/iot-sensors/dashboard", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const dashboard = await iotHealthSensorService.getDashboard(patientId);
       res.json(dashboard);
@@ -82,10 +82,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iot-sensors/sensors", async (req, res) => {
+  app.get("/api/iot-sensors/sensors", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const sensors = await iotHealthSensorService.getSensors(patientId);
       res.json({
@@ -99,10 +98,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/sensors/register", async (req, res) => {
+  app.post("/api/iot-sensors/sensors/register", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const parsed = registerSensorSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -121,10 +119,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/sensors/:sensorId/disconnect", async (req, res) => {
+  app.post("/api/iot-sensors/sensors/:sensorId/disconnect", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const { sensorId } = req.params;
       
       const success = await iotHealthSensorService.disconnectSensor(patientId, sensorId);
@@ -140,10 +137,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/sensors/:sensorId/sync", async (req, res) => {
+  app.post("/api/iot-sensors/sensors/:sensorId/sync", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const { sensorId } = req.params;
       
       const sensor = await iotHealthSensorService.syncSensor(patientId, sensorId);
@@ -159,10 +155,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iot-sensors/readings", async (req, res) => {
+  app.get("/api/iot-sensors/readings", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const options = {
         sensorType: req.query.sensorType as SensorType | undefined,
@@ -186,10 +181,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/readings", async (req, res) => {
+  app.post("/api/iot-sensors/readings", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const parsed = addReadingSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -213,7 +207,7 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/readings/detect-anomaly", async (req, res) => {
+  app.post("/api/iot-sensors/readings/detect-anomaly", requireUser, async (req, res) => {
     try {
       const { sensorType, values } = req.body;
       
@@ -229,10 +223,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iot-sensors/alerts", async (req, res) => {
+  app.get("/api/iot-sensors/alerts", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const options = {
         status: req.query.status as AlertStatus | undefined,
@@ -253,10 +246,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/alerts/:alertId/acknowledge", async (req, res) => {
+  app.post("/api/iot-sensors/alerts/:alertId/acknowledge", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const userId = user?.claims?.sub || "user-001";
       const { alertId } = req.params;
       
@@ -273,10 +265,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/alerts/:alertId/resolve", async (req, res) => {
+  app.post("/api/iot-sensors/alerts/:alertId/resolve", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const userId = user?.claims?.sub || "user-001";
       const { alertId } = req.params;
       
@@ -293,10 +284,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/alerts/:alertId/escalate", async (req, res) => {
+  app.post("/api/iot-sensors/alerts/:alertId/escalate", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const { alertId } = req.params;
       
       const parsed = z.object({ escalateTo: z.string().min(1) }).safeParse(req.body);
@@ -317,10 +307,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/streams/start", async (req, res) => {
+  app.post("/api/iot-sensors/streams/start", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const parsed = streamActionSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -339,7 +328,7 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/iot-sensors/streams/:streamId/stop", async (req, res) => {
+  app.post("/api/iot-sensors/streams/:streamId/stop", requireUser, async (req, res) => {
     try {
       const { streamId } = req.params;
       
@@ -356,7 +345,7 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iot-sensors/streams/:streamId", async (req, res) => {
+  app.get("/api/iot-sensors/streams/:streamId", requireUser, async (req, res) => {
     try {
       const { streamId } = req.params;
       
@@ -377,10 +366,9 @@ export function registerIoTHealthSensorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/iot-sensors/analytics/trends", async (req, res) => {
+  app.get("/api/iot-sensors/analytics/trends", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const sensorType = req.query.sensorType as SensorType;
       const days = req.query.days ? parseInt(req.query.days as string) : 30;

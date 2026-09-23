@@ -22,8 +22,8 @@ export const requireUser: RequestHandler = (req, res, next) => {
 
 /**
  * getUserId — the ONLY acceptable way to read the acting user's id.
- * Throws 401 if absent. REPLACES every `|| "system"` / `|| "patient-001"` /
- * `|| "current-user"` fallback in the codebase (see P0-5).
+ * Throws 401 if absent. Replaced all identity fallbacks (see P0-5);
+ * audit-log sentinels now use SYSTEM_ACTOR from security/audit-constants.
  */
 export function getUserId(req: Request): string {
   const userId = (req.user as any)?.claims?.sub as string | undefined;

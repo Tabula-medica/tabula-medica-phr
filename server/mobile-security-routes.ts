@@ -6,6 +6,7 @@ import {
 } from "./security/mobile-security";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { requireUser } from "./middleware/require-user";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const router = Router();
 
@@ -175,7 +176,7 @@ router.post("/notifications/test", async (req: Request, res: Response) => {
 
     const notification = securePushNotifications.createSecureNotification({
       userId,
-      type: type || "system",
+      type: type || SYSTEM_ACTOR,
       title: title || "Test Notification",
       body: body || "This is a test notification to verify PHI masking.",
       priority: priority || "normal",

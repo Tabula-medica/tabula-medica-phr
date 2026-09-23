@@ -4,6 +4,7 @@ import { getComplianceStatus, getSecurityStatus, getTransportSecurityInfo } from
 import { enforcePolicyCompliance } from "./security/policy-enforcement";
 import { requireUser, getUserId } from "./middleware/require-user";
 import { storage } from "./storage";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const SECURITY_ADMIN_ROLES = ["admin", "compliance_officer", "security_admin"];
 
@@ -449,7 +450,7 @@ export function registerSecurityDashboardRoutes(app: Express) {
 
       logPhiAccess({
         userId,
-        patientId: patientId || "system",
+        patientId: patientId || SYSTEM_ACTOR,
         resourceType: "AccessCheck",
         action: "read",
         details: "SIMULATE_ACCESS_CHECK",
