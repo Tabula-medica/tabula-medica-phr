@@ -13,12 +13,15 @@ import { pool } from "../db";
  * express-rate-limit store is in-memory and per-process, so without this a
  * caller distributed across instances got roughly N× the configured limit
  * on identity-critical endpoints before any instance raised the 429 / SIEM
- * event these limiters exist to produce. Applied to the four
- * identity/account-recovery limiters below, not the general `apiRateLimiter`
- * — that one throttles all `/api/*` traffic by volume, not identity abuse,
- * so routing it through Postgres too would add write load disproportionate
- * to its security value; a per-instance throttle still bounds a single
- * instance's flood.
+ * event these limiters exist to produce. Applied to the three
+ * identity/account-recovery limiters that actually sit in this server's
+ * request path (auth, session exchange, MFA — see each limiter's own doc
+ * comment for where it mounts), not the general `apiRateLimiter` — that one
+ * throttles all `/api/*` traffic by volume, not identity abuse, so routing
+ * it through Postgres too would add write load disproportionate to its
+ * security value; a per-instance throttle still bounds a single instance's
+ * flood. `passwordResetRateLimiter` below stays on the in-memory store for
+ * the same reason apiRateLimiter does: see its own comment for why.
  */
 function pgStore(namespace: string): PgRateLimitStore {
   return new PgRateLimitStore(pool, namespace);
@@ -119,11 +122,22 @@ export const mfaRateLimiter = rateLimit({
   handler: rateLimitHandler("mfa"),
 });
 
+/**
+ * Mounted below on /api/auth/reset-password and /api/auth/forgot-password —
+ * but the client calls Firebase/GCIP's sendPasswordResetEmail() directly
+ * (client/src/lib/gcip.ts), and no server route ever handles either path.
+ * This limiter therefore protects no real traffic today; GCIP's own quota
+ * on password-reset emails is what actually guards this flow. Not on the
+ * shared Postgres store for the same reason it's not wired to anything
+ * else — there's no in-process traffic to make cross-instance either.
+ * Kept exported/mounted (rather than deleted) so a future server-side
+ * password-reset endpoint has a limiter ready to attach to; if one never
+ * materializes, this and its two `app.use()` mounts below are safe to
+ * remove.
+ */
 export const passwordResetRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
-  store: pgStore("password_reset"),
-  passOnStoreError: true,
   message: {
     error: "RESET_RATE_LIMITED",
     message: "Too many password reset requests. Please try again later.",
@@ -236,6 +250,9 @@ export function productionErrorHandler(err: Error & { status?: number; statusCod
 }
 
 export function applyAuthRateLimiting(app: { use: (path: string, handler: RequestHandler) => unknown }) {
+  // Dead in practice — see passwordResetRateLimiter's own comment: no
+  // server route exists at either path, GCIP handles password reset
+  // entirely client-side. Left mounted in case that changes.
   app.use("/api/auth/reset-password", passwordResetRateLimiter);
   app.use("/api/auth/forgot-password", passwordResetRateLimiter);
   // Identity-first hardening: every endpoint that turns a bearer token into

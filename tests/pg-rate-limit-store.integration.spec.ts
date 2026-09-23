@@ -90,4 +90,18 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
     await expect(store.increment("k1")).rejects.toThrow();
     await deadPool.end();
   });
+
+  it("rejects with Postgres error 42P01 when the schema hasn't been published yet — the pre-deploy gap this store must fail loud on", async () => {
+    // Simulates the real deploy hazard this test exists to catch: Cloud Run
+    // traffic promoted before `rate_limit_hits` has been applied to the
+    // production database via db:push/publish.
+    await pool.query("ALTER TABLE rate_limit_hits RENAME TO rate_limit_hits_temp_rename");
+    try {
+      const store = new PgRateLimitStore(pool, "missing_schema_test");
+      store.init({ windowMs: 1000 });
+      await expect(store.increment("k1")).rejects.toMatchObject({ code: "42P01" });
+    } finally {
+      await pool.query("ALTER TABLE rate_limit_hits_temp_rename RENAME TO rate_limit_hits");
+    }
+  });
 });
