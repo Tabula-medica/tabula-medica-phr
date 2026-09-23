@@ -22478,8 +22478,8 @@ export const insertProviderLocationDBSchema = createInsertSchema(providerLocatio
 export type InsertProviderLocationDB = z.infer<typeof insertProviderLocationDBSchema>;
 export type ProviderLocationDB = typeof providerLocationsTable.$inferSelect;
 
-// ─── Firecrawl reference-content ingestion (Phase 1) ────────────────────────
-// Public medical reference content (FDA/CDC/WHO/ICD-11) ingested from public
+// ─── Reference-content (Phase 1) ─────────────────────────────────────────────
+// Public medical reference content (FDA/CDC/WHO/ICD-11) sourced from public
 // URLs only — NEVER PHI. Every row lands as `draft`; nothing surfaces to a
 // patient or clinician until a human sets status="published". Patient-facing
 // text is passed through sanitizeNoCDS + carries the NO-CDS disclaimer.
