@@ -1,0 +1,304 @@
+// RCM front-end + mid-cycle: eligibility, prior auth, charge capture, coding, scrubber.
+import { describe, it, expect } from "vitest";
+import { build270, checkEligibility, detectDiscrepancies, estimatePatientResponsibility, financialClearance, parse271, eligibilityIsStale } from "../server/rcm/eligibility";
+import { authCoversService, build278, consumeAuthUnit, createAuthRequest, requiresPriorAuth, slaBreached, transitionAuth } from "../server/rcm/prior-auth";
+import { deriveCharges, detectChargeGaps, parseVoiceCharge, voiceCommandsToLines } from "../server/rcm/charge-capture";
+import { levelEm, mdmLevel, parseCodingSuggestion, reviewIcd } from "../server/rcm/coding";
+import { applyAutoFixes, scrubClaim } from "../server/rcm/scrubber";
+import { PLACE_OF_SERVICE } from "../server/rcm/reference-data";
+import { buildClaim } from "../server/rcm/claims";
+import { DEFAULT_CONTRACTS } from "../server/rcm/contracts";
+import { isValidNpi, round2 } from "../server/rcm/util";
+import type { Coverage, Patient } from "../server/rcm/types";
+
+const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
+const coverage: Coverage = { id: "c1", patientId: "p1", payerId: "BCBS", payerName: "BCBS PPO", memberId: "XYZ123", priority: "primary", subscriberRelationship: "self", effectiveDate: "2026-01-01", timelyFilingDays: 90 };
+
+describe("eligibility", () => {
+  it("builds a 270 for self subscriber and dependent", () => {
+    const self = build270({ patient, coverage, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(self.subscriber.memberId).toBe("XYZ123");
+    expect(self.dependent).toBeUndefined();
+    const dep = build270({ patient, coverage: { ...coverage, subscriberRelationship: "child", subscriberFirstName: "Raj", subscriberLastName: "Demo", subscriberDob: "1940-01-01" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(dep.dependent?.relationshipCode).toBe("19");
+    expect(dep.subscriber.firstName).toBe("Raj");
+  });
+  it("stub vendor returns active benefits; terminated coverage is inactive without a vendor call", async () => {
+    const b = await checkEligibility({ patient, coverage, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(b.active).toBe(true);
+    expect(b.source).toBe("stub");
+    const term = await checkEligibility({ patient, coverage: { ...coverage, terminationDate: "2026-06-30" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(term.active).toBe(false);
+    expect(term.source).toBe("manual");
+    const notYetEffective = await checkEligibility({ patient, coverage: { ...coverage, effectiveDate: "2026-10-01" }, dateOfService: "2026-09-01", providerNpi: "1234567893" });
+    expect(notYetEffective.active).toBe(false);
+    expect(notYetEffective.source).toBe("manual");
+  });
+  it("parses a vendor 271 defensively", () => {
+    const b = parse271({ eligible: "1", plan_name: "Gold PPO", copay: "$30", deductible_remaining: "250.00", coinsurance: 20 });
+    expect(b.active).toBe(true);
+    expect(b.copayOfficeVisit).toBe(30);
+    expect(b.deductibleRemaining).toBe(250);
+    expect(b.source).toBe("clearinghouse");
+  });
+  it("clamps malformed payer-supplied monetary/percentage fields instead of passing them through unvalidated", () => {
+    // A negative dollar figure or an out-of-range coinsurance percentage from a malformed (or
+    // malicious) 271 payload must never reach estimatePatientResponsibility/financialClearance
+    // unclamped — that could produce a negative or greater-than-allowed patient share.
+    const negative = parse271({ eligible: "1", copay: -30, deductible: -1500, deductible_remaining: -600, oop_max: -6000, coinsurance: -20 });
+    expect(negative.copayOfficeVisit).toBe(0);
+    expect(negative.deductibleTotal).toBe(0);
+    expect(negative.deductibleRemaining).toBe(0);
+    expect(negative.oopMaxTotal).toBe(0);
+    expect(negative.coinsurancePct).toBe(0);
+    const overRange = parse271({ eligible: "1", coinsurance: 250 });
+    expect(overRange.coinsurancePct).toBe(100);
+    // A string-valued negative amount must clamp to 0 too, not lose its sign during parsing and
+    // come out positive — the digit-only strip used to also strip the leading "-".
+    const negativeString = parse271({ eligible: "1", copay: "-$30", coinsurance: "-20%" });
+    expect(negativeString.copayOfficeVisit).toBe(0);
+    expect(negativeString.coinsurancePct).toBe(0);
+  });
+  it("estimates patient responsibility: copay + deductible + coinsurance, capped at OOP", () => {
+    const benefits = { active: true, copayOfficeVisit: 30, coinsurancePct: 20, deductibleRemaining: 50, oopMaxRemaining: 1000, checkedAt: new Date().toISOString(), source: "stub" as const };
+    const est = estimatePatientResponsibility([{ cpt: "99214", units: 1 }], benefits, { "99214": 150 });
+    expect(est.estimatedAllowed).toBe(150);
+    expect(est.copay).toBe(30);
+    expect(est.deductibleApplied).toBe(50);
+    expect(est.coinsurance).toBe(14); // (150-30-50)*20%
+    expect(est.patientResponsibility).toBe(94);
+    expect(est.insuranceResponsibility).toBe(56);
+    const capped = estimatePatientResponsibility([{ cpt: "99214", units: 1 }], { ...benefits, oopMaxRemaining: 40 }, { "99214": 150 });
+    expect(capped.patientResponsibility).toBe(40);
+    // Allocated in cost-sharing order (copay, then deductible, then coinsurance) rather than
+    // scaled proportionally — the $30 copay and $10 of the $50 deductible exhaust the $40 cap,
+    // leaving nothing for coinsurance. The breakdown still reconciles with the capped total.
+    expect(capped.copay).toBe(30);
+    expect(capped.deductibleApplied).toBe(10);
+    expect(capped.coinsurance).toBe(0);
+    expect(round2(capped.copay + capped.deductibleApplied + capped.coinsurance)).toBe(40);
+  });
+  it("detects registration/payer discrepancies and blocks clearance", () => {
+    const disc = detectDiscrepancies({ firstName: "Asha", lastName: "Demo", dob: "1968-03-14", memberId: "XYZ123" }, { lastName: "Demo-Kumar", memberId: "xyz 123" });
+    expect(disc.map((d) => d.field)).toEqual(["lastName"]);
+    // source: "clearinghouse" isolates this test from the separate stub-vendor block covered below.
+    const clearance = financialClearance({ active: true, checkedAt: "", source: "clearinghouse" }, { estimatedAllowed: 0, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 25, insuranceResponsibility: 0, assumptions: [] }, disc, { requiresAuth: true, authOnFile: false });
+    expect(clearance.cleared).toBe(false);
+    expect(clearance.reasons).toHaveLength(2);
+    expect(clearance.collectAtVisit).toBe(25);
+  });
+  it("never financially clears a patient on stub-vendor (unverified) eligibility, even with otherwise-clean benefits", () => {
+    // The stub vendor always reports active:true and is only a deterministic placeholder for
+    // demo/test environments — if no real eligibility vendor is configured, "active" here means
+    // nothing was actually verified with the payer, and financialClearance must not treat that
+    // as clearance to collect and proceed.
+    const clean = financialClearance({ active: true, networkStatus: "in-network", checkedAt: "", source: "stub" }, { estimatedAllowed: 100, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 0, insuranceResponsibility: 100, assumptions: [] }, []);
+    expect(clean.cleared).toBe(false);
+    expect(clean.reasons.join(" ")).toMatch(/stub/i);
+    // A real (non-stub) source with otherwise identical, clean inputs clears normally.
+    expect(financialClearance({ active: true, networkStatus: "in-network", checkedAt: "", source: "clearinghouse" }, { estimatedAllowed: 100, copay: 0, deductibleApplied: 0, coinsurance: 0, patientResponsibility: 0, insuranceResponsibility: 100, assumptions: [] }, []).cleared).toBe(true);
+  });
+  it("flags stale snapshots", () => {
+    expect(eligibilityIsStale(undefined)).toBe(true);
+    expect(eligibilityIsStale({ active: true, checkedAt: "2026-01-01T00:00:00Z", source: "stub" }, "2026-09-01")).toBe(true);
+    expect(eligibilityIsStale({ active: true, checkedAt: "2026-08-25T00:00:00Z", source: "stub" }, "2026-09-01")).toBe(false);
+    expect(eligibilityIsStale({ active: true, checkedAt: "not-a-date", source: "stub" }, "2026-09-01")).toBe(true); // malformed timestamp must never read as fresh
+  });
+});
+
+describe("prior auth", () => {
+  it("applies rules, contract lists, and gold-carding", () => {
+    expect(requiresPriorAuth("72148").required).toBe(true);
+    expect(requiresPriorAuth("99213").required).toBe(false);
+    const uhc = DEFAULT_CONTRACTS.find((c) => c.payerId === "UHC")!;
+    expect(requiresPriorAuth("72148", uhc)).toMatchObject({ required: false, goldCarded: true });
+    expect(requiresPriorAuth("E0601", uhc).required).toBe(true);
+  });
+  it("tracks lifecycle, SLA, units and validity", () => {
+    let a = createAuthRequest({ patientId: "p1", coverageId: "c1", payerId: "BCBS", cpt: "72148", diagnoses: ["M54.16"], units: 2, availableDocs: ["Imaging order"] });
+    expect(a.missingDocumentation).toContain("6 weeks conservative therapy");
+    a = transitionAuth(a, "requested", { actor: "t" });
+    expect(a.slaDeadline).toBeDefined();
+    expect(slaBreached(a, new Date(Date.parse(a.requestedAt!) + 8 * 86_400_000).toISOString())).toBe(true);
+    a = transitionAuth(a, "approved", { actor: "t", authNumber: "A1", validFrom: "2026-09-01", validTo: "2026-10-01" });
+    expect(authCoversService(a, "72148", "2026-09-15").ok).toBe(true);
+    expect(authCoversService(a, "72148", "2026-10-15").ok).toBe(false);
+    expect(authCoversService(a, "72148", "2026-09-15", 3).ok).toBe(false); // only 2 units authorized
+    a = consumeAuthUnit(a, 2);
+    expect(a.status).toBe("exhausted");
+    const x = build278(a, "XYZ123", "1234567893", "2026-09-01", "2026-10-01");
+    expect(x.serviceLines[0].cpt).toBe("72148");
+  });
+});
+
+describe("charge capture", () => {
+  it("derives E/M with -25 when a procedure is billed, plus vaccine admin units", () => {
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 4, proceduresDocumented: ["20610"], ordersCompleted: ["36415"], vaccinesGiven: 2, diagnoses: [{ code: "M17.11" }, { code: "E11.9" }] });
+    const em = lines.find((l) => l.cpt === "99214")!;
+    expect(em.modifiers).toContain("25");
+    expect(lines.map((l) => l.cpt)).toEqual(expect.arrayContaining(["20610", "36415", "90471", "90472"]));
+    expect(lines.find((l) => l.cpt === "90472")!.units).toBe(1);
+    expect(lines.every((l) => l.charge > 0)).toBe(true);
+  });
+  it("adds modifier 25 for a same-day ECG or spirometry, but not for a bundled pulse-oximetry reading", () => {
+    // 93000 (ECG) and 94010 (spirometry) are genuinely separate, billable same-day diagnostics
+    // that typically warrant modifier 25 on the E/M — they must not be treated as incidental just
+    // because they share a CPT prefix with pulse oximetry (94760), which IS CMS status-B/bundled
+    // and correctly stays excluded.
+    const withEcg = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["93000"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(withEcg.find((l) => l.cpt === "99213")!.modifiers).toContain("25");
+    const withSpirometry = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["94010"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(withSpirometry.find((l) => l.cpt === "99213")!.modifiers).toContain("25");
+    const withPulseOx = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["94760"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(withPulseOx.find((l) => l.cpt === "99213")!.modifiers).not.toContain("25");
+  });
+  it("aggregates a procedure documented more than once into units instead of collapsing it to a single instance", () => {
+    // Two separate injections of the same CPT must not be deduped away — that would underbill.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["20610", "20610"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    const injections = lines.filter((l) => l.cpt === "20610");
+    expect(injections).toHaveLength(1); // one line, aggregated...
+    expect(injections[0].units).toBe(2); // ...covering both documented instances
+  });
+  it("does not double-count a procedure that appears once in proceduresDocumented and once in ordersCompleted", () => {
+    // The two arrays are two views of the SAME encounter (note vs. completed orders) — a single
+    // injection recorded through both channels is one occurrence, not two.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3, proceduresDocumented: ["20610"], ordersCompleted: ["20610"], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    const injections = lines.filter((l) => l.cpt === "20610");
+    expect(injections).toHaveLength(1);
+    expect(injections[0].units).toBe(1);
+  });
+  it("does not double-bill a code the encounter already generates from its own dedicated fields (E/M, G2211, vaccine admin)", () => {
+    // A clinician's note can restate the visit's own E/M code, the G2211 add-on, and the vaccine
+    // admin codes as if they were separately "documented procedures" — those must not also be
+    // billed a second time via the generic procedure loop.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 4, visitComplexityAddOn: true, proceduresDocumented: ["99214", "G2211", "90471", "90472"], ordersCompleted: [], vaccinesGiven: 2, diagnoses: [{ code: "M17.11" }] });
+    expect(lines.filter((l) => l.cpt === "99214")).toHaveLength(1);
+    expect(lines.filter((l) => l.cpt === "G2211")).toHaveLength(1);
+    expect(lines.filter((l) => l.cpt === "90471")).toHaveLength(1);
+    expect(lines.filter((l) => l.cpt === "90472")).toHaveLength(1);
+  });
+  it("still bills a documented G2211 when there's no E/M level at all, instead of treating it as an already-generated duplicate", () => {
+    // deriveCharges only ever emits its OWN G2211 line inside the emLevel branch — without an
+    // emLevel, nothing generates one, so a G2211 the encounter actually documents must still go
+    // through the generic procedure loop rather than being silently stripped as if it were a
+    // duplicate of a line that was never produced.
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, visitComplexityAddOn: true, proceduresDocumented: ["G2211"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] });
+    expect(lines.filter((l) => l.cpt === "G2211")).toHaveLength(1);
+  });
+  it("uses telehealth POS + modifier 95", () => {
+    const lines = deriveCharges({ encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: true, telehealth: true, emLevel: 3, proceduresDocumented: [], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "J06.9" }] });
+    expect(lines[0]).toMatchObject({ cpt: "99203", placeOfService: "10", modifiers: ["95"] });
+  });
+  it("detects missing, orphan and lagging charges", () => {
+    const facts = { encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3 as const, proceduresDocumented: ["69210"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "H61.21" }] };
+    const gaps = detectChargeGaps(facts, [{ id: "x", cpt: "12001", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], { enteredAt: "2026-09-10" });
+    expect(gaps.map((g) => g.kind).sort()).toEqual(["charge-lag", "missing-charge", "no-em", "orphan-charge"]);
+  });
+  it("flags a missing-charge gap when a procedure is documented twice but only one unit was charged", () => {
+    // A Set-based presence check would treat the single 1-unit charge line as fully covering both
+    // documented instances, hiding a real under-capture.
+    const facts = { encounterId: "e", patientId: "p1", dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", newPatient: false, emLevel: 3 as const, proceduresDocumented: ["20610", "20610"], ordersCompleted: [], vaccinesGiven: 0, diagnoses: [{ code: "M17.11" }] };
+    const gaps = detectChargeGaps(facts, [{ id: "x", cpt: "20610", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }]);
+    expect(gaps.some((g) => g.kind === "missing-charge" && g.cpt === "20610")).toBe(true);
+  });
+  it("parses voice charge commands with modifiers, units and spoken ICD-10", () => {
+    const cmds = parseVoiceCharge("Add 99214 with modifier 25 and 95, diagnosis E11 point 9 and I10, and two units of 90472");
+    expect(cmds).toHaveLength(2);
+    expect(cmds[0]).toMatchObject({ cpt: "99214", modifiers: ["25", "95"], units: 1 });
+    expect(cmds[0].diagnoses).toEqual(["E11.9", "I10"]);
+    expect(cmds[1]).toMatchObject({ cpt: "90472", units: 2 });
+    const built = voiceCommandsToLines(cmds, { dateOfService: "2026-09-01", placeOfService: "11", renderingNpi: "1234567893", diagnoses: [] });
+    expect(built.diagnoses.map((d) => d.code)).toEqual(["E11.9", "I10"]);
+    expect(built.lines[0].dxPointers).toEqual([1, 2]);
+  });
+  it("parses a spoken U-series ICD-10 diagnosis (COVID-19), matching isValidIcd10's accepted range", () => {
+    const cmds = parseVoiceCharge("Add 99214, diagnosis U07 point 1");
+    expect(cmds[0].diagnoses).toEqual(["U07.1"]);
+  });
+  it("scopes each command's diagnoses to its own segment instead of sharing every diagnosis in the transcript", () => {
+    const cmds = parseVoiceCharge("Add 99214 diagnosis E11.9, and 20610 diagnosis M17.11");
+    expect(cmds).toHaveLength(2);
+    expect(cmds[0]).toMatchObject({ cpt: "99214", diagnoses: ["E11.9"] });
+    expect(cmds[1]).toMatchObject({ cpt: "20610", diagnoses: ["M17.11"] }); // not ["E11.9", "M17.11"]
+  });
+});
+
+describe("coding", () => {
+  it("levels by MDM (2 of 3 elements) and by time when higher", () => {
+    const base = { problems: [{ severity: "chronic-exacerbation" as const }], uniqueTestsOrderedOrReviewed: 3, externalNotesReviewed: 0, independentHistorian: false, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "moderate" as const, newPatient: false };
+    expect(mdmLevel(base).level).toBe("moderate");
+    expect(levelEm(base)).toMatchObject({ code: "99214", basis: "mdm" });
+    expect(levelEm({ ...base, totalTimeMinutes: 42 })).toMatchObject({ code: "99215", basis: "time" });
+    expect(levelEm({ ...base, totalTimeMinutes: 70 }).prolongedServiceUnits).toBe(2);
+    expect(levelEm({ ...base, newPatient: true }).code).toBe("99204");
+    expect(levelEm({ problems: [{ severity: "self-limited" }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: false, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "minimal", newPatient: false }).code).toBe("99212");
+  });
+  it("an independent historian alone meets 'low' data (its own Category 2 at Limited), and also counts toward the combined 'any 3' category at Moderate/High", () => {
+    // 2021 MDM "Limited" (low) data has TWO separate categories and only one needs to be met:
+    // Category 1 (tests/documents) needs a combination of 2 from tests ordered/reviewed and
+    // external notes reviewed; Category 2 is simply "assessment requiring an independent
+    // historian" on its own, with no combination requirement at this level.
+    const historianAlone = { problems: [{ severity: "stable-chronic" as const }], uniqueTestsOrderedOrReviewed: 0, externalNotesReviewed: 0, independentHistorian: true, independentInterpretation: false, discussionWithExternalPhysician: false, risk: "low" as const, newPatient: false };
+    expect(mdmLevel(historianAlone).elements.data).toBe("low");
+    // No historian and only 1 test/note doesn't meet Category 1's combination of 2.
+    expect(mdmLevel({ ...historianAlone, independentHistorian: false, uniqueTestsOrderedOrReviewed: 1 }).elements.data).toBe("straightforward");
+    // At Moderate/High, an independent historian only folds into a single combined "any
+    // combination of 3" category alongside tests/notes — 2 tests + a historian (3 total) reaches
+    // that combination, unlike at Limited where it never needs to combine with tests at all.
+    expect(mdmLevel({ ...historianAlone, uniqueTestsOrderedOrReviewed: 2 }).elements.data).toBe("moderate");
+  });
+  it("reviews ICD specificity and HCC opportunities", () => {
+    const f = reviewIcd(["E11.9", "M17.11", "ZZZ"], ["I50.22"]);
+    expect(f.find((x) => x.code === "E11.9")?.kind).toBe("unspecified");
+    expect(f.find((x) => x.code === "ZZZ")?.kind).toBe("invalid");
+    expect(f.find((x) => x.code === "I50.22")?.kind).toBe("hcc-opportunity");
+  });
+  it("parses AI coding JSON strictly and drops invalid codes", () => {
+    const s = parseCodingSuggestion('```json{"em":{"code":"99214","rationale":"r"},"icd":[{"code":"E11.65","description":"d"},{"code":"bad!","description":"x"}],"queries":["laterality?"]}```', "vertex");
+    expect(s.em.code).toBe("99214");
+    expect(s.icd).toHaveLength(1);
+    expect(s.queries).toEqual(["laterality?"]);
+  });
+});
+
+describe("scrubber", () => {
+  const mk = (over: Partial<Parameters<typeof buildClaim>[0]> = {}) => buildClaim({ encounterId: "e", patient, coverage, billingNpi: "1234567893", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: [], units: 1, charge: 300, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "20610", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }], ...over });
+  it("validates NPIs with Luhn", () => { expect(isValidNpi("1234567893")).toBe(true); expect(isValidNpi("1234567890")).toBe(false); });
+  it("finds missing -25 but leaves it for a human — appending it is a coding judgment call, not an auto-fix", () => {
+    const claim = mk();
+    const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
+    expect(r.errors.map((e) => e.id)).toContain("missing-em-25-modifier");
+    const found = r.edits.find((e) => e.id === "missing-em-25-modifier")!;
+    expect(found.autoFixable).toBeFalsy();
+    const fixed = applyAutoFixes(claim, r.edits);
+    expect(fixed.applied).not.toContain("missing-em-25-modifier");
+    const r2 = scrubClaim(fixed.claim, { patient, coverage, today: "2026-09-05" });
+    expect(r2.clean).toBe(false); // still needs a human to confirm and add the modifier
+  });
+  it("catches bundling, timely filing, coverage, auth and demographic edits", () => {
+    const claim = mk({ diagnoses: [{ code: "N40.1" }, { code: "E11" }], lines: [{ cpt: "99397", modifiers: ["25"], units: 1, charge: 200, dxPointers: [1, 2], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "12001", modifiers: [], units: 1, charge: 120, dxPointers: [9], dateOfService: "2026-03-01", placeOfService: "11" }, { cpt: "72148", modifiers: ["ZZ"], units: 1, charge: 900, dxPointers: [1], dateOfService: "2026-03-01", placeOfService: "88" }] });
+    const r = scrubClaim(claim, { patient, coverage: { ...coverage, terminationDate: "2026-02-01" }, today: "2026-09-05", authRequiredCpts: ["72148"] });
+    const ids = new Set(r.edits.map((e) => e.id));
+    for (const id of ["ncci-bundling", "timely-filing", "coverage-terminated", "auth-missing", "age-inappropriate-cpt", "sex-inappropriate-icd", "unknown-modifier", "pos-format", "unlinked-service-line", "icd-specificity"]) expect(ids.has(id), id).toBe(true);
+    expect(r.clean).toBe(false);
+  });
+  it("recognizes real CMS place-of-service codes the earlier seed-sized map omitted (assisted living, inpatient hospital, nursing facility, ambulance)", () => {
+    for (const pos of ["13", "21", "27", "32", "41", "42"]) {
+      expect(PLACE_OF_SERVICE[pos], pos).toBeDefined();
+      const claim = mk({ lines: [{ cpt: "99213", modifiers: [], units: 1, charge: 100, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: pos }] });
+      const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
+      expect(r.edits.map((e) => e.id), pos).not.toContain("pos-format");
+    }
+  });
+  it("modifier 25 alone does not bypass an NCCI PTP edit (it is an E/M modifier, not a bypass)", () => {
+    const claim = mk({ lines: [{ cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "12001", modifiers: ["25"], units: 1, charge: 120, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }] });
+    const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
+    expect(r.edits.map((e) => e.id)).toContain("ncci-bundling");
+  });
+  it("accepts NCCI bypass with a distinct-service modifier and flags telehealth POS without 95", () => {
+    const claim = mk({ lines: [{ cpt: "12002", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "12001", modifiers: ["59"], units: 1, charge: 120, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "11" }, { cpt: "99213", modifiers: ["25"], units: 1, charge: 200, dxPointers: [1], dateOfService: "2026-09-01", placeOfService: "10" }] });
+    const r = scrubClaim(claim, { patient, coverage, today: "2026-09-05" });
+    expect(r.edits.map((e) => e.id)).not.toContain("ncci-bundling");
+    expect(r.warnings.map((e) => e.id)).toContain("telehealth-modifier-pos");
+  });
+});

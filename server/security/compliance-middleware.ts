@@ -59,6 +59,7 @@ const PHI_ROUTE_PATTERNS = [
   /\/api\/care-plan/,
   /\/api\/immunization/,
   /\/api\/telehealth/,
+  /\/api\/rcm/,
 ];
 
 const TEFCA_DATA_EXCHANGE_PATTERNS = [
