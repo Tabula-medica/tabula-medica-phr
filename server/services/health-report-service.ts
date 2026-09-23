@@ -104,7 +104,7 @@ class HealthReportService {
   }
 
   private initializeSampleGoals(): void {
-    const patientId = "patient-001";
+    const patientId = "demo-patient-001";
     this.goals.set(patientId, [
       {
         id: "goal-001",

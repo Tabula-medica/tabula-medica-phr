@@ -198,7 +198,7 @@ function initializeSampleData() {
 
   const assessment1: DataQualityAssessment = {
     id: "assess-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     triggeredBy: "event-fhir-import-001",
     assessmentType: "completeness",
     score: 78.5,
@@ -260,7 +260,7 @@ function initializeSampleData() {
     id: "med-alert-001",
     alertType: "potential_data_conflict",
     severity: "high",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     medications: [
       {
         medicationId: "med-001",
@@ -307,7 +307,7 @@ function initializeSampleData() {
     taskType: "source_reconciliation",
     priority: "high",
     title: "Reconcile medication dosage discrepancy",
-    description: "Medication dosage values differ between Fasten Health and CVS Pharmacy for patient-001. Determine authoritative source and update records.",
+    description: "Medication dosage values differ between Fasten Health and CVS Pharmacy for demo-patient-001. Determine authoritative source and update records.",
     affectedResources: ["MedicationRequest/med-001"],
     suggestedActions: [
       "Contact pharmacy to verify current prescription details",
@@ -409,7 +409,7 @@ function initializeSampleData() {
       id: "event-001",
       eventType: "resource_created",
       resourceType: "Observation",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       resourceId: "obs-new-001",
       timestamp: now,
       sourceSystem: "Primary Care Provider"
@@ -537,7 +537,7 @@ function initializeSampleData() {
     id: "trigger-001",
     triggerType: "discharge_event",
     triggeredBy: "Encounter/enc-discharge-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     reportType: "discharge_summary",
     status: "completed",
     priority: "high",
@@ -551,7 +551,7 @@ function initializeSampleData() {
     id: "report-001",
     reportType: "discharge_summary",
     title: "Discharge Summary - Patient John Smith",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     triggerId: "trigger-001",
     content: {
       summary: "Patient discharge summary generated automatically upon encounter completion. This is an administrative document for care coordination purposes only.",

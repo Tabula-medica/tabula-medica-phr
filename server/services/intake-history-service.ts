@@ -427,7 +427,7 @@ class IntakeHistoryService {
 
   private initializeSampleData(): void {
     const sampleRecord: PatientIntakeRecord = {
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       diagnoses: [
         { code: "I10", display: "Essential (primary) hypertension", year: 2019, status: "active" },
         { code: "E78.5", display: "Hyperlipidemia, unspecified", year: 2020, status: "active" },
@@ -566,7 +566,7 @@ class IntakeHistoryService {
       },
       updatedAt: new Date().toISOString(),
     };
-    this.patientRecords.set("patient-001", sampleRecord);
+    this.patientRecords.set("demo-patient-001", sampleRecord);
   }
 
   getReferenceData() {

@@ -74,7 +74,7 @@ const consentsStore: Map<string, DataConsent[]> = new Map();
 
 // Initialize sample consents
 function initializeSampleConsents(): void {
-  const patientId = "patient-001";
+  const patientId = "demo-patient-001";
   consentsStore.set(patientId, [
     {
       id: "consent-001",

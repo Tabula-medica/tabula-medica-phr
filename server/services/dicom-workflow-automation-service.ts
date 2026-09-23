@@ -280,7 +280,7 @@ function initializeSampleData() {
 
   const alert1: ClinicianAlert = {
     id: "alert-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     studyId: "study-001",
     alertType: "high_risk",

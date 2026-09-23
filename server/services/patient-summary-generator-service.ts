@@ -223,7 +223,7 @@ function detectDataQualityFlags(patientId: string): DataQualityFlag[] {
 }
 
 function generateActionableInsights(
-  patientData: typeof SAMPLE_PATIENT_DATA["patient-001"],
+  patientData: typeof SAMPLE_PATIENT_DATA["demo-patient-001"],
   timeframeDays: number
 ): ActionableInsight[] {
   const insights: ActionableInsight[] = [];
@@ -314,7 +314,7 @@ const SAMPLE_PATIENT_DATA: Record<string, {
   procedures: Array<{ id: string; display: string; date: string; status: string }>;
   carePlanGoals: Array<{ id: string; description: string; status: string; targetDate: string }>;
 }> = {
-  "patient-001": {
+  "demo-patient-001": {
     demographics: { name: "John Smith", dob: "1965-03-15", gender: "Male", mrn: "MRN-12345" },
     conditions: [
       { id: "cond-1", display: "Type 2 Diabetes Mellitus", status: "active", onsetDate: "2018-06-10", category: "Metabolic" },
@@ -391,11 +391,11 @@ const SAMPLE_PATIENT_DATA: Record<string, {
   },
 };
 
-function getPatientFHIRData(patientId: string): typeof SAMPLE_PATIENT_DATA["patient-001"] | undefined {
+function getPatientFHIRData(patientId: string): typeof SAMPLE_PATIENT_DATA["demo-patient-001"] | undefined {
   return SAMPLE_PATIENT_DATA[patientId];
 }
 
-function aggregateFHIRResources(patientData: typeof SAMPLE_PATIENT_DATA["patient-001"], timeframeDays: number): FHIRResourceSummary[] {
+function aggregateFHIRResources(patientData: typeof SAMPLE_PATIENT_DATA["demo-patient-001"], timeframeDays: number): FHIRResourceSummary[] {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - timeframeDays);
 
@@ -481,7 +481,7 @@ function aggregateFHIRResources(patientData: typeof SAMPLE_PATIENT_DATA["patient
   return summaries;
 }
 
-function identifyRecentUpdates(patientData: typeof SAMPLE_PATIENT_DATA["patient-001"], timeframeDays: number): RecentUpdate[] {
+function identifyRecentUpdates(patientData: typeof SAMPLE_PATIENT_DATA["demo-patient-001"], timeframeDays: number): RecentUpdate[] {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - timeframeDays);
 
@@ -526,7 +526,7 @@ function identifyRecentUpdates(patientData: typeof SAMPLE_PATIENT_DATA["patient-
   return updates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-function buildDataContext(patientData: typeof SAMPLE_PATIENT_DATA["patient-001"]): string {
+function buildDataContext(patientData: typeof SAMPLE_PATIENT_DATA["demo-patient-001"]): string {
   const lines: string[] = [];
 
   lines.push(`PATIENT DEMOGRAPHICS:`);
@@ -583,7 +583,7 @@ function buildDataContext(patientData: typeof SAMPLE_PATIENT_DATA["patient-001"]
 const aiEnabled = true;
 
 async function generateAISummary(
-  patientData: typeof SAMPLE_PATIENT_DATA["patient-001"],
+  patientData: typeof SAMPLE_PATIENT_DATA["demo-patient-001"],
   role: CareTeamRole,
   summaryLength: SummaryLength = "standard",
   focusAreas?: string[],

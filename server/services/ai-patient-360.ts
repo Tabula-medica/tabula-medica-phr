@@ -117,7 +117,7 @@ const samplePatientData: Map<string, Patient360View> = new Map();
 
 function initializeSampleData(): void {
   const patient1: Patient360View = {
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientIdentifiers: [
       { system: "urn:oid:2.16.840.1.113883.4.1", value: "***-**-1234" },
       { system: "http://hospital.example.org/mrn", value: "MRN-12345" }
@@ -231,7 +231,7 @@ function initializeSampleData(): void {
     noCdsCompliance: "This view provides data integration and quality metrics only. No clinical decision support or medical recommendations."
   };
 
-  samplePatientData.set("patient-001", patient1);
+  samplePatientData.set("demo-patient-001", patient1);
 
   const patient2: Patient360View = {
     patientId: "patient-002",

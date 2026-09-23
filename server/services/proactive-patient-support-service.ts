@@ -151,7 +151,7 @@ function initializeSampleData() {
   const samplePatients: PatientSupportProfile[] = [
     {
       id: "psp-1",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       age: 58,
       conditions: ["Type 2 Diabetes", "Hypertension", "Obesity"],

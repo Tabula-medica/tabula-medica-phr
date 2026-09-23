@@ -129,7 +129,7 @@ class PredictiveDataQualityAI {
         },
       });
     }
-    historicalDataStore.set("patient:patient-001", patientData);
+    historicalDataStore.set("patient:demo-patient-001", patientData);
     historicalDataStore.set("patient:patient-002", this.generateStableData(now, dayMs));
 
     historicalDataStore.set("resource_type:Observation", this.generateDegradingData(now, dayMs));
@@ -851,7 +851,7 @@ Provide a 2-3 sentence analysis focusing ONLY on data quality implications, NOT 
 
   private getTargetName(targetId: string, targetType: PredictionTargetType): string {
     const names: Record<string, string> = {
-      "patient-001": "John Smith",
+      "demo-patient-001": "John Smith",
       "patient-002": "Jane Doe",
       "Observation": "Observation Resources",
       "MedicationRequest": "Medication Requests",

@@ -160,7 +160,7 @@ function initializeSampleData(): void {
   const patterns: PatientJourneyPattern[] = [
     {
       id: "pat-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patternType: "care_gap",
       description: "Missed follow-up appointment after discharge - 14 days overdue",
       journeyPhase: "follow_up",
@@ -222,7 +222,7 @@ function initializeSampleData(): void {
   const riskAssessments: ReadmissionRiskAssessment[] = [
     {
       id: "risk-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       assessmentDate: new Date().toISOString(),
       riskLevel: "high",
       riskScore: 78,
@@ -288,7 +288,7 @@ function initializeSampleData(): void {
   const interventions: ProactiveIntervention[] = [
     {
       id: "int-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       interventionType: "outreach",
       priority: "high",
       title: "Post-Discharge Follow-Up Outreach",

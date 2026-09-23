@@ -856,7 +856,7 @@ function initializeSampleData() {
       id: randomUUID(),
       eventType: "create",
       resourceType: "Patient",
-      resourceId: "patient-001",
+      resourceId: "demo-patient-001",
       timestamp: new Date(Date.now() - 300000).toISOString(),
       qualityScore: 95,
       issueCount: 1,

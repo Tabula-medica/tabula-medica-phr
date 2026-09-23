@@ -451,7 +451,7 @@ class FHIRAccessControlService {
     const consents: PatientConsent[] = [
       {
         id: "consent-1",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         appId: "app-epic-mychart",
         appName: "Primary Care Provider",
         status: "active",
@@ -476,7 +476,7 @@ class FHIRAccessControlService {
       },
       {
         id: "consent-2",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         appId: "app-fasten-health",
         appName: "Fasten Health",
         status: "active",

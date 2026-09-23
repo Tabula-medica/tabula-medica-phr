@@ -325,7 +325,7 @@ const segmentStore = new Map<string, JourneySegment>();
 function initializeSamplePathways(): void {
   const samplePathway: JourneyPathway = {
     id: "pathway-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     name: "Post-Discharge Care Coordination",
     description: "Comprehensive care pathway following hospital discharge with follow-up coordination",
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),

@@ -228,7 +228,7 @@ class IoTHealthSensorService {
   }
 
   private initializeSampleData(): void {
-    const patientId = "patient-001";
+    const patientId = "demo-patient-001";
     
     const sensors: IoTSensor[] = [
       {
@@ -470,7 +470,7 @@ class IoTHealthSensorService {
         recommendedAction: "Review meal composition. Consider adjusting carbohydrate intake or medication timing.",
         createdAt: new Date(Date.now() - 7200000).toISOString(),
         acknowledgedAt: new Date(Date.now() - 5400000).toISOString(),
-        acknowledgedBy: "patient-001",
+        acknowledgedBy: "demo-patient-001",
         aiAnalysis: "Trend shows consistent post-meal spikes after high-carbohydrate meals. Pattern suggests meal timing optimization may help.",
         noCdsDisclaimer: "EDUCATIONAL CONTENT ONLY. This alert is for informational purposes and NOT medical advice. Consult your healthcare provider for diagnosis and treatment."
       },

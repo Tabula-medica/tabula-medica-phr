@@ -119,7 +119,7 @@ class FHIRResourceLifecycleService {
   private initializeSampleData(): void {
     const sampleResources: FHIRResource[] = [
       {
-        id: "patient-001",
+        id: "demo-patient-001",
         resourceType: "Patient",
         meta: { versionId: "3", lastUpdated: new Date().toISOString(), source: "Primary Care Provider" },
         identifier: [{ system: "urn:oid:2.16.840.1.113883.4.1", value: "123-45-6789" }],
@@ -134,7 +134,7 @@ class FHIRResourceLifecycleService {
         meta: { versionId: "1", lastUpdated: new Date().toISOString(), source: "Lab System" },
         status: "final",
         code: { coding: [{ system: "http://loinc.org", code: "2339-0", display: "Glucose [Mass/volume] in Blood" }] },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         effectiveDateTime: new Date().toISOString(),
         valueQuantity: { value: 95, unit: "mg/dL", system: "http://unitsofmeasure.org", code: "mg/dL" }
       },
@@ -144,7 +144,7 @@ class FHIRResourceLifecycleService {
         meta: { versionId: "2", lastUpdated: new Date().toISOString(), source: "Clinical Note" },
         clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: "active" }] },
         code: { coding: [{ system: "http://snomed.info/sct", code: "44054006", display: "Type 2 diabetes mellitus" }] },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         onsetDateTime: "2020-01-15"
       },
       {
@@ -154,7 +154,7 @@ class FHIRResourceLifecycleService {
         status: "active",
         intent: "order",
         medicationCodeableConcept: { coding: [{ system: "http://www.nlm.nih.gov/research/umls/rxnorm", code: "860975", display: "Metformin 500 MG Oral Tablet" }] },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         dosageInstruction: [{ text: "Take 1 tablet twice daily with meals" }]
       }
     ];
@@ -211,7 +211,7 @@ class FHIRResourceLifecycleService {
       name: "Test Patient Bundle",
       resources: [
         {
-          id: "temp-patient-001",
+          id: "temp-demo-patient-001",
           resourceType: "Patient",
           name: [{ family: "Test", given: ["User"] }],
           birthDate: "1990-05-20",
@@ -220,7 +220,7 @@ class FHIRResourceLifecycleService {
       ],
       validationResults: [
         {
-          resourceId: "temp-patient-001",
+          resourceId: "temp-demo-patient-001",
           valid: true,
           errors: [],
           warnings: [{ path: "identifier", message: "No identifier provided - recommended for production use" }]

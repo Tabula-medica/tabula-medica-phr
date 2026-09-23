@@ -71,7 +71,7 @@ const patientNotificationPreferences = new Map<string, {
   allowEmail: boolean;
 }>();
 
-patientNotificationPreferences.set("patient-001", {
+patientNotificationPreferences.set("demo-patient-001", {
   phone: "+1-555-0100",
   email: "patient@example.com",
   allowSms: true,

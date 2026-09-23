@@ -140,7 +140,7 @@ const SAMPLE_PATIENT_PORTAL_DATA: Record<string, {
   messages: SecureMessage[];
   questionnaires: HealthQuestionnaire[];
 }> = {
-  "patient-001": {
+  "demo-patient-001": {
     medications: [
       { id: "med-1", name: "Metformin", dosage: "1000mg", frequency: "Twice daily with meals", prescriber: "Dr. Johnson", startDate: "2018-06-15", status: "active", instructions: "Take with food to reduce stomach upset", refillsRemaining: 3 },
       { id: "med-2", name: "Lisinopril", dosage: "20mg", frequency: "Once daily in the morning", prescriber: "Dr. Johnson", startDate: "2016-03-01", status: "active", refillsRemaining: 2 },
@@ -204,15 +204,15 @@ const SAMPLE_PATIENT_PORTAL_DATA: Record<string, {
       },
     ],
     messageThreads: [
-      { id: "thread-1", subject: "Question about medication timing", participants: [{ id: "patient-001", name: "John Smith", role: "patient" }, { id: "nurse-1", name: "Nurse Sarah", role: "nurse" }], lastMessageAt: "2026-01-17T14:30:00Z", messageCount: 3, unreadCount: 1, isUrgent: false },
-      { id: "thread-2", subject: "Lab results follow-up", participants: [{ id: "patient-001", name: "John Smith", role: "patient" }, { id: "dr-johnson", name: "Dr. Johnson", role: "provider" }], lastMessageAt: "2026-01-15T10:00:00Z", messageCount: 2, unreadCount: 0, isUrgent: false },
+      { id: "thread-1", subject: "Question about medication timing", participants: [{ id: "demo-patient-001", name: "John Smith", role: "patient" }, { id: "nurse-1", name: "Nurse Sarah", role: "nurse" }], lastMessageAt: "2026-01-17T14:30:00Z", messageCount: 3, unreadCount: 1, isUrgent: false },
+      { id: "thread-2", subject: "Lab results follow-up", participants: [{ id: "demo-patient-001", name: "John Smith", role: "patient" }, { id: "dr-johnson", name: "Dr. Johnson", role: "provider" }], lastMessageAt: "2026-01-15T10:00:00Z", messageCount: 2, unreadCount: 0, isUrgent: false },
     ],
     messages: [
-      { id: "msg-1", threadId: "thread-1", senderId: "patient-001", senderName: "John Smith", senderRole: "patient", recipientId: "nurse-1", recipientName: "Nurse Sarah", subject: "Question about medication timing", content: "Hi, I have a question about when to take my Metformin. Should I take it before or after breakfast?", sentAt: "2026-01-17T09:00:00Z", readAt: "2026-01-17T09:30:00Z", isUrgent: false },
-      { id: "msg-2", threadId: "thread-1", senderId: "nurse-1", senderName: "Nurse Sarah", senderRole: "nurse", recipientId: "patient-001", recipientName: "John Smith", subject: "Re: Question about medication timing", content: "Hi John, it's best to take Metformin with meals to minimize stomach upset. Taking it at the start of your meal works well for most patients.", sentAt: "2026-01-17T10:15:00Z", readAt: "2026-01-17T11:00:00Z", isUrgent: false },
-      { id: "msg-3", threadId: "thread-1", senderId: "nurse-1", senderName: "Nurse Sarah", senderRole: "nurse", recipientId: "patient-001", recipientName: "John Smith", subject: "Re: Question about medication timing", content: "Also, make sure to take your second dose with dinner. Let me know if you have any other questions!", sentAt: "2026-01-17T14:30:00Z", isUrgent: false },
-      { id: "msg-4", threadId: "thread-2", senderId: "dr-johnson", senderName: "Dr. Johnson", senderRole: "provider", recipientId: "patient-001", recipientName: "John Smith", subject: "Lab results follow-up", content: "John, your recent lab results look good. Your HbA1c has improved to 7.8%. Keep up the good work with your diet and exercise!", sentAt: "2026-01-15T09:00:00Z", readAt: "2026-01-15T10:00:00Z", isUrgent: false },
-      { id: "msg-5", threadId: "thread-2", senderId: "patient-001", senderName: "John Smith", senderRole: "patient", recipientId: "dr-johnson", recipientName: "Dr. Johnson", subject: "Re: Lab results follow-up", content: "Thank you Dr. Johnson! I've been working hard on my diet. Should I schedule a follow-up appointment?", sentAt: "2026-01-15T10:00:00Z", readAt: "2026-01-15T11:30:00Z", isUrgent: false },
+      { id: "msg-1", threadId: "thread-1", senderId: "demo-patient-001", senderName: "John Smith", senderRole: "patient", recipientId: "nurse-1", recipientName: "Nurse Sarah", subject: "Question about medication timing", content: "Hi, I have a question about when to take my Metformin. Should I take it before or after breakfast?", sentAt: "2026-01-17T09:00:00Z", readAt: "2026-01-17T09:30:00Z", isUrgent: false },
+      { id: "msg-2", threadId: "thread-1", senderId: "nurse-1", senderName: "Nurse Sarah", senderRole: "nurse", recipientId: "demo-patient-001", recipientName: "John Smith", subject: "Re: Question about medication timing", content: "Hi John, it's best to take Metformin with meals to minimize stomach upset. Taking it at the start of your meal works well for most patients.", sentAt: "2026-01-17T10:15:00Z", readAt: "2026-01-17T11:00:00Z", isUrgent: false },
+      { id: "msg-3", threadId: "thread-1", senderId: "nurse-1", senderName: "Nurse Sarah", senderRole: "nurse", recipientId: "demo-patient-001", recipientName: "John Smith", subject: "Re: Question about medication timing", content: "Also, make sure to take your second dose with dinner. Let me know if you have any other questions!", sentAt: "2026-01-17T14:30:00Z", isUrgent: false },
+      { id: "msg-4", threadId: "thread-2", senderId: "dr-johnson", senderName: "Dr. Johnson", senderRole: "provider", recipientId: "demo-patient-001", recipientName: "John Smith", subject: "Lab results follow-up", content: "John, your recent lab results look good. Your HbA1c has improved to 7.8%. Keep up the good work with your diet and exercise!", sentAt: "2026-01-15T09:00:00Z", readAt: "2026-01-15T10:00:00Z", isUrgent: false },
+      { id: "msg-5", threadId: "thread-2", senderId: "demo-patient-001", senderName: "John Smith", senderRole: "patient", recipientId: "dr-johnson", recipientName: "Dr. Johnson", subject: "Re: Lab results follow-up", content: "Thank you Dr. Johnson! I've been working hard on my diet. Should I schedule a follow-up appointment?", sentAt: "2026-01-15T10:00:00Z", readAt: "2026-01-15T11:30:00Z", isUrgent: false },
     ],
     questionnaires: [
       {
@@ -373,7 +373,7 @@ export async function sendMessage(
     id: `msg-${Date.now()}`,
     threadId,
     senderId: patientId,
-    senderName: patientId === "patient-001" ? "John Smith" : "Mary Johnson",
+    senderName: patientId === "demo-patient-001" ? "John Smith" : "Mary Johnson",
     senderRole: "patient",
     recipientId,
     recipientName,
@@ -432,7 +432,7 @@ export async function createNewThread(
   }
 
   const threadId = `thread-${Date.now()}`;
-  const patientName = patientId === "patient-001" ? "John Smith" : "Mary Johnson";
+  const patientName = patientId === "demo-patient-001" ? "John Smith" : "Mary Johnson";
 
   const thread: MessageThread = {
     id: threadId,
@@ -686,7 +686,7 @@ export function getAvailableRecipients(): Array<{ id: string; name: string; role
 export function getPatientPortalPatients(): Array<{ id: string; name: string }> {
   return Object.keys(SAMPLE_PATIENT_PORTAL_DATA).map((id) => ({
     id,
-    name: id === "patient-001" ? "John Smith" : "Mary Johnson",
+    name: id === "demo-patient-001" ? "John Smith" : "Mary Johnson",
   }));
 }
 

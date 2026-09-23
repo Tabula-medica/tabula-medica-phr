@@ -3,7 +3,7 @@ import { logPhiAccess } from "./security/hipaa-audit";
 
 const router = Router();
 
-const SAMPLE_PATIENT_ID = "patient-001";
+const SAMPLE_PATIENT_ID = "demo-patient-001";
 
 function getPatientId(req: Request): string {
   const user = (req as any).user;

@@ -66,7 +66,7 @@ function initializeSampleData() {
   const insights: PatientInsight[] = [
     {
       id: "insight-1",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       type: 'health_summary',
       title: "Comprehensive Health Overview",
       summary: "Patient demonstrates good overall health with well-controlled chronic conditions. Blood pressure and glucose levels are within target ranges.",
@@ -150,7 +150,7 @@ function initializeSampleData() {
   const trends: TrendAnalysis[] = [
     {
       id: "trend-1",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       metric: "Blood Pressure Systolic",
       dataPoints: [
         { date: "2025-07-01", value: 138 },

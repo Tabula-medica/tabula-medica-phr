@@ -145,7 +145,7 @@ export class SecureHealthShareService {
   private initializeSampleShares(): void {
     const sampleShare: HealthDataShare = {
       id: 'share-001',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       token: 'sample-token-abc123',
       recipientName: 'Dr. Sarah Johnson',
       recipientEmail: 'dr.johnson@hospital.org',
@@ -168,7 +168,7 @@ export class SecureHealthShareService {
 
     const expiredShare: HealthDataShare = {
       id: 'share-002',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       token: 'expired-token-xyz789',
       recipientName: 'Jane Smith (Daughter)',
       recipientType: 'family',

@@ -110,7 +110,7 @@ class AIFHIRDataIngestionService {
   private initializeSampleData() {
     const sampleNote: ClinicalNote = {
       id: 'note-1',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       noteType: 'doctor_note',
       rawText: `Patient presents with persistent cough for 2 weeks. Temperature 101.2F. 
 Blood pressure 130/85 mmHg. Heart rate 88 bpm. Respiratory rate 18/min.
@@ -130,7 +130,7 @@ Plan:
       id: 'job-1',
       status: 'completed',
       noteId: 'note-1',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       noteType: 'doctor_note',
       startTime: new Date(Date.now() - 60000).toISOString(),
       endTime: new Date().toISOString(),
@@ -145,7 +145,7 @@ Plan:
     const sampleParsedData: ParsedClinicalData = {
       id: 'parsed-1',
       noteId: 'note-1',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       entities: [
         { type: 'condition', value: 'Acute bronchitis', code: 'J20.9', codeSystem: 'ICD-10', confidence: 0.92, context: 'Assessment: Acute bronchitis' },
         { type: 'vital_sign', value: 'Temperature 101.2F', confidence: 0.98, context: 'Temperature 101.2F' },

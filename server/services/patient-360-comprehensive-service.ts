@@ -197,9 +197,9 @@ function initializePatientData(): void {
   const now = new Date();
   
   const patient1: ComprehensivePatient360View = {
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     demographics: {
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       name: "John Smith",
       firstName: "John",
       lastName: "Smith",
@@ -319,7 +319,7 @@ function initializePatientData(): void {
     noCdsDisclaimer: NO_CDS_DISCLAIMER
   };
 
-  patientData.set("patient-001", patient1);
+  patientData.set("demo-patient-001", patient1);
 
   const patient2: ComprehensivePatient360View = {
     patientId: "patient-002",

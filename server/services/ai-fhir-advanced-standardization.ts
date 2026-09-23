@@ -266,7 +266,7 @@ class AIFHIRAdvancedStandardizationService {
 
     const sampleInference: DataInference = {
       id: "di-" + randomUUID().substring(0, 8),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       resourceType: "Observation",
       inferredField: "Observation.interpretation",
       inferredValue: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", code: "H", display: "High" }] },

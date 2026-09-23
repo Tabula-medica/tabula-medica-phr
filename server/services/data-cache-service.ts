@@ -500,11 +500,11 @@ class DataCacheService {
       sizeBytes: number;
       objectKey?: string;
     }> = [
-      { insert: { patientId: "patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "labs" }, status: "fresh", lastFetched: new Date(now.getTime() - 15 * 60 * 1000), recordCount: 12, sizeBytes: 45_200 },
-      { insert: { patientId: "patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "medications" }, status: "fresh", lastFetched: new Date(now.getTime() - 15 * 60 * 1000), recordCount: 5, sizeBytes: 18_300 },
-      { insert: { patientId: "patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "conditions" }, status: "stale", lastFetched: new Date(now.getTime() - 6 * 3600 * 1000), recordCount: 8, sizeBytes: 12_000 },
-      { insert: { patientId: "patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "documents" }, status: "fresh", lastFetched: new Date(now.getTime() - 30 * 60 * 1000), recordCount: 3, sizeBytes: 2_100_000, objectKey: "patient-001/epic/documents/bundle-2026-02.json" },
-      { insert: { patientId: "patient-001", sourceType: "aggregator", sourceId: "fasten-health", sourceName: "Fasten Health", dataCategory: "labs" }, status: "fresh", lastFetched: new Date(now.getTime() - 45 * 60 * 1000), recordCount: 8, sizeBytes: 32_000 },
+      { insert: { patientId: "demo-patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "labs" }, status: "fresh", lastFetched: new Date(now.getTime() - 15 * 60 * 1000), recordCount: 12, sizeBytes: 45_200 },
+      { insert: { patientId: "demo-patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "medications" }, status: "fresh", lastFetched: new Date(now.getTime() - 15 * 60 * 1000), recordCount: 5, sizeBytes: 18_300 },
+      { insert: { patientId: "demo-patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "conditions" }, status: "stale", lastFetched: new Date(now.getTime() - 6 * 3600 * 1000), recordCount: 8, sizeBytes: 12_000 },
+      { insert: { patientId: "demo-patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider", dataCategory: "documents" }, status: "fresh", lastFetched: new Date(now.getTime() - 30 * 60 * 1000), recordCount: 3, sizeBytes: 2_100_000, objectKey: "demo-patient-001/epic/documents/bundle-2026-02.json" },
+      { insert: { patientId: "demo-patient-001", sourceType: "aggregator", sourceId: "fasten-health", sourceName: "Fasten Health", dataCategory: "labs" }, status: "fresh", lastFetched: new Date(now.getTime() - 45 * 60 * 1000), recordCount: 8, sizeBytes: 32_000 },
       { insert: { patientId: "patient-002", sourceType: "fhir", sourceId: "oracle-health-cerner", sourceName: "Hospital Network", dataCategory: "labs" }, status: "fresh", lastFetched: new Date(now.getTime() - 25 * 60 * 1000), recordCount: 15, sizeBytes: 58_000 },
       { insert: { patientId: "patient-002", sourceType: "fhir", sourceId: "oracle-health-cerner", sourceName: "Hospital Network", dataCategory: "medications" }, status: "stale", lastFetched: new Date(now.getTime() - 10 * 3600 * 1000), recordCount: 7, sizeBytes: 24_000 },
       { insert: { patientId: "patient-002", sourceType: "cms_bluebutton", sourceId: "cms-bluebutton-2", sourceName: "CMS Blue Button 2.0", dataCategory: "claims" }, status: "error", lastFetched: new Date(now.getTime() - 3 * 3600 * 1000), recordCount: 0, sizeBytes: 0 },
@@ -538,7 +538,7 @@ class DataCacheService {
 
     const sampleRuns: DataSyncRun[] = [
       {
-        id: randomUUID(), patientId: "patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider",
+        id: randomUUID(), patientId: "demo-patient-001", sourceType: "fhir", sourceId: "epic-mychart", sourceName: "Primary Care Provider",
         trigger: "scheduled", status: "completed", startedAt: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
         finishedAt: new Date(now.getTime() - 14 * 60 * 1000).toISOString(), recordsAdded: 3, recordsUpdated: 2, recordsSkipped: 12,
         bytesTransferred: 75_500, errorMessage: null, categoriesSynced: ["labs", "medications"], metadata: {},
@@ -562,7 +562,7 @@ class DataCacheService {
         bytesTransferred: 15_000, errorMessage: null, categoriesSynced: ["vitals"], metadata: {},
       },
       {
-        id: randomUUID(), patientId: "patient-001", sourceType: "aggregator", sourceId: "fasten-health", sourceName: "Fasten Health",
+        id: randomUUID(), patientId: "demo-patient-001", sourceType: "aggregator", sourceId: "fasten-health", sourceName: "Fasten Health",
         trigger: "scheduled", status: "completed", startedAt: new Date(now.getTime() - 45 * 60 * 1000).toISOString(),
         finishedAt: new Date(now.getTime() - 44 * 60 * 1000).toISOString(), recordsAdded: 2, recordsUpdated: 1, recordsSkipped: 5,
         bytesTransferred: 32_000, errorMessage: null, categoriesSynced: ["labs"], metadata: {},

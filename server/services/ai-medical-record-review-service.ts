@@ -87,7 +87,7 @@ const clinicalNotesStore = new Map<string, any[]>();
 function initializeSampleData() {
   const samplePatient1: PatientRecordSummary = {
     id: "summary-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     generatedAt: new Date().toISOString(),
     recordCount: 47,
@@ -212,10 +212,10 @@ function initializeSampleData() {
     disclaimer: NO_CDS_DISCLAIMER
   };
 
-  patientRecordStore.set("patient-001", samplePatient1);
+  patientRecordStore.set("demo-patient-001", samplePatient1);
   patientRecordStore.set("patient-002", samplePatient2);
 
-  clinicalNotesStore.set("patient-001", [
+  clinicalNotesStore.set("demo-patient-001", [
     {
       id: "cn-1",
       date: "2025-12-10",

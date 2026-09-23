@@ -11,7 +11,7 @@ function logHipaaAudit(action: string, resource: string, userId: string = "syste
 // Sample data for visualization
 const sampleQualityScores = [
   {
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Doe",
     overallScore: 92,
     completeness: 95,

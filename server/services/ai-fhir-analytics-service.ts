@@ -251,7 +251,7 @@ async function logAudit(
 function generateSamplePatientData(): PatientData[] {
   return [
     {
-      id: "patient-001",
+      id: "demo-patient-001",
       demographics: { age: 65, gender: "male", race: "white", ethnicity: "non-hispanic" },
       conditions: [
         { code: "I10", display: "Essential Hypertension", status: "active", category: "cardiovascular" },

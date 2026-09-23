@@ -344,7 +344,7 @@ interface PatientProfile {
 
 const samplePatientProfiles: PatientProfile[] = [
   {
-    id: "patient-001",
+    id: "demo-patient-001",
     name: "Sarah Johnson",
     age: 52,
     gender: "female",
@@ -368,7 +368,7 @@ const samplePatientProfiles: PatientProfile[] = [
 const sampleVaccinations: VaccinationRecord[] = [
   {
     id: "vax-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     vaccineName: "Influenza (Flu)",
     cvxCode: "158",
     manufacturer: "Sanofi Pasteur",
@@ -382,7 +382,7 @@ const sampleVaccinations: VaccinationRecord[] = [
   },
   {
     id: "vax-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     vaccineName: "COVID-19",
     cvxCode: "229",
     manufacturer: "Pfizer-BioNTech",
@@ -396,7 +396,7 @@ const sampleVaccinations: VaccinationRecord[] = [
   },
   {
     id: "vax-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     vaccineName: "Tdap/Td",
     cvxCode: "115",
     administrationDate: "2022-03-10",
@@ -407,7 +407,7 @@ const sampleVaccinations: VaccinationRecord[] = [
 const sampleCareGaps: CareGap[] = [
   {
     id: "gap-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     recommendationId: "rec-breast-cancer-screening",
     recommendation: USPSTF_RECOMMENDATIONS.find(r => r.id === "rec-breast-cancer-screening")!,
     status: "open",
@@ -419,7 +419,7 @@ const sampleCareGaps: CareGap[] = [
   },
   {
     id: "gap-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     recommendationId: "rec-colorectal-cancer-screening",
     recommendation: USPSTF_RECOMMENDATIONS.find(r => r.id === "rec-colorectal-cancer-screening")!,
     status: "open",
@@ -430,7 +430,7 @@ const sampleCareGaps: CareGap[] = [
   },
   {
     id: "gap-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     recommendationId: "rec-depression-screening",
     recommendation: USPSTF_RECOMMENDATIONS.find(r => r.id === "rec-depression-screening")!,
     status: "addressed",

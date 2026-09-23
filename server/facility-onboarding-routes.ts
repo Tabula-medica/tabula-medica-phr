@@ -253,7 +253,7 @@ function requirePatient(req: Request, res: Response): string | null {
   if (user?.id) return user.id;
   
   if (process.env.NODE_ENV === "development") {
-    return "patient-001";
+    return "demo-patient-001";
   }
   
   res.status(401).json({ error: "Authentication required" });

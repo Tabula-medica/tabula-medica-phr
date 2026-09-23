@@ -153,12 +153,12 @@ function getPercentileData(chartType: string, sex: string): GrowthPercentilePoin
 
 function seedGrowthData() {
   const measurements: GrowthMeasurement[] = [
-    { id: "gm-001", patientId: "patient-001", measuredAt: "2024-01-15", ageMonths: 6, sex: "male", weightKg: 7.5, heightCm: 66.5, headCircumferenceCm: 43.0, bmi: 17.0, notes: "6-month checkup" },
-    { id: "gm-002", patientId: "patient-001", measuredAt: "2024-04-15", ageMonths: 9, sex: "male", weightKg: 8.8, heightCm: 71.0, headCircumferenceCm: 44.8, bmi: 17.4, notes: "9-month checkup" },
-    { id: "gm-003", patientId: "patient-001", measuredAt: "2024-07-15", ageMonths: 12, sex: "male", weightKg: 9.8, heightCm: 75.0, headCircumferenceCm: 46.0, bmi: 17.4, notes: "12-month checkup" },
-    { id: "gm-004", patientId: "patient-001", measuredAt: "2025-01-15", ageMonths: 18, sex: "male", weightKg: 11.0, heightCm: 81.0, headCircumferenceCm: 47.2, bmi: 16.8, notes: "18-month checkup" },
-    { id: "gm-005", patientId: "patient-001", measuredAt: "2025-07-15", ageMonths: 24, sex: "male", weightKg: 12.2, heightCm: 86.0, headCircumferenceCm: 48.2, bmi: 16.5, notes: "2-year checkup" },
-    { id: "gm-006", patientId: "patient-001", measuredAt: "2026-01-15", ageMonths: 30, sex: "male", weightKg: 13.1, heightCm: 90.5, headCircumferenceCm: 48.8, bmi: 16.0, notes: "30-month checkup" },
+    { id: "gm-001", patientId: "demo-patient-001", measuredAt: "2024-01-15", ageMonths: 6, sex: "male", weightKg: 7.5, heightCm: 66.5, headCircumferenceCm: 43.0, bmi: 17.0, notes: "6-month checkup" },
+    { id: "gm-002", patientId: "demo-patient-001", measuredAt: "2024-04-15", ageMonths: 9, sex: "male", weightKg: 8.8, heightCm: 71.0, headCircumferenceCm: 44.8, bmi: 17.4, notes: "9-month checkup" },
+    { id: "gm-003", patientId: "demo-patient-001", measuredAt: "2024-07-15", ageMonths: 12, sex: "male", weightKg: 9.8, heightCm: 75.0, headCircumferenceCm: 46.0, bmi: 17.4, notes: "12-month checkup" },
+    { id: "gm-004", patientId: "demo-patient-001", measuredAt: "2025-01-15", ageMonths: 18, sex: "male", weightKg: 11.0, heightCm: 81.0, headCircumferenceCm: 47.2, bmi: 16.8, notes: "18-month checkup" },
+    { id: "gm-005", patientId: "demo-patient-001", measuredAt: "2025-07-15", ageMonths: 24, sex: "male", weightKg: 12.2, heightCm: 86.0, headCircumferenceCm: 48.2, bmi: 16.5, notes: "2-year checkup" },
+    { id: "gm-006", patientId: "demo-patient-001", measuredAt: "2026-01-15", ageMonths: 30, sex: "male", weightKg: 13.1, heightCm: 90.5, headCircumferenceCm: 48.8, bmi: 16.0, notes: "30-month checkup" },
   ];
   measurements.forEach((m) => growthMeasurements.set(m.id, m));
 }

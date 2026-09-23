@@ -15,7 +15,7 @@ function seedDentalRecords() {
   const records: DentalRecord[] = [
     {
       id: randomUUID(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       type: "exam",
       status: "completed",
       dentistName: "Dr. Sarah Mitchell",
@@ -44,7 +44,7 @@ function seedDentalRecords() {
     },
     {
       id: randomUUID(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       type: "cleaning",
       status: "completed",
       dentistName: "Dr. Sarah Mitchell",
@@ -67,7 +67,7 @@ function seedDentalRecords() {
     },
     {
       id: randomUUID(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       type: "filling",
       status: "scheduled",
       dentistName: "Dr. Sarah Mitchell",
@@ -91,7 +91,7 @@ function seedDentalRecords() {
     },
     {
       id: randomUUID(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       type: "xray",
       status: "completed",
       dentistName: "Dr. Sarah Mitchell",
@@ -114,7 +114,7 @@ function seedDentalRecords() {
     },
     {
       id: randomUUID(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       type: "crown",
       status: "completed",
       dentistName: "Dr. James Park",

@@ -183,7 +183,7 @@ export function registerAIMedicalAssistantRoutes(app: Express) {
     res.json({
       success: true,
       data: [
-        { id: "patient-001", name: "John Smith", conditions: ["Type 2 Diabetes", "Hypertension", "Hyperlipidemia"] },
+        { id: "demo-patient-001", name: "John Smith", conditions: ["Type 2 Diabetes", "Hypertension", "Hyperlipidemia"] },
         { id: "patient-002", name: "Maria Garcia", conditions: ["Asthma", "Anxiety"] },
       ],
     });

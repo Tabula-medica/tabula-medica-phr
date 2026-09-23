@@ -101,7 +101,7 @@ class WearableIntegrationService {
   }
 
   private initializeSampleData(): void {
-    const patientId = "patient-001";
+    const patientId = "demo-patient-001";
     
     this.devices.set(patientId, [
       {

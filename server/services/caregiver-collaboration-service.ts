@@ -117,7 +117,7 @@ function initializeSampleData() {
 
   const task1: CareTask = {
     id: "task-sample-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Administer morning medications",
     description: "Give blood pressure and diabetes medications with breakfast",
     category: "medication",
@@ -137,7 +137,7 @@ function initializeSampleData() {
 
   const task2: CareTask = {
     id: "task-sample-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Physical therapy exercises",
     description: "Assist with leg strengthening exercises as prescribed",
     category: "exercise",
@@ -156,7 +156,7 @@ function initializeSampleData() {
 
   const task3: CareTask = {
     id: "task-sample-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Grocery shopping",
     description: "Buy weekly groceries including diabetic-friendly options",
     category: "nutrition",
@@ -176,7 +176,7 @@ function initializeSampleData() {
 
   const note1: SharedNote = {
     id: "note-sample-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     authorId: "caregiver-001",
     authorName: "Michael Johnson",
     title: "Evening routine update",
@@ -200,7 +200,7 @@ function initializeSampleData() {
 
   const note2: SharedNote = {
     id: "note-sample-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     authorId: "caregiver-002",
     authorName: "Sarah Smith",
     title: "Medication side effects observed",
@@ -219,7 +219,7 @@ function initializeSampleData() {
 
   const event1: CalendarEvent = {
     id: "event-sample-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Cardiology appointment",
     description: "Follow-up with Dr. Williams for heart health check",
     eventType: "appointment",
@@ -239,7 +239,7 @@ function initializeSampleData() {
 
   const event2: CalendarEvent = {
     id: "event-sample-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Physical therapy session",
     description: "Weekly PT session for mobility improvement",
     eventType: "appointment",
@@ -260,7 +260,7 @@ function initializeSampleData() {
 
   const shift1: CaregiverShift = {
     id: "shift-sample-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     caregiverId: "caregiver-001",
     caregiverName: "Michael Johnson",
     startTime: new Date(now.getTime() + 24 * 60 * 60 * 1000).setHours(8, 0, 0, 0).toString(),
@@ -272,7 +272,7 @@ function initializeSampleData() {
 
   const shift2: CaregiverShift = {
     id: "shift-sample-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     caregiverId: "caregiver-002",
     caregiverName: "Sarah Smith",
     startTime: new Date(now.getTime() + 24 * 60 * 60 * 1000).setHours(16, 0, 0, 0).toString(),

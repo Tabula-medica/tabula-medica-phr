@@ -155,7 +155,7 @@ function initializeSampleData() {
 
   const conv1: CareTeamConversation = {
     id: "ctc-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     teamId: "team-001",
     participants: [
@@ -174,7 +174,7 @@ function initializeSampleData() {
 
   const msg1: CareTeamChatMessage = {
     id: "msg-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     conversationId: "ctc-001",
     senderId: "nurse-rodriguez",
     senderName: "Maria Rodriguez, RN",
@@ -191,7 +191,7 @@ function initializeSampleData() {
 
   const msg2: CareTeamChatMessage = {
     id: "msg-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     conversationId: "ctc-001",
     senderId: "dr-wilson",
     senderName: "Dr. Sarah Wilson",
@@ -208,7 +208,7 @@ function initializeSampleData() {
 
   const msg3: CareTeamChatMessage = {
     id: "msg-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     conversationId: "ctc-001",
     senderId: "pharm-patel",
     senderName: "Dr. Raj Patel",
@@ -225,7 +225,7 @@ function initializeSampleData() {
 
   const task1: CareTeamSharedTask = {
     id: "task-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     title: "Complete Diabetes Care Plan Review",
     description: "Review and update comprehensive diabetes care plan based on latest lab results and patient progress",
@@ -255,7 +255,7 @@ function initializeSampleData() {
 
   const task2: CareTeamSharedTask = {
     id: "task-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     title: "Medication Reconciliation",
     description: "Complete medication reconciliation following recent hospitalization",
@@ -281,7 +281,7 @@ function initializeSampleData() {
 
   const review1: CollaborativeReportReview = {
     id: "review-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     reportId: "ai-report-001",
     reportType: "ai_summary",

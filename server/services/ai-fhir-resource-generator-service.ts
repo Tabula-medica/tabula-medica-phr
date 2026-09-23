@@ -87,7 +87,7 @@ function initializeSampleData() {
       resourceType: "Observation",
       description: "Create a FHIR R4 Observation resource for clinical measurements",
       examplePrompts: [
-        "Blood pressure reading: systolic 120, diastolic 80 for patient-001",
+        "Blood pressure reading: systolic 120, diastolic 80 for demo-patient-001",
         "HbA1c result of 6.5% for diabetic patient",
         "Body temperature 98.6F taken today"
       ],
@@ -162,14 +162,14 @@ function initializeSampleData() {
         code: {
           coding: [{ system: "http://loinc.org", code: "85354-9", display: "Blood pressure panel" }]
         },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         effectiveDateTime: new Date().toISOString(),
         component: [
           { code: { coding: [{ system: "http://loinc.org", code: "8480-6", display: "Systolic BP" }] }, valueQuantity: { value: 118, unit: "mmHg" } },
           { code: { coding: [{ system: "http://loinc.org", code: "8462-4", display: "Diastolic BP" }] }, valueQuantity: { value: 76, unit: "mmHg" } }
         ]
       },
-      originalPrompt: "Blood pressure 118/76 for patient-001",
+      originalPrompt: "Blood pressure 118/76 for demo-patient-001",
       validation: {
         isValid: true,
         errors: [],

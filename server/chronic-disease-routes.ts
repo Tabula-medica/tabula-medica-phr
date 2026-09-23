@@ -17,7 +17,7 @@ function getPatientId(req: any): string | null {
     return req.user.claims.sub;
   }
   if (isDevelopment) {
-    return "patient-001";
+    return "demo-patient-001";
   }
   return null;
 }

@@ -103,7 +103,7 @@ class DataLineageService {
   }
 
   private initializeSampleData(): void {
-    const samplePatientId = 'patient-001';
+    const samplePatientId = 'demo-patient-001';
     const records: DataLineageRecord[] = [
       {
         id: 'lin_001',

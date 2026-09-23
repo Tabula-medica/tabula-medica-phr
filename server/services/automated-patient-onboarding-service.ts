@@ -192,8 +192,8 @@ const availableProviders: AvailableProvider[] = [
 ];
 
 const fhirPatientData: Map<string, FHIRPrefillData> = new Map([
-  ["fhir-patient-001", {
-    patientId: "fhir-patient-001",
+  ["fhir-demo-patient-001", {
+    patientId: "fhir-demo-patient-001",
     sourceSystem: "Primary Care Provider",
     demographics: {
       firstName: "John",

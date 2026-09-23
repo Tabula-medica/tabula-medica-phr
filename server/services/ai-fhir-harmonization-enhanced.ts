@@ -232,7 +232,7 @@ function initializeSampleData(): void {
   const inconsistency4: DataInconsistency = {
     id: "inc-004",
     resourceType: "Patient",
-    resourceId: "patient-001",
+    resourceId: "demo-patient-001",
     fieldPath: "telecom[0].value",
     sources: [
       { sourceId: "epic-001", sourceSystem: "Primary Care Provider", value: "(555) 123-4567", timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000), confidenceScore: 0.90 },

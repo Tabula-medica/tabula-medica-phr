@@ -209,7 +209,7 @@ export interface FhirAggregateReport {
 const samplePatients: FhirPatient[] = [
   {
     resourceType: "Patient",
-    id: "patient-001",
+    id: "demo-patient-001",
     identifier: [{ system: "http://hospital.org/mrn", value: "MRN-12345" }],
     name: [{ family: "Johnson", given: ["Sarah", "Marie"], use: "official" }],
     gender: "female",
@@ -239,7 +239,7 @@ const sampleConditions: FhirCondition[] = [
   {
     resourceType: "Condition",
     id: "condition-001",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://snomed.info/sct", code: "44054006", display: "Type 2 diabetes mellitus" }], text: "Type 2 Diabetes" },
     clinicalStatus: { coding: [{ code: "active" }] },
     verificationStatus: { coding: [{ code: "confirmed" }] },
@@ -251,7 +251,7 @@ const sampleConditions: FhirCondition[] = [
   {
     resourceType: "Condition",
     id: "condition-002",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://snomed.info/sct", code: "38341003", display: "Essential hypertension" }], text: "High Blood Pressure" },
     clinicalStatus: { coding: [{ code: "active" }] },
     verificationStatus: { coding: [{ code: "confirmed" }] },
@@ -274,7 +274,7 @@ const sampleMedications: FhirMedicationRequest[] = [
   {
     resourceType: "MedicationRequest",
     id: "med-001",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     medicationCodeableConcept: { coding: [{ system: "http://www.nlm.nih.gov/research/umls/rxnorm", code: "860975", display: "Metformin 500 MG" }], text: "Metformin 500mg" },
     status: "active",
     intent: "order",
@@ -286,7 +286,7 @@ const sampleMedications: FhirMedicationRequest[] = [
   {
     resourceType: "MedicationRequest",
     id: "med-002",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     medicationCodeableConcept: { coding: [{ system: "http://www.nlm.nih.gov/research/umls/rxnorm", code: "197361", display: "Lisinopril 10 MG" }], text: "Lisinopril 10mg" },
     status: "active",
     intent: "order",
@@ -298,7 +298,7 @@ const sampleMedications: FhirMedicationRequest[] = [
   {
     resourceType: "MedicationRequest",
     id: "med-003",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     medicationCodeableConcept: { coding: [{ system: "http://www.nlm.nih.gov/research/umls/rxnorm", code: "310965", display: "Aspirin 81 MG" }], text: "Aspirin 81mg" },
     status: "active",
     intent: "order",
@@ -322,7 +322,7 @@ const sampleObservations: FhirObservation[] = [
   {
     resourceType: "Observation",
     id: "obs-001",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://loinc.org", code: "4548-4", display: "Hemoglobin A1c" }], text: "HbA1c" },
     valueQuantity: { value: 7.2, unit: "%", system: "http://unitsofmeasure.org", code: "%" },
     effectiveDateTime: "2024-12-15",
@@ -334,7 +334,7 @@ const sampleObservations: FhirObservation[] = [
   {
     resourceType: "Observation",
     id: "obs-002",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://loinc.org", code: "8480-6", display: "Systolic blood pressure" }], text: "Systolic BP" },
     valueQuantity: { value: 142, unit: "mmHg" },
     effectiveDateTime: "2024-12-20",
@@ -346,7 +346,7 @@ const sampleObservations: FhirObservation[] = [
   {
     resourceType: "Observation",
     id: "obs-003",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://loinc.org", code: "8462-4", display: "Diastolic blood pressure" }], text: "Diastolic BP" },
     valueQuantity: { value: 88, unit: "mmHg" },
     effectiveDateTime: "2024-12-20",
@@ -357,7 +357,7 @@ const sampleObservations: FhirObservation[] = [
   {
     resourceType: "Observation",
     id: "obs-004",
-    subject: { reference: "Patient/patient-001" },
+    subject: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://loinc.org", code: "2339-0", display: "Glucose [Mass/volume] in Blood" }], text: "Blood Glucose" },
     valueQuantity: { value: 145, unit: "mg/dL" },
     effectiveDateTime: "2024-12-20",
@@ -383,7 +383,7 @@ const sampleAllergies: FhirAllergyIntolerance[] = [
   {
     resourceType: "AllergyIntolerance",
     id: "allergy-001",
-    patient: { reference: "Patient/patient-001" },
+    patient: { reference: "Patient/demo-patient-001" },
     code: { coding: [{ system: "http://www.nlm.nih.gov/research/umls/rxnorm", code: "7980", display: "Penicillin" }], text: "Penicillin" },
     clinicalStatus: { coding: [{ code: "active" }] },
     type: "allergy",

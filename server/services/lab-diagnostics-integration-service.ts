@@ -226,7 +226,7 @@ function initializeSampleData(): void {
 
   const sampleOrder: LabOrder = {
     id: "order-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     providerId: "quest-diagnostics",
     providerName: "Quest Diagnostics",
     tests: [
@@ -247,7 +247,7 @@ function initializeSampleData(): void {
 
   const sampleOrder2: LabOrder = {
     id: "order-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     providerId: "labcorp",
     providerName: "LabCorp",
     tests: [
@@ -292,7 +292,7 @@ function initializeSampleData(): void {
     {
       id: "result-001",
       orderId: "order-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       providerId: "quest-diagnostics",
       providerName: "Quest Diagnostics",
       testName: "White Blood Cell Count",
@@ -305,13 +305,13 @@ function initializeSampleData(): void {
       collectedAt: collectedDate,
       reportedAt: reportedDate,
       performingLab: "Quest Diagnostics - Marlborough, MA",
-      fhirObservation: buildFhirObservation("obs-wbc-001", "patient-001", "6690-2", "White Blood Cell Count", 7.2, "10*3/uL", "normal", collectedDate),
+      fhirObservation: buildFhirObservation("obs-wbc-001", "demo-patient-001", "6690-2", "White Blood Cell Count", 7.2, "10*3/uL", "normal", collectedDate),
       noCdsDisclaimer: NO_CDS_DISCLAIMER,
     },
     {
       id: "result-002",
       orderId: "order-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       providerId: "quest-diagnostics",
       providerName: "Quest Diagnostics",
       testName: "Hemoglobin",
@@ -324,13 +324,13 @@ function initializeSampleData(): void {
       collectedAt: collectedDate,
       reportedAt: reportedDate,
       performingLab: "Quest Diagnostics - Marlborough, MA",
-      fhirObservation: buildFhirObservation("obs-hgb-001", "patient-001", "718-7", "Hemoglobin", 14.5, "g/dL", "normal", collectedDate),
+      fhirObservation: buildFhirObservation("obs-hgb-001", "demo-patient-001", "718-7", "Hemoglobin", 14.5, "g/dL", "normal", collectedDate),
       noCdsDisclaimer: NO_CDS_DISCLAIMER,
     },
     {
       id: "result-003",
       orderId: "order-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       providerId: "quest-diagnostics",
       providerName: "Quest Diagnostics",
       testName: "Glucose",
@@ -343,13 +343,13 @@ function initializeSampleData(): void {
       collectedAt: collectedDate,
       reportedAt: reportedDate,
       performingLab: "Quest Diagnostics - Marlborough, MA",
-      fhirObservation: buildFhirObservation("obs-glu-001", "patient-001", "2345-7", "Glucose", 105, "mg/dL", "normal", collectedDate),
+      fhirObservation: buildFhirObservation("obs-glu-001", "demo-patient-001", "2345-7", "Glucose", 105, "mg/dL", "normal", collectedDate),
       noCdsDisclaimer: NO_CDS_DISCLAIMER,
     },
     {
       id: "result-004",
       orderId: "order-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       providerId: "quest-diagnostics",
       providerName: "Quest Diagnostics",
       testName: "Creatinine",
@@ -362,7 +362,7 @@ function initializeSampleData(): void {
       collectedAt: collectedDate,
       reportedAt: reportedDate,
       performingLab: "Quest Diagnostics - Marlborough, MA",
-      fhirObservation: buildFhirObservation("obs-cre-001", "patient-001", "2160-0", "Creatinine", 1.3, "mg/dL", "abnormal", collectedDate),
+      fhirObservation: buildFhirObservation("obs-cre-001", "demo-patient-001", "2160-0", "Creatinine", 1.3, "mg/dL", "abnormal", collectedDate),
       noCdsDisclaimer: NO_CDS_DISCLAIMER,
     },
   ];

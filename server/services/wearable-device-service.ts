@@ -181,7 +181,7 @@ class WearableDeviceService {
   }
 
   private initializeSampleData(): void {
-    const samplePatientId = 'patient-001';
+    const samplePatientId = 'demo-patient-001';
 
     const appleWatch: WearableDevice = {
       id: 'device_apple_001',

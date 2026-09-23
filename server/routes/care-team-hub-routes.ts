@@ -115,7 +115,7 @@ function logAuditEvent(event: Omit<AuditLogEntry, "id" | "timestamp" | "ipAddres
   return entry;
 }
 
-const samplePatientId = "patient-001";
+const samplePatientId = "demo-patient-001";
 const samplePatientName = "John Smith";
 
 const careTeamMembers: CareTeamMember[] = [

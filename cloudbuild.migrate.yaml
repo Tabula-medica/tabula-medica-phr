@@ -1,0 +1,47 @@
+# One-shot migration runner. Applies migrations/0002_external_identities.sql to
+# the prod Cloud SQL instance. DATABASE_URL is injected from Secret Manager by
+# Cloud Build itself (the credential never leaves GCP). Connects via the Cloud
+# SQL Auth Proxy over a unix socket that matches the secret's host=/cloudsql/...
+availableSecrets:
+  secretManager:
+    - versionName: projects/united-planet-485003-n7/secrets/patient-db-secret-us-central1/versions/latest
+      env: DATABASE_URL
+
+steps:
+  - id: run-migration
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    secretEnv: ['DATABASE_URL']
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        apt-get update -qq && apt-get install -y -qq postgresql-client wget python3 >/dev/null
+        wget -q -O /cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /cloud-sql-proxy
+        mkdir -p /cloudsql
+        /cloud-sql-proxy --unix-socket /cloudsql \
+          united-planet-485003-n7:us-central1:tabula-medica-db &
+        for i in $(seq 1 15); do
+          [ -S "/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db/.s.PGSQL.5432" ] && break
+          sleep 1
+        done
+        # Parse DATABASE_URL with a real URL parser (libpq mis-parses special
+        # characters in the password when the whole URI is passed to psql). Emit
+        # shell-quoted PG* env vars and connect over the proxy's unix socket as
+        # the URL's user (postgres) so ALTER TABLE on postgres-owned tables works.
+        python3 -c "import os,shlex,urllib.parse as u; p=u.urlparse(os.environ['DATABASE_URL']); qs=dict(u.parse_qsl(p.query)); user=(u.unquote(p.username) if p.username else qs.get('user','postgres')); pw=(u.unquote(p.password) if p.password else qs.get('password','')); db=((p.path or '').lstrip('/') or qs.get('dbname') or qs.get('database') or 'postgres'); open('/tmp/dbenv.sh','w').write('export PGUSER=%s\nexport PGPASSWORD=%s\nexport PGDATABASE=%s\n' % (shlex.quote(user), shlex.quote(pw), shlex.quote(db)))"
+        source /tmp/dbenv.sh
+        export PGHOST=/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db
+        echo "=== Connecting as PGUSER=$$PGUSER db=$$PGDATABASE via socket ==="
+        echo "=== BEFORE: does external_identities exist? ==="
+        psql -tAc "SELECT to_regclass('public.external_identities');"
+        echo "=== Applying migration ==="
+        psql -v ON_ERROR_STOP=1 -f migrations/0002_external_identities.sql
+        echo "=== AFTER: external_identities columns ==="
+        psql -c "\d external_identities"
+
+timeout: 600s
+options:
+  logging: CLOUD_LOGGING_ONLY

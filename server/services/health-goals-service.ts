@@ -159,7 +159,7 @@ class HealthGoalsService {
 
     const goal1: HealthGoal = {
       id: "goal-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       title: "Reduce Blood Pressure",
       description: "Lower systolic blood pressure from 145 to under 130 mmHg through lifestyle changes and medication adherence",
       category: "vitals",
@@ -196,7 +196,7 @@ class HealthGoalsService {
 
     const goal2: HealthGoal = {
       id: "goal-002",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       title: "Daily Steps Goal",
       description: "Increase daily step count to 8,000 steps per day for improved cardiovascular fitness",
       category: "exercise",
@@ -232,7 +232,7 @@ class HealthGoalsService {
 
     const goal3: HealthGoal = {
       id: "goal-003",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       title: "Improve Sleep Duration",
       description: "Increase average nightly sleep from 5.5 hours to 7+ hours",
       category: "sleep",

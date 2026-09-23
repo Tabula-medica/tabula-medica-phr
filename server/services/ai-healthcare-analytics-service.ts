@@ -208,7 +208,7 @@ export interface HealthcareAnalyticsDashboard {
 
 const samplePatients = [
   {
-    id: "patient-001",
+    id: "demo-patient-001",
     name: "John Smith",
     age: 67,
     gender: "male",
@@ -594,7 +594,7 @@ function initializeSampleData() {
   const sampleDeviations: TreatmentProtocolDeviation[] = [
     {
       id: "dev-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       protocolId: "protocol-dm-001",
       protocolName: "Diabetes Management Protocol",
       condition: "Type 2 Diabetes",
@@ -630,7 +630,7 @@ function initializeSampleData() {
     },
     {
       id: "dev-003",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       protocolId: "protocol-htn-001",
       protocolName: "Hypertension Management Protocol",
       condition: "Hypertension",

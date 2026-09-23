@@ -122,7 +122,7 @@ class SecureMessagingService {
 
   private initializeSampleData() {
     const now = new Date();
-    const patientId = "patient-001";
+    const patientId = "demo-patient-001";
 
     this.careTeamProfiles.set("prov-001", {
       id: "prov-001", name: "Dr. Sarah Smith", role: "provider",

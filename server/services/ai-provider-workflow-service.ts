@@ -198,7 +198,7 @@ const samplePatientContexts = new Map<string, FHIRPatientContext>();
 
 function initializeSampleData(): void {
   const patient1Context: FHIRPatientContext = {
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     demographics: {
       name: "John Smith",
       age: 49,
@@ -287,7 +287,7 @@ function initializeSampleData(): void {
     ]
   };
 
-  samplePatientContexts.set("patient-001", patient1Context);
+  samplePatientContexts.set("demo-patient-001", patient1Context);
   samplePatientContexts.set("patient-002", patient2Context);
 
   generateInitialInsightsForPatient(patient1Context);
@@ -304,7 +304,7 @@ function generateInitialInsightsForPatient(context: FHIRPatientContext): void {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  if (context.patientId === "patient-001") {
+  if (context.patientId === "demo-patient-001") {
     const hba1cLab = context.recentLabs.find(l => l.code === "4548-4");
     if (hba1cLab && typeof hba1cLab.value === "number" && hba1cLab.value > 7.0) {
       insights.push({
@@ -417,7 +417,7 @@ function generateInitialInsightsForPatient(context: FHIRPatientContext): void {
 function generateInitialAlertsForPatient(context: FHIRPatientContext): void {
   const alerts: CriticalFHIRAlert[] = [];
 
-  if (context.patientId === "patient-001") {
+  if (context.patientId === "demo-patient-001") {
     const hba1cLab = context.recentLabs.find(l => l.code === "4548-4");
     if (hba1cLab && typeof hba1cLab.value === "number" && hba1cLab.value > 7.5) {
       alerts.push({
@@ -780,7 +780,7 @@ export function prePopulateForm(
     sections,
     metadata: {
       patientName: context.demographics.name,
-      patientMRN: patientId === "patient-001" ? "MRN-12345" : "MRN-67890",
+      patientMRN: patientId === "demo-patient-001" ? "MRN-12345" : "MRN-67890",
       encounterDate: now.split("T")[0]
     },
     aiSuggestions,

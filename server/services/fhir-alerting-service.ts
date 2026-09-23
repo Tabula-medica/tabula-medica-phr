@@ -400,7 +400,7 @@ class FHIRAlertingService {
       {
         ruleId: Array.from(this.rules.values())[0].id,
         ruleName: "Critical Blood Pressure",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         patientName: "John Smith",
         resourceType: "Observation",
         resourceId: "obs-bp-001",

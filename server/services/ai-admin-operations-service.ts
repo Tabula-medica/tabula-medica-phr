@@ -471,7 +471,7 @@ const careTeamMembers = [
 function initializeSampleData() {
   const sampleEligibility: InsuranceEligibility = {
     id: "elig-1",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     insurerId: "ins-bcbs",
     insurerName: "Blue Cross Blue Shield",
@@ -631,14 +631,14 @@ function initializeSampleData() {
     providerName: "Dr. Sarah Smith",
     date: new Date().toISOString().split("T")[0],
     originalSchedule: [
-      { id: "slot-1", time: "09:00", duration: 30, patientId: "patient-001", patientName: "John Smith", appointmentType: "Follow-up", status: "scheduled" },
+      { id: "slot-1", time: "09:00", duration: 30, patientId: "demo-patient-001", patientName: "John Smith", appointmentType: "Follow-up", status: "scheduled" },
       { id: "slot-2", time: "09:30", duration: 15, appointmentType: "Available", status: "available" },
       { id: "slot-3", time: "09:45", duration: 15, appointmentType: "Available", status: "available" },
       { id: "slot-4", time: "10:00", duration: 30, patientId: "patient-002", patientName: "Jane Doe", appointmentType: "New Patient", status: "scheduled" },
       { id: "slot-5", time: "10:30", duration: 30, patientId: "patient-003", patientName: "Bob Wilson", appointmentType: "Follow-up", status: "scheduled" }
     ],
     optimizedSchedule: [
-      { id: "slot-1", time: "09:00", duration: 30, patientId: "patient-001", patientName: "John Smith", appointmentType: "Follow-up", status: "scheduled" },
+      { id: "slot-1", time: "09:00", duration: 30, patientId: "demo-patient-001", patientName: "John Smith", appointmentType: "Follow-up", status: "scheduled" },
       { id: "slot-4", time: "09:30", duration: 30, patientId: "patient-002", patientName: "Jane Doe", appointmentType: "New Patient", status: "scheduled" },
       { id: "slot-5", time: "10:00", duration: 30, patientId: "patient-003", patientName: "Bob Wilson", appointmentType: "Follow-up", status: "scheduled" },
       { id: "slot-6", time: "10:30", duration: 15, appointmentType: "Buffer", status: "buffer" }
@@ -672,7 +672,7 @@ function initializeSampleData() {
   const sampleAutoForm: AutoPopulatedForm = {
     id: "form-1",
     formType: "prior_authorization",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     populatedFields: [
       { fieldName: "patient_name", fieldLabel: "Patient Name", value: "John Smith", source: "ehr", confidence: 1.0, requiresVerification: false },

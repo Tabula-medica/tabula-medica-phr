@@ -42,7 +42,7 @@ class PatientImmunizationPortalService {
   }
 
   private initializeSampleData(): void {
-    const samplePatientId = "patient-001";
+    const samplePatientId = "demo-patient-001";
     
     const sampleImmunizations: Immunization[] = [
       {

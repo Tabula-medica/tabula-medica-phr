@@ -640,7 +640,7 @@ class AIProviderDashboardService {
       {
         id: randomUUID(),
         providerId,
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         patientName: "John Smith",
         category: "urgent_attention",
         priority: "critical",
@@ -723,7 +723,7 @@ class AIProviderDashboardService {
       {
         id: randomUUID(),
         providerId,
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         patientName: "John Smith",
         category: "lab_review",
         priority: "high",
@@ -770,7 +770,7 @@ class AIProviderDashboardService {
 
     this.tasks.set(providerId, sampleTasks);
 
-    const patientIds = ["patient-001", "patient-002", "patient-003"];
+    const patientIds = ["demo-patient-001", "patient-002", "patient-003"];
     patientIds.forEach(patientId => {
       const vitals = this.generateSampleVitals(patientId);
       this.vitals.set(patientId, vitals);
@@ -842,7 +842,7 @@ class AIProviderDashboardService {
         referenceRange: { min: 95, max: 100 }
       });
 
-      if (patientId === "patient-001") {
+      if (patientId === "demo-patient-001") {
         vitals.push({
           id: randomUUID(),
           patientId,
@@ -866,7 +866,7 @@ class AIProviderDashboardService {
     const patient001Alerts: VitalsAlert[] = [
       {
         id: randomUUID(),
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         vitalType: "blood_glucose",
         severity: "warning",
         title: "Elevated Blood Glucose",
@@ -907,11 +907,11 @@ class AIProviderDashboardService {
       }
     ];
 
-    this.vitalsAlerts.set("patient-001", patient001Alerts);
+    this.vitalsAlerts.set("demo-patient-001", patient001Alerts);
     this.vitalsAlerts.set("patient-002", patient002Alerts);
     this.vitalsAlerts.set("patient-003", []);
 
-    this.providerPatientAssignments.set("provider-001", new Set(["patient-001", "patient-002", "patient-003"]));
+    this.providerPatientAssignments.set("provider-001", new Set(["demo-patient-001", "patient-002", "patient-003"]));
   }
 
   private generateSampleDocSummaries(): void {
@@ -920,7 +920,7 @@ class AIProviderDashboardService {
     const summaries: ClinicalDocSummary[] = [
       {
         id: randomUUID(),
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         patientName: "John Smith",
         documentType: "encounter_note",
         generatedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
@@ -1020,7 +1020,7 @@ class AIProviderDashboardService {
       }
     ];
 
-    this.docSummaries.set("patient-001", [summaries[0]]);
+    this.docSummaries.set("demo-patient-001", [summaries[0]]);
     this.docSummaries.set("patient-002", [summaries[1]]);
   }
 
@@ -1236,7 +1236,7 @@ Return a JSON array of tasks with fields: patientId, patientName, category, prio
     });
 
     const patientNames: Record<string, string> = {
-      "patient-001": "John Smith",
+      "demo-patient-001": "John Smith",
       "patient-002": "Maria Garcia",
       "patient-003": "Robert Johnson"
     };
@@ -1454,7 +1454,7 @@ Return a JSON array of tasks with fields: patientId, patientName, category, prio
     });
 
     const patientNames: Record<string, string> = {
-      "patient-001": "John Smith",
+      "demo-patient-001": "John Smith",
       "patient-002": "Maria Garcia",
       "patient-003": "Robert Johnson"
     };
@@ -1650,7 +1650,7 @@ Return a JSON object with: overview, keyPoints (array), diagnoses (array with co
     userId: string
   ): Promise<PatientRecordSummary> {
     const patientNames: Record<string, string> = {
-      "patient-001": "John Smith",
+      "demo-patient-001": "John Smith",
       "patient-002": "Maria Garcia",
       "patient-003": "Robert Johnson"
     };
@@ -1752,7 +1752,7 @@ Return JSON with: overview, keyFindings, activeIssues, recentChanges, preventive
     userId: string
   ): Promise<ReferralLetterDraft> {
     const patientNames: Record<string, string> = {
-      "patient-001": "John Smith",
+      "demo-patient-001": "John Smith",
       "patient-002": "Maria Garcia",
       "patient-003": "Robert Johnson"
     };
@@ -2592,7 +2592,7 @@ Respond in this exact JSON format:
   public listMonitoredPatients(providerId: string | null): { patientId: string; patientName: string; hasAlerts: boolean }[] {
     const patients: { patientId: string; patientName: string; hasAlerts: boolean }[] = [];
     const patientNames: Record<string, string> = {
-      "patient-001": "John Smith",
+      "demo-patient-001": "John Smith",
       "patient-002": "Maria Garcia",
       "patient-003": "Robert Johnson"
     };

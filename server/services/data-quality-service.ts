@@ -25,7 +25,7 @@ function generateSampleIssues(): void {
   const sampleIssues: DataQualityIssue[] = [
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "duplicate_record",
       severity: "high",
       status: "open",
@@ -46,7 +46,7 @@ function generateSampleIssues(): void {
     },
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "duplicate_record",
       severity: "medium",
       status: "open",
@@ -67,7 +67,7 @@ function generateSampleIssues(): void {
     },
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "missing_required_field",
       severity: "medium",
       status: "open",
@@ -84,7 +84,7 @@ function generateSampleIssues(): void {
     },
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "duplicate_record",
       severity: "high",
       status: "open",
@@ -106,7 +106,7 @@ function generateSampleIssues(): void {
     },
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "source_conflict",
       severity: "critical",
       status: "open",
@@ -127,7 +127,7 @@ function generateSampleIssues(): void {
     },
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "duplicate_record",
       severity: "low",
       status: "open",
@@ -166,7 +166,7 @@ function generateSampleIssues(): void {
     },
     {
       id: generateId(),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       issueType: "normalization_error",
       severity: "medium",
       status: "resolved",
@@ -292,7 +292,7 @@ export class DataQualityService {
     const topPatientsByIssues = Array.from(patientIssueCounts.entries())
       .map(([patientId, issueCount]) => ({
         patientId,
-        patientName: patientId === "patient-001" ? "John Smith" : patientId === "patient-002" ? "Jane Doe" : "Unknown",
+        patientName: patientId === "demo-patient-001" ? "John Smith" : patientId === "patient-002" ? "Jane Doe" : "Unknown",
         issueCount,
       }))
       .sort((a, b) => b.issueCount - a.issueCount)

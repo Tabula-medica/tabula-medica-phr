@@ -211,7 +211,7 @@ const SAMPLE_RESPONSES: QuestionnaireResponse[] = [
     id: "resp-001",
     questionnaireId: "quest-001",
     questionnaireTitle: "Medication Adherence Check",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     completedAt: "2024-01-20T14:30:00Z",
     fhirResourceId: "QuestionnaireResponse/resp-001",

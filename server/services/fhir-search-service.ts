@@ -29,7 +29,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "condition-1",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Type 2 Diabetes Mellitus",
     code: { value: "44054006", system: "SNOMED_CT", display: "Type 2 diabetes mellitus" },
     date: "2024-01-15",
@@ -40,7 +40,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "condition-2",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Essential Hypertension",
     code: { value: "I10", system: "ICD10_CM", display: "Essential (primary) hypertension" },
     date: "2023-06-10",
@@ -51,7 +51,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "medication-1",
     resourceType: "Medication",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Metformin 500mg",
     code: { value: "860975", system: "RXNORM", display: "Metformin hydrochloride 500 MG Oral Tablet" },
     date: "2024-02-01",
@@ -62,7 +62,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "medication-2",
     resourceType: "MedicationRequest",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Lisinopril 10mg",
     code: { value: "314076", system: "RXNORM", display: "Lisinopril 10 MG Oral Tablet" },
     date: "2024-01-20",
@@ -73,7 +73,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "observation-1",
     resourceType: "Observation",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Hemoglobin A1c",
     code: { value: "4548-4", system: "LOINC", display: "Hemoglobin A1c/Hemoglobin.total in Blood" },
     date: "2024-03-01",
@@ -84,7 +84,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "observation-2",
     resourceType: "Observation",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Blood Pressure",
     code: { value: "85354-9", system: "LOINC", display: "Blood pressure panel with all children optional" },
     date: "2024-03-15",
@@ -106,7 +106,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "allergy-1",
     resourceType: "AllergyIntolerance",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Penicillin Allergy",
     code: { value: "91936005", system: "SNOMED_CT", display: "Allergy to penicillin" },
     date: "2020-05-10",
@@ -117,7 +117,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "procedure-1",
     resourceType: "Procedure",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Colonoscopy",
     code: { value: "73761001", system: "SNOMED_CT", display: "Colonoscopy" },
     date: "2023-08-15",
@@ -128,7 +128,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "immunization-1",
     resourceType: "Immunization",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "COVID-19 Vaccine",
     code: { value: "207", system: "CVX", display: "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5mL dose" },
     date: "2024-01-05",
@@ -139,7 +139,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "document-1",
     resourceType: "DocumentReference",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Annual Physical Exam Report",
     date: "2024-02-15",
     status: "current",
@@ -149,7 +149,7 @@ const sampleResources: FHIRSearchResult[] = [
   {
     id: "encounter-1",
     resourceType: "Encounter",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     displayName: "Office Visit - Follow-up",
     date: "2024-03-10",
     status: "finished",

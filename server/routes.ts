@@ -15917,7 +15917,7 @@ Please contact the pharmacy if you have any questions. This is an automated noti
         id: conversationId,
         type: "patient_provider",
         title: `Prescription: ${mockPrescription.medicationName} ${mockPrescription.strength}`,
-        profileId: "profile-patient-001",
+        profileId: "profile-demo-patient-001",
         participantIds: ["patient_001", userId],
         lastMessageAt: null,
         lastMessagePreview: null,
@@ -16539,7 +16539,7 @@ Secure Healthcare System`;
 
   // Initialize with some mock telehealth sessions
   const mockTelehealthPatients = [
-    { id: "patient-001", name: "John Smith", email: "john.smith@email.com" },
+    { id: "demo-patient-001", name: "John Smith", email: "john.smith@email.com" },
     { id: "patient-002", name: "Maria Garcia", email: "maria.garcia@email.com" },
     { id: "patient-003", name: "Robert Johnson", email: "robert.j@email.com" },
   ];

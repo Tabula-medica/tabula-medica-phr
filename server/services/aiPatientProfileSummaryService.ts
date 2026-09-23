@@ -759,7 +759,7 @@ export async function refreshSummary(
 
 export function getSamplePatientData(): PatientProfileData {
   return {
-    patientId: "sample-patient-001",
+    patientId: "sample-demo-patient-001",
     patientName: "John Doe",
     dateOfBirth: "1965-03-15",
     age: 60,

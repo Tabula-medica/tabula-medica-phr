@@ -85,7 +85,7 @@ function initializeSampleFeedback() {
   const sampleFeedback: PatientFeedback[] = [
     {
       id: "fb-1",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       source: "survey",
       type: "visit",
       content: "Dr. Smith was incredibly thorough and took the time to explain my diagnosis clearly. The nurse was also very kind and made me feel comfortable. However, I waited over 45 minutes past my appointment time which was frustrating.",

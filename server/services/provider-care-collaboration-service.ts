@@ -243,7 +243,7 @@ function initializeSampleData() {
       { id: "prov-001", name: "Dr. Sarah Chen", role: "physician" },
       { id: "prov-002", name: "Dr. Michael Torres", role: "specialist" },
     ],
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     subject: "Cardiology Consult Request",
     lastMessageAt: new Date().toISOString(),
@@ -263,7 +263,7 @@ function initializeSampleData() {
     senderName: "Dr. Sarah Chen",
     senderRole: "physician",
     recipientIds: ["prov-002"],
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     subject: "Cardiology Consult Request",
     content: "Hi Dr. Torres, I have a 58-year-old male patient with chest pain on exertion. ECG shows possible ST changes. Would appreciate your evaluation at your earliest convenience.",
@@ -279,7 +279,7 @@ function initializeSampleData() {
 
   const carePlan1: SharedCarePlan = {
     id: "cp-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     title: "Cardiac Health Management Plan",
     description: "Comprehensive care plan for managing cardiac symptoms and risk factors",

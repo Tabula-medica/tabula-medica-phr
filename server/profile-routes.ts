@@ -141,7 +141,7 @@ function initializeSampleProfiles() {
     profileImageUrl: null,
     status: "active",
     isDefault: true,
-    unifiedPatientId: "patient-001",
+    unifiedPatientId: "demo-patient-001",
     medicalRecordNumber: "MRN-12345",
     insuranceId: "INS-98765",
     emergencyContact: JSON.stringify({ name: "Michael Johnson", phone: "(555) 123-4567", relationship: "spouse" }),

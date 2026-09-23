@@ -94,7 +94,7 @@ class ProviderCommunicationService {
 
     const thread1: CommunicationThread = {
       id: "thread-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       subject: "Cardiology Consultation - Elevated BP",
       category: "consultation",
@@ -146,7 +146,7 @@ class ProviderCommunicationService {
 
     const thread2: CommunicationThread = {
       id: "thread-002",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       subject: "Urgent: Acute Kidney Injury Concern",
       category: "urgent_concern",
@@ -187,11 +187,11 @@ class ProviderCommunicationService {
     this.threads.set(thread2.id, thread2);
 
     this.auditLog = [
-      { id: "audit-001", threadId: "thread-001", action: "thread_created", performedBy: "prov-001", performedByName: "Dr. Sarah Chen", targetResourceType: "thread", targetResourceId: "thread-001", patientId: "patient-001", details: "Created consultation thread for cardiology referral", timestamp: thread1.createdAt },
-      { id: "audit-002", threadId: "thread-001", action: "document_shared", performedBy: "prov-001", performedByName: "Dr. Sarah Chen", targetResourceType: "document", targetResourceId: "doc-001", patientId: "patient-001", details: "Shared document: BP_Log_LastMonth.pdf", timestamp: thread1.createdAt },
-      { id: "audit-003", threadId: "thread-001", action: "message_sent", performedBy: "prov-002", performedByName: "Dr. Michael Torres", targetResourceType: "message", targetResourceId: "msg-002", patientId: "patient-001", details: "Sent response requesting additional information", timestamp: thread1.messages[1].createdAt },
-      { id: "audit-004", threadId: "thread-002", action: "thread_created", performedBy: "prov-001", performedByName: "Dr. Sarah Chen", targetResourceType: "thread", targetResourceId: "thread-002", patientId: "patient-001", details: "Created urgent concern thread for acute kidney injury", timestamp: thread2.createdAt },
-      { id: "audit-005", threadId: "thread-002", action: "message_sent", performedBy: "prov-004", performedByName: "Dr. James Lee", targetResourceType: "message", targetResourceId: "msg-005", patientId: "patient-001", details: "Sent urgent response with treatment recommendations", timestamp: thread2.messages[1].createdAt }
+      { id: "audit-001", threadId: "thread-001", action: "thread_created", performedBy: "prov-001", performedByName: "Dr. Sarah Chen", targetResourceType: "thread", targetResourceId: "thread-001", patientId: "demo-patient-001", details: "Created consultation thread for cardiology referral", timestamp: thread1.createdAt },
+      { id: "audit-002", threadId: "thread-001", action: "document_shared", performedBy: "prov-001", performedByName: "Dr. Sarah Chen", targetResourceType: "document", targetResourceId: "doc-001", patientId: "demo-patient-001", details: "Shared document: BP_Log_LastMonth.pdf", timestamp: thread1.createdAt },
+      { id: "audit-003", threadId: "thread-001", action: "message_sent", performedBy: "prov-002", performedByName: "Dr. Michael Torres", targetResourceType: "message", targetResourceId: "msg-002", patientId: "demo-patient-001", details: "Sent response requesting additional information", timestamp: thread1.messages[1].createdAt },
+      { id: "audit-004", threadId: "thread-002", action: "thread_created", performedBy: "prov-001", performedByName: "Dr. Sarah Chen", targetResourceType: "thread", targetResourceId: "thread-002", patientId: "demo-patient-001", details: "Created urgent concern thread for acute kidney injury", timestamp: thread2.createdAt },
+      { id: "audit-005", threadId: "thread-002", action: "message_sent", performedBy: "prov-004", performedByName: "Dr. James Lee", targetResourceType: "message", targetResourceId: "msg-005", patientId: "demo-patient-001", details: "Sent urgent response with treatment recommendations", timestamp: thread2.messages[1].createdAt }
     ];
   }
 

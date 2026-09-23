@@ -42,7 +42,7 @@ export class TelehealthReminderService {
     this.preferences = [
       {
         id: generateId("pref"),
-        userId: "patient-001",
+        userId: "demo-patient-001",
         userRole: "patient",
         channels: ["in_app", "email"],
         timings: ["24_hours", "1_hour"],

@@ -1,0 +1,40 @@
+# READ-ONLY diagnostic: connect as postgres and reveal (1) which db+user the live
+# app connects as (pg_stat_activity), (2) where external_identities exists and who
+# owns it + its ACL. Answers "why does the app's SELECT on external_identities fail
+# when the table exists in tabula_medica". Pass _PGPASS (postgres password).
+steps:
+  - id: diagnose
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    env:
+      - 'PGPASSWORD=${_PGPASS}'
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        apt-get update -qq && apt-get install -y -qq postgresql-client wget >/dev/null
+        wget -q -O /csp https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /csp; mkdir -p /cloudsql
+        /csp --unix-socket /cloudsql united-planet-485003-n7:us-central1:tabula-medica-db &
+        S="/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db"
+        for i in $(seq 1 20); do [ -S "$$S/.s.PGSQL.5432" ] && break; sleep 1; done
+
+        echo "===== (1) LIVE APP CONNECTIONS (which db + user the app uses) ====="
+        psql "host=$$S user=postgres dbname=postgres" -c \
+          "SELECT datname, usename, application_name, count(*) FROM pg_stat_activity WHERE usename IS NOT NULL GROUP BY 1,2,3 ORDER BY 1,2;"
+
+        echo "===== (2) external_identities across databases: exists? owner? ====="
+        for db in tabula_medica tabula_web phr_staging tabula_medica_staging; do
+          echo "--- db=$$db ---"
+          psql "host=$$S user=postgres dbname=$$db" -tAc \
+            "SELECT to_regclass('public.external_identities');" 2>&1 | sed 's/^/  regclass: /'
+          psql "host=$$S user=postgres dbname=$$db" -c \
+            "SELECT tableowner FROM pg_tables WHERE tablename='external_identities';" 2>&1 | sed 's/^/  /'
+          psql "host=$$S user=postgres dbname=$$db" -c \
+            "\dp external_identities" 2>&1 | sed 's/^/  /'
+        done
+timeout: 600s
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _PGPASS: "REQUIRED"

@@ -164,8 +164,8 @@ export interface CollaborationDashboard {
 
 // Sample patient data for samplenstration
 const samplePatientData = {
-  "patient-001": {
-    id: "patient-001",
+  "demo-patient-001": {
+    id: "demo-patient-001",
     name: "John Smith",
     age: 65,
     gender: "Male",
@@ -223,7 +223,7 @@ class AIProviderCollaborationService {
     requestingProviderId: string,
     additionalContext?: string
   ): Promise<PatientCaseSummary> {
-    const patient = samplePatientData[patientId as keyof typeof samplePatientData] || samplePatientData["patient-001"];
+    const patient = samplePatientData[patientId as keyof typeof samplePatientData] || samplePatientData["demo-patient-001"];
     
     // HIPAA Audit: Log AI invocation
     logHIPAAAudit("CASE_SUMMARY_GENERATION", {
@@ -331,7 +331,7 @@ Respond only with valid JSON.`;
     caseContext: string,
     clinicalKeywords?: string[]
   ): Promise<ResearchPaperSuggestion> {
-    const patient = samplePatientData[patientId as keyof typeof samplePatientData] || samplePatientData["patient-001"];
+    const patient = samplePatientData[patientId as keyof typeof samplePatientData] || samplePatientData["demo-patient-001"];
     
     // HIPAA Audit: Log AI invocation
     logHIPAAAudit("RESEARCH_SUGGESTION", {
@@ -465,7 +465,7 @@ Note: Generate realistic but example paper suggestions for educational purposes.
     communicationType: InterProviderCommunication["communicationType"],
     specificRequest?: string
   ): Promise<InterProviderCommunication> {
-    const patient = samplePatientData[patientId as keyof typeof samplePatientData] || samplePatientData["patient-001"];
+    const patient = samplePatientData[patientId as keyof typeof samplePatientData] || samplePatientData["demo-patient-001"];
     
     // HIPAA Audit: Log AI invocation for inter-provider communication
     logHIPAAAudit("COMMUNICATION_DRAFT", {

@@ -276,7 +276,7 @@ function initializeSampleData() {
     eventType: "resource_created",
     resourceType: "MedicationRequest",
     resourceId: "med-req-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     timestamp: new Date(now.getTime() - 3600000),
     sourceSystem: "Primary Care Provider",
     changeDescription: "New medication prescription: Metformin 500mg",
@@ -290,7 +290,7 @@ function initializeSampleData() {
     eventType: "resource_updated",
     resourceType: "Observation",
     resourceId: "obs-lab-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     timestamp: new Date(now.getTime() - 1800000),
     sourceSystem: "Lab Corp Integration",
     changeDescription: "Lab result updated: HbA1c = 7.8%",
@@ -319,7 +319,7 @@ function initializeSampleData() {
 
   const riskTrigger1: PatientRiskAssessmentTrigger = {
     id: generateId("risk-trigger"),
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     triggeredBy: event1.id,
     triggerReason: "New medication added - requires interaction check and care coordination review",
     triggerType: "new_data",
@@ -329,7 +329,7 @@ function initializeSampleData() {
     assessmentStatus: "completed",
     assessmentResult: {
       id: generateId("risk-result"),
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       overallRiskLevel: "medium",
       riskScore: 45,
       riskFactors: [
@@ -373,7 +373,7 @@ function initializeSampleData() {
 
   const drugAlert1: DrugInteractionAlert = {
     id: generateId("drug-alert"),
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     alertType: "drug_drug",
     severity: "high",
     medications: [
@@ -401,7 +401,7 @@ function initializeSampleData() {
 
   const coordSuggestion1: CareCoordinationSuggestion = {
     id: generateId("coord-suggest"),
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     triggeredBy: drugAlert1.id,
     triggerType: "drug_interaction",
     priority: "high",

@@ -96,10 +96,10 @@ export interface PHRFamilyHistory extends FamilyMedicalHistory {
 }
 
 class PHRService {
-  private samplePatientId = "patient-001";
+  private samplePatientId = "demo-patient-001";
 
   private patientProfile: PHRPatientProfile = {
-    id: "patient-001",
+    id: "demo-patient-001",
     firstName: "Sarah",
     lastName: "Mitchell",
     dateOfBirth: "1985-03-15",

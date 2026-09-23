@@ -261,7 +261,7 @@ OUTPUT FORMAT (JSON):
     const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
 
     return {
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       dateRange: {
         start: sixMonthsAgo.toISOString().split("T")[0],
         end: now.toISOString().split("T")[0]

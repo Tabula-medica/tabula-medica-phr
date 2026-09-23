@@ -206,7 +206,7 @@ router.post("/simulate", async (req: Request, res: Response) => {
       }
 
       const randomEvent = sampleEvents[Math.floor(Math.random() * sampleEvents.length)];
-      const patientIds = ["patient-001", "patient-002", "patient-003", "patient-004", "patient-005"];
+      const patientIds = ["demo-patient-001", "patient-002", "patient-003", "patient-004", "patient-005"];
       
       fhirEventStreaming.emitEvent({
         ...randomEvent,

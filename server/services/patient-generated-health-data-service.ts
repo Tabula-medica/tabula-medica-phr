@@ -157,7 +157,7 @@ class PatientGeneratedHealthDataService {
   }
 
   private initializeSampleData(): void {
-    const patientId = "patient-001";
+    const patientId = "demo-patient-001";
     const now = new Date();
 
     const sampleVitals: VitalReading[] = [];

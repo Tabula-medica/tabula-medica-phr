@@ -44,7 +44,7 @@ export class RemotePatientMonitoringService {
     const mockVitals: RemoteVitalSubmission[] = [
       {
         id: "vital-001",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         vitalType: "blood_pressure_systolic",
         value: 128,
         unit: "mmHg",
@@ -60,7 +60,7 @@ export class RemotePatientMonitoringService {
       },
       {
         id: "vital-002",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         vitalType: "heart_rate",
         value: 72,
         unit: "bpm",
@@ -74,7 +74,7 @@ export class RemotePatientMonitoringService {
       },
       {
         id: "vital-003",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         vitalType: "weight",
         value: 185.4,
         unit: "lbs",
@@ -90,7 +90,7 @@ export class RemotePatientMonitoringService {
       },
       {
         id: "vital-004",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         vitalType: "oxygen_saturation",
         value: 98,
         unit: "%",
@@ -104,7 +104,7 @@ export class RemotePatientMonitoringService {
       },
       {
         id: "vital-005",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         vitalType: "blood_glucose",
         value: 145,
         unit: "mg/dL",
@@ -122,7 +122,7 @@ export class RemotePatientMonitoringService {
     const mockStatusUpdates: HealthStatusUpdate[] = [
       {
         id: "status-001",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         type: "wellness_check",
         title: "Daily Wellness Check",
         description: "Feeling good overall. Slept well last night and have good energy.",
@@ -142,7 +142,7 @@ export class RemotePatientMonitoringService {
       },
       {
         id: "status-002",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         type: "symptom_report",
         title: "Mild Headache Report",
         description: "Experiencing a mild headache since this morning. Not severe but persistent.",
@@ -162,7 +162,7 @@ export class RemotePatientMonitoringService {
       },
       {
         id: "status-003",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         type: "medication_adherence",
         title: "Weekly Medication Check",
         description: "Reporting weekly medication adherence",

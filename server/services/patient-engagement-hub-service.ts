@@ -161,7 +161,7 @@ class PatientEngagementHubService {
 private initializeSampleData() {
     const conv1: Conversation = {
       id: "conv-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       providerId: "provider-001",
       providerName: "Dr. Sarah Johnson",
@@ -175,7 +175,7 @@ private initializeSampleData() {
         {
           id: "msg-001",
           conversationId: "conv-001",
-          senderId: "patient-001",
+          senderId: "demo-patient-001",
           senderType: "patient",
           senderName: "John Smith",
           recipientId: "provider-001",
@@ -198,7 +198,7 @@ private initializeSampleData() {
           senderId: "provider-001",
           senderType: "provider",
           senderName: "Dr. Sarah Johnson",
-          recipientId: "patient-001",
+          recipientId: "demo-patient-001",
           recipientType: "patient",
           recipientName: "John Smith",
           subject: "Re: Blood Pressure Question",
@@ -216,7 +216,7 @@ private initializeSampleData() {
 
     const conv2: Conversation = {
       id: "conv-002",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       providerId: "provider-002",
       providerName: "Pharmacy Team",
@@ -234,7 +234,7 @@ private initializeSampleData() {
 
     const session1: ChatbotSession = {
       id: "session-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       status: "active",
       startedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
@@ -269,7 +269,7 @@ private initializeSampleData() {
 
     const goal1: HealthGoal = {
       id: "goal-001",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       title: "Lower Blood Pressure",
       description: "Reduce systolic blood pressure to healthy range",
       category: "blood_pressure",
@@ -302,7 +302,7 @@ private initializeSampleData() {
 
     const goal2: HealthGoal = {
       id: "goal-002",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       title: "Daily Steps Challenge",
       description: "Walk 10,000 steps daily for cardiovascular health",
       category: "exercise",
@@ -335,7 +335,7 @@ private initializeSampleData() {
 
     const goal3: HealthGoal = {
       id: "goal-003",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       title: "Weight Management",
       description: "Achieve and maintain healthy weight",
       category: "weight",

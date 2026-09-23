@@ -265,8 +265,8 @@ function getFallbackHistorySummary(patientData: PatientData): PatientHistorySumm
 
 export function getMockPatientData(patientId: string): PatientData {
   const patients: Record<string, PatientData> = {
-    "patient-001": {
-      patientId: "patient-001",
+    "demo-patient-001": {
+      patientId: "demo-patient-001",
       name: "John Smith",
       dateOfBirth: "1965-03-15",
       gender: "Male",
@@ -360,5 +360,5 @@ export function getMockPatientData(patientId: string): PatientData {
     },
   };
 
-  return patients[patientId] || patients["patient-001"];
+  return patients[patientId] || patients["demo-patient-001"];
 }

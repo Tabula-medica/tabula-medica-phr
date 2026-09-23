@@ -35,7 +35,7 @@ const SAMPLE_FHIR_RESOURCES: FHIRResourceForValidation[] = [
   {
     id: "condition-001",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     data: {
       code: { coding: [{ system: "http://snomed.info/sct", code: "73211009", display: "Diabetes mellitus" }] },
@@ -47,7 +47,7 @@ const SAMPLE_FHIR_RESOURCES: FHIRResourceForValidation[] = [
   {
     id: "condition-002",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     data: {
       code: { coding: [{ system: "http://snomed.info/sct", code: "38341003", display: "Hypertension" }] },
@@ -60,7 +60,7 @@ const SAMPLE_FHIR_RESOURCES: FHIRResourceForValidation[] = [
   {
     id: "medication-001",
     resourceType: "MedicationRequest",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     data: {
       status: "active",
@@ -72,7 +72,7 @@ const SAMPLE_FHIR_RESOURCES: FHIRResourceForValidation[] = [
   {
     id: "observation-001",
     resourceType: "Observation",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     data: {
       status: "final",
@@ -95,9 +95,9 @@ const SAMPLE_FHIR_RESOURCES: FHIRResourceForValidation[] = [
     lastUpdated: "2024-01-12T09:00:00Z",
   },
   {
-    id: "patient-001",
+    id: "demo-patient-001",
     resourceType: "Patient",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     data: {
       identifier: [{ system: "http://hospital.example.org/mrn", value: "MRN12345" }],

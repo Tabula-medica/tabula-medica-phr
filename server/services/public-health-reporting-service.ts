@@ -106,7 +106,7 @@ const NO_CDS_DISCLAIMER = "IMPORTANT: This report is for public health surveilla
 const sampleImmunizationRecords: ImmunizationRecord[] = [
   {
     id: "imm-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     vaccineCode: "208",
     vaccineName: "COVID-19 mRNA Vaccine",
     vaccineType: "COVID-19",

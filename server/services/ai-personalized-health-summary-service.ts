@@ -100,8 +100,8 @@ export interface PersonalizedHealthSummary {
 }
 
 const samplePatientData: Record<string, PatientHealthData> = {
-  "patient-001": {
-    patientId: "patient-001",
+  "demo-patient-001": {
+    patientId: "demo-patient-001",
     patientName: "Sarah Johnson",
     conditions: [
       { id: "c1", name: "Type 2 Diabetes Mellitus", clinicalStatus: "active", severity: "moderate", onsetDate: "2022-03-15", category: "Endocrine" },
@@ -337,7 +337,7 @@ export async function generatePersonalizedHealthSummary(
 ): Promise<PersonalizedHealthSummary> {
   logPhiAccess("GENERATE_SUMMARY", userId, patientId, `viewMode=${viewMode}`);
 
-  const data = samplePatientData[patientId] || samplePatientData["patient-001"];
+  const data = samplePatientData[patientId] || samplePatientData["demo-patient-001"];
   
   const whatsNew = getRecentChanges(data, 60);
   const keyTrends = analyzeLabTrends(data.labResults);

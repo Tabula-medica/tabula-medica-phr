@@ -1,0 +1,38 @@
+# READ-ONLY introspection of the prod DB schema. Lists all tables and the
+# columns of the auth-relevant ones so we can apply the correct migration.
+# No writes. DATABASE_URL injected from Secret Manager (never leaves GCP).
+availableSecrets:
+  secretManager:
+    - versionName: projects/united-planet-485003-n7/secrets/patient-db-secret-us-central1/versions/latest
+      env: DATABASE_URL
+
+steps:
+  - id: introspect
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    secretEnv: ['DATABASE_URL']
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        apt-get update -qq && apt-get install -y -qq postgresql-client wget >/dev/null
+        wget -q -O /cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /cloud-sql-proxy
+        mkdir -p /cloudsql
+        /cloud-sql-proxy --unix-socket /cloudsql \
+          united-planet-485003-n7:us-central1:tabula-medica-db &
+        for i in $(seq 1 15); do
+          [ -S "/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db/.s.PGSQL.5432" ] && break
+          sleep 1
+        done
+        echo "############### tabula_medica: all 43 tables + row counts ###############"
+        psql "$$DATABASE_URL" -v ON_ERROR_STOP=0 -c "\connect tabula_medica" \
+          -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;"
+        echo "############### key auth/patient tables present in tabula_medica? ###############"
+        psql "$$DATABASE_URL" -v ON_ERROR_STOP=0 -c "\connect tabula_medica" \
+          -c "SELECT to_regclass('public.users') u, to_regclass('public.external_identities') ei, to_regclass('public.profiles') p, to_regclass('public.accounts') a, to_regclass('public.health_records') hr, to_regclass('public.medications') m, to_regclass('public.onboarding_sessions') o;"
+
+timeout: 600s
+options:
+  logging: CLOUD_LOGGING_ONLY

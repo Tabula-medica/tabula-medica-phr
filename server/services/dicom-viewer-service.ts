@@ -146,7 +146,7 @@ function initializeSampleData() {
     studyTime: "09:30:00",
     studyDescription: "CT CHEST W/CONTRAST",
     accessionNumber: "ACC123456",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "Smith, John",
     modalitiesInStudy: ["CT"],
     numberOfSeries: 3,

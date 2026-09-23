@@ -20,7 +20,7 @@ export class AppointmentManagementService {
     const mockAppointments: PatientAppointment[] = [
       {
         id: "apt-001",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         providerId: "prov-001",
         providerName: "Dr. Sarah Johnson",
         providerSpecialty: "Internal Medicine",
@@ -40,7 +40,7 @@ export class AppointmentManagementService {
       },
       {
         id: "apt-002",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         providerId: "prov-002",
         providerName: "Dr. Michael Chen",
         providerSpecialty: "Cardiology",
@@ -61,7 +61,7 @@ export class AppointmentManagementService {
       },
       {
         id: "apt-003",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         providerId: "prov-003",
         providerName: "Lab Services",
         providerSpecialty: "Diagnostics",
@@ -81,7 +81,7 @@ export class AppointmentManagementService {
       },
       {
         id: "apt-004",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         providerId: "prov-004",
         providerName: "Dr. Emily Rodriguez",
         providerSpecialty: "Primary Care",
@@ -102,7 +102,7 @@ export class AppointmentManagementService {
       },
       {
         id: "apt-005",
-        patientId: "patient-001",
+        patientId: "demo-patient-001",
         providerId: "prov-005",
         providerName: "Flu Shot Clinic",
         providerSpecialty: "Preventive Care",

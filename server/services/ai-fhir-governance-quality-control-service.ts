@@ -190,7 +190,7 @@ function initializeSampleData() {
   const validation1: ConformanceValidation = {
     id: "cv-" + Date.now() + "-1",
     resourceType: "Patient",
-    resourceId: "patient-001",
+    resourceId: "demo-patient-001",
     profileUrl: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
     conformanceLevel: "partial",
     overallScore: 85,
@@ -217,7 +217,7 @@ function initializeSampleData() {
 
   const anomaly1: AnomalyDetection = {
     id: "ad-" + Date.now() + "-1",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     detectedAt: new Date().toISOString(),
     anomalyType: "temporal_inconsistency",
     severity: "medium",

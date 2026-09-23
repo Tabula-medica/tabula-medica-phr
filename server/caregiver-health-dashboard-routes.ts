@@ -11,7 +11,7 @@ import { logPhiAccess } from "./security/hipaa-audit";
 const router = Router();
 
 const SYSTEM_CAREGIVER_ID = "caregiver-michael-001";
-const SAMPLE_PATIENT_ID = "patient-001";
+const SAMPLE_PATIENT_ID = "demo-patient-001";
 
 export interface DashboardWidget {
   id: string;

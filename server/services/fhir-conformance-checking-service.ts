@@ -169,12 +169,12 @@ const scanResultStore = new Map<string, ConformanceScanResult>();
 
 const sampleResources: StoredResource[] = [
   {
-    id: "patient-001",
+    id: "demo-patient-001",
     resourceType: "Patient",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     data: {
       resourceType: "Patient",
-      id: "patient-001",
+      id: "demo-patient-001",
       identifier: [{ system: "http://hospital.example.org/mrn", value: "MRN12345" }],
       name: [{ family: "Smith", given: ["John"] }],
       gender: "male",
@@ -201,13 +201,13 @@ const sampleResources: StoredResource[] = [
   {
     id: "condition-001",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     data: {
       resourceType: "Condition",
       id: "condition-001",
       clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: "active" }] },
       code: { coding: [{ system: "http://snomed.info/sct", code: "73211009", display: "Diabetes mellitus" }] },
-      subject: { reference: "Patient/patient-001" },
+      subject: { reference: "Patient/demo-patient-001" },
     },
     source: "Fasten Health",
     lastUpdated: new Date(),
@@ -216,12 +216,12 @@ const sampleResources: StoredResource[] = [
   {
     id: "condition-002",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     data: {
       resourceType: "Condition",
       id: "condition-002",
       code: { coding: [{ system: "http://snomed.info/sct", code: "38341003", display: "Hypertension" }] },
-      subject: { reference: "Patient/patient-001" },
+      subject: { reference: "Patient/demo-patient-001" },
     },
     source: "Fasten Health",
     lastUpdated: new Date(),
@@ -230,13 +230,13 @@ const sampleResources: StoredResource[] = [
   {
     id: "observation-001",
     resourceType: "Observation",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     data: {
       resourceType: "Observation",
       id: "observation-001",
       status: "final",
       code: { coding: [{ system: "http://loinc.org", code: "2339-0", display: "Glucose" }] },
-      subject: { reference: "Patient/patient-001" },
+      subject: { reference: "Patient/demo-patient-001" },
       valueQuantity: { value: 126, unit: "mg/dL" },
     },
     source: "Quest",
@@ -246,14 +246,14 @@ const sampleResources: StoredResource[] = [
   {
     id: "medication-001",
     resourceType: "MedicationRequest",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     data: {
       resourceType: "MedicationRequest",
       id: "medication-001",
       status: "active",
       intent: "order",
       medicationCodeableConcept: { coding: [{ system: "http://www.nlm.nih.gov/research/umls/rxnorm", code: "860975", display: "Metformin 500mg" }] },
-      subject: { reference: "Patient/patient-001" },
+      subject: { reference: "Patient/demo-patient-001" },
     },
     source: "Fasten Health",
     lastUpdated: new Date(),

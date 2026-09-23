@@ -23,8 +23,8 @@ class LanguagePreferencesService {
       updatedAt: new Date().toISOString()
     });
 
-    this.userPreferences.set("patient-001", {
-      userId: "patient-001",
+    this.userPreferences.set("demo-patient-001", {
+      userId: "demo-patient-001",
       defaultLanguage: "en",
       summaryLanguageOverrides: {},
       createdAt: new Date().toISOString(),

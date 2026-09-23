@@ -1,0 +1,38 @@
+# One-shot migration runner using a directly-supplied postgres password
+# (passed as substitution _PGPASS), bypassing the stale DATABASE_URL secret.
+# Applies migrations/0002_external_identities.sql to the prod Cloud SQL DB.
+# Idempotent + additive (CREATE TABLE IF NOT EXISTS) — safe to re-run.
+steps:
+  - id: run-migration
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    env:
+      - 'PGPASSWORD=${_PGPASS}'
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        apt-get update -qq && apt-get install -y -qq postgresql-client wget >/dev/null
+        wget -q -O /cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /cloud-sql-proxy
+        mkdir -p /cloudsql
+        /cloud-sql-proxy --unix-socket /cloudsql \
+          united-planet-485003-n7:us-central1:tabula-medica-db &
+        for i in $(seq 1 20); do
+          [ -S "/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db/.s.PGSQL.5432" ] && break
+          sleep 1
+        done
+        SOCK="/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db"
+        echo "=== BEFORE: external_identities exists? ==="
+        psql "host=$$SOCK user=postgres dbname=tabula_medica" -tAc "SELECT to_regclass('public.external_identities');"
+        echo "=== Applying migration ==="
+        psql "host=$$SOCK user=postgres dbname=tabula_medica" -v ON_ERROR_STOP=1 -f migrations/0002_external_identities.sql
+        echo "=== AFTER: external_identities columns ==="
+        psql "host=$$SOCK user=postgres dbname=tabula_medica" -c "\d external_identities"
+
+timeout: 600s
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _PGPASS: "REQUIRED"

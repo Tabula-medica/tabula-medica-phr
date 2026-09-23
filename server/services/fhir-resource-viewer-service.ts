@@ -76,7 +76,7 @@ const sampleResources: FHIRResourceDetail[] = [
   {
     id: "condition-dm2-001",
     resourceType: "Condition",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     currentVersion: {
       versionId: "3",
       resourceId: "condition-dm2-001",
@@ -94,7 +94,7 @@ const sampleResources: FHIRResourceDetail[] = [
           ],
           text: "Type 2 Diabetes Mellitus",
         },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         onsetDateTime: "2020-06-15",
         recordedDate: "2020-06-15",
       },
@@ -138,7 +138,7 @@ const sampleResources: FHIRResourceDetail[] = [
       { system: "SNOMED CT", code: "44054006", display: "Type 2 Diabetes Mellitus" },
       { system: "ICD-10-CM", code: "E11.9", display: "Type 2 diabetes mellitus without complications" },
     ],
-    references: [{ type: "Patient", reference: "Patient/patient-001", display: "John Smith" }],
+    references: [{ type: "Patient", reference: "Patient/demo-patient-001", display: "John Smith" }],
     provenance: [
       {
         id: "prov-001",
@@ -153,7 +153,7 @@ const sampleResources: FHIRResourceDetail[] = [
   {
     id: "medication-metformin-001",
     resourceType: "MedicationRequest",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     currentVersion: {
       versionId: "2",
       resourceId: "medication-metformin-001",
@@ -169,7 +169,7 @@ const sampleResources: FHIRResourceDetail[] = [
           ],
           text: "Metformin 500mg",
         },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         authoredOn: "2024-01-15",
         dosageInstruction: [{ text: "Take 1 tablet twice daily with meals", timing: { repeat: { frequency: 2, period: 1, periodUnit: "d" } } }],
       },
@@ -198,13 +198,13 @@ const sampleResources: FHIRResourceDetail[] = [
     ],
     auditTrail: [],
     codes: [{ system: "RxNorm", code: "860975", display: "Metformin 500 MG Oral Tablet" }],
-    references: [{ type: "Patient", reference: "Patient/patient-001", display: "John Smith" }],
+    references: [{ type: "Patient", reference: "Patient/demo-patient-001", display: "John Smith" }],
     provenance: [],
   },
   {
     id: "observation-a1c-001",
     resourceType: "Observation",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     currentVersion: {
       versionId: "1",
       resourceId: "observation-a1c-001",
@@ -220,7 +220,7 @@ const sampleResources: FHIRResourceDetail[] = [
           ],
           text: "HbA1c",
         },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         effectiveDateTime: "2024-03-10",
         valueQuantity: { value: 7.2, unit: "%", system: "http://unitsofmeasure.org", code: "%" },
         interpretation: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", code: "H", display: "High" }] }],
@@ -238,7 +238,7 @@ const sampleResources: FHIRResourceDetail[] = [
     versionHistory: [],
     auditTrail: [],
     codes: [{ system: "LOINC", code: "4548-4", display: "Hemoglobin A1c/Hemoglobin.total in Blood" }],
-    references: [{ type: "Patient", reference: "Patient/patient-001", display: "John Smith" }],
+    references: [{ type: "Patient", reference: "Patient/demo-patient-001", display: "John Smith" }],
     provenance: [],
   },
 ];

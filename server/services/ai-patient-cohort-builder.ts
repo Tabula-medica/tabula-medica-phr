@@ -185,7 +185,7 @@ const cohortResultsCache = new Map<string, PatientMatch[]>();
 
 const samplePatients: PatientMatch[] = [
   {
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     matchScore: 0.95,
     matchedCriteria: ["age_65_plus", "diabetes", "hypertension"],

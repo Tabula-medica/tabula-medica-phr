@@ -1,0 +1,25 @@
+availableSecrets:
+  secretManager:
+    - versionName: projects/united-planet-485003-n7/secrets/patient-db-secret-us-central1/versions/latest
+      env: DATABASE_URL
+steps:
+  - id: verify
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    secretEnv: ['DATABASE_URL']
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        apt-get update -qq && apt-get install -y -qq postgresql-client wget >/dev/null
+        wget -q -O /cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /cloud-sql-proxy; mkdir -p /cloudsql
+        /cloud-sql-proxy --unix-socket /cloudsql united-planet-485003-n7:us-central1:tabula-medica-db &
+        for i in $(seq 1 15); do [ -S "/cloudsql/united-planet-485003-n7:us-central1:tabula-medica-db/.s.PGSQL.5432" ] && break; sleep 1; done
+        echo "=== current DB + table count ==="
+        psql "$$DATABASE_URL" -c "SELECT current_database(), count(*) FROM information_schema.tables WHERE table_schema='public';"
+        echo "=== key auth tables present? ==="
+        psql "$$DATABASE_URL" -c "SELECT to_regclass('public.users') users, to_regclass('public.external_identities') ext_ident, to_regclass('public.profiles') profiles, to_regclass('public.sessions') sessions;"
+timeout: 300s
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -298,10 +298,10 @@ class FHIRExternalAPIGateway {
     });
 
     const patients = this.resourceStore.get("Patient")!;
-    patients.set("patient-001", {
+    patients.set("demo-patient-001", {
       resource: {
         resourceType: "Patient",
-        id: "patient-001",
+        id: "demo-patient-001",
         meta: { versionId: "1", lastUpdated: new Date().toISOString() },
         identifier: [{ system: "http://hospital.example.org/patient", value: "12345" }],
         name: [{ use: "official", family: "Smith", given: ["John", "Michael"] }],
@@ -321,7 +321,7 @@ class FHIRExternalAPIGateway {
         status: "final",
         category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/observation-category", code: "vital-signs" }] }],
         code: { coding: [{ system: "http://loinc.org", code: "8867-4", display: "Heart rate" }] },
-        subject: { reference: "Patient/patient-001" },
+        subject: { reference: "Patient/demo-patient-001" },
         effectiveDateTime: new Date().toISOString(),
         valueQuantity: { value: 72, unit: "beats/minute", system: "http://unitsofmeasure.org", code: "/min" },
       },

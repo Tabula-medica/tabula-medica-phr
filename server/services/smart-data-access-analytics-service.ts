@@ -159,7 +159,7 @@ function initializeSampleData(): void {
       lastOccurrence: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
       firstOccurrence: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
       affectedResources: ["Observation", "Patient"],
-      affectedPatients: ["patient-001", "patient-002", "patient-003"],
+      affectedPatients: ["demo-patient-001", "patient-002", "patient-003"],
       status: "active"
     },
     {

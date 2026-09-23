@@ -30,7 +30,7 @@ function getSampleHighRiskPatients(): HighRiskPatient[] {
   const today = new Date();
   return [
     {
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "Maria Garcia",
       dateOfBirth: "1958-03-15",
       priorityLevel: "critical",

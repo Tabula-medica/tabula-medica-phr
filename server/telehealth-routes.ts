@@ -27,7 +27,7 @@ function requireAuth(req: Request, res: Response): string | null {
 const appointments: VideoAppointment[] = [
   {
     id: "apt-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     clinicianId: "clinician-001",
     patientName: "John Smith",
     clinicianName: "Dr. Sarah Johnson",
@@ -85,8 +85,8 @@ const callLogs: VideoCallLog[] = [];
 })();
 
 const samplePatientContexts: Record<string, VideoPatientContext> = {
-  "patient-001": {
-    patientId: "patient-001",
+  "demo-patient-001": {
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     dateOfBirth: "1965-03-15",
     conditions: ["Type 2 Diabetes", "Hypertension", "Hyperlipidemia"],
@@ -1291,7 +1291,7 @@ interface PatientMessage {
 const patientMessages: PatientMessage[] = [
   {
     id: "msg-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     providerId: "clinician-001",
     providerName: "Dr. Sarah Johnson",
@@ -1306,11 +1306,11 @@ const patientMessages: PatientMessage[] = [
   },
   {
     id: "msg-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     providerId: "clinician-001",
     providerName: "Dr. Sarah Johnson",
-    senderId: "patient-001",
+    senderId: "demo-patient-001",
     senderName: "John Smith",
     senderRole: "patient",
     subject: "Re: Follow-up on recent lab results",
@@ -1322,7 +1322,7 @@ const patientMessages: PatientMessage[] = [
   },
   {
     id: "msg-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     providerId: "clinician-001",
     providerName: "Dr. Sarah Johnson",
@@ -1639,7 +1639,7 @@ router.get("/patient/:patientId/portal-dashboard", async (req: Request, res: Res
     });
 
     const now = new Date();
-    const patientAppts = appointments.filter((a) => a.patientId === patientId || patientId === "patient-001");
+    const patientAppts = appointments.filter((a) => a.patientId === patientId || patientId === "demo-patient-001");
 
     const upcoming = patientAppts
       .filter((a) => new Date(a.scheduledStartTime) >= now && (a.status === "scheduled" || a.status === "in_progress"))
@@ -1650,10 +1650,10 @@ router.get("/patient/:patientId/portal-dashboard", async (req: Request, res: Res
       .sort((a, b) => new Date(b.scheduledStartTime).getTime() - new Date(a.scheduledStartTime).getTime());
 
     const summaries = sessionSummaries
-      .filter((s) => s.patientId === patientId || patientId === "patient-001")
+      .filter((s) => s.patientId === patientId || patientId === "demo-patient-001")
       .sort((a, b) => new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime());
 
-    const messages = patientMessages.filter((m) => m.patientId === patientId || patientId === "patient-001");
+    const messages = patientMessages.filter((m) => m.patientId === patientId || patientId === "demo-patient-001");
     const unreadMessages = messages.filter((m) => !m.isRead && m.senderRole === "provider").length;
 
     const educationCount = patientEducationArticles.filter((a) => a.patientId === patientId).length;
@@ -1692,7 +1692,7 @@ interface UnifiedTimelineEvent {
 const labResults = [
   {
     id: "lab-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     testName: "HbA1c",
     value: "7.2%",
     referenceRange: "4.0-5.6%",
@@ -1703,7 +1703,7 @@ const labResults = [
   },
   {
     id: "lab-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     testName: "Complete Blood Count (CBC)",
     value: "Within Normal Limits",
     referenceRange: "N/A",
@@ -1714,7 +1714,7 @@ const labResults = [
   },
   {
     id: "lab-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     testName: "Lipid Panel - LDL",
     value: "142 mg/dL",
     referenceRange: "<100 mg/dL",
@@ -1725,7 +1725,7 @@ const labResults = [
   },
   {
     id: "lab-004",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     testName: "Fasting Blood Glucose",
     value: "142 mg/dL",
     referenceRange: "70-100 mg/dL",
@@ -1736,7 +1736,7 @@ const labResults = [
   },
   {
     id: "lab-005",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     testName: "Basic Metabolic Panel",
     value: "Within Normal Limits",
     referenceRange: "N/A",
@@ -1763,7 +1763,7 @@ router.get("/patient/:patientId/unified-record", async (req: Request, res: Respo
     });
 
     const events: UnifiedTimelineEvent[] = [];
-    const resolvedPatientId = samplePatientContexts[patientId] ? patientId : "patient-001";
+    const resolvedPatientId = samplePatientContexts[patientId] ? patientId : "demo-patient-001";
     const context = samplePatientContexts[resolvedPatientId];
 
     const patientAppts = appointments.filter((a) => a.patientId === resolvedPatientId);

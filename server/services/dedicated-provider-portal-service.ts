@@ -377,11 +377,11 @@ function initializeSampleData(): void {
   const sampleConversation: Conversation = {
     id: "conv-001",
     type: "patient",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     participants: [
       { id: "user-provider-001", name: "Dr. Sarah Johnson", role: "physician", specialty: "Internal Medicine" },
-      { id: "patient-001", name: "John Smith", role: "patient" },
+      { id: "demo-patient-001", name: "John Smith", role: "patient" },
     ],
     subject: "Follow-up on recent lab results",
     lastMessage: "Thank you for the clarification, Dr. Johnson.",
@@ -400,10 +400,10 @@ function initializeSampleData(): void {
       senderId: "user-provider-001",
       senderName: "Dr. Sarah Johnson",
       senderRole: "physician",
-      recipientId: "patient-001",
+      recipientId: "demo-patient-001",
       recipientName: "John Smith",
       recipientType: "patient",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       subject: "Lab Results Review",
       content: "Hello John, I wanted to discuss your recent lab results. Your HbA1c has improved from 7.2% to 6.8%, which is great progress. Let's continue with the current treatment plan.",
       priority: "normal",
@@ -416,13 +416,13 @@ function initializeSampleData(): void {
     {
       id: "msg-002",
       conversationId: "conv-001",
-      senderId: "patient-001",
+      senderId: "demo-patient-001",
       senderName: "John Smith",
       senderRole: "patient",
       recipientId: "user-provider-001",
       recipientName: "Dr. Sarah Johnson",
       recipientType: "provider",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       subject: "Re: Lab Results Review",
       content: "Thank you for the clarification, Dr. Johnson. I have been following the diet plan you recommended. Should I continue with the same medication dosage?",
       priority: "normal",
@@ -461,7 +461,7 @@ function initializeSampleData(): void {
     },
     {
       id: "alert-003",
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       type: "care_gap",
       severity: "info",
@@ -786,7 +786,7 @@ export async function getPatientList(providerId: string, options?: { riskLevel?:
   });
 
   const patients: Partial<AggregatedPatientData>[] = [
-    { patientId: "patient-001", patientName: "John Smith", dateOfBirth: "1958-03-15", mrn: "MRN-12345678", dataQualityScore: 94 },
+    { patientId: "demo-patient-001", patientName: "John Smith", dateOfBirth: "1958-03-15", mrn: "MRN-12345678", dataQualityScore: 94 },
     { patientId: "patient-002", patientName: "Maria Garcia", dateOfBirth: "1972-08-22", mrn: "MRN-12345679", dataQualityScore: 91 },
     { patientId: "patient-003", patientName: "Robert Johnson", dateOfBirth: "1953-11-05", mrn: "MRN-12345680", dataQualityScore: 88 },
     { patientId: "patient-004", patientName: "Emily Chen", dateOfBirth: "1985-04-18", mrn: "MRN-12345681", dataQualityScore: 96 },

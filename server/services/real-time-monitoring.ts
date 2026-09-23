@@ -207,7 +207,7 @@ function initializeSampleData() {
     title: "High-Risk Patient Alert",
     message: "Patient P-001 has multiple medication data conflicts requiring immediate care coordination review",
     source: "AI Risk Assessment Engine",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     timestamp: new Date(now.getTime() - 300000),
     status: "active",
     escalationLevel: 1,

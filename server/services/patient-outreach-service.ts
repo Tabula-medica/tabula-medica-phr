@@ -197,7 +197,7 @@ const SAMPLE_MESSAGES: PatientOutreachMessage[] = [
   {
     id: "msg-001",
     campaignId: "campaign-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     type: "medication_reminder",
     subject: "Medication Refill Reminder",
@@ -245,7 +245,7 @@ const SAMPLE_MESSAGES: PatientOutreachMessage[] = [
 const SAMPLE_TASKS: CareTeamTask[] = [
   {
     id: "task-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     patientName: "John Smith",
     assignedTo: "nurse-1",
     assignedToName: "Nurse Sarah",
@@ -488,7 +488,7 @@ export async function identifyPatientsForOutreach(
 ): Promise<IdentifiedPatient[]> {
   const patients: IdentifiedPatient[] = [
     {
-      patientId: "patient-001",
+      patientId: "demo-patient-001",
       patientName: "John Smith",
       reason: "Medication refill overdue by 10 days",
       priority: "high",

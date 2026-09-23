@@ -94,7 +94,7 @@ export interface ExportPreview {
 }
 
 const samplePatients = [
-  { id: "patient-001", name: "John Smith", birthDate: "1965-03-15", gender: "male" },
+  { id: "demo-patient-001", name: "John Smith", birthDate: "1965-03-15", gender: "male" },
   { id: "patient-002", name: "Mary Johnson", birthDate: "1978-07-22", gender: "female" },
   { id: "patient-003", name: "Robert Davis", birthDate: "1952-11-08", gender: "male" },
   { id: "patient-004", name: "Sarah Wilson", birthDate: "1990-01-30", gender: "female" },
@@ -102,26 +102,26 @@ const samplePatients = [
 ];
 
 const sampleObservations = [
-  { id: "obs-001", patientId: "patient-001", code: "8480-6", display: "Systolic BP", value: 142, unit: "mmHg", date: "2026-01-15" },
-  { id: "obs-002", patientId: "patient-001", code: "8462-4", display: "Diastolic BP", value: 88, unit: "mmHg", date: "2026-01-15" },
+  { id: "obs-001", patientId: "demo-patient-001", code: "8480-6", display: "Systolic BP", value: 142, unit: "mmHg", date: "2026-01-15" },
+  { id: "obs-002", patientId: "demo-patient-001", code: "8462-4", display: "Diastolic BP", value: 88, unit: "mmHg", date: "2026-01-15" },
   { id: "obs-003", patientId: "patient-002", code: "4548-4", display: "Hemoglobin A1c", value: 7.2, unit: "%", date: "2026-01-10" },
   { id: "obs-004", patientId: "patient-003", code: "2339-0", display: "Glucose", value: 126, unit: "mg/dL", date: "2026-01-12" },
   { id: "obs-005", patientId: "patient-004", code: "29463-7", display: "Body Weight", value: 68, unit: "kg", date: "2026-01-20" },
 ];
 
 const sampleConditions = [
-  { id: "cond-001", patientId: "patient-001", code: "I10", display: "Essential Hypertension", status: "active", onsetDate: "2020-05-10" },
+  { id: "cond-001", patientId: "demo-patient-001", code: "I10", display: "Essential Hypertension", status: "active", onsetDate: "2020-05-10" },
   { id: "cond-002", patientId: "patient-002", code: "E11.9", display: "Type 2 Diabetes Mellitus", status: "active", onsetDate: "2018-03-22" },
   { id: "cond-003", patientId: "patient-003", code: "J44.9", display: "COPD", status: "active", onsetDate: "2019-08-15" },
-  { id: "cond-004", patientId: "patient-001", code: "E78.5", display: "Hyperlipidemia", status: "active", onsetDate: "2021-02-28" },
+  { id: "cond-004", patientId: "demo-patient-001", code: "E78.5", display: "Hyperlipidemia", status: "active", onsetDate: "2021-02-28" },
   { id: "cond-005", patientId: "patient-005", code: "F32.1", display: "Major Depressive Disorder", status: "active", onsetDate: "2023-06-01" },
 ];
 
 const sampleMedications = [
-  { id: "med-001", patientId: "patient-001", code: "197884", display: "Lisinopril 10mg", status: "active", startDate: "2020-05-15" },
+  { id: "med-001", patientId: "demo-patient-001", code: "197884", display: "Lisinopril 10mg", status: "active", startDate: "2020-05-15" },
   { id: "med-002", patientId: "patient-002", code: "861004", display: "Metformin 500mg", status: "active", startDate: "2018-04-01" },
   { id: "med-003", patientId: "patient-003", code: "746762", display: "Albuterol Inhaler", status: "active", startDate: "2019-08-20" },
-  { id: "med-004", patientId: "patient-001", code: "262095", display: "Atorvastatin 20mg", status: "active", startDate: "2021-03-05" },
+  { id: "med-004", patientId: "demo-patient-001", code: "262095", display: "Atorvastatin 20mg", status: "active", startDate: "2021-03-05" },
   { id: "med-005", patientId: "patient-005", code: "312938", display: "Sertraline 50mg", status: "active", startDate: "2023-06-10" },
 ];
 

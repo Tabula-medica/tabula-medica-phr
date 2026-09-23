@@ -149,8 +149,8 @@ class ClinicalToolsService {
   }
 
   private initializeSampleData(): void {
-    this.nmnRecords.set('patient-001', {
-      patientId: 'patient-001',
+    this.nmnRecords.set('demo-patient-001', {
+      patientId: 'demo-patient-001',
       firstName: 'Sarah',
       middleName: null,
       lastName: 'Chen',

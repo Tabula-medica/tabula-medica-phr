@@ -227,7 +227,7 @@ function initializeSampleData(): void {
       recentVisits: ['Primary Care - Jan 15, 2026'],
       vitals: { bp: '128/82', hr: 72, weight: '185 lbs' }
     },
-    patientId: 'patient-001',
+    patientId: 'demo-patient-001',
     patientName: 'John Doe',
     createdAt: new Date().toISOString(),
     createdBy: { userId: 'user-1', name: 'Dr. Sarah Chen', role: 'physician' }
@@ -246,7 +246,7 @@ function initializeSampleData(): void {
       completedSteps: ['Discharge Instructions', 'Medication Reconciliation'],
       assignedTo: 'Care Coordination Team'
     },
-    patientId: 'patient-001',
+    patientId: 'demo-patient-001',
     patientName: 'John Doe',
     createdAt: new Date().toISOString(),
     createdBy: { userId: 'user-2', name: 'Nurse Johnson', role: 'care_coordinator' }
@@ -276,7 +276,7 @@ function initializeSampleData(): void {
       }
     ],
     status: 'active',
-    patientId: 'patient-001',
+    patientId: 'demo-patient-001',
     patientName: 'John Doe',
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString()
@@ -287,8 +287,8 @@ function initializeSampleData(): void {
   const sampleAnnotation: Annotation = {
     id: 'annotation-1',
     targetType: 'patient_record',
-    targetId: 'patient-001',
-    patientId: 'patient-001',
+    targetId: 'demo-patient-001',
+    patientId: 'demo-patient-001',
     patientName: 'John Doe',
     content: 'Patient reported improved blood glucose control since starting new medication regimen. Consider reducing metformin if trend continues.',
     annotationType: 'note',
@@ -310,7 +310,7 @@ function initializeSampleData(): void {
     id: 'annotation-2',
     targetType: 'workflow_task',
     targetId: 'task-001',
-    patientId: 'patient-001',
+    patientId: 'demo-patient-001',
     patientName: 'John Doe',
     content: 'Patient unreachable by phone. Will attempt contact via secure messaging.',
     annotationType: 'action_item',
@@ -341,7 +341,7 @@ function initializeSampleData(): void {
       sourceModule: 'collaboration',
       sourceId: 'share-1',
       sourceType: 'patient_summary',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       patientName: 'John Doe',
       actionUrl: '/collaboration/shares/share-1',
       actionLabel: 'View Summary',
@@ -385,7 +385,7 @@ function initializeSampleData(): void {
       sourceModule: 'workflow',
       sourceId: 'task-001',
       sourceType: 'follow_up',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       patientName: 'John Doe',
       actionUrl: '/clinical-workflow-automation?taskId=task-001',
       actionLabel: 'View Task',
@@ -408,7 +408,7 @@ function initializeSampleData(): void {
       sourceModule: 'collaboration',
       sourceId: 'annotation-1',
       sourceType: 'annotation',
-      patientId: 'patient-001',
+      patientId: 'demo-patient-001',
       patientName: 'John Doe',
       actionUrl: '/collaboration/annotations/annotation-1',
       actionLabel: 'View Note',

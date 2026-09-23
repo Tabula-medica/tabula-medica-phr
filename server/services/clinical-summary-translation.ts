@@ -232,7 +232,7 @@ export const supportedLanguages = [
 const sampleSummaries: ClinicalSummary[] = [
   {
     id: "sum-001",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Annual Physical Examination Summary",
     content: `Patient presented for annual wellness examination. Vital signs within normal limits: BP 118/76 mmHg, HR 72 bpm, Temp 98.6°F, SpO2 98% on room air.
 
@@ -252,7 +252,7 @@ Preventive care discussed including age-appropriate cancer screenings and vaccin
   },
   {
     id: "sum-002",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Medication Review Summary",
     content: `Comprehensive medication reconciliation completed. Current medications reviewed for appropriateness, dosing, and potential interactions.
 
@@ -269,7 +269,7 @@ All medications tolerated well. No adverse effects reported. Patient demonstrate
   },
   {
     id: "sum-003",
-    patientId: "patient-001",
+    patientId: "demo-patient-001",
     title: "Chronic Condition Management Update",
     content: `Follow-up visit for chronic condition management.
 
@@ -291,7 +291,7 @@ Patient reports feeling well with good energy levels. No new symptoms or concern
 
 class ClinicalSummaryTranslationService {
   getSummaries(patientId: string): ClinicalSummary[] {
-    return sampleSummaries.filter(s => s.patientId === patientId || patientId === "patient-001");
+    return sampleSummaries.filter(s => s.patientId === patientId || patientId === "demo-patient-001");
   }
 
   getSupportedLanguages() {
