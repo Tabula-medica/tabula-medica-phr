@@ -2,10 +2,37 @@ import { Router } from "express";
 import { phrOrchestrationService } from "../services/phr-orchestration-service";
 
 const router = Router();
+const RESOURCE_DETAIL_KEYS = ["resources", "cleanedResources", "storedResources"];
+
+function getAuthenticatedUserId(req: any): string | null {
+  return req.user?.claims?.sub || null;
+}
+
+function redactStageDetails(details: Record<string, any> = {}): Record<string, any> {
+  const redacted = { ...details };
+  for (const key of RESOURCE_DETAIL_KEYS) {
+    if (Array.isArray(redacted[key])) {
+      redacted[`${key}Count`] = redacted[key].length;
+      delete redacted[key];
+    }
+  }
+  return redacted;
+}
+
+function redactPipelineResult(result: any): any {
+  return {
+    ...result,
+    stages: result.stages?.map((stage: any) => ({
+      ...stage,
+      details: redactStageDetails(stage.details),
+    })) || [],
+  };
+}
 
 router.get("/status", async (req, res) => {
   try {
-    const userId = (req as any).user?.id || "demo-user";
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
     const status = await phrOrchestrationService.getPipelineStatus(userId);
     res.json(status);
   } catch (error) {
@@ -16,10 +43,11 @@ router.get("/status", async (req, res) => {
 
 router.post("/run", async (req, res) => {
   try {
-    const userId = (req as any).user?.id || "demo-user";
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
     const { connectionIds } = req.body;
     const result = await phrOrchestrationService.runFullPipeline(userId, connectionIds);
-    res.json(result);
+    res.json(redactPipelineResult(result));
   } catch (error) {
     console.error("[PHR Pipeline] Run error:", error);
     res.status(500).json({ error: "Pipeline execution failed" });
@@ -28,7 +56,8 @@ router.post("/run", async (req, res) => {
 
 router.post("/voice-query", async (req, res) => {
   try {
-    const userId = (req as any).user?.id || "demo-user";
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
     const { query } = req.body;
 
     if (!query || typeof query !== "string") {
@@ -45,7 +74,8 @@ router.post("/voice-query", async (req, res) => {
 
 router.post("/background-sync/start", async (req, res) => {
   try {
-    const userId = (req as any).user?.id || "demo-user";
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
     const { intervalMinutes } = req.body;
     phrOrchestrationService.startBackgroundSync(userId, intervalMinutes || 60);
     res.json({
@@ -62,7 +92,8 @@ router.post("/background-sync/start", async (req, res) => {
 
 router.post("/background-sync/stop", async (req, res) => {
   try {
-    const userId = (req as any).user?.id || "demo-user";
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
     phrOrchestrationService.stopBackgroundSync(userId);
     res.json({ stopped: true, userId });
   } catch (error) {
@@ -73,12 +104,13 @@ router.post("/background-sync/stop", async (req, res) => {
 
 router.get("/run-history", async (req, res) => {
   try {
-    const userId = (req as any).user?.id || "demo-user";
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
     const history = phrOrchestrationService.getRunHistory(userId);
     res.json({
       userId,
       totalRuns: history.length,
-      runs: history.slice(-20).reverse(),
+      runs: history.slice(-20).reverse().map(redactPipelineResult),
     });
   } catch (error) {
     console.error("[PHR Pipeline] Run history error:", error);
