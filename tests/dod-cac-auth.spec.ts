@@ -26,7 +26,7 @@ function toQuery(query: SQL) {
   return dialect.sqlToQuery(query);
 }
 
-const enrolledCerts: { edipi: string; publicKeyHex: string; expiresAt: number; enrolledByUserId: string }[] = [];
+const enrolledCerts: { edipi: string; deviceId: string; publicKeyHex: string; expiresAt: number; enrolledByUserId: string }[] = [];
 
 vi.mock("../server/db", () => ({
   db: {
@@ -36,8 +36,17 @@ vi.mock("../server/db", () => ({
         // NOW() in the template isn't a bound param, so the 8 columns map to
         // only 7 params here: edipi, deviceId, publicKeyHex, certJson,
         // platformInfo, expiresAt, enrolledByUserId (enrolled_at is NOW()).
-        const [edipi, , publicKeyHex, , , , enrolledByUserId] = params as string[];
-        enrolledCerts.push({ edipi, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000, enrolledByUserId });
+        const [edipi, deviceId, publicKeyHex, , , , enrolledByUserId] = params as string[];
+        // Mirrors the real ON CONFLICT (device_id) DO UPDATE: re-enrolling the
+        // same device replaces its row (new key/expiry) rather than adding a
+        // second one, so a superseded key stops matching lookups below.
+        const existingIndex = enrolledCerts.findIndex((c) => c.deviceId === deviceId);
+        const row = { edipi, deviceId, publicKeyHex, expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000, enrolledByUserId };
+        if (existingIndex >= 0) {
+          enrolledCerts[existingIndex] = row;
+        } else {
+          enrolledCerts.push(row);
+        }
         return { rows: [] };
       }
       if (text.includes("SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs")) {
@@ -126,10 +135,16 @@ async function getChallenge(handlers: ReturnType<typeof captureHandlers>, edipi 
   return res.body as { challenge: string; challengeId: string };
 }
 
-async function enroll(handlers: ReturnType<typeof captureHandlers>, edipi: string, publicKeyHex: string, userId = "test-user") {
+async function enroll(
+  handlers: ReturnType<typeof captureHandlers>,
+  edipi: string,
+  publicKeyHex: string,
+  userId = "test-user",
+  deviceId = `test-device-${userId}`,
+) {
   const res = fakeRes();
   await handlers.get("/api/auth/cac/enroll-software-cert")!(
-    fakeReq({ publicKeyHex, edipi, deviceId: `test-device-${userId}`, platform: "test", platformVersion: "1" }, userId),
+    fakeReq({ publicKeyHex, edipi, deviceId, platform: "test", platformVersion: "1" }, userId),
     res,
   );
   return res;
@@ -357,5 +372,33 @@ describe("POST /api/auth/cac/enroll-software-cert", () => {
 
     const attackerAttempt = await enroll(handlers, "1234567890", await exportPublicKeyHex(attackerKeyPair.publicKey), "attacker");
     expect(attackerAttempt.statusCode).toBe(409);
+  });
+
+  it("re-enrolling the same device replaces its key rather than adding a second enrollment (ON CONFLICT (device_id) DO UPDATE)", async () => {
+    const handlers = captureHandlers();
+    const oldKeyPair = await generateKeyPair();
+    const newKeyPair = await generateKeyPair();
+    const oldPublicKeyHex = await exportPublicKeyHex(oldKeyPair.publicKey);
+    const newPublicKeyHex = await exportPublicKeyHex(newKeyPair.publicKey);
+
+    expect((await enroll(handlers, "1234567890", oldPublicKeyHex, "same-user", "same-device")).statusCode).toBe(200);
+    expect((await enroll(handlers, "1234567890", newPublicKeyHex, "same-user", "same-device")).statusCode).toBe(200);
+
+    // The superseded key must no longer verify — it should behave as if it
+    // was never enrolled, not as a second still-valid credential.
+    const { challenge, challengeId } = await getChallenge(handlers, "1234567890");
+    const oldSignature = await signChallenge(challenge, oldKeyPair.privateKey);
+    const oldReq = fakeReq({ challengeId, edipi: "1234567890", authMethod: "software_cert", publicKeyHex: oldPublicKeyHex, signature: oldSignature });
+    const oldRes = fakeRes();
+    await handlers.get("/api/auth/cac/verify")!(oldReq, oldRes);
+    expect(oldRes.statusCode).toBe(401);
+
+    // The new key, which replaced it on the same device, verifies normally.
+    const { challenge: challenge2, challengeId: challengeId2 } = await getChallenge(handlers, "1234567890");
+    const newSignature = await signChallenge(challenge2, newKeyPair.privateKey);
+    const newReq = fakeReq({ challengeId: challengeId2, edipi: "1234567890", authMethod: "software_cert", publicKeyHex: newPublicKeyHex, signature: newSignature });
+    const newRes = fakeRes();
+    await handlers.get("/api/auth/cac/verify")!(newReq, newRes);
+    expect(newRes.statusCode).toBe(200);
   });
 });
