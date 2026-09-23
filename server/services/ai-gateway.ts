@@ -139,3 +139,46 @@ export async function generatePhiSafeChat(req: PhiSafeChatRequest): Promise<stri
   const parts = result?.response?.candidates?.[0]?.content?.parts ?? [];
   return parts.map((p: any) => p?.text ?? "").join("");
 }
+
+/**
+ * Streaming variant of generatePhiSafeChat. Yields text chunks as they arrive.
+ * Callers accumulate chunks to store the full response; the gateway never buffers.
+ */
+export async function* generatePhiSafeChatStream(req: PhiSafeChatRequest): AsyncGenerator<string> {
+  const systemParts: string[] = [NO_CDS_GUARDRAIL];
+  if (req.system) systemParts.push(req.system);
+
+  const convMessages: PhiSafeChatMessage[] = [];
+  for (const m of req.messages) {
+    if (m.role === "system") {
+      systemParts.push(m.content);
+    } else {
+      convMessages.push(m);
+    }
+  }
+
+  if (convMessages.length === 0 || convMessages[convMessages.length - 1].role === "model" || convMessages[convMessages.length - 1].role === "assistant") {
+    throw new Error("generatePhiSafeChatStream: last non-system message must be from the user");
+  }
+
+  const contents = convMessages.map((m) => ({
+    role: (m.role === "assistant" ? "model" : m.role) as "user" | "model",
+    parts: [{ text: m.content }],
+  }));
+
+  const streamResult = await getModel().generateContentStream({
+    systemInstruction: systemParts.join("\n\n"),
+    contents,
+    generationConfig: {
+      maxOutputTokens: req.maxTokens ?? 1024,
+      temperature: req.temperature ?? 0.3,
+    },
+  });
+
+  for await (const chunk of streamResult.stream) {
+    const chunkParts = chunk.candidates?.[0]?.content?.parts ?? [];
+    for (const part of chunkParts) {
+      if ((part as any).text) yield (part as any).text;
+    }
+  }
+}
