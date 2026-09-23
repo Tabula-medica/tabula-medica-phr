@@ -182,26 +182,19 @@ describe("server/services/ai-provider PHI fail-closed routing", () => {
     expect(openAiConstructorArgs).toHaveLength(0);
   });
 
-  it("uses OpenAI only after an explicit runtime provider override", async () => {
+  it("rejects OpenAI even with an explicit runtime provider override (fail-closed)", async () => {
     process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "test-key";
     process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "https://non-phi-ai.example.test/v1";
 
     const { generateText, setDefaultProvider } = await loadAiProvider();
     setDefaultProvider("openai");
 
-    await expect(generateText({ userPrompt: "non-PHI dev prompt" })).resolves.toBe(
-      "explicit openai",
+    // generateWithOpenAI is hardened to always throw — no BAA, so no path to OpenAI.
+    await expect(generateText({ userPrompt: "non-PHI dev prompt" })).rejects.toThrow(
+      "AI_DEFAULT_PROVIDER=openai is disabled",
     );
 
-    expect(openAiConstructorArgs).toEqual([
-      { apiKey: "test-key", baseURL: "https://non-phi-ai.example.test/v1" },
-    ]);
-    expect(openAiCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: "non-PHI dev prompt" }],
-      }),
-    );
+    expect(openAiCreate).not.toHaveBeenCalled();
     expect(generateContent).not.toHaveBeenCalled();
   });
 });
