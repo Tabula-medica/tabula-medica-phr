@@ -405,7 +405,7 @@ export function registerDoDRoutes(
         sql`SELECT DISTINCT enrolled_by_user_id FROM cac_software_certs WHERE edipi = ${edipi} AND expires_at > NOW()`,
       );
       const claimants = new Set(
-        ((existingClaim as { rows?: { enrolled_by_user_id: string }[] }).rows ?? []).map((r) => r.enrolled_by_user_id),
+        ((existingClaim as { rows?: Record<string, unknown>[] }).rows ?? []).map((r) => r.enrolled_by_user_id as string),
       );
       if (claimants.size > 0 && !claimants.has(currentUserId)) {
         return res.status(409).json({ error: "This EDIPI is already enrolled by a different account" });
