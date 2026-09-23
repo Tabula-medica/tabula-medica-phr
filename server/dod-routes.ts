@@ -261,26 +261,52 @@ export function registerDoDRoutes(
         return res.status(400).json({ error: "Invalid EDIPI format — must be 10 digits" });
       }
 
+      // Bind this response to the context the challenge was actually issued
+      // for. Without this, a signature that's valid for the challenge could
+      // still mint a session under a different EDIPI/authMethod than the
+      // one /challenge was called with (the challenge and stored context are
+      // otherwise unused once retrieved). edipi/authMethod are optional at
+      // challenge time, so only enforce a match when the challenge actually
+      // recorded one.
+      if (stored.edipi && stored.edipi !== edipi) {
+        return res.status(401).json({ error: "EDIPI does not match the challenge request" });
+      }
+      if (stored.authMethod && stored.authMethod !== authMethod) {
+        return res.status(401).json({ error: "Auth method does not match the challenge request" });
+      }
+
       // Proof of possession: reject unless the caller can produce a valid
       // ECDSA signature over the challenge from the public key they're
       // asserting. Neither the hardware CAC/PIV path nor the software-cert
       // path can produce one yet (client/lib/cac-auth.ts: the hardware path
       // throws "native module not yet compiled", and the software-cert
-      // path's private key is never retained after enrollment — both need
-      // a native Secure Enclave module this repo doesn't have). Until then,
-      // this correctly fails closed instead of minting a session for anyone
-      // who calls this endpoint with no credential at all.
-      //
-      // Still explicitly out of scope even once a real signature arrives —
-      // this only proves possession of *a* key, not that it belongs to a
-      // real DoD identity:
-      //   1. Parse certDerBase64 with node-forge
-      //   2. Validate certificate chain to DoD Root CA 6
-      //   3. Check OCSP endpoint: http://ocsp.disa.mil
-      //   4. Verify EDIPI in certificate SAN field
+      // path's private key is discarded after enrollment rather than
+      // retained for reuse — both need a native Secure Enclave module this
+      // repo doesn't have). Until then, this correctly fails closed instead
+      // of minting a session for anyone who calls this endpoint with no
+      // credential at all.
       if (!signature || !publicKeyHex) {
         return res.status(401).json({ error: "Signature required" });
       }
+
+      // Proof of possession alone proves nothing about identity — anyone can
+      // generate a key pair, sign the challenge, and assert any EDIPI they
+      // like. Require the key to be one this EDIPI actually enrolled while
+      // authenticated (POST /api/auth/cac/enroll-software-cert), rather than
+      // trusting whatever key the caller asserts in this request. There is
+      // no enrollment path for cac_hardware/piv_hardware yet — those need
+      // real X.509 chain validation to DoD Root CA 6 plus OCSP revocation
+      // checking (still not implemented), so this correctly rejects every
+      // hardware-path attempt too until that exists, rather than treating
+      // hardware auth as more trustworthy than it currently is.
+      const enrolled = await db.execute(
+        `SELECT public_key_hex FROM cac_software_certs WHERE edipi = ? AND public_key_hex = ? AND expires_at > NOW()`,
+        [edipi, publicKeyHex],
+      );
+      if (!((enrolled as { rows?: unknown[] }).rows?.length)) {
+        return res.status(401).json({ error: "No enrolled certificate matches this key for this EDIPI" });
+      }
+
       const signatureValid = await verifyChallengeSignature(stored.challenge, signature, publicKeyHex);
       if (!signatureValid) {
         return res.status(401).json({ error: "Signature verification failed" });

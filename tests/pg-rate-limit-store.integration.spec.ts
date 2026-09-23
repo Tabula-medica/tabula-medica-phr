@@ -4,6 +4,22 @@ import { randomBytes } from "crypto";
 import { PgRateLimitStore } from "../server/security/pg-rate-limit-store";
 
 /**
+ * The cleanup sweep is deliberately fire-and-forget (increment() never
+ * awaits it), so a fixed sleep after triggering one is a race under a slow
+ * CI database — it can read the count before the DELETE lands. Polls the
+ * actual condition instead, so the test is exact rather than "probably long
+ * enough."
+ */
+async function waitFor(check: () => Promise<boolean>, { timeoutMs = 2000, intervalMs = 10 } = {}): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error(`waitFor: condition never became true within ${timeoutMs}ms`);
+}
+
+/**
  * Runs against a real Postgres instance (the `postgres` service container in
  * the `pg-rate-limit-integration` CI job — see .github/workflows/security-scan.yml).
  * The unit spec's in-memory fake mirrors the store's SQL semantics but can't
@@ -137,7 +153,10 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0); // force the sweep to run
     try {
       await store.increment("fresh-caller"); // any increment can trigger the sweep as a side effect
-      await new Promise((r) => setTimeout(r, 50)); // the sweep is fire-and-forget; give it a moment to land
+      await waitFor(async () => {
+        const rows = await pool.query("SELECT 1 FROM rate_limit_hits WHERE key = $1", [store["scopedKey"]("long-gone-caller")]);
+        return rows.rows.length === 0; // the fire-and-forget sweep has landed once this row is gone
+      });
     } finally {
       randomSpy.mockRestore();
     }
@@ -155,15 +174,19 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
     const rows = Array.from({ length: BACKLOG_SIZE }, (_, i) => `('stale-key-${i}', 1, now() - interval '2 days')`).join(",");
     await pool.query(`INSERT INTO rate_limit_hits (key, hits, reset_time) VALUES ${rows}`);
 
+    const staleCount = async () => {
+      const r = await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_hits WHERE key LIKE 'stale-key-%'");
+      return r.rows[0].n as number;
+    };
+
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
       await store.increment("fresh-caller-2");
-      await new Promise((r) => setTimeout(r, 50));
+      await waitFor(async () => (await staleCount()) <= BACKLOG_SIZE - 500);
     } finally {
       randomSpy.mockRestore();
     }
 
-    const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_hits WHERE key LIKE 'stale-key-%'");
-    expect(remaining.rows[0].n).toBe(BACKLOG_SIZE - 500); // exactly one bounded batch cleared, not the whole backlog
+    expect(await staleCount()).toBe(BACKLOG_SIZE - 500); // exactly one bounded batch cleared, not the whole backlog
   });
 });

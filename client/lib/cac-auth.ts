@@ -338,12 +338,14 @@ async function authenticateWithSoftwareCert(
   };
 
   // NOT YET FUNCTIONAL: signing the challenge needs the private key
-  // generated in enrollSoftwareCertificate(), but that key is a non-exportable
-  // CryptoKey that's already gone by the time this function runs — nothing
-  // in SoftwareCertificate retains it (see the note in enrollSoftwareCertificate).
-  // A real implementation needs the same native Secure Enclave module the
-  // hardware CAC/PIV path above is already waiting on. The server now
-  // requires and verifies a real ECDSA signature over `challenge`
+  // generated in enrollSoftwareCertificate() — that CryptoKey is exportable
+  // (generateSigningKeyPair() creates it that way), but it's simply never
+  // retained anywhere: nothing in SoftwareCertificate stores it, so it's
+  // already gone by the time this function runs (see the note in
+  // enrollSoftwareCertificate). A real implementation needs the same native
+  // Secure Enclave module the hardware CAC/PIV path above is already
+  // waiting on, so the key never needs to be held in JS at all. The server
+  // now requires and verifies a real ECDSA signature over `challenge`
   // (server/dod-routes.ts) and will reject this call with 401 until that
   // exists — correctly, since minting a session without one was the bug.
   const challengeHash = await sha256(challenge);
