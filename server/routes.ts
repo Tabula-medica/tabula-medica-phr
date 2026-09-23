@@ -352,6 +352,7 @@ import { registerCommunicationAnalyticsRoutes } from "./ai-communication-analyti
 import aiClinicalDocumentationRoutes from "./ai-clinical-documentation-routes";
 import aiPatientProfileSummaryRoutes from "./ai-patient-profile-summary-routes";
 import personalizedHealthSummaryRoutes from "./personalized-health-summary-routes";
+import myCareRoutes from "./my-care-routes";
 import enhancedAIHealthJourneyRoutes from "./routes/enhanced-ai-health-journey-routes";
 import secureHealthShareRoutes from "./secure-health-share-routes";
 import interoperabilityHubRoutes from "./interoperability-hub-routes";
@@ -37851,6 +37852,8 @@ startxref
   app.use("/api/patient-profile-summary", aiPatientProfileSummaryRoutes);
   app.use("/api/personalized-health-summary", personalizedHealthSummaryRoutes);
   console.log("[Routes] Personalized Health Summary routes registered at /api/personalized-health-summary/*");
+  app.use("/api/my", myCareRoutes);
+  console.log("[Routes] My Care routes registered at /api/my/*");
 
   app.use("/api/ai-health-journey-enhanced", enhancedAIHealthJourneyRoutes);
   console.log("[Routes] Enhanced AI Health Journey routes registered at /api/ai-health-journey-enhanced/*");
