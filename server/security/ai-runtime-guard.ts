@@ -99,6 +99,22 @@ const ZERO_WIDTH = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g;
 const UNICODE_TAGS = /\uDB40[\uDC00-\uDC7F]/g; // U+E0000–U+E007F "tag" characters (surrogate pairs) used to smuggle text
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
+// Cross-script homoglyphs for the Latin letters the rules above match
+// against. NFKC does NOT fold these — it only folds Unicode-compatibility
+// equivalents (fullwidth, mathematical alphanumerics), not cross-script
+// confusables — so "igore" written with a Cyrillic i (U+0456) reads as
+// non-ASCII and evades every \b...\b rule. This is a bounded,
+// manually-curated map of Cyrillic letters that are exact visual matches
+// for common Latin ones, not the full Unicode confusables table (UTS #39,
+// thousands of entries across many scripts) — this covers the realistic
+// single-script-swap evasion.
+const HOMOGLYPH_MAP: Record<string, string> = {
+  "а": "a", "А": "A", "е": "e", "Е": "E", "о": "o", "О": "O",
+  "р": "p", "Р": "P", "с": "c", "С": "C", "х": "x", "Х": "X",
+  "у": "y", "У": "Y", "і": "i", "І": "I", "ѕ": "s", "Ѕ": "S",
+};
+const HOMOGLYPH_RE = new RegExp(`[${Object.keys(HOMOGLYPH_MAP).join("")}]`, "g");
+
 export const HIGH_THRESHOLD = 6;
 export const MEDIUM_THRESHOLD = 3;
 
@@ -118,8 +134,15 @@ export function normalizeForScan(input: string): { text: string; obfuscationSign
   // "ｉｇｎｏｒｅ" or "𝐢𝐠𝐧𝐨𝐫𝐞" match the same rules as "ignore".
   const folded = text.normalize("NFKC");
   if (folded !== text) signals.push("nfkc_fold_changed");
+  text = folded;
 
-  return { text: folded, obfuscationSignals: signals };
+  if (HOMOGLYPH_RE.test(text)) {
+    signals.push("cross_script_homoglyphs");
+    text = text.replace(HOMOGLYPH_RE, (ch) => HOMOGLYPH_MAP[ch]);
+  }
+  HOMOGLYPH_RE.lastIndex = 0;
+
+  return { text, obfuscationSignals: signals };
 }
 
 export function severityForScore(score: number): InjectionSeverity {
@@ -256,10 +279,17 @@ const AI_ROUTE_PREFIXES = [
   "patient-ai-onboarding",
   "patient-friendly-summary",
   "patient-assistant",
-  // Narrow AI corners of otherwise non-AI route files (full sub-path):
-  "comprehensive-onboarding/ai-prefill",
-  "clinical-docs/synthesize-note",
-  "patient-onboarding-wizard/ai-prefill",
+  // Narrow AI corners of otherwise non-AI route files. `ai-` sub-prefixes
+  // (not one literal action) so every AI action in the file is covered,
+  // not just the first one this list happened to name.
+  "comprehensive-onboarding/ai-",
+  "clinical-docs", // whole prefix: no shared AI sub-prefix in this file, and the non-AI actions (templates, sample-encounter) are GET/static
+  "patient-onboarding-wizard/ai-",
+  // AI actions nested under a resource id, so the bare top-level prefix
+  // (`patients`, `provider/portal/patients`) is deliberately NOT matched —
+  // that would also scan ordinary patient-record CRUD.
+  "patients/[^/]+/(ai-summary|history-summary|care-gaps-ai|education/(generate|ask|generate-faqs))",
+  "provider/portal/patients/[^/]+/ai-summary",
   // The rest: top-level feature prefixes whose routes call ai-gateway.ts.
   "referral-letters",
   "ambient-encounter",
@@ -408,17 +438,21 @@ export function aiRuntimeGuard(options: AiRuntimeGuardOptions = {}): RequestHand
     }) as typeof res.end;
 
     const body = req.body;
-    if (!body || typeof body !== "object") return next();
+    // A valid JSON body can be a bare string, not just an object/array — only
+    // skip when there is genuinely nothing to scan. collectStrings handles
+    // every other shape (string, object, array) itself.
+    if (body === undefined || body === null) return next();
 
-    let worst: InjectionScanResult = { score: 0, severity: "none", matches: [], normalizedLength: 0, obfuscationSignals: [] };
-    const ruleIds = new Set<string>();
-    const categories = new Set<InjectionCategory>();
-
-    for (const s of collectStrings(body)) {
-      const r = scanForPromptInjection(s);
-      for (const m of r.matches) { ruleIds.add(m.id); categories.add(m.category); }
-      if (r.score > worst.score) worst = r;
-    }
+    // Score the whole request as one scan, not each field independently:
+    // per-field scoring let a payload split across fields (e.g. "ignore
+    // previous instructions" in one field, "export all patient records" in
+    // another) stay under the HIGH threshold in every field while the
+    // combined intent was clearly high-risk. Joining bounds the same way
+    // collectStrings already bounds each piece.
+    const combined = collectStrings(body).join("\n\n");
+    const worst: InjectionScanResult = scanForPromptInjection(combined);
+    const ruleIds = new Set(worst.matches.map((m) => m.id));
+    const categories = new Set(worst.matches.map((m) => m.category));
 
     (req as any).aiGuard = { severity: worst.severity, score: worst.score, ruleIds: Array.from(ruleIds), mode };
     const blocked = mode === "enforce" && worst.severity === "high";

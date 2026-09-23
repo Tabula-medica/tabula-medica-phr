@@ -24,7 +24,10 @@ function rateLimitHandler(limiterName: string) {
         limiter: limiterName,
         path: req.path,
         method: req.method,
-        userAgent: (req.headers["user-agent"] || "unknown").toString().slice(0, 120),
+        // No User-Agent here: it's client-controlled free text and
+        // scrubDetails only denies by key name, not by validating content —
+        // a caller could put an email/token/anything in that header and
+        // have it forwarded to the external SIEM verbatim.
       },
     });
     res.status(options.statusCode).json(options.message);

@@ -132,9 +132,24 @@ export function canonicalizePath(path: string | undefined): string | undefined {
     .join("/");
 }
 
+// Content-based backstop for scrubValue: isDeniedDetailKey only catches
+// PHI/secrets under a *known* key name. A caller can put an email, a JWT,
+// a bearer token, or an SSN under any unlisted key (`error`, `message`,
+// a future field) and it would otherwise pass through untouched — this
+// redacts by shape regardless of which key it's under.
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+const JWT_RE = /\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/;
+const BEARER_RE = /\bBearer\s+[A-Za-z0-9\-_.]{15,}/i;
+const SSN_RE = /\b\d{3}-\d{2}-\d{4}\b/;
+
+function looksLikeSecretOrPhi(value: string): boolean {
+  return EMAIL_RE.test(value) || JWT_RE.test(value) || BEARER_RE.test(value) || SSN_RE.test(value);
+}
+
 function scrubValue(value: unknown): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") {
+    if (looksLikeSecretOrPhi(value)) return "[REDACTED]";
     return value.length > MAX_STRING_LEN ? `${value.slice(0, MAX_STRING_LEN)}…[truncated]` : value;
   }
   if (typeof value === "number" || typeof value === "boolean") return value;

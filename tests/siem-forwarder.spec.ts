@@ -96,6 +96,24 @@ describe("siem-forwarder — PHI/secret allowlisting", () => {
     expect(JSON.stringify(env)).not.toContain("203.0.113.9");
   });
 
+  it("redacts PHI/secret-shaped values by content, even under an unlisted key", () => {
+    // isDeniedDetailKey only catches known key NAMEs — this is the backstop
+    // for a future/unlisted key (e.g. `error`, `message`) carrying one of
+    // these by accident.
+    const out = scrubDetails({
+      error: "failed for jane.doe@example.com",
+      message: "used token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMSJ9.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PYE7iAyC9Tc8",
+      note: "auth header was Bearer abcdEFGH12345678ijkl",
+      ssn: undefined,
+      idLikeButSafe: "not sensitive at all",
+    });
+    expect(out.error).toBe("[REDACTED]");
+    expect(out.message).toBe("[REDACTED]");
+    expect(out.note).toBe("[REDACTED]");
+    expect(out.idLikeButSafe).toBe("not sensitive at all");
+    expect(JSON.stringify(out)).not.toContain("jane.doe@example.com");
+  });
+
   it("envelope only carries allowlisted top-level fields", () => {
     const env = buildHecEnvelope({
       eventType: "auth_rate_limited",
