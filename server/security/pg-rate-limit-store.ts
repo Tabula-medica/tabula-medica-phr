@@ -66,6 +66,13 @@ const KEY_HASH_SECRET = process.env.SESSION_SECRET || randomBytes(32).toString("
 // be legitimately reused by the upsert below.
 const CLEANUP_PROBABILITY = 0.01;
 const CLEANUP_GRACE = "1 day";
+// Caps each sweep's own DELETE to a bounded batch. Without this, a table
+// that's accumulated a large backlog (e.g. cleanup was broken for a while)
+// would have some unlucky authentication request pay for a single
+// transaction deleting the entire backlog — long lock hold, WAL spike. A
+// bounded batch means the cost per sweep is small and constant; a large
+// backlog just clears over more requests instead of a bigger single one.
+const CLEANUP_BATCH_SIZE = 500;
 
 /** Minimal shape this store needs from `pg.Pool` — lets tests inject a fake without a real database. */
 export type Queryable = Pick<Pool, "query">;
@@ -117,9 +124,16 @@ export class PgRateLimitStore {
 
   private maybeSweepExpired(): void {
     if (Math.random() >= CLEANUP_PROBABILITY) return;
-    void this.pool.query(`DELETE FROM ${TABLE} WHERE reset_time < now() - interval '${CLEANUP_GRACE}'`, []).catch(() => {
-      /* best-effort; a failed sweep just means slightly more accumulation until the next lucky roll */
-    });
+    void this.pool
+      .query(
+        `DELETE FROM ${TABLE} WHERE key IN (
+           SELECT key FROM ${TABLE} WHERE reset_time < now() - interval '${CLEANUP_GRACE}' LIMIT ${CLEANUP_BATCH_SIZE}
+         )`,
+        [],
+      )
+      .catch(() => {
+        /* best-effort; a failed sweep just means slightly more accumulation until the next lucky roll */
+      });
   }
 
   init(options: { windowMs: number }): void {

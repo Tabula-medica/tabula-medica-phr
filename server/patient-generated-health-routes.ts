@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { z } from "zod";
 import { 
   patientGeneratedHealthDataService,
@@ -8,6 +9,7 @@ import {
 } from "./services/patient-generated-health-data-service";
 
 const router = Router();
+router.use(requireUser);
 
 const vitalTypeSchema = z.enum(["blood_pressure", "glucose", "weight", "temperature", "pulse_ox", "heart_rate", "respiratory_rate"]);
 const symptomSeveritySchema = z.enum(["mild", "moderate", "severe"]);
@@ -86,8 +88,7 @@ router.get("/reference-ranges", (req: Request, res: Response) => {
 
 router.post("/vitals", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const parsed = recordVitalSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -116,8 +117,7 @@ router.post("/vitals", async (req: Request, res: Response) => {
 
 router.get("/vitals", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const type = req.query.type as VitalType | undefined;
     const startDate = req.query.startDate as string | undefined;
@@ -139,8 +139,7 @@ router.get("/vitals", async (req: Request, res: Response) => {
 
 router.post("/symptoms", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const parsed = recordSymptomSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -169,8 +168,7 @@ router.post("/symptoms", async (req: Request, res: Response) => {
 
 router.get("/symptoms", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
@@ -191,8 +189,7 @@ router.get("/symptoms", async (req: Request, res: Response) => {
 
 router.get("/care-plan/tasks", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
     const carePlanId = req.query.carePlanId as string | undefined;
 
     const tasks = patientGeneratedHealthDataService.getCarePlanTasks(patientId, carePlanId);
@@ -211,8 +208,7 @@ router.get("/care-plan/tasks", async (req: Request, res: Response) => {
 
 router.post("/adherence", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const parsed = recordAdherenceSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -246,8 +242,7 @@ router.post("/adherence", async (req: Request, res: Response) => {
 
 router.get("/adherence", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const taskId = req.query.taskId as string | undefined;
     const startDate = req.query.startDate as string | undefined;
@@ -269,8 +264,7 @@ router.get("/adherence", async (req: Request, res: Response) => {
 
 router.get("/adherence/score", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const days = parseInt(req.query.days as string) || 7;
     const score = patientGeneratedHealthDataService.calculateAdherenceScore(patientId, days);
@@ -303,8 +297,7 @@ router.get("/adherence/score", async (req: Request, res: Response) => {
 
 router.post("/daily-log", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const parsed = recordDailyLogSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -331,8 +324,7 @@ router.post("/daily-log", async (req: Request, res: Response) => {
 
 router.get("/daily-log", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
@@ -353,8 +345,7 @@ router.get("/daily-log", async (req: Request, res: Response) => {
 
 router.get("/analysis", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const analysis = await patientGeneratedHealthDataService.analyzePatientData(patientId);
 
@@ -371,8 +362,7 @@ router.get("/analysis", async (req: Request, res: Response) => {
 
 router.get("/summary", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    const patientId = user?.claims?.sub || "patient-001";
+    const patientId = getUserId(req);
 
     const summary = await patientGeneratedHealthDataService.getHealthDataSummary(patientId);
 

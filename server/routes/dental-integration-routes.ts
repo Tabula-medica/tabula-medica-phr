@@ -1,9 +1,11 @@
 import { Router, Request, Response } from "express";
+import { requireUser, getUserId } from "../middleware/require-user";
 import { randomUUID } from "crypto";
 import { generatePhiSafeText } from "../services/ai-gateway";
 import { requireFeature } from "../middleware/require-feature";
 
 const router = Router();
+router.use(requireUser);
 // Feature gate: dental EHR integrations are a Concierge-tier feature.
 // Reads (software list, existing connection list) remain open so users
 // on free tier can see what's available; write/sync actions are gated.
@@ -215,7 +217,7 @@ const claims = new Map<string, DentalInsuranceClaim[]>();
 const perioCharts = new Map<string, PeriodontalChart[]>();
 
 function seedDemoData() {
-  const patientId = "patient-001";
+  const patientId = "dev-demo-patient";
 
   const conn1: DentalConnection = {
     id: "dc-opendental-001",
@@ -406,7 +408,7 @@ router.get("/software/:id", (req: Request, res: Response) => {
 });
 
 router.get("/connections", (req: Request, res: Response) => {
-  const patientId = req.query.patientId || "patient-001";
+  const patientId = (req.query.patientId as string | undefined) || getUserId(req);
   const patientConnections = Array.from(connections.values())
     .filter(c => c.patientId === patientId);
   res.json({ connections: patientConnections, total: patientConnections.length });
@@ -421,7 +423,7 @@ router.post("/connections", gateDental, (req: Request, res: Response) => {
 
   const connection: DentalConnection = {
     id: `dc-${software}-${randomUUID().slice(0, 8)}`,
-    patientId: "patient-001",
+    patientId: "dev-demo-patient",
     software: software as DentalSoftware,
     softwareName: config.name,
     practiceName,
@@ -453,7 +455,7 @@ router.post("/connections/:id/sync", gateDental, (req: Request, res: Response) =
 });
 
 router.get("/appointments", (req: Request, res: Response) => {
-  const patientId = (req.query.patientId as string) || "patient-001";
+  const patientId = (req.query.patientId as string | undefined) || getUserId(req);
   const software = req.query.software as string;
   const status = req.query.status as string;
 
@@ -466,7 +468,7 @@ router.get("/appointments", (req: Request, res: Response) => {
 });
 
 router.get("/treatment-plans", (req: Request, res: Response) => {
-  const patientId = (req.query.patientId as string) || "patient-001";
+  const patientId = (req.query.patientId as string | undefined) || getUserId(req);
   const plans = treatmentPlans.get(patientId) || [];
   const totalEstimate = plans.reduce((s, p) => s + p.totalEstimate, 0);
   const totalInsurance = plans.reduce((s, p) => s + p.insuranceEstimate, 0);
@@ -480,7 +482,7 @@ router.get("/treatment-plans", (req: Request, res: Response) => {
 });
 
 router.get("/claims", (req: Request, res: Response) => {
-  const patientId = (req.query.patientId as string) || "patient-001";
+  const patientId = (req.query.patientId as string | undefined) || getUserId(req);
   const patientClaims = claims.get(patientId) || [];
   const totalCharged = patientClaims.reduce((s, c) => s + c.totalCharged, 0);
   const totalPaid = patientClaims.reduce((s, c) => s + c.insurancePaid, 0);
@@ -494,13 +496,13 @@ router.get("/claims", (req: Request, res: Response) => {
 });
 
 router.get("/perio-charts", (req: Request, res: Response) => {
-  const patientId = (req.query.patientId as string) || "patient-001";
+  const patientId = (req.query.patientId as string | undefined) || getUserId(req);
   const charts = perioCharts.get(patientId) || [];
   res.json({ perioCharts: charts, total: charts.length });
 });
 
 router.get("/unified-summary", (req: Request, res: Response) => {
-  const patientId = (req.query.patientId as string) || "patient-001";
+  const patientId = (req.query.patientId as string | undefined) || getUserId(req);
 
   const patientConnections = Array.from(connections.values()).filter(c => c.patientId === patientId);
   const patientAppointments = appointments.get(patientId) || [];
@@ -558,7 +560,7 @@ router.post("/ai-dental-insights", async (req: Request, res: Response) => {
   const { question } = req.body;
   if (!question) return res.status(400).json({ error: "Question is required" });
 
-  const patientId = "patient-001";
+  const patientId = "dev-demo-patient";
   const patientPlans = treatmentPlans.get(patientId) || [];
   const patientPerio = perioCharts.get(patientId) || [];
   const patientAppts = appointments.get(patientId) || [];

@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { generatePhiSafeText } from "./services/ai-gateway";
+import { requireUser } from "./middleware/require-user";
 
 interface OnboardingSession {
   id: string;
@@ -69,7 +70,7 @@ export function registerComprehensiveOnboardingRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.post("/api/comprehensive-onboarding/ai-prefill", async (req: Request, res: Response) => {
+  app.post("/api/comprehensive-onboarding/ai-prefill", requireUser, async (req: Request, res: Response) => {
     const { sessionId, fastenData } = req.body;
 
     try {
@@ -114,7 +115,7 @@ Return JSON with these sections (omit sections with no data):
     }
   });
 
-  app.post("/api/comprehensive-onboarding/ai-review", async (req: Request, res: Response) => {
+  app.post("/api/comprehensive-onboarding/ai-review", requireUser, async (req: Request, res: Response) => {
     const { allData } = req.body;
 
     try {
@@ -150,7 +151,7 @@ Return JSON:
     }
   });
 
-  app.post("/api/comprehensive-onboarding/ai-suggest-conditions", async (req: Request, res: Response) => {
+  app.post("/api/comprehensive-onboarding/ai-suggest-conditions", requireUser, async (req: Request, res: Response) => {
     const { description, age, gender } = req.body;
 
     if (!description?.trim()) {

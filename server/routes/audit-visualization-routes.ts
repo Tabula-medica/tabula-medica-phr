@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import { requireUser } from "../middleware/require-user";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.get("/access-patterns", async (req: Request, res: Response) => {
 
       actionDistribution[log.eventType] = (actionDistribution[log.eventType] || 0) + 1;
 
-      const resourceType = (log.metadata?.resourceType as string) || "system";
+      const resourceType = (log.metadata?.resourceType as string) || SYSTEM_ACTOR;
       resourceAccess[resourceType] = (resourceAccess[resourceType] || 0) + 1;
 
       if (!userActivity[log.userId]) {
@@ -318,7 +319,7 @@ router.get("/live-feed", async (req: Request, res: Response) => {
         action: log.eventType,
         userId: log.userId,
         userName: (log.metadata?.userName as string) || log.userId.substring(0, 8),
-        resourceType: (log.metadata?.resourceType as string) || "system",
+        resourceType: (log.metadata?.resourceType as string) || SYSTEM_ACTOR,
         resourceId: (log.metadata?.resourceId as string) || undefined,
         outcome: (log.metadata?.outcome as string) || (log.metadata?.success === "false" ? "failure" : "success"),
         phiAccessed: log.metadata?.phiAccessed === "true" || log.eventType === "phi_access" || log.eventType === "data_export",

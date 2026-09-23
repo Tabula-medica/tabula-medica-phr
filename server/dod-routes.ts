@@ -10,10 +10,35 @@
  */
 
 import type { Express, Request, Response } from "express";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, webcrypto } from "crypto";
 import { db } from "./db";
 import { z } from "zod";
 import { authRateLimiter } from "./security/api-protection";
+
+// ECDSA P-384 / SHA-384 — matches client/lib/fips-crypto.ts's FIPS.SIGN_ALGORITHM
+// / SIGN_CURVE / SIGN_HASH exactly, so a signature produced by that module's
+// signData() verifies here without any format translation: publicKeyHex is the
+// raw (uncompressed SEC1) point crypto.subtle.exportKey("raw", ...) produces,
+// and signature is the base64 of crypto.subtle.sign()'s raw r||s output.
+async function verifyChallengeSignature(challenge: string, signatureBase64: string, publicKeyHex: string): Promise<boolean> {
+  try {
+    const publicKey = await webcrypto.subtle.importKey(
+      "raw",
+      Buffer.from(publicKeyHex, "hex"),
+      { name: "ECDSA", namedCurve: "P-384" },
+      false,
+      ["verify"],
+    );
+    return await webcrypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-384" },
+      publicKey,
+      Buffer.from(signatureBase64, "base64"),
+      new TextEncoder().encode(challenge),
+    );
+  } catch {
+    return false; // malformed key or signature — never a crash, just "not valid"
+  }
+}
 
 // ─── Offline sync ─────────────────────────────────────────────────────────────
 
@@ -236,14 +261,31 @@ export function registerDoDRoutes(
         return res.status(400).json({ error: "Invalid EDIPI format — must be 10 digits" });
       }
 
-      // TODO for production hardware CAC:
-      // 1. Parse certDerBase64 with node-forge
-      // 2. Validate certificate chain to DoD Root CA 6
-      // 3. Check OCSP endpoint: http://ocsp.disa.mil
-      // 4. Verify EDIPI in certificate SAN field
-      // 5. Verify ECDSA P-384 / RSA-2048 signature over challenge
+      // Proof of possession: reject unless the caller can produce a valid
+      // ECDSA signature over the challenge from the public key they're
+      // asserting. Neither the hardware CAC/PIV path nor the software-cert
+      // path can produce one yet (client/lib/cac-auth.ts: the hardware path
+      // throws "native module not yet compiled", and the software-cert
+      // path's private key is never retained after enrollment — both need
+      // a native Secure Enclave module this repo doesn't have). Until then,
+      // this correctly fails closed instead of minting a session for anyone
+      // who calls this endpoint with no credential at all.
+      //
+      // Still explicitly out of scope even once a real signature arrives —
+      // this only proves possession of *a* key, not that it belongs to a
+      // real DoD identity:
+      //   1. Parse certDerBase64 with node-forge
+      //   2. Validate certificate chain to DoD Root CA 6
+      //   3. Check OCSP endpoint: http://ocsp.disa.mil
+      //   4. Verify EDIPI in certificate SAN field
+      if (!signature || !publicKeyHex) {
+        return res.status(401).json({ error: "Signature required" });
+      }
+      const signatureValid = await verifyChallengeSignature(stored.challenge, signature, publicKeyHex);
+      if (!signatureValid) {
+        return res.status(401).json({ error: "Signature verification failed" });
+      }
 
-      // For software cert: verify against enrolled public key
       const challengeHash = createHash("sha256").update(stored.challenge).digest("hex");
 
       const assuranceLevel = authMethod === "cac_hardware" ? "IAL3"
@@ -258,7 +300,7 @@ export function registerDoDRoutes(
         authenticatedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
         challengeHash,
-        signatureValid: true,
+        signatureValid,
       };
 
       // Audit log

@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { requireUser, getUserId } from "./middleware/require-user";
 import { wearableIntegrationService, type WearableProvider } from "./services/wearable-integration-service";
 import { z } from "zod";
 
@@ -16,10 +17,9 @@ const disconnectDeviceSchema = z.object({
 });
 
 export function registerWearableRoutes(app: Express): void {
-  app.get("/api/wearables/devices", async (req, res) => {
+  app.get("/api/wearables/devices", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const devices = await wearableIntegrationService.getConnectedDevices(patientId);
       res.json({
@@ -33,10 +33,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/wearables/connect", async (req, res) => {
+  app.post("/api/wearables/connect", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const parsed = connectDeviceSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -60,10 +59,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/wearables/disconnect", async (req, res) => {
+  app.post("/api/wearables/disconnect", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const parsed = disconnectDeviceSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -83,10 +81,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/wearables/sync", async (req, res) => {
+  app.post("/api/wearables/sync", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const parsed = syncDeviceSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -106,7 +103,7 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/oauth-url/:provider", async (req, res) => {
+  app.get("/api/wearables/oauth-url/:provider", requireUser, async (req, res) => {
     try {
       const provider = req.params.provider as WearableProvider;
       const redirectUri = `${req.protocol}://${req.get('host')}/wearable-callback`;
@@ -119,10 +116,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/summary", async (req, res) => {
+  app.get("/api/wearables/summary", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const summary = await wearableIntegrationService.getSummary(patientId);
       res.json({
@@ -136,10 +132,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/steps", async (req, res) => {
+  app.get("/api/wearables/steps", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const days = parseInt(req.query.days as string) || 30;
       
       const data = await wearableIntegrationService.getStepsData(patientId, days);
@@ -154,10 +149,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/sleep", async (req, res) => {
+  app.get("/api/wearables/sleep", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const days = parseInt(req.query.days as string) || 30;
       
       const data = await wearableIntegrationService.getSleepData(patientId, days);
@@ -172,10 +166,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/heart-rate", async (req, res) => {
+  app.get("/api/wearables/heart-rate", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const days = parseInt(req.query.days as string) || 7;
       
       const data = await wearableIntegrationService.getHeartRateData(patientId, days);
@@ -190,10 +183,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/hrv", async (req, res) => {
+  app.get("/api/wearables/hrv", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const days = parseInt(req.query.days as string) || 30;
       
       const data = await wearableIntegrationService.getHrvData(patientId, days);
@@ -208,10 +200,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/activity", async (req, res) => {
+  app.get("/api/wearables/activity", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       const days = parseInt(req.query.days as string) || 30;
       
       const data = await wearableIntegrationService.getActivityData(patientId, days);
@@ -226,10 +217,9 @@ export function registerWearableRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/wearables/correlations", async (req, res) => {
+  app.get("/api/wearables/correlations", requireUser, async (req, res) => {
     try {
-      const user = req.user as any;
-      const patientId = user?.claims?.sub || "patient-001";
+      const patientId = getUserId(req);
       
       const correlations = await wearableIntegrationService.getHealthCorrelations(patientId);
       res.json({

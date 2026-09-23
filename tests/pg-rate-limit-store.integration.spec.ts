@@ -146,4 +146,24 @@ describe.skipIf(!TEST_DATABASE_URL)("PgRateLimitStore (real Postgres)", () => {
     expect(remainingKeys.rows.map((r) => r.key)).not.toContain(store["scopedKey"]("long-gone-caller"));
     expect((await store.get("fresh-caller"))?.totalHits).toBe(1); // its own fresh row is untouched
   });
+
+  it("caps a single sweep to a bounded batch instead of clearing an entire large backlog in one delete", async () => {
+    const store = new PgRateLimitStore(pool, "sweep_batch_test");
+    store.init({ windowMs: 15 * 60 * 1000 });
+
+    const BACKLOG_SIZE = 600; // > the store's 500-row sweep batch cap
+    const rows = Array.from({ length: BACKLOG_SIZE }, (_, i) => `('stale-key-${i}', 1, now() - interval '2 days')`).join(",");
+    await pool.query(`INSERT INTO rate_limit_hits (key, hits, reset_time) VALUES ${rows}`);
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      await store.increment("fresh-caller-2");
+      await new Promise((r) => setTimeout(r, 50));
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_hits WHERE key LIKE 'stale-key-%'");
+    expect(remaining.rows[0].n).toBe(BACKLOG_SIZE - 500); // exactly one bounded batch cleared, not the whole backlog
+  });
 });

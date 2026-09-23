@@ -35,6 +35,7 @@ import {
 } from "./auth/fasten";
 import { verifyStepUpAssertion, STEP_UP_FAILURE_MESSAGES } from "./auth/step-up";
 import { sessionTimeoutMiddleware, phiAccessAuditMiddleware } from "./security";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import { registerPolicyRoutes } from "./security/policy-routes";
 import { registerConsentRoutes } from "./consent/consent-routes";
 import { registerAbdmRoutes } from "./abdm-routes";
@@ -6805,7 +6806,7 @@ Respond in JSON format with these fields:
   });
 
   // AI Summary - uses aggregated data from all EHR sources
-  app.post("/api/patients/:id/ai-summary", async (req, res) => {
+  app.post("/api/patients/:id/ai-summary", requirePermission("records:read"), async (req, res) => {
     try {
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
@@ -18320,7 +18321,7 @@ Be thorough but prioritize clinically relevant information. Mark high-relevance 
     return hash.toString(36);
   }
 
-  app.get("/api/patients/:patientId/chart-summary", async (req, res) => {
+  app.get("/api/patients/:patientId/chart-summary", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const forceRefresh = req.query.refresh === "true";
@@ -18480,7 +18481,7 @@ STRICT CONSTRAINTS:
   // AI CHART INSIGHTS - Risk Stratification, History Summary, Care Gaps
   // ============================================
 
-  app.get("/api/patients/:patientId/predictive-risk", requireUser, async (req, res) => {
+  app.get("/api/patients/:patientId/predictive-risk", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
@@ -18499,7 +18500,7 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/history-summary", requireUser, async (req, res) => {
+  app.get("/api/patients/:patientId/history-summary", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
@@ -18518,7 +18519,7 @@ STRICT CONSTRAINTS:
     }
   });
 
-  app.get("/api/patients/:patientId/care-gaps-ai", requireUser, async (req, res) => {
+  app.get("/api/patients/:patientId/care-gaps-ai", requirePermission("records:read"), async (req, res) => {
     try {
       const { patientId } = req.params;
       const patient = await storage.getPatient(patientId);
@@ -20319,7 +20320,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         description,
         type: type || "condition",
         criteria,
-        createdBy: createdBy || "system",
+        createdBy: createdBy || SYSTEM_ACTOR,
       });
       res.status(201).json(cohort);
     } catch (error) {
@@ -20387,7 +20388,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         type,
         description,
         parameters: parameters || {},
-        generatedBy: generatedBy || "system",
+        generatedBy: generatedBy || SYSTEM_ACTOR,
       });
       res.status(201).json(report);
     } catch (error) {
