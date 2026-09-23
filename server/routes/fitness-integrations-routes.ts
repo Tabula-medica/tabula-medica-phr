@@ -30,8 +30,9 @@ import {
 import { ingestVitalReading } from "../services/vital-thresholds";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireProfile } from "../services/resolve-profile";
-import { claimDelivery, completeDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
-import { phiDb, encryptPhiRow } from "../storage/phi-storage";
+import { withDeliveryClaim } from "../services/webhook-idempotency";
+import { encryptPhiRow } from "../storage/phi-storage";
+import { noStorePhi } from "../lib/middleware/no-store-phi";
 
 const router = Router();
 
@@ -57,107 +58,100 @@ router.post("/webhook", async (req: Request, res: Response) => {
     return res.status(401).json({ success: false, error: "Invalid webhook signature" });
   }
 
-  let dedupeKey: string | undefined;
-
   try {
-    const claim = await claimDelivery("terra", rawBody);
-    dedupeKey = claim.dedupeKey;
-    if (claim.outcome !== "claimed") {
-      // Already fully processed, or another request is currently
-      // processing this exact delivery within its lease — ack without
-      // reprocessing so we never double-write vitals.
+    const claim = await withDeliveryClaim("terra", rawBody, async (tx) => {
+      const { type, user, data } = req.body as { type?: string; user?: { user_id?: string }; data?: any[] };
+      const terraUserId = user?.user_id;
+
+      if (!terraUserId) {
+        return { note: "No user_id on payload; ignored" };
+      }
+
+      const [connection] = await tx
+        .select()
+        .from(fitnessConnectionsTable)
+        .where(eq(fitnessConnectionsTable.terraUserId, terraUserId));
+
+      if (!connection || connection.status === "disconnected") {
+        // Connection was revoked on our side but Terra hasn't caught up yet
+        // (or this is a stray/test webhook) — ack so Terra stops retrying,
+        // but ingest nothing.
+        return { note: "No active connection for this Terra user" };
+      }
+
+      let clinicalCount = 0;
+      let wellnessCount = 0;
+
+      for (const entry of data || []) {
+        const { clinical, wellness } = mapTerraPayloadToReadings(type || "", entry);
+
+        for (const reading of clinical) {
+          await ingestVitalReading(
+            {
+              profileId: connection.profileId,
+              vitalType: reading.vitalType,
+              value: reading.value,
+              unit: reading.unit,
+              recordedAt: reading.recordedAt,
+              source: `terra_${connection.provider}`,
+              deviceId: connection.id,
+            },
+            tx,
+          );
+          clinicalCount++;
+        }
+
+        for (const reading of wellness) {
+          await tx.insert(wellnessMetricsTable).values(
+            encryptPhiRow("wellnessMetricsTable", {
+              profileId: connection.profileId,
+              fitnessConnectionId: connection.id,
+              provider: connection.provider,
+              metricType: reading.metricType,
+              value: reading.value.toString(),
+              unit: reading.unit,
+              recordedAt: reading.recordedAt,
+              rawPayload: entry,
+            }),
+          );
+          wellnessCount++;
+        }
+      }
+
+      await tx
+        .update(fitnessConnectionsTable)
+        .set({ lastSyncAt: new Date() })
+        .where(eq(fitnessConnectionsTable.id, connection.id));
+
+      logHipaaAudit(
+        "WEBHOOK_INGESTED",
+        connection.profileId,
+        connection.id,
+        `type=${type} clinical=${clinicalCount} wellness=${wellnessCount}`,
+      );
+
+      return { clinicalCount, wellnessCount };
+    });
+
+    if (claim.outcome === "duplicate") {
+      // Already fully processed — ack without reprocessing so we never
+      // double-write vitals.
       return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
     }
 
-    const { type, user, data } = req.body as { type?: string; user?: { user_id?: string }; data?: any[] };
-    const terraUserId = user?.user_id;
-
-    if (!terraUserId) {
-      await completeDelivery("terra", dedupeKey);
-      return res.status(200).json({ success: true, note: "No user_id on payload; ignored" });
-    }
-
-    const [connection] = await db
-      .select()
-      .from(fitnessConnectionsTable)
-      .where(eq(fitnessConnectionsTable.terraUserId, terraUserId));
-
-    if (!connection || connection.status === "disconnected") {
-      // Connection was revoked on our side but Terra hasn't caught up yet
-      // (or this is a stray/test webhook) — ack so Terra stops retrying,
-      // but ingest nothing. Not a transient failure, so the claim is
-      // completed (not released) to prevent reprocessing on retry.
-      await completeDelivery("terra", dedupeKey);
-      return res.status(200).json({ success: true, note: "No active connection for this Terra user" });
-    }
-
-    let clinicalCount = 0;
-    let wellnessCount = 0;
-
-    for (const entry of data || []) {
-      const { clinical, wellness } = mapTerraPayloadToReadings(type || "", entry);
-
-      for (const reading of clinical) {
-        await ingestVitalReading({
-          profileId: connection.profileId,
-          vitalType: reading.vitalType,
-          value: reading.value,
-          unit: reading.unit,
-          recordedAt: reading.recordedAt,
-          source: `terra_${connection.provider}`,
-          deviceId: connection.id,
-        });
-        clinicalCount++;
-      }
-
-      for (const reading of wellness) {
-        await phiDb.insert(wellnessMetricsTable).values(
-          encryptPhiRow("wellnessMetricsTable", {
-            profileId: connection.profileId,
-            fitnessConnectionId: connection.id,
-            provider: connection.provider,
-            metricType: reading.metricType,
-            value: reading.value.toString(),
-            unit: reading.unit,
-            recordedAt: reading.recordedAt,
-            rawPayload: entry,
-          }),
-        );
-        wellnessCount++;
-      }
-    }
-
-    await db
-      .update(fitnessConnectionsTable)
-      .set({ lastSyncAt: new Date() })
-      .where(eq(fitnessConnectionsTable.id, connection.id));
-
-    logHipaaAudit(
-      "WEBHOOK_INGESTED",
-      connection.profileId,
-      connection.id,
-      `type=${type} clinical=${clinicalCount} wellness=${wellnessCount}`,
-    );
-
-    await completeDelivery("terra", dedupeKey);
-    res.status(200).json({ success: true, clinicalCount, wellnessCount });
+    res.status(200).json({ success: true, ...claim.value });
   } catch (error) {
     console.error("[Fitness Integrations] Webhook processing error:", error);
-    // Release the delivery claim so Terra's retry (it does retry non-2xx
-    // responses) can actually reprocess this instead of being silently
-    // deduped away — a transient DB failure must not permanently lose data.
-    // dedupeKey is only unset if claimDelivery itself threw, in which case
-    // there's no claim row to release.
-    if (dedupeKey) {
-      await releaseDeliveryClaim("terra", dedupeKey).catch((releaseError) => {
-        console.error("[Fitness Integrations] Failed to release delivery claim:", releaseError);
-      });
-    }
+    // withDeliveryClaim runs everything — the claim and every write above —
+    // in one transaction, so a throw here rolled all of it back already,
+    // including the claim itself. Terra's retry (it does retry non-2xx
+    // responses) will see a clean slate and can reprocess from scratch; a
+    // transient DB failure can't leave a half-written delivery behind.
     res.status(500).json({ success: false, error: "Webhook processing failed, will retry" });
   }
 });
 
-router.use(isAuthenticated, requireProfile);
+router.use(isAuthenticated, requireProfile, noStorePhi);
 
 router.get("/providers", (_req: Request, res: Response) => {
   res.json({

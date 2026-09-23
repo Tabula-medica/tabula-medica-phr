@@ -35,7 +35,8 @@ import { eq, and, desc } from "drizzle-orm";
 import { ingestVitalReading } from "../services/vital-thresholds";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireProfile } from "../services/resolve-profile";
-import { claimDelivery, completeDelivery, releaseDeliveryClaim } from "../services/webhook-idempotency";
+import { withDeliveryClaim } from "../services/webhook-idempotency";
+import { noStorePhi } from "../lib/middleware/no-store-phi";
 
 const router = Router();
 
@@ -117,7 +118,7 @@ export function normalizeUnit(vitalType: VitalSignType, value: number, unit: str
 
 // --- Device enrollment (patient/caregiver self-service pairing) ---------
 
-router.use(isAuthenticated, requireProfile);
+router.use(isAuthenticated, requireProfile, noStorePhi);
 
 router.get("/devices", async (req: Request, res: Response) => {
   const profileId = (req as any).resolvedProfileId as string;
@@ -281,120 +282,117 @@ rpmWebhookRouter.post("/webhook/vitalfriend", async (req: Request, res: Response
     });
   }
 
-  let dedupeKey: string | undefined;
-
   try {
-    const claim = await claimDelivery("vitalfriend", rawBody);
-    dedupeKey = claim.dedupeKey;
-    if (claim.outcome !== "claimed") {
+    const claim = await withDeliveryClaim("vitalfriend", rawBody, async (tx) => {
+      const { device_id, serial_number, readings } = parsed.data;
+
+      const [device] = await tx
+        .select()
+        .from(rpmDevicesTable)
+        .where(and(eq(rpmDevicesTable.provider, "vitalfriend"), eq(rpmDevicesTable.externalDeviceId, device_id)));
+
+      if (!device || device.status === "inactive" || device.status === "error") {
+        logHipaaAudit("WEBHOOK_UNKNOWN_DEVICE", null, hashIdentifier(device_id), "No enrolled/active device for this device_id");
+        return { note: "No enrolled device for this device_id; ignored" };
+      }
+
+      if (device.status === "pending") {
+        const serialMatches =
+          !!serial_number && !!device.serialNumber && serial_number.trim() === device.serialNumber.trim();
+        if (!serialMatches) {
+          logHipaaAudit(
+            "WEBHOOK_ACTIVATION_REJECTED",
+            device.profileId,
+            device.id,
+            "First delivery's serial_number did not match the enrolled device; not activated, reading discarded",
+          );
+          return { note: "Device not yet verified; ignored" };
+        }
+        await tx.update(rpmDevicesTable).set({ status: "active" }).where(eq(rpmDevicesTable.id, device.id));
+        logHipaaAudit("DEVICE_ACTIVATED", device.profileId, device.id, "Serial number confirmed on first delivery");
+      } else if (serial_number) {
+        // Re-verify on every subsequent delivery that includes a
+        // serial_number — our ASSUMED spec marks the field optional, so we
+        // can't require it on every call, but whenever it IS present it must
+        // match. This also closes the gap for "active" rows enrolled before
+        // serialNumber was a required field (their serialNumber is null and
+        // can never match a provided value, so a stray/attacker delivery
+        // carrying a serial_number is rejected instead of silently trusted).
+        // scripts/backfill-rpm-legacy-device-reverification.ts additionally
+        // resets every pre-existing active row so it has to clear the
+        // activation check above at all.
+        const serialMatches = !!device.serialNumber && serial_number.trim() === device.serialNumber.trim();
+        if (!serialMatches) {
+          logHipaaAudit(
+            "WEBHOOK_SERIAL_MISMATCH",
+            device.profileId,
+            device.id,
+            "Delivery's serial_number did not match the enrolled device; reading discarded",
+          );
+          return { note: "Device serial mismatch; ignored" };
+        }
+      }
+
+      let ingested = 0;
+      let rejectedUnit = 0;
+      for (const reading of readings) {
+        const vitalType = resolveVitalType(reading.vital_type);
+        if (!vitalType) {
+          console.warn(`[RPM Devices] Unrecognized vital_type from device ${hashIdentifier(device_id)}`);
+          continue;
+        }
+
+        const normalized = normalizeUnit(vitalType, reading.value, reading.unit);
+        if (!normalized) {
+          console.warn(
+            `[RPM Devices] Unrecognized unit "${reading.unit}" for ${vitalType} from device ${hashIdentifier(device_id)}; reading rejected rather than guessed`,
+          );
+          rejectedUnit++;
+          continue;
+        }
+
+        await ingestVitalReading(
+          {
+            profileId: device.profileId,
+            vitalType,
+            value: normalized.value,
+            unit: normalized.unit,
+            recordedAt: reading.recorded_at ? new Date(reading.recorded_at) : new Date(),
+            source: "vitalfriend_rpm",
+            deviceId: device.id,
+          },
+          tx,
+        );
+        ingested++;
+      }
+
+      await tx
+        .update(rpmDevicesTable)
+        .set({ lastReadingAt: new Date() })
+        .where(eq(rpmDevicesTable.id, device.id));
+
+      logHipaaAudit(
+        "READINGS_INGESTED",
+        device.profileId,
+        device.id,
+        `${ingested}/${readings.length} readings ingested, ${rejectedUnit} rejected for unrecognized unit`,
+      );
+
+      return { ingested, rejectedUnit };
+    });
+
+    if (claim.outcome === "duplicate") {
       return res.status(200).json({ success: true, note: "Duplicate delivery, already processed" });
     }
 
-    const { device_id, serial_number, readings } = parsed.data;
-
-    const [device] = await db
-      .select()
-      .from(rpmDevicesTable)
-      .where(and(eq(rpmDevicesTable.provider, "vitalfriend"), eq(rpmDevicesTable.externalDeviceId, device_id)));
-
-    if (!device || device.status === "inactive" || device.status === "error") {
-      logHipaaAudit("WEBHOOK_UNKNOWN_DEVICE", null, hashIdentifier(device_id), "No enrolled/active device for this device_id");
-      await completeDelivery("vitalfriend", dedupeKey);
-      return res.status(200).json({ success: true, note: "No enrolled device for this device_id; ignored" });
-    }
-
-    if (device.status === "pending") {
-      const serialMatches =
-        !!serial_number && !!device.serialNumber && serial_number.trim() === device.serialNumber.trim();
-      if (!serialMatches) {
-        logHipaaAudit(
-          "WEBHOOK_ACTIVATION_REJECTED",
-          device.profileId,
-          device.id,
-          "First delivery's serial_number did not match the enrolled device; not activated, reading discarded",
-        );
-        await completeDelivery("vitalfriend", dedupeKey);
-        return res.status(200).json({ success: true, note: "Device not yet verified; ignored" });
-      }
-      await db.update(rpmDevicesTable).set({ status: "active" }).where(eq(rpmDevicesTable.id, device.id));
-      logHipaaAudit("DEVICE_ACTIVATED", device.profileId, device.id, "Serial number confirmed on first delivery");
-    } else if (serial_number) {
-      // Re-verify on every subsequent delivery that includes a
-      // serial_number — our ASSUMED spec marks the field optional, so we
-      // can't require it on every call, but whenever it IS present it must
-      // match. This also closes the gap for "active" rows enrolled before
-      // serialNumber was a required field (their serialNumber is null and
-      // can never match a provided value, so a stray/attacker delivery
-      // carrying a serial_number is rejected instead of silently trusted).
-      // scripts/backfill-rpm-legacy-device-reverification.ts additionally
-      // flips any pre-existing active row with no stored serial back to
-      // "pending" so it has to clear the activation check above at all.
-      const serialMatches = !!device.serialNumber && serial_number.trim() === device.serialNumber.trim();
-      if (!serialMatches) {
-        logHipaaAudit(
-          "WEBHOOK_SERIAL_MISMATCH",
-          device.profileId,
-          device.id,
-          "Delivery's serial_number did not match the enrolled device; reading discarded",
-        );
-        await completeDelivery("vitalfriend", dedupeKey);
-        return res.status(200).json({ success: true, note: "Device serial mismatch; ignored" });
-      }
-    }
-
-    let ingested = 0;
-    let rejectedUnit = 0;
-    for (const reading of readings) {
-      const vitalType = resolveVitalType(reading.vital_type);
-      if (!vitalType) {
-        console.warn(`[RPM Devices] Unrecognized vital_type from device ${hashIdentifier(device_id)}`);
-        continue;
-      }
-
-      const normalized = normalizeUnit(vitalType, reading.value, reading.unit);
-      if (!normalized) {
-        console.warn(
-          `[RPM Devices] Unrecognized unit "${reading.unit}" for ${vitalType} from device ${hashIdentifier(device_id)}; reading rejected rather than guessed`,
-        );
-        rejectedUnit++;
-        continue;
-      }
-
-      await ingestVitalReading({
-        profileId: device.profileId,
-        vitalType,
-        value: normalized.value,
-        unit: normalized.unit,
-        recordedAt: reading.recorded_at ? new Date(reading.recorded_at) : new Date(),
-        source: "vitalfriend_rpm",
-        deviceId: device.id,
-      });
-      ingested++;
-    }
-
-    await db
-      .update(rpmDevicesTable)
-      .set({ lastReadingAt: new Date() })
-      .where(eq(rpmDevicesTable.id, device.id));
-
-    logHipaaAudit(
-      "READINGS_INGESTED",
-      device.profileId,
-      device.id,
-      `${ingested}/${readings.length} readings ingested, ${rejectedUnit} rejected for unrecognized unit`,
-    );
-
-    await completeDelivery("vitalfriend", dedupeKey);
-    res.json({ success: true, ingested, rejectedUnit });
+    res.json({ success: true, ...claim.value });
   } catch (error) {
     console.error("[RPM Devices] Webhook processing error:", error);
-    // dedupeKey is only unset if claimDelivery itself threw, in which case
-    // there's no claim row to release.
-    if (dedupeKey) {
-      await releaseDeliveryClaim("vitalfriend", dedupeKey).catch((releaseError) => {
-        console.error("[RPM Devices] Failed to release delivery claim:", releaseError);
-      });
-    }
+    // withDeliveryClaim runs everything — the claim and every write above —
+    // in one transaction, so a throw here rolled all of it back already,
+    // including the claim itself. A retry sees a clean slate and can
+    // reprocess from scratch; a transient DB failure can't leave a
+    // half-written delivery behind.
     res.status(500).json({ success: false, error: "Failed to process readings, will retry" });
   }
 });

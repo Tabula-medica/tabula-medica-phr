@@ -147,11 +147,12 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
   },
 
   // --- Fitness & RPM ---
-  // rawPayload holds the vendor's full source entry (Terra), which can
-  // include health data (heart rate, weight, sleep, etc.) — encrypt the
-  // whole jsonb blob rather than trying to allowlist individual fields
-  // across an open-ended, vendor-controlled shape.
-  wellnessMetricsTable: { text: [], jsonb: ["rawPayload"] },
+  // value is the actual health measurement (heart rate, sleep minutes,
+  // weight, etc.) stored as text. rawPayload holds the vendor's full
+  // source entry (Terra), which can include the same and other health
+  // data — encrypt the whole jsonb blob rather than trying to allowlist
+  // individual fields across an open-ended, vendor-controlled shape.
+  wellnessMetricsTable: { text: ["value"], jsonb: ["rawPayload"] },
 
   // --- Health goals ---
   healthGoalsTable: {

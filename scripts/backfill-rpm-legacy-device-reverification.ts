@@ -1,48 +1,48 @@
 /**
  * One-time deploy step for PR #113 (RPM security fixes): any `rpm_devices`
- * row that was enrolled and activated under the ORIGINAL, vulnerable code
- * (merged as PR #108) can be `status = "active"` with `serial_number` still
- * null — that enrollment never required or checked a serial number at all.
- * The fixed webhook handler (server/routes/rpm-device-routes.ts) now
- * re-verifies serial_number on every delivery once a device is active, but
- * a legacy row with no stored serial can never satisfy that check via a
- * provided serial, and a delivery that omits serial_number entirely still
- * passes through untouched — so these rows are not fully re-verified by
- * the webhook fix alone.
+ * row created under the ORIGINAL, vulnerable code (merged as PR #108) can
+ * be `status = "active"` with NO vendor-confirmed proof of possession —
+ * that enrollment flow set a device straight to "active" on `POST
+ * /api/rpm/devices`, whether or not a serial number was even supplied
+ * (it was optional), and never checked it against anything. A non-empty
+ * `serial_number` on one of these rows is not evidence it was ever
+ * verified — it just means the enrolling client happened to type one in.
  *
- * This script closes that gap by resetting every such row back to
- * "pending", which forces it through the same first-delivery
- * serial-confirmation gate a brand-new enrollment goes through before it
- * can ingest readings again. The patient/caregiver isn't required to do
- * anything — VitalFriend's next delivery for that device re-activates it,
- * provided it carries a serial_number that matches what's on file (and if
- * `serial_number` is still null too — a device enrolled before this field
- * existed at all — it stays pending until re-enrolled with a serial via
- * `POST /api/rpm/devices`, which now requires one).
+ * The fixed enrollment flow (this PR) always starts a device at "pending"
+ * and only flips it to "active" once a real webhook delivery confirms the
+ * stored serial number matches. So at the moment this script is meant to
+ * run — right after deploying this fix, before any new activity — every
+ * row still sitting at "active" necessarily predates that gate and was
+ * never actually verified.
  *
- * Idempotent: matches only "active" + null/empty serial_number, so
- * re-running after devices have re-activated with a real serial is a
- * no-op.
+ * This script closes that gap by resetting every "active" row (regardless
+ * of provider or stored serial) back to "pending", forcing it through the
+ * same first-delivery serial-confirmation gate a brand-new enrollment goes
+ * through before it can ingest readings again. The patient/caregiver isn't
+ * required to do anything — VitalFriend's next delivery for that device
+ * re-activates it, provided it carries a serial_number that matches what's
+ * on file (a device with no stored serial at all stays pending until
+ * re-enrolled via `POST /api/rpm/devices`, which now requires one).
+ *
+ * Idempotent in the sense that matters: run this once, immediately after
+ * deploying the fixed code and before real traffic resumes, and it's a
+ * no-op on any later run (nothing stays "active" without having gone
+ * through the new verified activation path first).
  *
  * Run with: npx tsx scripts/backfill-rpm-legacy-device-reverification.ts
  */
 
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../server/db";
 import { rpmDevicesTable } from "@shared/schema";
 
 async function main() {
-  console.log("[backfill] finding legacy active RPM devices with no verified serial number...");
+  console.log("[backfill] resetting all legacy active RPM devices for re-verification...");
 
   const affected = await db
     .update(rpmDevicesTable)
     .set({ status: "pending" })
-    .where(
-      and(
-        eq(rpmDevicesTable.status, "active"),
-        or(isNull(rpmDevicesTable.serialNumber), eq(sql`trim(${rpmDevicesTable.serialNumber})`, "")),
-      ),
-    )
+    .where(eq(rpmDevicesTable.status, "active"))
     .returning({ id: rpmDevicesTable.id, profileId: rpmDevicesTable.profileId });
 
   console.log(`[backfill] done — ${affected.length} device(s) reset to "pending", pending re-verification`);

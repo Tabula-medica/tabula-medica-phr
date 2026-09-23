@@ -9,8 +9,8 @@
  */
 import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
-import { db } from "../db";
 import { profiles } from "@shared/schema";
+import { phiDb } from "../storage/phi-storage";
 
 export function getSessionUserId(req: Request): string | null {
   return (
@@ -25,7 +25,7 @@ export async function resolveOwnProfileId(req: Request): Promise<string | null> 
   const accountId = getSessionUserId(req);
   if (!accountId) return null;
 
-  const rows = await db
+  const rows = await phiDb
     .select({ id: profiles.id })
     .from(profiles)
     .where(eq(profiles.accountId, accountId))
