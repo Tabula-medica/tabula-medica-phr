@@ -8,7 +8,6 @@ server/utils/openai-client.ts
 # False positive — code is BAA-safe, comment text triggers grep:
 server/ai-provider-search-service.ts
 # Backlog — migrate each to server/services/ai-gateway.ts:
-server/ai-document-categorization.ts
 server/clinical-documentation-routes.ts
 server/index.ts
 server/integrations-debug-routes.ts

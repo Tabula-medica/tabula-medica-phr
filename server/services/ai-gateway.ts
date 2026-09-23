@@ -140,6 +140,47 @@ export async function generatePhiSafeChat(req: PhiSafeChatRequest): Promise<stri
   return parts.map((p: any) => p?.text ?? "").join("");
 }
 
+export interface PhiSafeVisionRequest {
+  /** Raw base64 image data (no data-URI prefix). */
+  base64Image: string;
+  /** MIME type of the image, e.g. "image/jpeg" or "image/png". */
+  imageMimeType: string;
+  /** Text prompt accompanying the image. */
+  prompt: string;
+  /** Optional caller system prompt; the NO-CDS guardrail is always prepended. */
+  system?: string;
+  maxTokens?: number;
+  responseMimeType?: string;
+  temperature?: number;
+}
+
+/**
+ * Run a PHI-bearing vision (image + text) call on Vertex (BAA). Returns the model's
+ * text. Throws on error — callers should never fall back to a non-BAA provider.
+ */
+export async function generatePhiSafeVision(req: PhiSafeVisionRequest): Promise<string> {
+  const system = req.system ? `${NO_CDS_GUARDRAIL}\n\n${req.system}` : NO_CDS_GUARDRAIL;
+  const result = await getModel().generateContent({
+    systemInstruction: system,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: req.prompt },
+          { inlineData: { mimeType: req.imageMimeType, data: req.base64Image } },
+        ],
+      },
+    ],
+    generationConfig: {
+      maxOutputTokens: req.maxTokens ?? 2048,
+      temperature: req.temperature ?? 0.2,
+      ...(req.responseMimeType ? { responseMimeType: req.responseMimeType } : {}),
+    },
+  });
+  const parts = result?.response?.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p: any) => p?.text ?? "").join("");
+}
+
 /**
  * Streaming variant of generatePhiSafeChat. Yields text chunks as they arrive.
  * Callers accumulate chunks to store the full response; the gateway never buffers.
