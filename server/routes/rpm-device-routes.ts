@@ -159,7 +159,40 @@ router.post("/devices", async (req: Request, res: Response) => {
       .where(and(eq(rpmDevicesTable.provider, data.provider), eq(rpmDevicesTable.externalDeviceId, data.externalDeviceId)));
 
     if (existing) {
-      return res.status(409).json({ success: false, error: "This device is already enrolled" });
+      // Re-enrollment, not a fresh row: the unique (provider,
+      // externalDeviceId) index means a plain insert would 409 here even
+      // for a device stuck "pending" with no way to complete verification
+      // (e.g. after scripts/backfill-rpm-legacy-device-reverification.ts,
+      // or the caller's own earlier attempt without a serial). Allow it
+      // when either (a) the caller already owns this row — they're
+      // correcting/retrying their own stuck enrollment, or (b) the row is
+      // "inactive" — explicitly removed via DELETE, so it's up for
+      // re-claiming under the same first-claimer trust model fresh
+      // enrollment already uses. A stranger can't hijack someone else's
+      // live "pending"/"active" device this way.
+      const reclaimable = existing.profileId === profileId || existing.status === "inactive";
+      if (!reclaimable) {
+        return res.status(409).json({ success: false, error: "This device is already enrolled" });
+      }
+
+      const [device] = await db
+        .update(rpmDevicesTable)
+        .set({
+          profileId,
+          deviceType: data.deviceType,
+          serialNumber: data.serialNumber,
+          // Back to "pending" regardless of prior state — re-enrollment
+          // re-starts proof-of-possession, it doesn't just resume it.
+          status: "pending",
+          enrolledAt: new Date(),
+          deactivatedAt: null,
+        })
+        .where(eq(rpmDevicesTable.id, existing.id))
+        .returning();
+
+      logHipaaAudit("DEVICE_RE_ENROLLED", profileId, device.id, `provider=${data.provider} type=${data.deviceType} status=pending`);
+
+      return res.status(200).json({ success: true, device });
     }
 
     const [device] = await db
@@ -172,6 +205,7 @@ router.post("/devices", async (req: Request, res: Response) => {
         serialNumber: data.serialNumber,
         // Not "active" yet — see the webhook handler's activation check.
         status: "pending",
+        enrolledAt: new Date(),
       })
       .returning();
 

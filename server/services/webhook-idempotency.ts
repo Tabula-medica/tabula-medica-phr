@@ -31,7 +31,7 @@
  *   res.status(200).json({ success: true, ...claim.value });
  */
 import crypto from "crypto";
-import { eq, lt } from "drizzle-orm";
+import { and, eq, lt, ne } from "drizzle-orm";
 import { db } from "../db";
 import { webhookDeliveriesTable } from "@shared/schema";
 
@@ -42,6 +42,18 @@ import { webhookDeliveriesTable } from "@shared/schema";
 // or slowing down the common case (most calls skip the delete entirely).
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const CLEANUP_SAMPLE_RATE = 0.01;
+
+// Providers whose dedupe rows are exempt from the retention cleanup above,
+// because the ledger is their ONLY replay defense. Terra signs each
+// delivery with an HMAC over a timestamp (verifyTerraWebhookSignature, 5-
+// minute tolerance) — a body captured and resubmitted after its ledger row
+// expires is rejected by the signature check regardless of the ledger.
+// VitalFriend's ASSUMED shared-secret auth has no per-delivery timestamp or
+// vendor delivery id (see rpm-device-routes.ts), so once its ledger row
+// expires, a captured valid request could be replayed indefinitely with
+// nothing else to catch it. Until VitalFriend's real spec adds one of
+// those, its rows are kept forever rather than on the 30-day cleanup.
+const CLEANUP_EXEMPT_PROVIDERS = ["vitalfriend"];
 
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -91,5 +103,12 @@ export async function withDeliveryClaim<T>(
 }
 
 async function cleanupExpiredDeliveries(): Promise<void> {
-  await db.delete(webhookDeliveriesTable).where(lt(webhookDeliveriesTable.receivedAt, new Date(Date.now() - RETENTION_MS)));
+  await db
+    .delete(webhookDeliveriesTable)
+    .where(
+      and(
+        lt(webhookDeliveriesTable.receivedAt, new Date(Date.now() - RETENTION_MS)),
+        ...CLEANUP_EXEMPT_PROVIDERS.map((provider) => ne(webhookDeliveriesTable.provider, provider)),
+      ),
+    );
 }

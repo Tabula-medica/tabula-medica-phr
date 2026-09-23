@@ -750,19 +750,14 @@ export type InsertFitnessConnection = z.infer<typeof insertFitnessConnectionSche
 export type FitnessConnection = typeof fitnessConnectionsTable.$inferSelect;
 
 // Idempotency ledger for inbound webhook deliveries (Terra, VitalFriend).
-// A row is inserted with onConflictDoNothing() keyed on (provider,
-// dedupeKey) before processing a delivery; if no row was inserted, the
-// delivery is a duplicate/retry. dedupeKey is a hash of the raw request
-// body, since a vendor retry resends byte-identical content.
-//
-// `status` distinguishes "still being processed" from "done": a claim that
-// finishes successfully is marked `completed` (a later duplicate is acked
-// without reprocessing); a claim whose handler fails is deleted outright
-// (see releaseDeliveryClaim) so a retry can reclaim it immediately. A row
-// left at `processing` past a short lease window means the original
-// request died (crash, timeout) without completing or releasing — a later
-// delivery for the same body is allowed to reclaim and reprocess it rather
-// than being stuck acknowledging a delivery that never actually finished.
+// See server/services/webhook-idempotency.ts's withDeliveryClaim(), which
+// is the only writer: the claim insert, every write the caller's handler
+// makes, and the completion update all commit or roll back together in one
+// Postgres transaction. That makes `status` mostly informational rather
+// than load-bearing for correctness — a row can only ever be durably
+// visible here as `completed` (a handler failure, or a crash mid-
+// transaction, rolls the claim insert back too, so there is no lease or
+// reclaim mechanism and none is needed).
 export const webhookDeliveryStatuses = ["processing", "completed"] as const;
 export type WebhookDeliveryStatus = typeof webhookDeliveryStatuses[number];
 
