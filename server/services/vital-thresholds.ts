@@ -11,6 +11,14 @@
 import { db } from "../db";
 import { monitoringAlertsTable, vitalSignsTable, type VitalSignType } from "@shared/schema";
 
+// Optionally accepts a transaction handle (from `db.transaction(async (tx) => ...)`)
+// so callers that need atomicity with other writes — e.g. a webhook handler
+// wrapped in `withDeliveryClaim` — can pass `tx` and have the vital +
+// threshold-alert writes commit or roll back together with everything else.
+// Defaults to the module-level `db` for existing non-transactional callers
+// (manual vital entry).
+type DbClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export const VITAL_THRESHOLDS: Record<
   string,
   { low?: number; high?: number; critical_low?: number; critical_high?: number; unit: string }
@@ -35,6 +43,7 @@ export async function checkVitalThresholds(
   vitalType: string,
   value: number,
   vitalSignId: string,
+  tx: DbClient = db,
 ): Promise<{ severity: "low" | "medium" | "high" | "critical" } | null> {
   const thresholds = VITAL_THRESHOLDS[vitalType];
   if (!thresholds) return null;
@@ -57,7 +66,7 @@ export async function checkVitalThresholds(
   }
 
   if (severity) {
-    await db.insert(monitoringAlertsTable).values({
+    await tx.insert(monitoringAlertsTable).values({
       profileId,
       vitalSignId,
       alertType: "vital_threshold",
@@ -89,8 +98,8 @@ export interface IngestVitalReadingInput {
  * app whose data overlaps a clinical vital type) into vital_signs and run
  * it through threshold checking, exactly like a manually-entered vital.
  */
-export async function ingestVitalReading(input: IngestVitalReadingInput) {
-  const [vital] = await db
+export async function ingestVitalReading(input: IngestVitalReadingInput, tx: DbClient = db) {
+  const [vital] = await tx
     .insert(vitalSignsTable)
     .values({
       profileId: input.profileId,
@@ -104,7 +113,7 @@ export async function ingestVitalReading(input: IngestVitalReadingInput) {
     })
     .returning();
 
-  await checkVitalThresholds(input.profileId, input.vitalType, input.value, vital.id);
+  await checkVitalThresholds(input.profileId, input.vitalType, input.value, vital.id, tx);
 
   return vital;
 }
