@@ -43,7 +43,6 @@ server/services/fhir-data-integration-service.ts
 server/services/healthcare-data-aggregator-service.ts
 server/services/multimodal-document-parser.ts
 server/services/patient-engagement-hub-service.ts
-server/services/patientAssistant.ts
 server/symptom-tracker-service.ts
 server/usability-features-service.ts
 server/utils/openai-client.ts
