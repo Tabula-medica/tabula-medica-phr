@@ -52,10 +52,12 @@ describe("requiresEmailVerification", () => {
     ).toBe(false);
   });
 
-  it("does not gate a password token with no email — that fails the normal resolve path", () => {
+  it("gates a password token with no email, so it cannot provision an address-less account", () => {
+    // users.email is nullable and createUserFromGcipClaims inserts
+    // `claims.email ?? null`, so nothing downstream would reject this.
     expect(
       requiresEmailVerification({ firebase: { sign_in_provider: "password" } })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("is a no-op for null/undefined claims", () => {

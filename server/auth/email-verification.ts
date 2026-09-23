@@ -66,9 +66,13 @@ export function requiresEmailVerification(claims: EmailVerificationClaims | null
   const provider = claims.firebase?.sign_in_provider ?? "";
   if (!SELF_ASSERTED_EMAIL_PROVIDERS.has(provider)) return false;
 
-  // A password-provider token with no email at all cannot be email-gated;
-  // let the normal resolve/create path reject it instead.
-  if (!claims.email) return false;
+  // A password-provider token carrying no email at all is gated too. The
+  // resolve/create path does NOT reject it on its own: `users.email` is
+  // nullable and createUserFromGcipClaims() inserts `claims.email ?? null`, so
+  // letting it through would provision an account with no address — one that
+  // can never be verified, recovered, or contacted. Refusing here is the safe
+  // direction: a legitimate `password` sign-in always carries an address.
+  if (!claims.email) return true;
 
   return claims.email_verified !== true;
 }
