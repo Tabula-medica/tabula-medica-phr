@@ -31,7 +31,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { db } from "../db";
 import { rpmDevicesTable, rpmMonitoringDeviceTypes, rpmDeviceProviders, type VitalSignType } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { ingestVitalReading } from "../services/vital-thresholds";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireProfile } from "../services/resolve-profile";
@@ -170,11 +170,11 @@ router.post("/devices", async (req: Request, res: Response) => {
       // re-claiming under the same first-claimer trust model fresh
       // enrollment already uses. A stranger can't hijack someone else's
       // live "pending"/"active" device this way.
-      const reclaimable = existing.profileId === profileId || existing.status === "inactive";
-      if (!reclaimable) {
-        return res.status(409).json({ success: false, error: "This device is already enrolled" });
-      }
-
+      //
+      // The ownership check is baked into the UPDATE's WHERE clause (not a
+      // separate SELECT-then-act) so two concurrent re-enrollment requests
+      // can't both pass a check and race to overwrite profileId — the
+      // second one's UPDATE simply matches zero rows once the first commits.
       const [device] = await db
         .update(rpmDevicesTable)
         .set({
@@ -187,8 +187,20 @@ router.post("/devices", async (req: Request, res: Response) => {
           enrolledAt: new Date(),
           deactivatedAt: null,
         })
-        .where(eq(rpmDevicesTable.id, existing.id))
+        .where(
+          and(
+            eq(rpmDevicesTable.id, existing.id),
+            or(eq(rpmDevicesTable.profileId, profileId), eq(rpmDevicesTable.status, "inactive")),
+          ),
+        )
         .returning();
+
+      if (!device) {
+        // Either the row is owned by someone else and not "inactive", or
+        // another request already reclaimed it between our SELECT and this
+        // UPDATE.
+        return res.status(409).json({ success: false, error: "This device is already enrolled" });
+      }
 
       logHipaaAudit("DEVICE_RE_ENROLLED", profileId, device.id, `provider=${data.provider} type=${data.deviceType} status=pending`);
 

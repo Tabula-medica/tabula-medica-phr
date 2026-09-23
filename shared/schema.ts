@@ -751,13 +751,16 @@ export type FitnessConnection = typeof fitnessConnectionsTable.$inferSelect;
 
 // Idempotency ledger for inbound webhook deliveries (Terra, VitalFriend).
 // See server/services/webhook-idempotency.ts's withDeliveryClaim(), which
-// is the only writer: the claim insert, every write the caller's handler
-// makes, and the completion update all commit or roll back together in one
-// Postgres transaction. That makes `status` mostly informational rather
-// than load-bearing for correctness — a row can only ever be durably
-// visible here as `completed` (a handler failure, or a crash mid-
-// transaction, rolls the claim insert back too, so there is no lease or
-// reclaim mechanism and none is needed).
+// is the only writer going forward: the claim insert, every write the
+// caller's handler makes, and the completion update all commit or roll
+// back together in one Postgres transaction, so under this code a row can
+// only ever become durably visible as `completed` — a handler failure, or
+// a crash mid-transaction, rolls the claim insert back too. A row seen at
+// `processing` is therefore not a live in-flight claim (Postgres blocks a
+// second insert of the same key until the first transaction resolves) but
+// a stale leftover from the earlier, pre-transactional claim/complete/
+// release + lease design; withDeliveryClaim() reclaims such rows rather
+// than treating them as permanent duplicates.
 export const webhookDeliveryStatuses = ["processing", "completed"] as const;
 export type WebhookDeliveryStatus = typeof webhookDeliveryStatuses[number];
 
@@ -876,6 +879,20 @@ export const insertRpmDeviceSchema = createInsertSchema(rpmDevicesTable).omit({
 
 export type InsertRpmDevice = z.infer<typeof insertRpmDeviceSchema>;
 export type RpmDevice = typeof rpmDevicesTable.$inferSelect;
+
+// One-time deploy scripts (e.g.
+// scripts/backfill-rpm-legacy-device-reverification.ts) record a row here
+// keyed by a script-chosen slug once they've run to completion, so a
+// script can check for its own marker and skip re-running its effects — a
+// script whose action isn't naturally idempotent (like resetting rows that
+// may since have been legitimately re-verified) must not silently re-apply
+// just because someone runs it again.
+export const deployScriptMarkersTable = pgTable("deploy_script_markers", {
+  key: text("key").primaryKey(),
+  appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type DeployScriptMarker = typeof deployScriptMarkersTable.$inferSelect;
 
 // ============================================
 // ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM

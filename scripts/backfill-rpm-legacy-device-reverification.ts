@@ -34,26 +34,46 @@
  * to "active", so resetting it here would strand it permanently instead of
  * re-verifying it.
  *
- * Idempotent in the sense that matters: run this once, immediately after
- * deploying the fixed code and before real traffic resumes, and it's a
- * no-op on any later run (nothing stays "active" without having gone
- * through the new verified activation path first).
+ * Guarded by a durable marker (deploy_script_markers), NOT just "nothing
+ * stays active without going through verification first": a device
+ * enrolled/re-verified AFTER this script's first run is legitimately
+ * "active" with a real vendor-confirmed serial, and a naive re-run would
+ * incorrectly reset it too, kicking it offline until another qualifying
+ * delivery arrives. Run this once; later runs are a genuine no-op.
  *
  * Run with: npx tsx scripts/backfill-rpm-legacy-device-reverification.ts
  */
 
 import { and, eq } from "drizzle-orm";
 import { db } from "../server/db";
-import { rpmDevicesTable } from "@shared/schema";
+import { rpmDevicesTable, deployScriptMarkersTable } from "@shared/schema";
+
+const MARKER_KEY = "rpm-legacy-device-reverification-v1";
 
 async function main() {
+  const [marker] = await db
+    .select()
+    .from(deployScriptMarkersTable)
+    .where(eq(deployScriptMarkersTable.key, MARKER_KEY));
+
+  if (marker) {
+    console.log(`[backfill] already applied at ${marker.appliedAt.toISOString()} — nothing to do`);
+    return;
+  }
+
   console.log('[backfill] resetting legacy active VitalFriend RPM devices for re-verification...');
 
-  const affected = await db
-    .update(rpmDevicesTable)
-    .set({ status: "pending" })
-    .where(and(eq(rpmDevicesTable.provider, "vitalfriend"), eq(rpmDevicesTable.status, "active")))
-    .returning({ id: rpmDevicesTable.id, profileId: rpmDevicesTable.profileId });
+  const affected = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(rpmDevicesTable)
+      .set({ status: "pending" })
+      .where(and(eq(rpmDevicesTable.provider, "vitalfriend"), eq(rpmDevicesTable.status, "active")))
+      .returning({ id: rpmDevicesTable.id, profileId: rpmDevicesTable.profileId });
+
+    await tx.insert(deployScriptMarkersTable).values({ key: MARKER_KEY }).onConflictDoNothing();
+
+    return rows;
+  });
 
   console.log(`[backfill] done — ${affected.length} device(s) reset to "pending", pending re-verification`);
 }
