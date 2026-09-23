@@ -1048,15 +1048,17 @@ by-category, by-status, by-provider, and monthly trends over claim-shaped
 records already in the database. It is descriptive analytics with no payer
 connection, no submission path, and no write-back; it cannot identify a
 denial because nothing feeds it one, and it should not be described as denial
-management. One note on its AI call, since the call site reads alarmingly and
-is not: the module constructs an OpenAI client directly rather than routing
-through `server/lib/baa-chat.ts`, but `script/build.ts` aliases the `openai`
-module to `server/lib/vertex-openai.ts` for the production bundle, so chat
-goes to Vertex under the Google BAA and audio and images fail closed. The
-build then asserts the shim's markers are present in `dist/index.cjs` and
-refuses to build if the alias ever regresses. The protection is therefore the
-build, not the call site — which is worth knowing before anyone moves this
-module, copies its import, or runs it outside that bundle.
+management. One note on its AI call, because where that call goes is the part
+worth checking: the module routes through `server/services/ai-gateway.ts`
+(`generatePhiSafeText`), which talks to Vertex AI directly under the Google
+BAA and prepends the no-clinical-decision-support guardrail inside the gateway
+so no caller can omit it. That is the protection at the call site, and
+`scripts/phi-ai-guard.sh` runs in CI to keep a bare `new OpenAI(...)` off a
+PHI path. `script/build.ts` still aliases the `openai` module to
+`server/lib/vertex-openai.ts` and asserts the shim's markers are present in
+`dist/index.cjs`, refusing to build if that alias regresses — a second line
+for any module that has not moved to the gateway yet. Worth knowing before
+anyone adds an AI call to this module or copies its pattern elsewhere.
 
 **Our why.** A denial is the payer's counter-assertion, and half the value of
 denial analysis is in taking it seriously as one. **A denial engine that
