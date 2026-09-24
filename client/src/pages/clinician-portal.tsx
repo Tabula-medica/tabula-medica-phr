@@ -734,7 +734,7 @@ export default function ClinicianPortal() {
             </Button>
             <Badge variant="outline" className="flex items-center gap-1">
               <Shield className="h-3 w-3" />
-              HIPAA Compliant Access
+              HIPAA-Aligned Access
             </Badge>
           </div>
         </div>

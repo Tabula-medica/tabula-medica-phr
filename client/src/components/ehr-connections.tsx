@@ -152,7 +152,7 @@ export function EHRConnectionsCard({ userId, onDataUpdated }: EHRConnectionsProp
           </div>
           <Badge variant="outline" className="text-xs">
             <Shield className="h-3 w-3 mr-1" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </Badge>
         </div>
       </CardHeader>

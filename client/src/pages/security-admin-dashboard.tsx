@@ -191,7 +191,7 @@ function ComplianceStatusCard({
         <div className="flex items-center gap-4 mb-4">
           <Badge variant={compliance.hipaaCompliant ? "default" : "destructive"} className="text-sm py-1 px-3">
             {compliance.hipaaCompliant ? (
-              <><ShieldCheck className="h-4 w-4 mr-1" /> HIPAA Compliant</>
+              <><ShieldCheck className="h-4 w-4 mr-1" /> HIPAA-Aligned</>
             ) : (
               <><ShieldAlert className="h-4 w-4 mr-1" /> Review Required</>
             )}

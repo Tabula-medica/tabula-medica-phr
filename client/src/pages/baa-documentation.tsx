@@ -236,7 +236,7 @@ For a complete BAA, please contact: compliance@tabulamedica.com
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" className="gap-1">
             <Shield className="h-3 w-3" />
-            HIPAA Compliant
+            HIPAA-Aligned
           </Badge>
           <Button variant="outline" className="gap-2" onClick={downloadBAA} data-testid="button-download-baa">
             <Download className="h-4 w-4" />

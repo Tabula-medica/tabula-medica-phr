@@ -322,7 +322,7 @@ export default function CaregiverReporting() {
         </div>
         <Badge variant="outline" className="self-start">
           <Activity className="h-3 w-3 mr-1" />
-          HIPAA Compliant
+          HIPAA-Aligned
         </Badge>
       </div>
 

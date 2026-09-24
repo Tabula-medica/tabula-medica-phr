@@ -97,8 +97,8 @@ const features = [
   },
   {
     icon: Shield,
-    title: "HIPAA Compliant",
-    description: "Enterprise-grade encryption with strict access controls and full audit logging. SOC 2 Type II audit in progress (Q2 2026).",
+    title: "HIPAA-Aligned Security",
+    description: "Enterprise-grade encryption with strict access controls and full audit logging. SOC 2 Type II certification in progress.",
   },
   {
     icon: Activity,
@@ -175,7 +175,7 @@ const landingTourSteps: AIDemoTourStep[] = [
     iconColor: "text-slate-700 dark:text-slate-200",
     title: "Built to keep your data safe",
     body:
-      "HIPAA compliant, Section 508 and WCAG 2.1 AA accessible, audited end-to-end. You own your data and decide who sees it.",
+      "HIPAA-aligned, Section 508 and WCAG 2.1 AA accessible, audited end-to-end. You own your data and decide who sees it.",
   },
 ];
 
@@ -497,7 +497,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap gap-x-6 gap-y-2">
               {[
                 "No credit card",
-                "HIPAA compliant",
+                "HIPAA-aligned",
                 "Available worldwide",
               ].map((item) => (
                 <span key={item} className="flex items-center gap-1.5 text-[13px] text-slate-400/60">

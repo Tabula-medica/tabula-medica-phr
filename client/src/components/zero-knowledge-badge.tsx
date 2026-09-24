@@ -123,7 +123,7 @@ export function PrivacyFirstIndicator({ className }: { className?: string }) {
       {[
         { icon: Eye, label: "We never sell your data", highlight: false },
         { icon: Lock, label: "Zero-knowledge encryption", highlight: true },
-        { icon: Shield, label: "HIPAA compliant", highlight: false },
+        { icon: Shield, label: "HIPAA-aligned", highlight: false },
         { icon: Fingerprint, label: "You own your keys", highlight: false },
       ].map((item) => (
         <span
