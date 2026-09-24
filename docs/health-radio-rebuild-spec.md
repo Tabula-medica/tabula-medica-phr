@@ -1,6 +1,18 @@
 # Health Radio (healonda.com) — Rebuild Spec
 
-**Status:** Draft for review. Not approved, not started.
+> **⚠️ SUPERSEDED AND FACTUALLY WRONG — do not act on this document.**
+> Replaced by [`universal-health-radio-recovery-and-growth.md`](./universal-health-radio-recovery-and-growth.md).
+>
+> This was written before the source could be read. Its central claims are false: the
+> source is **not** lost (the Replit workspace is readable and a GitHub mirror exists at
+> `tabulamedica246-web/health-radio-fm`), the app does **not** need rebuilding (it is a
+> mature pnpm monorepo), and it is **not** a stream directory (it streams no audio at
+> all — content is spoken on-device via TTS in 14 languages).
+>
+> Only one claim here survives: the Replit deployment is suspended, so healonda.com
+> serves nothing. Kept for history.
+
+**Status:** Superseded 2026-09-24. Merged in #56.
 **Author:** Claude Code session `claude/universal-health-radio-app-3rigk6`
 **Date:** 2026-08-17
 
