@@ -70,6 +70,7 @@ export const profiles = pgTable("profiles", {
   fullName: text("full_name").notNull(),
   dob: date("dob").notNull(),
   preferredLanguage: text("preferred_language").notNull().default("en"),
+  homeRegion: text("home_region").notNull().default("us-acip"),
   simplifiedMode: boolean("simplified_mode").notNull().default(false),
   photoObjectKey: text("photo_object_key"),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
