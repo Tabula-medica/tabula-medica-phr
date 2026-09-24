@@ -89,6 +89,26 @@ records than asked for, which reads to a patient as "you have nothing from befor
 The refusal names the consented window so the caller can re-ask precisely, and
 `clampToConsentWindow` exists for a caller that wants the intersection — as a deliberate act.
 
+## Consent ids are not capabilities
+
+An artefact id names a grant; it does not prove the grant is yours. Two rules follow, and both
+answer **404, carrying nothing else**, when an artefact belongs to another patient:
+
+- `GET /api/abdm/consent/:consentId`
+- `POST /api/abdm/hi/request` (in place of the 403 it returns for every other refusal)
+
+Blocking the clinical fetch is not enough on its own. The evaluation names the consented HI
+types, the clinical date window and the erase deadline — someone else's grant, described. A 404
+also avoids confirming whether a consent id exists at all.
+
+**There is deliberately no consent-request status route.** A `consentRequestId` is a bare gateway
+identifier: nothing in the status response names the patient it belongs to, so serving it would
+hand any enrolled user the grant status and artefact ids for any id they could name. Binding it
+to a caller needs the ABDM `on-init` callback that delivers the `consentRequestId` back to us —
+v3 answers asynchronously, so we do not have it at request time — and that callback is not built
+here. `getConsentRequestStatus` in `consent.ts` is the client that work will use. Until then the
+route is absent rather than shipped unbound.
+
 ## What is *not* verified
 
 **The consent artefact signature.** ABDM signs artefacts; this deployment pins no Consent Manager
@@ -153,6 +173,9 @@ Deliberate and bounded, not an oversight:
 - **It fails closed.** A transfer arriving at an instance that does not hold the matching exchange
   is refused, never accepted-and-trusted. On a restart or a second instance the symptom is a
   rejected transfer — visible and safe — rather than silent acceptance of an unverified payload.
+- **Expiry does not depend on traffic.** A timer sweeps every 5 minutes for as long as any
+  exchange is pending, so a HIP that never calls back does not leave its private key resident
+  until the next unrelated request. The timer is `unref`'d and stops once the registry drains.
 - **It must be replaced by shared durable storage before ABDM runs multi-instance in production.**
   Until then, single-instance is a deployment *requirement*, not an assumption.
 

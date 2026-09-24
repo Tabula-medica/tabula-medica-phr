@@ -4,7 +4,7 @@
 // their happy path: the consent gate must REFUSE, and the transfer endpoint must not decrypt
 // anything it did not ask for.
 import { generateKeyPairSync } from "node:crypto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clampToConsentWindow,
   evaluateConsentArtefact,
@@ -86,6 +86,19 @@ describe("consent evaluation", () => {
   it("refuses an artefact granted for a different patient", () => {
     // The check that stops one user's request being served under another user's consent.
     expect(codes(artefact({ patient: { id: "someone.else@sbx" } }), expectation())).toContain("patient-mismatch");
+  });
+
+  it("treats an artefact with no patient as malformed, not as another patient's", () => {
+    // Callers answer 404 on `patient-mismatch` because it means "someone else's grant". An
+    // unreadable artefact must not be reported that way — and in stub mode, where no artefact
+    // exists at all, conflating the two would turn every lookup into a 404.
+    const found = codes(artefact({ patient: undefined }), expectation());
+    expect(found).toContain("malformed-artefact");
+    expect(found).not.toContain("patient-mismatch");
+  });
+
+  it("refuses when the requesting account has no ABHA address", () => {
+    expect(codes(artefact(), expectation({ abhaAddress: "" }))).toContain("patient-mismatch");
   });
 
   it("compares ABHA addresses case-insensitively", () => {
@@ -398,6 +411,28 @@ describe("transfer acceptance", () => {
     } catch (e) {
       expect(e).toBeInstanceOf(TransferRefused);
       expect((e as TransferRefused).code).toBe("exchange-expired");
+    }
+  });
+
+  it("sweeps an expired exchange with no further traffic", async () => {
+    // Sweeping only on the next request/transfer made the TTL contingent on traffic: a HIP that
+    // never calls back left the private key resident indefinitely. After the interval fires the
+    // entry is gone entirely — observable as `unknown-transaction` rather than `exchange-expired`.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(NOW);
+      const ack = await openExchange();
+      const km = ack.keyMaterial;
+      const page = hipPage(km.dhPublicKey.keyValue, km.nonce, "ok");
+      vi.advanceTimersByTime(2 * 60 * 60 * 1000);
+      try {
+        acceptTransfer(page, NOW + 2 * 60 * 60 * 1000);
+        throw new Error("expected a refusal");
+      } catch (e) {
+        expect((e as TransferRefused).code).toBe("unknown-transaction");
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 

@@ -57,6 +57,31 @@ interface PendingExchange {
 const byRequestId = new Map<string, PendingExchange>();
 const byTransactionId = new Map<string, string>();
 
+/**
+ * Sweeping only when a request or transfer arrives makes the TTL contingent on traffic: if a HIP
+ * never calls back and the process then goes quiet, the private keys for those exchanges sit in
+ * memory indefinitely — which is not the guarantee EXCHANGE_TTL_MS is documented to give. A timer
+ * makes expiry hold regardless of traffic.
+ *
+ * `unref()` so it never keeps the process alive, and it only runs while exchanges exist: started
+ * on the first registration, stopped once the registry drains.
+ */
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+function ensureSweepTimer(): void {
+  if (sweepTimer || byRequestId.size === 0) return;
+  sweepTimer = setInterval(() => sweep(Date.now()), SWEEP_INTERVAL_MS);
+  sweepTimer.unref?.();
+}
+
+function stopSweepTimerIfIdle(): void {
+  if (sweepTimer && byRequestId.size === 0) {
+    clearInterval(sweepTimer);
+    sweepTimer = null;
+  }
+}
+
 function sweep(nowMs: number): void {
   // Collect first, delete after: mutating during the walk is the classic way to skip entries,
   // and a skipped entry here is a private key that outlives its window.
@@ -68,12 +93,14 @@ function sweep(nowMs: number): void {
     byRequestId.delete(ex.requestId);
     if (ex.transactionId) byTransactionId.delete(ex.transactionId);
   }
+  stopSweepTimerIfIdle();
 }
 
 /** Test seam, mirroring `_resetAbdmTokenCache` / `_resetAbdmCertCache`. */
 export function _resetHiExchanges(): void {
   byRequestId.clear();
   byTransactionId.clear();
+  stopSweepTimerIfIdle();
 }
 
 export interface HiRequestInput {
@@ -134,6 +161,7 @@ export async function requestHealthInformation(
     expiresAtMs: nowMs + EXCHANGE_TTL_MS,
   };
   byRequestId.set(requestId, exchange);
+  ensureSweepTimer();
 
   if (!abdmConfig.enabled) {
     return { requestId, transactionId: null, accepted: true, source: "stub", keyMaterial: ours.keyMaterial };
@@ -155,6 +183,7 @@ export async function requestHealthInformation(
   if (!res.ok) {
     // Do not keep a private key for an exchange the gateway rejected.
     byRequestId.delete(requestId);
+    stopSweepTimerIfIdle();
     throw new Error(`ABDM health-information request failed: ${res.status}`);
   }
   const j = (await res.json().catch(() => ({}))) as { hiRequest?: { transactionId?: string } };
@@ -308,5 +337,7 @@ export function completeHiExchange(transactionId: string): boolean {
   const requestId = byTransactionId.get(transactionId);
   if (!requestId) return false;
   byTransactionId.delete(transactionId);
-  return byRequestId.delete(requestId);
+  const removed = byRequestId.delete(requestId);
+  stopSweepTimerIfIdle();
+  return removed;
 }
