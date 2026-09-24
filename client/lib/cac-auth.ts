@@ -219,28 +219,20 @@ async function _hardwareCACFlow(
    * and session management infrastructure that the native module would call into.
    */
 
-  // Fetch challenge from server
-  const challengeRes = await fetch(`${apiBaseUrl}/api/auth/cac/challenge`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ readerType }),
-  });
-
-  if (!challengeRes.ok) {
-    throw new Error(`Challenge request failed: ${challengeRes.status}`);
-  }
-
-  const { challenge, challengeId } = await challengeRes.json() as {
-    challenge: string;
-    challengeId: string;
-  };
-
-  // TODO: Replace with actual CryptoTokenKit/NFC implementation
-  // For now, throw to indicate hardware module not yet compiled
+  // TODO: Replace with actual CryptoTokenKit/NFC implementation. The real
+  // flow (see the pseudocode above) must read the card's certificate and
+  // extract its EDIPI from the SAN field BEFORE requesting a challenge —
+  // /challenge requires and validates edipi (400s without it), and reading
+  // the card is the only source of identity on this path (there's no
+  // separate account/session to fall back on, unlike the software-cert
+  // flow's `cert.edipi`). Throwing here, before ever calling /challenge,
+  // avoids a request that's guaranteed to 400 without an EDIPI to send —
+  // a real implementation slots the certificate read in above this line
+  // and passes its extracted edipi into the /challenge call.
   throw new Error(
     "Hardware CAC native module not yet compiled. " +
-    "Install the expo-cac-reader native module and rebuild with EAS. " +
-    `Challenge ID ${challengeId} was generated — use it with your CAC middleware.`
+    "Install the expo-cac-reader native module and rebuild with EAS " +
+    `(reader: ${readerType}).`
   );
 }
 
@@ -338,12 +330,14 @@ async function authenticateWithSoftwareCert(
   };
 
   // NOT YET FUNCTIONAL: signing the challenge needs the private key
-  // generated in enrollSoftwareCertificate(), but that key is a non-exportable
-  // CryptoKey that's already gone by the time this function runs — nothing
-  // in SoftwareCertificate retains it (see the note in enrollSoftwareCertificate).
-  // A real implementation needs the same native Secure Enclave module the
-  // hardware CAC/PIV path above is already waiting on. The server now
-  // requires and verifies a real ECDSA signature over `challenge`
+  // generated in enrollSoftwareCertificate() — that CryptoKey is exportable
+  // (generateSigningKeyPair() creates it that way), but it's simply never
+  // retained anywhere: nothing in SoftwareCertificate stores it, so it's
+  // already gone by the time this function runs (see the note in
+  // enrollSoftwareCertificate). A real implementation needs the same native
+  // Secure Enclave module the hardware CAC/PIV path above is already
+  // waiting on, so the key never needs to be held in JS at all. The server
+  // now requires and verifies a real ECDSA signature over `challenge`
   // (server/dod-routes.ts) and will reject this call with 401 until that
   // exists — correctly, since minting a session without one was the bug.
   const challengeHash = await sha256(challenge);

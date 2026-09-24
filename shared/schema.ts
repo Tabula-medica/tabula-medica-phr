@@ -21452,6 +21452,49 @@ export const rateLimitHitsTable = pgTable(
   })
 );
 
+// CAC/PIV software-cert enrollment (server/dod-routes.ts). Binds a device's
+// enrolled public key to the EDIPI and account that enrolled it; verify
+// requires a match here before accepting a challenge signature. edipi and
+// certJson (which embeds the same EDIPI) are PHI — a DoD-issued personal
+// identifier — and are encrypted at rest via encryptPhiRow/decryptPhiRow
+// (see PHI_COLUMN_MAP). Encryption is non-deterministic, so edipiHash (a
+// keyed, deterministic hash) is the actual lookup/index key; edipi itself
+// is decrypted only for display back to its own enrolled owner.
+export const cacSoftwareCertsTable = pgTable(
+  "cac_software_certs",
+  {
+    edipiHash: text("edipi_hash").notNull(),
+    edipi: text("edipi").notNull(),
+    deviceId: text("device_id").primaryKey(),
+    publicKeyHex: text("public_key_hex").notNull(),
+    certJson: text("cert_json").notNull(),
+    platform: text("platform"),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    enrolledByUserId: text("enrolled_by_user_id").notNull(),
+  },
+  (t) => ({
+    // Looked up by edipiHash on every /verify and /enroll-software-cert call.
+    edipiHashIdx: index("cac_software_certs_edipi_hash_idx").on(t.edipiHash),
+  })
+);
+
+// Atomic EDIPI-ownership claims for CAC/PIV software-cert enrollment.
+// Deliberately separate from cac_software_certs: a claim here never
+// expires and is never deleted, so ownership survives a lapsed cert
+// (which cac_software_certs' own expires_at-scoped rows would not).
+// edipiHash (not the encrypted, non-deterministic edipi ciphertext) is the
+// PRIMARY KEY, so "claim it if unclaimed" stays an atomic
+// INSERT ... ON CONFLICT DO NOTHING rather than a racy check-then-insert;
+// edipi itself is encrypted at rest (see PHI_COLUMN_MAP), kept only so a
+// claim's owner can be shown their own EDIPI back.
+export const cacEdipiClaimsTable = pgTable("cac_edipi_claims", {
+  edipiHash: text("edipi_hash").primaryKey(),
+  edipi: text("edipi").notNull(),
+  claimedByUserId: text("claimed_by_user_id").notNull(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Insert schemas for compliance tables
 export const insertHipaaAuditLogSchema = z.object({
   eventType: z.enum(["PHI_ACCESS", "PHI_MODIFY", "PHI_CREATE", "PHI_DELETE", "LOGIN", "LOGOUT", "MFA_SETUP", "MFA_VERIFY", "SESSION_START", "SESSION_END", "EXPORT", "CONSENT_CHANGE", "ACCESS_DENIED"]),

@@ -194,6 +194,11 @@ export function hashPhone(phone: string): string {
   return hashPhiForSearch(phone);
 }
 
+/** Deterministic hash of a DoD EDIPI for `cac_software_certs.edipi_hash` / `cac_edipi_claims.edipi_hash` lookups. */
+export function hashEdipi(edipi: string): string {
+  return hashPhiForSearch(edipi);
+}
+
 // ---------- jsonb envelope helpers ----------
 
 function isJsonbEnvelope(v: unknown): v is { [JSONB_ENVELOPE_KEY]: string } {

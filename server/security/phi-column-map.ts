@@ -321,6 +321,21 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
     text: ["patientEmail", "errorMessage"],
     jsonb: ["metadata"],
   },
+
+  // --- CAC/PIV (DoD) enrollment ---
+  // `edipiHash` is INTENTIONALLY OMITTED — already a one-way deterministic
+  // hash (hashEdipi), used as the lookup/index key precisely because the
+  // encrypted `edipi` column below can't be queried by equality.
+  cacSoftwareCertsTable: {
+    // certJson embeds the same EDIPI (in its subject/edipi fields), so it
+    // needs the same protection as the plaintext column.
+    text: ["edipi", "certJson"],
+    jsonb: [],
+  },
+  cacEdipiClaimsTable: {
+    text: ["edipi"],
+    jsonb: [],
+  },
 } as const;
 
 /**
