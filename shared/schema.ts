@@ -2319,6 +2319,15 @@ export interface EhrConnection {
     partialSync: boolean;
     duration: number;
   };
+  // The aggregator/vendor's own identifier for this specific connection (e.g.
+  // Fasten's org_connection_id). A user can link multiple orgs through the
+  // same aggregator, so "platform === X" alone doesn't identify WHICH
+  // connection an inbound webhook event is about — this field does.
+  externalConnectionId?: string;
+  // The last aggregator task/export id successfully imported for this
+  // connection, so a retried or replayed webhook can be recognized and
+  // skipped instead of re-inserting the same clinical history.
+  lastImportedTaskId?: string;
   createdAt: string;
 }
 
@@ -2348,6 +2357,7 @@ export const insertEhrConnectionSchema = z.object({
     clientId: z.string().optional(),
     usePkce: z.boolean(),
   }).optional(),
+  externalConnectionId: z.string().optional(),
 });
 
 export type InsertEhrConnection = z.infer<typeof insertEhrConnectionSchema>;
@@ -9723,6 +9733,21 @@ export const insertUploadedDocumentSchema = z.object({
   linkedRecordType: z.string().optional(),
   linkedRecordId: z.string().optional(),
   providerName: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // Enforced HERE (not just in the /api/document-uploads/complete route) so
+  // every caller of this schema — including server/onboarding.ts, which
+  // parses and persists documents directly with no route-level check of its
+  // own — rejects a subcategory that doesn't belong to the document type's
+  // auto-tag category (e.g. an imaging subcategory on an insurance_card).
+  if (!data.subcategory) return;
+  const category = uploadedDocumentTypeToAutoTagCategory[data.documentType];
+  if (!category || !isValidSubcategory(category, data.subcategory)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["subcategory"],
+      message: `"${data.subcategory}" is not a valid subcategory of document type "${data.documentType}"`,
+    });
+  }
 });
 export type InsertUploadedDocument = z.infer<typeof insertUploadedDocumentSchema>;
 

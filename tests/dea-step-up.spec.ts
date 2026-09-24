@@ -50,19 +50,9 @@ describe("evaluateStepUpClaims", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("falls back to iat when auth_time is absent", () => {
+  it("rejects when auth_time is absent, even if iat is recent (iat also advances on background refresh)", () => {
     const result = evaluateStepUpClaims(
       claims({ auth_time: undefined, iat: NOW }),
-      USER_ID,
-      USER_ID,
-      NOW,
-    );
-    expect(result).toEqual({ ok: true });
-  });
-
-  it("rejects when neither auth_time nor iat is present", () => {
-    const result = evaluateStepUpClaims(
-      claims({ auth_time: undefined, iat: undefined }),
       USER_ID,
       USER_ID,
       NOW,

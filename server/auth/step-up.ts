@@ -60,8 +60,12 @@ export function evaluateStepUpClaims(
     return { ok: false, reason: "wrong_user" };
   }
 
-  const authTime = claims.auth_time ?? (claims.iat as number | undefined);
+  const authTime = claims.auth_time;
   if (typeof authTime !== "number" || nowSeconds - authTime > STEP_UP_MAX_AGE_SECONDS) {
+    // No fallback to `iat`: iat also advances on an ordinary background
+    // token refresh, which proves nothing about when the user last actually
+    // authenticated. Only the verified `auth_time` claim proves a live
+    // re-authentication just happened, so its absence must fail closed.
     return { ok: false, reason: "stale" };
   }
 

@@ -43,7 +43,7 @@ import type { Patient, Pharmacy, PatientPharmacy } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { PageHeader, LoadingState } from "@/components/shared";
 import {
-  startPhoneSignIn,
+  reauthenticateWithPhoneForStepUp,
   confirmPhoneCode,
   normalizePhoneE164,
   clearRecaptcha,
@@ -60,6 +60,7 @@ const prescriptionFormSchema = z.object({
   patientId: z.string().min(1, "Patient is required"),
   medicationName: z.string().min(1, "Medication name is required"),
   dosage: z.string().min(1, "Dosage is required"),
+  dosageForm: z.string().min(1, "Dosage form is required"),
   frequency: z.string().min(1, "Frequency is required"),
   route: z.string().min(1, "Route is required"),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
@@ -79,6 +80,18 @@ type PrescriptionFormData = z.infer<typeof prescriptionFormSchema>;
 interface PharmacyWithDetails extends PatientPharmacy {
   pharmacy?: Pharmacy;
 }
+
+const commonDosageForms = [
+  { value: "tablet", label: "Tablet" },
+  { value: "capsule", label: "Capsule" },
+  { value: "liquid", label: "Liquid / Solution" },
+  { value: "injection", label: "Injection" },
+  { value: "cream", label: "Cream / Ointment" },
+  { value: "patch", label: "Patch" },
+  { value: "inhaler", label: "Inhaler" },
+  { value: "drops", label: "Drops" },
+  { value: "suppository", label: "Suppository" },
+];
 
 const commonRoutes = [
   { value: "oral", label: "Oral (by mouth)" },
@@ -140,6 +153,7 @@ export default function ProviderPrescribePage() {
       patientId: patientId || "",
       medicationName: "",
       dosage: "",
+      dosageForm: "tablet",
       frequency: "",
       route: "oral",
       quantity: 30,
@@ -185,6 +199,37 @@ export default function ProviderPrescribePage() {
     "second_factor_required",
   ]);
 
+  // Maps the form's fields onto the server's InsertPrescription shape
+  // (different names/granularity: dosage->strength, route+frequency+
+  // instructions composed into one `directions` sig line, diagnosisCode->
+  // icdCode). providerId/providerName are deliberately omitted — the server
+  // always derives them from the authenticated session.
+  function toPrescriptionPayload(data: PrescriptionFormData) {
+    const routeLabel = commonRoutes.find(r => r.value === data.route)?.label || data.route;
+    const frequencyLabel = commonFrequencies.find(f => f.value === data.frequency)?.label || data.frequency;
+    const dosageFormLabel = commonDosageForms.find(d => d.value === data.dosageForm)?.label || data.dosageForm;
+    const directions =
+      `Take ${data.dosage} (${dosageFormLabel}), ${routeLabel}, ${frequencyLabel}.` +
+      (data.instructions ? ` ${data.instructions}` : "");
+
+    return {
+      patientId: data.patientId,
+      medicationName: data.medicationName,
+      strength: data.dosage,
+      dosageForm: data.dosageForm,
+      quantity: data.quantity,
+      daysSupply: data.daysSupply,
+      directions,
+      refillsAuthorized: data.refillsAuthorized,
+      dispenseAsWritten: data.dispenseAsWritten,
+      pharmacyId: data.pharmacyId || undefined,
+      icdCode: data.diagnosisCode || undefined,
+      notes: data.notes || undefined,
+      isControlledSubstance: data.isControlledSubstance,
+      deaSchedule: data.deaSchedule,
+    };
+  }
+
   async function postPrescription(data: PrescriptionFormData, stepUpToken?: string) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -195,7 +240,7 @@ export default function ProviderPrescribePage() {
       method: "POST",
       credentials: "include",
       headers,
-      body: JSON.stringify(data),
+      body: JSON.stringify(toPrescriptionPayload(data)),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}) as any);
@@ -280,7 +325,7 @@ export default function ProviderPrescribePage() {
     setStepUpError(null);
     setStepUpBusy(true);
     try {
-      const result = await startPhoneSignIn(stepUpPhoneE164, "recaptcha-container-prescribe");
+      const result = await reauthenticateWithPhoneForStepUp(stepUpPhoneE164, "recaptcha-container-prescribe");
       setStepUpConfirmation(result);
       setStepUpPhase("code");
     } catch (e: any) {
@@ -304,6 +349,9 @@ export default function ProviderPrescribePage() {
       if (isMfaChallenge(e)) {
         setStepUpMfaResolver(getMfaResolver(e));
         setStepUpPhase("totp");
+        setStepUpBusy(false);
+      } else if (e?.code === "auth/user-mismatch") {
+        setStepUpError("That mobile number isn't linked to your account. Use the number on file, or verify with your authenticator app instead.");
         setStepUpBusy(false);
       } else {
         setStepUpError(e?.message || "Couldn't verify the code. Please try again.");
@@ -437,12 +485,37 @@ export default function ProviderPrescribePage() {
                       <FormItem>
                         <FormLabel>Dosage *</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="e.g., 10mg" 
+                          <Input
+                            {...field}
+                            placeholder="e.g., 10mg"
                             data-testid="input-dosage"
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="dosageForm"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dosage Form *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-dosage-form">
+                              <SelectValue placeholder="Select dosage form" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {commonDosageForms.map(dosageFormOption => (
+                              <SelectItem key={dosageFormOption.value} value={dosageFormOption.value}>
+                                {dosageFormOption.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

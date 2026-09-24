@@ -13,6 +13,7 @@ import {
   OAuthProvider,
   RecaptchaVerifier,
   signInWithPhoneNumber,
+  reauthenticateWithPhoneNumber,
   signOut,
   onAuthStateChanged,
   multiFactor,
@@ -336,6 +337,32 @@ export async function confirmPhoneCode(
   const cred = await confirmation.confirm(code.replace(/\D/g, ""));
   clearRecaptcha();
   return cred.user;
+}
+
+/**
+ * Step-up re-authentication for an ALREADY signed-in user (e.g. proving DEA
+ * EPCS identity right before a controlled-substance prescription). Unlike
+ * startPhoneSignIn()/signInWithPhoneNumber(), this does NOT sign in — it
+ * re-authenticates the CURRENT user, so Firebase enforces the credential
+ * belongs to the same account (throwing auth/user-mismatch otherwise)
+ * instead of silently switching `currentUser` to whichever account owns the
+ * phone number. If the account has TOTP enrolled, this throws the same
+ * auth/multi-factor-auth-required MultiFactorError as sign-in, resolved the
+ * same way via isMfaChallenge()/getMfaResolver()/resolveTotpChallenge().
+ */
+export async function reauthenticateWithPhoneForStepUp(
+  phoneE164: string,
+  containerId: string,
+): Promise<ConfirmationResult> {
+  const user = getGcipAuth().currentUser;
+  if (!user) throw new Error("Not signed in");
+  const verifier = getRecaptcha(containerId);
+  try {
+    return await reauthenticateWithPhoneNumber(user, phoneE164, verifier);
+  } catch (err) {
+    clearRecaptcha();
+    throw err;
+  }
 }
 
 export async function signOutGcip(): Promise<void> {

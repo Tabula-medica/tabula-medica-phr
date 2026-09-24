@@ -23,6 +23,14 @@ describe("isFastenExportSuccessEvent", () => {
     expect(isFastenExportSuccessEvent({ event_type: "patient.ehi_export_failed" })).toBe(false);
     expect(isFastenExportSuccessEvent(null)).toBe(false);
   });
+
+  it("does not treat an incomplete/failed export as successful via substring collision", () => {
+    // Regression test: "incomplete" contains "complete" as a substring, and
+    // a plain .includes("complete") check would wrongly match it.
+    expect(isFastenExportSuccessEvent({ event_type: "patient.ehi_export_incomplete" })).toBe(false);
+    expect(isFastenExportSuccessEvent({ event_type: "ehi_export_cancelled" })).toBe(false);
+    expect(isFastenExportSuccessEvent({ event_type: "ehi_export_error" })).toBe(false);
+  });
 });
 
 describe("extractExportPayload", () => {

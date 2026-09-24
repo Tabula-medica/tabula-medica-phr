@@ -4,8 +4,10 @@
  *
  * Fasten posts webhook events to /api/fasten-connect/webhook. The export
  * payload shape is defensively extracted from several plausible key paths
- * (the handler logs the full event JSON, so any unrecognized shape can be
- * read from the HIPAA-AUDIT logs and a new path added here).
+ * (the handler logs only event type/task id/a redacted connection id — never
+ * the full payload, which can carry patient demographics — so an
+ * unrecognized shape needs a fresh test payload from Fasten to extend this,
+ * not production logs).
  */
 
 const UUID_RE =
@@ -17,14 +19,32 @@ export interface FastenExportPayload {
   downloadUrl: string | null;
 }
 
+// Exact-token matched, not substring: a plain .includes("complete") would
+// also match "incomplete" (and .includes("success") would match a
+// hypothetical "unsuccessful"), silently treating a FAILED export as a
+// success and importing partial/nonexistent data. Event names are typically
+// underscore/dot-joined ("patient.ehi_export_success"), and JS regex "\b"
+// treats "_" as a word character (no boundary either side of it), so this
+// tokenizes on any non-letter run instead of relying on "\b".
+function tokenize(s: string): string[] {
+  return s.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+}
+const SUCCESS_TOKENS = new Set(["success", "succeeded", "completed", "complete"]);
+const FAILURE_TOKENS = new Set([
+  "fail", "failed", "failure", "error", "incomplete", "denied", "rejected",
+  "cancelled", "canceled", "expired",
+]);
+
 /** True for the webhook event that signals a finished EHI export. */
 export function isFastenExportSuccessEvent(event: unknown): boolean {
   const e = event as Record<string, unknown> | null;
   const type = String(e?.event_type ?? e?.type ?? "").toLowerCase();
-  return (
-    type.includes("ehi_export") &&
-    (type.includes("success") || type.includes("complete"))
-  );
+  if (!type.includes("ehi_export")) return false;
+  const tokens = tokenize(type);
+  // A failure token anywhere wins conservatively — better to skip an
+  // ambiguous event than import an unfinished or rejected export.
+  if (tokens.some(t => FAILURE_TOKENS.has(t))) return false;
+  return tokens.some(t => SUCCESS_TOKENS.has(t));
 }
 
 function firstString(...candidates: unknown[]): string | null {
@@ -69,7 +89,11 @@ export function extractExportPayload(event: unknown): FastenExportPayload | null
  * The export download URL comes from an (HMAC-verifiable but by default
  * log-only) webhook, so before fetching it server-side with our API
  * credentials, require https and a fastenhealth.com host — otherwise the
- * webhook becomes an SSRF/credential-leak vector.
+ * webhook becomes an SSRF/credential-leak vector. This hostname check alone
+ * is necessary but NOT sufficient: fetch() follows redirects by default, so
+ * an allowed URL that redirects elsewhere would still leak the credential —
+ * the caller (fasten-import.ts downloadExport) must also fetch with
+ * redirect: "error" so any redirect is refused rather than followed.
  */
 export function isAllowedFastenDownloadUrl(url: string): boolean {
   let parsed: URL;
