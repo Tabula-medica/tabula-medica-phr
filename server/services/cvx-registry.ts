@@ -130,9 +130,14 @@ const CVX_REGISTRY: Map<string, CVXEntry> = new Map([
   ["221", { code: "221", shortName: "COVID Moderna Peds", fullName: "COVID-19, mRNA (Moderna), pediatric", vaccineGroup: "COVID-19", status: "active", manufacturers: ["Moderna"] }],
   ["227", { code: "227", shortName: "COVID Pfizer bivalent", fullName: "COVID-19, mRNA (Pfizer), bivalent BA.4/BA.5", vaccineGroup: "COVID-19", status: "inactive", manufacturers: ["Pfizer-BioNTech"] }],
   ["228", { code: "228", shortName: "COVID Moderna bivalent", fullName: "COVID-19, mRNA (Moderna), bivalent BA.4/BA.5", vaccineGroup: "COVID-19", status: "inactive", manufacturers: ["Moderna"] }],
-  ["229", { code: "229", shortName: "COVID Pfizer 2024-25", fullName: "COVID-19, mRNA (Pfizer), 2024-2025 formula", vaccineGroup: "COVID-19", status: "active", manufacturers: ["Pfizer-BioNTech"] }],
-  ["230", { code: "230", shortName: "COVID Moderna 2024-25", fullName: "COVID-19, mRNA (Moderna), 2024-2025 formula", vaccineGroup: "COVID-19", status: "active", manufacturers: ["Moderna"] }],
+  ["229", { code: "229", shortName: "COVID Pfizer 2024-25", fullName: "COVID-19, mRNA (Pfizer), 2024-2025 formula", vaccineGroup: "COVID-19", status: "inactive", manufacturers: ["Pfizer-BioNTech"] }],
+  ["230", { code: "230", shortName: "COVID Moderna 2024-25", fullName: "COVID-19, mRNA (Moderna), 2024-2025 formula", vaccineGroup: "COVID-19", status: "inactive", manufacturers: ["Moderna"] }],
+  ["300", { code: "300", shortName: "COVID Pfizer 2025-26", fullName: "COVID-19, mRNA (Pfizer), 2025-2026 formula", vaccineGroup: "COVID-19", status: "active", manufacturers: ["Pfizer-BioNTech"] }],
+  ["301", { code: "301", shortName: "COVID Moderna 2025-26", fullName: "COVID-19, mRNA (Moderna), 2025-2026 formula", vaccineGroup: "COVID-19", status: "active", manufacturers: ["Moderna"] }],
+  ["302", { code: "302", shortName: "COVID Novavax 2025-26", fullName: "COVID-19, Protein Subunit (Novavax), 2025-2026 formula", vaccineGroup: "COVID-19", status: "active", manufacturers: ["Novavax"] }],
   ["305", { code: "305", shortName: "RSV", fullName: "Respiratory Syncytial Virus Vaccine", vaccineGroup: "RSV", status: "active" }],
+  ["308", { code: "308", shortName: "RSV Nirsevimab 50mg", fullName: "Nirsevimab (Beyfortus), 50 mg (infants <5 kg)", vaccineGroup: "RSV-Nirsevimab", status: "active", manufacturers: ["AstraZeneca/Sanofi"], tradenames: ["Beyfortus"] }],
+  ["309", { code: "309", shortName: "RSV Nirsevimab 100mg", fullName: "Nirsevimab (Beyfortus), 100 mg (infants ≥5 kg / second season)", vaccineGroup: "RSV-Nirsevimab", status: "active", manufacturers: ["AstraZeneca/Sanofi"], tradenames: ["Beyfortus"] }],
 ]);
 
 export function lookupCVX(code: string): CVXEntry | undefined {
