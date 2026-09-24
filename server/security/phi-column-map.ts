@@ -161,6 +161,17 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
   },
   sdohTable: { text: ["question", "response", "notes"], jsonb: [] },
 
+  // --- Outpatient orders (labs, imaging, referrals, medications, DME) ---
+  // Templates (note_template_library / clinician_note_templates) are
+  // deliberately NOT here: they hold no patient reference (see the docblock
+  // on those tables in shared/schema.ts), so there is nothing to encrypt.
+  outpatientOrdersTable: {
+    text: ["orderedByName", "description", "clinicalNotes", "recipientName", "cancelReason"],
+    jsonb: ["details"],
+    textArray: ["diagnosisCodes"],
+  },
+  outpatientOrderEventsTable: { text: ["eventDetail", "actorName"], jsonb: [] },
+
   // --- Advance directives ---
   advanceDirectivesTable: {
     text: ["familyPrimaryGoalOfCare", "goalsOfCare"],

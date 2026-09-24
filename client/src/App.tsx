@@ -200,6 +200,9 @@ const ASCVDCalculator = lazy(() => import("@/pages/ascvd-calculator"));
 const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboarding"));
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
+const OutpatientOrders = lazy(() => import("@/pages/outpatient-orders"));
+const ComprehensiveHistory = lazy(() => import("@/pages/comprehensive-history"));
+const NoteTemplateLibrary = lazy(() => import("@/pages/note-template-library"));
 const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
 const EarlyAccessSignup = lazy(() => import("@/pages/signup"));
 
@@ -320,6 +323,9 @@ function Router() {
       <Route path="/clinician-dashboard" component={ClinicianDashboard} />
       <Route path="/patients" component={Patients} />
       <Route path="/patients/:id" component={PatientDetail} />
+      <Route path="/outpatient-orders/:patientId" component={OutpatientOrders} />
+      <Route path="/comprehensive-history/:patientId" component={ComprehensiveHistory} />
+      <Route path="/note-templates" component={NoteTemplateLibrary} />
       <Route path="/admin-analytics" component={AdminAnalytics} />
       <Route path="/internal-analytics" component={InternalAnalytics} />
       <Route path="/extraction-pipeline" component={ExtractionPipeline} />

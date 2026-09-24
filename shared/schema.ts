@@ -23331,3 +23331,240 @@ export const documentOcrResultsTable = pgTable(
     userDocumentUx: uniqueIndex("docr_user_document_ux").on(t.userId, t.documentId),
   })
 );
+
+// ═══════════════════════════════════════════════════════════════════════
+// Outpatient order entry — labs, imaging, referrals, medications, DME
+// ═══════════════════════════════════════════════════════════════════════
+//
+// One place to place and track every order type against a patient's chart,
+// with an auditable status/transmission trail ("at a glance").
+//
+// What "transmitted" means here: the order is marked sent to the named
+// recipient and the hand-off is timestamped and logged in
+// outpatientOrderEventsTable. This app has no live connection to a real
+// lab interface, e-prescribing network (e.g. Surescripts), payer EDI, or
+// DME supplier system — there is no vendor credential anywhere in this
+// codebase for any of those. So "transmission" is recorded and auditable,
+// not delivered over a real clinical network. See the docblock on
+// registerOutpatientOrderRoutes in server/outpatient-orders-routes.ts for
+// the full accounting, and treat any "transmitted" order as still requiring
+// a human to actually get it to the recipient (fax, portal upload, call)
+// until a real integration is built and named here.
+export const outpatientOrderTypes = ["lab", "imaging", "referral", "medication", "dme"] as const;
+export type OutpatientOrderType = typeof outpatientOrderTypes[number];
+
+export const outpatientOrderStatuses = [
+  "draft",
+  "signed",
+  "transmitted",
+  "acknowledged",
+  "in_progress",
+  "resulted",
+  "completed",
+  "cancelled",
+] as const;
+export type OutpatientOrderStatus = typeof outpatientOrderStatuses[number];
+
+export const outpatientOrderPriorities = ["routine", "urgent", "stat"] as const;
+export type OutpatientOrderPriority = typeof outpatientOrderPriorities[number];
+
+// "pending" = not yet transmitted. The rest are how the hand-off was made —
+// captured for the audit trail, not executed by this app (see docblock above).
+export const outpatientOrderTransmissionMethods = [
+  "pending",
+  "fax",
+  "electronic_portal",
+  "secure_message",
+  "print",
+  "phone",
+] as const;
+export type OutpatientOrderTransmissionMethod = typeof outpatientOrderTransmissionMethods[number];
+
+export const outpatientOrdersTable = pgTable(
+  "outpatient_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    orderedByUserId: text("ordered_by_user_id").notNull(),
+    orderedByName: text("ordered_by_name"),
+    orderType: text("order_type").$type<OutpatientOrderType>().notNull(),
+    status: text("status").$type<OutpatientOrderStatus>().notNull().default("draft"),
+    priority: text("priority").$type<OutpatientOrderPriority>().notNull().default("routine"),
+    description: text("description").notNull(),
+    // Type-specific fields (e.g. lab panel/CPT, imaging modality/body part/
+    // contrast, referral specialty/reason, medication dose/route/frequency/
+    // quantity/refills, DME HCPCS/quantity/duration). Kept as jsonb rather
+    // than one column per order type so the five types don't force a
+    // thirty-column table; the client's per-type forms are the schema.
+    details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
+    diagnosisCodes: text("diagnosis_codes").array().notNull().default([]),
+    clinicalNotes: text("clinical_notes"),
+    recipientName: text("recipient_name"),
+    transmissionMethod: text("transmission_method").$type<OutpatientOrderTransmissionMethod>().notNull().default("pending"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    transmittedAt: timestamp("transmitted_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    profileIdx: index("outpatient_orders_profile_idx").on(t.profileId),
+    statusIdx: index("outpatient_orders_status_idx").on(t.status),
+    typeIdx: index("outpatient_orders_type_idx").on(t.orderType),
+  }),
+);
+
+export const insertOutpatientOrderSchema = z.object({
+  profileId: z.string().uuid(),
+  orderedByUserId: z.string().min(1),
+  orderedByName: z.string().max(300).optional().nullable(),
+  orderType: z.enum(outpatientOrderTypes),
+  priority: z.enum(outpatientOrderPriorities).default("routine"),
+  description: z.string().min(1).max(500),
+  details: z.record(z.unknown()).default({}),
+  diagnosisCodes: z.array(z.string().min(1).max(20)).max(12).default([]),
+  clinicalNotes: z.string().max(4000).optional().nullable(),
+  recipientName: z.string().max(300).optional().nullable(),
+  transmissionMethod: z.enum(outpatientOrderTransmissionMethods).default("pending"),
+});
+export type InsertOutpatientOrder = z.infer<typeof insertOutpatientOrderSchema>;
+export type OutpatientOrder = typeof outpatientOrdersTable.$inferSelect;
+
+export const outpatientOrderEventTypes = [
+  "created",
+  "signed",
+  "transmitted",
+  "acknowledged",
+  "status_changed",
+  "cancelled",
+  "note_added",
+] as const;
+export type OutpatientOrderEventType = typeof outpatientOrderEventTypes[number];
+
+// The "at a glance" audit trail for one order — every status transition and
+// transmission attempt, who did it, and when.
+export const outpatientOrderEventsTable = pgTable(
+  "outpatient_order_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id").notNull().references(() => outpatientOrdersTable.id, { onDelete: "cascade" }),
+    eventType: text("event_type").$type<OutpatientOrderEventType>().notNull(),
+    eventDetail: text("event_detail"),
+    actorUserId: text("actor_user_id").notNull(),
+    actorName: text("actor_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    orderIdx: index("outpatient_order_events_order_idx").on(t.orderId),
+  }),
+);
+
+export const insertOutpatientOrderEventSchema = z.object({
+  orderId: z.string().uuid(),
+  eventType: z.enum(outpatientOrderEventTypes),
+  eventDetail: z.string().max(2000).optional().nullable(),
+  actorUserId: z.string().min(1),
+  actorName: z.string().max(300).optional().nullable(),
+});
+export type InsertOutpatientOrderEvent = z.infer<typeof insertOutpatientOrderEventSchema>;
+export type OutpatientOrderEvent = typeof outpatientOrderEventsTable.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════════════════
+// Note template library — complaint-specific charting templates
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Two tables: a shared library any clinician can publish to and browse, and
+// each clinician's own personal set, populated either by importing (copying)
+// a library template or authoring one from scratch. Importing copies the
+// text so a clinician's edits never change the shared original, and a later
+// edit to the library entry never silently changes a template someone has
+// already imported and is charting from.
+//
+// Templates hold no patient data — they are text with `{{placeholder}}`
+// tokens, filled in at time of use. That is enforced by convention (there is
+// no patient reference on either table), not by a filter, so review any
+// future feature that pre-fills a template from a chart before assuming this
+// table stays PHI-free.
+export const noteTemplateTypes = ["soap", "hpi", "full_note", "procedure_note", "discharge"] as const;
+export type NoteTemplateType = typeof noteTemplateTypes[number];
+
+export const noteTemplateLibraryTable = pgTable(
+  "note_template_library",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    chiefComplaint: text("chief_complaint").notNull(),
+    specialty: text("specialty"),
+    title: text("title").notNull(),
+    noteType: text("note_type").$type<NoteTemplateType>().notNull().default("soap"),
+    bodyTemplate: text("body_template").notNull(),
+    // [{ token: "duration", label: "Duration of symptoms", example: "3 days" }]
+    placeholderHints: jsonb("placeholder_hints").$type<Array<{ token: string; label: string; example?: string }>>().notNull().default([]),
+    tags: text("tags").array().notNull().default([]),
+    createdByUserId: text("created_by_user_id").notNull(),
+    createdByName: text("created_by_name"),
+    isPublished: boolean("is_published").notNull().default(true),
+    importCount: integer("import_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    chiefComplaintIdx: index("note_template_library_cc_idx").on(t.chiefComplaint),
+    publishedIdx: index("note_template_library_published_idx").on(t.isPublished),
+  }),
+);
+
+export const insertNoteTemplateLibrarySchema = z.object({
+  chiefComplaint: z.string().min(1).max(200),
+  specialty: z.string().max(200).optional().nullable(),
+  title: z.string().min(1).max(200),
+  noteType: z.enum(noteTemplateTypes).default("soap"),
+  bodyTemplate: z.string().min(1).max(20000),
+  placeholderHints: z.array(z.object({ token: z.string(), label: z.string(), example: z.string().optional() })).default([]),
+  tags: z.array(z.string().min(1).max(40)).max(10).default([]),
+  createdByUserId: z.string().min(1),
+  createdByName: z.string().max(300).optional().nullable(),
+  isPublished: z.boolean().default(true),
+});
+export type InsertNoteTemplateLibrary = z.infer<typeof insertNoteTemplateLibrarySchema>;
+export type NoteTemplateLibrary = typeof noteTemplateLibraryTable.$inferSelect;
+
+export const clinicianNoteTemplatesTable = pgTable(
+  "clinician_note_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicianUserId: text("clinician_user_id").notNull(),
+    sourceLibraryTemplateId: uuid("source_library_template_id").references(() => noteTemplateLibraryTable.id, { onDelete: "set null" }),
+    chiefComplaint: text("chief_complaint").notNull(),
+    title: text("title").notNull(),
+    noteType: text("note_type").$type<NoteTemplateType>().notNull().default("soap"),
+    bodyTemplate: text("body_template").notNull(),
+    placeholderHints: jsonb("placeholder_hints").$type<Array<{ token: string; label: string; example?: string }>>().notNull().default([]),
+    tags: text("tags").array().notNull().default([]),
+    favorited: boolean("favorited").notNull().default(false),
+    usageCount: integer("usage_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    clinicianIdx: index("clinician_note_templates_clinician_idx").on(t.clinicianUserId),
+    clinicianCcIdx: index("clinician_note_templates_cc_idx").on(t.clinicianUserId, t.chiefComplaint),
+  }),
+);
+
+// clinicianUserId is deliberately absent: it is always taken from the
+// caller's own session in the route handler, never from the request body,
+// so a clinician can only ever create templates owned by themselves.
+export const insertClinicianNoteTemplateSchema = z.object({
+  sourceLibraryTemplateId: z.string().uuid().optional().nullable(),
+  chiefComplaint: z.string().min(1).max(200),
+  title: z.string().min(1).max(200),
+  noteType: z.enum(noteTemplateTypes).default("soap"),
+  bodyTemplate: z.string().min(1).max(20000),
+  placeholderHints: z.array(z.object({ token: z.string(), label: z.string(), example: z.string().optional() })).default([]),
+  tags: z.array(z.string().min(1).max(40)).max(10).default([]),
+  favorited: z.boolean().default(false),
+});
+export type InsertClinicianNoteTemplate = z.infer<typeof insertClinicianNoteTemplateSchema>;
+export type ClinicianNoteTemplate = typeof clinicianNoteTemplatesTable.$inferSelect;
