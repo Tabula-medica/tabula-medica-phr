@@ -38446,6 +38446,10 @@ startxref
   app.use("/api/gdpr", gdprRoutes.default);
   console.log("[Routes] GDPR self-serve routes registered at /api/gdpr/*");
 
+  const accountGdprRoutes = await import("./routes/account-gdpr-routes");
+  app.use("/api/account/gdpr", accountGdprRoutes.default);
+  console.log("[Routes] GDPR account data-rights routes registered at /api/account/gdpr/*");
+
   const ccpaRoutes = await import("./routes/ccpa-routes");
   app.use("/api/ccpa", ccpaRoutes.default);
   console.log("[Routes] CCPA/CPRA self-serve routes registered at /api/ccpa/*");
