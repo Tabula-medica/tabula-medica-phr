@@ -18,6 +18,7 @@
  */
 
 import { generatePhiSafeText } from "./ai-gateway";
+import { SYSTEM_ACTOR } from "../security/audit-constants";
 import { logPhiAccess } from "../security/hipaa-audit";
 
 // AI-enhanced CDS analysis runs through the PHI-safe Vertex/BAA gateway.
@@ -772,7 +773,7 @@ Remember: INFORMATIONAL ONLY. No recommendations.`,
     
     // HIPAA-compliant audit logging using centralized audit system
     logPhiAccess({
-      userId: log.userId || 'system',
+      userId: log.userId || SYSTEM_ACTOR,
       patientId: log.patientId,
       resourceType: 'CDSHooks',
       action: 'read',

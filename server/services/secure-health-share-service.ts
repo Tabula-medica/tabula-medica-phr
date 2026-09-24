@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { logPhiAccess } from '../security/hipaa-audit';
+import { SYSTEM_ACTOR } from '../security/audit-constants';
 
 export interface ShareableDataSection {
   id: string;
@@ -259,7 +260,7 @@ export class SecureHealthShareService {
 
     logPhiAccess({
       action: 'delete',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: maskPatientId(patientId),
       resourceType: 'HealthDataShare',
       details: `REVOKE_HEALTH_SHARE: Revoked share ${shareId} for ${share.recipientName}, reason: ${share.revokedReason}`,

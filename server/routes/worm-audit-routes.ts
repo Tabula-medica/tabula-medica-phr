@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { wormAuditLogService } from '../services/worm-audit-log-service';
+import { SYSTEM_ACTOR } from '../security/audit-constants';
 
 const router = Router();
 
@@ -177,7 +178,7 @@ router.post('/export', (req: Request, res: Response) => {
 
     wormAuditLogService.logSecurityEvent(
       'AUDIT_EXPORT',
-      req.body.requestingUserId || 'system',
+      req.body.requestingUserId || SYSTEM_ACTOR,
       'EXPORT_AUDIT_LOG',
       {
         format,

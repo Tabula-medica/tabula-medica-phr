@@ -176,9 +176,8 @@ export default tseslint.config(
       "tabula/no-string-form-logger": "error",
 
       // P0-5 — ban fallback identities (|| "system" / "patient-001" / ...).
-      // WARN during the purge rollout (~600 pre-existing hits); flip to "error"
-      // once `grep -rF '|| "system"' server/` reaches 0.
-      "tabulaAuth/no-fallback-identity": "warn",
+      // PROMOTED to "error": grep -rF '|| "system"' server/ returns 0 hits.
+      "tabulaAuth/no-fallback-identity": "error",
     },
   },
 

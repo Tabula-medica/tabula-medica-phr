@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { aiDataHarmonizationService } from "./services/ai-data-harmonization-service";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const HIPAA_DISCLAIMER = "This harmonized data is for informational purposes only. Not for clinical decision-making.";
 
@@ -70,7 +71,7 @@ export function registerAIDataHarmonizationRoutes(app: Express): void {
       const { matchId } = req.params;
       const { reviewedBy } = req.body;
       
-      const match = aiDataHarmonizationService.confirmMatch(matchId, reviewedBy || 'system');
+      const match = aiDataHarmonizationService.confirmMatch(matchId, reviewedBy || SYSTEM_ACTOR);
       if (!match) {
         return res.status(404).json({ error: "Match not found" });
       }
@@ -87,7 +88,7 @@ export function registerAIDataHarmonizationRoutes(app: Express): void {
       const { matchId } = req.params;
       const { reviewedBy } = req.body;
       
-      const match = aiDataHarmonizationService.rejectMatch(matchId, reviewedBy || 'system');
+      const match = aiDataHarmonizationService.rejectMatch(matchId, reviewedBy || SYSTEM_ACTOR);
       if (!match) {
         return res.status(404).json({ error: "Match not found" });
       }
