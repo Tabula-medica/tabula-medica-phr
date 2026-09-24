@@ -431,7 +431,7 @@ export default function AnalyticsDashboard() {
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
                       {cohorts.map((cohort) => (
                         <div key={cohort.id} className="flex items-center space-x-2">
-                          <Checkbox aria-label="Filter by Cohorts (Optional)"
+                          <Checkbox
                             id={`cohort-${cohort.id}`}
                             checked={selectedCohorts.includes(cohort.id)}
                             onCheckedChange={(checked) => {

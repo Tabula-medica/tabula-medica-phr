@@ -909,7 +909,7 @@ function AddWearableDialog({ testId, onConnect }: {
                 <div className="grid grid-cols-2 gap-2">
                   {(selectedPlatformInfo.dataTypes as WearableDataType[]).map((dt) => (
                     <div key={dt} className="flex items-center gap-2">
-                      <Checkbox aria-label="Data Types to Sync"
+                      <Checkbox
                         id={`dt-${dt}`}
                         checked={enabledDataTypes.includes(dt) || (enabledDataTypes.length === 0)}
                         onCheckedChange={() => toggleDataType(dt)}

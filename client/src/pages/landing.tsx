@@ -330,6 +330,7 @@ export default function LandingPage() {
     title: "Your Health Records, United",
     description: "Patient health record app. Connect all your hospitals into one secure, HIPAA-compliant timeline. SMART on FHIR (FHIR R4), TEFCA support planned, and AI-powered insights.",
     canonicalPath: "/",
+    indexable: true,
     structuredData: landingStructuredData,
   });
 

@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FieldCaption } from "@/components/ui/field-caption";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -869,10 +868,10 @@ export default function EnhancedHealthJourney() {
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <FieldCaption>Stay Anonymous</FieldCaption>
+                <Label htmlFor="switch-anonymous">Stay Anonymous</Label>
                 <p className="text-sm text-muted-foreground">Your name will be hidden from other members</p>
               </div>
-              <Switch checked={isAnonymous} onCheckedChange={setIsAnonymous} data-testid="switch-anonymous" />
+              <Switch id="switch-anonymous" checked={isAnonymous} onCheckedChange={setIsAnonymous} data-testid="switch-anonymous" />
             </div>
           </div>
           <DialogFooter>

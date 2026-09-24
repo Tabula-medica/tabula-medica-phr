@@ -297,7 +297,9 @@ function FAQSection() {
 export default function Learn() {
   useSEO({
     title: "Learn",
-    description: "Educational content about health topics, medical terms, and how to use your health records"
+    description: "Educational content about health topics, medical terms, and how to use your health records",
+    canonicalPath: "/learn",
+    indexable: true,
   });
 
   const [selectedTopic, setSelectedTopic] = useState<HealthTopic | null>(null);

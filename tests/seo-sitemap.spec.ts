@@ -55,23 +55,52 @@ describe("sitemap", () => {
 describe("robots.txt", () => {
   const robots = getRobotsTxt();
 
+  function blockFor(agent: string): string {
+    const start = robots.indexOf(`User-agent: ${agent}\n`);
+    expect(start, `no User-agent block for ${agent}`).toBeGreaterThanOrEqual(0);
+    const end = robots.indexOf("\n\n", start);
+    return robots.slice(start, end === -1 ? undefined : end);
+  }
+
   it("points at the sitemap on the canonical origin", () => {
     expect(robots).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
   });
 
-  it("disallows every PHI-bearing prefix", () => {
-    for (const prefix of DISALLOWED_PREFIXES) {
-      expect(robots, `missing Disallow for ${prefix}`).toContain(`Disallow: ${prefix}`);
+  it("is a fail-closed allowlist: every group ends in a blanket Disallow", () => {
+    for (const agent of ["*", ...AI_CRAWLERS]) {
+      expect(blockFor(agent), `${agent} block should end with Disallow: /`).toMatch(/Disallow: \/$/);
     }
   });
 
-  it("welcomes the AI and answer-engine crawlers by name", () => {
+  it("never lets a disallowed prefix slip into an Allow line", () => {
+    for (const agent of ["*", ...AI_CRAWLERS]) {
+      const block = blockFor(agent);
+      for (const line of block.split("\n")) {
+        if (!line.startsWith("Allow: ")) continue;
+        const allowed = line.slice("Allow: ".length);
+        for (const prefix of DISALLOWED_PREFIXES) {
+          expect(allowed.startsWith(prefix), `${agent} allows ${allowed}, which matches disallowed prefix ${prefix}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("explicitly allows every marketing page for every crawler, named or default", () => {
+    for (const agent of ["*", ...AI_CRAWLERS]) {
+      const block = blockFor(agent);
+      for (const { path } of MARKETING_PATHS) {
+        const line = path === "/" ? "Allow: /$" : `Allow: ${path}`;
+        expect(block, `${agent} block missing "${line}"`).toContain(line);
+      }
+    }
+  });
+
+  it("welcomes the AI and answer-engine crawlers with the same allowlist as the default group, not a bare Allow: /", () => {
+    const defaultBlock = blockFor("*");
     for (const agent of AI_CRAWLERS) {
-      expect(robots, `missing allow block for ${agent}`).toContain(`User-agent: ${agent}\nAllow: /`);
+      expect(blockFor(agent), `${agent} block should match the default group's allowlist`).toBe(
+        defaultBlock.replace(`User-agent: *`, `User-agent: ${agent}`),
+      );
     }
-  });
-
-  it("allows the default crawler", () => {
-    expect(robots).toMatch(/User-agent: \*\nAllow: \//);
   });
 });

@@ -147,7 +147,7 @@ export default function FHIRSearch() {
                   <div className="space-y-2">
                     {resourceTypes.map((rt) => (
                       <div key={rt.value} className="flex items-center space-x-2">
-                        <Checkbox aria-label="Resource Types"
+                        <Checkbox
                           id={rt.value}
                           checked={selectedResourceTypes.includes(rt.value)}
                           onCheckedChange={() => handleResourceTypeToggle(rt.value)}

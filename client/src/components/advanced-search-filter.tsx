@@ -378,7 +378,7 @@ export function AdvancedSearchFilter({
                             className="flex items-center space-x-2 p-1 rounded hover-elevate cursor-pointer"
                             onClick={() => toggleType(option.id)}
                           >
-                            <Checkbox aria-label="Event Types"
+                            <Checkbox
                               id={`type-${option.id}`}
                               checked={filters.selectedTypes.includes(option.id)}
                               onCheckedChange={() => toggleType(option.id)}
@@ -409,7 +409,7 @@ export function AdvancedSearchFilter({
                             className="flex items-center space-x-2 p-1 rounded hover-elevate cursor-pointer"
                             onClick={() => toggleTag(option.id)}
                           >
-                            <Checkbox aria-label="Tags"
+                            <Checkbox
                               id={`tag-${option.id}`}
                               checked={filters.selectedTags.includes(option.id)}
                               onCheckedChange={() => toggleTag(option.id)}

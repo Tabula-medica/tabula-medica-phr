@@ -817,7 +817,7 @@ export default function FHIRServerConnections() {
               <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
                 {(selectedConnection?.metadata.supportedResources || ALL_RESOURCE_TYPES).map((rt) => (
                   <div key={rt} className="flex items-center space-x-2">
-                    <Checkbox aria-label="Resource Types" 
+                    <Checkbox
                       id={`sync-${rt}`}
                       checked={selectedResources.includes(rt)}
                       onCheckedChange={() => toggleResourceSelection(rt)}
@@ -867,7 +867,7 @@ export default function FHIRServerConnections() {
               <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
                 {(selectedConnection?.metadata.supportedResources || ALL_RESOURCE_TYPES).map((rt) => (
                   <div key={rt} className="flex items-center space-x-2">
-                    <Checkbox aria-label="Resource Types" 
+                    <Checkbox
                       id={`ie-${rt}`}
                       checked={selectedResources.includes(rt)}
                       onCheckedChange={() => toggleResourceSelection(rt)}

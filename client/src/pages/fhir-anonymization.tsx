@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FieldCaption } from "@/components/ui/field-caption";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -436,7 +435,7 @@ function AnonymizeTab() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <FieldCaption>FHIR Resource JSON</FieldCaption>
+                <Label htmlFor="fhir-anonymization-input-json">FHIR Resource JSON</Label>
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -447,6 +446,7 @@ function AnonymizeTab() {
                 </Button>
               </div>
               <Textarea
+                id="fhir-anonymization-input-json"
                 value={inputJson}
                 onChange={(e) => setInputJson(e.target.value)}
                 placeholder='{"resourceType": "Patient", ...}'

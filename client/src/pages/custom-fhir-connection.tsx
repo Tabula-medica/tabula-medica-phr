@@ -446,7 +446,7 @@ export default function CustomFhirConnection() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {resourceTypes.map((resource: { type: string; description: string }) => (
                     <div key={resource.type} className="flex items-start space-x-2">
-                      <Checkbox aria-label="Resources to Sync"
+                      <Checkbox
                         id={`resource-${resource.type}`}
                         checked={selectedResources.includes(resource.type)}
                         onCheckedChange={(checked) => {

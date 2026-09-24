@@ -291,6 +291,7 @@ export default function FAQPage() {
     description: "Answers to common questions about Tabula Medica — connecting to hospitals, privacy, pricing, SMART on FHIR, TEFCA, uninsured patient access, accessibility, and more.",
     canonicalPath: "/faq",
     structuredData: faqStructuredData,
+    indexable: true,
   });
 
   const groupedFaqs = useMemo(() => {
