@@ -79,3 +79,57 @@ describe("email-service transport fallback", () => {
     expect(result).toMatchObject({ ok: false, reason: "send-failed", error: "ECONNRESET" });
   });
 });
+
+// The SDK path is dormant in this repo (`resend` is not a declared
+// dependency), but it becomes live the moment someone installs it — and
+// `emails.send` takes no AbortSignal, so it needs its own deadline.
+describe("email-service SDK transport deadline", () => {
+  const originalKey = process.env.RESEND_API_KEY;
+  const originalTimeout = process.env.RESEND_TIMEOUT_MS;
+
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.RESEND_TIMEOUT_MS = "50";
+    vi.resetModules();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.doUnmock("resend");
+    if (originalKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalKey;
+    if (originalTimeout === undefined) delete process.env.RESEND_TIMEOUT_MS;
+    else process.env.RESEND_TIMEOUT_MS = originalTimeout;
+  });
+
+  it("gives up on a stalled SDK send instead of hanging the caller", async () => {
+    vi.doMock("resend", () => ({
+      Resend: class {
+        emails = { send: () => new Promise(() => {}) };
+      },
+    }));
+
+    const { sendEmail: freshSend } = await import("../server/services/email-service");
+    const result = await freshSend({ to: "a@example.com", subject: "hi", text: "hi" });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("send-failed");
+    expect(result.transport).toBe("sdk");
+    expect(result.error).toMatch(/timed out/i);
+  });
+
+  it("returns the SDK result when the send completes in time", async () => {
+    vi.doMock("resend", () => ({
+      Resend: class {
+        emails = { send: async () => ({ data: { id: "email_sdk" } }) };
+      },
+    }));
+
+    const { sendEmail: freshSend } = await import("../server/services/email-service");
+    const result = await freshSend({ to: "a@example.com", subject: "hi", text: "hi" });
+
+    expect(result).toMatchObject({ ok: true, id: "email_sdk", transport: "sdk" });
+  });
+});

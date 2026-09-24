@@ -93,6 +93,18 @@ export function useLanguage() {
 
 export const UI_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
+    "security.mfa.enabled.title": "Multi-factor authentication enabled",
+    "security.mfa.enabled.desc": "You'll be prompted for a 6-digit code on next sign-in.",
+    "security.mfa.enabled.descEmailed":
+      "You'll be prompted for a 6-digit code on next sign-in. A confirmation email is on its way.",
+    "security.mfa.codesRegenerated.title": "New recovery codes saved",
+    "security.mfa.codesRegenerated.desc": "Your previous recovery codes no longer work.",
+    "security.mfa.codesRegenerated.descEmailed":
+      "Your previous recovery codes no longer work. We emailed you a confirmation.",
+    "security.mfa.disabled.title": "Multi-factor authentication disabled",
+    "security.mfa.disabled.desc": "You can re-enable it from this page at any time.",
+    "security.mfa.disabled.descEmailed":
+      "You can re-enable it from this page at any time. We emailed you a confirmation.",
     "nav.home": "Home",
     "nav.medications": "Medications",
     "nav.appointments": "Appointments",
