@@ -13,6 +13,7 @@
 import { Router, Request, Response } from 'express';
 import { cdsHooksService, CDSRequest, CDSHookType } from './services/cds-hooks-service';
 import { logPhiAccess } from './security/hipaa-audit';
+import { SYSTEM_ACTOR } from './security/audit-constants';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const router = Router();
 function logCDSAccess(action: string, details: Record<string, any>): void {
   // Use centralized HIPAA audit logging system
   logPhiAccess({
-    userId: details.userId || 'system',
+    userId: details.userId || SYSTEM_ACTOR,
     patientId: details.patientId,
     resourceType: 'CDSHooks',
     action: 'read',

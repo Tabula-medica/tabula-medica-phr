@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { fhirIntegrationMonitoringService } from "./services/fhir-integration-monitoring-service";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 
 const HIPAA_DISCLAIMER = "This monitoring data is for operational purposes only. Not for clinical decision-making.";
 
@@ -132,7 +133,7 @@ export function registerFHIRIntegrationMonitoringRoutes(app: Express): void {
       const { errorId } = req.params;
       const { resolvedBy } = req.body;
       
-      const error = fhirIntegrationMonitoringService.resolveError(errorId, resolvedBy || 'system');
+      const error = fhirIntegrationMonitoringService.resolveError(errorId, resolvedBy || SYSTEM_ACTOR);
       if (!error) {
         return res.status(404).json({ error: "Error not found" });
       }

@@ -1,4 +1,5 @@
 import { logPhiAccess } from '../security/hipaa-audit';
+import { SYSTEM_ACTOR } from '../security/audit-constants';
 
 export interface HL7v2Message {
   id: string;
@@ -515,7 +516,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'write',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId,
       resourceType: 'DataSourceConnection',
       details: `CREATE_CONNECTION: ${sourceType} - ${sourceName} (${sourceOrganization}) via ${protocol}`,
@@ -546,7 +547,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'write',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: connection.patientId,
       resourceType: 'DataSourceConnection',
       details: `UPDATE_CONNECTION: ${connectionId} - Status: ${updated.connectionStatus}`,
@@ -565,7 +566,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'delete',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: connection.patientId,
       resourceType: 'DataSourceConnection',
       details: `DELETE_CONNECTION: ${connectionId} - ${connection.sourceName}`,
@@ -582,7 +583,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'read',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: connection.patientId,
       resourceType: 'DataSourceConnection',
       details: `TEST_CONNECTION: Testing connection ${connectionId} to ${connection.sourceName}`,
@@ -597,7 +598,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'read',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: connection.patientId,
       resourceType: 'DataSourceConnection',
       details: `TEST_CONNECTION_RESULT: ${connectionId} - ${success ? 'SUCCESS' : 'FAILED'} (${latencyMs}ms)`,
@@ -625,7 +626,7 @@ class InteroperabilityHubService {
     if (readablePermissions.length === 0) {
       logPhiAccess({
         action: 'read',
-        userId: userId || 'system',
+        userId: userId || SYSTEM_ACTOR,
         patientId: connection.patientId,
         resourceType: 'DataSourceSync',
         details: `SYNC_DENIED: No readable data types configured for ${connectionId}`,
@@ -635,7 +636,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'read',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: connection.patientId,
       resourceType: 'DataSourceSync',
       details: `SYNC_STARTED: ${connectionId} - ${connection.sourceName} - Types: ${readablePermissions.map(p => p.dataType).join(', ')}`,
@@ -684,7 +685,7 @@ class InteroperabilityHubService {
 
     logPhiAccess({
       action: 'read',
-      userId: userId || 'system',
+      userId: userId || SYSTEM_ACTOR,
       patientId: connection.patientId,
       resourceType: 'DataSourceSync',
       details: `SYNC_CONNECTION: ${connectionId} - ${completedEvent.status} - ${recordsProcessed} records`,
@@ -740,7 +741,7 @@ class InteroperabilityHubService {
 
       logPhiAccess({
         action: 'write',
-        userId: userId || 'system',
+        userId: userId || SYSTEM_ACTOR,
         patientId: connection?.patientId || 'unknown',
         resourceType: 'DataImport',
         details: `IMPORT_${protocol.toUpperCase()}: Processed ${fhirBundle.entry?.length || 0} resources`,

@@ -4,12 +4,13 @@ import { aiRiskStratificationService, RiskFactorData } from "./services/ai-risk-
 import { aiImagingDiagnosticService, ImagingStudy, ImagingReport } from "./services/ai-imaging-diagnostic-service";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { createAuditLogEntry } from "./ai-audit-log-routes";
+import { SYSTEM_ACTOR } from "./security/audit-constants";
 import type { InsertAiAuditLogEntry, UserRole, TrendParameters } from "@shared/schema";
 
 const router = Router();
 
 function logClinicalWorkflowAccess(workflowType: string, req: Request, patientId: string) {
-  const userId = (req as any).user?.id || (req as any).session?.userId || 'system';
+  const userId = (req as any).user?.id || (req as any).session?.userId || SYSTEM_ACTOR;
   
   logPhiAccess({
     userId,
@@ -28,7 +29,7 @@ function getTrendParameters(req: Request): TrendParameters | undefined {
   const params = req.body?.trendParameters;
   if (!params) return undefined;
   return {
-    userId: (req as any).user?.id || 'system',
+    userId: (req as any).user?.id || SYSTEM_ACTOR,
     sensitivity: params.sensitivity || 'medium',
     timeframeDays: params.timeframeDays || 90,
     smoothingEnabled: params.smoothingEnabled ?? true,
@@ -60,7 +61,7 @@ router.post("/patient-summary/:patientId", async (req: Request, res: Response) =
     const summary = await aiPatientSummaryService.generatePatientSummary(patientData);
     const duration = Date.now() - startTime;
 
-    const userId = (req as any).user?.id || (req as any).session?.userId || 'system';
+    const userId = (req as any).user?.id || (req as any).session?.userId || SYSTEM_ACTOR;
     const userRole = getUserRole(req);
     const trendParams = getTrendParameters(req);
 
@@ -134,7 +135,7 @@ router.post("/risk-stratification/:patientId", async (req: Request, res: Respons
     const result = await aiRiskStratificationService.stratifyPatientRisk(patientId, riskData);
     const duration = Date.now() - startTime;
 
-    const userId = (req as any).user?.id || (req as any).session?.userId || 'system';
+    const userId = (req as any).user?.id || (req as any).session?.userId || SYSTEM_ACTOR;
     const userRole = getUserRole(req);
     const trendParams = getTrendParameters(req);
 
@@ -206,7 +207,7 @@ router.post("/imaging-analysis/:studyId", async (req: Request, res: Response) =>
     const analysis = await aiImagingDiagnosticService.analyzeImagingReport(study, report);
     const duration = Date.now() - startTime;
 
-    const userId = (req as any).user?.id || (req as any).session?.userId || 'system';
+    const userId = (req as any).user?.id || (req as any).session?.userId || SYSTEM_ACTOR;
     const userRole = getUserRole(req);
 
     const auditEntry: InsertAiAuditLogEntry = {
