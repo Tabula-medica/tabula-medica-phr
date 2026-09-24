@@ -410,6 +410,7 @@ import { registerAIDataHarmonizationRoutes } from "./ai-data-harmonization-route
 import { registerFHIRResourceLifecycleRoutes } from "./fhir-resource-lifecycle-routes";
 import { getComplianceStatus, getSecurityStatus, getTransportSecurityInfo } from "./security";
 import billingRoutes from "./billing-routes";
+import usSubscriptionRoutes from "./us-subscription-routes";
 import { registerHIPAAComplianceRoutes } from "./routes/hipaa-compliance-routes";
 import { registerLabDiagnosticsRoutes } from "./lab-diagnostics-integration-routes";
 import { registerFHIRR5ReadinessRoutes } from "./fhir-r5-readiness-routes";
@@ -38406,6 +38407,17 @@ startxref
   app.use("/api/billing", billingRoutes);
   console.log("[Routes] Billing routes registered at /api/billing/*");
 
+  // Consumer .us $9.99/yr hard-paywall subscription routes (US edition only).
+  app.use("/api/billing/us", usSubscriptionRoutes);
+  console.log("[Routes] US subscription routes registered at /api/billing/us/*");
+
+  // GDPR core (account-scoped): right-to-erasure (30-day grace), DSAR export,
+  // consent recording. Stored in profiles.metadata (no migration). Mounted at
+  // /api/account/* — distinct from the /api/gdpr/* data-rights-request tracker.
+  const accountGdprRoutes = await import("./routes/account-gdpr-routes");
+  app.use("/api/account", accountGdprRoutes.default);
+  console.log("[Routes] GDPR core (deletion/export/consent) registered at /api/account/*");
+
   // ================== AI Case Review Routes ==================
   app.use("/api/case-review", aiCaseReviewRoutes);
   console.log("[Routes] AI Case Review routes registered at /api/case-review/*");
@@ -38445,10 +38457,6 @@ startxref
   const gdprRoutes = await import("./routes/gdpr-routes");
   app.use("/api/gdpr", gdprRoutes.default);
   console.log("[Routes] GDPR self-serve routes registered at /api/gdpr/*");
-
-  const accountGdprRoutes = await import("./routes/account-gdpr-routes");
-  app.use("/api/account/gdpr", accountGdprRoutes.default);
-  console.log("[Routes] GDPR account data-rights routes registered at /api/account/gdpr/*");
 
   const ccpaRoutes = await import("./routes/ccpa-routes");
   app.use("/api/ccpa", ccpaRoutes.default);

@@ -1,6 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -95,6 +95,7 @@ const AIEvidenceAdvisor = lazy(() => import("@/pages/ai-evidence-advisor"));
 const HealthAssistant = lazy(() => import("@/pages/health-assistant"));
 const HealthJournal = lazy(() => import("@/pages/health-journal"));
 const HealthGoals = lazy(() => import("@/pages/health-goals"));
+const UsPaywall = lazy(() => import("@/pages/us-paywall"));
 const FitnessRpmConnections = lazy(() => import("@/pages/fitness-rpm-connections"));
 const MedicalScribe = lazy(() => import("@/pages/medical-scribe"));
 const VisitSummary = lazy(() => import("@/pages/visit-summary"));
@@ -736,9 +737,25 @@ function AuthenticatedApp() {
 
 const SPLASH_WATCHDOG_MS = 6000;
 
+// tabulamedica.us edition detection (client side). Only the .us host is ever
+// subject to the $9.99/yr hard paywall — .health and .world are exempt.
+function isUsEdition(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.location.hostname.endsWith("tabulamedica.us")
+  );
+}
+
 function AppContent() {
   const [location] = useLocation();
   const { user, isLoading } = useAuth();
+  // .us edition paywall gate — only fetched when on the .us host.
+  const { data: usPaywallStatus } = useQuery<{ configured: boolean; active: boolean } | null>({
+    queryKey: ["/api/billing/us/status"],
+    enabled: !!user && isUsEdition(),
+    retry: false,
+    staleTime: 60_000,
+  });
   const [splashTimedOut, setSplashTimedOut] = useState(false);
 
   useEffect(() => {
@@ -836,6 +853,16 @@ function AppContent() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  // .us paywall gate: configured + not active → show paywall instead of app.
+  // Fail open: if status is null/undefined (loading or unconfigured) let through.
+  if (usPaywallStatus?.configured && !usPaywallStatus.active) {
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+        <UsPaywall />
+      </Suspense>
     );
   }
 

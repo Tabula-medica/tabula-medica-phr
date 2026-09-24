@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { monetizationService } from "./services/monetization-service";
+import { applyStripeSubscriptionEvent } from "./us-subscription-routes";
 import {
   insertOrganizationSchema,
   insertSubscriptionSchema,
@@ -693,9 +694,18 @@ router.post("/webhook/stripe", async (req: Request, res: Response) => {
     console.log(`[Stripe Webhook] Received event: ${event.type}`);
 
     switch (event.type) {
+      case "checkout.session.completed":
+        await applyStripeSubscriptionEvent(event);
+        monetizationService.hipaaAuditLog("stripe_checkout_completed", {
+          eventType: event.type,
+          sessionId: event.data?.object?.id,
+        });
+        break;
+
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
+        await applyStripeSubscriptionEvent(event);
         monetizationService.hipaaAuditLog("stripe_subscription_event", {
           eventType: event.type,
           subscriptionId: event.data?.object?.id,

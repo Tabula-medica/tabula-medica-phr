@@ -30,6 +30,12 @@ export const users = pgTable("users", {
   isVerified: boolean("is_verified").default(false),
   verificationProvider: varchar("verification_provider"),
   verifiedAt: timestamp("verified_at"),
+  // Consumer Stripe subscription (tabulamedica.us edition hard paywall only).
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionStatus: varchar("subscription_status").default("inactive"),
+  subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
+  subscriptionUpdatedAt: timestamp("subscription_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
