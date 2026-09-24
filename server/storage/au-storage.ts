@@ -117,6 +117,7 @@ async function upsertCoverage(
     .onConflictDoUpdate({
       target: auHealthCoverage.id,
       set: { ...input, updatedAt: new Date() },
+      where: eq(auHealthCoverage.profileId, profileId),
     })
     .returning();
   return row;
