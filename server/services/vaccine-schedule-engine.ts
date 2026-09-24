@@ -421,6 +421,401 @@ const VACCINE_SCHEDULE_RULES: VaccineScheduleRule[] = [
     ruleVersion: "2025.1",
     scheduleRegion: "us-acip",
   },
+  // ── India UIP: Birth Doses ────────────────────────────────────────────────
+  {
+    vaccineGroup: "BCG-UIP",
+    seriesName: "BCG (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 0, recommendedAge: 0, notes: "Single dose at birth; preferably within 24 hours for TB meningitis protection" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 0, max: 12 }, priorDoses: 0, intervalDays: 0, notes: "May be given up to 12 months if missed at birth" },
+    ],
+    contraindications: ["Symptomatic HIV infection", "High-dose corticosteroids", "Severe primary immunodeficiency"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Contraindicated in symptomatic HIV — confirm HIV status with clinician before administering" },
+    ],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "HepB-Birth-UIP",
+    seriesName: "Hepatitis B Birth Dose (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 0, recommendedAge: 0, notes: "Monovalent HepB dose within 24 hours of birth; subsequent doses given as part of Pentavalent at 6, 10, 14 weeks" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  // ── India UIP: Primary Series (6, 10, 14 weeks) ───────────────────────────
+  {
+    vaccineGroup: "OPV-UIP",
+    seriesName: "Oral Polio Vaccine (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 0, recommendedAge: 0, notes: "bOPV dose 0 at birth (within 24 hours)" },
+      { doseNumber: 2, minimumAge: 1, recommendedAge: 1, notes: "bOPV dose 1 at 6 weeks" },
+      { doseNumber: 3, minimumAge: 2, minimumInterval: 28, notes: "bOPV dose 2 at 10 weeks" },
+      { doseNumber: 4, minimumAge: 3, minimumInterval: 28, notes: "bOPV dose 3 at 14 weeks" },
+      { doseNumber: 5, minimumAge: 16, recommendedAge: 18, notes: "bOPV booster at 16–24 months" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component", "Symptomatic HIV/AIDS (use IPV instead)"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Use IPV instead of OPV for immunocompromised patients and close contacts — confirm with clinician" },
+    ],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "fIPV-UIP",
+    seriesName: "Fractional IPV (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "fIPV (0.1 mL intradermal) at 6 weeks, co-administered with Pentavalent dose 1" },
+      { doseNumber: 2, minimumAge: 3, minimumInterval: 56, notes: "fIPV at 14 weeks, co-administered with Pentavalent dose 3" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "Pentavalent-UIP",
+    seriesName: "Pentavalent DPT+HepB+Hib (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "Pentavalent dose 1 at 6 weeks (DPT + HepB + Hib)" },
+      { doseNumber: 2, minimumAge: 2, minimumInterval: 28, notes: "Pentavalent dose 2 at 10 weeks" },
+      { doseNumber: 3, minimumAge: 3, minimumInterval: 28, notes: "Pentavalent dose 3 at 14 weeks" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component", "Encephalopathy within 7 days of prior DPT dose"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "Rotavirus-UIP",
+    seriesName: "Rotavirus — Rotavac (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "Rotavac dose 1 at 6 weeks" },
+      { doseNumber: 2, minimumAge: 2, minimumInterval: 28, notes: "Rotavac dose 2 at 10 weeks" },
+      { doseNumber: 3, minimumAge: 3, minimumInterval: 28, notes: "Rotavac dose 3 at 14 weeks" },
+    ],
+    catchUpRules: [],
+    contraindications: ["History of intussusception", "Severe combined immunodeficiency disease"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Contraindicated in severe immunodeficiency — confirm with clinician" },
+    ],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "PCV-UIP",
+    seriesName: "Pneumococcal Conjugate 2+1 (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "PCV13 dose 1 at 6 weeks" },
+      { doseNumber: 2, minimumAge: 3, minimumInterval: 56, notes: "PCV13 dose 2 at 14 weeks (minimum 4-week interval from dose 1)" },
+      { doseNumber: 3, minimumAge: 9, minimumInterval: 56, notes: "PCV13 booster at 9 months (minimum 8 weeks after dose 2)" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  // ── India UIP: 9-Month Doses ──────────────────────────────────────────────
+  {
+    vaccineGroup: "MR-UIP",
+    seriesName: "Measles-Rubella (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 9, recommendedAge: 9, notes: "MR dose 1 at 9–12 months" },
+      { doseNumber: 2, minimumAge: 16, minimumInterval: 28, notes: "MR dose 2 at 16–24 months" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 9, max: 60 }, priorDoses: 0, intervalDays: 28, notes: "2 doses at least 4 weeks apart for catch-up in children under 5" },
+    ],
+    contraindications: ["Severe allergic reaction to vaccine component", "Pregnancy", "Severe immunodeficiency"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Contraindicated in severe immunodeficiency — confirm with clinician" },
+      { flag: "pregnancy", recommendation: "Contraindicated — defer until after delivery" },
+    ],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "JE-UIP",
+    seriesName: "Japanese Encephalitis (India UIP — endemic states)",
+    doses: [
+      { doseNumber: 1, minimumAge: 9, recommendedAge: 9, notes: "JE dose 1 at 9–12 months; administered in selected endemic states (Assam, Bihar, UP, Karnataka, Tamil Nadu, Goa, and others)" },
+      { doseNumber: 2, minimumAge: 16, minimumInterval: 28, notes: "JE dose 2 at 16–24 months in endemic states" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  // ── India UIP: Booster and Adolescent Doses ───────────────────────────────
+  {
+    vaccineGroup: "DPT-Booster-UIP",
+    seriesName: "DPT Booster (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 16, recommendedAge: 16, notes: "DPT booster 1 at 16–24 months" },
+      { doseNumber: 2, minimumAge: 60, minimumInterval: 365, notes: "DPT booster 2 at 5–6 years (school entry)" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component", "Encephalopathy within 7 days of prior pertussis dose"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "Td-UIP",
+    seriesName: "Tetanus-Diphtheria Adolescent (India UIP)",
+    doses: [
+      { doseNumber: 1, minimumAge: 120, recommendedAge: 120, notes: "Td dose at 10 years (school-based)" },
+      { doseNumber: 2, minimumAge: 192, minimumInterval: 365, notes: "Td dose at 16 years (school-based)" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  {
+    vaccineGroup: "HPV-UIP",
+    seriesName: "HPV (India UIP — girls 9–14 years)",
+    doses: [
+      { doseNumber: 1, minimumAge: 108, recommendedAge: 108, notes: "HPV dose 1 at 9–14 years (girls); 3-dose series required if initiated at 15+" },
+      { doseNumber: 2, minimumAge: 108, minimumInterval: 180, notes: "HPV dose 2 at least 6 months after dose 1" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 108, max: 312 }, priorDoses: 0, intervalDays: 180, notes: "2-dose series if started before 15; 3-dose series at 0, 1–2, 6 months if started at 15+" },
+    ],
+    contraindications: ["Severe allergic reaction to vaccine component", "Pregnancy (defer until after delivery)"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "3-dose series recommended regardless of age at initiation — confirm with clinician" },
+    ],
+    scheduleSource: "MoHFW/India-UIP",
+    sourceDate: "2024-04-01",
+    ruleVersion: "2024.1-UIP",
+    scheduleRegion: "in-uip",
+  },
+  // ── WHO EPI: Birth Doses ──────────────────────────────────────────────────
+  {
+    vaccineGroup: "BCG-WHO",
+    seriesName: "BCG (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 0, recommendedAge: 0, notes: "Single dose at birth; as early as possible for TB protection" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 0, max: 12 }, priorDoses: 0, intervalDays: 0, notes: "Catch-up up to 12 months for missed birth dose" },
+    ],
+    contraindications: ["Symptomatic HIV infection", "Primary immunodeficiency", "High-dose immunosuppressants"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Contraindicated in symptomatic HIV — confirm HIV status before administering" },
+    ],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "HepB-Birth-WHO",
+    seriesName: "Hepatitis B Birth Dose (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 0, recommendedAge: 0, notes: "Monovalent HepB within 24 hours of birth; subsequent doses as part of pentavalent at 6, 10, 14 weeks" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  // ── WHO EPI: Primary Series (6, 10, 14 weeks) ────────────────────────────
+  {
+    vaccineGroup: "Pentavalent-WHO",
+    seriesName: "Pentavalent DTwP+HepB+Hib (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "DTwP-HepB-Hib dose 1 at 6 weeks" },
+      { doseNumber: 2, minimumAge: 2, minimumInterval: 28, notes: "DTwP-HepB-Hib dose 2 at 10 weeks" },
+      { doseNumber: 3, minimumAge: 3, minimumInterval: 28, notes: "DTwP-HepB-Hib dose 3 at 14 weeks" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component", "Encephalopathy within 7 days of prior pertussis dose"],
+    riskFlagRecommendations: [],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "OPV-WHO",
+    seriesName: "Oral Polio Vaccine (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "bOPV dose 1 at 6 weeks" },
+      { doseNumber: 2, minimumAge: 2, minimumInterval: 28, notes: "bOPV dose 2 at 10 weeks" },
+      { doseNumber: 3, minimumAge: 3, minimumInterval: 28, notes: "bOPV dose 3 at 14 weeks" },
+      { doseNumber: 4, minimumAge: 12, minimumInterval: 28, notes: "bOPV booster at 12–23 months" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe immunodeficiency (use IPV instead)"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Use IPV instead of OPV — confirm with clinician" },
+    ],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "IPV-WHO",
+    seriesName: "Inactivated Polio Vaccine (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 3, recommendedAge: 3, notes: "At least 1 IPV dose in the primary series (WHO recommends at 14 weeks); may be given earlier in high-risk settings" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "PCV-WHO",
+    seriesName: "Pneumococcal Conjugate 2+1 (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "PCV dose 1 at 6 weeks" },
+      { doseNumber: 2, minimumAge: 3, minimumInterval: 56, notes: "PCV dose 2 at 14 weeks" },
+      { doseNumber: 3, minimumAge: 9, minimumInterval: 56, notes: "PCV booster at 9–12 months" },
+    ],
+    catchUpRules: [],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "Rotavirus-WHO",
+    seriesName: "Rotavirus — Rotarix 2-dose (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 1, recommendedAge: 1, notes: "Rotarix dose 1 at 6 weeks (minimum age 6 weeks)" },
+      { doseNumber: 2, minimumAge: 2, minimumInterval: 28, notes: "Rotarix dose 2 at 10 weeks (minimum 4-week interval)" },
+    ],
+    catchUpRules: [],
+    contraindications: ["History of intussusception", "Severe combined immunodeficiency disease"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Contraindicated in severe immunodeficiency — confirm with clinician" },
+    ],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  // ── WHO EPI: 9-Month and Older Doses ─────────────────────────────────────
+  {
+    vaccineGroup: "MMR-WHO",
+    seriesName: "MMR/MR Measles-Rubella (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 9, recommendedAge: 9, notes: "First dose at 9 months; in low measles-transmission settings may be given at 12 months" },
+      { doseNumber: 2, minimumAge: 15, minimumInterval: 28, notes: "Second dose at 15–18 months (minimum 4-week interval from dose 1)" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 9, max: 180 }, priorDoses: 0, intervalDays: 28, notes: "2 doses at least 4 weeks apart for catch-up" },
+    ],
+    contraindications: ["Severe allergic reaction to vaccine component", "Pregnancy", "Severe immunodeficiency"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "Contraindicated in severe immunodeficiency — confirm with clinician" },
+      { flag: "pregnancy", recommendation: "Contraindicated — defer until after delivery" },
+    ],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "HPV-WHO",
+    seriesName: "HPV (WHO EPI)",
+    doses: [
+      { doseNumber: 1, minimumAge: 108, recommendedAge: 108, notes: "HPV dose 1 at 9–14 years; 3-dose series required if initiated at 15+" },
+      { doseNumber: 2, minimumAge: 108, minimumInterval: 180, notes: "HPV dose 2 at least 6 months after dose 1" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 108, max: 312 }, priorDoses: 0, intervalDays: 180, notes: "2-dose series if started before 15; 3-dose series (0, 1–2, 6 months) if started at 15+" },
+    ],
+    contraindications: ["Severe allergic reaction to vaccine component", "Pregnancy (defer until after delivery)"],
+    riskFlagRecommendations: [
+      { flag: "immunocompromised", recommendation: "3-dose series recommended regardless of age — confirm with clinician" },
+    ],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "Typhoid-WHO",
+    seriesName: "Typhoid Conjugate TCV (WHO EPI — endemic countries)",
+    doses: [
+      { doseNumber: 1, minimumAge: 9, recommendedAge: 9, notes: "TCV single dose at 9 months+ for countries with moderate-to-high typhoid burden; single dose provides long-term protection" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 9, max: 180 }, priorDoses: 0, intervalDays: 0, notes: "Catch-up for unvaccinated persons 9 months–14 years in endemic areas" },
+    ],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [
+      { flag: "travel", recommendation: "Recommended before travel to typhoid-endemic countries" },
+    ],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
+  {
+    vaccineGroup: "MenA-WHO",
+    seriesName: "Meningococcal A MenAfriVac (WHO EPI — sub-Saharan Africa)",
+    doses: [
+      { doseNumber: 1, minimumAge: 9, recommendedAge: 9, notes: "MenAfriVac single dose at 9–18 months; recommended in meningitis belt of sub-Saharan Africa (Senegal to Ethiopia)" },
+    ],
+    catchUpRules: [
+      { ageRange: { min: 9, max: 216 }, priorDoses: 0, intervalDays: 0, notes: "Catch-up for all unvaccinated persons 9 months to 18 years in meningitis belt countries" },
+    ],
+    contraindications: ["Severe allergic reaction to vaccine component"],
+    riskFlagRecommendations: [],
+    scheduleSource: "WHO/EPI",
+    sourceDate: "2024-01-01",
+    ruleVersion: "2024.1-WHO",
+    scheduleRegion: "who-epi",
+  },
 ];
 
 const immunizationEvents = new Map<string, ImmunizationEvent>();
@@ -660,8 +1055,8 @@ export const vaccineScheduleEngine = {
     return getAllCVXForGroup(vaccineGroup).map(e => e.code);
   },
 
-  getVaccineGroups(): string[] {
-    return Array.from(new Set(VACCINE_SCHEDULE_RULES.map((r) => r.vaccineGroup)));
+  getVaccineGroups(region: "us-acip" | "in-uip" | "who-epi" = "us-acip"): string[] {
+    return Array.from(new Set(this.getRulesForRegion(region).map((r) => r.vaccineGroup)));
   },
 
   getScheduleRule(vaccineGroup: string): VaccineScheduleRule | undefined {
@@ -712,7 +1107,8 @@ export const vaccineScheduleEngine = {
     patientId: string,
     profileId: string,
     birthDate: string,
-    userId: string
+    userId: string,
+    region: "us-acip" | "in-uip" | "who-epi" = "us-acip"
   ): Promise<VaccineSeriesStatus[]> {
     logPhiAccess({
       userId,
@@ -720,7 +1116,7 @@ export const vaccineScheduleEngine = {
       resourceType: "VaccineSeriesStatus",
       resourceId: "evaluate",
       patientId,
-      details: `Evaluate vaccine series for profile ${profileId}`,
+      details: `Evaluate vaccine series for profile ${profileId} (region: ${region})`,
     });
 
     const events = Array.from(immunizationEvents.values()).filter(
@@ -731,7 +1127,7 @@ export const vaccineScheduleEngine = {
     const flags = riskFlagsData?.flags || [];
 
     const statuses: VaccineSeriesStatus[] = [];
-    for (const vaccineGroup of this.getVaccineGroups()) {
+    for (const vaccineGroup of this.getVaccineGroups(region)) {
       const groupEvents = events.filter((e) => e.vaccineGroup === vaccineGroup);
       const status = evaluateSeriesStatus(patientId, profileId, birthDate, vaccineGroup, groupEvents, flags);
       statuses.push(status);
@@ -895,13 +1291,19 @@ export const vaccineScheduleEngine = {
     );
   },
 
-  async getVaccineSummary(patientId: string, profileId: string, birthDate: string, userId: string): Promise<{
+  async getVaccineSummary(
+    patientId: string,
+    profileId: string,
+    birthDate: string,
+    userId: string,
+    region: "us-acip" | "in-uip" | "who-epi" = "us-acip"
+  ): Promise<{
     statuses: VaccineSeriesStatus[];
     summary: { upToDate: number; dueSoon: number; overdue: number; unknown: number };
     nextDue: VaccineSeriesStatus[];
     disclaimer: string;
   }> {
-    const statuses = await this.evaluateAllSeries(patientId, profileId, birthDate, userId);
+    const statuses = await this.evaluateAllSeries(patientId, profileId, birthDate, userId, region);
     
     const summary = {
       upToDate: statuses.filter((s) => s.status === "up_to_date").length,

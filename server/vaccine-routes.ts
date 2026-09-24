@@ -102,18 +102,23 @@ router.get("/cvx-registry/full", async (req: Request, res: Response) => {
 router.get("/vaccine-groups", async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
+    const region = (req.query.region as string) || "us-acip";
+    if (!["us-acip", "in-uip", "who-epi"].includes(region)) {
+      return res.status(400).json({ error: "Invalid region. Must be one of: us-acip, in-uip, who-epi" });
+    }
     logPhiAccess({
       userId,
       action: "read",
       resourceType: "VaccineGroups",
       resourceId: "list",
-      details: "List vaccine groups",
+      details: `List vaccine groups (region: ${region})`,
     });
 
-    const groups = vaccineScheduleEngine.getVaccineGroups();
+    const groups = vaccineScheduleEngine.getVaccineGroups(region as "us-acip" | "in-uip" | "who-epi");
     res.json({
       groups,
       count: groups.length,
+      region,
       disclaimer: NO_CDS_DISCLAIMER,
     });
   } catch (error) {
@@ -128,20 +133,26 @@ router.get("/vaccine-groups", async (req: Request, res: Response) => {
 router.get("/schedule-rules", async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
+    const region = req.query.region as string | undefined;
+    if (region && !["us-acip", "in-uip", "who-epi"].includes(region)) {
+      return res.status(400).json({ error: "Invalid region. Must be one of: us-acip, in-uip, who-epi" });
+    }
     logPhiAccess({
       userId,
       action: "read",
       resourceType: "VaccineScheduleRules",
       resourceId: "list",
-      details: "List vaccine schedule rules",
+      details: `List vaccine schedule rules${region ? ` (region: ${region})` : " (all)"}`,
     });
 
-    const rules = vaccineScheduleEngine.getAllScheduleRules();
+    const rules = region
+      ? vaccineScheduleEngine.getRulesForRegion(region as "us-acip" | "in-uip" | "who-epi")
+      : vaccineScheduleEngine.getAllScheduleRules();
     res.json({
       rules,
       count: rules.length,
-      scheduleSource: "CDC/ACIP",
-      lastUpdated: "2024-08-28",
+      region: region || "all",
+      lastUpdated: vaccineScheduleEngine.getEffectiveDate(),
       disclaimer: NO_CDS_DISCLAIMER,
     });
   } catch (error) {
@@ -229,7 +240,7 @@ router.post("/immunizations", async (req: Request, res: Response) => {
 router.get("/summary/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
-    const { birthDate } = req.query;
+    const { birthDate, region: regionParam } = req.query;
     const userId = getUserId(req);
 
     if (!birthDate || typeof birthDate !== "string") {
@@ -239,7 +250,15 @@ router.get("/summary/:patientId/:profileId", assertOwnsProfile("profileId"), asy
       });
     }
 
-    const summary = await vaccineScheduleEngine.getVaccineSummary(patientId, profileId, birthDate, userId);
+    const region = (regionParam as string) || "us-acip";
+    if (!["us-acip", "in-uip", "who-epi"].includes(region)) {
+      return res.status(400).json({ error: "Invalid region. Must be one of: us-acip, in-uip, who-epi" });
+    }
+
+    const summary = await vaccineScheduleEngine.getVaccineSummary(
+      patientId, profileId, birthDate, userId,
+      region as "us-acip" | "in-uip" | "who-epi"
+    );
     res.json(summary);
   } catch (error) {
     res.status(500).json({
@@ -253,7 +272,7 @@ router.get("/summary/:patientId/:profileId", assertOwnsProfile("profileId"), asy
 router.get("/series-status/:patientId/:profileId", assertOwnsProfile("profileId"), async (req: Request, res: Response) => {
   try {
     const { patientId, profileId } = req.params;
-    const { birthDate } = req.query;
+    const { birthDate, region: regionParam } = req.query;
     const userId = getUserId(req);
 
     if (!birthDate || typeof birthDate !== "string") {
@@ -263,10 +282,19 @@ router.get("/series-status/:patientId/:profileId", assertOwnsProfile("profileId"
       });
     }
 
-    const statuses = await vaccineScheduleEngine.evaluateAllSeries(patientId, profileId, birthDate, userId);
+    const region = (regionParam as string) || "us-acip";
+    if (!["us-acip", "in-uip", "who-epi"].includes(region)) {
+      return res.status(400).json({ error: "Invalid region. Must be one of: us-acip, in-uip, who-epi" });
+    }
+
+    const statuses = await vaccineScheduleEngine.evaluateAllSeries(
+      patientId, profileId, birthDate, userId,
+      region as "us-acip" | "in-uip" | "who-epi"
+    );
     res.json({
       statuses,
       count: statuses.length,
+      region,
       evaluatedAt: new Date().toISOString(),
       disclaimer: NO_CDS_DISCLAIMER,
     });
