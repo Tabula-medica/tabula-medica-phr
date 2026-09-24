@@ -2,9 +2,9 @@ import { logPhiAccess } from "../security/hipaa-audit";
 
 const NO_CDS_DISCLAIMER = "IMPORTANT: This information is based on CDC/ACIP published schedules and your recorded history. This is NOT medical advice. Always confirm with your clinician or pharmacist before receiving any vaccine.";
 
-export const RULES_ENGINE_VERSION = "2.0.0";
-export const RULES_EFFECTIVE_DATE = "2024-02-08";
-export const RULES_LAST_UPDATED = "2025-01-23";
+export const RULES_ENGINE_VERSION = "2.1.0";
+export const RULES_EFFECTIVE_DATE = "2026-02-06";
+export const RULES_LAST_UPDATED = "2026-09-24";
 
 export type ImmunocompromiseLevel = "none" | "mild" | "moderate" | "severe";
 export type ImmunocompromiseCategory = 
@@ -217,7 +217,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "CDC",
           documentTitle: "Recommended Child and Adolescent Immunization Schedule",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
           url: "https://www.cdc.gov/vaccines/schedules/hcp/imz/child-adolescent.html",
           section: "Table 1",
         },
@@ -235,7 +235,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "ACIP",
           documentTitle: "General Best Practice Guidelines for Immunization",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
           section: "Timing and Spacing of Immunobiologics",
           footnote: "Table 3-2",
         },
@@ -255,7 +255,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "CDC",
           documentTitle: "Catch-up Immunization Schedule",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
           section: "Table 2",
         },
       },
@@ -272,7 +272,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "CDC",
           documentTitle: "Catch-up Immunization Schedule",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
           section: "Table 2",
         },
       },
@@ -288,7 +288,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "CDC",
           documentTitle: "Catch-up Immunization Schedule",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
         },
       },
     ],
@@ -306,7 +306,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "ACIP",
           documentTitle: "General Best Practice Guidelines for Immunization",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
           section: "Altered Immunocompetence",
         },
       },
@@ -334,7 +334,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         citation: {
           source: "CDC",
           documentTitle: "General Best Practice Guidelines",
-          publicationDate: "2024-02-08",
+          publicationDate: "2026-02-06",
         },
       },
     ],
@@ -342,17 +342,17 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
       {
         condition: "Severe allergic reaction (e.g., anaphylaxis) after a previous dose or to a vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2026-02-06" },
       },
       {
         condition: "Known severe immunodeficiency (e.g., hematologic and solid tumors, chemotherapy, congenital immunodeficiency, long-term immunosuppressive therapy, HIV with CD4 <200)",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "MMR Vaccine Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "MMR Vaccine Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "Pregnancy",
         severity: "absolute",
-        citation: { source: "CDC", documentTitle: "Pregnancy and Vaccination", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Pregnancy and Vaccination", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [
@@ -360,13 +360,13 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         condition: "Recent (within 11 months) receipt of antibody-containing blood product",
         recommendation: "Defer MMR vaccination based on product received",
         requiresClinicianReview: true,
-        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2024-02-08", section: "Table 3-5" },
+        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2026-02-06", section: "Table 3-5" },
       },
       {
         condition: "History of thrombocytopenia or thrombocytopenic purpura",
         recommendation: "Benefits usually outweigh risks; consider serologic testing",
         requiresClinicianReview: true,
-        citation: { source: "CDC", documentTitle: "MMR Vaccine Information", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "MMR Vaccine Information", publicationDate: "2026-02-06" },
       },
     ],
     specialPopulations: [
@@ -374,7 +374,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "Healthcare personnel",
         riskFlags: ["healthcare_worker"],
         recommendation: "Two doses required regardless of birth year",
-        citation: { source: "ACIP", documentTitle: "Immunization of Health-Care Personnel", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Immunization of Health-Care Personnel", publicationDate: "2026-02-06" },
       },
       {
         population: "International travelers",
@@ -385,15 +385,21 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
-      lastReviewedDate: "2025-01-23",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
+      lastReviewedDate: "2026-09-24",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [
         {
           version: "2024.1.0",
           date: "2024-02-08",
           changes: ["Initial v2 rule format with comprehensive catch-up and immunocompromise logic"],
+          reviewer: "System",
+        },
+        {
+          version: "2026.1.0",
+          date: "2026-09-24",
+          changes: ["Refreshed citations to ACIP 2026 Child/Adolescent Immunization Schedule (2026-02-06)"],
           reviewer: "System",
         },
       ],
@@ -413,7 +419,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "DTaP dose 1 at 2 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08", section: "Table 1" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06", section: "Table 1" },
       },
       {
         doseNumber: 2,
@@ -424,7 +430,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         absoluteMinimumIntervalDays: 28,
         gracePeriodDays: 4,
         notes: "DTaP dose 2 at 4 months, minimum 4 weeks after dose 1",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 3,
@@ -435,7 +441,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         absoluteMinimumIntervalDays: 28,
         gracePeriodDays: 4,
         notes: "DTaP dose 3 at 6 months, minimum 4 weeks after dose 2",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 4,
@@ -445,7 +451,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         recommendedIntervalDays: 180,
         absoluteMinimumIntervalDays: 180,
         notes: "DTaP dose 4 at 15-18 months, minimum 6 months after dose 3",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 5,
@@ -455,7 +461,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 180,
         recommendedIntervalDays: 1095,
         notes: "DTaP dose 5 at 4-6 years; not needed if dose 4 given at ≥4 years",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 6,
@@ -464,7 +470,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 1825,
         recommendedIntervalDays: 1825,
         notes: "Tdap booster at 11-12 years",
-        citation: { source: "ACIP", documentTitle: "Recommended Adult Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Recommended Adult Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -481,7 +487,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 3, toDose: 4, minimumIntervalDays: 180, recommendedIntervalDays: 180, notes: "6 month minimum interval" },
           { fromDose: 4, toDose: 5, minimumIntervalDays: 180, recommendedIntervalDays: 180, notes: "If dose 4 given before age 4" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08", section: "Table 2" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06", section: "Table 2" },
       },
       {
         id: "tdap-catchup-7-18",
@@ -494,7 +500,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 1, toDose: 2, minimumIntervalDays: 28, recommendedIntervalDays: 28, notes: "Td or Tdap" },
           { fromDose: 2, toDose: 3, minimumIntervalDays: 180, recommendedIntervalDays: 180, notes: "Td or Tdap" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -505,19 +511,19 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Inactivated vaccine; safe for immunocompromised patients. Response may be reduced.",
         requiresClinicianReview: false,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction after previous dose or to vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "ACIP DTaP/Tdap Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "ACIP DTaP/Tdap Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "Encephalopathy within 7 days of previous pertussis-containing vaccine",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "ACIP DTaP/Tdap Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "ACIP DTaP/Tdap Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [
@@ -525,13 +531,13 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         condition: "Guillain-Barré syndrome within 6 weeks of previous tetanus-containing vaccine",
         recommendation: "Assess risk vs benefit",
         requiresClinicianReview: true,
-        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2026-02-06" },
       },
       {
         condition: "Progressive neurologic disorder",
         recommendation: "Defer pertussis-containing vaccine until condition stabilized",
         requiresClinicianReview: true,
-        citation: { source: "ACIP", documentTitle: "DTaP Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "DTaP Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     specialPopulations: [
@@ -539,12 +545,12 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "Pregnant persons",
         riskFlags: ["pregnancy"],
         recommendation: "Tdap during each pregnancy, preferably 27-36 weeks gestation",
-        citation: { source: "ACIP", documentTitle: "Tdap in Pregnancy", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Tdap in Pregnancy", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -565,7 +571,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "Birth dose within 24 hours of birth",
-        citation: { source: "ACIP", documentTitle: "Prevention of Hepatitis B Virus Infection", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Prevention of Hepatitis B Virus Infection", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -576,7 +582,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         recommendedIntervalDays: 28,
         absoluteMinimumIntervalDays: 28,
         notes: "Dose 2 at 1-2 months of age",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 3,
@@ -587,7 +593,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         recommendedIntervalDays: 120,
         absoluteMinimumIntervalDays: 56,
         notes: "Dose 3 at 6-18 months; minimum age 24 weeks; minimum 8 weeks after dose 2 and 16 weeks after dose 1",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -609,10 +615,10 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
             modification: "additional_doses",
             modifiedValue: 4,
             rationale: "4-dose series with higher antigen content for hemodialysis patients",
-            citation: { source: "ACIP", documentTitle: "Hepatitis B Recommendations", publicationDate: "2024-02-08" },
+            citation: { source: "ACIP", documentTitle: "Hepatitis B Recommendations", publicationDate: "2026-02-06" },
           },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
       {
         id: "hepb-catchup-adult",
@@ -625,7 +631,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 1, toDose: 2, minimumIntervalDays: 28, recommendedIntervalDays: 28 },
           { fromDose: 2, toDose: 3, minimumIntervalDays: 56, recommendedIntervalDays: 120 },
         ],
-        citation: { source: "ACIP", documentTitle: "Adult Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Adult Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -640,7 +646,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Immunocompromised patients may require additional doses and post-vaccination serology to confirm immunity",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "Hepatitis B Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hepatitis B Recommendations", publicationDate: "2026-02-06" },
       },
       {
         vaccineGroup: "HepB",
@@ -653,14 +659,14 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "HIV-positive patients should have anti-HBs testing 1-2 months after series completion",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "CDC", documentTitle: "HIV/AIDS and HBV", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "HIV/AIDS and HBV", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component (including yeast)",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Hepatitis B Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hepatitis B Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [],
@@ -669,18 +675,18 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "Healthcare personnel",
         riskFlags: ["healthcare_worker"],
         recommendation: "Complete 3-dose series; post-vaccination serology recommended",
-        citation: { source: "ACIP", documentTitle: "Immunization of HCP", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Immunization of HCP", publicationDate: "2026-02-06" },
       },
       {
         population: "Patients with diabetes",
         riskFlags: ["diabetes"],
         recommendation: "Unvaccinated adults 19-59 should receive series; 60+ at clinician discretion",
-        citation: { source: "ACIP", documentTitle: "Hepatitis B and Diabetes", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hepatitis B and Diabetes", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -700,7 +706,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "IPV dose 1 at 2 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -710,7 +716,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         recommendedIntervalDays: 60,
         absoluteMinimumIntervalDays: 28,
         notes: "IPV dose 2 at 4 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 3,
@@ -719,7 +725,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 28,
         recommendedIntervalDays: 60,
         notes: "IPV dose 3 at 6-18 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 4,
@@ -729,7 +735,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 180,
         recommendedIntervalDays: 1095,
         notes: "IPV dose 4 at 4-6 years; minimum 6 months after dose 3; minimum age 4 years for final dose",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -745,7 +751,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 2, toDose: 3, minimumIntervalDays: 28, recommendedIntervalDays: 28 },
           { fromDose: 3, toDose: 4, minimumIntervalDays: 180, recommendedIntervalDays: 180, notes: "Final dose at ≥4 years" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -756,21 +762,21 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "IPV is inactivated and safe for immunocompromised patients",
         requiresClinicianReview: false,
         reviewUrgency: "routine",
-        citation: { source: "CDC", documentTitle: "General Best Practice Guidelines", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "General Best Practice Guidelines", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Poliomyelitis Prevention", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Poliomyelitis Prevention", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [],
     specialPopulations: [],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -790,7 +796,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "Hib dose 1 at 2 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -800,7 +806,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         recommendedIntervalDays: 60,
         absoluteMinimumIntervalDays: 28,
         notes: "Hib dose 2 at 4 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 3,
@@ -809,7 +815,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 28,
         recommendedIntervalDays: 60,
         notes: "Hib dose 3 at 6 months (if using ActHIB, Hiberix, or Pentacel)",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 4,
@@ -819,7 +825,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 56,
         recommendedIntervalDays: 180,
         notes: "Booster at 12-15 months; minimum 8 weeks after prior dose",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -835,7 +841,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 2, toDose: 3, minimumIntervalDays: 28, recommendedIntervalDays: 28, notes: "If needed based on product" },
           { fromDose: 3, toDose: 4, minimumIntervalDays: 56, recommendedIntervalDays: 56 },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
       {
         id: "hib-catchup-12-59mo",
@@ -847,7 +853,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0 },
           { fromDose: 1, toDose: 2, minimumIntervalDays: 56, recommendedIntervalDays: 56 },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08", footnote: "For unvaccinated 12-14 months: 2 doses; 15-59 months: 1 dose only" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06", footnote: "For unvaccinated 12-14 months: 2 doses; 15-59 months: 1 dose only" },
       },
     ],
     immunocompromiseRules: [
@@ -862,19 +868,19 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Patients with asplenia or HSCT recipients should receive additional Hib vaccine",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "Hib Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hib Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Hib Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hib Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "Age <6 weeks",
         severity: "absolute",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [],
@@ -883,12 +889,12 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "Asplenia/sickle cell",
         riskFlags: ["asplenia"],
         recommendation: "Unvaccinated persons ≥5 years with asplenia: 1 dose regardless of Hib vaccination history",
-        citation: { source: "ACIP", documentTitle: "Hib Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hib Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -908,7 +914,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "PCV15 or PCV20 dose 1 at 2 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -917,7 +923,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 28,
         recommendedIntervalDays: 60,
         notes: "Dose 2 at 4 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 3,
@@ -926,7 +932,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 28,
         recommendedIntervalDays: 60,
         notes: "Dose 3 at 6 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 4,
@@ -935,7 +941,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 56,
         recommendedIntervalDays: 180,
         notes: "Booster at 12-15 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -950,7 +956,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 1, toDose: 2, minimumIntervalDays: 28, recommendedIntervalDays: 28 },
           { fromDose: 2, toDose: 3, minimumIntervalDays: 56, recommendedIntervalDays: 56, notes: "Booster at ≥12 months, 8 weeks after prior" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
       {
         id: "pcv-catchup-24-59mo",
@@ -961,7 +967,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         intervals: [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0, notes: "1 dose if no prior doses" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -977,14 +983,14 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "High-risk patients need additional pneumococcal protection including PPSV23 booster",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "Pneumococcal ACIP Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Pneumococcal ACIP Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Pneumococcal Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Pneumococcal Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [],
@@ -994,18 +1000,18 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         riskFlags: [],
         ageModification: { minimumAgeMonths: 780 },
         recommendation: "1 dose PCV20 or PCV15 followed by PPSV23",
-        citation: { source: "ACIP", documentTitle: "Adult Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Adult Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         population: "Chronic conditions 19-64",
         riskFlags: ["chronic_heart", "chronic_lung", "chronic_liver", "diabetes", "smoker"],
         recommendation: "PCV20 or PCV15+PPSV23 series for adults 19-64 with underlying conditions",
-        citation: { source: "ACIP", documentTitle: "Pneumococcal Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Pneumococcal Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -1026,7 +1032,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "Rotavirus dose 1 at 2 months; maximum age for dose 1 is 14 weeks 6 days",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -1036,7 +1042,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 28,
         recommendedIntervalDays: 60,
         notes: "Dose 2 at 4 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 3,
@@ -1046,7 +1052,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 28,
         recommendedIntervalDays: 60,
         notes: "Dose 3 at 6 months (RotaTeq only); maximum age for any dose is 8 months 0 days",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [],
@@ -1061,24 +1067,24 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Live oral vaccine; contraindicated in SCID and immunocompromised infants",
         requiresClinicianReview: true,
         reviewUrgency: "immediate",
-        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "SCID",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "History of intussusception",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [
@@ -1086,13 +1092,13 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         condition: "Altered immunocompetence other than SCID",
         recommendation: "Assess benefits and risks",
         requiresClinicianReview: true,
-        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Rotavirus Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     specialPopulations: [],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -1112,7 +1118,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "HPV dose 1 at 11-12 years; can start as early as 9 years",
-        citation: { source: "CDC", documentTitle: "Child/Adolescent Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child/Adolescent Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -1121,7 +1127,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 150,
         recommendedIntervalDays: 180,
         notes: "Dose 2 at 6-12 months after dose 1 (if started before age 15)",
-        citation: { source: "ACIP", documentTitle: "HPV Vaccine Recommendations", publicationDate: "2024-02-08", footnote: "2-dose schedule for <15yo" },
+        citation: { source: "ACIP", documentTitle: "HPV Vaccine Recommendations", publicationDate: "2026-02-06", footnote: "2-dose schedule for <15yo" },
       },
       {
         doseNumber: 3,
@@ -1130,7 +1136,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 84,
         recommendedIntervalDays: 150,
         notes: "Dose 3 only needed if series started at ≥15 years or immunocompromised",
-        citation: { source: "ACIP", documentTitle: "HPV Vaccine Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Vaccine Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -1145,7 +1151,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 1, toDose: 2, minimumIntervalDays: 28, recommendedIntervalDays: 60, notes: "Minimum 4 weeks" },
           { fromDose: 2, toDose: 3, minimumIntervalDays: 84, recommendedIntervalDays: 120, notes: "12 weeks after dose 2, 5 months after dose 1" },
         ],
-        citation: { source: "ACIP", documentTitle: "HPV Catch-up", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Catch-up", publicationDate: "2026-02-06" },
       },
       {
         id: "hpv-catchup-9-14-2dose",
@@ -1157,7 +1163,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0 },
           { fromDose: 1, toDose: 2, minimumIntervalDays: 150, recommendedIntervalDays: 180, notes: "6-12 months interval; if <5 months, need 3rd dose" },
         ],
-        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -1171,7 +1177,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Immunocompromised persons should receive 3-dose series regardless of age at vaccination initiation",
         requiresClinicianReview: false,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2026-02-06" },
       },
       {
         vaccineGroup: "HPV",
@@ -1183,14 +1189,14 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "3-dose series required; vaccine is safe but immunogenicity may be reduced",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component (including yeast)",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [
@@ -1198,7 +1204,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         condition: "Pregnancy",
         recommendation: "Vaccination not recommended during pregnancy; no adverse outcomes observed, but defer until after pregnancy",
         requiresClinicianReview: false,
-        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     specialPopulations: [
@@ -1207,12 +1213,12 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         riskFlags: [],
         ageModification: { minimumAgeMonths: 324, maximumAgeMonths: 540 },
         recommendation: "Shared clinical decision-making for adults 27-45 not previously vaccinated",
-        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "HPV Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -1232,7 +1238,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "MenACWY dose 1 at 11-12 years",
-        citation: { source: "CDC", documentTitle: "Adolescent Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Adolescent Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -1241,7 +1247,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 56,
         recommendedIntervalDays: 1461,
         notes: "Booster at 16 years",
-        citation: { source: "CDC", documentTitle: "Adolescent Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Adolescent Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -1255,7 +1261,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0 },
           { fromDose: 1, toDose: 2, minimumIntervalDays: 56, recommendedIntervalDays: 56, notes: "Booster at 16-18 years" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
       {
         id: "menacwy-catchup-16-18",
@@ -1266,7 +1272,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         intervals: [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0, notes: "1 dose if first dose at 16+" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -1282,14 +1288,14 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "2-dose primary series 8 weeks apart; boosters every 5 years for ongoing risk",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "Meningococcal ACIP Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Meningococcal ACIP Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Meningococcal Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Meningococcal Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [],
@@ -1298,18 +1304,18 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "College freshmen in dorms",
         riskFlags: [],
         recommendation: "Ensure up-to-date MenACWY; dose at 16+ preferred",
-        citation: { source: "ACIP", documentTitle: "Meningococcal Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Meningococcal Recommendations", publicationDate: "2026-02-06" },
       },
       {
         population: "Military recruits",
         riskFlags: [],
         recommendation: "MenACWY required",
-        citation: { source: "ACIP", documentTitle: "Meningococcal Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Meningococcal Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -1330,7 +1336,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "HepA dose 1 at 12-23 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -1339,7 +1345,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 180,
         recommendedIntervalDays: 180,
         notes: "Dose 2 at least 6 months after dose 1",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -1353,7 +1359,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0 },
           { fromDose: 1, toDose: 2, minimumIntervalDays: 180, recommendedIntervalDays: 180 },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -1364,14 +1370,14 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Inactivated vaccine; safe for immunocompromised patients. Response may be reduced.",
         requiresClinicianReview: false,
         reviewUrgency: "routine",
-        citation: { source: "CDC", documentTitle: "Hepatitis A Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Hepatitis A Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Hepatitis A Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hepatitis A Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [],
@@ -1380,7 +1386,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "Chronic liver disease",
         riskFlags: ["chronic_liver"],
         recommendation: "Vaccination recommended for persons with chronic liver disease",
-        citation: { source: "ACIP", documentTitle: "Hepatitis A Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Hepatitis A Recommendations", publicationDate: "2026-02-06" },
       },
       {
         population: "International travelers",
@@ -1390,8 +1396,8 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
       lastReviewedDate: "2025-01-23",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
@@ -1412,7 +1418,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         minimumIntervalDays: 0,
         recommendedIntervalDays: 0,
         notes: "Varicella dose 1 at 12-15 months",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
       {
         doseNumber: 2,
@@ -1424,7 +1430,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         absoluteMinimumIntervalDays: 84,
         gracePeriodDays: 4,
         notes: "Dose 2 at 4-6 years; minimum 3 months after dose 1",
-        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Child Immunization Schedule", publicationDate: "2026-02-06" },
       },
     ],
     catchUpSchedule: [
@@ -1438,7 +1444,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0 },
           { fromDose: 1, toDose: 2, minimumIntervalDays: 84, recommendedIntervalDays: 84, notes: "3 months minimum if <13 years" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
       {
         id: "varicella-catchup-teen-adult",
@@ -1450,7 +1456,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
           { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0 },
           { fromDose: 1, toDose: 2, minimumIntervalDays: 28, recommendedIntervalDays: 28, notes: "4 weeks minimum for ≥13 years" },
         ],
-        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Catch-up Schedule", publicationDate: "2026-02-06" },
       },
     ],
     immunocompromiseRules: [
@@ -1464,7 +1470,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "Live vaccine; contraindicated in severely immunocompromised patients",
         requiresClinicianReview: true,
         reviewUrgency: "immediate",
-        citation: { source: "ACIP", documentTitle: "Varicella ACIP Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Varicella ACIP Recommendations", publicationDate: "2026-02-06" },
       },
       {
         vaccineGroup: "Varicella",
@@ -1474,24 +1480,24 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         rationale: "May be considered for HIV-infected persons with CD4 ≥200 cells/μL",
         requiresClinicianReview: true,
         reviewUrgency: "routine",
-        citation: { source: "ACIP", documentTitle: "Varicella Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Varicella Recommendations", publicationDate: "2026-02-06" },
       },
     ],
     contraindications: [
       {
         condition: "Severe allergic reaction to previous dose or vaccine component (including gelatin, neomycin)",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Varicella Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Varicella Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "Severe immunodeficiency",
         severity: "absolute",
-        citation: { source: "ACIP", documentTitle: "Varicella Recommendations", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Varicella Recommendations", publicationDate: "2026-02-06" },
       },
       {
         condition: "Pregnancy",
         severity: "absolute",
-        citation: { source: "CDC", documentTitle: "Pregnancy and Vaccination", publicationDate: "2024-02-08" },
+        citation: { source: "CDC", documentTitle: "Pregnancy and Vaccination", publicationDate: "2026-02-06" },
       },
     ],
     precautions: [
@@ -1499,7 +1505,7 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         condition: "Recent blood product receipt",
         recommendation: "Defer vaccination based on product received",
         requiresClinicianReview: true,
-        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "General Best Practice Guidelines", publicationDate: "2026-02-06" },
       },
     ],
     specialPopulations: [
@@ -1507,15 +1513,192 @@ const COMPREHENSIVE_VACCINE_RULES: VaccineScheduleRuleV2[] = [
         population: "Healthcare personnel without evidence of immunity",
         riskFlags: ["healthcare_worker"],
         recommendation: "2-dose series required",
-        citation: { source: "ACIP", documentTitle: "Immunization of HCP", publicationDate: "2024-02-08" },
+        citation: { source: "ACIP", documentTitle: "Immunization of HCP", publicationDate: "2026-02-06" },
       },
     ],
     metadata: {
-      version: "2024.1.0",
-      effectiveDate: "2024-02-08",
-      lastReviewedDate: "2025-01-23",
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
+      lastReviewedDate: "2026-09-24",
       reviewedBy: "Tabula Medica Clinical Team",
       changeLog: [],
+    },
+  },
+  // ─── COVID-19 (2025-2026 formula) ───────────────────────────────────────────
+  {
+    id: "covid19-v2",
+    vaccineGroup: "COVID-19",
+    seriesName: "COVID-19 Updated Vaccine Series (2025-2026 formula)",
+    cvxCodes: ["208", "207", "212", "213", "217", "218", "219", "228", "229", "230", "300", "301", "302"],
+    isLiveVaccine: false,
+    routineSchedule: [
+      {
+        doseNumber: 1,
+        minimumAgeDays: 180,
+        recommendedAgeDays: 180,
+        minimumIntervalDays: 0,
+        recommendedIntervalDays: 0,
+        notes: "Annual updated formula; everyone 6 months+ recommended ≥1 dose per season",
+        citation: {
+          source: "ACIP",
+          documentTitle: "COVID-19 ACIP Vaccine Recommendations 2025-2026",
+          publicationDate: "2026-02-06",
+          url: "https://www.cdc.gov/vaccines/covid-19/info-by-product/index.html",
+          section: "Recommended schedule",
+        },
+      },
+    ],
+    catchUpSchedule: [],
+    immunocompromiseRules: [
+      {
+        vaccineGroup: "COVID-19",
+        immunocompromiseLevel: "moderate",
+        recommendation: "modified",
+        modifications: { additionalDoses: 1 },
+        rationale: "Moderately or severely immunocompromised persons may receive additional doses per clinician judgment",
+        requiresClinicianReview: true,
+        reviewUrgency: "routine",
+        citation: {
+          source: "ACIP",
+          documentTitle: "COVID-19 Vaccine Guidance for Immunocompromised Persons",
+          publicationDate: "2026-02-06",
+        },
+      },
+      {
+        vaccineGroup: "COVID-19",
+        immunocompromiseLevel: "severe",
+        recommendation: "modified",
+        modifications: { additionalDoses: 2 },
+        rationale: "Severely immunocompromised: additional doses recommended; timing by clinician",
+        requiresClinicianReview: true,
+        reviewUrgency: "urgent",
+        citation: {
+          source: "ACIP",
+          documentTitle: "COVID-19 Vaccine Guidance for Immunocompromised Persons",
+          publicationDate: "2026-02-06",
+        },
+      },
+    ],
+    contraindications: [
+      {
+        condition: "Severe allergic reaction (anaphylaxis) after previous COVID-19 vaccine dose",
+        severity: "absolute",
+        citation: { source: "CDC", documentTitle: "COVID-19 Vaccine Contraindications and Precautions", publicationDate: "2026-02-06" },
+      },
+    ],
+    precautions: [
+      {
+        condition: "History of myocarditis or pericarditis after mRNA COVID-19 vaccine",
+        recommendation: "Clinician consultation required before re-vaccination; may defer",
+        requiresClinicianReview: true,
+        citation: { source: "ACIP", documentTitle: "COVID-19 Vaccine Myocarditis Guidance", publicationDate: "2026-02-06" },
+      },
+    ],
+    specialPopulations: [
+      {
+        population: "Pregnancy",
+        riskFlags: ["pregnant"],
+        recommendation: "COVID-19 vaccination recommended during pregnancy; updated formula preferred",
+        citation: { source: "ACIP", documentTitle: "COVID-19 Vaccine in Pregnancy", publicationDate: "2026-02-06" },
+      },
+    ],
+    metadata: {
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
+      lastReviewedDate: "2026-09-24",
+      reviewedBy: "Tabula Medica Clinical Team",
+      changeLog: [
+        {
+          version: "2026.1.0",
+          date: "2026-09-24",
+          changes: ["Added COVID-19 rule for 2025-2026 formula (CVX 300/301/302); annual updated formula recommendation"],
+          reviewer: "System",
+        },
+      ],
+    },
+  },
+  // ─── RSV — Nirsevimab (infant prophylaxis) ──────────────────────────────────
+  {
+    id: "rsv-nirsevimab-v2",
+    vaccineGroup: "RSV-Nirsevimab",
+    seriesName: "RSV Prophylaxis — Nirsevimab (Beyfortus)",
+    cvxCodes: ["308", "309"],
+    isLiveVaccine: false,
+    routineSchedule: [
+      {
+        doseNumber: 1,
+        minimumAgeDays: 0,
+        recommendedAgeDays: 0,
+        maximumAgeDays: 365,
+        minimumIntervalDays: 0,
+        recommendedIntervalDays: 0,
+        notes: "Single dose for infants ≤8 months born during or entering their first RSV season; 50 mg (<5 kg) or 100 mg (≥5 kg)",
+        citation: {
+          source: "ACIP",
+          documentTitle: "Nirsevimab: Use of Nirsevimab for Prevention of RSV in Infants",
+          publicationDate: "2026-02-06",
+          url: "https://www.cdc.gov/vaccines/vpd/rsv/index.html",
+          section: "Infant Recommendations",
+        },
+      },
+    ],
+    catchUpSchedule: [
+      {
+        id: "rsv-nirsevimab-second-season",
+        startingAgeMonths: 8,
+        endingAgeMonths: 24,
+        priorDosesReceived: 0,
+        remainingDosesNeeded: 1,
+        intervals: [
+          { fromDose: 0, toDose: 1, minimumIntervalDays: 0, recommendedIntervalDays: 0, notes: "200 mg for 8-19 months at high risk entering second RSV season" },
+        ],
+        citation: {
+          source: "ACIP",
+          documentTitle: "Nirsevimab Second RSV Season Guidance",
+          publicationDate: "2026-02-06",
+        },
+      },
+    ],
+    immunocompromiseRules: [
+      {
+        vaccineGroup: "RSV-Nirsevimab",
+        immunocompromiseLevel: "severe",
+        recommendation: "modified",
+        rationale: "High-risk premature infants and immunocompromised infants may need 200 mg regardless of weight",
+        requiresClinicianReview: true,
+        reviewUrgency: "routine",
+        citation: { source: "ACIP", documentTitle: "Nirsevimab High-Risk Infant Guidance", publicationDate: "2026-02-06" },
+      },
+    ],
+    contraindications: [
+      {
+        condition: "Severe hypersensitivity to nirsevimab or any excipient",
+        severity: "absolute",
+        citation: { source: "FDA", documentTitle: "Beyfortus Prescribing Information", publicationDate: "2026-02-06" },
+      },
+    ],
+    precautions: [],
+    specialPopulations: [
+      {
+        population: "Premature infants (<29 weeks gestational age)",
+        riskFlags: ["premature"],
+        recommendation: "All premature infants qualify for nirsevimab during first RSV season",
+        citation: { source: "ACIP", documentTitle: "Nirsevimab Premature Infant Guidance", publicationDate: "2026-02-06" },
+      },
+    ],
+    metadata: {
+      version: "2026.1.0",
+      effectiveDate: "2026-02-06",
+      lastReviewedDate: "2026-09-24",
+      reviewedBy: "Tabula Medica Clinical Team",
+      changeLog: [
+        {
+          version: "2026.1.0",
+          date: "2026-09-24",
+          changes: ["Added RSV nirsevimab (Beyfortus) prophylaxis rule per ACIP 2026 recommendation"],
+          reviewer: "System",
+        },
+      ],
     },
   },
 ];
