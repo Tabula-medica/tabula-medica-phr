@@ -39,7 +39,7 @@ describe('no dead placeholder links', () => {
 
 // ── 2. Critical page files exist ──────────────────────────────────────────
 describe('critical page files exist', () => {
-  const REQUIRED_PAGES = ['landing.tsx', 'auth-page.tsx'];
+  const REQUIRED_PAGES = ['landing.tsx', 'auth-login.tsx'];
 
   REQUIRED_PAGES.forEach(page => {
     it(`${page} exists`, () => {
