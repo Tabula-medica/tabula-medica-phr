@@ -1,0 +1,65 @@
+steps:
+  - id: 'run-migrations'
+    name: 'node:20-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+
+        echo "=== PHR Schema Migrations ==="
+        echo "Migrations to run:"
+        echo "  0002_document_ocr_results.sql (CREATE TABLE IF NOT EXISTS)"
+        echo "  0003_profiles_home_region.sql (ALTER TABLE ADD COLUMN IF NOT EXISTS)"
+
+        # Install psql + curl
+        apt-get update -qq
+        apt-get install -y -qq postgresql-client curl python3
+
+        # Download Cloud SQL Auth Proxy v2
+        curl -fsSLo /tmp/csqlp \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.12.0/cloud-sql-proxy.linux.amd64
+        chmod +x /tmp/csqlp
+
+        # Start proxy on port 5433 (avoids any local pg conflict) using ADC
+        /tmp/csqlp \
+          --port=5433 \
+          --private-ip=false \
+          united-planet-485003-n7:us-central1:tabula-medica-db &
+        PROXY_PID=$!
+        echo "Waiting for proxy to be ready…"
+        sleep 10
+
+        # Parse DATABASE_URL from secretEnv
+        DB_URL="$${DATABASE_URL}"
+        DBUSER=$(python3 -c "import sys,urllib.parse as p; u=p.urlparse('$${DB_URL}'); print(u.username)")
+        DBPASS=$(python3 -c "import sys,urllib.parse as p; u=p.urlparse('$${DB_URL}'); print(u.password)")
+        DBNAME=$(python3 -c "import sys,urllib.parse as p; u=p.urlparse('$${DB_URL}'); print(u.path.lstrip('/'))")
+
+        echo "DB user: $$DBUSER  DB name: $$DBNAME"
+
+        export PGPASSWORD="$$DBPASS"
+
+        echo "--- Running 0002_document_ocr_results.sql ---"
+        psql -h localhost -p 5433 -U "$$DBUSER" -d "$$DBNAME" \
+          -f /workspace/migrations/0002_document_ocr_results.sql -v ON_ERROR_STOP=1
+
+        echo "--- Running 0003_profiles_home_region.sql ---"
+        psql -h localhost -p 5433 -U "$$DBUSER" -d "$$DBNAME" \
+          -f /workspace/migrations/0003_profiles_home_region.sql -v ON_ERROR_STOP=1
+
+        echo "=== Migrations complete ==="
+        kill $$PROXY_PID || true
+    secretEnv:
+      - 'DATABASE_URL'
+
+availableSecrets:
+  secretManager:
+    - versionName: 'projects/united-planet-485003-n7/secrets/tabula-medica-patient-db-url/versions/latest'
+      env: 'DATABASE_URL'
+
+timeout: '600s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_MEDIUM'
