@@ -131,8 +131,10 @@ export function WelcomeModal() {
     try {
       const seen = localStorage.getItem(STORAGE_KEY);
       if (!seen) {
-        setOpen(true);
-        setStep(0);
+        setTimeout(() => {
+          setOpen(true);
+          setStep(0);
+        }, 1800);
       }
     } catch {
       // localStorage unavailable (private mode, etc.) — silently skip.

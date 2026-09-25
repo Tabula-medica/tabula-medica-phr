@@ -19,7 +19,7 @@ import {
   Search, Building2, MapPin, Loader2, ExternalLink,
   Activity, Brain, Languages, CheckCircle2,
   Network, Sparkles, GitMerge, QrCode, Mail,
-  KeyRound, UserCheck, ServerCrash, Stethoscope,
+  KeyRound, UserCheck, ServerCrash,
   Play, Accessibility,
 } from "lucide-react";
 import { Link as WouterLink } from "wouter";
@@ -480,18 +480,6 @@ export default function LandingPage() {
                   Find Your Hospital
                 </a>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-[52px] px-8 text-base rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-white border-white/[0.12] w-full sm:w-auto transition-all duration-200"
-                data-testid="button-hero-symptom-checker"
-              >
-                <WouterLink href="/symptom-checker" aria-label="Try the AI symptom checker">
-                  <Stethoscope className="mr-2 h-4 w-4" />
-                  Try Symptom Checker
-                </WouterLink>
-              </Button>
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -770,6 +758,27 @@ export default function LandingPage() {
           <p className="text-muted-foreground text-lg max-w-lg mx-auto">
             One secure place for your complete health story — labs, medications, conditions, and more.
           </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <Button
+              size="lg"
+              className="h-[52px] px-8 text-base rounded-xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary/90 hover:to-blue-500/90 text-white shadow-xl shadow-primary/35 font-semibold"
+              onClick={handleGetStarted}
+              disabled={isLoading}
+              data-testid="button-final-cta-get-started"
+            >
+              {isLoading ? "Connecting..." : "Get Started — Free"}
+              {isLoading ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <ArrowRight className="ml-2 h-4 w-4" />}
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-[52px] px-8 text-base rounded-xl"
+              data-testid="button-final-cta-how-it-works"
+            >
+              <a href="#how-it-works">See How It Works</a>
+            </Button>
+          </div>
         </div>
       </section>
 
