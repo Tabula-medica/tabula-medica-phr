@@ -143,7 +143,13 @@ function checkMfa(proj) {
     const mfaState = config.mfa?.state ?? config.mfaConfig?.state;
     if (mfaState === 'ENABLED' || mfaState === 'MANDATORY') return { verdict: 'pass', detail: 'GCIP MFA enabled' };
     if (mfaState === 'DISABLED') return { verdict: 'fail', detail: 'GCIP MFA DISABLED — enable multi-factor for the tenant' };
-    if (config.error) return { verdict: 'unknown', detail: `GCIP API: ${config.error.message?.slice(0, 80)}` };
+    if (config.error) {
+      // CONFIGURATION_NOT_FOUND = Identity Platform not provisioned on this project (static/infra-only projects)
+      if (config.error.message?.includes('CONFIGURATION_NOT_FOUND') || config.error.status === 'NOT_FOUND') {
+        return { verdict: 'na', detail: 'Identity Platform not provisioned — no app-level user auth on this project' };
+      }
+      return { verdict: 'unknown', detail: `GCIP API: ${config.error.message?.slice(0, 80)}` };
+    }
     return { verdict: 'unknown', detail: `GCIP MFA state indeterminate: ${mfaState}` };
   } catch { return { verdict: 'unknown', detail: 'GCIP config unavailable' }; }
 }

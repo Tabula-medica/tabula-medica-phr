@@ -37,6 +37,9 @@ export function resolveSignal(ctrl, venture, bundles) {
   }
 
   if (!ctrl.signal || ctrl.source === 'manual') {
+    // Check manual attestations bundle — allows human-attested verdicts for manual controls
+    const att = bundles.attestations?.[ctrl.id];
+    if (att?.verdict) return { verdict: att.verdict, detail: att.detail ?? 'manually attested' };
     return { verdict: 'unknown', detail: 'manual attestation required — narrative/evidence to be provided by owner' };
   }
 

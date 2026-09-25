@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "Manual attestations for controls where automated signal collection is not possible. Each entry is reviewed by the Security Officer (Rajiv Aggarwal, MD) and updated at least annually.",
+    "attestedBy": "rajiv@tabulamedica.com",
+    "attestedAt": "2026-09-25",
+    "reviewCycle": "annual"
+  },
+  "PRI-02": {
+    "verdict": "pass",
+    "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+  },
+  "PI-01": {
+    "verdict": "pass",
+    "detail": "Input validation enforced portfolio-wide: TypeScript strict mode + Zod schema validation on all API request bodies (PHR, EHR, ACO, Uninsurance, Underinsured, SAWD). React/expo frontends use controlled components with server-side re-validation. Error handling returns structured error responses. Reconciliation: Plaid transaction imports cross-checked against bank balances in SAWD. Clinical data entry uses structured forms with range and type constraints."
+  },
+  "AIG-04": {
+    "verdict": "pass",
+    "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+  }
+}

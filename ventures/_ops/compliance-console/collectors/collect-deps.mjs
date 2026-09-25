@@ -80,7 +80,8 @@ for (const venture of ventures) {
 
   const pm = detectPkgManager(repoDir);
   if (!pm) {
-    depsBundle[venture.id] = { signals: { noCriticalVulns: { verdict: 'unknown', detail: 'no package.json / pip requirements found' } } };
+    // No package manager = static site or infra-only repo → control doesn't apply
+    depsBundle[venture.id] = { signals: { noCriticalVulns: { verdict: 'na', detail: 'no dependency manifest (static/infra-only repo)' } } };
     continue;
   }
 
@@ -90,7 +91,7 @@ for (const venture of ventures) {
 
   let result;
   try {
-    const raw = execSync(cmd, { cwd: repoDir, timeout: 60000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const raw = execSync(cmd, { cwd: repoDir, timeout: 60000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 100 * 1024 * 1024 });
     result = scoreAudit(raw, pm === 'pnpm');
   } catch (e) {
     // npm/pnpm audit exits non-zero when vulns exist — output is still valid JSON on stdout

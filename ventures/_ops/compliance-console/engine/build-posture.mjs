@@ -36,7 +36,17 @@ if (reCollect) {
 
 const ventures = loadVentures();
 const controls = loadControls();
-const { bundles } = loadSignals(EVIDENCE);
+const signals = loadSignals(EVIDENCE);
+
+// Load manual attestations if present, merge into bundles
+try {
+  const { readFileSync } = await import('fs');
+  const { join } = await import('path');
+  const att = JSON.parse(readFileSync(join(EVIDENCE, 'attestations.json'), 'utf8'));
+  signals.bundles.attestations = att;
+} catch { /* attestations.json optional */ }
+
+const { bundles } = signals;
 
 const now = new Date().toISOString();
 const ventureMap = {};
