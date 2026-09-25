@@ -78,6 +78,11 @@ for (const venture of ventures) {
     continue;
   }
 
+  if (venture.archived) {
+    depsBundle[venture.id] = { signals: { noCriticalVulns: { verdict: 'na', detail: 'archived/cancelled repo — no active prod service to patch' } } };
+    continue;
+  }
+
   const pm = detectPkgManager(repoDir);
   if (!pm) {
     // No package manager = static site or infra-only repo → control doesn't apply

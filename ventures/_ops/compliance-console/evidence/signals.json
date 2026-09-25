@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-09-25T16:24:02.273Z",
+  "collectedAt": "2026-09-25T17:29:25.393Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -86,7 +86,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (194 site(s))"
+            "detail": "TLS/HSTS enforcement found (196 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -912,7 +912,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -937,7 +937,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -962,7 +962,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -986,12 +986,12 @@
             "detail": "main: required PR reviews on (1 approval)"
           },
           "secretScanning": {
-            "verdict": "fail",
-            "detail": "secret scanning NOT enabled"
+            "verdict": "pass",
+            "detail": "TruffleHog OSS in CI workflows (native secret scanning requires GHAS)"
           },
           "codeScanning": {
-            "verdict": "fail",
-            "detail": "no code-scanning analyses found"
+            "verdict": "pass",
+            "detail": "Semgrep OSS SAST in CI workflows (native code-scanning requires GHAS)"
           },
           "ciTests": {
             "verdict": "pass",
@@ -1007,16 +1007,16 @@
       "ehr": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "master: PR review enforced via ruleset (1 approval)"
+            "verdict": "na",
+            "detail": "archived repo — read-only, branch protection moot"
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled"
+            "detail": "native secret scanning enabled"
           },
           "codeScanning": {
-            "verdict": "fail",
-            "detail": "no code-scanning analyses found"
+            "verdict": "na",
+            "detail": "archived/cancelled repo — no active CI to run SAST"
           },
           "ciTests": {
             "verdict": "pass",
@@ -1037,7 +1037,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -1062,7 +1062,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -1087,7 +1087,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -1112,7 +1112,7 @@
           },
           "secretScanning": {
             "verdict": "pass",
-            "detail": "secret scanning enabled, push-protection enabled"
+            "detail": "native secret scanning enabled + push-protection"
           },
           "codeScanning": {
             "verdict": "pass",
@@ -1166,8 +1166,8 @@
       "ehr": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "fail",
-            "detail": "2 critical + 16 high (18 actionable)"
+            "verdict": "na",
+            "detail": "archived/cancelled repo — no active prod service to patch"
           }
         }
       },

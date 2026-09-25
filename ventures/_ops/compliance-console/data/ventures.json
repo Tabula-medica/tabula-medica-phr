@@ -62,6 +62,7 @@
     "dataClass": "clinical records (provider-facing EHR / Canvas plugins)",
     "stack": "Canvas Medical plugins (Python) + marketing site (Cloud Run), Vertex for PHI-AI",
     "inScope": ["soc2", "hipaa", "aigov", "hitrust"],
+    "archived": true,
     "notes": "Canvas CANCELLED 2026-09-21. tabula-medica-ehr repo is archived on GitHub."
   },
   {

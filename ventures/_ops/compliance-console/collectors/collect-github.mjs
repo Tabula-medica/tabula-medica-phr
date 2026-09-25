@@ -55,10 +55,52 @@ function checkBranchProtection(slug, defaultBranch) {
 }
 
 
+// Cache workflow file contents per repo so SEC-02 and SEC-04 share the same reads
+const _workflowCache = new Map();
+
+function getWorkflowContents(slug) {
+  if (_workflowCache.has(slug)) return _workflowCache.get(slug);
+  const files = ghApi(`repos/${slug}/contents/.github/workflows`);
+  let combined = '';
+  if (Array.isArray(files)) {
+    for (const f of files.filter(x => x.name?.endsWith('.yml') || x.name?.endsWith('.yaml')).slice(0, 12)) {
+      const fd = ghApi(`repos/${slug}/contents/.github/workflows/${encodeURIComponent(f.name)}`);
+      if (fd?.content) {
+        try { combined += Buffer.from(fd.content, 'base64').toString('utf8') + '\n'; } catch {}
+      }
+    }
+  }
+  _workflowCache.set(slug, combined);
+  return combined;
+}
+
+function checkSecretScanning(slug, repoInfo) {
+  const sa = repoInfo.security_and_analysis ?? {};
+  if (sa.secret_scanning?.status === 'enabled') {
+    const pushProt = sa.secret_scanning_push_protection?.status === 'enabled';
+    return { verdict: 'pass', detail: `native secret scanning enabled${pushProt ? ' + push-protection' : ''}` };
+  }
+  // Fallback: TruffleHog or Gitleaks in CI workflows (equivalent; native requires GHAS on private org repos)
+  const content = getWorkflowContents(slug);
+  if (content && /trufflesecurity\/trufflehog|zricethezav\/gitleaks-action|gitleaks\/gitleaks/i.test(content)) {
+    const tool = /gitleaks/i.test(content) ? 'Gitleaks' : 'TruffleHog OSS';
+    return { verdict: 'pass', detail: `${tool} in CI workflows (native secret scanning requires GHAS)` };
+  }
+  return { verdict: 'fail', detail: 'secret scanning NOT enabled (no native or TruffleHog/Gitleaks in CI)' };
+}
+
 function checkCodeScanning(slug) {
   const analyses = ghApi(`repos/${slug}/code-scanning/analyses?per_page=1`);
   if (analyses?.length > 0) return { verdict: 'pass', detail: 'code-scanning analyses present' };
-  return { verdict: 'fail', detail: 'no code-scanning analyses found' };
+
+  // Fallback: SAST tool in CI workflows (native code-scanning requires GHAS on private org repos)
+  const content = getWorkflowContents(slug);
+  if (content && /semgrep|codeql-action\/analyze|sonarqube|checkmarx|veracode/i.test(content)) {
+    const tool = /codeql/i.test(content) ? 'CodeQL' : /semgrep/i.test(content) ? 'Semgrep OSS' : 'SAST';
+    return { verdict: 'pass', detail: `${tool} SAST in CI workflows (native code-scanning requires GHAS)` };
+  }
+
+  return { verdict: 'fail', detail: 'no code-scanning analyses or SAST CI tool found' };
 }
 
 function checkCiWorkflows(slug) {
@@ -102,19 +144,15 @@ for (const venture of ventures) {
 
   const defaultBranch = repoInfo.default_branch ?? 'main';
 
-  // secretScanning from security_and_analysis (avoid extra API call)
-  const sa = repoInfo.security_and_analysis ?? {};
-  const ssEnabled = sa.secret_scanning?.status === 'enabled';
-  const ssPushProt = sa.secret_scanning_push_protection?.status === 'enabled';
-  const secretScanningSignal = ssEnabled
-    ? { verdict: 'pass', detail: `secret scanning enabled${ssPushProt ? ', push-protection enabled' : ''}` }
-    : { verdict: 'fail', detail: 'secret scanning NOT enabled' };
-
   githubBundle[venture.id] = {
     signals: {
-      branchProtection: checkBranchProtection(slug, defaultBranch),
-      secretScanning:   secretScanningSignal,
-      codeScanning:     checkCodeScanning(slug),
+      branchProtection: repoInfo.archived
+        ? { verdict: 'na', detail: 'archived repo — read-only, branch protection moot' }
+        : checkBranchProtection(slug, defaultBranch),
+      secretScanning:   checkSecretScanning(slug, repoInfo),
+      codeScanning:     repoInfo.archived
+        ? { verdict: 'na', detail: 'archived/cancelled repo — no active CI to run SAST' }
+        : checkCodeScanning(slug),
       ciTests:          checkCiWorkflows(slug),
     },
     meta: { slug, branch: defaultBranch, available: true },

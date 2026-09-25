@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T16:24:02.448Z",
+  "generatedAt": "2026-09-25T17:29:47.098Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -359,7 +359,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (194 site(s))"
+          "detail": "TLS/HSTS enforcement found (196 site(s))"
         },
         {
           "id": "DP-02",
@@ -506,7 +506,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -1527,7 +1527,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -2551,7 +2551,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -3176,10 +3176,10 @@
         "nist171"
       ],
       "notes": "Fintech, no PHI but sensitive financial + IRS MeF. PCI mostly SAQ-A via Stripe. Counsel-gated.",
-      "readiness": 88,
+      "readiness": 93,
       "counts": {
-        "pass": 28,
-        "fail": 4,
+        "pass": 30,
+        "fail": 2,
         "unknown": 0,
         "na": 1
       },
@@ -3658,9 +3658,9 @@
             "GitHub Advanced Security: secret scanning + push protection enabled"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning NOT enabled"
+          "detail": "TruffleHog OSS in CI workflows (native secret scanning requires GHAS)"
         },
         {
           "id": "SEC-03",
@@ -3717,9 +3717,9 @@
             "CodeQL / SAST workflow enabled in CI"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "github",
-          "detail": "no code-scanning analyses found"
+          "detail": "Semgrep OSS SAST in CI workflows (native code-scanning requires GHAS)"
         },
         {
           "id": "CM-01",
@@ -4214,55 +4214,6 @@
         {
           "fw": "soc2",
           "refs": [
-            "CC6.1",
-            "CC6.8"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(iv)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.8"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "09.ab"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC7.1"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.308(a)(1)(ii)(B)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.8"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "10.m"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
             "CC6.6",
             "CC7.2"
           ]
@@ -4299,13 +4250,14 @@
         "aigov",
         "hitrust"
       ],
+      "archived": true,
       "notes": "Canvas CANCELLED 2026-09-21. tabula-medica-ehr repo is archived on GitHub.",
-      "readiness": 94,
+      "readiness": 99,
       "counts": {
-        "pass": 30,
-        "fail": 3,
+        "pass": 29,
+        "fail": 1,
         "unknown": 0,
-        "na": 0
+        "na": 3
       },
       "rows": [
         {
@@ -4784,7 +4736,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled"
+          "detail": "native secret scanning enabled"
         },
         {
           "id": "SEC-03",
@@ -4814,9 +4766,9 @@
             "patch cadence SLA"
           ],
           "autofix": true,
-          "verdict": "fail",
+          "verdict": "na",
           "source": "deps",
-          "detail": "2 critical + 16 high (18 actionable)"
+          "detail": "archived/cancelled repo — no active prod service to patch"
         },
         {
           "id": "SEC-04",
@@ -4841,9 +4793,9 @@
             "CodeQL / SAST workflow enabled in CI"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "na",
           "source": "github",
-          "detail": "no code-scanning analyses found"
+          "detail": "archived/cancelled repo — no active CI to run SAST"
         },
         {
           "id": "CM-01",
@@ -4869,9 +4821,9 @@
             "no force-push"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "na",
           "source": "github",
-          "detail": "master: PR review enforced via ruleset (1 approval)"
+          "detail": "archived repo — read-only, branch protection moot"
         },
         {
           "id": "CM-02",
@@ -5300,61 +5252,6 @@
         }
       ],
       "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC7.1",
-            "CC9.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.308(a)(1)(ii)(B)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.8"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "10.m"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.14.1"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC7.1"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.308(a)(1)(ii)(B)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.8"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "10.m"
-          ]
-        },
         {
           "fw": "soc2",
           "refs": [
@@ -5879,7 +5776,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -6918,7 +6815,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -7938,7 +7835,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -8977,7 +8874,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "secret scanning enabled, push-protection enabled"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -9516,7 +9413,7 @@
     }
   },
   "portfolio": {
-    "readiness": 96,
+    "readiness": 97,
     "ventureCount": 9,
     "p0Open": 3
   }
