@@ -1,7 +1,7 @@
 FROM node:25-slim AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 COPY . .
@@ -28,7 +28,7 @@ WORKDIR /app
 # ffmpeg: transcode Safari mp4/aac → FLAC for GCP Speech-to-Text (BAA-covered). Runtime dep.
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
