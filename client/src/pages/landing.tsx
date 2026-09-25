@@ -512,7 +512,7 @@ export default function LandingPage() {
 
       <div className="border-b border-border/50 bg-gradient-to-r from-muted/30 via-muted/50 to-muted/30 dark:from-muted/10 dark:via-muted/20 dark:to-muted/10">
         <div className="max-w-5xl mx-auto px-5 sm:px-8 py-5">
-          <div className="flex items-center justify-center gap-8 sm:gap-14">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-14 sm:gap-y-0">
             {trustLogos.map((item) => (
               <div key={item.label} className="text-center group">
                 <p className="text-sm font-bold text-foreground tracking-wide group-hover:text-primary transition-colors">{item.label}</p>
