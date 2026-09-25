@@ -157,6 +157,8 @@ export default function AuthLogin() {
         setError("Too many attempts. Please wait a few minutes and try again.");
       } else if (code === "auth/captcha-check-failed" || code === "auth/argument-error") {
         setError("Couldn't verify this device. Refresh the page and try again.");
+      } else if (code === "auth/internal-error") {
+        setError("Phone sign-in is not available on this device or browser. Try "Use email & password instead," or contact support.");
       } else {
         handleSignInError(e, "Couldn't send the code. Please try again.");
       }
