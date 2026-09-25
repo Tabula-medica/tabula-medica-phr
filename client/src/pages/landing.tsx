@@ -754,7 +754,11 @@ export default function LandingPage() {
               </details>
             ))}
           </div>
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a href="/pricing" className="text-sm font-medium text-primary hover:underline" data-testid="link-view-pricing">
+              Compare plans &amp; pricing &rarr;
+            </a>
+            <span className="hidden sm:inline text-muted-foreground/40">·</span>
             <a href="/faq" className="text-primary text-sm font-medium hover:underline" data-testid="link-full-faq">
               View all frequently asked questions &rarr;
             </a>
