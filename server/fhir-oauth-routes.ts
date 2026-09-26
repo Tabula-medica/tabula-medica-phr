@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { fhirOAuthService } from "./services/fhir-oauth-service";
 import { rbacService } from "./services/rbac-service";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { isAuthenticated } from "./replit_integrations/auth";
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.get("/metadata", async (req: Request, res: Response) => {
   });
 });
 
-router.get("/statistics", async (req: Request, res: Response) => {
+router.get("/statistics", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const stats = fhirOAuthService.getStatistics();
     res.json(stats);
@@ -34,7 +35,7 @@ router.get("/statistics", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/clients", async (req: Request, res: Response) => {
+router.get("/clients", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { endpointId, authMethod, isActive } = req.query;
     const configs = await fhirOAuthService.listClientConfigs({
@@ -55,7 +56,7 @@ router.get("/clients", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/clients/:id", async (req: Request, res: Response) => {
+router.get("/clients/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const config = await fhirOAuthService.getClientConfig(req.params.id);
     if (!config) {
@@ -74,7 +75,7 @@ router.get("/clients/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/clients", async (req: Request, res: Response) => {
+router.post("/clients", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const config = await fhirOAuthService.createClientConfig(req.body);
     
@@ -96,7 +97,7 @@ router.post("/clients", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/clients/:id", async (req: Request, res: Response) => {
+router.patch("/clients/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const updated = await fhirOAuthService.updateClientConfig(req.params.id, req.body);
     if (!updated) {
@@ -121,7 +122,7 @@ router.patch("/clients/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/clients/:id", async (req: Request, res: Response) => {
+router.delete("/clients/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const deleted = await fhirOAuthService.deleteClientConfig(req.params.id);
     if (!deleted) {
@@ -143,7 +144,7 @@ router.delete("/clients/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/authorize/initiate", async (req: Request, res: Response) => {
+router.post("/authorize/initiate", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { clientConfigId, userId, scopes, redirectUri } = req.body;
     
@@ -177,7 +178,7 @@ router.post("/authorize/initiate", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/token/exchange", async (req: Request, res: Response) => {
+router.post("/token/exchange", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { state, code } = req.body;
     
@@ -215,7 +216,7 @@ router.post("/token/exchange", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/token/refresh", async (req: Request, res: Response) => {
+router.post("/token/refresh", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { refresh_token } = req.body;
     
@@ -252,7 +253,7 @@ router.post("/token/refresh", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/token/revoke", async (req: Request, res: Response) => {
+router.post("/token/revoke", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { token_id, user_id } = req.body;
     
@@ -276,7 +277,7 @@ router.post("/token/revoke", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/token/introspect", async (req: Request, res: Response) => {
+router.post("/token/introspect", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
     
@@ -292,7 +293,7 @@ router.post("/token/introspect", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/token/validate", async (req: Request, res: Response) => {
+router.post("/token/validate", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { access_token } = req.body;
     
@@ -312,7 +313,7 @@ router.post("/token/validate", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/token/client-credentials", async (req: Request, res: Response) => {
+router.post("/token/client-credentials", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { client_config_id, scopes } = req.body;
     
@@ -349,7 +350,7 @@ router.post("/token/client-credentials", async (req: Request, res: Response) => 
   }
 });
 
-router.get("/tokens/user/:userId", async (req: Request, res: Response) => {
+router.get("/tokens/user/:userId", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const tokens = await fhirOAuthService.getTokensForUser(req.params.userId);
     
@@ -370,7 +371,7 @@ router.get("/tokens/user/:userId", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/tokens/user/:userId/revoke-all", async (req: Request, res: Response) => {
+router.post("/tokens/user/:userId/revoke-all", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const ipAddress = req.ip || "unknown";
     const userAgent = req.get("user-agent") || "unknown";
@@ -396,7 +397,7 @@ router.post("/tokens/user/:userId/revoke-all", async (req: Request, res: Respons
   }
 });
 
-router.get("/audit", async (req: Request, res: Response) => {
+router.get("/audit", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const { clientConfigId, userId, action, limit } = req.query;
     

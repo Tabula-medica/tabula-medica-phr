@@ -5,14 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, Shield, Lock, ChevronLeft, AlertCircle, Loader2, ShieldCheck, Phone, MessageSquare, Mail, MailCheck, HeartPulse } from "lucide-react";
-import { SiGoogle, SiApple } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
-  signInGcipWithGoogleRedirect,
-  signInGcipWithAppleRedirect,
-  completeGcipRedirectSignIn,
   signInGcipWithEmail,
   sendGcipPasswordReset,
   sendGcipVerificationEmail,
@@ -25,7 +21,6 @@ import {
   clearRecaptcha,
   getGcipIdToken,
   isGcipConfigured,
-  isNativeApp,
   isMfaChallenge,
   getMfaResolver,
   resolveTotpChallenge,
@@ -58,7 +53,6 @@ export default function AuthLogin() {
   const [smsCode, setSmsCode] = useState("");
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const gcipReady = isGcipConfigured();
-  const nativeApp = isNativeApp();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const phoneE164 = normalizePhoneE164(phone);
 
@@ -163,6 +157,8 @@ export default function AuthLogin() {
         setError("Too many attempts. Please wait a few minutes and try again.");
       } else if (code === "auth/captcha-check-failed" || code === "auth/argument-error") {
         setError("Couldn't verify this device. Refresh the page and try again.");
+      } else if (code === "auth/internal-error") {
+        setError("Phone sign-in is not available on this device or browser. Use email & password instead, or contact support.");
       } else {
         handleSignInError(e, "Couldn't send the code. Please try again.");
       }
@@ -314,64 +310,6 @@ export default function AuthLogin() {
       setBusy(false);
     }
   };
-
-  // Redirect flow: signIn() navigates the whole page to Google/Apple. There's
-  // no inline result — completion happens on return via the effect below. So we
-  // don't call completeSession() here; on success the page has already unloaded.
-  const handleProviderSignIn = async (
-    providerLabel: "Google" | "Apple",
-    signIn: () => Promise<void>,
-  ) => {
-    setError(null);
-    setBusy(true);
-    try {
-      await signIn();
-    } catch (e: unknown) {
-      handleSignInError(e, `${providerLabel} sign-in failed. Please try again.`);
-      setBusy(false);
-    }
-  };
-
-  const handleGoogleSignIn = () => handleProviderSignIn("Google", signInGcipWithGoogleRedirect);
-  const handleAppleSignIn = () => handleProviderSignIn("Apple", signInGcipWithAppleRedirect);
-
-  // When the page loads back from a Google/Apple redirect, finish the sign-in.
-  // No-op on a normal page load (getRedirectResult returns null).
-  //
-  // IMPORTANT: skip this entirely inside the native app. In-app the third-party
-  // buttons are hidden (email/password only), so there is never a redirect to
-  // complete — and calling getRedirectResult() inside an iOS WKWebView throws
-  // auth/internal-error, whose catch used to render an error banner on a freshly
-  // loaded login page. That is the "error message on the Login/Registration
-  // page" that got the app rejected repeatedly (App Store Guideline 2.1a).
-  useEffect(() => {
-    if (!gcipReady || nativeApp) return;
-    let active = true;
-    (async () => {
-      try {
-        const user = await completeGcipRedirectSignIn();
-        if (user && active) {
-          setBusy(true);
-          await completeSession();
-        }
-      } catch (e: unknown) {
-        // A background redirect-completion check must never surface as an error
-        // on a fresh login page. Only a genuine MFA challenge (from an actual
-        // social redirect) needs UI; anything else is logged, not shown.
-        if (active && isMfaChallenge(e)) {
-          handleSignInError(e, "");
-        } else if (import.meta.env.DEV) {
-          console.warn("[auth] redirect completion skipped:", e);
-        }
-      } finally {
-        if (active) setBusy(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Tear down the invisible reCAPTCHA widget when leaving the page so a
   // remount (or route change) rebuilds it from a clean slate.

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { monetizationService } from "./services/monetization-service";
+import { applyStripeSubscriptionEvent } from "./us-subscription-routes";
 import {
   insertOrganizationSchema,
   insertSubscriptionSchema,
@@ -24,16 +25,6 @@ interface AuthRequest extends Request {
     };
   };
 }
-
-router.get("/entitlements", async (_req: Request, res: Response) => {
-  try {
-    const entitlements = monetizationService.getEntitlements(null);
-    res.json({ success: true, ...entitlements });
-  } catch (error) {
-    console.error("Error fetching entitlements:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch entitlements" });
-  }
-});
 
 router.get("/fhir-source-limit", async (_req: Request, res: Response) => {
   try {
@@ -693,9 +684,18 @@ router.post("/webhook/stripe", async (req: Request, res: Response) => {
     console.log(`[Stripe Webhook] Received event: ${event.type}`);
 
     switch (event.type) {
+      case "checkout.session.completed":
+        await applyStripeSubscriptionEvent(event);
+        monetizationService.hipaaAuditLog("stripe_checkout_completed", {
+          eventType: event.type,
+          sessionId: event.data?.object?.id,
+        });
+        break;
+
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
+        await applyStripeSubscriptionEvent(event);
         monetizationService.hipaaAuditLog("stripe_subscription_event", {
           eventType: event.type,
           subscriptionId: event.data?.object?.id,
