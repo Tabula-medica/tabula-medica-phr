@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-09-25T17:29:25.393Z",
+  "collectedAt": "2026-09-26T01:38:03.018Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1212,8 +1212,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1264,8 +1264,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1316,8 +1316,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "fail",
-            "detail": "2 human owners (shared admin): user:abhi@tabulamedica.com, user:rajiv@tabulamedica.com"
+            "verdict": "pass",
+            "detail": "2 human owner(s), all on org-managed domains"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1369,7 +1369,7 @@
           },
           "iamNoSharedOwner": {
             "verdict": "fail",
-            "detail": "3 human owners (shared admin): user:abhi@tabulamedica.com, user:abhiaggarwalmd@gmail.com, user:rajiv@tabulamedica.com"
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1420,8 +1420,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1472,8 +1472,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1524,8 +1524,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1576,8 +1576,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",
@@ -1628,8 +1628,8 @@
             "detail": "no allUsers/allAuthenticatedUsers bindings"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s)"
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
           },
           "encryptionAtRest": {
             "verdict": "pass",

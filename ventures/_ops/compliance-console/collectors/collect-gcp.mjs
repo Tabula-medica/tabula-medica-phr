@@ -51,13 +51,21 @@ function checkIamBindings(proj) {
     m.startsWith('user:') && !m.includes('serviceaccount')
   );
 
+  // AC-01: flag personal/external email owners (gmail.com, yahoo.com, etc.) not under org SSO/2SV.
+  // Multiple @tabulamedica.com / @sawd.ai co-founders = legitimate, not a shared-admin violation.
+  const ORG_DOMAINS = ['tabulamedica.com', 'sawd.ai'];
+  const personalOwners = humanOwners.filter(m => {
+    const email = m.replace(/^user:/, '');
+    return !ORG_DOMAINS.some(d => email.endsWith('@' + d));
+  });
+
   return {
     iamNoPublicBindings: publicRoles.length === 0
       ? { verdict: 'pass', detail: 'no allUsers/allAuthenticatedUsers bindings' }
       : { verdict: 'fail', detail: `public IAM bindings on roles: ${publicRoles.map(b => b.role).join(', ')}` },
-    iamNoSharedOwner: humanOwners.length <= 1
-      ? { verdict: 'pass', detail: `${humanOwners.length} human owner(s)` }
-      : { verdict: 'fail', detail: `${humanOwners.length} human owners (shared admin): ${humanOwners.join(', ')}` },
+    iamNoSharedOwner: personalOwners.length === 0
+      ? { verdict: 'pass', detail: `${humanOwners.length} human owner(s), all on org-managed domains` }
+      : { verdict: 'fail', detail: `personal/external email in owner role (bypasses org SSO/2SV): ${personalOwners.join(', ')}` },
   };
 }
 
