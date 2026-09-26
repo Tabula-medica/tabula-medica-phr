@@ -5,11 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 
 /**
- * tabulamedica.us hard paywall — $9.99 per year.
+ * tabulamedica.us hard paywall — 7-day free trial then $4.99/year.
  *
  * Rendered INSTEAD of the app by App.tsx when the .us edition paywall is
  * configured and the signed-in user has no active subscription. Calm and
- * price-forward. Language is intentionally plain: "subscription", "$9.99 per
+ * price-forward. Language is intentionally plain: "7-day free trial", "$4.99 per
  * year" — no "discount", "member rate", or "plan" framing.
  */
 export default function UsPaywall() {
@@ -62,14 +62,15 @@ export default function UsPaywall() {
           </div>
 
           <div className="my-8 flex flex-col items-center">
+            <p className="mb-2 text-sm font-medium text-primary">7-day free trial</p>
             <div className="flex items-baseline gap-1">
               <span className="text-5xl font-bold tracking-tight" data-testid="text-price">
-                $9.99
+                $4.99
               </span>
               <span className="text-lg text-muted-foreground">/ year</span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              $9.99 per year, billed annually. Cancel anytime.
+              Free for 7 days, then $4.99 per year. Cancel anytime.
             </p>
           </div>
 
@@ -92,7 +93,7 @@ export default function UsPaywall() {
                 Redirecting to secure checkout…
               </>
             ) : (
-              "Subscribe"
+              "Start free trial"
             )}
           </Button>
 
