@@ -26,16 +26,6 @@ interface AuthRequest extends Request {
   };
 }
 
-router.get("/entitlements", async (_req: Request, res: Response) => {
-  try {
-    const entitlements = monetizationService.getEntitlements(null);
-    res.json({ success: true, ...entitlements });
-  } catch (error) {
-    console.error("Error fetching entitlements:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch entitlements" });
-  }
-});
-
 router.get("/fhir-source-limit", async (_req: Request, res: Response) => {
   try {
     const check = monetizationService.checkFhirSourceLimit(null, 0);
