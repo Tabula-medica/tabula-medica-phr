@@ -150,6 +150,7 @@ router.post("/checkout", isAuthenticated, async (req: AuthRequest, res: Response
       customer: customerId,
       client_reference_id: userId,
       allow_promotion_codes: true,
+      subscription_data: { trial_period_days: 7 },
       success_url: "https://tabulamedica.us/?checkout=success",
       cancel_url: "https://tabulamedica.us/?checkout=cancel",
     });
