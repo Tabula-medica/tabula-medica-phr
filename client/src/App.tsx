@@ -245,6 +245,7 @@ function Router() {
       <Route path="/insurance-card-upload" component={InsuranceCardUpload} />
       <Route path="/uninsured-resources" component={UninsuredResources} />
       <Route path="/subscription" component={SubscriptionPaywall} />
+      <Route path="/pricing" component={SubscriptionPaywall} />
       <Route path="/faq" component={FAQPage} />
       <Route path="/try" component={InstantAnalysis} />
       <Route path="/phr-pipeline" component={PHRPipeline} />
@@ -407,6 +408,7 @@ const pageTitles: Record<string, string> = {
   "/bills-eob": "Bills & EOBs",
   "/uninsured-resources": "Savings & Resources",
   "/subscription": "Subscription",
+  "/pricing": "Pricing",
   "/ai-health-advisor": "AI Health Advisor",
   "/health-assistant": "Health Assistant",
   "/health-journal": "Health Journal",
@@ -833,6 +835,9 @@ function AppContent() {
     "/consent",
     // Public early-access sign-up — must be reachable without authentication.
     "/signup",
+    // Pricing page must be reachable before sign-up so visitors can evaluate plans.
+    "/pricing",
+    "/subscription",
   ];
   if (!user && (publicClinicalRoutes.includes(location) || publicLegalRoutes.includes(location) || publicAuthRoutes.includes(location))) {
     return (
