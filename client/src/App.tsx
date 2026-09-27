@@ -198,6 +198,7 @@ const FertilityCycleDashboard = lazy(() => import("@/pages/fertility-cycle-dashb
 const MenopauseResilience = lazy(() => import("@/pages/menopause-resilience"));
 const ClinicalAiAudit = lazy(() => import("@/pages/clinical-ai-audit"));
 const ASCVDCalculator = lazy(() => import("@/pages/ascvd-calculator"));
+const UPDRSAssessment = lazy(() => import("@/pages/updrs-assessment"));
 const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboarding"));
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
@@ -375,6 +376,7 @@ function Router() {
       <Route path="/menopause-resilience" component={MenopauseResilience} />
       <Route path="/clinical-ai-audit" component={ClinicalAiAudit} />
       <Route path="/ascvd-calculator" component={ASCVDCalculator} />
+      <Route path="/updrs-assessment" component={UPDRSAssessment} />
       <Route path="/longevity-tracking" component={LongevityTracking} />
       <Route path="/advance-directives" component={AdvanceDirectives} />
       {/* CDS Disabled */} <Route path="/medication-safety" component={CDSDisabled} />
@@ -486,6 +488,7 @@ const pageTitles: Record<string, string> = {
   "/menopause-resilience": "Menopause Resilience",
   "/clinical-ai-audit": "Clinical AI Audit",
   "/ascvd-calculator": "ASCVD Risk Calculator",
+  "/updrs-assessment": "UPDRS Assessment",
   "/longevity-tracking": "Longevity Tracking",
   "/advance-directives": "Advance Directives",
   "/comprehensive-onboarding": "Health Profile Setup",

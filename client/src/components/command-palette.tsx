@@ -147,6 +147,7 @@ export function CommandPalette() {
         { id: "nav-translation", title: "Document Translation", icon: Languages, keywords: "translate language", action: () => go("/document-translation") },
         { id: "nav-drug-savings", title: "Drug Savings", icon: DollarSign, keywords: "medication cost prescription", action: () => go("/drug-savings") },
         { id: "nav-ascvd", title: "ASCVD Risk Calculator", icon: HeartHandshake, keywords: "cardiovascular heart risk", action: () => go("/ascvd-calculator") },
+        { id: "nav-updrs", title: "UPDRS Assessment", icon: Stethoscope, keywords: "parkinsons movement disorder motor exam hoehn yahr", action: () => go("/updrs-assessment") },
         { id: "nav-longevity", title: "Longevity Tracking", icon: Timer, keywords: "aging lifespan healthspan", action: () => go("/longevity-tracking") },
         { id: "nav-directives", title: "Advance Directives", icon: ScrollText, keywords: "living will power attorney", action: () => go("/advance-directives") },
         { id: "nav-audit", title: "Clinical AI Audit", icon: ShieldCheck, keywords: "med-gemini safety confidence trust", action: () => go("/clinical-ai-audit") },

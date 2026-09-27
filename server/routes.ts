@@ -365,6 +365,7 @@ import fertilityCycleRoutes from "./fertility-cycle-routes";
 import menopauseResilienceRoutes from "./menopause-resilience-routes";
 import gcpHealthcareServicesRoutes from "./gcp-healthcare-services-routes";
 import ascvdRoutes from "./ascvd-routes";
+import updrsRoutes from "./updrs-routes";
 import clinicianImmunizationPortalRoutes from "./clinician-immunization-portal-routes";
 import aiPersonalizedCareJourneyRoutes from "./ai-personalized-care-journey-routes";
 import { registerMedicalScribeRoutes } from "./ai-medical-scribe-routes";
@@ -38074,6 +38075,8 @@ startxref
   console.log("[Routes] GCP Healthcare Services routes registered at /api/gcp-healthcare-services/*");
   app.use("/api/ascvd", ascvdRoutes);
   console.log("[Routes] ASCVD Calculator & Preventive Guidelines routes registered at /api/ascvd/*");
+  app.use("/api/updrs", updrsRoutes);
+  console.log("[Routes] UPDRS Parkinson's Assessment routes registered at /api/updrs/*");
   console.log("[Routes] State IIS Connector routes registered at /api/iis/*");
   app.use("/api/clinician-immunization-portal", clinicianImmunizationPortalRoutes);
   console.log("[Routes] Clinician Immunization Portal routes registered at /api/clinician-immunization-portal/*");
