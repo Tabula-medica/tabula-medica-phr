@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-09-27T14:23:21.494Z",
+  "collectedAt": "2026-09-27T14:59:12.369Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1477,8 +1477,8 @@
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "fail",
-            "detail": "GCIP MFA DISABLED — enable multi-factor for the tenant"
+            "verdict": "pass",
+            "detail": "GCIP MFA enabled"
           },
           "firewallNoOpenIngress": {
             "verdict": "fail",

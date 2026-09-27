@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-27T12:23:04.802Z",
+  "generatedAt": "2026-09-27T15:47:15.326Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -22,10 +22,10 @@
         "gdpr"
       ],
       "notes": "Closest to launch. WAF live. DPC cash-pay marketplace.",
-      "readiness": 94,
+      "readiness": 100,
       "counts": {
-        "pass": 31,
-        "fail": 1,
+        "pass": 32,
+        "fail": 0,
         "unknown": 0,
         "na": 1
       },
@@ -225,9 +225,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "1 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -1021,43 +1021,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "underinsured": {
       "id": "underinsured",
@@ -1079,10 +1043,10 @@
         "gdpr"
       ],
       "notes": "Sibling to uninsurance, firewalled. Sesame-style pricing.",
-      "readiness": 94,
+      "readiness": 100,
       "counts": {
-        "pass": 31,
-        "fail": 1,
+        "pass": 32,
+        "fail": 0,
         "unknown": 0,
         "na": 1
       },
@@ -1282,9 +1246,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "1 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -2078,43 +2042,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "phr": {
       "id": "phr",
@@ -2139,10 +2067,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
-      "readiness": 93,
+      "readiness": 99,
       "counts": {
-        "pass": 31,
-        "fail": 2,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -2375,9 +2303,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "GCIP MFA DISABLED — enable multi-factor for the tenant"
+          "detail": "GCIP MFA enabled"
         },
         {
           "id": "AC-03",
@@ -3142,37 +3070,6 @@
         {
           "fw": "soc2",
           "refs": [
-            "CC6.1",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(d)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.5"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.d"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.3"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
             "CC6.6",
             "CC7.2"
           ]
@@ -3213,10 +3110,10 @@
         "nist171"
       ],
       "notes": "Fintech, no PHI but sensitive financial + IRS MeF. PCI mostly SAQ-A via Stripe. Counsel-gated.",
-      "readiness": 93,
+      "readiness": 99,
       "counts": {
-        "pass": 30,
-        "fail": 2,
+        "pass": 31,
+        "fail": 1,
         "unknown": 0,
         "na": 1
       },
@@ -3416,9 +3313,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "2 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -4213,41 +4110,6 @@
         }
       ],
       "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        },
         {
           "fw": "soc2",
           "refs": [
@@ -5309,10 +5171,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. PHI-to-Anthropic blocked; must be Vertex-only.",
-      "readiness": 93,
+      "readiness": 99,
       "counts": {
-        "pass": 31,
-        "fail": 2,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -5512,9 +5374,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "1 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -6312,41 +6174,6 @@
         {
           "fw": "soc2",
           "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
             "CC6.6",
             "CC7.2"
           ]
@@ -6383,10 +6210,10 @@
         "aigov"
       ],
       "notes": "PHI HIGH. Norms still placeholder — processing-integrity/validation concern for AI Gov + SOC2 PI.",
-      "readiness": 94,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -6586,9 +6413,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "1 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -7382,43 +7209,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "omnihealth": {
       "id": "omnihealth",
@@ -7439,10 +7230,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Newest. Hybrid Base44 build — confirm real-PHI path is GCP+Vertex, not Base44.",
-      "readiness": 93,
+      "readiness": 99,
       "counts": {
-        "pass": 31,
-        "fail": 2,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -7642,9 +7433,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "1 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -8442,41 +8233,6 @@
         {
           "fw": "soc2",
           "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
             "CC6.6",
             "CC7.2"
           ]
@@ -8514,10 +8270,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. CMS MSSP A6092 (65% shared-savings). GCP tabula-medica-bfd3d. PHI gated until BAA/infra hardened.",
-      "readiness": 87,
+      "readiness": 93,
       "counts": {
-        "pass": 30,
-        "fail": 3,
+        "pass": 31,
+        "fail": 2,
         "unknown": 0,
         "na": 0
       },
@@ -8717,9 +8473,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "2 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -9518,41 +9274,6 @@
           "fw": "soc2",
           "refs": [
             "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
             "CC6.3"
           ]
         },
@@ -9619,10 +9340,10 @@
         "gdpr"
       ],
       "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls.",
-      "readiness": 92,
+      "readiness": 99,
       "counts": {
-        "pass": 28,
-        "fail": 2,
+        "pass": 29,
+        "fail": 1,
         "unknown": 0,
         "na": 3
       },
@@ -9822,9 +9543,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          "detail": "1 human owner(s), all on org-managed domains"
         },
         {
           "id": "AC-02",
@@ -10622,41 +10343,6 @@
         {
           "fw": "soc2",
           "refs": [
-            "CC6.1",
-            "CC6.2",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.15",
-            "A.5.16"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.b",
-            "01.c"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.1",
-            "3.5.2"
-          ]
-        },
-        {
-          "fw": "soc2",
-          "refs": [
             "CC6.6",
             "CC7.2"
           ]
@@ -10677,8 +10363,8 @@
     }
   },
   "portfolio": {
-    "readiness": 93,
+    "readiness": 99,
     "ventureCount": 10,
-    "p0Open": 10
+    "p0Open": 1
   }
 }
