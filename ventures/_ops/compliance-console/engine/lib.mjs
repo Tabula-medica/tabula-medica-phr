@@ -31,6 +31,12 @@ export function loadSignals(evidenceDir) {
  * Returns { verdict, detail } where verdict is 'pass'|'fail'|'unknown'|'na'.
  */
 export function resolveSignal(ctrl, venture, bundles) {
+  // Archived ventures are decommissioned — exclude from ongoing posture.
+  // (Security debt on archived GCP projects should be tracked separately / project deleted.)
+  if (venture.archived) {
+    return { verdict: 'na', detail: 'venture archived/decommissioned — delete GCP project to close residual IAM risk' };
+  }
+
   // AIG-02 (phiAiVertexOnly) only scored for PHI-high ventures
   if (ctrl.phiOnly && venture.phi !== 'high') {
     return { verdict: 'na', detail: 'not a high-PHI app' };

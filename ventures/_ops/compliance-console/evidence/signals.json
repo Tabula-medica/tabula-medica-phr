@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-09-26T01:38:03.018Z",
+  "collectedAt": "2026-09-27T12:21:04.737Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -86,7 +86,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (196 site(s))"
+            "detail": "TLS/HSTS enforcement found (195 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -186,7 +186,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (47 site(s))"
+            "detail": "TLS/HSTS enforcement found (46 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -286,7 +286,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (242 site(s))"
+            "detail": "TLS/HSTS enforcement found (243 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -802,6 +802,106 @@
           }
         }
       },
+      "aco": {
+        "signals": {
+          "policyPresent:information-security": {
+            "verdict": "pass",
+            "detail": "~\\tabula-medica-aco\\policies\\INFORMATION-SECURITY-POLICY.md"
+          },
+          "policyPresent:risk-assessment": {
+            "verdict": "pass",
+            "detail": "~\\tabula-medica-aco\\policies\\RISK-ASSESSMENT.md"
+          },
+          "policyPresent:incident-response": {
+            "verdict": "pass",
+            "detail": "~\\tabula-medica-aco\\policies\\INCIDENT-RESPONSE-AND-BREACH-NOTIFICATION.md"
+          },
+          "policyPresent:access-control": {
+            "verdict": "unknown",
+            "detail": "no access-control policy found in compliance/policies/"
+          },
+          "policyPresent:change-management": {
+            "verdict": "unknown",
+            "detail": "no change-management policy found in compliance/policies/"
+          },
+          "policyPresent:data-classification": {
+            "verdict": "unknown",
+            "detail": "no data-classification policy found in compliance/policies/"
+          },
+          "policyPresent:business-continuity": {
+            "verdict": "unknown",
+            "detail": "no business-continuity policy found in compliance/policies/"
+          },
+          "policyPresent:acceptable-use": {
+            "verdict": "unknown",
+            "detail": "no acceptable-use policy found in compliance/policies/"
+          },
+          "policyPresent:vendor-management": {
+            "verdict": "unknown",
+            "detail": "no vendor-management policy found in compliance/policies/"
+          },
+          "policyPresent:cryptography": {
+            "verdict": "unknown",
+            "detail": "no cryptography policy found in compliance/policies/"
+          },
+          "policyPresent:vulnerability": {
+            "verdict": "unknown",
+            "detail": "no vulnerability policy found in compliance/policies/"
+          },
+          "evidencePresent:vendor-baa-register": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\vendor-baa-register.md"
+          },
+          "evidencePresent:retention-schedule": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\retention-schedule.md"
+          },
+          "evidencePresent:ai-model-inventory": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\ai-model-inventory.md"
+          },
+          "evidencePresent:ai-hitl": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\ai-hitl-evidence.md"
+          },
+          "evidencePresent:control-ownership": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\control-ownership-matrix.md"
+          },
+          "evidencePresent:access-review": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\Q3-2026-access-review-record.md"
+          },
+          "evidencePresent:uptime-monitoring": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\uptime-monitoring-slo.md"
+          },
+          "evidencePresent:shared-responsibility": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\gcp-shared-responsibility-attestation.md"
+          },
+          "evidencePresent:security-awareness": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
+          },
+          "httpsEnforced": {
+            "verdict": "pass",
+            "detail": "TLS/HSTS enforcement found (33 site(s))"
+          },
+          "noHardcodedSecrets": {
+            "verdict": "pass",
+            "detail": "no hardcoded-secret patterns matched"
+          },
+          "privacyPolicyPresent": {
+            "verdict": "pass",
+            "detail": "~\\tabula-medica-aco\\artifacts\\aco-virginia\\src\\pages\\privacy.tsx"
+          },
+          "phiAiVertexOnly": {
+            "verdict": "pass",
+            "detail": "no non-Vertex AI calls in PHI handling paths"
+          }
+        }
+      },
       "ltfm": {
         "signals": {
           "policyPresent:information-security": {
@@ -1104,6 +1204,31 @@
           "available": true
         }
       },
+      "aco": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
+          },
+          "secretScanning": {
+            "verdict": "pass",
+            "detail": "native secret scanning enabled + push-protection"
+          },
+          "codeScanning": {
+            "verdict": "pass",
+            "detail": "code-scanning analyses present"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "7 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/tabula-medica-aco",
+          "branch": "main",
+          "available": true
+        }
+      },
       "ltfm": {
         "signals": {
           "branchProtection": {
@@ -1188,6 +1313,14 @@
         }
       },
       "omnihealth": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 2, low 0)"
+          }
+        }
+      },
+      "aco": {
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
@@ -1618,6 +1751,58 @@
         },
         "meta": {
           "proj": "worldehr-app",
+          "available": true
+        }
+      },
+      "aco": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "pass",
+            "detail": "no allUsers/allAuthenticatedUsers bindings"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          },
+          "encryptionAtRest": {
+            "verdict": "pass",
+            "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
+          },
+          "bucketsPrivate": {
+            "verdict": "pass",
+            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          },
+          "sqlSslRequired": {
+            "verdict": "pass",
+            "detail": "all 1 SQL instance(s) require SSL"
+          },
+          "backupsEnabled": {
+            "verdict": "pass",
+            "detail": "all 1 SQL instance(s) have automated backups"
+          },
+          "loggingEnabled": {
+            "verdict": "pass",
+            "detail": "Cloud Logging active (sinks/_Default present)"
+          },
+          "wafEnabled": {
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
+          },
+          "mfaEnforced": {
+            "verdict": "fail",
+            "detail": "GCIP MFA DISABLED — enable multi-factor for the tenant"
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "fail",
+            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "pass",
+            "detail": "no user-managed SA keys"
+          }
+        },
+        "meta": {
+          "proj": "tabula-medica-bfd3d",
           "available": true
         }
       },

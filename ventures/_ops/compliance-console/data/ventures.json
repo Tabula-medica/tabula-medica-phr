@@ -105,6 +105,19 @@
     "notes": "PHI HIGH. Newest. Hybrid Base44 build — confirm real-PHI path is GCP+Vertex, not Base44."
   },
   {
+    "id": "aco",
+    "name": "Tabula Medica ACO",
+    "repo": "tabula-medica-aco",
+    "github": "Tabula-medica/tabula-medica-aco",
+    "gcpProject": "tabula-medica-bfd3d",
+    "domains": ["aco.tabulamedica.com"],
+    "phi": "high",
+    "dataClass": "CMS beneficiary roster, claims, MSSP quality measures",
+    "stack": "React/Vite ops dashboard + Python/FastAPI backend, Cloud Run + Cloud SQL, GCP",
+    "inScope": ["soc2", "hipaa", "aigov", "hitrust"],
+    "notes": "PHI HIGH. CMS MSSP A6092 (65% shared-savings). GCP tabula-medica-bfd3d. PHI gated until BAA/infra hardened."
+  },
+  {
     "id": "ltfm",
     "name": "LTFM Health (Lansdowne Family Medicine)",
     "repo": "Desktop/ltfm-fix",
