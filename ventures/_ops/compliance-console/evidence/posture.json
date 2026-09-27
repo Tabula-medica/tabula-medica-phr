@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-27T15:47:15.326Z",
+  "generatedAt": "2026-09-27T17:22:01.302Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -8270,10 +8270,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. CMS MSSP A6092 (65% shared-savings). GCP tabula-medica-bfd3d. PHI gated until BAA/infra hardened.",
-      "readiness": 93,
+      "readiness": 99,
       "counts": {
-        "pass": 31,
-        "fail": 2,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -8506,9 +8506,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "GCIP MFA DISABLED — enable multi-factor for the tenant"
+          "detail": "GCIP MFA enabled"
         },
         {
           "id": "AC-03",
@@ -9270,37 +9270,6 @@
         }
       ],
       "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
-            "CC6.3"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(d)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.5"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "01.d"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.5.3"
-          ]
-        },
         {
           "fw": "soc2",
           "refs": [
@@ -10365,6 +10334,6 @@
   "portfolio": {
     "readiness": 99,
     "ventureCount": 10,
-    "p0Open": 1
+    "p0Open": 0
   }
 }
