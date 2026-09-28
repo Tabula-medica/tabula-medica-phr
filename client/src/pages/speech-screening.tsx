@@ -15,8 +15,6 @@ import {
   type SpeechAcousticFeatures,
 } from "@shared/speech-acoustics";
 
-const PROFILE_ID = "profile-default";
-
 type TaskType = "sustained_vowel" | "reading_passage";
 
 interface TaskDefinition {
@@ -112,16 +110,14 @@ export default function SpeechScreeningPage() {
 
   const taskInfoQuery = useQuery<TaskInfo>({
     queryKey: ["/api/speech-screening/task-info"],
-    queryFn: () => fetch("/api/speech-screening/task-info").then(r => r.json()),
   });
 
   const historyQuery = useQuery<SpeechScreeningResult[]>({
-    queryKey: ["/api/speech-screening/history", PROFILE_ID],
-    queryFn: () => fetch(`/api/speech-screening/history/${PROFILE_ID}`).then(r => r.json()),
+    queryKey: ["/api/speech-screening/history"],
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: (features: SpeechAcousticFeatures) => apiRequest("POST", `/api/speech-screening/analyze/${PROFILE_ID}`, features),
+    mutationFn: (features: SpeechAcousticFeatures) => apiRequest("POST", "/api/speech-screening/analyze", features),
     onSuccess: async (response) => {
       const data: SpeechScreeningResult = await response.json();
       setResults(prev => ({ ...prev, [data.taskType]: data }));

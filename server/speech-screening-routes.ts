@@ -1,8 +1,21 @@
 import { Router, Request, Response } from "express";
 import { speechScreeningService } from "./services/speech-screening-service";
 import type { SpeechAcousticFeatures } from "../shared/speech-acoustics";
+import { isAuthenticated } from "./replit_integrations/auth";
+import { requireProfile } from "./services/resolve-profile";
+import { noStorePhi } from "./lib/middleware/no-store-phi";
 
 const router = Router();
+
+router.use(isAuthenticated, requireProfile, noStorePhi);
+
+function ownProfileId(req: Request): string {
+  return (req as any).resolvedProfileId as string;
+}
+
+function parseTaskType(value: unknown): SpeechAcousticFeatures["taskType"] | undefined {
+  return value === "sustained_vowel" || value === "reading_passage" ? value : undefined;
+}
 
 const NUMERIC_FIELDS_BY_TASK: Record<SpeechAcousticFeatures["taskType"], string[]> = {
   sustained_vowel: ["f0MeanHz", "f0SdSemitones", "jitterPercent", "shimmerPercent", "hnrDb", "voicedRatio", "durationSec"],
@@ -34,26 +47,23 @@ router.get("/task-info", async (_req: Request, res: Response) => {
   }
 });
 
-router.post("/analyze/:profileId", async (req: Request, res: Response) => {
+router.post("/analyze", async (req: Request, res: Response) => {
   try {
-    const { profileId } = req.params;
     const validation = validateFeatures(req.body);
     if (!validation.valid) {
       return res.status(400).json({ error: validation.error });
     }
 
-    const result = speechScreeningService.analyze(profileId, validation.features);
+    const result = speechScreeningService.analyze(ownProfileId(req), validation.features);
     res.status(201).json(result);
   } catch (error) {
     res.status(400).json({ error: "Analysis failed", message: error instanceof Error ? error.message : "Unknown error" });
   }
 });
 
-router.get("/latest/:profileId", async (req: Request, res: Response) => {
+router.get("/latest", async (req: Request, res: Response) => {
   try {
-    const { profileId } = req.params;
-    const taskType = req.query.taskType as SpeechAcousticFeatures["taskType"] | undefined;
-    const latest = speechScreeningService.getLatest(profileId, taskType);
+    const latest = speechScreeningService.getLatest(ownProfileId(req), parseTaskType(req.query.taskType));
     if (!latest) return res.status(404).json({ error: "No speech screening results found. Use POST to analyze a recording." });
     res.json(latest);
   } catch (error) {
@@ -61,11 +71,9 @@ router.get("/latest/:profileId", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/history/:profileId", async (req: Request, res: Response) => {
+router.get("/history", async (req: Request, res: Response) => {
   try {
-    const { profileId } = req.params;
-    const taskType = req.query.taskType as SpeechAcousticFeatures["taskType"] | undefined;
-    res.json(speechScreeningService.getHistory(profileId, taskType));
+    res.json(speechScreeningService.getHistory(ownProfileId(req), parseTaskType(req.query.taskType)));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch speech screening history" });
   }

@@ -26,8 +26,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-const PROFILE_ID = "profile-default";
-
 interface UPDRSItemDefinition {
   id: string;
   number: string;
@@ -95,16 +93,14 @@ export default function UPDRSAssessmentPage() {
 
   const scaleQuery = useQuery<UPDRSScaleDefinition>({
     queryKey: ["/api/updrs/scale-definition"],
-    queryFn: () => fetch("/api/updrs/scale-definition").then(r => r.json()),
   });
 
   const historyQuery = useQuery<UPDRSAssessment[]>({
-    queryKey: ["/api/updrs/history", PROFILE_ID],
-    queryFn: () => fetch(`/api/updrs/history/${PROFILE_ID}`).then(r => r.json()),
+    queryKey: ["/api/updrs/history"],
   });
 
   const assessMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/updrs/assess/${PROFILE_ID}`, { scores, hoehnYahrStage, notes: notes || undefined }),
+    mutationFn: () => apiRequest("POST", "/api/updrs/assess", { scores, hoehnYahrStage, notes: notes || undefined }),
     onSuccess: async (response) => {
       const data = await response.json();
       setResult(data);
