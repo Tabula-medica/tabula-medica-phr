@@ -1,5 +1,8 @@
 import { randomUUID } from "crypto";
+import { and, desc, eq } from "drizzle-orm";
+import { speechScreeningResultsTable } from "@shared/schema";
 import type { SpeechAcousticFeatures, SustainedVowelFeatures, ReadingPassageFeatures } from "../../shared/speech-acoustics";
+import { phiDb as defaultPhiDb, encryptPhiRow, decryptPhiRows } from "../storage/phi-storage";
 
 const DISCLAIMER =
   "This speech screening tool is NOT a diagnostic test and cannot diagnose, rule out, or predict Parkinson's disease. It is an educational, self-tracking aid that looks for acoustic patterns sometimes associated with Parkinsonian speech changes (hypokinetic dysarthria) in the movement-disorder literature. Voice quality is affected by many things besides Parkinson's — microphone quality, background noise, colds, allergies, fatigue, and normal aging all change these measurements. This tool has not been clinically validated for Parkinson's screening and is not FDA cleared. Always discuss any speech or voice changes, and any result from this tool, with a physician, neurologist, or speech-language pathologist.";
@@ -151,10 +154,12 @@ const EVIDENCE: EvidenceReference[] = [
   },
 ];
 
-const historyCache = new Map<string, SpeechScreeningResult[]>();
+export class SpeechScreeningInputError extends Error {}
 
-function computeTrend(profileId: string, taskType: SpeechAcousticFeatures["taskType"], features: SpeechAcousticFeatures): SpeechScreeningResult["trend"] {
-  const previous = historyCache.get(profileId)?.filter(r => r.taskType === taskType).sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0];
+const TABLE = "speechScreeningResultsTable";
+type TaskType = SpeechAcousticFeatures["taskType"];
+
+function computeTrend(previous: SpeechScreeningResult | undefined, taskType: TaskType, features: SpeechAcousticFeatures): SpeechScreeningResult["trend"] {
   if (!previous) return undefined;
 
   const metricsToTrack: string[] =
@@ -177,19 +182,36 @@ function computeTrend(profileId: string, taskType: SpeechAcousticFeatures["taskT
   });
 }
 
-export const speechScreeningService = {
-  analyze(profileId: string, features: SpeechAcousticFeatures): SpeechScreeningResult {
+export function createSpeechScreeningService(phiDb: typeof defaultPhiDb = defaultPhiDb) {
+  async function getHistory(profileId: string, taskType?: TaskType, limit?: number): Promise<SpeechScreeningResult[]> {
+    const where = taskType
+      ? and(eq(speechScreeningResultsTable.userId, profileId), eq(speechScreeningResultsTable.taskType, taskType))
+      : eq(speechScreeningResultsTable.userId, profileId);
+    const query = phiDb
+      .select()
+      .from(speechScreeningResultsTable)
+      .where(where)
+      .orderBy(desc(speechScreeningResultsTable.assessedAt));
+    const rows = limit ? await query.limit(limit) : await query;
+    return decryptPhiRows(TABLE, rows).map(r => r.speechResult as unknown as SpeechScreeningResult);
+  }
+
+  async function getLatest(profileId: string, taskType?: TaskType): Promise<SpeechScreeningResult | undefined> {
+    return (await getHistory(profileId, taskType, 1))[0];
+  }
+
+  async function analyze(profileId: string, features: SpeechAcousticFeatures): Promise<SpeechScreeningResult> {
     if (features.durationSec < 1) {
-      throw new Error("Recording is too short to analyze (minimum 1 second).");
+      throw new SpeechScreeningInputError("Recording is too short to analyze (minimum 1 second).");
     }
     if (features.voicedRatio < 0.05) {
-      throw new Error("No voiced speech was detected in this recording. Please re-record in a quiet environment, speaking clearly into the microphone.");
+      throw new SpeechScreeningInputError("No voiced speech was detected in this recording. Please re-record in a quiet environment, speaking clearly into the microphone.");
     }
 
     const flags = features.taskType === "sustained_vowel" ? scoreVowelFeatures(features) : scorePassageFeatures(features);
     const atypicalCount = flags.filter(f => f.level === "atypical").length;
     const summary = buildSummary(features.taskType, flags);
-    const trend = computeTrend(profileId, features.taskType, features);
+    const trend = computeTrend(await getLatest(profileId, features.taskType), features.taskType, features);
 
     const result: SpeechScreeningResult = {
       id: randomUUID(),
@@ -204,42 +226,46 @@ export const speechScreeningService = {
       disclaimer: DISCLAIMER,
     };
 
-    const existing = historyCache.get(profileId) || [];
-    existing.push(result);
-    historyCache.set(profileId, existing);
+    await phiDb.insert(speechScreeningResultsTable).values(encryptPhiRow(TABLE, {
+      id: result.id,
+      userId: profileId,
+      taskType: result.taskType,
+      speechResult: result as unknown as Record<string, unknown>,
+      assessedAt: new Date(result.assessedAt),
+    }));
 
     return result;
-  },
+  }
 
-  getHistory(profileId: string, taskType?: SpeechAcousticFeatures["taskType"]): SpeechScreeningResult[] {
-    const all = (historyCache.get(profileId) || []).slice().sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime());
-    return taskType ? all.filter(r => r.taskType === taskType) : all;
-  },
+  return {
+    analyze,
+    getHistory: (profileId: string, taskType?: TaskType) => getHistory(profileId, taskType),
+    getLatest,
+    getTaskInfo,
+  };
+}
 
-  getLatest(profileId: string, taskType?: SpeechAcousticFeatures["taskType"]): SpeechScreeningResult | undefined {
-    return this.getHistory(profileId, taskType)[0];
-  },
+function getTaskInfo() {
+  return {
+    disclaimer: DISCLAIMER,
+    tasks: [
+      {
+        taskType: "sustained_vowel" as const,
+        title: "Sustained Vowel",
+        instructions: "Take a deep breath and say \"ahh\" in a comfortable, steady voice for as long as you can, up to 10 seconds. Hold the microphone about 6-8 inches from your mouth in a quiet room.",
+        minDurationSec: 3,
+        maxDurationSec: 10,
+      },
+      {
+        taskType: "reading_passage" as const,
+        title: "Reading Passage",
+        instructions: "Read the following passage aloud at your normal speaking pace and volume: \"The rainbow is a division of white light into many beautiful colors. These take the shape of a long round arch, with its path high above, and its two ends apparently beyond the horizon.\"",
+        minDurationSec: 8,
+        maxDurationSec: 30,
+      },
+    ],
+    evidence: EVIDENCE,
+  };
+}
 
-  getTaskInfo() {
-    return {
-      disclaimer: DISCLAIMER,
-      tasks: [
-        {
-          taskType: "sustained_vowel" as const,
-          title: "Sustained Vowel",
-          instructions: "Take a deep breath and say \"ahh\" in a comfortable, steady voice for as long as you can, up to 10 seconds. Hold the microphone about 6-8 inches from your mouth in a quiet room.",
-          minDurationSec: 3,
-          maxDurationSec: 10,
-        },
-        {
-          taskType: "reading_passage" as const,
-          title: "Reading Passage",
-          instructions: "Read the following passage aloud at your normal speaking pace and volume: \"The rainbow is a division of white light into many beautiful colors. These take the shape of a long round arch, with its path high above, and its two ends apparently beyond the horizon.\"",
-          minDurationSec: 8,
-          maxDurationSec: 30,
-        },
-      ],
-      evidence: EVIDENCE,
-    };
-  },
-};
+export const speechScreeningService = createSpeechScreeningService();

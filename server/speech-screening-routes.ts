@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { speechScreeningService } from "./services/speech-screening-service";
+import { speechScreeningService, SpeechScreeningInputError } from "./services/speech-screening-service";
 import type { SpeechAcousticFeatures } from "../shared/speech-acoustics";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { requireProfile } from "./services/resolve-profile";
@@ -48,33 +48,39 @@ router.get("/task-info", async (_req: Request, res: Response) => {
 });
 
 router.post("/analyze", async (req: Request, res: Response) => {
-  try {
-    const validation = validateFeatures(req.body);
-    if (!validation.valid) {
-      return res.status(400).json({ error: validation.error });
-    }
+  const validation = validateFeatures(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error });
+  }
 
-    const result = speechScreeningService.analyze(ownProfileId(req), validation.features);
+  try {
+    const result = await speechScreeningService.analyze(ownProfileId(req), validation.features);
     res.status(201).json(result);
   } catch (error) {
-    res.status(400).json({ error: "Analysis failed", message: error instanceof Error ? error.message : "Unknown error" });
+    if (error instanceof SpeechScreeningInputError) {
+      return res.status(400).json({ error: "Analysis failed", message: error.message });
+    }
+    console.error("[SpeechScreening] Failed to save result:", error instanceof Error ? error.name : "unknown");
+    res.status(500).json({ error: "Failed to save speech screening result" });
   }
 });
 
 router.get("/latest", async (req: Request, res: Response) => {
   try {
-    const latest = speechScreeningService.getLatest(ownProfileId(req), parseTaskType(req.query.taskType));
+    const latest = await speechScreeningService.getLatest(ownProfileId(req), parseTaskType(req.query.taskType));
     if (!latest) return res.status(404).json({ error: "No speech screening results found. Use POST to analyze a recording." });
     res.json(latest);
   } catch (error) {
+    console.error("[SpeechScreening] Failed to load latest result:", error instanceof Error ? error.name : "unknown");
     res.status(500).json({ error: "Failed to fetch latest speech screening result" });
   }
 });
 
 router.get("/history", async (req: Request, res: Response) => {
   try {
-    res.json(speechScreeningService.getHistory(ownProfileId(req), parseTaskType(req.query.taskType)));
+    res.json(await speechScreeningService.getHistory(ownProfileId(req), parseTaskType(req.query.taskType)));
   } catch (error) {
+    console.error("[SpeechScreening] Failed to load history:", error instanceof Error ? error.name : "unknown");
     res.status(500).json({ error: "Failed to fetch speech screening history" });
   }
 });

@@ -23332,6 +23332,36 @@ export const documentOcrResultsTable = pgTable(
   })
 );
 
+// Parkinson's tools (Vista PD). The full result lives in an encrypted jsonb
+// column (see PHI_COLUMN_MAP); only ownership, task type, and timestamp stay
+// plaintext for lookup and ordering.
+export const updrsAssessmentsTable = pgTable(
+  "updrs_assessments",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    updrsResult: jsonb("updrs_result").$type<Record<string, unknown>>().notNull(),
+    assessedAt: timestamp("assessed_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    userAssessedIdx: index("updrs_user_assessed_idx").on(t.userId, t.assessedAt),
+  })
+);
+
+export const speechScreeningResultsTable = pgTable(
+  "speech_screening_results",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    taskType: text("task_type").notNull(),
+    speechResult: jsonb("speech_result").$type<Record<string, unknown>>().notNull(),
+    assessedAt: timestamp("assessed_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    userTaskAssessedIdx: index("speech_user_task_assessed_idx").on(t.userId, t.taskType, t.assessedAt),
+  })
+);
+
 // ═══════════════════════════════════════════════════════════════════════
 // Outpatient order entry — labs, imaging, referrals, medications, DME
 // ═══════════════════════════════════════════════════════════════════════

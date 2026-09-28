@@ -1,4 +1,7 @@
 import { randomUUID } from "crypto";
+import { desc, eq } from "drizzle-orm";
+import { updrsAssessmentsTable } from "@shared/schema";
+import { phiDb as defaultPhiDb, encryptPhiRow, decryptPhiRows } from "../storage/phi-storage";
 
 const DISCLAIMER =
   "This Unified Parkinson's Disease Rating Scale (UPDRS) tool is for educational tracking purposes only. It does not constitute medical advice or a diagnosis, and scoring requires clinical training to administer reliably. Always review results and any change in symptoms with a movement disorder specialist or treating clinician.";
@@ -350,31 +353,42 @@ function sumPart(items: UPDRSItemDefinition[], scores: UPDRSScores): number {
   return items.reduce((sum, i) => sum + (scores[i.id] ?? 0), 0);
 }
 
-const historyCache = new Map<string, UPDRSAssessment[]>();
+export class UpdrsInputError extends Error {}
 
-export const updrsAssessmentService = {
-  getScaleDefinition(): UPDRSScaleDefinition {
-    return {
-      partI: PART_I,
-      partII: PART_II,
-      partIII: PART_III,
-      partIV: PART_IV,
-      hoehnYahrStages: HOEHN_YAHR_STAGES,
-      disclaimer: DISCLAIMER,
-    };
-  },
+const TABLE = "updrsAssessmentsTable";
+const MAX_NOTES_LENGTH = 2000;
 
-  calculateAssessment(profileId: string, scores: UPDRSScores, hoehnYahrStage: number, notes?: string): UPDRSAssessment {
+export function createUpdrsAssessmentService(phiDb: typeof defaultPhiDb = defaultPhiDb) {
+  async function getHistory(profileId: string, limit?: number): Promise<UPDRSAssessment[]> {
+    const query = phiDb
+      .select()
+      .from(updrsAssessmentsTable)
+      .where(eq(updrsAssessmentsTable.userId, profileId))
+      .orderBy(desc(updrsAssessmentsTable.assessedAt));
+    const rows = limit ? await query.limit(limit) : await query;
+    return decryptPhiRows(TABLE, rows).map(r => r.updrsResult as unknown as UPDRSAssessment);
+  }
+
+  async function getLatest(profileId: string): Promise<UPDRSAssessment | undefined> {
+    return (await getHistory(profileId, 1))[0];
+  }
+
+  async function calculateAssessment(profileId: string, rawScores: UPDRSScores, hoehnYahrStage: number, notes?: string): Promise<UPDRSAssessment> {
     if (!VALID_HY_STAGES.has(hoehnYahrStage)) {
-      throw new Error(`Invalid Hoehn and Yahr stage: ${hoehnYahrStage}`);
+      throw new UpdrsInputError(`Invalid Hoehn and Yahr stage: ${hoehnYahrStage}`);
+    }
+    if (notes !== undefined && (typeof notes !== "string" || notes.length > MAX_NOTES_LENGTH)) {
+      throw new UpdrsInputError(`Notes must be text of at most ${MAX_NOTES_LENGTH} characters`);
     }
 
+    const scores: UPDRSScores = {};
     for (const def of ALL_ITEMS) {
-      const value = scores[def.id];
+      const value = rawScores[def.id];
       if (value === undefined) continue;
       if (!Number.isInteger(value) || value < 0 || value > def.maxScore) {
-        throw new Error(`Score for item ${def.number} (${def.label}) must be an integer between 0 and ${def.maxScore}`);
+        throw new UpdrsInputError(`Score for item ${def.number} (${def.label}) must be an integer between 0 and ${def.maxScore}`);
       }
+      scores[def.id] = value;
     }
 
     const partITotal = sumPart(PART_I, scores);
@@ -384,7 +398,7 @@ export const updrsAssessmentService = {
     const motorTotal = partIITotal + partIIITotal;
     const grandTotal = partITotal + partIITotal + partIIITotal + partIVTotal;
 
-    const previous = this.getLatest(profileId);
+    const previous = await getLatest(profileId);
     const previousGrandTotal = previous?.grandTotal;
     let trend: UPDRSAssessment["trend"] = "baseline";
     let changeFromPrevious: number | undefined;
@@ -414,18 +428,31 @@ export const updrsAssessmentService = {
       disclaimer: DISCLAIMER,
     };
 
-    const existing = historyCache.get(profileId) || [];
-    existing.push(assessment);
-    historyCache.set(profileId, existing);
+    await phiDb.insert(updrsAssessmentsTable).values(encryptPhiRow(TABLE, {
+      id: assessment.id,
+      userId: profileId,
+      updrsResult: assessment as unknown as Record<string, unknown>,
+      assessedAt: new Date(assessment.assessedAt),
+    }));
 
     return assessment;
-  },
+  }
 
-  getHistory(profileId: string): UPDRSAssessment[] {
-    return (historyCache.get(profileId) || []).slice().sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime());
-  },
+  return {
+    getScaleDefinition(): UPDRSScaleDefinition {
+      return {
+        partI: PART_I,
+        partII: PART_II,
+        partIII: PART_III,
+        partIV: PART_IV,
+        hoehnYahrStages: HOEHN_YAHR_STAGES,
+        disclaimer: DISCLAIMER,
+      };
+    },
+    calculateAssessment,
+    getHistory: (profileId: string) => getHistory(profileId),
+    getLatest,
+  };
+}
 
-  getLatest(profileId: string): UPDRSAssessment | undefined {
-    return this.getHistory(profileId)[0];
-  },
-};
+export const updrsAssessmentService = createUpdrsAssessmentService();
