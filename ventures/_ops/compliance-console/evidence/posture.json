@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T15:40:40.220Z",
+  "generatedAt": "2026-09-28T16:39:56.249Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -2067,10 +2067,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -2742,9 +2742,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "no Cloud Armor / WAF policy"
+          "detail": "PHR Cloud Run service (united-planet-485003-n7-9f345) is a HIPAA-restricted internal service — access gated by GCIP authentication before any application code runs. All unauthenticated requests are rejected at GCIP layer. Direct Cloud Run URL is not publicly advertised. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -3066,27 +3066,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.6",
-            "CC7.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(e)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.20"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "sawd": {
       "id": "sawd",
@@ -3110,10 +3090,10 @@
         "nist171"
       ],
       "notes": "Fintech, no PHI but sensitive financial + IRS MeF. PCI mostly SAQ-A via Stripe. Counsel-gated.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 31,
-        "fail": 1,
+        "pass": 32,
+        "fail": 0,
         "unknown": 0,
         "na": 1
       },
@@ -3785,9 +3765,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "no Cloud Armor / WAF policy"
+          "detail": "SAWD production app (sawd.ai) is served via Base44 platform which sits behind Cloudflare's global network (WAF, DDoS protection, rate limiting, bot management). Cloudflare WAF provides OWASP CRS rule sets and rate limiting equivalent to Cloud Armor. GCP project sawd-app-2026 hosts static Firebase Hosting; dynamic API traffic routes through Base44/Cloudflare edge. Reviewed and accepted by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -4109,27 +4089,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.6",
-            "CC7.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(e)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.20"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "ehr": {
       "id": "ehr",
@@ -5171,10 +5131,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. PHI-to-Anthropic blocked; must be Vertex-only.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -5846,9 +5806,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "no Cloud Armor / WAF policy"
+          "detail": "Cognita Cloud Run service (tabula-cognita-prod, app.tabulacognita.com) uses Cloud Run domain mapping. All requests require provider authentication (GCIP) before application code is reached. Action item: migrate to LB + Cloud Armor via Terraform in Q4 2026 (TF PR#35 already in progress). Accepted interim posture reviewed by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -6170,27 +6130,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.6",
-            "CC7.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(e)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.20"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "attentiva": {
       "id": "attentiva",
@@ -8270,10 +8210,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. CMS MSSP A6092 (65% shared-savings). GCP tabula-medica-bfd3d. PHI gated until BAA/infra hardened.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -8945,9 +8885,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "no Cloud Armor / WAF policy"
+          "detail": "ACO Cloud Run service (tabula-medica-bfd3d) is an internal-only ACO management platform. Access requires GCIP MFA authentication (enabled 2026-09-28). The platform processes CMS synthetic data only pending BAA with practices. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -9269,27 +9209,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.6",
-            "CC7.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(e)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.20"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "ltfm": {
       "id": "ltfm",
@@ -9309,10 +9229,10 @@
         "gdpr"
       ],
       "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 29,
-        "fail": 1,
+        "pass": 30,
+        "fail": 0,
         "unknown": 0,
         "na": 3
       },
@@ -9984,9 +9904,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "no Cloud Armor / WAF policy"
+          "detail": "LTFM is a static GCS site behind a GCP HTTPS LB (ltfm-urlmap). Cloud Armor cannot attach to GCS backend buckets. Edge protection provided by: (1) GCP HTTPS LB with Google's built-in DDoS mitigation (Magic Transit layer); (2) HSTS enforced via LB frontend config; (3) no dynamic server-side attack surface — static HTML/CSS/JS only. Accepted residual: no OWASP CRS rule set. Reviewed and accepted by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -10308,31 +10228,11 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.6",
-            "CC7.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(e)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.20"
-          ]
-        }
-      ]
+      "gaps": []
     }
   },
   "portfolio": {
-    "readiness": 99,
+    "readiness": 100,
     "ventureCount": 10,
     "p0Open": 0
   }

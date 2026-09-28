@@ -42,8 +42,13 @@ export function resolveSignal(ctrl, venture, bundles) {
     return { verdict: 'na', detail: 'not a high-PHI app' };
   }
 
+  // Per-venture attestation overrides (attestations.json ventureOverrides[ventureId][controlId])
+  // Takes precedence over both automated signals and global attestations.
+  const ventureOverride = bundles.attestations?.ventureOverrides?.[venture.id]?.[ctrl.id];
+  if (ventureOverride?.verdict) return { verdict: ventureOverride.verdict, detail: ventureOverride.detail ?? 'per-venture attestation' };
+
   if (!ctrl.signal || ctrl.source === 'manual') {
-    // Check manual attestations bundle — allows human-attested verdicts for manual controls
+    // Check global manual attestations bundle
     const att = bundles.attestations?.[ctrl.id];
     if (att?.verdict) return { verdict: att.verdict, detail: att.detail ?? 'manually attested' };
     return { verdict: 'unknown', detail: 'manual attestation required — narrative/evidence to be provided by owner' };

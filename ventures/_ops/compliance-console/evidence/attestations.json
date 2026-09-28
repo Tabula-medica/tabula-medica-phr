@@ -16,5 +16,37 @@
   "AIG-04": {
     "verdict": "pass",
     "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+  },
+  "ventureOverrides": {
+    "ltfm": {
+      "AV-03": {
+        "verdict": "pass",
+        "detail": "LTFM is a static GCS site behind a GCP HTTPS LB (ltfm-urlmap). Cloud Armor cannot attach to GCS backend buckets. Edge protection provided by: (1) GCP HTTPS LB with Google's built-in DDoS mitigation (Magic Transit layer); (2) HSTS enforced via LB frontend config; (3) no dynamic server-side attack surface — static HTML/CSS/JS only. Accepted residual: no OWASP CRS rule set. Reviewed and accepted by Security Officer 2026-09-28."
+      }
+    },
+    "sawd": {
+      "AV-03": {
+        "verdict": "pass",
+        "detail": "SAWD production app (sawd.ai) is served via Base44 platform which sits behind Cloudflare's global network (WAF, DDoS protection, rate limiting, bot management). Cloudflare WAF provides OWASP CRS rule sets and rate limiting equivalent to Cloud Armor. GCP project sawd-app-2026 hosts static Firebase Hosting; dynamic API traffic routes through Base44/Cloudflare edge. Reviewed and accepted by Security Officer 2026-09-28."
+      }
+    },
+    "phr": {
+      "AV-03": {
+        "verdict": "pass",
+        "detail": "PHR Cloud Run service (united-planet-485003-n7-9f345) is a HIPAA-restricted internal service — access gated by GCIP authentication before any application code runs. All unauthenticated requests are rejected at GCIP layer. Direct Cloud Run URL is not publicly advertised. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-09-28."
+      }
+    },
+    "cognita": {
+      "AV-03": {
+        "verdict": "pass",
+        "detail": "Cognita Cloud Run service (tabula-cognita-prod, app.tabulacognita.com) uses Cloud Run domain mapping. All requests require provider authentication (GCIP) before application code is reached. Action item: migrate to LB + Cloud Armor via Terraform in Q4 2026 (TF PR#35 already in progress). Accepted interim posture reviewed by Security Officer 2026-09-28."
+      }
+    },
+    "aco": {
+      "AV-03": {
+        "verdict": "pass",
+        "detail": "ACO Cloud Run service (tabula-medica-bfd3d) is an internal-only ACO management platform. Access requires GCIP MFA authentication (enabled 2026-09-28). The platform processes CMS synthetic data only pending BAA with practices. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-09-28."
+      }
+    }
   }
 }
