@@ -159,6 +159,21 @@ export default function UPDRSAssessmentPage() {
             </div>
           ) : (
             <>
+              <Alert className="border-muted" data-testid="rater-consistency-note">
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  UPDRS scores vary between raters, especially for bradykinesia and tremor items. For meaningful trends, have the same trained rater score each visit at a consistent time relative to medication doses.{" "}
+                  <a
+                    href="https://doi.org/10.1016/j.prdoa.2024.100278"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    Kenny et al., 2024
+                  </a>
+                </AlertDescription>
+              </Alert>
+
               <Card data-testid="card-hoehn-yahr">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Hoehn and Yahr Stage</CardTitle>

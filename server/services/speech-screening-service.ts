@@ -110,27 +110,70 @@ function buildSummary(taskType: SpeechAcousticFeatures["taskType"], flags: Scree
   return "Reading-passage measures are reported for trend tracking. Review the trend section (once more than one assessment exists) and discuss any consistent directional change with your care team.";
 }
 
+export interface EvidenceReference {
+  group: "speech_biomarkers" | "rater_variability";
+  citation: string;
+  finding: string;
+  doi: string;
+}
+
+// Sourced from PubMed; DOIs verified against PubMed metadata.
+const EVIDENCE: EvidenceReference[] = [
+  {
+    group: "speech_biomarkers",
+    citation: "Rusz J, Krack P, Tripoliti E. Neurosci Biobehav Rev. 2024;167:105922.",
+    finding: "Review of digital speech biomarkers in Parkinson's disease: voice quality, pitch, loudness, and articulation measures can track progression from prodromal stages, with change detectable within one year in early PD. Calls for further longitudinal studies across diverse populations.",
+    doi: "10.1016/j.neubiorev.2024.105922",
+  },
+  {
+    group: "speech_biomarkers",
+    citation: "Yao D, Koivu A, Simonyan K. World J Otorhinolaryngol Head Neck Surg. 2025;11(4):491-517.",
+    finding: "Review of AI in neurological voice disorders: promising accuracy, but limited high-quality datasets and a need for broad clinical validation and better generalizability.",
+    doi: "10.1002/wjo2.70017",
+  },
+  {
+    group: "rater_variability",
+    citation: "Kenny L, et al. Clin Park Relat Disord. 2024;11:100278.",
+    finding: "Clinicians rating the same recorded MDS-UPDRS hand movements showed poor agreement on several items before training (ICC as low as 0.14), improving somewhat after calibration.",
+    doi: "10.1016/j.prdoa.2024.100278",
+  },
+  {
+    group: "rater_variability",
+    citation: "Xu J, et al. J Parkinsons Dis. 2025;15(2):349-360.",
+    finding: "A computer-vision model scoring MDS-UPDRS Part III videos had lower error against clinician consensus (MAE 0.32) than variability between human raters (0.65).",
+    doi: "10.1177/1877718X241312605",
+  },
+  {
+    group: "rater_variability",
+    citation: "Islam MS, et al. NPJ Digit Med. 2023;6(1):156.",
+    finding: "An AI model scoring home-recorded finger tapping outperformed two certified MDS-UPDRS raters (MAE 0.58 vs 0.83) but was slightly behind expert neurologists (0.53).",
+    doi: "10.1038/s41746-023-00905-9",
+  },
+];
+
 const historyCache = new Map<string, SpeechScreeningResult[]>();
 
 function computeTrend(profileId: string, taskType: SpeechAcousticFeatures["taskType"], features: SpeechAcousticFeatures): SpeechScreeningResult["trend"] {
   const previous = historyCache.get(profileId)?.filter(r => r.taskType === taskType).sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0];
   if (!previous) return undefined;
 
-  const metricsToTrack: (keyof SustainedVowelFeatures | keyof ReadingPassageFeatures)[] =
+  const metricsToTrack: string[] =
     taskType === "sustained_vowel"
       ? ["jitterPercent", "shimmerPercent", "hnrDb"]
       : ["f0SdSemitones", "intensitySdDb", "pauseRatio", "speakingRateEstimate"];
 
-  const prevFeatures = previous.features as Record<string, number>;
-  const currFeatures = features as unknown as Record<string, number>;
+  const numericValue = (f: SpeechAcousticFeatures, metric: string): number => {
+    const value = (f as unknown as Record<string, unknown>)[metric];
+    return typeof value === "number" ? value : 0;
+  };
 
   return metricsToTrack.map(metric => {
-    const prevValue = prevFeatures[metric as string];
-    const currValue = currFeatures[metric as string];
+    const prevValue = numericValue(previous.features, metric);
+    const currValue = numericValue(features, metric);
     const changePercent = prevValue !== 0 ? ((currValue - prevValue) / Math.abs(prevValue)) * 100 : 0;
     let direction: "increased" | "decreased" | "stable" = "stable";
     if (Math.abs(changePercent) >= 5) direction = changePercent > 0 ? "increased" : "decreased";
-    return { metric: metric as string, direction, changePercent };
+    return { metric, direction, changePercent };
   });
 }
 
@@ -196,6 +239,7 @@ export const speechScreeningService = {
           maxDurationSec: 30,
         },
       ],
+      evidence: EVIDENCE,
     };
   },
 };

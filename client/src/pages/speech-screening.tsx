@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, CheckCircle2, Clock, Info, Loader2, Mic, MicOff, ShieldCheck, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, Clock, ExternalLink, Info, Loader2, Mic, MicOff, ShieldCheck, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import {
   analyzeSustainedVowel,
   analyzeReadingPassage,
@@ -27,10 +27,31 @@ interface TaskDefinition {
   maxDurationSec: number;
 }
 
+interface EvidenceReference {
+  group: "speech_biomarkers" | "rater_variability";
+  citation: string;
+  finding: string;
+  doi: string;
+}
+
 interface TaskInfo {
   disclaimer: string;
   tasks: TaskDefinition[];
+  evidence: EvidenceReference[];
 }
+
+const EVIDENCE_GROUPS: { key: EvidenceReference["group"]; title: string; description: string }[] = [
+  {
+    key: "speech_biomarkers",
+    title: "Speech as a Parkinson's biomarker",
+    description: "Research supports voice and speech measures for tracking Parkinson's, while noting validation gaps.",
+  },
+  {
+    key: "rater_variability",
+    title: "Why objective measures help",
+    description: "Clinician ratings of motor symptoms vary between raters; quantitative tools can reduce, but not replace, that subjectivity.",
+  },
+];
 
 type ScreeningFlagLevel = "typical" | "atypical";
 
@@ -227,7 +248,61 @@ export default function SpeechScreeningPage() {
       </Tabs>
 
       <HistoryPanel history={historyQuery.data || []} />
+
+      {taskInfoQuery.data?.evidence && taskInfoQuery.data.evidence.length > 0 && (
+        <EvidencePanel evidence={taskInfoQuery.data.evidence} />
+      )}
     </div>
+  );
+}
+
+function EvidencePanel({ evidence }: { evidence: EvidenceReference[] }) {
+  return (
+    <Card data-testid="card-evidence">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <BookOpen className="h-4 w-4" /> Why This Tool: The Evidence
+        </CardTitle>
+        <CardDescription>
+          Published research behind this approach, and its limits. Sources retrieved from PubMed.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {EVIDENCE_GROUPS.map(group => {
+          const refs = evidence.filter(r => r.group === group.key);
+          if (refs.length === 0) return null;
+          return (
+            <div key={group.key} className="space-y-2" data-testid={`evidence-group-${group.key}`}>
+              <div>
+                <p className="text-sm font-semibold">{group.title}</p>
+                <p className="text-xs text-muted-foreground">{group.description}</p>
+              </div>
+              <ul className="space-y-3">
+                {refs.map(ref => (
+                  <li key={ref.doi} className="text-sm space-y-0.5" data-testid={`evidence-${ref.doi}`}>
+                    <p>{ref.finding}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ref.citation}{" "}
+                      <a
+                        href={`https://doi.org/${ref.doi}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground"
+                      >
+                        doi:{ref.doi} <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+        <p className="text-xs text-muted-foreground italic">
+          These studies support the general approach. They do not validate this specific tool, which has not been clinically validated for Parkinson&apos;s screening.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
