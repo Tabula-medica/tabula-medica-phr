@@ -73,31 +73,54 @@ interface SpeechScreeningResult {
   disclaimer: string;
 }
 
-async function recordAudio(stream: MediaStream, durationMs: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const chunks: Blob[] = [];
-    const recorder = new MediaRecorder(stream);
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType }));
-    recorder.onerror = e => reject(e);
-    recorder.start();
-    setTimeout(() => {
-      if (recorder.state !== "inactive") recorder.stop();
-    }, durationMs);
-  });
+// Browser voice processing (noise suppression, AGC, echo cancellation) and
+// MediaRecorder's lossy Opus encoding both distort jitter/shimmer/HNR, so we
+// disable the former and read raw PCM straight from the audio graph.
+const RAW_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  channelCount: 1,
+};
+
+const CLIP_LEVEL = 0.99;
+const MAX_CLIPPED_FRACTION = 0.005;
+
+async function capturePcm(stream: MediaStream, durationMs: number): Promise<{ samples: Float32Array; sampleRate: number }> {
+  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+  const audioContext: AudioContext = new AudioContextCtor();
+  const source = audioContext.createMediaStreamSource(stream);
+  const processor = audioContext.createScriptProcessor(4096, 1, 1);
+  const mute = audioContext.createGain();
+  mute.gain.value = 0;
+  const chunks: Float32Array[] = [];
+  processor.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  source.connect(processor);
+  processor.connect(mute);
+  mute.connect(audioContext.destination);
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, durationMs));
+  } finally {
+    processor.disconnect();
+    source.disconnect();
+    await audioContext.close();
+  }
+
+  const samples = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    samples.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return { samples, sampleRate: audioContext.sampleRate };
 }
 
-async function decodeToMonoPcm(blob: Blob): Promise<{ samples: Float32Array; sampleRate: number }> {
-  const arrayBuffer = await blob.arrayBuffer();
-  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-  const audioContext = new AudioContextCtor();
-  try {
-    const decoded = await audioContext.decodeAudioData(arrayBuffer);
-    const channelData = decoded.getChannelData(0);
-    return { samples: new Float32Array(channelData), sampleRate: decoded.sampleRate };
-  } finally {
-    audioContext.close();
-  }
+function clippedFraction(samples: Float32Array): number {
+  if (samples.length === 0) return 0;
+  let clipped = 0;
+  for (let i = 0; i < samples.length; i++) if (Math.abs(samples[i]) >= CLIP_LEVEL) clipped++;
+  return clipped / samples.length;
 }
 
 export default function SpeechScreeningPage() {
@@ -139,14 +162,22 @@ export default function SpeechScreeningPage() {
     setMicError(null);
     setRecordingState("recording");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: RAW_AUDIO_CONSTRAINTS });
       streamRef.current = stream;
-      const blob = await recordAudio(stream, task.maxDurationSec * 1000);
-      stream.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
+      let captured: { samples: Float32Array; sampleRate: number };
+      try {
+        captured = await capturePcm(stream, task.maxDurationSec * 1000);
+      } finally {
+        stream.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
 
       setRecordingState("processing");
-      const { samples, sampleRate } = await decodeToMonoPcm(blob);
+      const { samples, sampleRate } = captured;
+      if (clippedFraction(samples) > MAX_CLIPPED_FRACTION) {
+        setMicError("The recording was too loud and distorted. Hold the device a little farther from your mouth and try again.");
+        return;
+      }
       const features: SpeechAcousticFeatures =
         task.taskType === "sustained_vowel" ? analyzeSustainedVowel(samples, sampleRate) : analyzeReadingPassage(samples, sampleRate);
 

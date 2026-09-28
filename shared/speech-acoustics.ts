@@ -41,6 +41,7 @@ export type SpeechAcousticFeatures = SustainedVowelFeatures | ReadingPassageFeat
 const MIN_F0_HZ = 75;
 const MAX_F0_HZ = 500;
 const VOICING_THRESHOLD = 0.3;
+const OCTAVE_PEAK_RATIO = 0.9;
 const SILENCE_RMS_THRESHOLD = 0.02;
 const MIN_PAUSE_SEC = 0.15;
 
@@ -83,8 +84,8 @@ export function estimateFrameF0(frame: Float32Array, sampleRate: number): { f0Hz
   const maxLag = Math.min(Math.floor(sampleRate / MIN_F0_HZ), frame.length - 1);
   if (maxLag <= minLag) return null;
 
-  let bestLag = -1;
-  let bestNormCorr = 0;
+  const corr = new Float64Array(maxLag + 2);
+  let globalMax = 0;
   for (let lag = minLag; lag <= maxLag; lag++) {
     let corrSum = 0;
     let energy0 = 0;
@@ -95,16 +96,26 @@ export function estimateFrameF0(frame: Float32Array, sampleRate: number): { f0Hz
       energyLag += frame[i + lag] * frame[i + lag];
     }
     const denom = Math.sqrt(energy0 * energyLag);
-    const normCorr = denom > 0 ? corrSum / denom : 0;
-    if (normCorr > bestNormCorr) {
-      bestNormCorr = normCorr;
-      bestLag = lag;
-    }
+    corr[lag] = denom > 0 ? corrSum / denom : 0;
+    if (corr[lag] > globalMax) globalMax = corr[lag];
   }
 
-  if (bestLag <= 0 || bestNormCorr < VOICING_THRESHOLD) return null;
+  if (globalMax < VOICING_THRESHOLD) return null;
 
-  return { f0Hz: sampleRate / bestLag, voicingStrength: Math.min(bestNormCorr, 0.999999) };
+  // Multiples of the true period correlate almost as strongly as the period
+  // itself, so take the first strong local peak, not the global max, to avoid
+  // octave-down errors.
+  let bestLag = -1;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    const isPeak = corr[lag] >= corr[lag - 1] && corr[lag] >= corr[lag + 1];
+    if (isPeak && corr[lag] >= OCTAVE_PEAK_RATIO * globalMax) {
+      bestLag = lag;
+      break;
+    }
+  }
+  if (bestLag <= 0) return null;
+
+  return { f0Hz: sampleRate / bestLag, voicingStrength: Math.min(corr[bestLag], 0.999999) };
 }
 
 export function frameSignal(samples: Float32Array, frameSize: number, hopSize: number): { frame: Float32Array; start: number }[] {
