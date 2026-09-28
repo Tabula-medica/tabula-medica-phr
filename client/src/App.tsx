@@ -1,4 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
+import { BRAND, IS_VISTA } from "@/lib/brand";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -200,6 +201,7 @@ const ClinicalAiAudit = lazy(() => import("@/pages/clinical-ai-audit"));
 const ASCVDCalculator = lazy(() => import("@/pages/ascvd-calculator"));
 const UPDRSAssessment = lazy(() => import("@/pages/updrs-assessment"));
 const SpeechScreening = lazy(() => import("@/pages/speech-screening"));
+const VistaApp = lazy(() => import("@/components/vista/vista-app").then(m => ({ default: m.VistaApp })));
 const ComprehensiveOnboarding = lazy(() => import("@/pages/comprehensive-onboarding"));
 const LongevityTracking = lazy(() => import("@/pages/longevity-tracking"));
 const AdvanceDirectives = lazy(() => import("@/pages/advance-directives"));
@@ -767,8 +769,8 @@ function AppContent() {
   const [splashTimedOut, setSplashTimedOut] = useState(false);
 
   useEffect(() => {
-    const pageTitle = pageTitles[location];
-    const next = pageTitle ? `${pageTitle} · Tabula Medica` : "Tabula Medica";
+    const pageTitle = IS_VISTA && location === "/" ? undefined : pageTitles[location];
+    const next = pageTitle ? `${pageTitle} · ${BRAND.name}` : BRAND.name;
     if (typeof document !== "undefined" && document.title !== next) {
       document.title = next;
     }
@@ -845,6 +847,20 @@ function AppContent() {
     "/pricing",
     "/subscription",
   ];
+
+  if (IS_VISTA) {
+    const vistaAuthRoutes = publicAuthRoutes.filter(r => !["/signup", "/pricing", "/subscription"].includes(r));
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+        <VistaApp
+          isSignedIn={!!user}
+          isPublicRoute={publicLegalRoutes.includes(location) || vistaAuthRoutes.includes(location)}
+          router={<Router />}
+        />
+      </Suspense>
+    );
+  }
+
   if (!user && (publicClinicalRoutes.includes(location) || publicLegalRoutes.includes(location) || publicAuthRoutes.includes(location))) {
     return (
       <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
@@ -896,7 +912,7 @@ function App() {
             <RegionProvider>
               <AppContent />
               <ServerFeatureGateListener />
-              <WelcomeModal />
+              {!IS_VISTA && <WelcomeModal />}
               <Toaster />
             </RegionProvider>
           </LanguageProvider>
