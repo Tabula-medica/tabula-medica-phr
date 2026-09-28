@@ -181,6 +181,13 @@ const mainNavItems = [
     badge: "new",
   },
   {
+    title: "Speech Screening",
+    titleKey: "sidebar.speechScreening",
+    url: "/speech-screening",
+    icon: Mic,
+    badge: "new",
+  },
+  {
     title: "Longevity Tracking",
     titleKey: "sidebar.longevityTracking",
     url: "/longevity-tracking",
