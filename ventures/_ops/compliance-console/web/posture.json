@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T16:39:56.249Z",
+  "generatedAt": "2026-09-28T16:43:44.639Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -7170,10 +7170,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Newest. Hybrid Base44 build — confirm real-PHI path is GCP+Vertex, not Base44.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -7845,9 +7845,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "no Cloud Armor / WAF policy"
+          "detail": "1 Cloud Armor policy(ies)"
         },
         {
           "id": "VEN-01",
@@ -8169,27 +8169,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.6",
-            "CC7.2"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(e)(2)(i)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.20"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "aco": {
       "id": "aco",

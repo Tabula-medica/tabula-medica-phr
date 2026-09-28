@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-09-27T17:22:01.184Z",
+  "collectedAt": "2026-09-28T16:43:40.361Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1733,8 +1733,8 @@
             "detail": "Cloud Logging active (sinks/_Default present)"
           },
           "wafEnabled": {
-            "verdict": "fail",
-            "detail": "no Cloud Armor / WAF policy"
+            "verdict": "pass",
+            "detail": "1 Cloud Armor policy(ies)"
           },
           "mfaEnforced": {
             "verdict": "pass",
