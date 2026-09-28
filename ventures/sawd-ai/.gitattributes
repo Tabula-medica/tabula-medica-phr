@@ -1,0 +1,3 @@
+# Shell scripts must stay LF even on Windows checkouts — CRLF breaks bash
+# (`set -o pipefail` → "invalid option name"). Keeps soc2/*.sh runnable.
+*.sh text eol=lf

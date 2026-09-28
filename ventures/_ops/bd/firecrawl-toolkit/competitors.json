@@ -1,0 +1,17 @@
+{
+  "_note": "Seed list for competitive.mjs. Verify/adjust URLs — vendor pricing pages move and some are quote-only. segment ∈ {ehr, phr}. Add/remove freely.",
+  "competitors": [
+    { "name": "Canvas Medical", "segment": "ehr", "url": "https://www.canvasmedical.com/pricing" },
+    { "name": "DrChrono", "segment": "ehr", "url": "https://www.drchrono.com/pricing/" },
+    { "name": "Elation Health", "segment": "ehr", "url": "https://www.elationhealth.com/pricing/" },
+    { "name": "Tebra (Kareo)", "segment": "ehr", "url": "https://www.tebra.com/pricing" },
+    { "name": "athenahealth", "segment": "ehr", "url": "https://www.athenahealth.com/solutions/ehr-software" },
+    { "name": "Practice Fusion", "segment": "ehr", "url": "https://www.practicefusion.com/pricing/" },
+    { "name": "NextGen Healthcare", "segment": "ehr", "url": "https://www.nextgen.com/solutions/small-practices" },
+    { "name": "b.well Connected Health", "segment": "phr", "url": "https://www.icanbwell.com/" },
+    { "name": "Zus Health", "segment": "phr", "url": "https://zushealth.com/" },
+    { "name": "Particle Health", "segment": "phr", "url": "https://www.particlehealth.com/" },
+    { "name": "Fasten Health", "segment": "phr", "url": "https://www.fastenhealth.com/" },
+    { "name": "CommonHealth", "segment": "phr", "url": "https://www.commonhealth.org/" }
+  ]
+}

@@ -1,0 +1,111 @@
+# =============================================================================
+# Safety .gitignore for the home directory.
+#
+# IMPORTANT: this folder (C:\Users\Aggarwal) is itself a git repo with a GitHub
+# remote, and it USED to track the Desktop/tabula-medica project. Without these
+# rules a `git add -A` would stage the service-account keys, EIN/tax PDFs, and
+# access-key CSVs that live loose on the Desktop and push them to GitHub. These
+# patterns block that.
+#
+# 2026-07-14: Desktop/tabula-medica is its OWN git repo (the canonical one). It
+# was git-rm --cached out of this home repo and is now fully ignored below, so a
+# stray `git push att` can never leak portal/PHI source into the Attentiva repo.
+# =============================================================================
+
+# ---- Credentials / keys — NEVER commit ----
+*.pem
+*.p12
+*.p8
+*.mobileprovision
+*.key
+*service-account*.json
+*serviceaccount*.json
+*-adminsdk-*.json
+google-service-account.json
+.cf-token.txt
+*cf-token*.txt
+
+# ---- Loose secret files dumped in the home ROOT (2026-07-18) ----
+# These caught real plaintext dumps (anthropic key / apple issuer id / cf token)
+# that the hyphenated patterns above missed. Broad, root-anchored catch-alls.
+*token*.txt
+*issuer*.txt
+*sk-ant*
+*secret*.txt
+*.tmp
+cf_targets.tmp
+
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# ---- Canonical nested repo — never track from the home repo ----
+# Desktop/tabula-medica is its own repo; ignoring it here decouples it entirely
+# so it can't be re-staged or pushed to the `att` (Attentiva) remote by mistake.
+/Desktop/tabula-medica/
+
+# ---- Loose secret/personal files on the Desktop root ----
+# (these hit files directly in Desktop\, e.g. leaked GCP/Firebase key dumps + docs)
+/Desktop/*.json
+/Desktop/*.csv
+/Desktop/*.pdf
+/Desktop/*.exe
+# Project export zips staged on the Desktop (e.g. tabula-*.zip) can embed real
+# signing secrets (.p8/.p12/.mobileprovision) — never let git add . stage them.
+/Desktop/*.zip
+
+# ---- BD toolkit outputs — real provider/lead contact data, NEVER commit ----
+ventures/_ops/bd/**/out/
+ventures/_ops/bd/**/*.leads.csv
+ventures/_ops/bd/**/*.leads.json
+ventures/_ops/bd/**/.env
+
+# ---- Other home-dir secret stores ----
+/.ssh/
+/.secrets-quarantine/
+/KEYS/
+/.gnupg/
+/.aws/
+/.azure/
+/.docker/
+
+# ---- Credential-bearing tool/config dirs (gcloud ADC + tokens, browser data) ----
+/.config/
+/.cache/
+/.local/
+/AppData/
+/.expo/
+/.canvas/
+/.cookiecutter_replay/
+
+# ---- Tool credentials/state ----
+/.claude/.credentials.json
+/.claude.json
+/.claude.json.backup
+/.config/
+
+# ---- Bulk / non-source ----
+node_modules/
+**/node_modules/
+*.log
+.documo-key
+.secrets/
+documo.key
+
+# local email app-passwords — never commit
+.email-senders.json
+Desktop/uninsurance-email-outreach/.email-senders.json
+Desktop/uninsurance-email-outreach/email-send/send-state.json
+
+# apollo api key — never commit
+.apollo-key
+
+# ringcentral fax sender creds
+.fax-senders.json
+
+# ringcentral api creds
+.ringcentral.json
+
+# Nested venture repos are self-contained git repos — never track them here
+repos/
