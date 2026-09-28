@@ -8,16 +8,16 @@
  * abnormal-range logic and writes to the same monitoring_alerts table.
  * Do not duplicate this table elsewhere; add a new source instead.
  */
-import { db } from "../db";
 import { monitoringAlertsTable, vitalSignsTable, type VitalSignType } from "@shared/schema";
+import { phiDb, encryptPhiRow, decryptPhiRow } from "../storage/phi-storage";
 
 // Optionally accepts a transaction handle (from `db.transaction(async (tx) => ...)`)
 // so callers that need atomicity with other writes — e.g. a webhook handler
 // wrapped in `withDeliveryClaim` — can pass `tx` and have the vital +
 // threshold-alert writes commit or roll back together with everything else.
-// Defaults to the module-level `db` for existing non-transactional callers
+// Defaults to the module-level `phiDb` for existing non-transactional callers
 // (manual vital entry).
-type DbClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbClient = typeof phiDb | Parameters<Parameters<typeof phiDb.transaction>[0]>[0];
 
 export const VITAL_THRESHOLDS: Record<
   string,
@@ -43,7 +43,7 @@ export async function checkVitalThresholds(
   vitalType: string,
   value: number,
   vitalSignId: string,
-  tx: DbClient = db,
+  tx: DbClient = phiDb,
 ): Promise<{ severity: "low" | "medium" | "high" | "critical" } | null> {
   const thresholds = VITAL_THRESHOLDS[vitalType];
   if (!thresholds) return null;
@@ -66,7 +66,7 @@ export async function checkVitalThresholds(
   }
 
   if (severity) {
-    await tx.insert(monitoringAlertsTable).values({
+    await tx.insert(monitoringAlertsTable).values(encryptPhiRow("monitoringAlertsTable", {
       profileId,
       vitalSignId,
       alertType: "vital_threshold",
@@ -76,7 +76,7 @@ export async function checkVitalThresholds(
       threshold: thresholds.high?.toString() || thresholds.low?.toString() || "",
       actualValue: value.toString(),
       status: "pending",
-    });
+    }));
   }
 
   return severity ? { severity } : null;
@@ -98,10 +98,10 @@ export interface IngestVitalReadingInput {
  * app whose data overlaps a clinical vital type) into vital_signs and run
  * it through threshold checking, exactly like a manually-entered vital.
  */
-export async function ingestVitalReading(input: IngestVitalReadingInput, tx: DbClient = db) {
-  const [vital] = await tx
+export async function ingestVitalReading(input: IngestVitalReadingInput, tx: DbClient = phiDb) {
+  const [rawVital] = await tx
     .insert(vitalSignsTable)
-    .values({
+    .values(encryptPhiRow("vitalSignsTable", {
       profileId: input.profileId,
       vitalType: input.vitalType,
       value: input.value.toString(),
@@ -110,8 +110,9 @@ export async function ingestVitalReading(input: IngestVitalReadingInput, tx: DbC
       source: input.source,
       deviceId: input.deviceId,
       notes: input.notes,
-    })
+    }))
     .returning();
+  const vital = decryptPhiRow("vitalSignsTable", rawVital);
 
   await checkVitalThresholds(input.profileId, input.vitalType, input.value, vital.id, tx);
 

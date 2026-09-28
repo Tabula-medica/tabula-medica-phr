@@ -1,7 +1,14 @@
-import { db } from "../db";
 import { patientIdentityTable, matchCandidatesTable, mergeHistoryTable } from "@shared/schema";
 import { eq, and, ne, sql, count } from "drizzle-orm";
 import { deduplicationEngineService } from "./deduplication-engine-service";
+import { phiDb, encryptPhiRow, decryptPhiRows } from "../storage/phi-storage";
+
+// F1 NOTE — see the file-top NOTE in deduplication-engine-service.ts for the
+// full explanation. Short version: patientIdentityTable's dateOfBirth is
+// encrypted with a random IV per F1, so the `eq(dateOfBirth, ...)` filter
+// below cannot match another row with the same plaintext DOB — a
+// pre-existing, tracked limitation (Action Item H+1), not introduced or
+// fixed by this wrapper migration. The query shape is preserved as-is.
 
 interface BatchDedupResult {
   totalRecords: number;
@@ -46,14 +53,14 @@ class DatabaseDedupService {
   }
 
   async getStats(): Promise<DedupStats> {
-    const [totalResult] = await db.select({ count: count() }).from(patientIdentityTable);
-    const [uniqueResult] = await db.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "unique"));
-    const [autoMergedResult] = await db.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "auto_merged"));
-    const [pendingResult] = await db.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "pending_review"));
-    const [manualResult] = await db.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "manually_merged"));
-    const [splitResult] = await db.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "split"));
-    const [pendingMatchResult] = await db.select({ count: count() }).from(matchCandidatesTable).where(eq(matchCandidatesTable.status, "pending"));
-    const [mergeHistoryResult] = await db.select({ count: count() }).from(mergeHistoryTable);
+    const [totalResult] = await phiDb.select({ count: count() }).from(patientIdentityTable);
+    const [uniqueResult] = await phiDb.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "unique"));
+    const [autoMergedResult] = await phiDb.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "auto_merged"));
+    const [pendingResult] = await phiDb.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "pending_review"));
+    const [manualResult] = await phiDb.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "manually_merged"));
+    const [splitResult] = await phiDb.select({ count: count() }).from(patientIdentityTable).where(eq(patientIdentityTable.matchStatus, "split"));
+    const [pendingMatchResult] = await phiDb.select({ count: count() }).from(matchCandidatesTable).where(eq(matchCandidatesTable.status, "pending"));
+    const [mergeHistoryResult] = await phiDb.select({ count: count() }).from(mergeHistoryTable);
 
     return {
       totalPatients: totalResult.count,
@@ -88,10 +95,10 @@ class DatabaseDedupService {
     try {
       console.log("[DatabaseDedup] Starting batch deduplication scan...");
 
-      const allRecords = await db
+      const allRecords = decryptPhiRows("patientIdentityTable", await phiDb
         .select()
         .from(patientIdentityTable)
-        .where(eq(patientIdentityTable.matchStatus, "unique"));
+        .where(eq(patientIdentityTable.matchStatus, "unique")));
 
       result.totalRecords = allRecords.length;
       console.log(`[DatabaseDedup] Scanning ${allRecords.length} unique records for duplicates`);
@@ -99,7 +106,7 @@ class DatabaseDedupService {
       for (let i = 0; i < allRecords.length; i++) {
         const record = allRecords[i];
         try {
-          const otherRecords = await db
+          const otherRecords = decryptPhiRows("patientIdentityTable", await phiDb
             .select()
             .from(patientIdentityTable)
             .where(
@@ -108,10 +115,10 @@ class DatabaseDedupService {
                 eq(patientIdentityTable.matchStatus, "unique"),
                 eq(patientIdentityTable.dateOfBirth, record.dateOfBirth)
               )
-            );
+            ));
 
           for (const candidate of otherRecords) {
-            const existingMatch = await db
+            const existingMatch = await phiDb
               .select()
               .from(matchCandidatesTable)
               .where(
@@ -124,7 +131,7 @@ class DatabaseDedupService {
 
             if (existingMatch.length > 0) continue;
 
-            const reverseMatch = await db
+            const reverseMatch = await phiDb
               .select()
               .from(matchCandidatesTable)
               .where(
@@ -143,7 +150,7 @@ class DatabaseDedupService {
               result.duplicatesFound++;
               const action = score >= 95 ? "auto_merge" : "flag_for_review";
 
-              await db.insert(matchCandidatesTable).values({
+              await phiDb.insert(matchCandidatesTable).values(encryptPhiRow("matchCandidatesTable", {
                 sourcePatientId: record.id,
                 candidatePatientId: candidate.id,
                 similarityScore: score,
@@ -158,7 +165,7 @@ class DatabaseDedupService {
                   phoneMatch: record.phoneNumber === candidate.phoneNumber,
                 },
                 status: action === "auto_merge" ? "auto_merged" : "pending",
-              });
+              }));
 
               if (action === "auto_merge") {
                 result.autoMerged++;
@@ -195,7 +202,11 @@ class DatabaseDedupService {
   }
 
   private async performAutoMerge(survivingId: string, retiredId: string, score: number): Promise<void> {
-    const [retired] = await db
+    // Read the raw (still-encrypted) retired row so premergeData snapshots
+    // CIPHERTEXT, not plaintext — same defense-in-depth reasoning as
+    // deduplication-engine-service.ts's recordMerge(): encryptPhiRow below
+    // wraps the whole snapshot as a second {__enc} envelope.
+    const [retired] = await phiDb
       .select()
       .from(patientIdentityTable)
       .where(eq(patientIdentityTable.id, retiredId))
@@ -203,7 +214,7 @@ class DatabaseDedupService {
 
     if (!retired) return;
 
-    await db.insert(mergeHistoryTable).values({
+    await phiDb.insert(mergeHistoryTable).values(encryptPhiRow("mergeHistoryTable", {
       survivingPatientId: survivingId,
       retiredPatientId: retiredId,
       mergeType: "auto",
@@ -211,15 +222,15 @@ class DatabaseDedupService {
       matchScore: score,
       premergeData: retired as any,
       canUnmerge: true,
-    });
+    }));
 
-    await db
+    await phiDb
       .update(patientIdentityTable)
-      .set({
+      .set(encryptPhiRow("patientIdentityTable", {
         matchStatus: "auto_merged",
         masterPatientId: survivingId,
         updatedAt: new Date(),
-      })
+      }))
       .where(eq(patientIdentityTable.id, retiredId));
 
     console.log(`[HIPAA-AUDIT][DatabaseDedup] Auto-merged: ${retiredId} -> ${survivingId} (${score}%)`);

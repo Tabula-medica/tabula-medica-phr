@@ -1,7 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import crypto from "crypto";
-import { db } from "./db";
 import {
   patientOutcomeReportsTable,
   patientSymptomLogsTable,
@@ -13,6 +12,7 @@ import {
   comprehensiveCarePlansTable,
 } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, count } from "drizzle-orm";
+import { phiDb, encryptPhiRow, decryptPhiRow, decryptPhiRows } from "./storage/phi-storage";
 
 const router = Router();
 
@@ -140,7 +140,7 @@ router.post("/reports", enforceSessionUserId, async (req: Request, res: Response
       reportType: data.reportType
     });
     
-    const [report] = await db.insert(patientOutcomeReportsTable).values({
+    const [rawReport] = await phiDb.insert(patientOutcomeReportsTable).values(encryptPhiRow("patientOutcomeReportsTable", {
       profileId: data.profileId,
       reportType: data.reportType,
       relatedCarePlanId: data.relatedCarePlanId,
@@ -162,9 +162,10 @@ router.post("/reports", enforceSessionUserId, async (req: Request, res: Response
       wouldRecommend: data.wouldRecommend,
       reportPeriodStart: data.reportPeriodStart ? new Date(data.reportPeriodStart) : null,
       reportPeriodEnd: data.reportPeriodEnd ? new Date(data.reportPeriodEnd) : null,
-    }).returning();
-    
-    res.status(201).json({ 
+    })).returning();
+    const report = decryptPhiRow("patientOutcomeReportsTable", rawReport);
+
+    res.status(201).json({
       success: true, 
       report,
       message: "Outcome report submitted successfully" 
@@ -196,14 +197,14 @@ router.get("/reports", enforceSessionUserId, async (req: Request, res: Response)
       profileId: hashIdentifier(targetProfileId)
     });
     
-    let query = db.select().from(patientOutcomeReportsTable)
+    const query = phiDb.select().from(patientOutcomeReportsTable)
       .where(eq(patientOutcomeReportsTable.profileId, targetProfileId))
       .orderBy(desc(patientOutcomeReportsTable.createdAt))
       .limit(parseInt(limit as string) || 20);
-    
-    const reports = await query;
-    
-    res.json({ 
+
+    const reports = decryptPhiRows("patientOutcomeReportsTable", await query);
+
+    res.json({
       success: true, 
       reports,
       count: reports.length
@@ -224,28 +225,29 @@ router.get("/reports/:reportId", enforceSessionUserId, async (req: Request, res:
       reportId: hashIdentifier(reportId)
     });
     
-    const [report] = await db.select().from(patientOutcomeReportsTable)
+    const [rawReport] = await phiDb.select().from(patientOutcomeReportsTable)
       .where(eq(patientOutcomeReportsTable.id, reportId));
-    
-    if (!report) {
+
+    if (!rawReport) {
       return res.status(404).json({ success: false, error: "Report not found" });
     }
-    
+    const report = decryptPhiRow("patientOutcomeReportsTable", rawReport);
+
     // Verify the user owns this report
     const access = await verifyProfileAccess(userId, report.profileId);
     if (!access.allowed) {
-      return res.status(403).json({ 
-        success: false, 
-        error: "You can only view your own reports" 
+      return res.status(403).json({
+        success: false,
+        error: "You can only view your own reports"
       });
     }
-    
-    const symptoms = await db.select().from(patientSymptomLogsTable)
+
+    const symptoms = decryptPhiRows("patientSymptomLogsTable", await phiDb.select().from(patientSymptomLogsTable)
       .where(eq(patientSymptomLogsTable.outcomeReportId, reportId))
-      .orderBy(desc(patientSymptomLogsTable.loggedAt));
-    
-    const feedback = await db.select().from(patientExperienceFeedbackTable)
-      .where(eq(patientExperienceFeedbackTable.outcomeReportId, reportId));
+      .orderBy(desc(patientSymptomLogsTable.loggedAt)));
+
+    const feedback = decryptPhiRows("patientExperienceFeedbackTable", await phiDb.select().from(patientExperienceFeedbackTable)
+      .where(eq(patientExperienceFeedbackTable.outcomeReportId, reportId)));
     
     res.json({ 
       success: true, 
@@ -293,7 +295,7 @@ router.post("/symptoms", enforceSessionUserId, async (req: Request, res: Respons
       symptom: data.symptomName
     });
     
-    const [symptom] = await db.insert(patientSymptomLogsTable).values({
+    const [rawSymptom] = await phiDb.insert(patientSymptomLogsTable).values(encryptPhiRow("patientSymptomLogsTable", {
       profileId: data.profileId,
       outcomeReportId: data.outcomeReportId,
       symptomName: data.symptomName,
@@ -304,10 +306,11 @@ router.post("/symptoms", enforceSessionUserId, async (req: Request, res: Respons
       reliefMeasures: data.reliefMeasures,
       impactOnDaily: data.impactOnDaily,
       notes: data.notes,
-    }).returning();
-    
-    res.status(201).json({ 
-      success: true, 
+    })).returning();
+    const symptom = decryptPhiRow("patientSymptomLogsTable", rawSymptom);
+
+    res.status(201).json({
+      success: true,
       symptom,
       message: "Symptom logged successfully" 
     });
@@ -338,11 +341,11 @@ router.get("/symptoms", enforceSessionUserId, async (req: Request, res: Response
       profileId: hashIdentifier(targetProfileId)
     });
     
-    const symptoms = await db.select().from(patientSymptomLogsTable)
+    const symptoms = decryptPhiRows("patientSymptomLogsTable", await phiDb.select().from(patientSymptomLogsTable)
       .where(eq(patientSymptomLogsTable.profileId, targetProfileId))
       .orderBy(desc(patientSymptomLogsTable.loggedAt))
-      .limit(parseInt(limit as string) || 50);
-    
+      .limit(parseInt(limit as string) || 50));
+
     res.json({ success: true, symptoms });
   } catch (error) {
     console.error("[PatientOutcomes] Error fetching symptoms:", error);
@@ -385,17 +388,18 @@ router.post("/feedback", enforceSessionUserId, async (req: Request, res: Respons
       isAnonymous: data.isAnonymous
     });
     
-    const [feedback] = await db.insert(patientExperienceFeedbackTable).values({
+    const [rawFeedback] = await phiDb.insert(patientExperienceFeedbackTable).values(encryptPhiRow("patientExperienceFeedbackTable", {
       profileId: data.profileId,
       outcomeReportId: data.outcomeReportId,
       feedbackCategory: data.feedbackCategory,
       rating: data.rating,
       feedbackText: data.feedbackText,
       isAnonymous: data.isAnonymous ?? false,
-    }).returning();
-    
-    res.status(201).json({ 
-      success: true, 
+    })).returning();
+    const feedback = decryptPhiRow("patientExperienceFeedbackTable", rawFeedback);
+
+    res.status(201).json({
+      success: true,
       feedback,
       message: "Feedback submitted successfully" 
     });
@@ -429,18 +433,18 @@ router.get("/summary", enforceSessionUserId, async (req: Request, res: Response)
       days: daysNum
     });
     
-    const reports = await db.select().from(patientOutcomeReportsTable)
+    const reports = decryptPhiRows("patientOutcomeReportsTable", await phiDb.select().from(patientOutcomeReportsTable)
       .where(and(
         eq(patientOutcomeReportsTable.profileId, targetProfileId),
         gte(patientOutcomeReportsTable.createdAt, startDate)
       ))
-      .orderBy(desc(patientOutcomeReportsTable.createdAt));
-    
-    const symptoms = await db.select().from(patientSymptomLogsTable)
+      .orderBy(desc(patientOutcomeReportsTable.createdAt)));
+
+    const symptoms = decryptPhiRows("patientSymptomLogsTable", await phiDb.select().from(patientSymptomLogsTable)
       .where(and(
         eq(patientSymptomLogsTable.profileId, targetProfileId),
         gte(patientSymptomLogsTable.loggedAt, startDate)
-      ));
+      )));
     
     const avgQoL = reports.filter(r => r.qualityOfLifeRating).length > 0
       ? reports.reduce((sum, r) => sum + (r.qualityOfLifeRating || 0), 0) / reports.filter(r => r.qualityOfLifeRating).length
@@ -541,7 +545,7 @@ router.get("/provider/patients/reports", requireProviderAuth, async (req: Reques
       filter: reviewed
     });
     
-    let query = db.select({
+    const query = phiDb.select({
       report: patientOutcomeReportsTable,
       profile: {
         id: profiles.id,
@@ -552,12 +556,12 @@ router.get("/provider/patients/reports", requireProviderAuth, async (req: Reques
       .leftJoin(profiles, eq(patientOutcomeReportsTable.profileId, profiles.id))
       .orderBy(desc(patientOutcomeReportsTable.createdAt))
       .limit(parseInt(limit as string) || 50);
-    
+
     const results = await query;
-    
+
     let reports = results.map(r => ({
-      ...r.report,
-      patientName: r.profile?.fullName || "Unknown",
+      ...decryptPhiRow("patientOutcomeReportsTable", r.report),
+      patientName: decryptPhiRow("profiles", r.profile)?.fullName || "Unknown",
     }));
     
     if (reviewed === "true") {
@@ -589,11 +593,11 @@ router.get("/provider/patient/:patientId/reports", requireProviderAuth, async (r
       patientId: hashIdentifier(patientId)
     });
     
-    const reports = await db.select().from(patientOutcomeReportsTable)
+    const reports = decryptPhiRows("patientOutcomeReportsTable", await phiDb.select().from(patientOutcomeReportsTable)
       .where(eq(patientOutcomeReportsTable.profileId, patientId))
       .orderBy(desc(patientOutcomeReportsTable.createdAt))
-      .limit(parseInt(limit as string) || 20);
-    
+      .limit(parseInt(limit as string) || 20));
+
     const summary = await getPatientSummary(patientId, 90);
     
     res.json({ 
@@ -610,11 +614,11 @@ router.get("/provider/patient/:patientId/reports", requireProviderAuth, async (r
 async function getPatientSummary(patientId: string, days: number) {
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   
-  const reports = await db.select().from(patientOutcomeReportsTable)
+  const reports = decryptPhiRows("patientOutcomeReportsTable", await phiDb.select().from(patientOutcomeReportsTable)
     .where(and(
       eq(patientOutcomeReportsTable.profileId, patientId),
       gte(patientOutcomeReportsTable.createdAt, startDate)
-    ));
+    )));
   
   const avgQoL = reports.filter(r => r.qualityOfLifeRating).length > 0
     ? reports.reduce((sum, r) => sum + (r.qualityOfLifeRating || 0), 0) / reports.filter(r => r.qualityOfLifeRating).length
@@ -667,23 +671,24 @@ router.patch("/provider/reports/:reportId/review", requireProviderAuth, async (r
       reportId: hashIdentifier(reportId)
     });
     
-    const [updated] = await db.update(patientOutcomeReportsTable)
-      .set({
+    const [updatedRaw] = await phiDb.update(patientOutcomeReportsTable)
+      .set(encryptPhiRow("patientOutcomeReportsTable", {
         providerReviewed: true,
         providerReviewedAt: new Date(),
         providerReviewedBy: providerId,
         providerNotes: validation.data.providerNotes,
         updatedAt: new Date(),
-      })
+      }))
       .where(eq(patientOutcomeReportsTable.id, reportId))
       .returning();
-    
-    if (!updated) {
+
+    if (!updatedRaw) {
       return res.status(404).json({ success: false, error: "Report not found" });
     }
-    
-    res.json({ 
-      success: true, 
+    const updated = decryptPhiRow("patientOutcomeReportsTable", updatedRaw);
+
+    res.json({
+      success: true,
       report: updated,
       message: "Report marked as reviewed" 
     });
@@ -706,11 +711,11 @@ router.get("/provider/analytics", requireProviderAuth, async (req: Request, res:
       days: daysNum
     });
     
-    const reports = await db.select().from(patientOutcomeReportsTable)
-      .where(gte(patientOutcomeReportsTable.createdAt, startDate));
-    
-    const symptoms = await db.select().from(patientSymptomLogsTable)
-      .where(gte(patientSymptomLogsTable.loggedAt, startDate));
+    const reports = decryptPhiRows("patientOutcomeReportsTable", await phiDb.select().from(patientOutcomeReportsTable)
+      .where(gte(patientOutcomeReportsTable.createdAt, startDate)));
+
+    const symptoms = decryptPhiRows("patientSymptomLogsTable", await phiDb.select().from(patientSymptomLogsTable)
+      .where(gte(patientSymptomLogsTable.loggedAt, startDate)));
     
     const reportsByType: Record<string, number> = {};
     reports.forEach(r => {

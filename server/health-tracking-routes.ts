@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db } from "./db";
 import {
   healthGoalsTable,
   goalProgressTable,
@@ -14,6 +13,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { VITAL_THRESHOLDS, checkVitalThresholds } from "./services/vital-thresholds";
+import { phiDb, encryptPhiRow, decryptPhiRow, decryptPhiRows } from "./storage/phi-storage";
 
 const router = Router();
 
@@ -76,15 +76,16 @@ router.get("/goals", async (req: Request, res: Response) => {
     const profileId = req.query.profileId as string;
     const status = req.query.status as string | undefined;
 
-    let query = db.select().from(healthGoalsTable).where(eq(healthGoalsTable.profileId, profileId));
+    let query = phiDb.select().from(healthGoalsTable).where(eq(healthGoalsTable.profileId, profileId));
 
     if (status) {
-      query = db.select().from(healthGoalsTable).where(
+      query = phiDb.select().from(healthGoalsTable).where(
         and(eq(healthGoalsTable.profileId, profileId), eq(healthGoalsTable.status, status))
       );
     }
 
-    const goals = await query.orderBy(desc(healthGoalsTable.priority), desc(healthGoalsTable.createdAt));
+    const rawGoals = await query.orderBy(desc(healthGoalsTable.priority), desc(healthGoalsTable.createdAt));
+    const goals = decryptPhiRows("healthGoalsTable", rawGoals);
 
     logHipaaAudit("GOALS_READ", profileId, "health_goals", `Retrieved ${goals.length} goals`);
 
@@ -103,11 +104,12 @@ router.post("/goals", async (req: Request, res: Response) => {
   try {
     const data = createGoalSchema.parse(req.body);
 
-    const [goal] = await db.insert(healthGoalsTable).values({
+    const [rawGoal] = await phiDb.insert(healthGoalsTable).values(encryptPhiRow("healthGoalsTable", {
       ...data,
       currentValue: data.baselineValue,
       status: "active",
-    }).returning();
+    })).returning();
+    const goal = decryptPhiRow("healthGoalsTable", rawGoal);
 
     logHipaaAudit("GOAL_CREATED", data.profileId, goal.id, `Created goal: ${data.title}`);
 
@@ -127,15 +129,17 @@ router.patch("/goals/:goalId", async (req: Request, res: Response) => {
     const profileId = (req as any).authenticatedUserId;
     const updates = req.body;
 
-    const [existing] = await db.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const [existingRaw] = await phiDb.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const existing = decryptPhiRow("healthGoalsTable", existingRaw);
     if (!existing || existing.profileId !== profileId) {
       return res.status(404).json({ success: false, error: "Goal not found" });
     }
 
-    const [updated] = await db.update(healthGoalsTable)
-      .set({ ...updates, updatedAt: new Date() })
+    const [updatedRaw] = await phiDb.update(healthGoalsTable)
+      .set(encryptPhiRow("healthGoalsTable", { ...updates, updatedAt: new Date() }))
       .where(eq(healthGoalsTable.id, goalId))
       .returning();
+    const updated = decryptPhiRow("healthGoalsTable", updatedRaw);
 
     logHipaaAudit("GOAL_UPDATED", profileId, goalId, `Updated goal: ${updated.title}`);
 
@@ -151,12 +155,13 @@ router.delete("/goals/:goalId", async (req: Request, res: Response) => {
     const { goalId } = req.params;
     const profileId = (req as any).authenticatedUserId;
 
-    const [existing] = await db.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const [existingRaw] = await phiDb.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const existing = decryptPhiRow("healthGoalsTable", existingRaw);
     if (!existing || existing.profileId !== profileId) {
       return res.status(404).json({ success: false, error: "Goal not found" });
     }
 
-    await db.delete(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    await phiDb.delete(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
 
     logHipaaAudit("GOAL_DELETED", profileId, goalId, `Deleted goal: ${existing.title}`);
 
@@ -180,15 +185,17 @@ router.get("/goals/:goalId/progress", async (req: Request, res: Response) => {
     const { goalId } = req.params;
     const profileId = (req as any).authenticatedUserId;
 
-    const [goal] = await db.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const [goalRaw] = await phiDb.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const goal = decryptPhiRow("healthGoalsTable", goalRaw);
     if (!goal || goal.profileId !== profileId) {
       return res.status(404).json({ success: false, error: "Goal not found" });
     }
 
-    const progress = await db.select()
+    const rawProgress = await phiDb.select()
       .from(goalProgressTable)
       .where(eq(goalProgressTable.goalId, goalId))
       .orderBy(desc(goalProgressTable.recordedOn));
+    const progress = decryptPhiRows("goalProgressTable", rawProgress);
 
     logHipaaAudit("PROGRESS_READ", profileId, goalId, `Retrieved ${progress.length} progress entries`);
 
@@ -204,23 +211,25 @@ router.post("/goals/:goalId/progress", async (req: Request, res: Response) => {
     const { goalId } = req.params;
     const profileId = (req as any).authenticatedUserId;
 
-    const [goal] = await db.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const [goalRaw] = await phiDb.select().from(healthGoalsTable).where(eq(healthGoalsTable.id, goalId));
+    const goal = decryptPhiRow("healthGoalsTable", goalRaw);
     if (!goal || goal.profileId !== profileId) {
       return res.status(404).json({ success: false, error: "Goal not found" });
     }
 
     const data = createProgressSchema.parse({ ...req.body, goalId });
 
-    const [entry] = await db.insert(goalProgressTable).values({
+    const [rawEntry] = await phiDb.insert(goalProgressTable).values(encryptPhiRow("goalProgressTable", {
       goalId: data.goalId,
       recordedOn: data.recordedOn,
       value: data.value,
       notes: data.notes,
       source: data.source || "manual",
-    }).returning();
+    })).returning();
+    const entry = decryptPhiRow("goalProgressTable", rawEntry);
 
-    await db.update(healthGoalsTable)
-      .set({ currentValue: data.value, updatedAt: new Date() })
+    await phiDb.update(healthGoalsTable)
+      .set(encryptPhiRow("healthGoalsTable", { currentValue: data.value, updatedAt: new Date() }))
       .where(eq(healthGoalsTable.id, goalId));
 
     logHipaaAudit("PROGRESS_CREATED", profileId, goalId, `Added progress: ${data.value}`);
@@ -255,9 +264,9 @@ router.get("/vitals", async (req: Request, res: Response) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    let vitals;
+    let rawVitals;
     if (vitalType) {
-      vitals = await db.select()
+      rawVitals = await phiDb.select()
         .from(vitalSignsTable)
         .where(and(
           eq(vitalSignsTable.profileId, profileId),
@@ -266,7 +275,7 @@ router.get("/vitals", async (req: Request, res: Response) => {
         ))
         .orderBy(desc(vitalSignsTable.recordedAt));
     } else {
-      vitals = await db.select()
+      rawVitals = await phiDb.select()
         .from(vitalSignsTable)
         .where(and(
           eq(vitalSignsTable.profileId, profileId),
@@ -274,6 +283,7 @@ router.get("/vitals", async (req: Request, res: Response) => {
         ))
         .orderBy(desc(vitalSignsTable.recordedAt));
     }
+    const vitals = decryptPhiRows("vitalSignsTable", rawVitals);
 
     logHipaaAudit("VITALS_READ", profileId, "vital_signs", `Retrieved ${vitals.length} readings`);
 
@@ -293,7 +303,7 @@ router.post("/vitals", async (req: Request, res: Response) => {
   try {
     const data = createVitalSchema.parse(req.body);
 
-    const [vital] = await db.insert(vitalSignsTable).values({
+    const [rawVital] = await phiDb.insert(vitalSignsTable).values(encryptPhiRow("vitalSignsTable", {
       profileId: data.profileId,
       vitalType: data.vitalType,
       value: data.value,
@@ -302,7 +312,8 @@ router.post("/vitals", async (req: Request, res: Response) => {
       source: data.source || "manual",
       deviceId: data.deviceId,
       notes: data.notes,
-    }).returning();
+    })).returning();
+    const vital = decryptPhiRow("vitalSignsTable", rawVital);
 
     const alert = await checkVitalThresholds(data.profileId, data.vitalType, parseFloat(data.value), vital.id);
     if (alert) {
@@ -334,7 +345,7 @@ router.post("/vitals/batch", async (req: Request, res: Response) => {
     for (const reading of readings) {
       const data = createVitalSchema.parse({ ...reading, profileId });
 
-      const [vital] = await db.insert(vitalSignsTable).values({
+      const [rawVital] = await phiDb.insert(vitalSignsTable).values(encryptPhiRow("vitalSignsTable", {
         profileId: data.profileId,
         vitalType: data.vitalType,
         value: data.value,
@@ -343,7 +354,8 @@ router.post("/vitals/batch", async (req: Request, res: Response) => {
         source: data.source || "manual",
         deviceId: data.deviceId,
         notes: data.notes,
-      }).returning();
+      })).returning();
+      const vital = decryptPhiRow("vitalSignsTable", rawVital);
 
       const alert = await checkVitalThresholds(data.profileId, data.vitalType, parseFloat(data.value), vital.id);
       if (alert) {
@@ -366,9 +378,9 @@ router.get("/alerts", async (req: Request, res: Response) => {
     const profileId = req.query.profileId as string;
     const status = req.query.status as string | undefined;
 
-    let alerts;
+    let rawAlerts;
     if (status) {
-      alerts = await db.select()
+      rawAlerts = await phiDb.select()
         .from(monitoringAlertsTable)
         .where(and(
           eq(monitoringAlertsTable.profileId, profileId),
@@ -376,11 +388,12 @@ router.get("/alerts", async (req: Request, res: Response) => {
         ))
         .orderBy(desc(monitoringAlertsTable.createdAt));
     } else {
-      alerts = await db.select()
+      rawAlerts = await phiDb.select()
         .from(monitoringAlertsTable)
         .where(eq(monitoringAlertsTable.profileId, profileId))
         .orderBy(desc(monitoringAlertsTable.createdAt));
     }
+    const alerts = decryptPhiRows("monitoringAlertsTable", rawAlerts);
 
     logHipaaAudit("ALERTS_READ", profileId, "monitoring_alerts", `Retrieved ${alerts.length} alerts`);
 
@@ -396,15 +409,17 @@ router.patch("/alerts/:alertId/acknowledge", async (req: Request, res: Response)
     const { alertId } = req.params;
     const profileId = (req as any).authenticatedUserId;
 
-    const [existing] = await db.select().from(monitoringAlertsTable).where(eq(monitoringAlertsTable.id, alertId));
+    const [existingRaw] = await phiDb.select().from(monitoringAlertsTable).where(eq(monitoringAlertsTable.id, alertId));
+    const existing = decryptPhiRow("monitoringAlertsTable", existingRaw);
     if (!existing || existing.profileId !== profileId) {
       return res.status(404).json({ success: false, error: "Alert not found" });
     }
 
-    const [updated] = await db.update(monitoringAlertsTable)
-      .set({ status: "acknowledged", acknowledgedAt: new Date(), acknowledgedBy: profileId })
+    const [updatedRaw] = await phiDb.update(monitoringAlertsTable)
+      .set(encryptPhiRow("monitoringAlertsTable", { status: "acknowledged", acknowledgedAt: new Date(), acknowledgedBy: profileId }))
       .where(eq(monitoringAlertsTable.id, alertId))
       .returning();
+    const updated = decryptPhiRow("monitoringAlertsTable", updatedRaw);
 
     logHipaaAudit("ALERT_ACKNOWLEDGED", profileId, alertId, `Acknowledged alert: ${existing.title}`);
 
@@ -419,20 +434,20 @@ router.get("/insights", async (req: Request, res: Response) => {
   try {
     const profileId = req.query.profileId as string;
 
-    const activeGoals = await db.select()
+    const activeGoals = decryptPhiRows("healthGoalsTable", await phiDb.select()
       .from(healthGoalsTable)
       .where(and(eq(healthGoalsTable.profileId, profileId), eq(healthGoalsTable.status, "active")))
-      .orderBy(desc(healthGoalsTable.priority));
+      .orderBy(desc(healthGoalsTable.priority)));
 
-    const recentVitals = await db.select()
+    const recentVitals = decryptPhiRows("vitalSignsTable", await phiDb.select()
       .from(vitalSignsTable)
       .where(eq(vitalSignsTable.profileId, profileId))
       .orderBy(desc(vitalSignsTable.recordedAt))
-      .limit(50);
+      .limit(50));
 
-    const pendingAlerts = await db.select()
+    const pendingAlerts = decryptPhiRows("monitoringAlertsTable", await phiDb.select()
       .from(monitoringAlertsTable)
-      .where(and(eq(monitoringAlertsTable.profileId, profileId), eq(monitoringAlertsTable.status, "pending")));
+      .where(and(eq(monitoringAlertsTable.profileId, profileId), eq(monitoringAlertsTable.status, "pending"))));
 
     const goalProgress: Array<{
       goal: typeof activeGoals[0];
@@ -442,11 +457,11 @@ router.get("/insights", async (req: Request, res: Response) => {
     }> = [];
 
     for (const goal of activeGoals) {
-      const progress = await db.select()
+      const progress = decryptPhiRows("goalProgressTable", await phiDb.select()
         .from(goalProgressTable)
         .where(eq(goalProgressTable.goalId, goal.id))
         .orderBy(desc(goalProgressTable.recordedOn))
-        .limit(10);
+        .limit(10));
 
       let progressPercentage = 0;
       let trend: "improving" | "declining" | "stable" = "stable";
@@ -579,20 +594,20 @@ router.get("/ai-context", async (req: Request, res: Response) => {
   try {
     const profileId = req.query.profileId as string;
 
-    const goals = await db.select()
+    const goals = decryptPhiRows("healthGoalsTable", await phiDb.select()
       .from(healthGoalsTable)
       .where(eq(healthGoalsTable.profileId, profileId))
-      .orderBy(desc(healthGoalsTable.priority));
+      .orderBy(desc(healthGoalsTable.priority)));
 
-    const recentVitals = await db.select()
+    const recentVitals = decryptPhiRows("vitalSignsTable", await phiDb.select()
       .from(vitalSignsTable)
       .where(eq(vitalSignsTable.profileId, profileId))
       .orderBy(desc(vitalSignsTable.recordedAt))
-      .limit(20);
+      .limit(20));
 
-    const alerts = await db.select()
+    const alerts = decryptPhiRows("monitoringAlertsTable", await phiDb.select()
       .from(monitoringAlertsTable)
-      .where(and(eq(monitoringAlertsTable.profileId, profileId), eq(monitoringAlertsTable.status, "pending")));
+      .where(and(eq(monitoringAlertsTable.profileId, profileId), eq(monitoringAlertsTable.status, "pending"))));
 
     const context = {
       activeGoals: goals.filter(g => g.status === "active").map(g => ({
