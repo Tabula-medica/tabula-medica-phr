@@ -1,32 +1,27 @@
-# Resume all frozen Claude Code sessions as titled tabs in one Windows Terminal window.
-# Each tab runs `claude --resume <id>` in C:\Users\Aggarwal.
-# Generated 2026-07-01.
+# resume-all-claude.ps1 — regenerated 2026-09-29
+# Opens all active Claude Code sessions in one named Windows Terminal window.
+# Each tab is titled "Project - Purpose" and runs `claude --resume <id>`.
+# The current session (Desktop - PHR Stripe) is intentionally excluded so you
+# don't get a duplicate of this window.
 
-$dir = 'C:\Users\Aggarwal'
-
-# session-id  =>  tab title
 $sessions = @(
-    @{ id = '131f9169-d485-4a8a-b14a-d2b86175028c'; title = 'SAWD-Bank' }
-    @{ id = '4f746615-6ace-41b7-bcf6-7f6ad9a5be22'; title = 'Tabula-Cognita' }
-    @{ id = '97f86b5f-6753-4b26-93ba-f103947fd1d5'; title = 'Tabula-Attentiva' }
-    @{ id = '03fefc69-3088-490d-b5e8-b1bbcd31f86f'; title = 'PHR-GCP' }
-    @{ id = 'baa3368b-f979-4ee2-94ec-1a6a179af564'; title = 'Healonda-Radio' }
-    @{ id = 'daa18315-a962-450d-865a-c93cb914fcab'; title = 'Health-Radio' }
-    @{ id = '167bef02-f38f-4dfe-bd28-c6ff868876fb'; title = 'Repo-Work' }
-    @{ id = 'e9d35469-de32-4012-a9d0-779112838305'; title = 'Resume-Last' }
-    @{ id = '5dbf902b-fb1c-46e8-a1be-e2b09ca3176f'; title = 'Frozen-Meta' }
+    @{ id = "511deb73-116f-4688-b25a-408bb82d8808"; title = "WorldEHR - TCM Discharge" },
+    @{ id = "40f38a26-dc15-4e0c-8cf9-0f27f5f86888"; title = "Accountable.law - Site Deploy" },
+    @{ id = "9a461b6b-7789-4e29-a2e2-ca6053a98974"; title = "NoorJyoti - Blank Site Fix" },
+    @{ id = "81e909bd-4734-4c67-a40b-839f2a9c2f7c"; title = "iOS - App Review Submit" },
+    @{ id = "4770a9d2-3224-40a2-bd37-32aca79a60dc"; title = "Sprinto - SOC2 HIPAA" },
+    @{ id = "efe45b3c-cec3-4062-af7d-4a5f7e4e54ad"; title = "Parkinson - RPM Project" }
 )
 
-# Build the wt argument list: tabs separated by a literal ';' argument.
-$wtArgs = @()
-for ($i = 0; $i -lt $sessions.Count; $i++) {
+$baseDir = "C:\Users\Aggarwal"
+
+# Build the wt command: first tab, then subsequent tabs appended
+$first = $sessions[0]
+$wtArgs = "-w claude-resume new-tab --suppressApplicationTitle --title `"$($first.title)`" --startingDirectory `"$baseDir`" cmd /k `"claude --resume $($first.id)`""
+
+for ($i = 1; $i -lt $sessions.Count; $i++) {
     $s = $sessions[$i]
-    if ($i -gt 0) { $wtArgs += ';' }
-    $wtArgs += @(
-        'new-tab', '-d', $dir, '--title', $s.title,
-        'cmd', '/k', 'claude', '--resume', $s.id
-    )
+    $wtArgs += " ; new-tab --suppressApplicationTitle --title `"$($s.title)`" --startingDirectory `"$baseDir`" cmd /k `"claude --resume $($s.id)`""
 }
 
-Write-Host "Opening $($sessions.Count) Claude Code sessions in Windows Terminal..." -ForegroundColor Cyan
-& wt.exe @wtArgs
+Start-Process wt -ArgumentList $wtArgs
