@@ -22,7 +22,7 @@ the Base44 editor **before** or **during** the next Publish:
 
 1. **Stripe keys** — set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` in Base44 Secrets panel → register webhook `https://sawd.ai/functions/stripeWebhook` in Stripe Dashboard → Publish. Without this, subscription checkout is a no-op.
 2. **Freelancer Stripe priceId** — `AccountingPlans.jsx` has `'price_freelancer_placeholder'`; owner creates the Stripe price ($29/mo tier) and updates the ID. Otherwise that plan's checkout fails.
-3. **sawd-landers deploy** (Trevor-gated) — static landers at `Desktop/sawd-landers/` are deploy-ready; blocked on Trevor legal review + pricing confirmation.
+3. **sawd-landers deploy** (Trevor-gated) — static landers at `Desktop/sawd-landers/` are deploy-ready; blocked on Trevor legal review. ✅ Pricing aligned 2026-09-29: sawd-tax was showing old $48/$120/$360 — fixed to $29/$59/$199 and dist/sawd-tax.zip rebuilt. All landers now match app pricing. No beta/Virginia copy found. CTAs point to `sawd.ai/signup` (correct until cutover).
 4. **Business KYB** (sawd-legal gate) — `BusinessOnboardingFlow.jsx` built; Middesk KYB integration held for owner call + counsel.
 5. **Plaid IDV E2E** — onboarding flow not yet tested with a real Plaid IDV session.
 6. **Compliance P0s** — ✅ RESOLVED 2026-09-29. Compliance console shows 100%/0 P0s: `iamNoSharedOwner: pass` and `mfaEnforced: pass` for both PHR and SAWD GCP projects.
