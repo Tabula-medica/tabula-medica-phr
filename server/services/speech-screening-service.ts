@@ -1,0 +1,271 @@
+import { randomUUID } from "crypto";
+import { and, desc, eq } from "drizzle-orm";
+import { speechScreeningResultsTable } from "@shared/schema";
+import type { SpeechAcousticFeatures, SustainedVowelFeatures, ReadingPassageFeatures } from "../../shared/speech-acoustics";
+import { phiDb as defaultPhiDb, encryptPhiRow, decryptPhiRows } from "../storage/phi-storage";
+
+const DISCLAIMER =
+  "This speech screening tool is NOT a diagnostic test and cannot diagnose, rule out, or predict Parkinson's disease. It is an educational, self-tracking aid that looks for acoustic patterns sometimes associated with Parkinsonian speech changes (hypokinetic dysarthria) in the movement-disorder literature. Voice quality is affected by many things besides Parkinson's — microphone quality, background noise, colds, allergies, fatigue, and normal aging all change these measurements. This tool has not been clinically validated for Parkinson's screening and is not FDA cleared. Always discuss any speech or voice changes, and any result from this tool, with a physician, neurologist, or speech-language pathologist.";
+
+// Widely used clinical voice-quality thresholds (comparable to MDVP/Praat normative
+// cutoffs for sustained-vowel dysphonia measures). These flag general voice-quality
+// change, not Parkinson's specifically — many conditions elevate jitter/shimmer or
+// reduce HNR.
+const JITTER_FLAG_PERCENT = 1.04;
+const SHIMMER_FLAG_PERCENT = 3.81;
+const HNR_FLAG_DB = 20;
+
+export type ScreeningFlagLevel = "typical" | "atypical";
+
+export interface ScreeningFlag {
+  metric: string;
+  value: number;
+  unit: string;
+  level: ScreeningFlagLevel;
+  note: string;
+}
+
+export interface SpeechScreeningResult {
+  id: string;
+  profileId: string;
+  taskType: "sustained_vowel" | "reading_passage";
+  features: SpeechAcousticFeatures;
+  flags: ScreeningFlag[];
+  atypicalCount: number;
+  summary: string;
+  trend?: {
+    metric: string;
+    direction: "increased" | "decreased" | "stable";
+    changePercent: number;
+  }[];
+  assessedAt: string;
+  disclaimer: string;
+}
+
+function scoreVowelFeatures(features: SustainedVowelFeatures): ScreeningFlag[] {
+  const flags: ScreeningFlag[] = [];
+
+  flags.push({
+    metric: "jitter",
+    value: features.jitterPercent,
+    unit: "%",
+    level: features.jitterPercent > JITTER_FLAG_PERCENT ? "atypical" : "typical",
+    note: `Cycle-to-cycle pitch-period variability. Common clinical reference threshold: ≤${JITTER_FLAG_PERCENT}%.`,
+  });
+
+  flags.push({
+    metric: "shimmer",
+    value: features.shimmerPercent,
+    unit: "%",
+    level: features.shimmerPercent > SHIMMER_FLAG_PERCENT ? "atypical" : "typical",
+    note: `Cycle-to-cycle amplitude variability. Common clinical reference threshold: ≤${SHIMMER_FLAG_PERCENT}%.`,
+  });
+
+  flags.push({
+    metric: "hnr",
+    value: features.hnrDb,
+    unit: "dB",
+    level: features.hnrDb < HNR_FLAG_DB ? "atypical" : "typical",
+    note: `Harmonics-to-noise ratio (voice clarity/breathiness). Common clinical reference threshold: ≥${HNR_FLAG_DB} dB.`,
+  });
+
+  return flags;
+}
+
+function scorePassageFeatures(features: ReadingPassageFeatures): ScreeningFlag[] {
+  // Connected-speech prosody measures don't have a single widely-agreed absolute
+  // cutoff the way sustained-vowel dysphonia measures do, so these are reported
+  // descriptively (no fixed pass/fail line) and are best interpreted as a trend
+  // against the patient's own prior assessments.
+  return [
+    {
+      metric: "pitchVariability",
+      value: features.f0SdSemitones,
+      unit: "semitones",
+      level: "typical",
+      note: "Pitch (intonation) variability across the passage. Reduced pitch variability (a flatter, more monotone voice) has been described in Parkinsonian speech — track this against your own prior results.",
+    },
+    {
+      metric: "loudnessVariability",
+      value: features.intensitySdDb,
+      unit: "dB",
+      level: "typical",
+      note: "Loudness variability across the passage. Reduced loudness and loudness variability (hypophonia) has been described in Parkinsonian speech — track this against your own prior results.",
+    },
+    {
+      metric: "pauseRatio",
+      value: features.pauseRatio * 100,
+      unit: "%",
+      level: "typical",
+      note: "Proportion of the recording spent in pauses of 150ms or longer. Increased pausing has been described in Parkinsonian speech — track this against your own prior results.",
+    },
+  ];
+}
+
+function buildSummary(taskType: SpeechAcousticFeatures["taskType"], flags: ScreeningFlag[]): string {
+  const atypical = flags.filter(f => f.level === "atypical");
+  if (taskType === "sustained_vowel") {
+    if (atypical.length === 0) {
+      return "Voice-quality measures from this recording are within common clinical reference ranges.";
+    }
+    return `${atypical.length} of ${flags.length} voice-quality measure(s) fall outside common clinical reference ranges (${atypical.map(f => f.metric).join(", ")}). This reflects general voice-quality change, not a Parkinson's-specific finding — discuss with a clinician, especially if this persists or you notice other symptoms.`;
+  }
+  return "Reading-passage measures are reported for trend tracking. Review the trend section (once more than one assessment exists) and discuss any consistent directional change with your care team.";
+}
+
+export interface EvidenceReference {
+  group: "speech_biomarkers" | "rater_variability";
+  citation: string;
+  finding: string;
+  doi: string;
+}
+
+// Sourced from PubMed; DOIs verified against PubMed metadata.
+const EVIDENCE: EvidenceReference[] = [
+  {
+    group: "speech_biomarkers",
+    citation: "Rusz J, Krack P, Tripoliti E. Neurosci Biobehav Rev. 2024;167:105922.",
+    finding: "Review of digital speech biomarkers in Parkinson's disease: voice quality, pitch, loudness, and articulation measures can track progression from prodromal stages, with change detectable within one year in early PD. Calls for further longitudinal studies across diverse populations.",
+    doi: "10.1016/j.neubiorev.2024.105922",
+  },
+  {
+    group: "speech_biomarkers",
+    citation: "Yao D, Koivu A, Simonyan K. World J Otorhinolaryngol Head Neck Surg. 2025;11(4):491-517.",
+    finding: "Review of AI in neurological voice disorders: promising accuracy, but limited high-quality datasets and a need for broad clinical validation and better generalizability.",
+    doi: "10.1002/wjo2.70017",
+  },
+  {
+    group: "rater_variability",
+    citation: "Kenny L, et al. Clin Park Relat Disord. 2024;11:100278.",
+    finding: "Clinicians rating the same recorded MDS-UPDRS hand movements showed poor agreement on several items before training (ICC as low as 0.14), improving somewhat after calibration.",
+    doi: "10.1016/j.prdoa.2024.100278",
+  },
+  {
+    group: "rater_variability",
+    citation: "Xu J, et al. J Parkinsons Dis. 2025;15(2):349-360.",
+    finding: "A computer-vision model scoring MDS-UPDRS Part III videos had lower error against clinician consensus (MAE 0.32) than variability between human raters (0.65).",
+    doi: "10.1177/1877718X241312605",
+  },
+  {
+    group: "rater_variability",
+    citation: "Islam MS, et al. NPJ Digit Med. 2023;6(1):156.",
+    finding: "An AI model scoring home-recorded finger tapping outperformed two certified MDS-UPDRS raters (MAE 0.58 vs 0.83) but was slightly behind expert neurologists (0.53).",
+    doi: "10.1038/s41746-023-00905-9",
+  },
+];
+
+export class SpeechScreeningInputError extends Error {}
+
+const TABLE = "speechScreeningResultsTable";
+type TaskType = SpeechAcousticFeatures["taskType"];
+
+function computeTrend(previous: SpeechScreeningResult | undefined, taskType: TaskType, features: SpeechAcousticFeatures): SpeechScreeningResult["trend"] {
+  if (!previous) return undefined;
+
+  const metricsToTrack: string[] =
+    taskType === "sustained_vowel"
+      ? ["jitterPercent", "shimmerPercent", "hnrDb"]
+      : ["f0SdSemitones", "intensitySdDb", "pauseRatio", "speakingRateEstimate"];
+
+  const numericValue = (f: SpeechAcousticFeatures, metric: string): number => {
+    const value = (f as unknown as Record<string, unknown>)[metric];
+    return typeof value === "number" ? value : 0;
+  };
+
+  return metricsToTrack.map(metric => {
+    const prevValue = numericValue(previous.features, metric);
+    const currValue = numericValue(features, metric);
+    const changePercent = prevValue !== 0 ? ((currValue - prevValue) / Math.abs(prevValue)) * 100 : 0;
+    let direction: "increased" | "decreased" | "stable" = "stable";
+    if (Math.abs(changePercent) >= 5) direction = changePercent > 0 ? "increased" : "decreased";
+    return { metric, direction, changePercent };
+  });
+}
+
+export function createSpeechScreeningService(phiDb: typeof defaultPhiDb = defaultPhiDb) {
+  async function getHistory(profileId: string, taskType?: TaskType, limit?: number): Promise<SpeechScreeningResult[]> {
+    const where = taskType
+      ? and(eq(speechScreeningResultsTable.userId, profileId), eq(speechScreeningResultsTable.taskType, taskType))
+      : eq(speechScreeningResultsTable.userId, profileId);
+    const query = phiDb
+      .select()
+      .from(speechScreeningResultsTable)
+      .where(where)
+      .orderBy(desc(speechScreeningResultsTable.assessedAt));
+    const rows = limit ? await query.limit(limit) : await query;
+    return decryptPhiRows(TABLE, rows).map(r => r.speechResult as unknown as SpeechScreeningResult);
+  }
+
+  async function getLatest(profileId: string, taskType?: TaskType): Promise<SpeechScreeningResult | undefined> {
+    return (await getHistory(profileId, taskType, 1))[0];
+  }
+
+  async function analyze(profileId: string, features: SpeechAcousticFeatures): Promise<SpeechScreeningResult> {
+    if (features.durationSec < 1) {
+      throw new SpeechScreeningInputError("Recording is too short to analyze (minimum 1 second).");
+    }
+    if (features.voicedRatio < 0.05) {
+      throw new SpeechScreeningInputError("No voiced speech was detected in this recording. Please re-record in a quiet environment, speaking clearly into the microphone.");
+    }
+
+    const flags = features.taskType === "sustained_vowel" ? scoreVowelFeatures(features) : scorePassageFeatures(features);
+    const atypicalCount = flags.filter(f => f.level === "atypical").length;
+    const summary = buildSummary(features.taskType, flags);
+    const trend = computeTrend(await getLatest(profileId, features.taskType), features.taskType, features);
+
+    const result: SpeechScreeningResult = {
+      id: randomUUID(),
+      profileId,
+      taskType: features.taskType,
+      features,
+      flags,
+      atypicalCount,
+      summary,
+      trend,
+      assessedAt: new Date().toISOString(),
+      disclaimer: DISCLAIMER,
+    };
+
+    await phiDb.insert(speechScreeningResultsTable).values(encryptPhiRow(TABLE, {
+      id: result.id,
+      userId: profileId,
+      taskType: result.taskType,
+      speechResult: result as unknown as Record<string, unknown>,
+      assessedAt: new Date(result.assessedAt),
+    }));
+
+    return result;
+  }
+
+  return {
+    analyze,
+    getHistory: (profileId: string, taskType?: TaskType) => getHistory(profileId, taskType),
+    getLatest,
+    getTaskInfo,
+  };
+}
+
+function getTaskInfo() {
+  return {
+    disclaimer: DISCLAIMER,
+    tasks: [
+      {
+        taskType: "sustained_vowel" as const,
+        title: "Sustained Vowel",
+        instructions: "Take a deep breath and say \"ahh\" in a comfortable, steady voice for as long as you can, up to 10 seconds. Hold the microphone about 6-8 inches from your mouth in a quiet room.",
+        minDurationSec: 3,
+        maxDurationSec: 10,
+      },
+      {
+        taskType: "reading_passage" as const,
+        title: "Reading Passage",
+        instructions: "Read the following passage aloud at your normal speaking pace and volume: \"The rainbow is a division of white light into many beautiful colors. These take the shape of a long round arch, with its path high above, and its two ends apparently beyond the horizon.\"",
+        minDurationSec: 8,
+        maxDurationSec: 30,
+      },
+    ],
+    evidence: EVIDENCE,
+  };
+}
+
+export const speechScreeningService = createSpeechScreeningService();

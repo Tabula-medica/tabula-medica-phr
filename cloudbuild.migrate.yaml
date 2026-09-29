@@ -11,6 +11,7 @@ steps:
         echo "Migrations to run:"
         echo "  0002_document_ocr_results.sql (CREATE TABLE IF NOT EXISTS)"
         echo "  0003_profiles_home_region.sql (ALTER TABLE ADD COLUMN IF NOT EXISTS)"
+        echo "  0004_parkinsons_results.sql (CREATE TABLE IF NOT EXISTS)"
 
         # Install psql + curl
         apt-get update -qq
@@ -47,6 +48,10 @@ steps:
         echo "--- Running 0003_profiles_home_region.sql ---"
         psql -h localhost -p 5433 -U "$$DBUSER" -d "$$DBNAME" \
           -f /workspace/migrations/0003_profiles_home_region.sql -v ON_ERROR_STOP=1
+
+        echo "--- Running 0004_parkinsons_results.sql ---"
+        psql -h localhost -p 5433 -U "$$DBUSER" -d "$$DBNAME" \
+          -f /workspace/migrations/0004_parkinsons_results.sql -v ON_ERROR_STOP=1
 
         echo "=== Migrations complete ==="
         kill $$PROXY_PID || true

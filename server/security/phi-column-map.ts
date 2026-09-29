@@ -347,6 +347,10 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
     text: ["edipi"],
     jsonb: [],
   },
+
+  // --- Parkinson's tools (Vista PD) ---
+  updrsAssessmentsTable: { text: [], jsonb: ["updrsResult"] },
+  speechScreeningResultsTable: { text: [], jsonb: ["speechResult"] },
 } as const;
 
 /**

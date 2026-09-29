@@ -18,6 +18,9 @@ ENV VITE_GCIP_PROJECT_ID=united-planet-485003-n7-9f345
 # same project as the client above. Runtime-overridable via a Cloud Run env var
 # when auth is migrated to an org-owned GCIP project.
 ENV GCIP_PROJECT_ID=united-planet-485003-n7-9f345
+# Client brand: "tabula" (default) or "vista" (Vista PD, built by deploy-vista.sh).
+ARG VITE_BRAND=tabula
+ENV VITE_BRAND=${VITE_BRAND}
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 RUN test -f dist/index.cjs && echo "Build verified: dist/index.cjs" || (echo "MISSING: dist/index.cjs" && exit 1)

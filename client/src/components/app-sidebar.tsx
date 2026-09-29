@@ -174,6 +174,20 @@ const mainNavItems = [
     badge: "new",
   },
   {
+    title: "UPDRS Assessment",
+    titleKey: "sidebar.updrsAssessment",
+    url: "/updrs-assessment",
+    icon: Stethoscope,
+    badge: "new",
+  },
+  {
+    title: "Speech Screening",
+    titleKey: "sidebar.speechScreening",
+    url: "/speech-screening",
+    icon: Mic,
+    badge: "new",
+  },
+  {
     title: "Longevity Tracking",
     titleKey: "sidebar.longevityTracking",
     url: "/longevity-tracking",
