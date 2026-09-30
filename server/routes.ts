@@ -5890,7 +5890,8 @@ Respond in JSON format with these fields:
       res.json({
         diabetes: diabetesPROMTemplate,
         hypertension: hypertensionPROMTemplate,
-        adhd: adhdSymptomAssessmentTemplate,
+        // TODO: adhd assessment submission flow - remove this comment and add adhd when implemented
+        // adhd: adhdSymptomAssessmentTemplate,
       });
     } catch (error) {
       console.error("Error fetching PROM templates:", error);
