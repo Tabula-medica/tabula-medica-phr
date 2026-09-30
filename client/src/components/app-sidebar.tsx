@@ -334,6 +334,13 @@ const globalAccessItems = [
 
 const healthToolsItems = [
   {
+    title: "Jarvis AI",
+    titleKey: "nav.jarvis",
+    url: "/jarvis",
+    icon: Sparkles,
+    badge: "ai",
+  },
+  {
     title: "AI Health Advisor",
     url: "/ai-health-advisor",
     icon: Sparkles,
