@@ -6033,10 +6033,11 @@ Respond in JSON format with these fields:
   // Get PROM templates for conditions
   app.get("/api/condition-prom-templates", async (req, res) => {
     try {
-      const { diabetesPROMTemplate, hypertensionPROMTemplate } = await import("@shared/schema");
+      const { diabetesPROMTemplate, hypertensionPROMTemplate, adhdSymptomAssessmentTemplate } = await import("@shared/schema");
       res.json({
         diabetes: diabetesPROMTemplate,
         hypertension: hypertensionPROMTemplate,
+        adhd: adhdSymptomAssessmentTemplate,
       });
     } catch (error) {
       console.error("Error fetching PROM templates:", error);
