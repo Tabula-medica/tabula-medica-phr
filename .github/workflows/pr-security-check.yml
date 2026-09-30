@@ -52,9 +52,19 @@ jobs:
 
   authz-sweep:
     runs-on: ubuntu-latest
-    # Non-blocking until the server can boot in CI with a seeded test DB + minimal
-    # secrets. The static route extraction always runs; the live probes only
-    # execute if the server comes up.
+    # The server now boots here (two prior crashes fixed: an express-rate-limit
+    # v8 IPv6-keyGenerator ValidationError that crashed on EVERY boot, not just
+    # CI, and an eagerly-constructed OpenAI client that threw when no key was
+    # set — see server/middleware/require-user.ts and
+    # server/replit_integrations/audio/client.ts), and the live probe now runs
+    # and genuinely gates on it (see git history for the 7 findings this
+    # already caught once, all now fixed).
+    #
+    # Still continue-on-error, though, because no migration/db:push step runs
+    # against the ephemeral Postgres here — DB-backed routes 500 rather than
+    # 200, which the sweep only flags on a 200-with-data response. So a real
+    # unauthenticated DB-backed route could currently pass unnoticed. Flip this
+    # to blocking once a schema-push step is added.
     continue-on-error: true
     services:
       postgres:
@@ -70,6 +80,14 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/tabula_test
       NODE_ENV: test
       PORT: 8080
+      # phi-ai-boundary.ts refuses to boot unless a default `openai` client
+      # resolves to the Vertex compat endpoint — correct in a real deploy,
+      # but `npm run dev` runs via tsx, which never applies the build alias
+      # that makes that true. AI_PROVIDER=openai is the guard's documented
+      # escape hatch for exactly this: a non-PHI environment (ephemeral CI
+      # Postgres, no real patient data) that still needs the server to boot.
+      # Never set this on anything that touches real PHI.
+      AI_PROVIDER: openai
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

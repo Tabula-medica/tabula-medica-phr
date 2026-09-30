@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { generatePhiSafeText } from "./services/ai-gateway";
+import { isAuthenticated } from "./replit_integrations/auth";
+import { getUserId } from "./middleware/require-user";
 
 interface ClinicalNote {
   id: string;
@@ -78,10 +80,9 @@ const sampleProviders = [
 ];
 
 export function registerAdminWorkflowRoutes(app: Express) {
-  app.get("/api/admin-workflow/clinical-notes", async (req: Request, res: Response) => {
+  app.get("/api/admin-workflow/clinical-notes", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
 
       logPhiAccess({
         userId,
@@ -104,10 +105,9 @@ export function registerAdminWorkflowRoutes(app: Express) {
     }
   });
 
-  app.post("/api/admin-workflow/suggest-codes", async (req: Request, res: Response) => {
+  app.post("/api/admin-workflow/suggest-codes", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { noteId } = req.body;
 
       if (!noteId) {
@@ -187,10 +187,9 @@ IMPORTANT: These are administrative suggestions only. A certified medical coder 
     }
   });
 
-  app.post("/api/admin-workflow/suggest-scheduling", async (req: Request, res: Response) => {
+  app.post("/api/admin-workflow/suggest-scheduling", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { noteId } = req.body;
 
       if (!noteId) {
@@ -275,10 +274,9 @@ IMPORTANT: These are administrative scheduling suggestions only. Clinical staff 
     }
   });
 
-  app.post("/api/admin-workflow/draft-referral", async (req: Request, res: Response) => {
+  app.post("/api/admin-workflow/draft-referral", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { noteId, targetSpecialty, urgency } = req.body;
 
       if (!noteId || !targetSpecialty) {

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { storage } from "../storage";
 
@@ -64,7 +64,7 @@ export const aiUserRateLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req.user as any)?.claims?.sub ?? req.ip ?? "anon",
+  keyGenerator: (req) => (req.user as any)?.claims?.sub ?? (req.ip ? ipKeyGenerator(req.ip) : "anon"),
   message: { error: "AI_RATE_LIMITED", message: "Too many AI requests. Please slow down." },
   validate: { xForwardedForHeader: false },
 });
