@@ -1843,7 +1843,12 @@ describe("round 11 hardening", () => {
     corrected = applyClaimPatch(corrected, { diagnoses: [{ code: "M25.561" }] });
     await rcmStore.upsertClaim(T, corrected);
     expect(corrected.totalCharge).toBe(orig.totalCharge);
-    const result = scrubClaim(corrected);
+    // Pin `today` so the fixture's 2026-09-29 timely-filing deadline cannot expire with the
+    // calendar and turn this assertion red: mkClaim() hardcodes dateOfService 2026-07-01, and
+    // the timely-filing rule raises a severity:"error" once the deadline has passed, which
+    // would stop the claim re-scrubbing clean and never reach "ready". This test is about the
+    // draft -> scrubbed -> ready path after an edit, not about the calendar.
+    const result = scrubClaim(corrected, { today: "2026-09-15" });
     let next = corrected;
     if (result.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", "biller", "clean after edit");
     await rcmStore.upsertClaim(T, next);
