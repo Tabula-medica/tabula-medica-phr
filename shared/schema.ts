@@ -3411,12 +3411,16 @@ export const insertConditionSpecificPROMSchema = z.object({
 }).refine((data) => {
   if (data.conditionType === "adhd") {
     return data.responses.every(r => {
-      const answer = typeof r.answer === "string" ? parseInt(r.answer, 10) : r.answer;
-      return !isNaN(answer) && answer >= 0 && answer <= 3 && Number.isInteger(answer);
+      let answer = r.answer;
+      if (typeof answer === "string") {
+        if (!answer || !/^[0-3]$/.test(answer.trim())) return false;
+        answer = parseInt(answer, 10);
+      }
+      return typeof answer === "number" && answer >= 0 && answer <= 3 && Number.isInteger(answer);
     });
   }
   return true;
-}, { message: "ADHD responses must be integers between 0 and 3 (inclusive) for each question" });
+}, { message: "ADHD responses must be integers 0-3; rejects blank strings and malformed values" });
 
 export type InsertConditionSpecificPROM = z.infer<typeof insertConditionSpecificPROMSchema>;
 
