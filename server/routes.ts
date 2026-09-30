@@ -443,6 +443,7 @@ import findhelpRoutes from "./routes/findhelp-routes";
 import sesameCareRoutes from "./routes/sesame-care-routes";
 import payerFhirRoutes from "./routes/payer-fhir-routes";
 import internalAnalyticsRoutes from "./routes/internal-analytics-routes";
+import webResearchRoutes from "./routes/web-research-routes";
 import extractionPipelineRoutes from "./routes/extraction-pipeline-routes";
 import billsEobRoutes from "./routes/bills-eob-routes";
 import rcmRoutes from "./rcm/routes";
@@ -38787,6 +38788,8 @@ startxref
   console.log("[Routes] Payer FHIR Patient Access routes registered at /api/payer-fhir/*");
 
   app.use("/api/internal-analytics", internalAnalyticsRoutes);
+  // Firecrawl web research (admin-only, NON-PHI: public URLs / screened queries only)
+  app.use("/api/admin/web-research", webResearchRoutes);
   app.use("/api/extraction-pipeline", extractionPipelineRoutes);
   console.log("[Routes] Extraction Pipeline routes registered at /api/extraction-pipeline/*");
   console.log("[Routes] Internal Analytics Dashboard routes registered at /api/internal-analytics/*");
