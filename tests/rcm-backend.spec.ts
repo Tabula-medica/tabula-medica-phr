@@ -1849,8 +1849,9 @@ describe("round 11 hardening", () => {
     // A later DOS must not inherit the old deadline (which would now fail timely-filing scrub
     // immediately); an earlier DOS must not silently borrow the later deadline either (which
     // would let it go out after its own real filing window).
-    const laterDos = applyClaimPatch(c, { lines: c.lines.map((l) => ({ ...l, dateOfService: "2026-08-01" })) });
-    expect(laterDos.timelyFilingDeadline).toBe(addDays("2026-08-01", 90));
+    const PATCHED_DOS = addDays(TEST_DOS, 30); // always 30 days after TEST_DOS — guarantees a different deadline
+    const laterDos = applyClaimPatch(c, { lines: c.lines.map((l) => ({ ...l, dateOfService: PATCHED_DOS })) });
+    expect(laterDos.timelyFilingDeadline).toBe(addDays(PATCHED_DOS, 90));
     expect(laterDos.timelyFilingDeadline).not.toBe(c.timelyFilingDeadline);
     // A patch that doesn't touch lines at all must leave the deadline untouched.
     const noLineChange = applyClaimPatch(c, { priorAuthNumber: "AUTH-1" });
