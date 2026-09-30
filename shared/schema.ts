@@ -3372,7 +3372,7 @@ export const metricReferenceRanges: Record<AdvancedMetricType, { low: number; hi
 export interface ConditionSpecificPROM {
   id: string;
   patientId: string;
-  conditionType: "diabetes" | "hypertension" | "copd" | "heart_failure" | "arthritis" | "depression" | "chronic_pain";
+  conditionType: "diabetes" | "hypertension" | "copd" | "heart_failure" | "arthritis" | "depression" | "chronic_pain" | "adhd";
   templateName: string;
   responses: {
     questionId: string;
@@ -3393,7 +3393,7 @@ export interface ConditionSpecificPROM {
 
 export const insertConditionSpecificPROMSchema = z.object({
   patientId: z.string().min(1),
-  conditionType: z.enum(["diabetes", "hypertension", "copd", "heart_failure", "arthritis", "depression", "chronic_pain"]),
+  conditionType: z.enum(["diabetes", "hypertension", "copd", "heart_failure", "arthritis", "depression", "chronic_pain", "adhd"]),
   templateName: z.string().min(1),
   responses: z.array(z.object({
     questionId: z.string(),
@@ -3408,7 +3408,19 @@ export const insertConditionSpecificPROMSchema = z.object({
   completedAt: z.string(),
   nextDueDate: z.string().optional(),
   notes: z.string().optional(),
-});
+}).refine((data) => {
+  if (data.conditionType === "adhd") {
+    return data.responses.every(r => {
+      let answer = r.answer;
+      if (typeof answer === "string") {
+        if (!answer || !/^[0-3]$/.test(answer.trim())) return false;
+        answer = parseInt(answer, 10);
+      }
+      return typeof answer === "number" && answer >= 0 && answer <= 3 && Number.isInteger(answer);
+    });
+  }
+  return true;
+}, { message: "ADHD responses must be integers 0-3; rejects blank strings and malformed values" });
 
 export type InsertConditionSpecificPROM = z.infer<typeof insertConditionSpecificPROMSchema>;
 
@@ -3504,32 +3516,123 @@ export type InsertDocumentInsight = z.infer<typeof insertDocumentInsightSchema>;
 
 // Diabetes-specific PROM template
 export const diabetesPROMTemplate = {
-  name: "Diabetes Self-Management Assessment",
+  templateName: "Diabetes Self-Management Assessment",
   conditionType: "diabetes" as const,
   questions: [
-    { id: "d1", text: "How often did you check your blood sugar in the past week?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "d2", text: "How often did you take your diabetes medication as prescribed?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "d3", text: "How often did you follow a healthy eating plan?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "d4", text: "How often did you engage in at least 30 minutes of physical activity?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "d5", text: "How often did you check your feet for cuts, blisters, or sores?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "d6", text: "Have you experienced episodes of low blood sugar (hypoglycemia)?", type: "choice", options: ["None", "1-2 times", "3-5 times", "More than 5 times"] },
-    { id: "d7", text: "Rate your overall diabetes management confidence", type: "scale", min: 1, max: 10, labels: { 1: "Not confident", 10: "Very confident" } },
+    { id: "d1", text: "How often did you check your blood sugar in the past week?", category: "Monitoring", options: [{ value: 0, label: "Never" }, { value: 1, label: "1-2 times" }, { value: 2, label: "3-5 times" }, { value: 3, label: "Daily" }] },
+    { id: "d2", text: "How often did you take your diabetes medication as prescribed?", category: "Medication Adherence", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
+    { id: "d3", text: "How often did you follow a healthy eating plan?", category: "Diet", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
+    { id: "d4", text: "How often did you engage in at least 30 minutes of physical activity?", category: "Exercise", options: [{ value: 0, label: "Never" }, { value: 1, label: "1-2 days/week" }, { value: 2, label: "3-4 days/week" }, { value: 3, label: "5+ days/week" }] },
+    { id: "d5", text: "How often did you check your feet for cuts, blisters, or sores?", category: "Self-Care", options: [{ value: 0, label: "Never" }, { value: 1, label: "Occasionally" }, { value: 2, label: "Regularly" }, { value: 3, label: "Daily" }] },
+    { id: "d6", text: "Have you experienced episodes of low blood sugar (hypoglycemia)?", category: "Symptom Management", options: [{ value: 3, label: "None" }, { value: 2, label: "1-2 times" }, { value: 1, label: "3-5 times" }, { value: 0, label: "More than 5 times" }] },
+    { id: "d7", text: "Rate your overall diabetes management confidence", category: "Self-Efficacy", options: [{ value: 0, label: "Not confident" }, { value: 1, label: "Somewhat confident" }, { value: 2, label: "Confident" }, { value: 3, label: "Very confident" }] },
   ],
+  scoring: {
+    maxScore: 21,
+    ranges: [
+      { min: 0, max: 7, interpretation: "Poor diabetes management", riskLevel: "high" },
+      { min: 8, max: 14, interpretation: "Moderate diabetes management", riskLevel: "moderate" },
+      { min: 15, max: 21, interpretation: "Good diabetes management", riskLevel: "low" },
+    ],
+  },
 };
 
 // Hypertension-specific PROM template
 export const hypertensionPROMTemplate = {
-  name: "Hypertension Self-Care Assessment",
+  templateName: "Hypertension Self-Care Assessment",
   conditionType: "hypertension" as const,
   questions: [
-    { id: "h1", text: "How often did you take your blood pressure medication as prescribed?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "h2", text: "How often did you check your blood pressure at home?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "h3", text: "How often did you limit salt/sodium in your diet?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "h4", text: "How often did you exercise for at least 30 minutes?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "h5", text: "How often did you limit alcohol consumption?", type: "scale", min: 0, max: 7, labels: { 0: "Never", 7: "Every day" } },
-    { id: "h6", text: "Have you experienced symptoms like headaches, dizziness, or chest pain?", type: "choice", options: ["None", "Occasionally", "Frequently", "Very frequently"] },
-    { id: "h7", text: "How would you rate your stress levels this week?", type: "scale", min: 1, max: 10, labels: { 1: "Very low", 10: "Very high" } },
+    { id: "h1", text: "How often did you take your blood pressure medication as prescribed?", category: "Medication Adherence", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
+    { id: "h2", text: "How often did you check your blood pressure at home?", category: "Monitoring", options: [{ value: 0, label: "Never" }, { value: 1, label: "Weekly" }, { value: 2, label: "3-4 times/week" }, { value: 3, label: "Daily" }] },
+    { id: "h3", text: "How often did you limit salt/sodium in your diet?", category: "Diet", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
+    { id: "h4", text: "How often did you exercise for at least 30 minutes?", category: "Exercise", options: [{ value: 0, label: "Never" }, { value: 1, label: "1-2 days/week" }, { value: 2, label: "3-4 days/week" }, { value: 3, label: "5+ days/week" }] },
+    { id: "h5", text: "How often did you limit alcohol consumption?", category: "Lifestyle", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
+    { id: "h6", text: "Have you experienced symptoms like headaches, dizziness, or chest pain?", category: "Symptom Management", options: [{ value: 3, label: "None" }, { value: 2, label: "Occasionally" }, { value: 1, label: "Frequently" }, { value: 0, label: "Very frequently" }] },
+    { id: "h7", text: "How would you rate your stress levels this week?", category: "Stress Management", options: [{ value: 3, label: "Very low" }, { value: 2, label: "Low" }, { value: 1, label: "Moderate" }, { value: 0, label: "Very high" }] },
   ],
+  scoring: {
+    maxScore: 21,
+    ranges: [
+      { min: 0, max: 7, interpretation: "Poor hypertension management", riskLevel: "high" },
+      { min: 8, max: 14, interpretation: "Moderate hypertension management", riskLevel: "moderate" },
+      { min: 15, max: 21, interpretation: "Good hypertension management", riskLevel: "low" },
+    ],
+  },
+};
+
+// ADHD Symptom Assessment (54-item custom questionnaire, not the 18-item AISRS)
+export const adhdSymptomAssessmentTemplate = {
+  templateName: "ADHD Symptom Assessment (Custom 54-item)",
+  conditionType: "adhd" as const,
+  questions: [
+    // Inattention Items (1-9)
+    { id: "a1", text: "Fails to give close attention to details or makes careless mistakes in schoolwork, work, or other activities", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a2", text: "Has difficulty sustaining attention in tasks or play activities", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a3", text: "Does not seem to listen when spoken to directly", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a4", text: "Does not follow through on instructions and fails to finish schoolwork, chores, or duties in the workplace", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a5", text: "Has difficulty organizing tasks and activities", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a6", text: "Avoids, dislikes, or is reluctant to engage in tasks that require sustained mental effort", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a7", text: "Loses things necessary for tasks or activities (e.g., school assignments, pencils, books, keys, wallet, phone, paperwork)", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a8", text: "Is easily distracted by extraneous stimuli", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a9", text: "Is forgetful in daily activities", category: "Inattention", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    // Hyperactivity Items (10-15)
+    { id: "a10", text: "Fidgets with hands or feet or squirms in seat", category: "Hyperactivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a11", text: "Leaves seat in situations when remaining seated is expected", category: "Hyperactivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a12", text: "Feels restless or unable to stay still", category: "Hyperactivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a13", text: "Runs about or climbs in situations where it is inappropriate", category: "Hyperactivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a14", text: "Is unable to engage in activities quietly", category: "Hyperactivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a15", text: "Is 'on the go' or acts as if 'driven by a motor'", category: "Hyperactivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    // Impulsivity Items (16-18)
+    { id: "a16", text: "Talks excessively", category: "Impulsivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a17", text: "Blurts out answers before questions have been completed", category: "Impulsivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a18", text: "Has difficulty waiting his/her turn", category: "Impulsivity", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    // Behavioral/Emotional Items (19-27)
+    { id: "a19", text: "Interrupts or intrudes on others (e.g., butts into conversations or games)", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a20", text: "Is angry or irritable", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a21", text: "Loses temper easily or has frequent temper outbursts", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a22", text: "Argues or talks back to authority figures", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a23", text: "Is oversensitive to rejection or criticism", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a24", text: "Is easily upset or frustrated by minor problems", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a25", text: "Cries or becomes upset easily", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a26", text: "Blames others for his/her mistakes or misbehavior", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a27", text: "Has difficulty resisting impulses (e.g., impulsive spending, substance use, reckless driving)", category: "Behavioral/Emotional", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    // Additional Symptom Items (28-54)
+    { id: "a28", text: "Shows poor self-control", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a29", text: "Has low frustration tolerance", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a30", text: "Has poor judgment or makes decisions impulsively", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a31", text: "Procrastinates or has difficulty starting tasks", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a32", text: "Has poor time management or awareness of time", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a33", text: "Is disorganized or messy", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a34", text: "Makes careless errors or mistakes", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a35", text: "Has difficulty completing tasks or projects", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a36", text: "Has variable motivation or inconsistent effort", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a37", text: "Performs inconsistently across tasks or settings", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a38", text: "Has excessive daydreaming or difficulty maintaining focus", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a39", text: "Avoids eye contact or appears spacey/detached", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a40", text: "Has trouble waiting for turn in conversation or activities", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a41", text: "Is easily bored or seeks high-stimulation activities", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a42", text: "Has trouble transitioning between activities or topics", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a43", text: "Shows poor planning or organization skills", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a44", text: "Has difficulty with working memory (remembering instructions, lists, etc.)", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a45", text: "Is accident-prone or has poor coordination", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a46", text: "Talks too much or dominates conversations", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a47", text: "Engages in risky or thrill-seeking behavior", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a48", text: "Has difficulty managing emotions or emotional dysregulation", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a49", text: "Shows low self-esteem or poor self-image", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a50", text: "Has anxiety or excessive worry", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a51", text: "Shows social difficulties or poor social skills", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a52", text: "Has difficulty maintaining relationships", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a53", text: "Shows mood instability or frequent mood swings", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+    { id: "a54", text: "Has difficulty sleeping or maintaining sleep", category: "Additional Symptoms", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Very Often" }] },
+  ],
+  scoring: {
+    maxScore: 162,
+    ranges: [
+      { min: 0, max: 54, interpretation: "Minimal ADHD symptoms", riskLevel: "low" },
+      { min: 55, max: 108, interpretation: "Moderate ADHD symptoms", riskLevel: "moderate" },
+      { min: 109, max: 162, interpretation: "Severe ADHD symptoms", riskLevel: "high" },
+    ],
+  },
 };
 
 // Allergy
