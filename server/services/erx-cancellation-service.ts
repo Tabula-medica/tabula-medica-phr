@@ -17,7 +17,7 @@
  *     that has not yet been transmitted.
  */
 
-import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -503,15 +503,143 @@ async function applyStatus(
 }
 
 /**
- * Retry sweep for queued requests whose backoff has elapsed. Intended to be
- * driven by the existing job scheduler; returns a summary for the admin route.
+ * How long a request may sit in `transmitting` before the sweep assumes the
+ * attempt died rather than being slow. Must stay comfortably above the
+ * transport's own HTTP timeout so a slow-but-live send is never reclaimed out
+ * from under itself.
+ */
+export const STALLED_TRANSMISSION_MS = 15 * 60 * 1000;
+
+/**
+ * Recover requests stranded in `transmitting`.
+ *
+ * `transmitCancellationRequest` flips a row to `transmitting` before handing the
+ * message to the transport, and the in-flight guard then refuses to touch it. A
+ * throw is caught, but a process that dies in that window leaves the row
+ * unreachable forever: the pharmacy may never have received the CancelRx and
+ * nothing will try again — precisely the silent failure this feature exists to
+ * prevent.
+ *
+ * A stalled row goes back on the queue rather than to `failed`. Re-sending is
+ * the safer error of the two: the gateway de-duplicates on the idempotency key,
+ * and a pharmacy that already processed the cancellation answers with an
+ * "already cancelled / not found" code, which `interpretCancelRxResponse`
+ * reads as the drug not having been dispensed. Stranding the row instead leaves
+ * a superseded prescription sitting there fillable.
+ *
+ * A row that keeps stalling is bounded by the same `MAX_TRANSMISSION_ATTEMPTS`
+ * ceiling as a row that keeps erroring: past it the row is failed rather than
+ * re-queued, so a process crash-looping on one message surfaces in
+ * `getQueueHealth()` as `failed` instead of ping-ponging out of sight forever.
+ * A crash never records the attempt it consumed, so the reclaim counts it.
+ *
+ * Both transitions are conditional UPDATEs, so two schedulers racing on the same
+ * row cannot both claim it.
+ */
+export async function reclaimStalledTransmissions(
+  staleAfterMs = STALLED_TRANSMISSION_MS,
+): Promise<{ requeued: number; failed: number }> {
+  const staleMinutes = Math.max(1, Math.round(staleAfterMs / 60_000));
+  const cutoff = new Date(Date.now() - staleAfterMs);
+  const returning = {
+    id: erxCancellationRequestsTable.id,
+    profileId: erxCancellationRequestsTable.profileId,
+    attemptCount: erxCancellationRequestsTable.attemptCount,
+  };
+
+  // The two predicates partition the stalled rows on the attempt ceiling, so a
+  // row is either re-queued or failed by this pass, never both.
+  const requeued = await phiDb
+    .update(erxCancellationRequestsTable)
+    .set(
+      encryptPhiRow(REQUESTS_TABLE, {
+        status: "queued" satisfies ErxCancellationStatus,
+        nextAttemptAt: new Date(),
+        attemptCount: sql`${erxCancellationRequestsTable.attemptCount} + 1`,
+        lastError: `Transmission stalled in "transmitting" for over ${staleMinutes} minute(s); re-queued for another attempt`,
+        updatedAt: new Date(),
+      }),
+    )
+    .where(
+      and(
+        eq(erxCancellationRequestsTable.status, "transmitting"),
+        lt(erxCancellationRequestsTable.updatedAt, cutoff),
+        lt(erxCancellationRequestsTable.attemptCount, MAX_TRANSMISSION_ATTEMPTS),
+      ),
+    )
+    .returning(returning);
+
+  const failed = await phiDb
+    .update(erxCancellationRequestsTable)
+    .set(
+      encryptPhiRow(REQUESTS_TABLE, {
+        status: "failed" satisfies ErxCancellationStatus,
+        nextAttemptAt: null,
+        lastError: `Transmission stalled in "transmitting" for over ${staleMinutes} minute(s) and the attempt ceiling is exhausted; call the pharmacy to confirm whether the cancellation took effect`,
+        updatedAt: new Date(),
+      }),
+    )
+    .where(
+      and(
+        eq(erxCancellationRequestsTable.status, "transmitting"),
+        lt(erxCancellationRequestsTable.updatedAt, cutoff),
+        gte(erxCancellationRequestsTable.attemptCount, MAX_TRANSMISSION_ATTEMPTS),
+      ),
+    )
+    .returning(returning);
+
+  for (const [rows, eventType, toStatus] of [
+    [requeued, "transmission_stalled_reclaimed", "queued"],
+    [failed, "transmission_stalled_exhausted", "failed"],
+  ] as const) {
+    for (const row of rows) {
+      await recordEvent({
+        requestId: row.id,
+        profileId: row.profileId,
+        eventType,
+        fromStatus: "transmitting",
+        toStatus,
+        detail: `No transport outcome recorded within ${staleMinutes} minute(s)`,
+        actor: "system",
+      });
+      logger.warn(
+        {
+          component: "ErxCancel",
+          requestId: hashId(row.id),
+          attemptCount: row.attemptCount,
+          toStatus,
+        },
+        "Reclaimed a CancelRx stranded mid-transmission",
+      );
+    }
+  }
+
+  if (requeued.length > 0 || failed.length > 0) {
+    auditLog("ERX_CANCELLATION_STALLED_RECLAIMED", {
+      requeued: requeued.length,
+      failed: failed.length,
+    });
+  }
+
+  return { requeued: requeued.length, failed: failed.length };
+}
+
+/**
+ * Retry sweep for queued requests whose backoff has elapsed, driven by the
+ * background scheduler (see `erx-cancellation-scheduler.ts`) and exposed on the
+ * admin route. Reclaims stranded transmissions first so they are eligible in the
+ * same pass.
  */
 export async function processPendingTransmissions(limit = 50): Promise<{
   processed: number;
   transmitted: number;
   failed: number;
   stillQueued: number;
+  reclaimed: number;
+  reclaimExhausted: number;
 }> {
+  const reclaim = await reclaimStalledTransmissions();
+
   const due = await phiDb
     .select()
     .from(erxCancellationRequestsTable)
@@ -546,7 +674,14 @@ export async function processPendingTransmissions(limit = 50): Promise<{
     }
   }
 
-  return { processed: due.length, transmitted, failed, stillQueued };
+  return {
+    processed: due.length,
+    transmitted,
+    failed,
+    stillQueued,
+    reclaimed: reclaim.requeued,
+    reclaimExhausted: reclaim.failed,
+  };
 }
 
 // ---------------------------------------------------------------------------
