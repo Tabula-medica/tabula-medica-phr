@@ -94,4 +94,25 @@ if [ -n "$new_client" ]; then
   exit 1
 fi
 
-echo "PHI-AI guard: OK — openai->Vertex alias in place, no new non-BAA proxy/client refs."
+# Fourth check — Firecrawl (web scraping/search, NO BAA) boundary. Only the
+# non-PHI wrapper may import the SDK or name its API host, and only the
+# admin web-research routes may import the wrapper.
+fc_sdk="$(grep -rlE "@mendable/firecrawl-js|from [\"']firecrawl[\"']|api\.firecrawl\.dev" \
+  server/ client/ shared/ --include='*.ts' --include='*.tsx' 2>/dev/null \
+  | grep -vE '\.(test|spec)\.tsx?$' \
+  | grep -vx 'server/lib/firecrawl-client.ts' \
+  || true)"
+fc_wrapper="$(grep -rlE "firecrawl-client" server/ client/ shared/ --include='*.ts' --include='*.tsx' 2>/dev/null \
+  | grep -vE '\.(test|spec)\.tsx?$' \
+  | grep -vx 'server/routes/web-research-routes.ts' \
+  || true)"
+if [ -n "$fc_sdk$fc_wrapper" ]; then
+  echo "::error::PHI-AI GUARD FAILED — Firecrawl (no BAA) used outside its non-PHI boundary."
+  echo "$fc_sdk"
+  echo "$fc_wrapper"
+  echo ""
+  echo "Firecrawl is NON-PHI only: go through server/lib/firecrawl-client.ts from server/routes/web-research-routes.ts."
+  exit 1
+fi
+
+echo "PHI-AI guard: OK — openai->Vertex alias in place, no new non-BAA proxy/client refs, Firecrawl boundary intact."
