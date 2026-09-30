@@ -133,7 +133,8 @@ export function registerCareAccessTool(server: McpServer): void {
         const result = searchCareAccessCatalog(args);
         return {
           content: [{ type: "text", text: summarize(result) }],
-          structuredContent: result,
+          // Spread: the SDK wants a plain record, and an interface has no index signature.
+          structuredContent: { ...result },
         };
       }),
   );
