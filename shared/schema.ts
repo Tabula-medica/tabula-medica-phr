@@ -2994,9 +2994,9 @@ export const hypertensionPROMTemplate = {
   ],
 };
 
-// ADHD Investigator Symptom Rating Scale (54-item)
-export const adhdInvestigatorPROMTemplate = {
-  name: "Adult ADHD Investigator Symptom Rating Scale (54-item)",
+// ADHD Symptom Assessment Questionnaire (54-item)
+export const adhdSymptomAssessmentTemplate = {
+  name: "ADHD Symptom Assessment Questionnaire (54-item)",
   conditionType: "adhd" as const,
   questions: [
     // Inattention Items (1-9)
