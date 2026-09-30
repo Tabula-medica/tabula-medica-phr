@@ -3408,7 +3408,15 @@ export const insertConditionSpecificPROMSchema = z.object({
   completedAt: z.string(),
   nextDueDate: z.string().optional(),
   notes: z.string().optional(),
-});
+}).refine((data) => {
+  if (data.conditionType === "adhd") {
+    return data.responses.every(r => {
+      const answer = typeof r.answer === "string" ? parseInt(r.answer, 10) : r.answer;
+      return !isNaN(answer) && answer >= 0 && answer <= 3 && Number.isInteger(answer);
+    });
+  }
+  return true;
+}, { message: "ADHD responses must be integers between 0 and 3 (inclusive) for each question" });
 
 export type InsertConditionSpecificPROM = z.infer<typeof insertConditionSpecificPROMSchema>;
 
@@ -3512,14 +3520,14 @@ export const diabetesPROMTemplate = {
     { id: "d3", text: "How often did you follow a healthy eating plan?", category: "Diet", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
     { id: "d4", text: "How often did you engage in at least 30 minutes of physical activity?", category: "Exercise", options: [{ value: 0, label: "Never" }, { value: 1, label: "1-2 days/week" }, { value: 2, label: "3-4 days/week" }, { value: 3, label: "5+ days/week" }] },
     { id: "d5", text: "How often did you check your feet for cuts, blisters, or sores?", category: "Self-Care", options: [{ value: 0, label: "Never" }, { value: 1, label: "Occasionally" }, { value: 2, label: "Regularly" }, { value: 3, label: "Daily" }] },
-    { id: "d6", text: "Have you experienced episodes of low blood sugar (hypoglycemia)?", category: "Symptom Management", options: [{ value: 0, label: "None" }, { value: 1, label: "1-2 times" }, { value: 2, label: "3-5 times" }, { value: 3, label: "More than 5 times" }] },
+    { id: "d6", text: "Have you experienced episodes of low blood sugar (hypoglycemia)?", category: "Symptom Management", options: [{ value: 3, label: "None" }, { value: 2, label: "1-2 times" }, { value: 1, label: "3-5 times" }, { value: 0, label: "More than 5 times" }] },
     { id: "d7", text: "Rate your overall diabetes management confidence", category: "Self-Efficacy", options: [{ value: 0, label: "Not confident" }, { value: 1, label: "Somewhat confident" }, { value: 2, label: "Confident" }, { value: 3, label: "Very confident" }] },
   ],
   scoring: {
     maxScore: 21,
     ranges: [
       { min: 0, max: 7, interpretation: "Poor diabetes management", riskLevel: "high" },
-      { min: 8, max: 14, interpretation: "Moderate diabetes management", riskLevel: "medium" },
+      { min: 8, max: 14, interpretation: "Moderate diabetes management", riskLevel: "moderate" },
       { min: 15, max: 21, interpretation: "Good diabetes management", riskLevel: "low" },
     ],
   },
@@ -3535,22 +3543,22 @@ export const hypertensionPROMTemplate = {
     { id: "h3", text: "How often did you limit salt/sodium in your diet?", category: "Diet", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
     { id: "h4", text: "How often did you exercise for at least 30 minutes?", category: "Exercise", options: [{ value: 0, label: "Never" }, { value: 1, label: "1-2 days/week" }, { value: 2, label: "3-4 days/week" }, { value: 3, label: "5+ days/week" }] },
     { id: "h5", text: "How often did you limit alcohol consumption?", category: "Lifestyle", options: [{ value: 0, label: "Never" }, { value: 1, label: "Rarely" }, { value: 2, label: "Often" }, { value: 3, label: "Always" }] },
-    { id: "h6", text: "Have you experienced symptoms like headaches, dizziness, or chest pain?", category: "Symptom Management", options: [{ value: 0, label: "None" }, { value: 1, label: "Occasionally" }, { value: 2, label: "Frequently" }, { value: 3, label: "Very frequently" }] },
-    { id: "h7", text: "How would you rate your stress levels this week?", category: "Stress Management", options: [{ value: 0, label: "Very low" }, { value: 1, label: "Low" }, { value: 2, label: "Moderate" }, { value: 3, label: "Very high" }] },
+    { id: "h6", text: "Have you experienced symptoms like headaches, dizziness, or chest pain?", category: "Symptom Management", options: [{ value: 3, label: "None" }, { value: 2, label: "Occasionally" }, { value: 1, label: "Frequently" }, { value: 0, label: "Very frequently" }] },
+    { id: "h7", text: "How would you rate your stress levels this week?", category: "Stress Management", options: [{ value: 3, label: "Very low" }, { value: 2, label: "Low" }, { value: 1, label: "Moderate" }, { value: 0, label: "Very high" }] },
   ],
   scoring: {
     maxScore: 21,
     ranges: [
       { min: 0, max: 7, interpretation: "Poor hypertension management", riskLevel: "high" },
-      { min: 8, max: 14, interpretation: "Moderate hypertension management", riskLevel: "medium" },
+      { min: 8, max: 14, interpretation: "Moderate hypertension management", riskLevel: "moderate" },
       { min: 15, max: 21, interpretation: "Good hypertension management", riskLevel: "low" },
     ],
   },
 };
 
-// ADHD Symptom Assessment Questionnaire (54-item)
+// ADHD Symptom Assessment (54-item custom questionnaire, not the 18-item AISRS)
 export const adhdSymptomAssessmentTemplate = {
-  templateName: "ADHD Symptom Assessment Questionnaire (54-item)",
+  templateName: "ADHD Symptom Assessment (Custom 54-item)",
   conditionType: "adhd" as const,
   questions: [
     // Inattention Items (1-9)
@@ -3617,7 +3625,7 @@ export const adhdSymptomAssessmentTemplate = {
     maxScore: 162,
     ranges: [
       { min: 0, max: 54, interpretation: "Minimal ADHD symptoms", riskLevel: "low" },
-      { min: 55, max: 108, interpretation: "Moderate ADHD symptoms", riskLevel: "medium" },
+      { min: 55, max: 108, interpretation: "Moderate ADHD symptoms", riskLevel: "moderate" },
       { min: 109, max: 162, interpretation: "Severe ADHD symptoms", riskLevel: "high" },
     ],
   },

@@ -119,7 +119,7 @@ export default function ExpandedPatientRecords() {
     enabled: !!patientId,
   });
 
-  const { data: promTemplates } = useQuery<{ diabetes: PROMTemplate; hypertension: PROMTemplate; adhd: PROMTemplate }>({
+  const { data: promTemplates } = useQuery<{ diabetes: PROMTemplate; hypertension: PROMTemplate }>({
     queryKey: ["/api/condition-prom-templates"],
   });
 
