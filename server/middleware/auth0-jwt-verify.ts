@@ -114,7 +114,7 @@ export function requireAuth0Token(
     req.auth0Token = tokenPayload;
 
     if (options?.requireSaid && !tokenPayload.saidPatientId) {
-      logger.warn(`[Auth0-JWT] SAID required but not present for sub=${tokenPayload.sub}`);
+      logger.warn("[Auth0-JWT] SAID required but not present", { sub: tokenPayload.sub });
       return res.status(403).json({
         error: "SAID Patient ID required",
         code: "SAID_REQUIRED",
@@ -124,7 +124,7 @@ export function requireAuth0Token(
 
     if (options?.requireSegment && options.requireSegment.length > 0) {
       if (!tokenPayload.segment || !options.requireSegment.includes(tokenPayload.segment)) {
-        logger.warn(`[Auth0-JWT] Segment mismatch: have=${tokenPayload.segment}, need=${options.requireSegment.join("|")}`);
+        logger.warn("[Auth0-JWT] Segment mismatch", { have: tokenPayload.segment, need: options.requireSegment });
         return res.status(403).json({
           error: "Insufficient segment access",
           code: "SEGMENT_DENIED",
@@ -134,7 +134,7 @@ export function requireAuth0Token(
     }
 
     if (options?.requirePhiAccess && !tokenPayload.phiAccess) {
-      logger.warn(`[Auth0-JWT] PHI access required but not granted for sub=${tokenPayload.sub}`);
+      logger.warn("[Auth0-JWT] PHI access required but not granted", { sub: tokenPayload.sub });
       return res.status(403).json({
         error: "PHI access not authorized",
         code: "PHI_ACCESS_DENIED",
@@ -167,11 +167,28 @@ export async function verifyUninsuranceToken(
   const saidId = claims[CLAIM_SAID] as string | undefined;
 
   if (!saidId) {
-    logger.warn(`[Auth0-JWT] No SAID in Uninsurance token for sub=${claims.sub}`);
+    logger.warn("[Auth0-JWT] No SAID in Uninsurance token", { sub: claims.sub });
     return null;
   }
 
   return saidId;
+}
+
+/**
+ * Verify a raw Auth0 access token (no Express request needed) and return the
+ * normalised payload, or null when the token is missing, malformed, expired,
+ * or signed by anyone but the configured tenant. Used by callers that receive
+ * the token outside the usual `Authorization` header flow (MCP bearer auth).
+ */
+export async function verifyAuth0AccessToken(token: string): Promise<Auth0TokenPayload | null> {
+  if (!token || !AUTH0_CONFIGURED) return null;
+  const claims = await verifyAuth0Token(token);
+  if (!claims) return null;
+  return extractTokenPayload(claims);
+}
+
+export function isAuth0Configured(): boolean {
+  return AUTH0_CONFIGURED;
 }
 
 export async function verifyTabulaMedicaToken(
@@ -182,10 +199,7 @@ export async function verifyTabulaMedicaToken(
 
   if (!token) return null;
 
-  const claims = await verifyAuth0Token(token);
-  if (!claims) return null;
-
-  return extractTokenPayload(claims);
+  return verifyAuth0AccessToken(token);
 }
 
 export function requireSaidPatient() {
