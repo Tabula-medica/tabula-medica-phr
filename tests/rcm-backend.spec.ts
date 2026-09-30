@@ -24,13 +24,16 @@ import type { BenefitSnapshot, Coverage, LedgerEntry, Patient, Remittance } from
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
 const coverage: Coverage = { id: "c1", patientId: "p1", payerId: "BCBS", payerName: "BCBS PPO", memberId: "XYZ123", priority: "primary", subscriberRelationship: "self", timelyFilingDays: 90 };
 const bcbs = DEFAULT_CONTRACTS.find((c) => c.payerId === "BCBS")!;
-const mkClaim = () => buildClaim({ encounterId: "e", patient, coverage, billingNpi: "1234567893", billingTaxId: "12-3456789", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: ["25"], units: 1, charge: 300, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }, { cpt: "20610", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }] });
+// DOS is 60 days before today so the 90-day timely-filing deadline stays ~30 days in the future,
+// keeping scrubClaim() passing regardless of when the test suite runs.
+const TEST_DOS = addDays(new Date().toISOString().slice(0, 10), -60);
+const mkClaim = () => buildClaim({ encounterId: "e", patient, coverage, billingNpi: "1234567893", billingTaxId: "12-3456789", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: ["25"], units: 1, charge: 300, dxPointers: [1], dateOfService: TEST_DOS, placeOfService: "11" }, { cpt: "20610", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: TEST_DOS, placeOfService: "11" }] });
 
 describe("claims", () => {
   it("builds with totals + timely-filing deadline and maps to 837P/CMS-1500", () => {
     const c = mkClaim();
     expect(c.totalCharge).toBe(450);
-    expect(c.timelyFilingDeadline).toBe("2026-09-29");
+    expect(c.timelyFilingDeadline).toBe(addDays(TEST_DOS, 90));
     const x = claimTo837P(c, patient, coverage);
     expect(x.claim.diagnoses[0]).toEqual({ qualifier: "ABK", code: "M1711" });
     expect(x.claim.subscriber.relationshipCode).toBe("18");
@@ -69,7 +72,7 @@ describe("claims", () => {
     const withUndefinedKeys = correctedClaim(c, { diagnoses: undefined, priorAuthNumber: undefined });
     expect(withUndefinedKeys.diagnoses).toEqual(c.diagnoses);
     const sec = secondaryClaim(c, { ...coverage, id: "c2", payerId: "AETNA", payerName: "Aetna", priority: "secondary", timelyFilingDays: 120 }, { billed: 450, paid: 200, patientResp: 50, lines: [] });
-    expect(sec).toMatchObject({ payerId: "AETNA", cobPrimaryPaid: 200, timelyFilingDeadline: "2026-10-29" });
+    expect(sec).toMatchObject({ payerId: "AETNA", cobPrimaryPaid: 200, timelyFilingDeadline: addDays(TEST_DOS, 120) });
   });
   it("secondaryClaim clears the primary's payer-specific auth/referral/denial-resolution fields instead of carrying them to the new payer", () => {
     const primaryWithAuth = { ...mkClaim(), priorAuthNumber: "PRIMARY-AUTH-1", referralNumber: "PRIMARY-REF-1", resolvesDenialId: "den-on-primary" };
@@ -1612,7 +1615,7 @@ describe("round 4 hardening", () => {
     expect(corr.diagnoses).toHaveLength(12);
   });
   it("correctedClaim recomputes the timely-filing deadline when a patched line changes the date of service", () => {
-    const c = mkClaim(); // timelyFilingDeadline "2026-09-29" (90 days from 2026-07-01)
+    const c = mkClaim(); // timelyFilingDeadline = addDays(TEST_DOS, 90) (90 days from the relative TEST_DOS)
     const patchedLines = c.lines.map((l) => ({ ...l, dateOfService: "2026-08-01" }));
     const corr = correctedClaim(c, { lines: patchedLines });
     expect(corr.timelyFilingDeadline).toBe("2026-10-30"); // same 90-day window, anchored to the new DOS
@@ -1842,7 +1845,7 @@ describe("round 11 hardening", () => {
 
   it("applyClaimPatch re-anchors the timely-filing deadline when the patch changes lines' date of service, the same way correctedClaim does", () => {
     const c = mkClaim();
-    expect(c.timelyFilingDeadline).toBe("2026-09-29");
+    expect(c.timelyFilingDeadline).toBe(addDays(TEST_DOS, 90));
     // A later DOS must not inherit the old deadline (which would now fail timely-filing scrub
     // immediately); an earlier DOS must not silently borrow the later deadline either (which
     // would let it go out after its own real filing window).
