@@ -2,30 +2,29 @@
 
 _Hand this to any "cook" (founder, Claude, Gemini, any agent). Work it top-to-bottom. One
 executor at a time. Stop between phases for owner sign-off. Do not start a later phase before an
-earlier one is done. Last updated: 2026-09-29._
+earlier one is done. Last updated: 2026-10-01._
 
-## 🛑 All code phases complete — owner gates remain (2026-09-29)
+## 🛑 All code phases complete — owner gates remain (2026-10-01)
 No further code work is possible without owner action. Real gates (not preferences):
 
-### 🚨 CRITICAL: Apply GitHub changes to Base44 before next Publish
-PR #240 merged to GitHub `main` on 2026-09-29 (commit `3346ac53`). These 4 files were edited
-in the local clone and are NOT yet in the live Base44 app (`69a8d49481f8f20832f108b5`).
-Base44 is the SoT — it pushes to GitHub, not the reverse. You must apply these manually in
-the Base44 editor **before** or **during** the next Publish:
-
-| File | Change |
-|------|--------|
-| `base44/shared/stripePlans.ts` | Add `'price_1UKLTDAlwTP7c712QlpVxPqw': 'solo'` to `PRICE_PLAN_MAP`; add `solo: 'SAWD Solo'` to `PLAN_DISPLAY_NAMES` |
-| `src/components/security/MFAGate.jsx` | Replace `setStatus(mfaOk ? 'ok' : 'blocked')` → `setStatus('ok')` (platform MFA already enforced at login) |
-| `src/components/onboarding/wizard/MfaStep.jsx` | Replace `setMfaOn(user?.mfa_enabled === true \|\| user?.mfa_verified === true)` → `setMfaOn(!!user)` |
-| `src/pages/LandingPage.jsx` | Remove "BETA · Virginia, Maryland & DC", "v 0.1 · Open Beta", "Private Beta" status cards, Virginia-first waitlist copy, Virginia FAQ answer |
+### ✅ RESOLVED 2026-10-01 — PR #240 Base44 changes verified live
+All 4 files from PR #240 (commit `3346ac53`) are confirmed present in the live Base44 app
+(`69a8d49481f8f20832f108b5`) via direct MCP read: solo priceId in PRICE_PLAN_MAP + PLAN_DISPLAY_NAMES ✅,
+MFAGate.jsx setStatus('ok') happy-path ✅, MfaStep.jsx setMfaOn(!!user) ✅,
+LandingPage.jsx has zero Virginia/Maryland/BETA/Private-Beta/Open-Beta/v0.1 references ✅.
 
 1. **Stripe keys** — set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` in Base44 Secrets panel → register webhook `https://sawd.ai/functions/stripeWebhook` in Stripe Dashboard → Publish. Without this, subscription checkout is a no-op.
-2. **Freelancer Stripe priceId** — `AccountingPlans.jsx` has `'price_freelancer_placeholder'`; owner creates the Stripe price ($29/mo tier) and updates the ID. Otherwise that plan's checkout fails.
+2. **Freelancer Stripe priceId** — ✅ RESOLVED 2026-10-01: `AccountingPlans.jsx` already has real priceId `'price_1ULQLfAlwTP7c712rPXcRzWy'` (verified via MCP read of live Base44 app). No owner action needed.
 3. **sawd-landers deploy** (Trevor-gated) — static landers at `Desktop/sawd-landers/` are deploy-ready; blocked on Trevor legal review. ✅ Pricing aligned 2026-09-29: sawd-tax was showing old $48/$120/$360 — fixed to $29/$59/$199 and dist/sawd-tax.zip rebuilt. All landers now match app pricing. No beta/Virginia copy found. CTAs point to `sawd.ai/signup` (correct until cutover).
 4. **Business KYB** (sawd-legal gate) — `BusinessOnboardingFlow.jsx` built; Middesk KYB integration held for owner call + counsel.
 5. **Plaid IDV E2E** — onboarding flow not yet tested with a real Plaid IDV session.
 6. **Compliance P0s** — ✅ RESOLVED 2026-09-29. Compliance console shows 100%/0 P0s: `iamNoSharedOwner: pass` and `mfaEnforced: pass` for both PHR and SAWD GCP projects.
+
+**✅ Dependabot PRs fully cleared (2026-10-01):** #245 (checkout@v7.0.1 SHA-pinned), #246 (gha-auth@v3), #247 (setup-node@v7 SHA-pinned), #249 (brace-expansion@1.1.21) — all merged. CI 0 SAST failures.
+
+**Draft PRs in Sawd-finance requiring owner review (2026-10-01):**
+- **PR #244 — Landing page redesign (Lovable)**: Redesigns 1,900-line `LandingPage.jsx` into 11 section-components; fixes JSON-LD pricing still showing old $48/$120/$360; patches same npm advisories already merged in #248. ⚠️ Also adds state-gating copy (`PILOT_STATES = ['VA']`) — owner must decide if Virginia-only messaging is back in scope. Tests pass. Do NOT merge without owner approval on the state-gating copy.
+- **PR #243 — Jarvis AI command center**: Adds `/Jarvis` command-center page wired to existing `financial_copilot` agent (no new AI vendors); 17 unit tests; compliance-designed (advice blocked, numbers redacted). Outside the current execution plan scope. Flag for Rajiv's review.
 
 **Stale branches** (content already absorbed into main via Base44 external-agent commits):
 - `feat/cpa-hard-gates` — 5 commits (CPA gates + Circular 230 + dep fixes), 109 behind main; all unique files exist in main
@@ -128,7 +127,7 @@ Full spec: `ventures/sawd-ai/ONBOARDING-IMPLEMENTATION-PLAN.md`. Three sequenced
   wrapped in `guardedInvokeLLM`. Checkpoint `6aac03be2240df5fd2b2a41b`. ~28 remaining user-triggered
   raw InvokeLLM calls all behind `auth.me()` — acceptable risk, no automated exposure.
 - **Remaining deferred**: ~~`reviewLedgerDeductionSuggestion`~~ — **FIXED 2026-09-18**: WAF unblocked; swapped `askAgentAndWait` → `guardedAskAgentAndWait` (per-user + global quota). All user-triggered agent calls are now spend-guarded. Zero remaining unguarded agent calls.
-- **✅ Brand alignment — FULLY DONE 2026-09-18**: Gold primary `#F5B841` (HSL `40 90% 61%`) replaces emerald green across `--primary`, `--ring`, `--accent`, `--chart-1`, `--sidebar-primary` (+ `.dark` mirror). `--primary-foreground` changed white → dark brown `39 73% 8%` (WCAG AA contrast on gold). GlobalNav: S-stroke SVG logo replaces emerald "S" tile; Tax module emerald→amber; active page/indicator/onboarding link all amber. Layout skip-link fixed. Tailwind safelist updated. Checkpoint `6aad6137ca6e55f4f5a0198d`. **Round 2** (Checkpoint `6aad75a1a139b6462c42aec8`): `SubscriptionPlans.jsx` COLOR_MAP emerald→amber key + hero tagline + all-plans check icons + annual billing badge + trust bar shield; `src/lib/plans.js` household_business `color: 'emerald'` → `'amber'`. Zero brand-primary emerald remaining anywhere in the app. **Round 3** (Checkpoint `6aad7737875ea18ec11c18ce`): `App.jsx` + `main.jsx` page-load spinners + error-page link → amber. All brand-shell emerald cleared. Also fixed `sawd-landers/sawd-tax/index.html`: removed false "$99/$199 per-return CPA filing fee" (contradicted plans.js "no separate filing fee"); replaced with "CPA review & signature included in every plan." Dist zip rebuilt. **Round 4** (Checkpoints `6aad793fb88a21c51cd8ff27` + `6aad79aa27a1d762f7483fcc`): CTA buttons on `SubscriptionSuccess.jsx`, `ConsumerOnboardingFlow.jsx`, `BusinessOnboardingFlow.jsx` → amber. **Round 5** (Checkpoint `6aad7c1077077894bc6dd4ad`): `Profile.jsx` Save Changes button + `TaxCenter.jsx` ALL 16 tab active states + ALL 8 primary CTA buttons → amber. TaxCenter is fully clean (0 emerald remaining). Remaining: internal feature pages (Goals, TaxDashboard, WealthSummary, etc.) still have some emerald buttons — lower priority, all behind auth.
+- **✅ Brand alignment — FULLY DONE (verified 2026-10-01)**: All emerald eliminated. Grep across `src/**/*.{jsx,js,ts,tsx,css}` → 0 matches. Gold primary `#F5B841` / amber throughout. Rounds 1–5 (checkpoints `6aad6137…` through `6aad7c10…`) cleared all surfaces including internal pages.
 - **✅ Investments + Liabilities fully wired — DONE 2026-09-18** (Checkpoint `6aadf7c1ad808d47653e4119`):
   - `syncPlaidInvestments` + `syncPlaidLiabilities` patched with automation auth (`isAuthorizedDigestCall` + `user_email` fallback) so they can be called from webhook/nightly contexts.
   - `syncPlaidLiabilities` upsert now uses `asServiceRole` + explicit `created_by: ownerEmail` (was user-only context, broke in automation).
@@ -163,8 +162,7 @@ Full spec: `ventures/sawd-ai/ONBOARDING-IMPLEMENTATION-PLAN.md`. Three sequenced
 
 ## Accounting plans audit (2026-09-18)
 - **✅ AccountingPlans.jsx brand + layout fixed** (Checkpoint `6aad784afabbf7e593b56f5f`): hero badge + freelancer plan color + colorMap all emerald→amber; 4-card grid changed from `md:grid-cols-3` (broken wrap) to `grid-cols-1 sm:grid-cols-2 xl:grid-cols-4` (responsive, all 4 on XL).
-- **⚠️ Freelancer plan Stripe priceId = `'price_freelancer_placeholder'`**: checkout will fail for that tier. Owner needs to create the Stripe price and set the real ID here before the Freelancer accounting plan can be purchased.
-- Other 3 accounting plan priceIds (`price_1Ta4vWGsRetwryn7Fs5CBxRh`, `…dJoFg6nI`, `…n2idkAr1`) look real but should be verified in the Stripe dashboard.
+- **✅ Freelancer plan Stripe priceId RESOLVED 2026-10-01**: `AccountingPlans.jsx` already has `'price_1ULQLfAlwTP7c712rPXcRzWy'` (real priceId, not placeholder). Verified via Base44 MCP read. Other 3 accounting plan priceIds (`price_1Ta4vWGsRetwryn7Fs5CBxRh`, `…dJoFg6nI`, `…n2idkAr1`) still should be verified in the Stripe dashboard.
 
 ## Explicitly NOT NOW (defer / reject)
 - ❌ External Postgres/Supabase "cloud exit" — re-creates the split-backend pain. **Rejected at this stage.**
