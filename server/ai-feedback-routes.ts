@@ -3,13 +3,15 @@ import { randomUUID } from "crypto";
 import type { AiFeedback, InsertAiFeedback, AiFeedbackStats, AiFeedbackType, TrendParameters, InsightPreferences } from "@shared/schema";
 import { DEFAULT_TREND_PARAMETERS, DEFAULT_INSIGHT_PREFERENCES } from "@shared/schema";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { isAuthenticated } from "./replit_integrations/auth";
+import { getUserId } from "./middleware/require-user";
 
 const feedbackStore: Map<string, AiFeedback> = new Map();
 const trendParamsStore: Map<string, TrendParameters> = new Map();
 const insightPrefsStore: Map<string, InsightPreferences> = new Map();
 
 export function registerAiFeedbackRoutes(app: Express) {
-  app.post("/api/ai-feedback", async (req: Request, res: Response) => {
+  app.post("/api/ai-feedback", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const feedback: InsertAiFeedback = req.body;
 
@@ -32,7 +34,7 @@ export function registerAiFeedbackRoutes(app: Express) {
         });
       }
 
-      const userId = (req as any).user?.id || "anonymous";
+      const userId = getUserId(req);
 
       await logPhiAccess({
         userId,
@@ -72,7 +74,7 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.get("/api/ai-feedback/stats", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/stats", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { type } = req.query;
 
@@ -111,7 +113,7 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.get("/api/ai-feedback/inaccuracy-reports", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/inaccuracy-reports", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const feedbackArray = Array.from(feedbackStore.values());
       const inaccuracyReports = feedbackArray
@@ -126,9 +128,12 @@ export function registerAiFeedbackRoutes(app: Express) {
   });
 
   // Trend Parameters Routes
-  app.get("/api/ai-feedback/trend-params/:userId", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/trend-params/:userId", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
+      if (userId !== getUserId(req)) {
+        return res.status(404).json({ success: false, error: "Not found" });
+      }
       const params = trendParamsStore.get(userId) || DEFAULT_TREND_PARAMETERS;
       res.json({ success: true, data: params });
     } catch (error) {
@@ -137,11 +142,14 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.post("/api/ai-feedback/trend-params/:userId", async (req: Request, res: Response) => {
+  app.post("/api/ai-feedback/trend-params/:userId", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
+      if (userId !== getUserId(req)) {
+        return res.status(404).json({ success: false, error: "Not found" });
+      }
       const params: TrendParameters = req.body;
-      
+
       // Basic validation
       if (!["low", "medium", "high"].includes(params.sensitivity)) {
         return res.status(400).json({ success: false, error: "Invalid sensitivity value" });
@@ -170,9 +178,12 @@ export function registerAiFeedbackRoutes(app: Express) {
   });
 
   // Insight Preferences Routes
-  app.get("/api/ai-feedback/preferences/:userId", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/preferences/:userId", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
+      if (userId !== getUserId(req)) {
+        return res.status(404).json({ success: false, error: "Not found" });
+      }
       const prefs = insightPrefsStore.get(userId) || { ...DEFAULT_INSIGHT_PREFERENCES, userId };
       res.json({ success: true, data: prefs });
     } catch (error) {
@@ -181,11 +192,14 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.post("/api/ai-feedback/preferences/:userId", async (req: Request, res: Response) => {
+  app.post("/api/ai-feedback/preferences/:userId", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
+      if (userId !== getUserId(req)) {
+        return res.status(404).json({ success: false, error: "Not found" });
+      }
       const prefs: InsightPreferences = { ...req.body, userId };
-      
+
       // Basic validation
       if (!["summary", "standard", "detailed"].includes(prefs.detailLevel)) {
         return res.status(400).json({ success: false, error: "Invalid detail level" });
