@@ -115,4 +115,18 @@ if [ -n "$fc_sdk$fc_wrapper" ]; then
   exit 1
 fi
 
-echo "PHI-AI guard: OK — openai->Vertex alias in place, no new non-BAA proxy/client refs, Firecrawl boundary intact."
+# Fifth check — the public MCP connector is reachable by Claude (no BAA). It may
+# import only the MCP SDK, zod, public SEO data, the G-code catalog, and shared
+# types. Any other import (db, storage, auth, patient services) fails the build.
+mcp_bad="$(grep -hnE '^import' server/mcp/*.ts 2>/dev/null \
+  | grep -vE 'from "(@modelcontextprotocol/sdk/[^"]+|zod|express|express-rate-limit|\./public-connector(-route)?|\.\./seo/(free-care|drug-savings)|\.\./services/medicare-care-gaps/g-code-catalog|\.\./lib/logger|@shared/medicare-care-gaps)"' \
+  || true)"
+if [ -n "$mcp_bad" ]; then
+  echo "::error::PHI-AI GUARD FAILED — server/mcp/ (public Claude connector, no BAA) imports a non-allowlisted module."
+  echo "$mcp_bad"
+  echo ""
+  echo "The public connector serves public reference data only. Never wire it to patient data."
+  exit 1
+fi
+
+echo "PHI-AI guard: OK — openai->Vertex alias in place, no new non-BAA proxy/client refs, Firecrawl boundary intact, public MCP connector PHI-free."

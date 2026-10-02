@@ -1815,10 +1815,10 @@ describe("round 11 hardening", () => {
   });
 
   it("a corrected claim staged with no denial-specific patch is stranded at 'scrubbed' with a claim-edits work item, and applyClaimPatch is the real way back to 'ready'", async () => {
-    // mkClaim's fixed DOS (2026-07-01) has a 2026-09-29 timely-filing deadline; pin "now" inside that
-    // window so the post-patch re-scrub is clean regardless of the wall clock.
+    // mkClaim's DOS is TEST_DOS with a 90-day timely-filing deadline; pin "now" 30 days after it so the
+    // DOS is in the past and the deadline in the future, and the post-patch re-scrub is clean.
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-08-01T12:00:00Z"));
+    vi.setSystemTime(new Date(`${addDays(TEST_DOS, 30)}T12:00:00Z`));
     try {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
