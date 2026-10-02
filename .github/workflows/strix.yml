@@ -53,9 +53,14 @@ jobs:
       - name: Push schema to disposable database
         run: npm run db:push -- --force
 
+      # Run the production bundle, not tsx: only the build aliases `openai` to the
+      # Vertex shim, and the un-aliased dev server crashes at boot without an OpenAI key.
+      - name: Build app
+        run: npm run build
+
       - name: Start app
         run: |
-          NODE_ENV=development nohup npx tsx server/index.ts > app.log 2>&1 &
+          NODE_ENV=production nohup node dist/index.cjs > app.log 2>&1 &
           for i in $(seq 1 60); do
             curl -fsS http://localhost:8080/ >/dev/null && exit 0
             sleep 2
