@@ -94,6 +94,7 @@ const DualModeEcosystem = lazy(() => import("@/pages/dual-mode-ecosystem"));
 const NmnAuth0Smart = lazy(() => import("@/pages/nmn-auth0-smart"));
 const AIEvidenceAdvisor = lazy(() => import("@/pages/ai-evidence-advisor"));
 const HealthAssistant = lazy(() => import("@/pages/health-assistant"));
+const Jarvis = lazy(() => import("@/pages/jarvis"));
 const HealthJournal = lazy(() => import("@/pages/health-journal"));
 const HealthGoals = lazy(() => import("@/pages/health-goals"));
 const UsPaywall = lazy(() => import("@/pages/us-paywall"));
@@ -259,6 +260,7 @@ function Router() {
       <Route path="/nmn-auth0" component={NmnAuth0Smart} />
       <Route path="/ai-health-advisor" component={AIEvidenceAdvisor} />
       <Route path="/health-assistant" component={HealthAssistant} />
+      <Route path="/jarvis" component={Jarvis} />
       <Route path="/health-journal" component={HealthJournal} />
       <Route path="/health-goals" component={HealthGoals} />
       <Route path="/fitness-connections" component={FitnessRpmConnections} />
@@ -417,6 +419,7 @@ const pageTitles: Record<string, string> = {
   "/pricing": "Pricing",
   "/ai-health-advisor": "AI Health Advisor",
   "/health-assistant": "Health Assistant",
+  "/jarvis": "Jarvis AI",
   "/health-journal": "Health Journal",
   "/health-goals": "Health Goals",
   "/medical-scribe": "Record Visit",
