@@ -68,8 +68,20 @@ jobs:
           cat app.log
           exit 1
 
-      - name: Install Strix
-        run: curl -sSL https://strix.ai/install | bash
+      - name: Check Vertex secrets
+        env:
+          SA_JSON: ${{ secrets.STRIX_VERTEX_SA_JSON }}
+          VERTEX_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
+        run: |
+          if [ -z "$SA_JSON" ] || [ -z "$VERTEX_PROJECT" ]; then
+            echo "::error::Set repo secrets STRIX_VERTEX_SA_JSON and STRIX_VERTEX_PROJECT. Strix must use Vertex AI (Google BAA) only."
+            exit 1
+          fi
+
+      - name: Install Strix (with Vertex support)
+        run: |
+          curl -sSL https://strix.ai/install | bash
+          pipx install --force "strix-agent[vertex]"
 
       - name: Write Vertex credentials
         env:
