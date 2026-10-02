@@ -148,6 +148,7 @@ import fhirExternalApiGatewayRoutes from "./fhir-external-api-gateway-routes";
 import externalFhirRoutes from "./external-fhir-routes";
 import medplumRoutes from "./medplum-routes";
 import { registerSmartFhirRoutes } from "./smart-fhir-routes";
+import { registerMcpRoutes } from "./mcp";
 import { registerFHIRSyncRoutes } from "./fhir-sync-routes";
 import { registerFHIRCustomMappingRoutes } from "./fhir-custom-mapping-routes";
 import { registerFhirAuditRoutes } from "./fhir-audit-routes";
@@ -1202,6 +1203,8 @@ export async function registerRoutes(
   app.use("/api/medplum", medplumRoutes);
   console.log("[Medplum] Routes registered at /api/medplum/*");
   registerSmartFhirRoutes(app);
+  // Agent protocols Phase 1 (docs/agent-protocols-strategy.md): mounts only when MCP_SERVER_ENABLED=true.
+  registerMcpRoutes(app);
   registerFHIRSyncRoutes(app);
   registerFHIRCustomMappingRoutes(app);
   registerFhirAuditRoutes(app);
