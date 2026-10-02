@@ -30,3 +30,4 @@ google-service-account*.json
 *.visual-check/
 
 .claude/settings.local.json
+strix_runs/

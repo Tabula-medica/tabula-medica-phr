@@ -18,3 +18,12 @@ fi
 if [ ! -x node_modules/.bin/playwright ]; then
   npm install --no-audit --no-fund --prefer-offline
 fi
+
+# Supabase CLI (standalone binary; npm global installs of `supabase` are unsupported).
+if ! command -v supabase >/dev/null 2>&1; then
+  bin_dir="$HOME/.local/bin"
+  mkdir -p "$bin_dir"
+  curl -sSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
+    | tar xz -C "$bin_dir" supabase || echo "supabase CLI install failed (non-fatal)" >&2
+  [ -n "${CLAUDE_ENV_FILE:-}" ] && echo "export PATH=\"$bin_dir:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+fi
