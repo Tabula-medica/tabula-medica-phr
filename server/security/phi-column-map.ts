@@ -54,6 +54,44 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
     text: ["adhaSystemHpioEnc"],
     jsonb: [],
   },
+
+  // --- IN-region identifiers ---
+  inPatientIdentifiers: {
+    text: [
+      "abhaNumberEnc",
+      "abhaQrDataEnc",
+      "pmjayBeneficiaryIdEnc",
+      "cghsBeneficiaryIdEnc",
+      "esiInsuranceNumberEnc",
+      "uhidEnc",
+    ],
+    jsonb: [],
+  },
+  inPatientDemographics: {
+    text: ["mobilePhone", "alternatePhone", "emergencyContactNameEnc", "emergencyContactPhoneEnc"],
+    jsonb: [],
+  },
+
+  // --- AF-region identifiers ---
+  afPatientIdentifiers: {
+    text: [
+      "saNhnEnc",
+      "saIdNumberEnc",
+      "keNhifMemberNumberEnc",
+      "keNationalIdEnc",
+      "ngNinEnc",
+      "ngNhiaIdEnc",
+      "ngBvnEnc",
+      "etHmisIdEnc",
+      "ghNhisIdEnc",
+      "ghGhanaCardEnc",
+    ],
+    jsonb: [],
+  },
+  afPatientDemographics: {
+    text: ["emergencyContactNameEnc", "emergencyContactPhoneEnc"],
+    jsonb: [],
+  },
   patientIdentityTable: {
     // NOTE: `ssnHash` is excluded — already a one-way hash.
     // NOTE: `stateIdState` is excluded — US-state FK ("VA"), not PHI.

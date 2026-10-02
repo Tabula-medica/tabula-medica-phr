@@ -23,7 +23,7 @@ import { createInsertSchema } from "drizzle-zod";
 // DRIZZLE DATABASE TABLES
 // ============================================
 
-export const appRegions = ["us", "au", "international"] as const;
+export const appRegions = ["us", "au", "in", "af", "international"] as const;
 export type AppRegion = (typeof appRegions)[number];
 
 export const accounts = pgTable(
