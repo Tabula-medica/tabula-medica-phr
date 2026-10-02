@@ -1,0 +1,96 @@
+name: Strix pentest
+
+# Runs the Strix AI pentest agent against a disposable instance of the app on
+# every pull request. Non-negotiables (see CLAUDE.md):
+#   - Strix is LLM-driven, so every request/response it sees reaches the model.
+#     The model is routed to Vertex AI (Google BAA) only; never set STRIX_LLM to
+#     an OpenAI/Anthropic/consumer-Gemini model here.
+#   - The database holds synthetic data only (fresh Postgres service, schema
+#     pushed, no production data, no real credentials).
+# Required repo secrets: STRIX_VERTEX_SA_JSON (service account key with
+# Vertex AI User), STRIX_VERTEX_PROJECT. Optional var: STRIX_VERTEX_LOCATION.
+# Fork PRs have no access to secrets, so the job is skipped for them.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strix:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: strix
+          POSTGRES_DB: strix
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:strix@localhost:5432/strix
+      PORT: "8080"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Push schema to disposable database
+        run: npm run db:push -- --force
+
+      - name: Start app
+        run: |
+          NODE_ENV=development nohup npx tsx server/index.ts > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8080/ >/dev/null && exit 0
+            sleep 2
+          done
+          cat app.log
+          exit 1
+
+      - name: Install Strix
+        run: curl -sSL https://strix.ai/install | bash
+
+      - name: Write Vertex credentials
+        env:
+          SA_JSON: ${{ secrets.STRIX_VERTEX_SA_JSON }}
+        run: |
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/vertex-sa.json"
+          chmod 600 "$RUNNER_TEMP/vertex-sa.json"
+
+      - name: Strix scan (Vertex AI, synthetic data)
+        env:
+          STRIX_LLM: vertex_ai/gemini-3-pro-preview
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/vertex-sa.json
+          VERTEXAI_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
+          VERTEXAI_LOCATION: ${{ vars.STRIX_VERTEX_LOCATION || 'us-central1' }}
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.strix/bin:$PATH"
+          strix -n --target http://localhost:8080 --scan-mode quick
+
+      - name: Upload Strix report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strix-runs
+          path: strix_runs/
+          if-no-files-found: ignore
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/vertex-sa.json"
