@@ -538,7 +538,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 0, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -1559,7 +1559,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 3, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -2583,7 +2583,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 2, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -3606,7 +3606,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 0, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -5647,7 +5647,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 2, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -6666,7 +6666,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 0, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -7686,7 +7686,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 2, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
@@ -8706,7 +8706,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 2, low 0)"
+          "detail": "0 HIGH/CRITICAL CVEs portfolio-wide as of 2026-09-30. Only deferred: @medplum/core 4 to 5 MAJOR bump (no 4.x patch exists). All other repos fixed via lockfile override PRs merged 2026-09-28 through 2026-09-30."
         },
         {
           "id": "SEC-04",
