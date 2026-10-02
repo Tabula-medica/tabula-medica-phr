@@ -72,16 +72,21 @@ async function getCallerProfile(userId: string) {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET /api/in/status
-router.get("/status", (_req, res) => {
-  res.json({
-    region: "in",
-    abdmEnabled: process.env.ABDM_ENABLED === "true",
-    abdmEnvironment: process.env.ABDM_BASE_URL?.includes("sandbox") ? "sandbox" : "production",
-    icd11ApiAvailable: true,
-    supportedSchemes: ["pmjay", "cghs", "echs", "esis"],
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get(
+  "/status",
+  requireRole("patient", "provider", "admin"),
+  requireInRegion,
+  (_req, res) => {
+    return res.json({
+      region: "in",
+      abdmEnabled: process.env.ABDM_ENABLED === "true",
+      abdmEnvironment: process.env.ABDM_BASE_URL?.includes("sandbox") ? "sandbox" : "production",
+      icd11ApiAvailable: true,
+      supportedSchemes: ["pmjay", "cghs", "echs", "esis"],
+      timestamp: new Date().toISOString(),
+    });
+  },
+);
 
 // GET /api/in/identifiers
 router.get(

@@ -70,22 +70,27 @@ async function getCallerProfile(userId: string) {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET /api/af/status
-router.get("/status", (_req, res) => {
-  res.json({
-    region: "af",
-    supportedCountries: ["ZA", "KE", "NG", "ET", "GH", "TZ", "UG", "RW"],
-    supportedSchemes: {
-      ZA: ["sa_medical_aid", "sa_public"],
-      KE: ["ke_nhif"],
-      NG: ["ng_nhia"],
-      GH: ["gh_nhis"],
-      RW: ["rw_mutuelle"],
-    },
-    dhis2Integration: false,
-    smartHealthLinksSupported: true,
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get(
+  "/status",
+  requireRole("patient", "provider", "admin"),
+  requireAfRegion,
+  (_req, res) => {
+    return res.json({
+      region: "af",
+      supportedCountries: ["ZA", "KE", "NG", "ET", "GH", "TZ", "UG", "RW"],
+      supportedSchemes: {
+        ZA: ["sa_medical_aid", "sa_public"],
+        KE: ["ke_nhif"],
+        NG: ["ng_nhia"],
+        GH: ["gh_nhis"],
+        RW: ["rw_mutuelle"],
+      },
+      dhis2Integration: false,
+      smartHealthLinksSupported: true,
+      timestamp: new Date().toISOString(),
+    });
+  },
+);
 
 // GET /api/af/identifiers
 router.get(
