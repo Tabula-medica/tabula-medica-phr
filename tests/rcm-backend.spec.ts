@@ -1,5 +1,5 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, afterAll, beforeAll, beforeEach, vi } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
 import { parseEra, postRemittance, claimStatusFromPosting, claimContentSignature } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
@@ -24,6 +24,31 @@ import type { BenefitSnapshot, Coverage, LedgerEntry, Patient, Remittance } from
 const patient: Patient = { id: "p1", firstName: "Asha", lastName: "Demo", dob: "1968-03-14", sex: "F" };
 const coverage: Coverage = { id: "c1", patientId: "p1", payerId: "BCBS", payerName: "BCBS PPO", memberId: "XYZ123", priority: "primary", subscriberRelationship: "self", timelyFilingDays: 90 };
 const bcbs = DEFAULT_CONTRACTS.find((c) => c.payerId === "BCBS")!;
+/**
+ * Pin the wall clock for this whole file.
+ *
+ * Fixtures here carry hardcoded dates (`mkClaim`'s 2026-07-01 date of service, the
+ * ledger and denial dates below), and several rules compare them against *today*:
+ * the scrubber's `timely-filing` and `dos-in-future` rules, plus the aging,
+ * statement, follow-up and auth-expiry helpers. Left on the real clock, an
+ * assertion's meaning drifts with the calendar — `tests/rcm-backend.spec.ts:1840`
+ * went red on 2026-09-30 when `mkClaim`'s 90-day filing deadline (2026-09-29)
+ * lapsed and the claim stopped re-scrubbing clean.
+ *
+ * Only `Date` is faked, so timers, promises and the async store behave normally.
+ * Call sites that pass an explicit date still win; this just makes the *default*
+ * deterministic, so a dated fixture means the same thing on every future run.
+ */
+const FIXED_NOW = new Date("2026-09-15T12:00:00.000Z");
+
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
+
 const mkClaim = () => buildClaim({ encounterId: "e", patient, coverage, billingNpi: "1234567893", billingTaxId: "12-3456789", renderingNpi: "1234567893", placeOfService: "11", diagnoses: [{ code: "M17.11" }], lines: [{ cpt: "99214", modifiers: ["25"], units: 1, charge: 300, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }, { cpt: "20610", modifiers: [], units: 1, charge: 150, dxPointers: [1], dateOfService: "2026-07-01", placeOfService: "11" }] });
 
 describe("claims", () => {
@@ -1833,12 +1858,9 @@ describe("round 11 hardening", () => {
     corrected = applyClaimPatch(corrected, { diagnoses: [{ code: "M25.561" }] });
     await rcmStore.upsertClaim(T, corrected);
     expect(corrected.totalCharge).toBe(orig.totalCharge);
-    // Pin `today` so the fixture's 2026-09-29 timely-filing deadline cannot expire with the
-    // calendar and turn this assertion red: mkClaim() hardcodes dateOfService 2026-07-01, and
-    // the timely-filing rule raises a severity:"error" once the deadline has passed, which
-    // would stop the claim re-scrubbing clean and never reach "ready". This test is about the
-    // draft -> scrubbed -> ready path after an edit, not about the calendar.
-    const result = scrubClaim(corrected, { today: "2026-09-15" });
+    // Relies on this file's pinned clock: mkClaim's 2026-09-29 filing deadline must still be
+    // open for the edited claim to re-scrub clean, since the scrubber errors once it lapses.
+    const result = scrubClaim(corrected);
     let next = corrected;
     if (result.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", "biller", "clean after edit");
     await rcmStore.upsertClaim(T, next);
