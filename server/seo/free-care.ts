@@ -1,6 +1,6 @@
 import { ssrHtmlShell, SITE_URL } from "./ssr-shared";
 
-interface StateData {
+export interface StateData {
   slug: string;
   state: string;
   abbr: string;
@@ -22,6 +22,11 @@ const STATES: StateData[] = [
   { slug: "pennsylvania", state: "Pennsylvania", abbr: "PA", fqhcCount: 380, uninsuredRate: "5.6%", uninsuredPop: "730K", medicaidExpanded: true, keyPrograms: ["PA Medicaid (expanded)", "Pennie Marketplace", "CHIP (children)", "Hospital Financial Assistance Programs"], topFqhcs: [{ name: "Public Health Management Corporation", city: "Philadelphia", services: ["Primary Care", "Dental", "Behavioral Health"] }, { name: "Family Health Council", city: "Pittsburgh", services: ["Primary Care", "Women's Health", "Family Planning"] }, { name: "Hamilton Health Center", city: "Harrisburg", services: ["Primary Care", "Dental", "WIC", "Behavioral Health"] }], slidingScaleInfo: "Pennsylvania's Medicaid expansion covers adults up to 138% FPL. FQHCs provide sliding scale fees for those above Medicaid limits but unable to afford marketplace plans.", prescriptionHelp: ["Medicaid covers most prescriptions at $0–$3", "PA PACE/PACENET for seniors' prescriptions", "340B pricing at FQHC pharmacies", "Manufacturer PAPs"] },
   { slug: "illinois", state: "Illinois", abbr: "IL", fqhcCount: 460, uninsuredRate: "6.1%", uninsuredPop: "770K", medicaidExpanded: true, keyPrograms: ["IL Medicaid (expanded)", "Get Covered Illinois Marketplace", "All Kids (children)", "Cook County Health (Countycare)"], topFqhcs: [{ name: "Erie Family Health Centers", city: "Chicago", services: ["Primary Care", "Dental", "Behavioral Health", "Pharmacy"] }, { name: "Heartland Health Centers", city: "Chicago", services: ["Primary Care", "Pediatrics", "OB/GYN"] }, { name: "Southern Illinois Healthcare Foundation", city: "East St. Louis", services: ["Primary Care", "Dental", "Vision"] }], slidingScaleInfo: "Illinois expanded Medicaid in 2014, covering adults up to 138% FPL. FQHCs offer sliding scale for those between 138-200% FPL. Cook County Health's CareLink program provides free/low-cost care to county residents.", prescriptionHelp: ["Medicaid covers prescriptions at $0–$3 copay", "Illinois Rx Buying Club", "340B pricing at FQHC pharmacies", "Cook County Health pharmacy programs"] },
 ];
+
+/** Structured lookup for non-HTML consumers (the public MCP connector). */
+export function getFreeCareState(slug: string): Readonly<StateData> | null {
+  return STATES.find((x) => x.slug === slug) ?? null;
+}
 
 export function getStateSlugs(): string[] {
   return STATES.map((s) => s.slug);
