@@ -1815,16 +1815,18 @@ describe("round 11 hardening", () => {
   });
 
   it("a corrected claim staged with no denial-specific patch is stranded at 'scrubbed' with a claim-edits work item, and applyClaimPatch is the real way back to 'ready'", async () => {
-    // mkClaim's fixed DOS (2026-07-01) has a 2026-09-29 timely-filing deadline; pin "now" inside that
-    // window so the post-patch re-scrub is clean regardless of the wall clock.
+    // Pin "now" to TEST_DOS + 60d — after the DOS (so it isn't in the future) but well inside the
+    // 90-day timely-filing window (TEST_DOS + 90d). receivedAt is TEST_DOS + 30d (denial received
+    // a month after the DOS, before "now"). All offsets are relative so the test doesn't depend on
+    // the wall clock.
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-08-01T12:00:00Z"));
+    vi.setSystemTime(new Date(`${addDays(TEST_DOS, 60)}T12:00:00Z`));
     try {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
     const orig = mkClaim();
     await rcmStore.upsertClaim(T, orig);
-    await rcmStore.upsertDenial(T, { id: "den-fc-3", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "11", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: "2026-09-01", status: "open", priorityScore: 10 });
+    await rcmStore.upsertDenial(T, { id: "den-fc-3", claimId: orig.id, patientId: patient.id, payerId: "BCBS", carc: "11", group: "CO", amount: 300, category: "coding-mismatch", rootCause: "test", remediable: true, remediation: "test", preventionRuleIds: [], receivedAt: addDays(TEST_DOS, 30), status: "open", priorityScore: 10 });
     const fcApproval = await rcmStore.requestApproval(T, { agent: "denials", action: "file-corrected-claim", payload: { claimId: orig.id, denialId: "den-fc-3", amount: 300 }, reason: "test" });
     await rcmStore.decideApproval(T, fcApproval.id, "approved", "biller");
     const fcExec = await agentRuntime.executeApproved(T, fcApproval.id, "biller");
