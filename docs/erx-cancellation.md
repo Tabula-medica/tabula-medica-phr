@@ -18,6 +18,7 @@ Three workflows feed one pipeline:
 | `server/services/erx-script-messages.ts` | Message construction, dose comparison, response interpretation, waste estimation. No DB or network imports — this is the unit-tested core. |
 | `server/services/erx-transport.ts` | Outbound delivery. `SurescriptsHttpTransport` when credentials exist, `QueuedErxTransport` otherwise. |
 | `server/services/erx-cancellation-service.ts` | Lifecycle orchestration and persistence. |
+| `server/services/erx-cancellation-scheduler.ts` | Background driver for the retry sweep. |
 | `server/erx-cancellation-routes.ts` | REST API, mounted at `/api/erx-cancellation`. |
 | `client/src/pages/erx-cancellations.tsx` | Patient view at `/erx-cancellations`. |
 | `tests/erx-cancellation.spec.ts` | Hermetic tests for the core logic. |
@@ -42,6 +43,7 @@ delivered, and `GET /api/erx-cancellation/admin/queue-health` says so.
 | `SURESCRIPTS_SCRIPT_VERSION` | Optional SCRIPT version override (default `2017071`) |
 | `SURESCRIPTS_TIMEOUT_MS` | Optional request timeout (default 20s) |
 | `ERX_WEBHOOK_SECRET` | Shared secret for the inbound `CancelRxResponse` webhook. Without it the webhook returns 503 rather than accepting unauthenticated traffic. |
+| `ERX_CANCELLATION_SWEEP_INTERVAL_MS` | Optional retry-sweep cadence (default 5 min, floor 30s) |
 
 ## Endpoints
 
@@ -108,6 +110,40 @@ a SHA-256 of what was transmitted. The outbound message references the patient b
 opaque profile id; the gateway resolves it to the demographics the network needs,
 so no patient name enters this repo's queue or logs.
 
+## The retry sweep
+
+`startSyncScheduler()` also starts the CancelRx queue sweep, so a deployment that
+runs background jobs gets retries without extra wiring. Each pass:
+
+1. **Reclaims stranded transmissions.** A row is flipped to `transmitting` before
+   the message goes to the transport; if the process dies in that window the
+   in-flight guard makes the row unreachable forever. Rows stuck there for over
+   15 minutes go back on the queue with a `transmission_stalled_reclaimed` event.
+   Re-sending is the safer error — the gateway de-duplicates on the idempotency
+   key, and a pharmacy that already cancelled answers with a code we read as "not
+   dispensed" — whereas stranding leaves a superseded prescription fillable.
+
+   A row that keeps stalling is bounded by the same `MAX_TRANSMISSION_ATTEMPTS`
+   ceiling as one that keeps erroring: past it it is marked `failed` with a
+   `transmission_stalled_exhausted` event, so a process crash-looping on a single
+   message shows up in queue health instead of ping-ponging out of sight. Such a
+   row needs a phone call — we cannot know whether the pharmacy got the message.
+2. **Retries queued requests** whose backoff has elapsed, up to 50 per pass.
+
+Two properties worth keeping:
+
+- **Sweeps never overlap.** One pass sends one HTTP request per due row, so a slow
+  gateway can outlast the tick and two passes would claim the same rows.
+- **Nothing is swept without a gateway.** `QueuedErxTransport` parks every message
+  as `queued` by design and never reports a terminal outcome, so sweeping in that
+  state would retry the same rows forever against nothing, inflating attempt
+  counts and audit trails. Rows stay parked and become eligible once the
+  `SURESCRIPTS_*` variables are set — on the next process start, since
+  `getErxTransport()` memoises the transport it picked.
+
+`POST /admin/process-queue` still forces a pass by hand, and its response now
+includes `reclaimed` and `reclaimExhausted`.
+
 ## Before enabling a live connection
 
 1. **Reconcile the code tables.** `CANCEL_REASON_BY_TRIGGER` and
@@ -118,10 +154,7 @@ so no patient name enters this repo's queue or logs.
 2. **Add the XML serialiser.** The transport currently posts the normalised JSON
    representation. The envelope a gateway accepts differs per SCRIPT version and
    per connection, so serialisation belongs in the adapter.
-3. **Schedule the queue sweep.** `processPendingTransmissions()` is exposed via
-   `POST /admin/process-queue` but is not yet wired into `server/sync-scheduler.ts`.
-   Until it is, retries only happen when the endpoint is called.
-4. **Confirm prescriber identity.** Approval currently checks the repo's
+3. **Confirm prescriber identity.** Approval currently checks the repo's
    `isProvider`/`role === "provider"` session convention. A live connection needs
    the approver's DEA/NPI bound to the outbound message.
 

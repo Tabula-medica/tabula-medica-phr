@@ -314,3 +314,58 @@ describe("cancellation reasons", () => {
     expect(CANCEL_REASON_BY_TRIGGER.patient_deceased.text).toMatch(/do not dispense/i);
   });
 });
+
+describe("transmission queue sweep scheduling", () => {
+  it("defaults to a five-minute cadence and ignores unparseable overrides", async () => {
+    const { resolveSweepIntervalMs } = await import(
+      "../server/services/erx-cancellation-scheduler"
+    );
+
+    expect(resolveSweepIntervalMs(undefined)).toBe(5 * 60 * 1000);
+    expect(resolveSweepIntervalMs("")).toBe(5 * 60 * 1000);
+    expect(resolveSweepIntervalMs("not-a-number")).toBe(5 * 60 * 1000);
+  });
+
+  it("honours an explicit override but clamps it away from hammering the database", async () => {
+    const { resolveSweepIntervalMs } = await import(
+      "../server/services/erx-cancellation-scheduler"
+    );
+
+    expect(resolveSweepIntervalMs("600000")).toBe(600_000);
+    // Anything under the floor — including 0 and negatives — is raised to it.
+    expect(resolveSweepIntervalMs("1000")).toBe(30_000);
+    expect(resolveSweepIntervalMs("0")).toBe(30_000);
+    expect(resolveSweepIntervalMs("-5000")).toBe(30_000);
+  });
+
+  it("does not sweep while no eRx gateway is configured", async () => {
+    // Guards the reason the sweep was previously left unwired: the fallback
+    // transport parks every message as `queued` and never fails terminally, so a
+    // sweep would retry the same rows forever against a gateway that is not there.
+    const { setErxTransport } = await import("../server/services/erx-transport");
+    const { runErxCancellationSweep, resetErxSweepState } = await import(
+      "../server/services/erx-cancellation-scheduler"
+    );
+
+    let sends = 0;
+    setErxTransport({
+      name: "test-parked",
+      isLive: false,
+      async send() {
+        sends += 1;
+        return { outcome: "queued" as const, responseText: "parked" };
+      },
+    });
+    resetErxSweepState();
+
+    try {
+      expect(await runErxCancellationSweep()).toEqual({ ran: false, reason: "no_gateway" });
+      // Nothing was transmitted, and — importantly — no database module was
+      // loaded to look for work that cannot be sent anywhere.
+      expect(sends).toBe(0);
+    } finally {
+      setErxTransport(null);
+      resetErxSweepState();
+    }
+  });
+});
