@@ -19,6 +19,36 @@
  * given project/location 404s, adjust VERTEX_MODEL.
  */
 import { VertexAI, type GenerativeModel } from "@google-cloud/vertexai";
+import { getLogger } from "../lib/logger";
+
+const log = getLogger("ai-gateway");
+
+/**
+ * GenAI governance step 3 (monitor and audit): one PHI-free record per call.
+ * Metadata only — never prompt text, model output, or patient identifiers.
+ */
+async function withAudit<T>(
+  kind: "text" | "chat" | "vision",
+  purpose: string | undefined,
+  promptChars: number,
+  run: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    const out = await run();
+    log.info(
+      { kind, purpose: purpose ?? "unspecified", model: MODEL, promptChars, latencyMs: Date.now() - startedAt, outcome: "ok" },
+      "ai_gateway_call",
+    );
+    return out;
+  } catch (err) {
+    log.error(
+      { kind, purpose: purpose ?? "unspecified", model: MODEL, promptChars, latencyMs: Date.now() - startedAt, outcome: "error", errName: (err as Error)?.name },
+      "ai_gateway_call",
+    );
+    throw err;
+  }
+}
 
 const PROJECT =
   process.env.GCP_PROJECT_ID ||
@@ -46,6 +76,8 @@ function getModel(): GenerativeModel {
 }
 
 export interface PhiSafeTextRequest {
+  /** Feature name for the audit log (e.g. "timeline-story"). Never put PHI here. */
+  purpose?: string;
   /** Optional caller system prompt; the NO-CDS guardrail is always prepended. */
   system?: string;
   /** The user/content prompt (may contain the patient's own PHI). */
@@ -63,7 +95,7 @@ export interface PhiSafeTextRequest {
  * text. Throws on transport/model errors — callers should never fall back to a
  * non-BAA provider.
  */
-export async function generatePhiSafeText(req: PhiSafeTextRequest): Promise<string> {
+async function generatePhiSafeTextImpl(req: PhiSafeTextRequest): Promise<string> {
   const system = req.system ? `${NO_CDS_GUARDRAIL}\n\n${req.system}` : NO_CDS_GUARDRAIL;
   const result = await getModel().generateContent({
     systemInstruction: system,
@@ -78,6 +110,10 @@ export async function generatePhiSafeText(req: PhiSafeTextRequest): Promise<stri
   return parts.map((p: any) => p?.text ?? "").join("");
 }
 
+export function generatePhiSafeText(req: PhiSafeTextRequest): Promise<string> {
+  return withAudit("text", req.purpose, req.user.length, () => generatePhiSafeTextImpl(req));
+}
+
 export interface PhiSafeChatMessage {
   /** OpenAI uses "assistant"; Vertex uses "model" — both are accepted here. */
   role: "user" | "model" | "assistant" | "system";
@@ -85,6 +121,8 @@ export interface PhiSafeChatMessage {
 }
 
 export interface PhiSafeChatRequest {
+  /** Feature name for the audit log (e.g. "timeline-story"). Never put PHI here. */
+  purpose?: string;
   /**
    * Full conversation including any leading system messages. "system" role entries
    * are extracted and appended to the system instruction (NO-CDS guardrail is always
@@ -105,7 +143,7 @@ export interface PhiSafeChatRequest {
  * history (OpenAI-shaped messages array) and returns the model's reply text. Throws
  * on error — callers should never fall back to a non-BAA provider.
  */
-export async function generatePhiSafeChat(req: PhiSafeChatRequest): Promise<string> {
+async function generatePhiSafeChatImpl(req: PhiSafeChatRequest): Promise<string> {
   const systemParts: string[] = [NO_CDS_GUARDRAIL];
   if (req.system) systemParts.push(req.system);
 
@@ -140,7 +178,13 @@ export async function generatePhiSafeChat(req: PhiSafeChatRequest): Promise<stri
   return parts.map((p: any) => p?.text ?? "").join("");
 }
 
+export function generatePhiSafeChat(req: PhiSafeChatRequest): Promise<string> {
+  return withAudit("chat", req.purpose, req.messages.reduce((n, m) => n + m.content.length, 0), () => generatePhiSafeChatImpl(req));
+}
+
 export interface PhiSafeVisionRequest {
+  /** Feature name for the audit log (e.g. "timeline-story"). Never put PHI here. */
+  purpose?: string;
   /** Raw base64 image data (no data-URI prefix). */
   base64Image: string;
   /** MIME type of the image, e.g. "image/jpeg" or "image/png". */
@@ -158,7 +202,7 @@ export interface PhiSafeVisionRequest {
  * Run a PHI-bearing vision (image + text) call on Vertex (BAA). Returns the model's
  * text. Throws on error — callers should never fall back to a non-BAA provider.
  */
-export async function generatePhiSafeVision(req: PhiSafeVisionRequest): Promise<string> {
+async function generatePhiSafeVisionImpl(req: PhiSafeVisionRequest): Promise<string> {
   const system = req.system ? `${NO_CDS_GUARDRAIL}\n\n${req.system}` : NO_CDS_GUARDRAIL;
   const result = await getModel().generateContent({
     systemInstruction: system,
@@ -179,6 +223,10 @@ export async function generatePhiSafeVision(req: PhiSafeVisionRequest): Promise<
   });
   const parts = result?.response?.candidates?.[0]?.content?.parts ?? [];
   return parts.map((p: any) => p?.text ?? "").join("");
+}
+
+export function generatePhiSafeVision(req: PhiSafeVisionRequest): Promise<string> {
+  return withAudit("vision", req.purpose, req.prompt.length, () => generatePhiSafeVisionImpl(req));
 }
 
 /**
