@@ -104,6 +104,8 @@ const PreventiveScreening = lazy(() => import("@/pages/preventive-screening"));
 const LongevityPreventive = lazy(() => import("@/pages/longevity-preventive"));
 const CareGaps = lazy(() => import("@/pages/care-gaps"));
 const CompleteChartSummary = lazy(() => import("@/pages/complete-chart-summary"));
+const PatientOperations = lazy(() => import("@/pages/patient-operations"));
+const IntakeForm = lazy(() => import("@/pages/intake-form"));
 const AmbientEncounter = lazy(() => import("@/pages/ambient-encounter"));
 const SymptomChecker = lazy(() => import("@/pages/symptom-checker"));
 const BetaConsent = lazy(() => import("@/pages/beta-consent"));
@@ -269,6 +271,8 @@ function Router() {
       <Route path="/longevity-preventive-health" component={LongevityPreventive} />
       <Route path="/care-gaps" component={CareGaps} />
       <Route path="/complete-chart-summary" component={CompleteChartSummary} />
+      <Route path="/patient-operations" component={PatientOperations} />
+      <Route path="/intake" component={IntakeForm} />
       <Route path="/ambient-encounter" component={AmbientEncounter} />
       <Route path="/symptom-checker" component={SymptomChecker} />
       <Route path="/beta-consent" component={BetaConsent} />
@@ -427,6 +431,8 @@ const pageTitles: Record<string, string> = {
   "/longevity-preventive-health": "Longevity & Preventive Health",
   "/care-gaps": "Preventive Care Gaps",
   "/complete-chart-summary": "Complete Chart Summary",
+  "/patient-operations": "Patient Operations",
+  "/intake": "Secure Intake Form",
   "/ambient-encounter": "Visit Recorder",
   "/voice-access": "Voice Access",
   "/document-translation": "Document Translation",
@@ -810,7 +816,10 @@ function AppContent() {
     );
   }
 
-  const publicClinicalRoutes = ["/drug-interactions", "/prior-auth-letter", "/symptom-checker"];
+  // "/intake" is a token-gated secure intake form (server/patient-operations-routes.ts) — most
+  // patients filling one out have no account yet, so it must render without authentication.
+  // The token itself, not login, is the secret.
+  const publicClinicalRoutes = ["/drug-interactions", "/prior-auth-letter", "/symptom-checker", "/intake"];
   // Legal pages must be reachable when signed out so App Store reviewers
   // (and any visitor following a footer link from the landing page) can
   // view Privacy/Terms/Cookie/Disclaimer/Accessibility/HIPAA Notice

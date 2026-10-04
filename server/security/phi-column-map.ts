@@ -304,6 +304,13 @@ export const PHI_COLUMN_MAP: Record<string, PhiColumnSpec> = {
     text: ["content", "senderName", "attachmentName", "metadata"],
     jsonb: [],
   },
+
+  // --- Patient Operations Hub ---
+  intakeFormResponsesTable: { text: [], jsonb: ["answers"] },
+  patientEligibilityChecksTable: {
+    text: ["planName"],
+    jsonb: [],
+  },
   engagementAppointmentsTable: {
     text: [
       "providerName",
