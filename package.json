@@ -93,7 +93,6 @@
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "firebase": "^12.19.0",
-    "firebase-tools": "^15.31.0",
     "framer-motion": "^11.13.1",
     "google-auth-library": "^11.1.0",
     "helmet": "^8.3.0",
@@ -171,6 +170,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "firebase-tools": "^15.31.0",
     "jsdom": "^26.1.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.17",
@@ -226,7 +226,8 @@
     "eslint-plugin-jsx-a11y": {
       "minimatch": "^3.1.2"
     },
-    "csv-parse": "^7.0.2"
+    "csv-parse": "^7.0.2",
+    "http-cache-semantics": "^4.3.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.1.0"
