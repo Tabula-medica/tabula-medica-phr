@@ -1,5 +1,5 @@
 // RCM back-end: claims lifecycle, ERA posting, denials, patient financials, contracts, analytics, worklists, voice, agents.
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { applyClaimPatch, buildClaim, canTransition, claimTo837P, claimToCms1500Boxes, claimsNeedingFollowUp, correctedClaim, mapStatusCategory, secondaryClaim, transitionClaim } from "../server/rcm/claims";
 import { parseEra, postRemittance, claimStatusFromPosting, claimContentSignature } from "../server/rcm/remittance";
 import { analyzeDenial, denialFromAdjustment, denialPriority, denialTrends, generateAppealLetter, recommendAction } from "../server/rcm/denials";
@@ -1815,11 +1815,6 @@ describe("round 11 hardening", () => {
   });
 
   it("a corrected claim staged with no denial-specific patch is stranded at 'scrubbed' with a claim-edits work item, and applyClaimPatch is the real way back to 'ready'", async () => {
-    // mkClaim's fixed DOS (2026-07-01) has a 2026-09-29 timely-filing deadline; pin "now" inside that
-    // window so the post-patch re-scrub is clean regardless of the wall clock.
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-08-01T12:00:00Z"));
-    try {
     await rcmStore.upsertPatient(T, patient);
     await rcmStore.upsertCoverage(T, coverage);
     const orig = mkClaim();
@@ -1846,9 +1841,6 @@ describe("round 11 hardening", () => {
     if (result.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", "biller", "clean after edit");
     await rcmStore.upsertClaim(T, next);
     expect(next.status).toBe("ready");
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it("applyClaimPatch re-anchors the timely-filing deadline when the patch changes lines' date of service, the same way correctedClaim does", () => {
