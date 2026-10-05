@@ -10,3 +10,7 @@
 [[IgnoredVulns]]
 id = "GHSA-528h-pc64-c93x"
 reason = """stream-json 1.9.1 via firebase-tools (CLI/deploy tooling, not a runtime server dependency). The fixed release (stream-json >= 3.5.0) drops the `stream-json/filters/*` and `stream-json/streamers/*` subpath entry points that firebase-tools 15.x requires (database/import, commands/auth-import, frameworks/next), so overriding it breaks `firebase` deploys. Review when firebase-tools ships a release depending on stream-json 3.x."""
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = """braces <= 3.0.3 (stack-exhaustion DoS on deeply nested brace patterns) via chokidar 3.6.0 under firebase-tools and tailwindcss 3.x/micromatch. No patched braces release exists on npm (latest is 3.0.3), so an override cannot fix it, and `npm audit fix --force` would downgrade firebase-tools to 6.8.0 / jump tailwindcss to 4.x. Exposure is limited to build and deploy tooling globbing repo-controlled patterns, not request-time user input. Review when braces publishes a fix or chokidar 4 / tailwindcss 4 become consumable."""
