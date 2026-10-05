@@ -124,6 +124,7 @@ const PriorAuthLetter = lazy(() => import("@/pages/prior-auth-letter"));
 const InsuranceLearning = lazy(() => import("@/pages/insurance-learning"));
 const DentalIntegrations = lazy(() => import("@/pages/dental-integrations"));
 const Learn = lazy(() => import("@/pages/learn"));
+const Discover = lazy(() => import("@/pages/discover"));
 const Messages = lazy(() => import("@/pages/messages"));
 const PatientTelehealthPortal = lazy(() => import("@/pages/patient-telehealth-portal"));
 const CareTeamHub = lazy(() => import("@/pages/care-team-hub"));
@@ -294,6 +295,7 @@ function Router() {
       <Route path="/insurance-learning" component={InsuranceLearning} />
       <Route path="/dental-integrations" component={DentalIntegrations} />
       <Route path="/learn" component={Learn} />
+      <Route path="/discover" component={Discover} />
       <Route path="/messages" component={Messages} />
       <Route path="/patient-telehealth-portal" component={PatientTelehealthPortal} />
       <Route path="/telehealth" component={TelehealthPage} />
@@ -824,7 +826,7 @@ function AppContent() {
   // "/intake" is a token-gated secure intake form (server/patient-operations-routes.ts) — most
   // patients filling one out have no account yet, so it must render without authentication.
   // The token itself, not login, is the secret.
-  const publicClinicalRoutes = ["/drug-interactions", "/prior-auth-letter", "/symptom-checker", "/intake"];
+  const publicClinicalRoutes = ["/drug-interactions", "/prior-auth-letter", "/symptom-checker", "/intake", "/discover"];
   // Legal pages must be reachable when signed out so App Store reviewers
   // (and any visitor following a footer link from the landing page) can
   // view Privacy/Terms/Cookie/Disclaimer/Accessibility/HIPAA Notice
