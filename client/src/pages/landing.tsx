@@ -306,6 +306,7 @@ export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const landingStructuredData = useMemo(() => [
     buildOrganizationSchema(),
@@ -363,6 +364,31 @@ export default function LandingPage() {
   const handleLogin = () => navigateWithRetry("/auth/login");
   const handleGetStarted = () => navigateWithRetry("/auth/register");
 
+  // Signs the visitor into the single, shared, read-only demo account (see
+  // POST /api/auth/demo-session on the server) — no account creation, no
+  // GCIP sign-in. A full navigation (not a SPA route change) so the app's
+  // /api/auth/user query re-fetches fresh against the new session cookie.
+  const handleTryDemo = async () => {
+    setDemoLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch("/api/auth/demo-session", { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        setAuthError(
+          res.status === 404
+            ? "The demo account isn't available right now. Please sign up for a free account instead."
+            : "Could not start the demo. Please try again.",
+        );
+        setDemoLoading(false);
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      setAuthError("Could not start the demo. Please try again.");
+      setDemoLoading(false);
+    }
+  };
+
   const handleHospitalClick = (hospital: { name: string; baseUrl: string }) => {
     sessionStorage.setItem("pending_hospital_name", hospital.name);
     sessionStorage.setItem("pending_hospital_base_url", hospital.baseUrl);
@@ -398,6 +424,18 @@ export default function LandingPage() {
           >
             <Play className="h-3.5 w-3.5" />
             Take a tour
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTryDemo}
+            disabled={demoLoading}
+            className="hidden sm:inline-flex gap-1.5 text-sm rounded-lg"
+            data-testid="button-try-demo"
+          >
+            {demoLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Try Demo
           </Button>
           <div className="hidden sm:block">
             <GlobalLanguageSwitcher />

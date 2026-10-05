@@ -12,6 +12,7 @@ import {
   EMAIL_NOT_VERIFIED_CODE,
   EMAIL_NOT_VERIFIED_MESSAGE,
 } from "../../auth/email-verification";
+import { DEMO_USER_ID, DEMO_USER_EMAIL, isDemoWriteBlocked } from "@shared/demo-account";
 
 interface SessionUserClaims {
   sub: string;
@@ -219,6 +220,21 @@ export async function setupAuth(app: Express) {
   app.use(sessionBindingMiddleware());
   app.use(aiRuntimeGuard());
 
+  // Read-only enforcement for the shared demo account (see
+  // POST /api/auth/demo-session below). Anyone signed in as DEMO_USER_ID is
+  // blocked from every state-changing request except the small allowlist of
+  // POST-but-read-only endpoints above, so concurrent visitors can't corrupt
+  // or overwrite each other's view of the demo data.
+  app.use((req, res, next) => {
+    if (isDemoWriteBlocked(req.method, req.path, (req.user as any)?.claims?.sub)) {
+      return res.status(403).json({
+        code: "demo_read_only",
+        message: "This is a read-only demo account. Sign up for a free account to save changes.",
+      });
+    }
+    next();
+  });
+
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
@@ -374,6 +390,44 @@ export async function setupAuth(app: Express) {
       console.error("[Auth] GCIP session exchange error:", err?.message);
       return res.status(500).json({ message: "Session exchange failed" });
     }
+  });
+
+  // Sign a visitor into the single, shared, read-only demo account — no
+  // GCIP token involved. Deliberately the one exception to "every session
+  // requires a verified GCIP token": gated behind DEMO_ACCOUNT_ENABLED so it
+  // can never exist unless an operator explicitly turns it on (same
+  // opt-in-only pattern as seed-admin.ts's SEED_ADMIN flag), and the
+  // resulting session is write-blocked everywhere except a small read-only
+  // allowlist (see the middleware above). See server/seed-demo-account.ts
+  // for the synthetic data this account shows.
+  app.post("/api/auth/demo-session", async (req, res) => {
+    if (process.env.DEMO_ACCOUNT_ENABLED !== "1") {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const sessionUser: SessionUser = {
+      claims: {
+        sub: DEMO_USER_ID,
+        email: DEMO_USER_EMAIL,
+        first_name: "Demo",
+        last_name: "Account",
+        provider: "demo",
+        iat: nowSec,
+        auth_time: nowSec,
+        exp: nowSec + 3600,
+      },
+      expires_at: nowSec + 3600,
+    };
+
+    req.login(sessionUser, (loginErr) => {
+      if (loginErr) {
+        logAuthAttempt("DEMO_SESSION_LOGIN_ERROR", req, { error: loginErr.message });
+        return res.status(500).json({ message: "Failed to establish demo session" });
+      }
+      logAuthAttempt("DEMO_SESSION_LOGIN_SUCCESS", req, { userId: DEMO_USER_ID });
+      return res.json({ success: true, userId: DEMO_USER_ID, needsOnboarding: false });
+    });
   });
 
   // HIPAA compliance: no BAA with Auth0 — never round-trip the user
