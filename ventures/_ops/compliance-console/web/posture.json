@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T14:58:05.385Z",
+  "generatedAt": "2026-10-06T14:35:57.941Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -359,7 +359,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (200 site(s))"
+          "detail": "TLS/HSTS enforcement found (195 site(s))"
         },
         {
           "id": "DP-02",
@@ -1380,7 +1380,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (52 site(s))"
+          "detail": "TLS/HSTS enforcement found (46 site(s))"
         },
         {
           "id": "DP-02",
@@ -2404,7 +2404,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (249 site(s))"
+          "detail": "TLS/HSTS enforcement found (243 site(s))"
         },
         {
           "id": "DP-02",
@@ -2583,7 +2583,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 0, low 0)"
+          "detail": "0 prod high/critical (moderate 2, low 0)"
         },
         {
           "id": "SEC-04",
@@ -6487,7 +6487,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (34 site(s))"
+          "detail": "TLS/HSTS enforcement found (32 site(s))"
         },
         {
           "id": "DP-02",
@@ -7507,7 +7507,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (86 site(s))"
+          "detail": "TLS/HSTS enforcement found (84 site(s))"
         },
         {
           "id": "DP-02",
@@ -9209,11 +9209,11 @@
         "gdpr"
       ],
       "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls.",
-      "readiness": 99,
+      "readiness": 100,
       "counts": {
-        "pass": 29,
+        "pass": 30,
         "fail": 0,
-        "unknown": 1,
+        "unknown": 0,
         "na": 3
       },
       "rows": [
@@ -9802,9 +9802,9 @@
             "GitHub Actions workflow with test step on PR"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "github",
-          "detail": "GitHub API unavailable for Tabula-medica/ltfm-health"
+          "detail": "5 workflow(s) configured"
         },
         {
           "id": "AV-01",
