@@ -89,6 +89,19 @@ jobs:
           cat app.log
           exit 1
 
+      # Strix runs its agent in a Docker sandbox, where `localhost` is the sandbox, not the
+      # runner. The first Vertex-authenticated run scanned nothing ("No application was found
+      # to test", ~$1.60 spent) because the sandbox could not reach the app. Target the
+      # runner's own address and prove a container can reach it before paying for a scan.
+      - name: Verify the app is reachable from a container
+        run: |
+          HOST_IP=$(hostname -I | awk '{print $1}')
+          echo "TARGET_URL=http://${HOST_IP}:8080" >> "$GITHUB_ENV"
+          if ! docker run --rm curlimages/curl:8.10.1 -fsS -o /dev/null "http://${HOST_IP}:8080/"; then
+            echo "::error::App is not reachable from a Docker container at http://${HOST_IP}:8080; Strix would scan nothing."
+            exit 1
+          fi
+
       - name: Install Strix (with Vertex support)
         run: pipx install --force "strix-agent[vertex]"
 
@@ -100,7 +113,8 @@ jobs:
           VERTEXAI_LOCATION: ${{ vars.STRIX_VERTEX_LOCATION || 'us-central1' }}
         run: |
           export PATH="$HOME/.local/bin:$HOME/.strix/bin:$PATH"
-          strix -n --target http://localhost:8080 --scan-mode quick
+          strix -n --target "$TARGET_URL" --scan-mode quick \
+            --instruction "The target is a running web application reachable at the given URL. Source code is not available; test it black-box. Use only synthetic data."
 
       - name: Upload Strix report
         if: always()
