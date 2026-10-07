@@ -10,6 +10,10 @@
     "tabula-medica-public": {
       "command": "npx",
       "args": ["tsx", "server/mcp/public-connector-stdio.ts"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
     }
   }
 }

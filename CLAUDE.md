@@ -46,6 +46,12 @@ Tests live in `tests/*.spec.ts` (Vitest). Custom lint rule: `eslint-rules/no-str
   through that layer, never hardcoded.
 
 <!-- claude-prompt-codes:begin -->
+## Library docs (Context7)
+
+Context7 MCP is configured in `.mcp.json`. Before writing or changing code that uses a library,
+framework, SDK, or CLI (React, Drizzle, Zod, Express, Vitest, Playwright, Capacitor, Expo, ...),
+resolve it and query current docs instead of relying on memory. Never send PHI in a Context7 query.
+
 ## Prompt codes ("Claude Secret Codes")
 
 When a message starts or ends with a code from `.claude/prompt-codes.md` (for example
