@@ -18,6 +18,10 @@ architecture decisions live in `replit.md`. Roadmap and program docs live in
 - After bumping dependencies, re-run `npm audit` and maintain the `overrides` block in
   `package.json`.
 - Ask before major or destructive changes. Keep diffs minimal and scoped.
+- Keep session-level gateways and memory tools out of this repo: no Headroom, OmniRoute or
+  Claude-Mem in sessions here (they route or store session content outside the BAA). Claude-Mem is
+  disabled in `.claude/settings.json`; if a local gateway is wrapped, run `headroom unwrap claude`
+  or start with `ANTHROPIC_BASE_URL=https://api.anthropic.com`. Never paste PHI into any session.
 
 ## Commands
 
