@@ -50,6 +50,13 @@ jobs:
       fail-fast: false
       matrix:
         task:
+          - name: Dependency audit (high+)
+            # npm 10 dropped --ignore; continue-on-error would silently pass future CVEs.
+            # audit-filter.mjs fails on any HIGH/CRITICAL not in its ACCEPTED_GHSA list,
+            # so new vulnerabilities are caught while the two no-patch advisories
+            # (braces GHSA-vfj7-8cjw-p6xm, postcss-selector-parser GHSA-rj75-hqrm-r3gf)
+            # are explicitly accepted until the tailwindcss v4 upgrade.
+            run: node scripts/audit-filter.mjs
           - name: Accessibility lint
             run: npm run lint:a11y
           - name: Accessibility tests
@@ -72,3 +79,4 @@ jobs:
 
       - name: ${{ matrix.task.name }}
         run: ${{ matrix.task.run }}
+        continue-on-error: ${{ matrix.task.allow-failure == true }}

@@ -74,6 +74,29 @@ describe("PHI-AI boundary: runtime assertion", () => {
   });
 });
 
+describe("PHI-AI boundary: voice LLM production guard", () => {
+  const serverIndex = read("server/index.ts");
+
+  it("blocks VOICE_LLM_ENABLED=true in production", () => {
+    // Guard must throw when both conditions hold — not just check the env var.
+    expect(serverIndex).toMatch(
+      /VOICE_LLM_ENABLED.*===.*"true".*&&.*isProduction|isProduction.*&&.*VOICE_LLM_ENABLED.*===.*"true"/s,
+    );
+    expect(serverIndex).toContain('throw new Error');
+  });
+
+  it("requires both VOICE_LLM_ENABLED and isProduction (flag alone does not throw)", () => {
+    // The guard uses &&, so dev/test environments can set VOICE_LLM_ENABLED=true
+    // without crashing. Removing isProduction from the condition would fail this test.
+    expect(serverIndex).toMatch(/VOICE_LLM_ENABLED.*===.*"true".*&&.*isProduction/s);
+  });
+
+  it("includes an actionable BAA requirement in the error message", () => {
+    expect(serverIndex).toContain('BAA');
+    expect(serverIndex).toContain('VOICE_LLM_ENABLED=false');
+  });
+});
+
 describe("PHI-AI boundary: deployment", () => {
   const deployWorld = read("deploy-world.sh");
 

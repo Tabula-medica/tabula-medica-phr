@@ -73,6 +73,15 @@ if (process.env.ENABLE_ECW_CHECK === 'false' || process.env.USE_TEFCA === 'true'
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// PHI-AI boundary: voice STT/LLM/TTS routes through OpenAI (no BAA) when this flag
+// is enabled. Block it at startup in production until the Vertex/BAA gateway lands.
+if (process.env.VOICE_LLM_ENABLED === "true" && isProduction) {
+  throw new Error(
+    "VOICE_LLM_ENABLED must not be true in production — voice AI is not yet routed " +
+    "through a BAA-covered endpoint. Set VOICE_LLM_ENABLED=false or remove it."
+  );
+}
+
 // Set by initializeApp() below. `null` until startup reaches that point,
 // then `true`/`false`. A previous version of this file registered SEO routes
 // AFTER the SPA catch-all, so every server-rendered marketing page silently
