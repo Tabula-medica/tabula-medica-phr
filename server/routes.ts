@@ -317,6 +317,8 @@ import { registerEngagementRoutes } from "./engagement-routes";
 import { registerHealthSummaryShareRoutes } from "./health-summary-share-routes";
 import { registerAmbientScribeRoutes } from "./ambient-scribe-routes";
 import { registerCareManagementRoutes } from "./care-management-routes";
+import { registerMedicareCareGapsRoutes } from "./medicare-care-gaps-routes";
+import { registerCompleteChartSummaryRoutes } from "./complete-chart-summary-routes";
 import healthQuestionnaireRoutes from "./health-questionnaire-routes";
 import healthReportRoutes from "./health-report-routes";
 import providerCommunicationRoutes from "./provider-communication-routes";
@@ -441,6 +443,7 @@ import findhelpRoutes from "./routes/findhelp-routes";
 import sesameCareRoutes from "./routes/sesame-care-routes";
 import payerFhirRoutes from "./routes/payer-fhir-routes";
 import internalAnalyticsRoutes from "./routes/internal-analytics-routes";
+import webResearchRoutes from "./routes/web-research-routes";
 import extractionPipelineRoutes from "./routes/extraction-pipeline-routes";
 import billsEobRoutes from "./routes/bills-eob-routes";
 import rcmRoutes from "./rcm/routes";
@@ -1769,6 +1772,8 @@ export async function registerRoutes(
   registerHealthSummaryShareRoutes(app);
   registerAmbientScribeRoutes(app);
   registerCareManagementRoutes(app);
+  registerMedicareCareGapsRoutes(app);
+  registerCompleteChartSummaryRoutes(app);
 
   app.use("/api/health-questionnaire", healthQuestionnaireRoutes);
   console.log("[Routes] Health Questionnaire routes registered at /api/health-questionnaire/*");
@@ -6028,10 +6033,12 @@ Respond in JSON format with these fields:
   // Get PROM templates for conditions
   app.get("/api/condition-prom-templates", async (req, res) => {
     try {
-      const { diabetesPROMTemplate, hypertensionPROMTemplate } = await import("@shared/schema");
+      const { diabetesPROMTemplate, hypertensionPROMTemplate, adhdSymptomAssessmentTemplate } = await import("@shared/schema");
       res.json({
         diabetes: diabetesPROMTemplate,
         hypertension: hypertensionPROMTemplate,
+        // TODO: adhd assessment submission flow - remove this comment and add adhd when implemented
+        // adhd: adhdSymptomAssessmentTemplate,
       });
     } catch (error) {
       console.error("Error fetching PROM templates:", error);
@@ -38783,6 +38790,8 @@ startxref
   console.log("[Routes] Payer FHIR Patient Access routes registered at /api/payer-fhir/*");
 
   app.use("/api/internal-analytics", internalAnalyticsRoutes);
+  // Firecrawl web research (admin-only, NON-PHI: public URLs / screened queries only)
+  app.use("/api/admin/web-research", webResearchRoutes);
   app.use("/api/extraction-pipeline", extractionPipelineRoutes);
   console.log("[Routes] Extraction Pipeline routes registered at /api/extraction-pipeline/*");
   console.log("[Routes] Internal Analytics Dashboard routes registered at /api/internal-analytics/*");
