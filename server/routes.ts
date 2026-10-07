@@ -453,6 +453,8 @@ import fqhcFinderRoutes from "./routes/fqhc-finder-routes";
 import sharedLayerRoutes from "./routes/shared-layer-routes";
 import dualModeRoutes from "./routes/dual-mode-routes";
 import auRegionRoutes from "./routes/au-region-routes";
+import inRegionRoutes from "./routes/in-region-routes";
+import afRegionRoutes from "./routes/af-region-routes";
 // nmn-auth0-routes loaded dynamically below — only when AUTH0_ISSUER_BASE_URL is set,
 // so missing Auth0 secrets don't drag the foreign-tenant JWKS fetch into prod boot.
 import type { SyncScheduleInterval, EhrPlatform } from "@shared/schema";
@@ -1938,6 +1940,14 @@ export async function registerRoutes(
   // AU-region routes (IHI/Medicare/DVA identifiers, MyHR consent, NCTS terminology)
   app.use("/api/au", auRegionRoutes);
   console.log("[Routes] AU Region routes registered at /api/au/*");
+
+  // IN-region routes (ABHA/PM-JAY/ABDM identifiers, ICD-10/ICD-11 terminology)
+  app.use("/api/in", inRegionRoutes);
+  console.log("[Routes] IN Region routes registered at /api/in/*");
+
+  // AF-region routes (NHN/NHIF/NHIA identifiers, pan-African coverage, DHIS2)
+  app.use("/api/af", afRegionRoutes);
+  console.log("[Routes] AF Region routes registered at /api/af/*");
 
   // Dashboard Stats
   app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
