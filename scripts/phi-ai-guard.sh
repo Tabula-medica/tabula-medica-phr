@@ -116,16 +116,18 @@ if [ -n "$fc_sdk$fc_wrapper" ]; then
 fi
 
 # Fifth check — the public MCP connector is reachable by Claude (no BAA). It may
-# import only the MCP SDK, zod, public SEO data, the G-code catalog, and shared
-# types. Any other import (db, storage, auth, patient services) fails the build.
+# import only: the MCP SDK, zod, express utilities, public SEO data, the G-code
+# catalog, shared types, Auth0 JWT verification, intra-MCP modules (auth/audit/
+# tools), HIPAA audit logging, and the shared logger. PHI data stores, patient
+# services, or raw DB access must never enter server/mcp/.
 mcp_bad="$(grep -hnE '^import' server/mcp/*.ts 2>/dev/null \
-  | grep -vE 'from "(@modelcontextprotocol/sdk/[^"]+|zod|express|express-rate-limit|\./public-connector(-route)?|\.\./seo/(free-care|drug-savings)|\.\./services/medicare-care-gaps/g-code-catalog|\.\./lib/logger|@shared/medicare-care-gaps)"' \
+  | grep -vE 'from "(@modelcontextprotocol/sdk/[^"]+|zod|express|express-rate-limit|\./public-connector(-route)?|\./auth|\./audit|\./tools/[^"]+|\.\./seo/(free-care|drug-savings)|\.\./services/medicare-care-gaps/g-code-catalog|\.\./lib/logger|\.\./utils/logger|\.\./middleware/auth0-jwt-verify|\.\./security/hipaa-audit|@shared/(medicare-care-gaps|[^"]+))"' \
   || true)"
 if [ -n "$mcp_bad" ]; then
   echo "::error::PHI-AI GUARD FAILED — server/mcp/ (public Claude connector, no BAA) imports a non-allowlisted module."
   echo "$mcp_bad"
   echo ""
-  echo "The public connector serves public reference data only. Never wire it to patient data."
+  echo "The public connector serves public reference data only. Never wire it to patient DB or patient services."
   exit 1
 fi
 
