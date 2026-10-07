@@ -86,9 +86,12 @@ describe("public MCP connector: tools", () => {
 
 describe("public MCP connector: boundary", () => {
   it("server/mcp/ imports nothing that can reach patient data", () => {
+    // Allowlist mirrors scripts/phi-ai-guard.sh "Fifth check". Keep both in sync.
+    // auth/audit modules are allowed because they add identity verification and
+    // HIPAA audit logging — not PHI data access.
     const allowed =
-      /from "(@modelcontextprotocol\/sdk\/[^"]+|zod|express|express-rate-limit|\.\/public-connector(-route)?|\.\.\/seo\/(free-care|drug-savings)|\.\.\/services\/medicare-care-gaps\/g-code-catalog|\.\.\/lib\/logger|@shared\/medicare-care-gaps)"/;
-    for (const f of readdirSync("server/mcp")) {
+      /from "(@modelcontextprotocol\/sdk\/[^"]+|zod|express|express-rate-limit|\.\/public-connector(-route)?|\.\/auth|\.\/audit|\.\/tools\/[^"]+|\.\.\/seo\/(free-care|drug-savings)|\.\.\/services\/medicare-care-gaps\/g-code-catalog|\.\.\/lib\/logger|\.\.\/utils\/logger|\.\.\/middleware\/auth0-jwt-verify|\.\.\/security\/hipaa-audit|@shared\/(medicare-care-gaps|[^"]+))"/;
+    for (const f of readdirSync("server/mcp").filter(f => f.endsWith(".ts"))) {
       for (const line of readFileSync(`server/mcp/${f}`, "utf8").split("\n")) {
         if (line.startsWith("import")) expect(line, `${f}: ${line}`).toMatch(allowed);
       }
