@@ -7,8 +7,10 @@ name: Strix pentest
 #     an OpenAI/Anthropic/consumer-Gemini model here.
 #   - The database holds synthetic data only (fresh Postgres service, schema
 #     pushed, no production data, no real credentials).
-# Required repo secrets: STRIX_VERTEX_SA_JSON (service account key with
-# Vertex AI User), STRIX_VERTEX_PROJECT. Optional var: STRIX_VERTEX_LOCATION.
+# Auth: Workload Identity Federation — no long-lived SA key stored anywhere.
+# Required repo secrets: STRIX_WIF_PROVIDER (WIF provider resource name),
+#   STRIX_WIF_SA (strix-ci SA email), STRIX_VERTEX_PROJECT.
+# Optional var: STRIX_VERTEX_LOCATION (default us-central1).
 # Fork PRs have no access to secrets, so the job is skipped for them.
 
 on:
@@ -16,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # required for WIF OIDC token exchange
 
 concurrency:
   group: strix-${{ github.ref }}
@@ -47,6 +50,24 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Authenticate to Google Cloud (WIF — no SA key)
+        id: gcp-auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.STRIX_WIF_PROVIDER }}
+          service_account: ${{ secrets.STRIX_WIF_SA }}
+          token_format: access_token
+
+      - name: Check Vertex secrets
+        env:
+          WIF_PROVIDER: ${{ secrets.STRIX_WIF_PROVIDER }}
+          VERTEX_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
+        run: |
+          if [ -z "$WIF_PROVIDER" ] || [ -z "$VERTEX_PROJECT" ]; then
+            echo "::error::Set repo secrets STRIX_WIF_PROVIDER, STRIX_WIF_SA, and STRIX_VERTEX_PROJECT. Strix must use Vertex AI (Google BAA) only."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
@@ -68,32 +89,13 @@ jobs:
           cat app.log
           exit 1
 
-      - name: Check Vertex secrets
-        env:
-          SA_JSON: ${{ secrets.STRIX_VERTEX_SA_JSON }}
-          VERTEX_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
-        run: |
-          if [ -z "$SA_JSON" ] || [ -z "$VERTEX_PROJECT" ]; then
-            echo "::error::Set repo secrets STRIX_VERTEX_SA_JSON and STRIX_VERTEX_PROJECT. Strix must use Vertex AI (Google BAA) only."
-            exit 1
-          fi
-
       - name: Install Strix (with Vertex support)
-        run: |
-          curl -sSL https://strix.ai/install | bash
-          pipx install --force "strix-agent[vertex]"
-
-      - name: Write Vertex credentials
-        env:
-          SA_JSON: ${{ secrets.STRIX_VERTEX_SA_JSON }}
-        run: |
-          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/vertex-sa.json"
-          chmod 600 "$RUNNER_TEMP/vertex-sa.json"
+        run: pipx install --force "strix-agent[vertex]"
 
       - name: Strix scan (Vertex AI, synthetic data)
         env:
-          STRIX_LLM: vertex_ai/gemini-3-pro-preview
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/vertex-sa.json
+          STRIX_LLM: vertex_ai/gemini-2.5-pro
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.gcp-auth.outputs.credentials_file_path }}
           VERTEXAI_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
           VERTEXAI_LOCATION: ${{ vars.STRIX_VERTEX_LOCATION || 'us-central1' }}
         run: |
@@ -107,7 +109,3 @@ jobs:
           name: strix-runs
           path: strix_runs/
           if-no-files-found: ignore
-
-      - name: Remove credentials
-        if: always()
-        run: rm -f "$RUNNER_TEMP/vertex-sa.json"
