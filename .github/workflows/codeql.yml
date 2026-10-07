@@ -20,6 +20,9 @@ jobs:
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Code scanning must be enabled in GitHub repo settings before this gate
+    # can report. Non-blocking until an admin enables it.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
