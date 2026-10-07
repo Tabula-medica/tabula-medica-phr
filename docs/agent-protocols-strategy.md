@@ -189,6 +189,8 @@ One MCP server, four consumers. That is the benefit.
 
 **Session P1-a (60–90 min):** `server/mcp/index.ts`, `auth.ts`, `audit.ts`, tools `glossary` + `care_access` (both zero-PHI), `tests/mcp/auth.test.ts`. Feature flag off. Green CI.
 
+> **Status:** shipped 2026-09-30. Runbook and the PHI-tool checklist for P1-b/P1-c are in `server/mcp/README.md`. `care_access_lookup` reads the catalog now shared with `/api/uninsured-resources` (`server/services/care-access-catalog.ts`).
+
 **Session P1-b (60–90 min):** tools `fhir_search`, `fhir_read`, `export_bundle` with scope matrix tests and `_count` cap. Audit rows asserted.
 
 **Session P1-c (60–90 min):** tools `patient_summary`, `explain_result`, `medication_list` routed through `ai-provider.ts`; guardrail wrap; prompts `visit_prep`, `explain_in_language`.
