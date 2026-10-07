@@ -990,19 +990,17 @@ async function sendChat() {
   input.value = '';
   const loading = addMsg('Thinking…', 'ai', true);
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('/api/public/uninsurance-chat', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT + (currentLang !== 'en' ? `\n\nIMPORTANT: The user has selected language "${currentLang}". Respond in that language.` : ''),
-        messages: [{role: 'user', content: msg}]
+        message: msg,
+        lang: currentLang,
       })
     });
     const data = await resp.json();
     loading.remove();
-    addMsg(data.content?.[0]?.text || 'I had trouble connecting. Please try again.', 'ai');
+    addMsg(data.text || 'I had trouble connecting. Please try again.', 'ai');
   } catch(e) {
     loading.remove();
     addMsg('Connection issue. For immediate help, contact support@tabulamedica.health', 'ai');

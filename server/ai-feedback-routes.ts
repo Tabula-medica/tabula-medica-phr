@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import type { AiFeedback, InsertAiFeedback, AiFeedbackStats, AiFeedbackType, TrendParameters, InsightPreferences } from "@shared/schema";
 import { DEFAULT_TREND_PARAMETERS, DEFAULT_INSIGHT_PREFERENCES } from "@shared/schema";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const feedbackStore: Map<string, AiFeedback> = new Map();
 const trendParamsStore: Map<string, TrendParameters> = new Map();
@@ -126,9 +127,9 @@ export function registerAiFeedbackRoutes(app: Express) {
   });
 
   // Trend Parameters Routes
-  app.get("/api/ai-feedback/trend-params/:userId", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/trend-params/:userId", requireUser, async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      const userId = getUserId(req);
       const params = trendParamsStore.get(userId) || DEFAULT_TREND_PARAMETERS;
       res.json({ success: true, data: params });
     } catch (error) {
@@ -137,9 +138,9 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.post("/api/ai-feedback/trend-params/:userId", async (req: Request, res: Response) => {
+  app.post("/api/ai-feedback/trend-params/:userId", requireUser, async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      const userId = getUserId(req);
       const params: TrendParameters = req.body;
       
       // Basic validation
@@ -170,9 +171,9 @@ export function registerAiFeedbackRoutes(app: Express) {
   });
 
   // Insight Preferences Routes
-  app.get("/api/ai-feedback/preferences/:userId", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/preferences/:userId", requireUser, async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      const userId = getUserId(req);
       const prefs = insightPrefsStore.get(userId) || { ...DEFAULT_INSIGHT_PREFERENCES, userId };
       res.json({ success: true, data: prefs });
     } catch (error) {
@@ -181,9 +182,9 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.post("/api/ai-feedback/preferences/:userId", async (req: Request, res: Response) => {
+  app.post("/api/ai-feedback/preferences/:userId", requireUser, async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      const userId = getUserId(req);
       const prefs: InsightPreferences = { ...req.body, userId };
       
       // Basic validation
