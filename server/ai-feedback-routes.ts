@@ -10,7 +10,7 @@ const trendParamsStore: Map<string, TrendParameters> = new Map();
 const insightPrefsStore: Map<string, InsightPreferences> = new Map();
 
 export function registerAiFeedbackRoutes(app: Express) {
-  app.post("/api/ai-feedback", async (req: Request, res: Response) => {
+  app.post("/api/ai-feedback", requireUser, async (req: Request, res: Response) => {
     try {
       const feedback: InsertAiFeedback = req.body;
 
@@ -33,7 +33,7 @@ export function registerAiFeedbackRoutes(app: Express) {
         });
       }
 
-      const userId = (req as any).user?.id || "anonymous";
+      const userId = getUserId(req);
 
       await logPhiAccess({
         userId,
@@ -73,7 +73,7 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.get("/api/ai-feedback/stats", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/stats", requireUser, async (req: Request, res: Response) => {
     try {
       const { type } = req.query;
 
@@ -112,7 +112,7 @@ export function registerAiFeedbackRoutes(app: Express) {
     }
   });
 
-  app.get("/api/ai-feedback/inaccuracy-reports", async (req: Request, res: Response) => {
+  app.get("/api/ai-feedback/inaccuracy-reports", requireUser, async (req: Request, res: Response) => {
     try {
       const feedbackArray = Array.from(feedbackStore.values());
       const inaccuracyReports = feedbackArray

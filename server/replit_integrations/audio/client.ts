@@ -9,11 +9,28 @@ import { generatePhiSafeChatStream } from "../../services/ai-gateway";
 // therefore uses GCP Speech-to-Text + Google Cloud TTS (both BAA-covered). Single-model
 // audio-in/audio-out (voiceChat*) can't run on Gemini and is fail-closed → use the
 // cascade voiceChatWithTextModel (STT → Vertex text → TTS) instead.
-// Exported for callers that need the OpenAI-compat interface; chat.completions routes
-// to Vertex AI via AI_INTEGRATIONS_OPENAI_BASE_URL (BAA-covered).
-export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+// Constructed lazily behind a Proxy: the real `openai` package throws at
+// construction time when neither AI_INTEGRATIONS_OPENAI_API_KEY nor
+// OPENAI_API_KEY is set, which would crash the whole process at import time
+// (every file in this module graph is pulled in by server/routes.ts). Any
+// environment without this optional integration configured — local dev, CI,
+// the authz-sweep boot probe — must still be able to boot the server; the
+// missing-credentials error should surface only if something actually tries
+// to use this client, not on every server start.
+let _client: OpenAI | null = null;
+function getClient(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "unconfigured",
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return _client;
+}
+export const openai = new Proxy({} as OpenAI, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getClient(), prop, receiver);
+  },
 });
 
 // Map the app's audio container hints to GCP STT encodings; fail closed on mp4/aac.
