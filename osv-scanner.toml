@@ -16,9 +16,5 @@ id = "GHSA-rj75-hqrm-r3gf"
 reason = """postcss-selector-parser <7.1.6 (quadratic complexity in flat selector parsing, CPU exhaustion). The patched release (7.x) is a breaking major change that conflicts with direct runtime dependencies requiring ^6.x; npm override is not possible. Severity is moderate (no auth/PHI exposure). Review when direct deps lift their postcss-selector-parser peer constraint above 6.x."""
 
 [[IgnoredVulns]]
-id = "GHSA-vc2v-76pw-4v95"
-reason = """compression 1.8.1 via firebase-tools (CLI/deploy devDependency, not a runtime server dependency). No patched compression release exists on npm as of 2026-10-06. Production tree is clean. Review by 2027-01-04 or when compression publishes a patched release."""
-
-[[IgnoredVulns]]
 id = "GHSA-vfj7-8cjw-p6xm"
 reason = """braces 3.0.3 stack-exhaustion DoS via deeply nested glob patterns — no upstream fix exists (3.0.3 is the latest npm release). Reached only via devDependencies: firebase-tools -> chokidar@3 and tailwindcss -> micromatch, both devDependencies. Production tree is clean (`npm audit --omit=dev --audit-level=high` passes). Inputs are glob patterns from local developer tooling, never user-supplied. Review by 2027-01-04 or when braces publishes a patched release."""
