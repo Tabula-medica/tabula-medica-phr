@@ -199,6 +199,16 @@ export function startSyncScheduler(): void {
   schedulerInterval = setInterval(checkScheduledSyncs, SCHEDULER_INTERVAL_MS);
   
   setTimeout(checkScheduledSyncs, 5000);
+
+  // The CancelRx transmission queue runs on its own cadence (see
+  // `services/erx-cancellation-scheduler.ts`) but shares this lifecycle, so a
+  // deployment that starts background jobs gets the retry sweep with them.
+  // Imported lazily: a fault in the eRx module must not stop EHR sync starting.
+  import("./services/erx-cancellation-scheduler")
+    .then(({ startErxCancellationScheduler }) => startErxCancellationScheduler())
+    .catch((error) => {
+      console.error("[SyncScheduler] eRx cancellation sweep failed to start:", error);
+    });
 }
 
 export function stopSyncScheduler(): void {
@@ -207,6 +217,10 @@ export function stopSyncScheduler(): void {
     schedulerInterval = null;
     console.log("[SyncScheduler] Stopped background sync scheduler");
   }
+
+  import("./services/erx-cancellation-scheduler")
+    .then(({ stopErxCancellationScheduler }) => stopErxCancellationScheduler())
+    .catch(() => {});
 }
 
 export { checkScheduledSyncs, shouldSyncConnection };
