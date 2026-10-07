@@ -24,7 +24,7 @@ import {
   type AccessLevel,
   accounts,
 } from "@shared/schema";
-import { generatePhiSafeChat, generatePhiSafeChatStream } from "./services/ai-gateway";
+import { generatePhiSafeChat, generatePhiSafeChatStream, generatePhiSafeText } from "./services/ai-gateway";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import {
   isFastenConfigured,
@@ -1148,6 +1148,26 @@ export async function registerRoutes(
   // Public, no-auth runtime config so the SPA can hide TEFCA UI on .world.
   app.get("/api/public-config", (_req, res) => {
     res.json({ tefcaEnabled: TEFCA_ENABLED });
+  });
+
+  // Non-PHI public chat proxy for uninsurance.html navigation assistant.
+  // Input is general insurance-navigation questions — no patient data involved.
+  app.post("/api/public/uninsurance-chat", async (req, res) => {
+    try {
+      const { message, lang } = req.body as { message?: string; lang?: string };
+      if (!message || typeof message !== "string" || message.length > 2000) {
+        return res.status(400).json({ error: "Invalid message" });
+      }
+      const systemSuffix =
+        lang && lang !== "en"
+          ? `\n\nIMPORTANT: The user has selected language "${lang}". Respond in that language.`
+          : "";
+      const UNINSURANCE_SYSTEM = `You are a helpful guide for people navigating health coverage in the United States. Help users understand uninsurance, underinsurance, and cash-pay healthcare options. Be warm, specific, multilingual, and empathetic. Respond in the language of the question. Never give medical diagnosis — always refer to providers. Keep responses concise and actionable.${systemSuffix}`;
+      const text = await generatePhiSafeText({ system: UNINSURANCE_SYSTEM, user: message });
+      res.json({ text: text || "I had trouble connecting. Please try again." });
+    } catch {
+      res.status(500).json({ text: "Connection issue. For immediate help, contact support@tabulamedica.health" });
+    }
   });
 
   // When disabled, hard-block the entire TEFCA/Fasten API surface. Registered

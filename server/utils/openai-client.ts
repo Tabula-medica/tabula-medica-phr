@@ -7,9 +7,7 @@ let _sharedClient: OpenAI | null = null;
 export function getOpenAIClient(): OpenAI {
   if (_sharedClient) return _sharedClient;
 
-  const apiKey =
-    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
-    process.env.OPENAI_API_KEY;
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined;
 
@@ -24,8 +22,5 @@ export function getOpenAIClient(): OpenAI {
 }
 
 export function hasOpenAIKey(): boolean {
-  return !!(
-    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
-    process.env.OPENAI_API_KEY
-  );
+  return !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 }
