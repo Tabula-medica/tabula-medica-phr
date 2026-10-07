@@ -34,6 +34,11 @@ const PUBLIC_ALLOWLIST = [
   /^\/api\/provider-integration\/[^/]+\/Patient/, /available-scopes/,
   // Single-use secure access-token validation (no session by design)
   /validate-token/,
+  // Vhost routing diagnostics — reports config booleans/hostnames, no PHI
+  /^\/api\/_admin-vhost\/health/,
+  // Population-benchmark demo dashboard — fully synthetic generated series,
+  // no DB read, no req.user; shape param-driven only (condition/riskLevel)
+  /^\/api\/adaptive-dashboard/,
 ];
 
 const routeRe = /(?:app|router)\.(get|post|put|patch|delete)\(\s*["'`](\/[^"'`]+)["'`]/g;
