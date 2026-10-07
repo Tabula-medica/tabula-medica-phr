@@ -29,16 +29,6 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: strix
-          POSTGRES_DB: strix
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s
-          --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:strix@localhost:5432/strix
       PORT: "8080"
@@ -71,6 +61,37 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      # The app refuses plaintext DB connections in production (server/db.ts forces TLS with
+      # certificate verification) and refuses to boot auth without SESSION_SECRET. Give it both,
+      # as production does: a throwaway TLS Postgres whose CA the app trusts, and a random secret.
+      # Without them every request to a protected route crashed the server (CI run 37665510325).
+      - name: Start Postgres with TLS and generate app secrets
+        run: |
+          CERT_DIR="$RUNNER_TEMP/pg-certs"
+          mkdir -p "$CERT_DIR" && cd "$CERT_DIR"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=strix-ci-ca" \
+            -keyout ca.key -out ca.crt
+          openssl req -newkey rsa:2048 -nodes -subj "/CN=localhost" -keyout server.key -out server.csr
+          printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\n' > san.ext
+          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 1 \
+            -extfile san.ext -out server.crt
+          sudo chown 999:999 server.key server.crt && sudo chmod 600 server.key
+          docker run -d --name strix-pg -p 5432:5432 \
+            -e POSTGRES_PASSWORD=strix -e POSTGRES_DB=strix \
+            -v "$CERT_DIR:/certs:ro" postgres:16 \
+            -c ssl=on -c ssl_cert_file=/certs/server.crt -c ssl_key_file=/certs/server.key
+          # Over TCP only: the init-time server listens on the unix socket alone.
+          for i in $(seq 1 30); do
+            ssl=$(docker exec -e PGPASSWORD=strix -e PGSSLMODE=require strix-pg \
+              psql -h 127.0.0.1 -U postgres -d strix -tAc \
+              'select ssl from pg_stat_ssl where pid = pg_backend_pid()' 2>/dev/null || true)
+            [ "$ssl" = "t" ] && break
+            sleep 2
+          done
+          [ "$ssl" = "t" ] || { echo "::error::Postgres did not come up with TLS"; docker logs strix-pg | tail -30; exit 1; }
+          echo "NODE_EXTRA_CA_CERTS=$CERT_DIR/ca.crt" >> "$GITHUB_ENV"
+          echo "SESSION_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Push schema to disposable database
         run: npm run db:push -- --force
 
@@ -78,6 +99,13 @@ jobs:
       # Vertex shim, and the un-aliased dev server crashes at boot without an OpenAI key.
       - name: Build app
         run: npm run build
+
+      # Installed and pre-pulled BEFORE the app starts: the sandbox image is ~2 GB and takes
+      # ~80 s to pull, and the scan must begin right after the reachability check.
+      - name: Install Strix (with Vertex support) and pre-pull its sandbox
+        run: |
+          pipx install --force "strix-agent[vertex]==1.7.0"
+          docker pull ghcr.io/usestrix/strix-sandbox:1.3.0
 
       - name: Start app
         run: |
@@ -88,6 +116,18 @@ jobs:
           done
           cat app.log
           exit 1
+
+      # Free check before any LLM spend: the app must survive an anonymous request to a
+      # protected route (it answers 401/403) and still serve afterwards.
+      - name: Smoke test the running app
+        run: |
+          fail() { echo "::error::$1"; tail -n 80 app.log; exit 1; }
+          curl -fsS -o /dev/null http://localhost:8080/ || fail "App is not serving /"
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/health-goals || true)
+          case "$code" in 401|403) ;; *) fail "Protected route returned '$code', expected 401/403 (000 means the app died)";; esac
+          curl -fsS -o /dev/null http://localhost:8080/ || fail "App died after an anonymous request to a protected route"
+          ! grep -q "does not support SSL" app.log || fail "App cannot use the database over TLS"
+          ! grep -q "SESSION_SECRET must be set" app.log || fail "App auth setup failed: SESSION_SECRET"
 
       # Strix runs its agent in a Docker sandbox, where `localhost` is the sandbox, not the
       # runner. The first Vertex-authenticated run scanned nothing ("No application was found
@@ -102,9 +142,6 @@ jobs:
             exit 1
           fi
 
-      - name: Install Strix (with Vertex support)
-        run: pipx install --force "strix-agent[vertex]"
-
       - name: Strix scan (Vertex AI, synthetic data)
         env:
           STRIX_LLM: vertex_ai/gemini-2.5-pro
@@ -112,14 +149,40 @@ jobs:
           VERTEXAI_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
           VERTEXAI_LOCATION: ${{ vars.STRIX_VERTEX_LOCATION || 'us-central1' }}
         run: |
+          set -o pipefail
           export PATH="$HOME/.local/bin:$HOME/.strix/bin:$PATH"
+          # strix exits non-zero when it reports findings; that is the gate, so keep its code.
           strix -n --target "$TARGET_URL" --scan-mode quick \
-            --instruction "The target is a running web application reachable at the given URL. Source code is not available; test it black-box. Use only synthetic data."
+            --instruction "The target is a running web application reachable at the given URL. Source code is not available; test it black-box. Use only synthetic data." \
+            2>&1 | tee strix.out
+          scan_rc=${PIPESTATUS[0]}
+          # A scan that never reached the app exits 0 with "0 vulnerabilities", which would be a
+          # false green. Treat that as a failure.
+          if grep -qiE "not running|no application was found|could not (connect|reach)|unable to (connect|reach)|connection refused" strix.out; then
+            echo "::error::Strix could not reach the application, so nothing was tested. See the app log step."
+            exit 1
+          fi
+          if ! curl -fsS -o /dev/null http://localhost:8080/; then
+            echo "::error::The app stopped responding during the scan."
+            exit 1
+          fi
+          exit "$scan_rc"
+
+      - name: App log (tail)
+        if: always()
+        run: tail -n 150 app.log || true
 
       - name: Upload Strix report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: strix-runs
-          path: strix_runs/
+          path: |
+            strix_runs/
+            strix.out
+            app.log
           if-no-files-found: ignore
+
+      - name: Stop Postgres
+        if: always()
+        run: docker rm -f strix-pg || true
