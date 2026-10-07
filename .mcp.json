@@ -6,6 +6,10 @@
       "env": {
         "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
       }
+    },
+    "tabula-medica-public": {
+      "command": "npx",
+      "args": ["tsx", "server/mcp/public-connector-stdio.ts"]
     }
   }
 }

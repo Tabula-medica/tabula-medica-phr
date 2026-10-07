@@ -1,6 +1,6 @@
 import { ssrHtmlShell, SITE_URL } from "./ssr-shared";
 
-interface Drug {
+export interface Drug {
   slug: string;
   name: string;
   genericName: string;
@@ -27,6 +27,11 @@ const DRUGS: Drug[] = [
   { slug: "sertraline", name: "Sertraline", genericName: "Sertraline HCl", brandName: "Zoloft", category: "Mental Health", commonUses: ["Major Depression", "Generalized Anxiety Disorder", "PTSD", "OCD", "Panic Disorder"], avgRetailPrice: "$60/month", avgGenericPrice: "$4/month", goodRxPrice: "$4–$10/month", costPlusPrice: "$3.90/month", manufacturer: "Pfizer (Zoloft); Various (generic)", alternatives: ["escitalopram", "fluoxetine"], savingsTips: ["Generic sertraline is one of the cheapest antidepressants at $4/month", "Never abruptly stop an SSRI — work with your doctor to taper gradually", "If you experience side effects, other SSRIs (escitalopram, fluoxetine) are equally affordable", "Some pharmacies offer free mental health medication programs — ask your pharmacist"], patientAssistance: "Pfizer offers a PAP for brand Zoloft for uninsured patients. Generic sertraline is widely available at $4/month." },
   { slug: "amlodipine", name: "Amlodipine", genericName: "Amlodipine Besylate", brandName: "Norvasc", category: "Blood Pressure", commonUses: ["Hypertension", "Angina (Chest Pain)", "Coronary Artery Disease"], avgRetailPrice: "$50/month", avgGenericPrice: "$4/month", goodRxPrice: "$3–$8/month", costPlusPrice: "$3.60/month", manufacturer: "Pfizer (Norvasc); Various (generic)", alternatives: ["lisinopril", "losartan"], savingsTips: ["Generic amlodipine is $4/month at most pharmacies", "Ankle swelling is a common side effect — if bothersome, discuss switching to an ACE inhibitor or ARB", "Amlodipine can be combined with other BP meds (lisinopril + amlodipine) — combination pills may cost less than two separate prescriptions", "Check if your insurance covers 90-day supplies at lower copay rates"], patientAssistance: "Generic amlodipine is already very affordable. Pfizer offers a PAP for brand-name Norvasc." },
 ];
+
+/** Structured lookup for non-HTML consumers (the public MCP connector). */
+export function getDrugSavings(slug: string): Readonly<Drug> | null {
+  return DRUGS.find((x) => x.slug === slug) ?? null;
+}
 
 export function getDrugSlugs(): string[] {
   return DRUGS.map((d) => d.slug);
