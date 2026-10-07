@@ -21023,6 +21023,91 @@ export const engagementPointsLedgerTable = pgTable("engagement_points_ledger", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// --- Patient Operations Hub ---
+// Keyed by unifiedPatientId (the same cross-source identity complete-chart-summary and
+// medicare-care-gaps use), not profiles.id — see shared/patient-operations.ts for why.
+
+export const intakeAssignmentStatuses = ["pending", "submitted", "expired"] as const;
+export type IntakeAssignmentStatusDb = (typeof intakeAssignmentStatuses)[number];
+
+export const intakeFormAssignmentsTable = pgTable("intake_form_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  unifiedPatientId: text("unified_patient_id").notNull(),
+  templateId: text("template_id").notNull(),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().$type<IntakeAssignmentStatusDb>().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }),
+}, (t) => ({
+  unifiedPatientIdx: index("intake_form_assignments_unified_patient_idx").on(t.unifiedPatientId),
+}));
+
+export const intakeFormResponsesTable = pgTable("intake_form_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  assignmentId: uuid("assignment_id").notNull().references(() => intakeFormAssignmentsTable.id),
+  unifiedPatientId: text("unified_patient_id").notNull(),
+  templateId: text("template_id").notNull(),
+  answers: jsonb("answers").$type<Record<string, unknown>>().notNull(),
+  discardedFields: jsonb("discarded_fields").$type<string[]>().notNull().default([]),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  unifiedPatientIdx: index("intake_form_responses_unified_patient_idx").on(t.unifiedPatientId),
+}));
+
+export const eligibilityCheckSources = ["stub", "clearinghouse", "manual", "admin-override"] as const;
+export type EligibilityCheckSourceDb = (typeof eligibilityCheckSources)[number];
+
+export const patientEligibilityChecksTable = pgTable("patient_eligibility_checks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  unifiedPatientId: text("unified_patient_id").notNull(),
+  active: boolean("active").notNull(),
+  planName: text("plan_name"),
+  copayOfficeVisit: real("copay_office_visit"),
+  coinsurancePct: real("coinsurance_pct"),
+  deductibleRemaining: real("deductible_remaining"),
+  networkStatus: text("network_status").$type<"in-network" | "out-of-network" | "unknown">(),
+  requiresReferral: boolean("requires_referral"),
+  source: text("source").notNull().$type<EligibilityCheckSourceDb>(),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).notNull(),
+}, (t) => ({
+  unifiedPatientIdx: index("patient_eligibility_checks_unified_patient_idx").on(t.unifiedPatientId),
+}));
+
+export const insertIntakeFormAssignmentSchema = z.object({
+  unifiedPatientId: z.string().min(1),
+  templateId: z.string().min(1),
+  token: z.string().min(1),
+  expiresAt: z.date(),
+});
+export type InsertIntakeFormAssignment = z.infer<typeof insertIntakeFormAssignmentSchema>;
+export type IntakeFormAssignmentRow = typeof intakeFormAssignmentsTable.$inferSelect;
+
+export const insertIntakeFormResponseSchema = z.object({
+  assignmentId: z.string().uuid(),
+  unifiedPatientId: z.string().min(1),
+  templateId: z.string().min(1),
+  answers: z.record(z.unknown()),
+  discardedFields: z.array(z.string()).default([]),
+});
+export type InsertIntakeFormResponse = z.infer<typeof insertIntakeFormResponseSchema>;
+export type IntakeFormResponseRow = typeof intakeFormResponsesTable.$inferSelect;
+
+export const insertPatientEligibilityCheckSchema = z.object({
+  unifiedPatientId: z.string().min(1),
+  active: z.boolean(),
+  planName: z.string().optional(),
+  copayOfficeVisit: z.number().optional(),
+  coinsurancePct: z.number().optional(),
+  deductibleRemaining: z.number().optional(),
+  networkStatus: z.enum(["in-network", "out-of-network", "unknown"]).optional(),
+  requiresReferral: z.boolean().optional(),
+  source: z.enum(eligibilityCheckSources),
+  checkedAt: z.date(),
+});
+export type InsertPatientEligibilityCheck = z.infer<typeof insertPatientEligibilityCheckSchema>;
+export type PatientEligibilityCheckRow = typeof patientEligibilityChecksTable.$inferSelect;
+
 // Insert schemas
 export const insertEngagementMessageThreadSchema = z.object({
   patientProfileId: z.string().uuid(),
