@@ -97,6 +97,7 @@ GCP_FHIR_STORE_ID = "patient-records"
 FHIR_PROVIDER = "cloud_healthcare_api"
 VITE_GCIP_PROJECT_ID = "united-planet-485003-n7-9f345"
 VITE_GCIP_AUTH_DOMAIN = "united-planet-485003-n7-9f345.firebaseapp.com"
+GCIP_PROJECT_ID = "united-planet-485003-n7-9f345"
 
 [userenv.development]
 
