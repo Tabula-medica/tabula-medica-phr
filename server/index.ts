@@ -426,6 +426,11 @@ async function initializeApp() {
       const { seedAdminUser } = await import("./seed-admin");
       seedAdminUser().catch(() => {});
     } catch {}
+
+    try {
+      const { seedDemoAccount } = await import("./seed-demo-account");
+      seedDemoAccount().catch((err) => console.error("[Startup] Demo account seed failed:", err));
+    } catch {}
   });
 }
 

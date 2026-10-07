@@ -17,6 +17,7 @@ import { LegalFooter } from "@/components/legal-footer";
 import { RouteErrorBoundary } from "@/components/route-error-boundary";
 
 import { GuardrailsDisclaimer } from "@/components/guardrails-disclaimer";
+import { DemoModeBanner } from "@/components/demo-mode-banner";
 import { ProfileSwitcher } from "@/components/profile-switcher";
 import { Button } from "@/components/ui/button";
 import { NotificationDropdown, MobileNotificationDropdown } from "@/components/notification-dropdown";
@@ -723,6 +724,7 @@ function AuthenticatedApp() {
         />
         <SidebarProvider style={sidebarStyle as React.CSSProperties}>
           <div className="flex flex-col h-screen w-full">
+          <DemoModeBanner />
           <GuardrailsDisclaimer variant="banner" />
           <div className="flex flex-1 min-h-0">
           <div className="hidden md:block" role="navigation" aria-label="Main navigation">

@@ -261,4 +261,5 @@ export function applyAuthRateLimiting(app: { use: (path: string, handler: Reques
   app.use("/api/mobile/auth/gcip/session", sessionExchangeRateLimiter);
   app.use("/api/auth/fasten/verify", sessionExchangeRateLimiter);
   app.use("/api/auth/fasten/link", sessionExchangeRateLimiter);
+  app.use("/api/auth/demo-session", sessionExchangeRateLimiter);
 }
