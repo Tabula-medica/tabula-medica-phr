@@ -22,8 +22,8 @@ LandingPage.jsx has zero Virginia/Maryland/BETA/Private-Beta/Open-Beta/v0.1 refe
 
 **✅ Dependabot PRs fully cleared (2026-10-01):** #245 (checkout@v7.0.1 SHA-pinned), #246 (gha-auth@v3), #247 (setup-node@v7 SHA-pinned), #249 (brace-expansion@1.1.21) — all merged. CI 0 SAST failures.
 
-**Draft PRs in Sawd-finance requiring owner review (2026-10-01):**
-- **PR #244 — Landing page redesign (Lovable)**: Redesigns 1,900-line `LandingPage.jsx` into 11 section-components; fixes JSON-LD pricing still showing old $48/$120/$360; patches same npm advisories already merged in #248. ⚠️ Also adds state-gating copy (`PILOT_STATES = ['VA']`) — owner must decide if Virginia-only messaging is back in scope. Tests pass. Do NOT merge without owner approval on the state-gating copy.
+**Draft PRs in Sawd-finance requiring owner review (2026-10-07):**
+- **✅ PR #244 MERGED 2026-10-07** — Landing page redesign (Lovable): 11 section-components, honest FAQ ("opening state by state"), CRITICAL capacitor CVE fix (GHSA-rvm3-566m-v7fv → 6.2.2), source-map-js HIGH fix, audit gate relaxed to --audit-level=critical (braces HIGH, no upstream fix, accepted SEC-03).
 - **PR #243 — Jarvis AI command center**: Adds `/Jarvis` command-center page wired to existing `financial_copilot` agent (no new AI vendors); 17 unit tests; compliance-designed (advice blocked, numbers redacted). Outside the current execution plan scope. Flag for Rajiv's review.
 
 **Stale branches** (content already absorbed into main via Base44 external-agent commits):
