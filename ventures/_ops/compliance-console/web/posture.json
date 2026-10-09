@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T15:29:00.000Z",
+  "generatedAt": "2026-10-09T15:52:35.608Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -587,7 +587,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -797,7 +797,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -954,7 +954,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -1559,7 +1559,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "2 HIGH no-upstream-fix vulnerabilities accepted: (1) braces <=3.0.3 GHSA-vfj7-8cjw-p6xm (fix: <0.0.0) \u00e2\u20ac\u201d transitive build-tool dep via http-proxy-middleware>micromatch>braces; file-watch pattern matching only; user-controlled patterns never passed; not in browser/server runtime bundle; (2) node-forge <=1.4.0 GHSA-86w9-cpqp-85rv (fix: <0.0.0) \u00e2\u20ac\u201d RSA/PKCS padding bypass in @expo/cli dev toolchain; Expo CLI is a dev tool not shipped in production builds. Both reviewed by Security Officer 2026-10-05."
+          "detail": "2 HIGH no-upstream-fix vulnerabilities accepted: (1) braces <=3.0.3 GHSA-vfj7-8cjw-p6xm (fix: <0.0.0) — transitive build-tool dep via http-proxy-middleware>micromatch>braces; file-watch pattern matching only; user-controlled patterns never passed; not in browser/server runtime bundle; (2) node-forge <=1.4.0 GHSA-86w9-cpqp-85rv (fix: <0.0.0) — RSA/PKCS padding bypass in @expo/cli dev toolchain; Expo CLI is a dev tool not shipped in production builds. Both reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "SEC-04",
@@ -1608,7 +1608,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -1818,7 +1818,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -1975,7 +1975,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -2632,7 +2632,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -2744,7 +2744,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "PHR Cloud Run service (united-planet-485003-n7-9f345) is a HIPAA-restricted internal service \u00e2\u20ac\u201d access gated by GCIP authentication before any application code runs. All unauthenticated requests are rejected at GCIP layer. Direct Cloud Run URL is not publicly advertised. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-09-28."
+          "detail": "PHR Cloud Run service (united-planet-485003-n7-9f345) is a HIPAA-restricted internal service — access gated by GCIP authentication before any application code runs. All unauthenticated requests are rejected at GCIP layer. Direct Cloud Run URL is not publicly advertised. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -2842,7 +2842,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -2999,7 +2999,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -3487,7 +3487,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "GCP project sawd-app-2026 uses Firebase Hosting for static web asset delivery. The underlying GCS bucket is intentionally world-readable (required for Firebase Hosting to serve the SPA). It contains only static HTML/CSS/JS assets \u00e2\u20ac\u201d no PHI, no PII, no financial records. All persistent user data is managed by Base44 platform infrastructure. GCS storage API unavailable for automated check. Reviewed by Security Officer 2026-10-05."
+          "detail": "GCP project sawd-app-2026 uses Firebase Hosting for static web asset delivery. The underlying GCS bucket is intentionally world-readable (required for Firebase Hosting to serve the SPA). It contains only static HTML/CSS/JS assets — no PHI, no PII, no financial records. All persistent user data is managed by Base44 platform infrastructure. GCS storage API unavailable for automated check. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "DP-04",
@@ -3606,7 +3606,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "10 HIGH vulnerabilities in ventures/sawd-ai/Sawd-finance (Base44 sync fork) \u00e2\u20ac\u201d accepted risk breakdown: (1) @grpc/grpc-js <=1.13.5 via firebase\u00e2\u2020\u2019@firebase/firestore: SAWD is a browser SPA; Firebase Web SDK uses HTTP/2 WebChannel protocol, not gRPC; @grpc/grpc-js does not execute in browser; build-time artifact only; (2) axios 1.0.0-1.19.0 prototype pollution advisories: SPA primarily uses @base44/sdk for backend calls; direct axios calls (if any) do not accept user-controlled adapter configuration; (3) braces * via tailwindcss-animate\u00e2\u2020\u2019tailwindcss\u00e2\u2020\u2019chokidar: Tailwind's file watcher is a dev/build tool; braces not bundled into the browser SPA; (4) dompurify 3.4.13 GHSA-p98j-92pf-mc4p DOM XSS: fix available (^3.4.12 allows 3.4.16); will be patched in next Base44 sync or package.json update. Reviewed by Security Officer 2026-10-05."
+          "detail": "10 HIGH vulnerabilities in ventures/sawd-ai/Sawd-finance (Base44 sync fork) — accepted risk breakdown: (1) @grpc/grpc-js <=1.13.5 via firebase→@firebase/firestore: SAWD is a browser SPA; Firebase Web SDK uses HTTP/2 WebChannel protocol, not gRPC; @grpc/grpc-js does not execute in browser; build-time artifact only; (2) axios 1.0.0-1.19.0 prototype pollution advisories: SPA primarily uses @base44/sdk for backend calls; direct axios calls (if any) do not accept user-controlled adapter configuration; (3) braces * via tailwindcss-animate→tailwindcss→chokidar: Tailwind's file watcher is a dev/build tool; braces not bundled into the browser SPA; (4) dompurify 3.4.13 GHSA-p98j-92pf-mc4p DOM XSS: fix available (^3.4.12 allows 3.4.16); will be patched in next Base44 sync or package.json update. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "SEC-04",
@@ -3655,7 +3655,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -3865,7 +3865,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -4022,7 +4022,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -4150,7 +4150,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "GOV-02",
@@ -4184,7 +4184,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "GOV-03",
@@ -4215,7 +4215,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "IR-01",
@@ -4249,7 +4249,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "IR-02",
@@ -4280,7 +4280,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AC-01",
@@ -4316,7 +4316,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AC-02",
@@ -4349,7 +4349,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AC-03",
@@ -4383,7 +4383,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AC-04",
@@ -4415,7 +4415,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "DP-01",
@@ -4448,7 +4448,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "DP-02",
@@ -4479,7 +4479,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "DP-03",
@@ -4508,7 +4508,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "DP-04",
@@ -4535,7 +4535,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "SEC-01",
@@ -4567,7 +4567,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "SEC-02",
@@ -4595,7 +4595,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "github",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "SEC-03",
@@ -4627,7 +4627,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "deps",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "SEC-04",
@@ -4654,7 +4654,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "github",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "CM-01",
@@ -4676,13 +4676,13 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
           "verdict": "na",
           "source": "github",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "CM-02",
@@ -4706,7 +4706,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "github",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AV-01",
@@ -4736,7 +4736,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AV-02",
@@ -4762,7 +4762,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AV-03",
@@ -4788,7 +4788,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "VEN-01",
@@ -4818,7 +4818,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "PRI-01",
@@ -4851,7 +4851,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "PRI-02",
@@ -4886,7 +4886,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "manual",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "PRI-03",
@@ -4916,7 +4916,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "PI-01",
@@ -4941,7 +4941,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "manual",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AIG-01",
@@ -4967,7 +4967,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AIG-02",
@@ -4993,7 +4993,7 @@
           "autofix": true,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AIG-03",
@@ -5019,7 +5019,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "AIG-04",
@@ -5043,7 +5043,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "manual",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "PHY-01",
@@ -5077,7 +5077,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         },
         {
           "id": "HR-01",
@@ -5107,7 +5107,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "repo",
-          "detail": "venture archived/decommissioned \u00e2\u20ac\u201d delete GCP project to close residual IAM risk"
+          "detail": "venture archived/decommissioned — delete GCP project to close residual IAM risk"
         }
       ],
       "gaps": []
@@ -5647,7 +5647,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "1 HIGH no-upstream-fix vulnerability after lockfile patching (commit 8e04fa5, 2026-10-05): braces <=3.0.3 GHSA-vfj7-8cjw-p6xm (fix: <0.0.0) \u00e2\u20ac\u201d transitive dep via artifacts__api-server>http-proxy-middleware>micromatch>braces. Pattern matching in http-proxy-middleware routing is server-config-driven, not user-controlled. DoS exploitation requires attacker to inject deeply nested glob patterns into proxy routing config \u00e2\u20ac\u201d not reachable in deployment. Patched brace-expansion/grpc/busboy/qs via pnpm-workspace.yaml overrides. Reviewed by Security Officer 2026-10-05."
+          "detail": "1 HIGH no-upstream-fix vulnerability after lockfile patching (commit 8e04fa5, 2026-10-05): braces <=3.0.3 GHSA-vfj7-8cjw-p6xm (fix: <0.0.0) — transitive dep via artifacts__api-server>http-proxy-middleware>micromatch>braces. Pattern matching in http-proxy-middleware routing is server-config-driven, not user-controlled. DoS exploitation requires attacker to inject deeply nested glob patterns into proxy routing config — not reachable in deployment. Patched brace-expansion/grpc/busboy/qs via pnpm-workspace.yaml overrides. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "SEC-04",
@@ -5674,7 +5674,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "TypeScript strict mode + Zod schema validation provides SAST-equivalent coverage for type-safety and injection vulnerability classes. pnpm audit in CI covers supply-chain vulnerabilities. Cognita is a React+Node.js SPA with GCIP-gated access \u00e2\u20ac\u201d the primary risk classes (authn bypass, injection) are addressed by the auth layer and parameterized DB queries. Reviewed by Security Officer 2026-10-05."
+          "detail": "TypeScript strict mode + Zod schema validation provides SAST-equivalent coverage for type-safety and injection vulnerability classes. pnpm audit in CI covers supply-chain vulnerabilities. Cognita is a React+Node.js SPA with GCIP-gated access — the primary risk classes (authn bypass, injection) are addressed by the auth layer and parameterized DB queries. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "CM-01",
@@ -5696,7 +5696,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -5906,7 +5906,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -6063,7 +6063,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -6149,7 +6149,7 @@
         "hipaa",
         "aigov"
       ],
-      "notes": "PHI HIGH. Norms still placeholder \u00e2\u20ac\u201d processing-integrity/validation concern for AI Gov + SOC2 PI.",
+      "notes": "PHI HIGH. Norms still placeholder — processing-integrity/validation concern for AI Gov + SOC2 PI.",
       "readiness": 100,
       "counts": {
         "pass": 33,
@@ -6715,7 +6715,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -6925,7 +6925,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -7082,7 +7082,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -7169,7 +7169,7 @@
         "aigov",
         "hitrust"
       ],
-      "notes": "PHI HIGH. Newest. Hybrid Base44 build \u00e2\u20ac\u201d confirm real-PHI path is GCP+Vertex, not Base44.",
+      "notes": "PHI HIGH. Newest. Hybrid Base44 build — confirm real-PHI path is GCP+Vertex, not Base44.",
       "readiness": 100,
       "counts": {
         "pass": 33,
@@ -7686,7 +7686,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "@grpc/grpc-js <=1.14.4 HIGH (GHSA-m9gg-hp2v-232j cert validation + GHSA-f596-whhp-79r4 error leakage) \u00e2\u20ac\u201d fix in progress: override '>=1.14.5' added to repos/worldehr/package.json 2026-10-05 (commit pending). Will apply on next npm install / CI deploy. Risk profile: (1) firebase path (@firebase/firestore\u00e2\u2020\u2019grpc 1.9.16) \u00e2\u20ac\u201d browser SPA uses WebChannel, grpc-js not invoked at runtime; (2) google-gax path (api server, grpc 1.14.4) \u00e2\u20ac\u201d Vertex AI API calls affected; internal GCP-to-Vertex mTLS reduces practical MitM exposure; fix is one minor patch version. Action: run npm install on next deploy. uuid <11.1.1 moderate also being patched via override. Reviewed by Security Officer 2026-10-05."
+          "detail": "@grpc/grpc-js <=1.14.4 HIGH (GHSA-m9gg-hp2v-232j cert validation + GHSA-f596-whhp-79r4 error leakage) — fix in progress: override '>=1.14.5' added to repos/worldehr/package.json 2026-10-05 (commit pending). Will apply on next npm install / CI deploy. Risk profile: (1) firebase path (@firebase/firestore→grpc 1.9.16) — browser SPA uses WebChannel, grpc-js not invoked at runtime; (2) google-gax path (api server, grpc 1.14.4) — Vertex AI API calls affected; internal GCP-to-Vertex mTLS reduces practical MitM exposure; fix is one minor patch version. Action: run npm install on next deploy. uuid <11.1.1 moderate also being patched via override. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "SEC-04",
@@ -7713,7 +7713,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "omnihealth CI runs phi-log-scan.mjs \u00e2\u20ac\u201d a purpose-built security code analysis script that scans all source files for PHI leakage patterns (the primary HIPAA security risk for this EHR). TypeScript strict mode enforces type safety. npm audit runs in CI. The PHI-log scan is more targeted and meaningful for this application's security profile than generic SAST rules. Reviewed by Security Officer 2026-10-05."
+          "detail": "omnihealth CI runs phi-log-scan.mjs — a purpose-built security code analysis script that scans all source files for PHI leakage patterns (the primary HIPAA security risk for this EHR). TypeScript strict mode enforces type safety. npm audit runs in CI. The PHI-log scan is more targeted and meaningful for this application's security profile than generic SAST rules. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "CM-01",
@@ -7735,7 +7735,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -7945,7 +7945,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -8102,7 +8102,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -8755,7 +8755,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -8965,7 +8965,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -9122,7 +9122,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
@@ -9208,7 +9208,7 @@
         "hipaa",
         "gdpr"
       ],
-      "notes": "Low PHI unless appt form collects it. Static \u00e2\u20ac\u201d mostly infra/transport controls.",
+      "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls.",
       "readiness": 100,
       "counts": {
         "pass": 30,
@@ -9447,7 +9447,7 @@
           "autofix": false,
           "verdict": "na",
           "source": "gcp",
-          "detail": "Identity Platform not provisioned \u00e2\u20ac\u201d no app-level user auth on this project"
+          "detail": "Identity Platform not provisioned — no app-level user auth on this project"
         },
         {
           "id": "AC-03",
@@ -9693,7 +9693,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "GitHub free-tier partner-program secret scanning (no GHAS required) runs automatically on Tabula-medica/ltfm-health on every push. LTFM is a static HTML site \u00e2\u20ac\u201d it contains no server-side code or API integrations; the repo is extremely low-risk for leaked secrets. GitHub scanning provides a backstop. Reviewed by Security Officer 2026-10-05."
+          "detail": "GitHub free-tier partner-program secret scanning (no GHAS required) runs automatically on Tabula-medica/ltfm-health on every push. LTFM is a static HTML site — it contains no server-side code or API integrations; the repo is extremely low-risk for leaked secrets. GitHub scanning provides a backstop. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "SEC-03",
@@ -9752,7 +9752,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "LTFM is a static HTML/CSS/JS brochure site for Lansdowne Family Medicine. There is no server-side application code, no API handlers, no ORM, and no user input processing \u00e2\u20ac\u201d the applicable vulnerability classes (injection, XSS via server rendering, IDOR) do not exist in a purely static site. Code scanning tools like CodeQL/Semgrep have no applicable rules for this technology stack. Reviewed by Security Officer 2026-10-05."
+          "detail": "LTFM is a static HTML/CSS/JS brochure site for Lansdowne Family Medicine. There is no server-side application code, no API handlers, no ORM, and no user input processing — the applicable vulnerability classes (injection, XSS via server rendering, IDOR) do not exist in a purely static site. Code scanning tools like CodeQL/Semgrep have no applicable rules for this technology stack. Reviewed by Security Officer 2026-10-05."
         },
         {
           "id": "CM-01",
@@ -9774,7 +9774,7 @@
             ]
           },
           "evidence": [
-            "branch protection on default branch: required PR reviews \u00e2\u2030\u00a51",
+            "branch protection on default branch: required PR reviews ≥1",
             "no force-push"
           ],
           "autofix": false,
@@ -9886,7 +9886,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "LTFM is a static GCS site behind a GCP HTTPS LB (ltfm-urlmap). Cloud Armor cannot attach to GCS backend buckets. Edge protection provided by: (1) GCP HTTPS LB with Google's built-in DDoS mitigation (Magic Transit layer); (2) HSTS enforced via LB frontend config; (3) no dynamic server-side attack surface \u00e2\u20ac\u201d static HTML/CSS/JS only. Accepted residual: no OWASP CRS rule set. Reviewed and accepted by Security Officer 2026-09-28."
+          "detail": "LTFM is a static GCS site behind a GCP HTTPS LB (ltfm-urlmap). Cloud Armor cannot attach to GCS backend buckets. Edge protection provided by: (1) GCP HTTPS LB with Google's built-in DDoS mitigation (Magic Transit layer); (2) HSTS enforced via LB frontend config; (3) no dynamic server-side attack surface — static HTML/CSS/JS only. Accepted residual: no OWASP CRS rule set. Reviewed and accepted by Security Officer 2026-09-28."
         },
         {
           "id": "VEN-01",
@@ -9984,7 +9984,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor \u00c2\u00a7164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
         },
         {
           "id": "PRI-03",
@@ -10141,7 +10141,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "manual",
-          "detail": "Model validation in place per platform: (1) Cognita \u00e2\u20ac\u201d CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva \u00e2\u20ac\u201d Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI \u00e2\u20ac\u201d Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) \u00e2\u20ac\u201d clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
         },
         {
           "id": "PHY-01",
