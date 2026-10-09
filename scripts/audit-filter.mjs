@@ -12,7 +12,6 @@ import { execSync } from 'node:child_process';
 // Format: GHSA-xxxx-xxxx-xxxx  (from https://github.com/advisories/<id>)
 const ACCEPTED_GHSA = new Set([
   'GHSA-vfj7-8cjw-p6xm', // braces <=3.0.3 — Patched: <0.0.0; needs tailwindcss v4 upgrade
-  'GHSA-rj75-hqrm-r3gf', // postcss-selector-parser — Patched: <0.0.0; same tailwindcss dep chain
 ]);
 
 let raw;
