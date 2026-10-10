@@ -51,7 +51,7 @@ const eligibilityAgent: AgentDefinition = {
   description: "Pre-visit: re-verifies stale/missing eligibility for every scheduled patient and opens clearance work items.",
   tools: [runEligibility],
   async plan(ctx, args) {
-    const dos = typeof args.dateOfService === "string" ? args.dateOfService : todayIso();
+    const dos = typeof args.dateOfService === "string" ? args.dateOfService : (ctx.today ?? todayIso());
     const steps: AgentStep[] = [];
     for (const p of await ctx.store.listPatients(ctx.tenantId)) {
       for (const c of await ctx.store.coveragesForPatient(ctx.tenantId, p.id)) {
@@ -222,10 +222,10 @@ const scrubAndFix: Tool<{ claimId: string }, unknown> = {
     // applyAutoFixes never touches priorAuthNumber, so the same validated flag holds for both
     // the pre-fix and post-fix scrub passes.
     const authorizedCpts = authorizedCptsOnFile(claim.priorAuthNumber, claim.patientId, claim.coverageId, claim.payerId, claim.lines, auths);
-    const first = scrubClaim(claim, { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
+    const first = scrubClaim(claim, { patient, coverage, today: ctx.today, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
     await ctx.store.recordScrub(ctx.tenantId, first.clean);
     const fixed = applyAutoFixes(claim, first.edits);
-    const second = scrubClaim(fixed.claim, { patient, coverage, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
+    const second = scrubClaim(fixed.claim, { patient, coverage, today: ctx.today, authRequiredCpts, authorizedCpts, priorClaimsSameDos: others });
     let next = claim.status === "draft" ? transitionClaim(fixed.claim, "scrubbed", ctx.actor, `score ${second.score}`) : fixed.claim;
     if (second.clean && next.status === "scrubbed") next = transitionClaim(next, "ready", ctx.actor, "clean");
     await ctx.store.upsertClaim(ctx.tenantId, next);
@@ -448,7 +448,7 @@ const checkStatus: Tool<{ claimId: string }, unknown> = {
   async run(input, ctx) {
     const claim = await ctx.store.getClaim(ctx.tenantId, input.claimId);
     if (!claim) throw new Error("claim not found");
-    const rows = claimsNeedingFollowUp([claim], todayIso());
+    const rows = claimsNeedingFollowUp([claim], ctx.today ?? todayIso());
     if (rows.length) {
       const existing = await ctx.store.findOpenWorkItem(ctx.tenantId, (w) => w.queue === "claim-followup" && w.claimId === claim.id);
       if (!existing) await ctx.store.addWorkItems(ctx.tenantId, itemsFromClaimFollowUp(rows));
@@ -461,7 +461,7 @@ const followUpAgent: AgentDefinition = {
   description: "Finds submitted claims with no adjudication after 30 days or near timely-filing, checks status, and queues payer follow-up (with a call script).",
   tools: [checkStatus],
   async plan(ctx) {
-    const rows = claimsNeedingFollowUp(await ctx.store.listClaims(ctx.tenantId), todayIso());
+    const rows = claimsNeedingFollowUp(await ctx.store.listClaims(ctx.tenantId), ctx.today ?? todayIso());
     return rows.map((r) => ({ tool: "check-claim-status", input: { claimId: r.claim.id }, why: r.reason }));
   },
   summarize: (s) => `Follow-up: ${s.length} stale claims reviewed, ${s.filter((x) => (x.output as { followUp?: string | null })?.followUp).length} queued for payer contact.`,
@@ -540,7 +540,7 @@ const fileCorrectedClaim: Tool<{ claimId: string; denialId: string; amount: numb
       const authRequiredCpts = linesNeedingAuth(draft.lines, contract).map((x) => x.line.cpt);
       const auths = await ctx.store.listAuths(ctx.tenantId);
       const authorizedCpts = authorizedCptsOnFile(draft.priorAuthNumber, draft.patientId, draft.coverageId, draft.payerId, draft.lines, auths);
-      const scrubCtx = { patient, coverage, authRequiredCpts, authorizedCpts };
+      const scrubCtx = { patient, coverage, today: ctx.today, authRequiredCpts, authorizedCpts };
       const first = scrubClaim(draft, scrubCtx);
       const fixed = applyAutoFixes(draft, first.edits);
       const second = scrubClaim(fixed.claim, scrubCtx);
@@ -658,7 +658,7 @@ const writeOffDenial: Tool<{ denialId: string; patientId: string; amount: number
         const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
         const amount = round2(Math.min(input.amount, d.amount, Math.max(0, outstanding)));
         if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to write off`);
-        const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount, date: todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
+        const e: LedgerEntry = { id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "denial-adjustment", amount, date: ctx.today ?? todayIso(), memo: `Write-off CARC ${d.carc}: ${input.reason}`, responsibleParty: "insurance" };
         await ctx.store.postLedger(ctx.tenantId, [e]);
         await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
         return { writtenOff: amount };
@@ -713,7 +713,7 @@ const transferToPatient: Tool<{ denialId: string; patientId: string; amount: num
         const outstanding = outstandingInsurance(claim, await ctx.store.ledger(ctx.tenantId, d.patientId));
         const amount = round2(Math.min(input.amount, d.amount, Math.max(0, outstanding)));
         if (amount <= 0) throw new Error(`No outstanding insurance balance remains on claim ${claim.id} to transfer`);
-        await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount, date: todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
+        await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: d.patientId, claimId: d.claimId, type: "transfer-to-patient", amount, date: ctx.today ?? todayIso(), memo: `CARC ${d.carc} patient responsibility`, responsibleParty: "patient" }]);
         await ctx.store.upsertDenial(ctx.tenantId, { ...d, status: "written-off" });
         return { transferred: amount };
       } finally {
@@ -902,7 +902,7 @@ const issueRefund: Tool<{ patientId: string; amount: number; refundTo: string },
       const availableCredit = round2(Math.max(0, -sideBalance));
       if (availableCredit <= 0) throw new Error("no credit balance remains to refund");
       const amount = round2(Math.min(input.amount, availableCredit));
-      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount, date: todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]);
+      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "refund", amount, date: ctx.today ?? todayIso(), memo: `Refund to ${input.refundTo}`, responsibleParty: input.refundTo === "payer" ? "insurance" : "patient" }]);
       return { refunded: amount };
     } finally {
       patientLedgerLocks.delete(lockKey);
@@ -931,7 +931,7 @@ const smallBalanceWriteOff: Tool<{ patientId: string; amount: number }, unknown>
       // the account no longer qualifies for this policy at all even though $4 of it is still owed.
       if (currentBalance > SMALL_BALANCE_THRESHOLD) throw new Error(`Patient ${input.patientId}'s balance ($${currentBalance.toFixed(2)}) now exceeds the small-balance policy threshold ($${SMALL_BALANCE_THRESHOLD.toFixed(2)}) — this approval is stale`);
       const amount = round2(Math.min(input.amount, currentBalance));
-      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount, date: todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]);
+      await ctx.store.postLedger(ctx.tenantId, [{ id: newId("led"), patientId: input.patientId, type: "write-off", amount, date: ctx.today ?? todayIso(), memo: "Small-balance policy write-off", responsibleParty: "patient" }]);
       return { writtenOff: amount };
     } finally {
       patientLedgerLocks.delete(lockKey);
@@ -964,7 +964,7 @@ const patientFinancialAgent: AgentDefinition = {
       // later cycles or agency referral. Fall back to the earliest self-pay charge date instead.
       const firstTransfer = entries.filter((e) => e.type === "transfer-to-patient").sort((a, b) => a.date.localeCompare(b.date))[0];
       const firstSelfPayCharge = entries.filter((e) => e.type === "charge" && e.responsibleParty === "patient").sort((a, b) => a.date.localeCompare(b.date))[0];
-      const stage = collectionsStage(firstTransfer?.date ?? firstSelfPayCharge?.date ?? todayIso(), { onPaymentPlan: onPlan });
+      const stage = collectionsStage(firstTransfer?.date ?? firstSelfPayCharge?.date ?? ctx.today ?? todayIso(), { onPaymentPlan: onPlan });
       if (stage.stage === "agency-referral") steps.push({ tool: "refer-to-agency", input: { patientId, amount: stmt.amountDue }, why: stage.reason });
       else if (stage.stage !== "hold") {
         const cycle: 1 | 2 | 3 | "final" = stage.stage === "statement-1" ? 1 : stage.stage === "statement-2" ? 2 : stage.stage === "statement-3" ? 3 : "final";
@@ -1012,7 +1012,7 @@ const payerCallAgent: AgentDefinition = {
 const runAgent: Tool<{ agent: string }, unknown> = {
   name: "run-agent",
   description: "Run a child agent",
-  async run(input, ctx) { const r = await agentRuntime.run(input.agent, ctx.tenantId, {}, { actor: ctx.actor, dryRun: ctx.dryRun, budget: ctx.budget }); return { summary: r.summary, approvals: r.approvalsRequested }; },
+  async run(input, ctx) { const r = await agentRuntime.run(input.agent, ctx.tenantId, {}, { actor: ctx.actor, dryRun: ctx.dryRun, budget: ctx.budget, today: ctx.today }); return { summary: r.summary, approvals: r.approvalsRequested }; },
 };
 const snapshotKpis: Tool<Record<string, never>, unknown> = {
   name: "snapshot-kpis",
