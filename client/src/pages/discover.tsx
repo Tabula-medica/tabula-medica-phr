@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
+import { usePrefersReducedMotion } from "@/components/accessibility-provider";
 import { useSEO } from "@/hooks/use-seo";
 import {
   discoverTopics,
@@ -17,13 +18,10 @@ const TOPIC_LABELS: Record<DiscoverTopic, string> = {
   microscopy: "Under the microscope",
 };
 
-const prefersReducedMotion = () =>
-  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
 function FeedCard({ item }: { item: DiscoverItem }) {
   const cardRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const reduced = useMemo(prefersReducedMotion, []);
+  const reduced = usePrefersReducedMotion();
 
   // Play only the card on screen; pause the rest so the feed stays light.
   useEffect(() => {

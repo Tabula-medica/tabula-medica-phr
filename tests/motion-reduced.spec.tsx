@@ -4,7 +4,7 @@ import { render, cleanup } from "@testing-library/react";
 import { useContext } from "react";
 import { MotionConfigContext } from "framer-motion";
 
-import { AccessibilityProvider } from "../client/src/components/accessibility-provider";
+import { AccessibilityProvider, usePrefersReducedMotion } from "../client/src/components/accessibility-provider";
 
 afterEach(cleanup);
 beforeEach(() => localStorage.clear());
@@ -36,5 +36,32 @@ describe("framer-motion follows the in-app accessibility settings", () => {
   it("does not force reduced motion when neither is set", () => {
     const { getByTestId } = renderWith({ reducedMotion: false, geriatricMode: false });
     expect(getByTestId("reduced").textContent).not.toBe("always");
+  });
+});
+
+function PrefProbe() {
+  return <span data-testid="pref">{String(usePrefersReducedMotion())}</span>;
+}
+
+describe("usePrefersReducedMotion", () => {
+  it("is false outside the provider with nothing stored", () => {
+    const { getByTestId } = render(<PrefProbe />);
+    expect(getByTestId("pref").textContent).toBe("false");
+  });
+
+  it("reads the persisted in-app setting outside the provider (logged-out routes)", () => {
+    localStorage.setItem("accessibility-settings", JSON.stringify({ reducedMotion: true }));
+    const { getByTestId } = render(<PrefProbe />);
+    expect(getByTestId("pref").textContent).toBe("true");
+  });
+
+  it("follows geriatric mode inside the provider", () => {
+    localStorage.setItem("accessibility-settings", JSON.stringify({ geriatricMode: true }));
+    const { getByTestId } = render(
+      <AccessibilityProvider>
+        <PrefProbe />
+      </AccessibilityProvider>,
+    );
+    expect(getByTestId("pref").textContent).toBe("true");
   });
 });
