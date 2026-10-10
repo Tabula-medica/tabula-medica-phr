@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MotionConfig } from "framer-motion";
 import { AccessibilityProvider, SkipLink } from "@/components/accessibility-provider";
 import { ViewModeProvider } from "@/contexts/view-mode-context";
 import { LanguageProvider, GlobalLanguageSwitcher } from "@/components/language-provider";
@@ -929,7 +930,11 @@ function App() {
         <TooltipProvider>
           <LanguageProvider>
             <RegionProvider>
-              <AppContent />
+              {/* Public (logged-out) routes render outside AccessibilityProvider, which sets
+                  its own MotionConfig from the in-app toggle; this one honors the OS setting. */}
+              <MotionConfig reducedMotion="user">
+                <AppContent />
+              </MotionConfig>
               <ServerFeatureGateListener />
               {!IS_VISTA && <WelcomeModal />}
               <Toaster />

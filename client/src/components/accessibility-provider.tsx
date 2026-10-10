@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { MotionConfig } from "framer-motion";
 
 export interface AccessibilitySettings {
   largeText: boolean;
@@ -127,7 +128,9 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
 
   return (
     <AccessibilityContext.Provider value={{ settings, updateSetting, resetSettings }}>
-      {children}
+      <MotionConfig reducedMotion={settings.reducedMotion || settings.geriatricMode ? "always" : "user"}>
+        {children}
+      </MotionConfig>
       {settings.readingGuide && <ReadingGuide />}
     </AccessibilityContext.Provider>
   );
