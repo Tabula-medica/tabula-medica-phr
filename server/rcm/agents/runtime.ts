@@ -17,7 +17,14 @@ import { makeWorkItem } from "../worklists";
 // instead of each getting a fresh MAX_STEPS — otherwise a single top-level run could fan out
 // to unbounded child steps.
 export interface StepBudget { remaining: number }
-export interface ToolContext { tenantId: string; store: RcmStore; actor: string; dryRun: boolean; budget: StepBudget }
+// `today` (ISO yyyy-mm-dd) is the run's notion of the current date. Every other time-sensitive
+// part of RCM already takes one — the scrubber's `ScrubContext.today`, and the `today` parameter
+// on claimsNeedingFollowUp, computeAging, buildStatement, denialPriority, authsExpiringWithin and
+// friends — so the agent runtime was the one place whose date could not be pinned from outside.
+// Left undefined it falls back to the wall clock, which is what production wants; supplying it
+// makes an agent run deterministic (tests) and lets a caller process "as of" a business date
+// without mocking the global Date.
+export interface ToolContext { tenantId: string; store: RcmStore; actor: string; dryRun: boolean; budget: StepBudget; today?: string }
 
 export interface Tool<I = unknown, O = unknown> {
   name: string;
@@ -64,11 +71,11 @@ export class AgentRuntime {
   }
   get(name: string): AgentDefinition | undefined { return this.agents.get(name); }
 
-  async run(name: string, tenantId: string, args: Record<string, unknown> = {}, opts: { actor?: string; dryRun?: boolean; budget?: StepBudget } = {}): Promise<AgentResult> {
+  async run(name: string, tenantId: string, args: Record<string, unknown> = {}, opts: { actor?: string; dryRun?: boolean; budget?: StepBudget; today?: string } = {}): Promise<AgentResult> {
     const def = this.agents.get(name);
     if (!def) throw new Error(`Unknown agent ${name}`);
     const budget = opts.budget ?? { remaining: MAX_STEPS };
-    const ctx: ToolContext = { tenantId, store: this.store, actor: opts.actor ?? `agent:${name}`, dryRun: !!opts.dryRun, budget };
+    const ctx: ToolContext = { tenantId, store: this.store, actor: opts.actor ?? `agent:${name}`, dryRun: !!opts.dryRun, budget, today: opts.today };
     const tools = new Map(def.tools.map((t) => [t.name, t]));
     const steps: AgentResult["steps"] = [];
     let approvals = 0;
@@ -146,7 +153,7 @@ export class AgentRuntime {
   }
 
   // Execute a previously approved action (called from the approvals route).
-  async executeApproved(tenantId: string, approvalId: string, by: string): Promise<{ ok: boolean; output?: unknown; error?: string }> {
+  async executeApproved(tenantId: string, approvalId: string, by: string, opts: { today?: string } = {}): Promise<{ ok: boolean; output?: unknown; error?: string }> {
     const approvals = await this.store.listApprovals(tenantId);
     const a = approvals.find((x) => x.id === approvalId);
     if (!a) return { ok: false, error: "approval not found" };
@@ -158,7 +165,7 @@ export class AgentRuntime {
       const def = this.agents.get(a.agent);
       const tool = def?.tools.find((t) => t.name === a.action);
       if (!tool) return { ok: false, error: "tool no longer available" };
-      const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false, budget: { remaining: MAX_STEPS } });
+      const output = await tool.run(a.payload, { tenantId, store: this.store, actor: by, dryRun: false, budget: { remaining: MAX_STEPS }, today: opts.today });
       // Only mark executed on success — a thrown error (or a since-removed tool, above) must
       // stay retryable rather than being permanently locked out.
       await this.store.markApprovalExecuted(tenantId, approvalId);

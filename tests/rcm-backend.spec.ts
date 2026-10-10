@@ -2325,3 +2325,62 @@ describe("round 18 hardening", () => {
     expect(r.balanced).toBe(true);
   });
 });
+
+describe("agent runtime clock seam", () => {
+  const T = "t-agent-clock";
+  const seed = async () => { rcmStore.reset(T); await seedDemoTenant(rcmStore, T); };
+  beforeEach(seed);
+
+  /** Runs the claim-scrubber over a freshly seeded tenant and returns its scrub step's output. */
+  const scrubWith = async (today?: string) => {
+    // Re-seed per run: scrub-claim transitions the draft claim to "scrubbed", so a second run
+    // against the same tenant would plan nothing.
+    await seed();
+    const r = await agentRuntime.run("claim-scrubber", T, {}, today ? { today } : {});
+    const step = r.steps.find((x) => x.tool === "scrub-claim")!;
+    return step.output as { clean: boolean; errors: string[] };
+  };
+
+  it("agentRuntime.run threads `today` into the scrubber, so an agent run's date can be pinned instead of read off the wall clock", async () => {
+    // Unpinned, the demo seed dates every claim relative to today (today-3, today-45, ...), so
+    // none is near its 90-day filing deadline and the only scrub error is the missing modifier.
+    // That is what keeps this suite's -25 test honest: its `clean === false` has one cause.
+    expect((await scrubWith()).errors).toEqual(["missing-em-25-modifier"]);
+
+    // Pinned past every seeded claim's filing window, the scrubber *inside* the agent must see
+    // the injected date and raise timely-filing. Before ToolContext carried `today` the agent
+    // read the wall clock directly, so this was inexpressible without mocking global Date.
+    const pinned = await scrubWith("2028-06-01");
+    expect(pinned.errors).toContain("timely-filing");
+    expect(pinned.errors).toContain("missing-em-25-modifier");
+  });
+
+  it("executeApproved threads `today` too, so an approved money-moving tool dates its ledger entry from the injected clock", async () => {
+    // The approvals route runs the tool long after planning, and the ledger row it writes takes
+    // its date from ctx.today — pin that and the row must carry the pinned date.
+    await rcmStore.upsertPatient(T, { id: "pt-clock-sb", firstName: "Clock", lastName: "Seam", dob: "1990-01-01" });
+    await rcmStore.postLedger(T, [
+      { id: "led-clock-1", patientId: "pt-clock-sb", type: "charge", amount: 4, date: "2026-08-01", responsibleParty: "insurance" },
+      { id: "led-clock-2", patientId: "pt-clock-sb", type: "transfer-to-patient", amount: 4, date: "2026-08-01", responsibleParty: "patient" },
+    ]);
+    const r = await agentRuntime.run("patient-financial", T);
+    const step = r.steps.find((x) => x.tool === "small-balance-write-off" && x.input.patientId === "pt-clock-sb")!;
+    expect(step.outcome).toBe("needs-approval");
+    await rcmStore.decideApproval(T, step.approvalId!, "approved", "biller");
+
+    const exec = await agentRuntime.executeApproved(T, step.approvalId!, "biller", { today: "2027-03-04" });
+    expect(exec.ok).toBe(true);
+    const rows = (await rcmStore.ledgerByPatient(T))["pt-clock-sb"] ?? [];
+    expect(rows.find((e) => e.type === "write-off")?.date).toBe("2027-03-04");
+  });
+
+  it("the orchestrator forwards `today` to the agents it fans out to, so a nested run is pinned too", async () => {
+    // rcm-orchestrator reaches the scrubber through the run-agent tool, which builds the child
+    // run's options itself, so `today` had to be forwarded there as well or the fan-out would
+    // quietly fall back to the wall clock. The child's view of the date is observable from the
+    // parent run: the work item the scrubber opens names the error count.
+    await agentRuntime.run("rcm-orchestrator", T, {}, { today: "2028-06-01" });
+    const titles = (await rcmStore.listWorkItems(T, "claim-edits")).map((w) => w.title).filter((t) => t.includes("scrub error"));
+    expect(titles).toEqual([expect.stringContaining("2 scrub error(s)")]);
+  });
+});
