@@ -1,0 +1,67 @@
+name: Security autofix (monthly)
+
+# Companion to security-scan.yml. Once a month, apply every non-breaking
+# dependency fix npm knows about (`npm audit fix` without --force, so no
+# semver-major bumps), prove the tree still builds and the security-layer
+# specs still pass, and open a PR with the lockfile diff. Breaking-major
+# fixes are deliberately left for a human (or the monthly Claude routine)
+# because they need the `overrides` block and osv-scanner.toml reviewed.
+on:
+  schedule:
+    - cron: "41 6 1 * *" # 1st of the month, 06:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  audit-fix:
+    name: npm audit fix → PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Apply non-breaking fixes
+        run: npm audit fix --omit=dev --no-fund --no-audit-signatures || true
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat -- package.json package-lock.json
+          fi
+      - name: Verify (build + security specs + PHI guard + audit gate)
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+          npx vitest run tests/siem-forwarder.spec.ts tests/ai-runtime-guard.spec.ts tests/session-binding.spec.ts tests/pg-rate-limit-store.spec.ts tests/dod-cac-auth.spec.ts
+          bash scripts/phi-ai-guard.sh
+          npm audit --omit=dev --audit-level=high
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: security/monthly-audit-fix
+          delete-branch: true
+          commit-message: "fix(security): monthly npm audit fix (non-breaking)"
+          title: "fix(security): monthly npm audit fix"
+          labels: security, dependencies
+          body: |
+            Automated by `.github/workflows/security-autofix.yml`.
+
+            `npm audit fix` (no `--force`, production tree) applied the lockfile
+            changes in this diff. Build, security-layer specs, the PHI-AI
+            boundary guard and the `npm audit --omit=dev --audit-level=high`
+            gate all passed on the result.
+
+            Review the diff, then merge. Anything that still needs a
+            semver-major bump is listed in the daily "Dependency & secret
+            exposure scan" run and is handled by the monthly review routine.

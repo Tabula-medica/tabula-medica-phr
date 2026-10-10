@@ -1,0 +1,11 @@
+# Semgrep ignore list (used by the Semgrep SAST job in security-scan.yml).
+node_modules/
+dist/
+ios/
+android/
+artifacts/
+roblox/
+roblox-campus/
+tests/
+e2e/
+*.min.js
