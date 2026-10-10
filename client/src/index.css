@@ -13,68 +13,68 @@
   --elevate-2: rgba(0,0,0, .08);
 
   /* Warm off-white background */
-  --background: 220 14% 97%;
-  --foreground: 224 71% 8%;
+  --background: 240 24% 96%;
+  --foreground: 240 8% 6%;
 
-  --border: 220 13% 90%;
+  --border: 240 5% 84%;
 
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 8%;
-  --card-border: 220 13% 91%;
+  --card-foreground: 240 8% 6%;
+  --card-border: 240 6% 90%;
 
   /* Subtle teal-tinted sidebar */
-  --sidebar: 210 25% 95%;
-  --sidebar-foreground: 224 71% 15%;
-  --sidebar-border: 220 13% 89%;
+  --sidebar: 240 24% 96%;
+  --sidebar-foreground: 240 8% 10%;
+  --sidebar-border: 240 5% 84%;
 
   /* Deep sapphire primary for sidebar */
-  --sidebar-primary: 221 83% 53%;
+  --sidebar-primary: 211 100% 44%;
   --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 210 25% 92%;
-  --sidebar-accent-foreground: 221 83% 45%;
+  --sidebar-accent: 240 5% 92%;
+  --sidebar-accent-foreground: 211 100% 38%;
 
-  --sidebar-ring: 221 83% 53%;
+  --sidebar-ring: 211 100% 50%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 8%;
-  --popover-border: 220 13% 91%;
+  --popover-foreground: 240 8% 6%;
+  --popover-border: 240 6% 90%;
 
   /* Deep sapphire blue — authoritative, premium #3366E8 */
-  --primary: 221 83% 53%;
+  --primary: 211 100% 44%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 94%;
-  --secondary-foreground: 224 71% 20%;
+  --secondary: 240 5% 92%;
+  --secondary-foreground: 240 8% 12%;
 
-  --muted: 220 14% 95%;
-  --muted-foreground: 220 9% 40%;
+  --muted: 240 5% 94%;
+  --muted-foreground: 240 4% 40%;
 
   /* Emerald green accent — health, vitality, trust */
-  --accent: 160 84% 39%;
+  --accent: 142 72% 29%;
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 72% 51%;
+  --destructive: 3 78% 47%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 220 13% 87%;
-  --ring: 221 83% 53%;
+  --input: 240 5% 82%;
+  --ring: 211 100% 50%;
   /* Rich chart palette with strong differentiation */
-  --chart-1: 221 83% 53%;
-  --chart-2: 160 84% 39%;
-  --chart-3: 262 60% 55%;
-  --chart-4: 24 95% 53%;
-  --chart-5: 340 75% 55%;
+  --chart-1: 211 100% 50%;
+  --chart-2: 142 69% 49%;
+  --chart-3: 280 68% 60%;
+  --chart-4: 35 100% 50%;
+  --chart-5: 349 100% 59%;
 
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Inter, system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --radius: 0.5rem;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', Menlo, monospace;
+  --radius: 0.75rem;
   
   /* Elevation levels: 0 / 1 / 2 (no heavy shadows) */
   --shadow-0: none;
-  --shadow-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.04);
-  --shadow-2: 0px 2px 4px -1px rgba(0, 0, 0, 0.06), 0px 1px 2px -1px rgba(0, 0, 0, 0.03);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --shadow-2: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px -8px rgba(0, 0, 0, 0.12);
   
   /* Legacy shadow mappings for compatibility */
   --shadow-2xs: var(--shadow-1);
@@ -122,55 +122,55 @@
   --elevate-2: rgba(255,255,255, .09);
 
   /* Rich navy background */
-  --background: 224 71% 8%;
-  --foreground: 220 14% 95%;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
 
-  --border: 221 40% 18%;
+  --border: 240 3% 22%;
 
-  --card: 224 50% 12%;
-  --card-foreground: 220 14% 95%;
-  --card-border: 221 40% 20%;
+  --card: 240 3% 11%;
+  --card-foreground: 0 0% 100%;
+  --card-border: 240 3% 17%;
 
-  --sidebar: 224 71% 6%;
-  --sidebar-foreground: 220 14% 85%;
-  --sidebar-border: 221 40% 16%;
+  --sidebar: 240 3% 8%;
+  --sidebar-foreground: 0 0% 96%;
+  --sidebar-border: 240 3% 17%;
 
-  --sidebar-primary: 221 83% 62%;
+  --sidebar-primary: 211 100% 46%;
   --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 221 50% 18%;
-  --sidebar-accent-foreground: 221 83% 72%;
+  --sidebar-accent: 240 3% 17%;
+  --sidebar-accent-foreground: 211 100% 64%;
 
-  --sidebar-ring: 221 83% 62%;
+  --sidebar-ring: 211 100% 52%;
 
-  --popover: 224 50% 12%;
-  --popover-foreground: 220 14% 95%;
-  --popover-border: 221 40% 20%;
+  --popover: 240 3% 14%;
+  --popover-foreground: 0 0% 100%;
+  --popover-border: 240 3% 20%;
 
   /* Lifted sapphire for dark mode readability */
-  --primary: 221 83% 62%;
+  --primary: 211 100% 46%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 221 40% 18%;
-  --secondary-foreground: 220 14% 85%;
+  --secondary: 240 3% 18%;
+  --secondary-foreground: 0 0% 92%;
 
-  --muted: 221 40% 15%;
-  --muted-foreground: 220 15% 65%;
+  --muted: 240 3% 15%;
+  --muted-foreground: 240 5% 65%;
 
   /* Lifted emerald for dark mode */
-  --accent: 160 84% 45%;
+  --accent: 142 70% 31%;
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 62% 50%;
+  --destructive: 3 80% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 221 40% 22%;
-  --ring: 221 83% 62%;
-  --chart-1: 221 83% 62%;
-  --chart-2: 160 84% 45%;
-  --chart-3: 262 60% 62%;
-  --chart-4: 24 95% 58%;
-  --chart-5: 340 75% 60%;
+  --input: 240 3% 24%;
+  --ring: 211 100% 56%;
+  --chart-1: 211 100% 52%;
+  --chart-2: 142 69% 49%;
+  --chart-3: 280 68% 65%;
+  --chart-4: 35 100% 55%;
+  --chart-5: 349 100% 62%;
 
   /* Elevation levels: 0 / 1 / 2 (no heavy shadows - dark mode) */
   --shadow-0: none;
@@ -1627,3 +1627,140 @@ kbd {
   }
 }
 
+
+/* ==========================================================================
+   Apple HIG layer — clarity, deference, depth.
+   Tokens above map to iOS system colors (systemBlue/Green/Red, grouped
+   backgrounds, label hierarchy, hairline separators). This layer adds the
+   type scale, materials, motion curve, 44pt targets and focus treatment.
+   Plain CSS inside @layer so it works on Tailwind v3 and v4.
+   ========================================================================== */
+:root {
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);      /* sheet / push curve */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* light overshoot */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 400ms;
+  --hairline: 0.5px;
+  --material-bg: hsl(var(--background) / 0.72);
+  --material-chrome-bg: hsl(var(--card) / 0.8);
+  --tap-min: 44px; /* HIG minimum hit target */
+}
+.dark {
+  --material-bg: hsl(var(--card) / 0.72);
+  --material-chrome-bg: hsl(var(--card) / 0.8);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%; /* respect Dynamic Type / user zoom */
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-size: 1.0625rem; /* 17pt iOS body */
+    line-height: 1.3125;
+    letter-spacing: -0.022em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-synthesis: none;
+    overscroll-behavior-y: none;
+  }
+  h1 { letter-spacing: 0.01em; font-weight: 700; }
+  h2, h3 { letter-spacing: -0.01em; }
+  ::selection { background: hsl(var(--primary) / 0.28); }
+
+  /* Touch: 44pt minimum hit area on coarse pointers only (desktop stays dense). */
+  @media (pointer: coarse) {
+    button, [role="button"], [role="tab"], [role="menuitem"], summary,
+    select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+      min-height: var(--tap-min);
+    }
+    button:not([class*="w-"]):not([class*="size-"]):not([class*="aspect"]) { min-width: var(--tap-min); }
+  }
+
+  /* Focus: soft 3pt halo, never removed (WCAG 2.4.7). */
+  :focus-visible {
+    outline: 3px solid hsl(var(--ring) / 0.45);
+    outline-offset: 2px;
+  }
+
+  /* Press feedback: quick scale, springy release. */
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+  }
+  button, [role="button"], a {
+    transition: transform var(--dur-fast) var(--ease-ios),
+                background-color var(--dur-base) var(--ease-ios),
+                opacity var(--dur-base) var(--ease-ios),
+                box-shadow var(--dur-base) var(--ease-ios);
+  }
+}
+
+@layer components {
+  /* Type scale (iOS Dynamic Type "large" defaults, in rem so it scales). */
+  .t-large-title { font-size: 2.125rem; line-height: 2.5625rem; font-weight: 700; letter-spacing: 0.0105em; }
+  .t-title-1     { font-size: 1.75rem;  line-height: 2.125rem;  font-weight: 700; letter-spacing: 0.0125em; }
+  .t-title-2     { font-size: 1.375rem; line-height: 1.75rem;   font-weight: 700; letter-spacing: 0.0125em; }
+  .t-title-3     { font-size: 1.25rem;  line-height: 1.5625rem; font-weight: 600; letter-spacing: 0.0125em; }
+  .t-headline    { font-size: 1.0625rem; line-height: 1.375rem; font-weight: 600; letter-spacing: -0.02em; }
+  .t-body        { font-size: 1.0625rem; line-height: 1.375rem; font-weight: 400; letter-spacing: -0.02em; }
+  .t-callout     { font-size: 1rem;     line-height: 1.3125rem; font-weight: 400; letter-spacing: -0.016em; }
+  .t-subhead     { font-size: 0.9375rem; line-height: 1.25rem;  font-weight: 400; letter-spacing: -0.01em; }
+  .t-footnote    { font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; letter-spacing: -0.006em; }
+  .t-caption-1   { font-size: 0.75rem;  line-height: 1rem;      font-weight: 400; }
+  .t-caption-2   { font-size: 0.6875rem; line-height: 0.8125rem; font-weight: 400; letter-spacing: 0.006em; }
+
+  /* Materials: translucent blur that defers to content beneath. */
+  .material-regular, .material-chrome {
+    background: hsl(var(--card));
+  }
+  @supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+    .material-regular {
+      background: var(--material-bg);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+    }
+    .material-chrome { /* nav bars, tab bars, toolbars */
+      background: var(--material-chrome-bg);
+      -webkit-backdrop-filter: saturate(180%) blur(24px);
+      backdrop-filter: saturate(180%) blur(24px);
+      border-color: hsl(var(--border) / 0.6);
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .material-regular, .material-chrome {
+      background: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /* Inset grouped list (Settings-style): rounded card, hairline dividers. */
+  .list-inset {
+    background: hsl(var(--card));
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .list-inset > * + * { border-top: var(--hairline) solid hsl(var(--border)); }
+  .list-inset > * { padding: 0.6875rem 1rem; min-height: var(--tap-min); display: flex; align-items: center; }
+
+  .hairline-t { border-top: var(--hairline) solid hsl(var(--border)); }
+  .hairline-b { border-bottom: var(--hairline) solid hsl(var(--border)); }
+
+  /* Sheet / push transitions share one curve. */
+  .anim-sheet { transition: transform var(--dur-slow) var(--ease-ios), opacity var(--dur-base) var(--ease-ios); }
+  .anim-pop   { animation: ios-pop var(--dur-base) var(--ease-spring) both; }
+}
+
+@keyframes ios-pop {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active, [role="button"]:active { transform: none; }
+  .anim-pop { animation: none; }
+}
