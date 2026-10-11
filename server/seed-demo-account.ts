@@ -84,25 +84,27 @@ export async function seedDemoAccount(): Promise<void> {
   const patient = await storage.createPatient({
     ehrConnectionId,
     mrn: "DEMO-00001",
-    firstName: "Demo",
-    middleName: "NMN",
-    lastName: "Account",
-    dateOfBirth: "1985-04-12",
-    gender: "other",
+    firstName: "Margaret",
+    middleName: "L.",
+    lastName: "Chen",
+    dateOfBirth: "1958-03-14",
+    gender: "female",
     email: DEMO_USER_EMAIL,
-    phone: "+1-555-0100",
-    address: "1 Demo Way, Sample City, CA 95014",
-    insuranceProvider: "Synthetic Health Insurance Co.",
-    insuranceId: "SYN-DEMO-0001",
-    primaryPhysician: "Dr. Synthetic Smith",
+    phone: "+1-571-555-0142",
+    address: "4821 Arlington Blvd, Arlington, VA 22203",
+    insuranceProvider: "Medicare Part B",
+    insuranceId: "1EG4-TE5-MK72",
+    primaryPhysician: "Dr. Priya Nair, MD",
   } as any);
   const patientId = patient.id;
 
   // 5) Medications ----------------------------------------------------------
   const meds = [
     { name: "Lisinopril", dosage: "10 mg", frequency: "Once daily", refillsRemaining: 3 },
-    { name: "Metformin", dosage: "500 mg", frequency: "Twice daily", refillsRemaining: 2 },
-    { name: "Atorvastatin", dosage: "20 mg", frequency: "Once daily at bedtime", refillsRemaining: 5 },
+    { name: "Metformin", dosage: "500 mg", frequency: "Twice daily with meals", refillsRemaining: 2 },
+    { name: "Atorvastatin", dosage: "40 mg", frequency: "Once daily at bedtime", refillsRemaining: 5 },
+    { name: "Amlodipine", dosage: "5 mg", frequency: "Once daily", refillsRemaining: 4 },
+    { name: "Levothyroxine", dosage: "50 mcg", frequency: "Once daily on empty stomach", refillsRemaining: 6 },
   ];
   for (const m of meds) {
     await storage.createMedication({
@@ -111,7 +113,7 @@ export async function seedDemoAccount(): Promise<void> {
       name: m.name,
       dosage: m.dosage,
       frequency: m.frequency,
-      prescribedBy: "Dr. Synthetic Smith",
+      prescribedBy: "Dr. Priya Nair, MD",
       startDate: dateOnly(-180),
       status: "active",
       refillsRemaining: m.refillsRemaining,
@@ -123,6 +125,7 @@ export async function seedDemoAccount(): Promise<void> {
     { name: "Essential hypertension", icdCode: "I10", category: "chronic" as const },
     { name: "Type 2 diabetes mellitus without complications", icdCode: "E11.9", category: "chronic" as const },
     { name: "Hyperlipidemia, unspecified", icdCode: "E78.5", category: "chronic" as const },
+    { name: "Hypothyroidism, unspecified", icdCode: "E03.9", category: "chronic" as const },
   ];
   for (const c of conditions) {
     await storage.createProblem({
@@ -132,18 +135,21 @@ export async function seedDemoAccount(): Promise<void> {
       icdCode: c.icdCode,
       category: c.category,
       status: "active",
-      facility: "Tabula Medica Demo Hospital",
+      facility: "NoVA Primary Care Arlington",
     } as any);
   }
 
   // 7) Lab results ------------------------------------------------------
   const labs = [
-    { testName: "Hemoglobin A1c", value: "7.2", unit: "%", status: "abnormal" as const, offset: -7 },
-    { testName: "LDL Cholesterol", value: "118", unit: "mg/dL", status: "abnormal" as const, offset: -7 },
-    { testName: "HDL Cholesterol", value: "52", unit: "mg/dL", status: "normal" as const, offset: -7 },
-    { testName: "Total Cholesterol", value: "194", unit: "mg/dL", status: "normal" as const, offset: -7 },
-    { testName: "Fasting Glucose", value: "142", unit: "mg/dL", status: "abnormal" as const, offset: -7 },
-    { testName: "Creatinine", value: "0.9", unit: "mg/dL", status: "normal" as const, offset: -7 },
+    { testName: "Hemoglobin A1c", value: "7.8", unit: "%", status: "abnormal" as const, offset: -14 },
+    { testName: "Fasting Glucose", value: "158", unit: "mg/dL", status: "abnormal" as const, offset: -14 },
+    { testName: "LDL Cholesterol", value: "122", unit: "mg/dL", status: "abnormal" as const, offset: -14 },
+    { testName: "HDL Cholesterol", value: "48", unit: "mg/dL", status: "normal" as const, offset: -14 },
+    { testName: "Total Cholesterol", value: "201", unit: "mg/dL", status: "abnormal" as const, offset: -14 },
+    { testName: "Creatinine", value: "1.1", unit: "mg/dL", status: "normal" as const, offset: -14 },
+    { testName: "eGFR", value: "62", unit: "mL/min/1.73m²", status: "normal" as const, offset: -14 },
+    { testName: "TSH", value: "3.2", unit: "mIU/L", status: "normal" as const, offset: -14 },
+    { testName: "Potassium", value: "4.1", unit: "mEq/L", status: "normal" as const, offset: -14 },
   ];
   for (const l of labs) {
     await storage.createLabResult({
@@ -159,9 +165,10 @@ export async function seedDemoAccount(): Promise<void> {
 
   // 8) Vitals -------------------------------------------------------------
   const vitals = [
-    { type: "blood_pressure" as const, value: "128/82", unit: "mmHg" },
-    { type: "heart_rate" as const, value: "72", unit: "bpm" },
-    { type: "weight" as const, value: "182", unit: "lb" },
+    { type: "blood_pressure" as const, value: "136/86", unit: "mmHg" },
+    { type: "heart_rate" as const, value: "74", unit: "bpm" },
+    { type: "weight" as const, value: "167", unit: "lb" },
+    { type: "height" as const, value: "64", unit: "in" },
   ];
   for (const v of vitals) {
     await storage.createVitalSign({
@@ -171,7 +178,7 @@ export async function seedDemoAccount(): Promise<void> {
       value: v.value,
       unit: v.unit,
       recordedAt: isoDate(-7),
-      recordedBy: "Dr. Synthetic Smith",
+      recordedBy: "Dr. Priya Nair, MD",
     } as any);
   }
 
@@ -186,52 +193,173 @@ export async function seedDemoAccount(): Promise<void> {
     status: "active",
   } as any);
 
+  await storage.createAllergy({
+    patientId,
+    ehrConnectionId,
+    name: "Sulfa drugs",
+    type: "medication",
+    severity: "mild",
+    reaction: "Rash",
+    status: "active",
+  } as any);
+
   // 10) Immunizations -------------------------------------------------------
   await storage.createImmunization({
     patientId,
     ehrConnectionId,
-    vaccineName: "Influenza, seasonal",
-    administeredDate: dateOnly(-60),
-    administeredBy: "Dr. Synthetic Smith",
+    vaccineName: "COVID-19 (mRNA)",
+    administeredDate: dateOnly(-120),
+    administeredBy: "Dr. Priya Nair, MD",
   } as any);
 
-  // 11) Upcoming appointment --------------------------------------------
+  await storage.createImmunization({
+    patientId,
+    ehrConnectionId,
+    vaccineName: "Influenza, seasonal (quadrivalent)",
+    administeredDate: dateOnly(-60),
+    administeredBy: "Dr. Priya Nair, MD",
+  } as any);
+
+  await storage.createImmunization({
+    patientId,
+    ehrConnectionId,
+    vaccineName: "Shingrix (Zoster) dose 1",
+    administeredDate: dateOnly(-180),
+    administeredBy: "CVS Pharmacy",
+  } as any);
+
+  await storage.createImmunization({
+    patientId,
+    ehrConnectionId,
+    vaccineName: "Pneumococcal (PPSV23)",
+    administeredDate: dateOnly(-365),
+    administeredBy: "Dr. Priya Nair, MD",
+  } as any);
+
+  // 11) Upcoming appointments --------------------------------------------
   await storage.createAppointment({
     patientId,
     ehrConnectionId,
     type: "followup",
-    title: "Diabetes follow-up with Dr. Smith",
-    provider: "Dr. Synthetic Smith",
-    facility: "Tabula Medica Demo Hospital",
-    scheduledAt: isoDate(14),
+    title: "Diabetes management followup",
+    provider: "Dr. Priya Nair, MD",
+    facility: "NoVA Primary Care Arlington",
+    scheduledAt: isoDate(10),
     duration: 30,
     status: "scheduled",
-    notes: "Review A1C trend, adjust Metformin if needed.",
+    notes: "Review A1C trend (7.8%). Adjust Metformin dose if indicated.",
   } as any);
 
-  // 12) Care gap ---------------------------------------------------------
+  await storage.createAppointment({
+    patientId,
+    ehrConnectionId,
+    type: "wellness",
+    title: "Annual wellness visit (Medicare)",
+    provider: "Dr. Priya Nair, MD",
+    facility: "NoVA Primary Care Arlington",
+    scheduledAt: isoDate(21),
+    duration: 45,
+    status: "scheduled",
+    notes: "Annual Medicare wellness visit. Review preventive screening status.",
+  } as any);
+
+  await storage.createAppointment({
+    patientId,
+    ehrConnectionId,
+    type: "referral",
+    title: "Endocrinology referral — Dr. Patel",
+    provider: "Dr. Arun Patel, MD",
+    facility: "Inova Endocrinology Associates",
+    scheduledAt: isoDate(45),
+    duration: 60,
+    status: "scheduled",
+    notes: "Referred for GLP-1 therapy evaluation.",
+  } as any);
+
+  // 12) Care gaps ---------------------------------------------------------
   await storage.createCareGap({
     patientId,
     recommendationId: "ANNUAL_A1C_FOR_DIABETES",
     status: "open",
     priority: "high",
-    dueDate: dateOnly(30),
-    notes: "Annual A1C overdue by 14 days. Patient last A1C: 7.2% (above target).",
+    dueDate: dateOnly(0),
+    notes: "A1C 7.8% — above target of 7.0%.",
     aiReasoning:
       "Patient has Type 2 diabetes (E11.9). Last A1C was over a year ago. ADA guidelines recommend A1C every 3-6 months for patients with A1C above target.",
   } as any);
 
-  // 13) Medical record (sample timeline entry) ------------------------
+  await storage.createCareGap({
+    patientId,
+    recommendationId: "COLORECTAL_CANCER_SCREENING",
+    status: "open",
+    priority: "high",
+    dueDate: dateOnly(-30),
+    notes: "Colorectal cancer screening overdue. Patient is 68, no prior colonoscopy on record.",
+    aiReasoning:
+      "USPSTF recommends colorectal cancer screening for adults aged 45-75. Patient is 68 with no documented prior colonoscopy.",
+  } as any);
+
+  await storage.createCareGap({
+    patientId,
+    recommendationId: "STATIN_THERAPY_FOR_CVD_RISK",
+    status: "open",
+    priority: "medium",
+    dueDate: dateOnly(30),
+    notes: "LDL 122 mg/dL — consider uptitration. Goal <100 mg/dL for high-risk patients.",
+    aiReasoning:
+      "Patient has diabetes and hypertension with LDL above goal. ACC/AHA guidelines recommend high-intensity statin for high-risk patients.",
+  } as any);
+
+  // 13) Medical records (sample timeline entries) ------------------------
   await storage.createMedicalRecord({
     patientId,
     ehrConnectionId,
     type: "note",
-    title: "Annual physical examination",
+    title: "Quarterly diabetes management visit",
     description:
-      "Patient seen for annual exam. BP 128/82. Discussed diet, exercise. Plan: continue Metformin, recheck A1C in 3 months.",
+      "Patient seen for diabetes follow-up. A1C 7.8%, up from 7.4% last quarter. BP 136/86. Metformin dose unchanged. Referral placed for endocrinology/GLP-1 evaluation.",
     date: dateOnly(-30),
-    provider: "Dr. Synthetic Smith",
-    facility: "Tabula Medica Demo Hospital",
+    provider: "Dr. Priya Nair, MD",
+    facility: "NoVA Primary Care Arlington",
+    status: "active",
+  } as any);
+
+  await storage.createMedicalRecord({
+    patientId,
+    ehrConnectionId,
+    type: "note",
+    title: "Telehealth visit — hypertension review",
+    description:
+      "BP reviewed via telehealth. Patient reports consistent Amlodipine adherence. BP log average 138/88. Plan: continue current regimen, recheck in 4 weeks.",
+    date: dateOnly(-60),
+    provider: "Dr. Priya Nair, MD",
+    facility: "NoVA Primary Care (Telehealth)",
+    status: "active",
+  } as any);
+
+  await storage.createMedicalRecord({
+    patientId,
+    ehrConnectionId,
+    type: "note",
+    title: "Annual Medicare Wellness Visit (prior year)",
+    description:
+      "Annual Medicare wellness visit completed. Preventive screenings reviewed. Mammogram up to date. Colorectal cancer screening deferred — patient declined colonoscopy, FIT test ordered.",
+    date: dateOnly(-365),
+    provider: "Dr. Priya Nair, MD",
+    facility: "NoVA Primary Care Arlington",
+    status: "active",
+  } as any);
+
+  await storage.createMedicalRecord({
+    patientId,
+    ehrConnectionId,
+    type: "note",
+    title: "Thyroid management visit",
+    description:
+      "TSH 3.2 mIU/L — within normal range. Levothyroxine 50 mcg continued. Patient reports improved energy levels. No dose adjustment required.",
+    date: dateOnly(-90),
+    provider: "Dr. Priya Nair, MD",
+    facility: "NoVA Primary Care Arlington",
     status: "active",
   } as any);
 

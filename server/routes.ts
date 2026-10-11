@@ -1239,6 +1239,38 @@ export async function registerRoutes(
   app.use("/api/external-integration", externalIntegrationRoutes);
   console.log("[Routes] External Integration Hub routes registered at /api/external-integration");
 
+  // Base44 PHR frontend compat: list Fasten-connected sources
+  app.get("/api/fasten/records", requireUser as any, async (req: any, res: any) => {
+    try {
+      const userId = getUserId(req);
+      const sources: any[] = (await (storage as any).getExternalIdentities?.(userId)) || [];
+      const fastenSources = sources.filter((s: any) => s.provider === "fasten");
+      res.json({ records: fastenSources, count: fastenSources.length });
+    } catch (error) {
+      res.json({ records: [], count: 0 });
+    }
+  });
+
+  // Base44 PHR frontend compat: return a Fasten Connect widget URL
+  app.post("/api/fasten/connect-token", requireUser as any, async (req: any, res: any) => {
+    try {
+      const host = req.get("host") || "tabula-medica-phr-e6p3nuwp4a-uc.a.run.app";
+      const proto = (req.get("x-forwarded-proto") as string) || "https";
+      const publicId = process.env.FASTEN_HEALTH_CLIENT_ID || "";
+      if (!publicId) {
+        return res.json({ url: null, message: "Fasten Connect not configured in this environment." });
+      }
+      const redirectBase = process.env.FASTEN_HEALTH_REDIRECT_URL
+        ? process.env.FASTEN_HEALTH_REDIRECT_URL.replace("/api/fasten-connect/callback", "")
+        : `${proto}://${host}`;
+      const redirectUri = `${redirectBase}/api/fasten-connect/callback`;
+      const url = `https://stitch.connect.fastenhealth.com?public_id=${encodeURIComponent(publicId)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      res.json({ url, connectUrl: url });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate connect token" });
+    }
+  });
+
   app.get("/api/fasten-connect/config", (req, res) => {
     const publicId = process.env.FASTEN_HEALTH_CLIENT_ID || "public_live_8ccv8p175drs4hw1o7g60120ogh36zp4tama0qd4epdn5";
     const deploymentUrl = process.env.REPLIT_DEPLOYMENT_URL;
@@ -8224,6 +8256,21 @@ STRICT NO-CDS CONSTRAINTS:
     } catch (error) {
       console.error("Error fetching timeline:", error);
       res.status(500).json({ error: "Failed to fetch timeline" });
+    }
+  });
+
+  // Alias: Base44 PHR frontend calls /api/timeline-events?type=<type>
+  app.get("/api/timeline-events", requirePermission("records:read") as any, auditDataAccess("timeline", "view"), async (req: any, res: any) => {
+    try {
+      const events = await aggregateTimelineEvents(req);
+      const typeFilter = req.query.type as string | undefined;
+      const filtered = typeFilter
+        ? events.filter((e: any) => e.type === typeFilter || e.sourceRecordType === typeFilter)
+        : events;
+      res.json({ events: filtered.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()) });
+    } catch (error) {
+      console.error("Error fetching timeline-events:", error);
+      res.status(500).json({ error: "Failed to fetch timeline events" });
     }
   });
 
