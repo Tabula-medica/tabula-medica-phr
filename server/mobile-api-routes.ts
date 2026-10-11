@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { logger } from "./utils/logger";
 import { authStorage } from "./replit_integrations/auth/storage";
 import { storage } from "./storage";
+import { DEMO_USER_ID } from "@shared/demo-account";
 import { db } from "./db";
 import { phiDb, decryptPhiRows } from "./storage/phi-storage";
 import {
@@ -273,8 +274,13 @@ export function registerMobileApiRoutes(app: Express) {
       // the dashboard and skipping onboarding on transient storage errors.
       let needsOnboarding: boolean | null = null;
       try {
-        const onboardingStatus = await storage.getOnboardingStatus(internalUser.id);
-        needsOnboarding = !onboardingStatus?.hasCompletedOnboarding;
+        if (internalUser.id === DEMO_USER_ID) {
+          // Demo account is always fully onboarded — clinical data is pre-seeded.
+          needsOnboarding = false;
+        } else {
+          const onboardingStatus = await storage.getOnboardingStatus(internalUser.id);
+          needsOnboarding = !onboardingStatus?.hasCompletedOnboarding;
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[MobileAuth] Failed to read onboarding status:", msg);

@@ -14,6 +14,7 @@ export const DEMO_ALLOWED_MUTATING_PATHS = new Set<string>([
   "/api/search/voice",
   "/api/smart-search",
   // AI health assistant — read-only generation, no persistence
+  "/api/health-coach",        // Base44 calls this path (alias for /chat)
   "/api/health-coach/chat",
   "/api/health-coach/suggest",
   // CDS / clinical summaries — read-only

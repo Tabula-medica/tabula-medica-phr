@@ -107,6 +107,10 @@ steps:
       - '--no-traffic'
       - '--tag=staging-$SHORT_SHA'
       - '--update-env-vars=NODE_ENV=staging'
+      - '--memory=1Gi'
+      - '--cpu=2'
+      - '--min-instances=0'
+      - '--max-instances=10'
       - '--allow-unauthenticated'
     waitFor: ['push-image']
 

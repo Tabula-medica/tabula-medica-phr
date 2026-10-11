@@ -30545,7 +30545,10 @@ Return to clinic in 2 weeks for glucose monitoring.`;
   // AI Health Coach API
   // ============================================
 
-  app.post("/api/health-coach/chat", async (req, res) => {
+  // Base44 assistant uses /api/health-coach (without /chat suffix).
+  // Register both so neither caller 404s.
+  for (const chatPath of ["/api/health-coach", "/api/health-coach/chat"]) {
+  app.post(chatPath, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || await getSamplePatientId();
@@ -30582,6 +30585,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
       res.status(500).json({ error: "Failed to get health coach response" });
     }
   });
+  } // end for-loop alias registration
 
   app.post("/api/health-coach/explain", async (req, res) => {
     try {

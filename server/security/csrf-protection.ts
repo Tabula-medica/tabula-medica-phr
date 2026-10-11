@@ -25,43 +25,55 @@ function getAllowedOrigins(req: Request): string[] {
 }
 
 /**
- * Validates that the request origin matches the expected host
+ * Validates that the request origin matches the expected host.
+ * Uses exact HTTPS origin comparison only — no substring tricks.
  */
 function isValidOrigin(req: Request): boolean {
   const origin = req.get("origin");
   const referer = req.get("referer");
   const host = req.get("host");
-  
-  // If no origin or referer, this might be a same-origin request
-  // (some browsers don't send Origin for same-origin)
-  if (!origin && !referer) {
-    // Allow if it looks like a same-origin request
-    // This is safe because SameSite=Lax prevents cross-origin cookie sending
+
+  // Bearer-authenticated requests cannot be forged cross-origin
+  // (cookies are not involved), so skip origin gating for them.
+  const auth = req.get("authorization") || "";
+  if (auth.toLowerCase().startsWith("bearer ")) {
     return true;
   }
-  
+
+  // Same-origin requests from browsers that omit the Origin header
+  if (!origin && !referer) {
+    return true;
+  }
+
   const allowedOrigins = getAllowedOrigins(req);
-  
-  // Check Origin header
+
+  // Exact match only — no .includes() substring tricks
   if (origin) {
-    if (allowedOrigins.some(allowed => origin === allowed || origin.includes(host || ""))) {
+    if (allowedOrigins.some(allowed => origin === allowed)) {
+      return true;
+    }
+    // Also accept origin === https://<host>
+    if (host && (origin === `https://${host}` || origin === `http://${host}`)) {
       return true;
     }
   }
-  
-  // Check Referer header as fallback
+
+  // Referer fallback — extract origin part and compare exactly
   if (referer) {
     try {
       const refererUrl = new URL(referer);
       const refererOrigin = `${refererUrl.protocol}//${refererUrl.host}`;
-      if (allowedOrigins.some(allowed => refererOrigin === allowed || refererOrigin.includes(host || ""))) {
+      if (allowedOrigins.some(allowed => refererOrigin === allowed)) {
+        return true;
+      }
+      if (host && refererUrl.host === host) {
         return true;
       }
     } catch {
-      // Invalid referer URL
+      // malformed referer — deny
     }
   }
-  
+
   return false;
 }
 

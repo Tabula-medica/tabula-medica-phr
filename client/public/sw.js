@@ -41,9 +41,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Never cache authenticated API responses — cross-user data leakage risk (F04).
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirstWithCache(request, API_CACHE_NAME));
-    return;
+    return; // pass through to network; no service-worker involvement
   }
 
   event.respondWith(cacheFirstWithNetwork(request));

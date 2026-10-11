@@ -98,21 +98,33 @@ export async function seedDemoAccount(): Promise<void> {
 
   // 2) MemStorage user row — this is what storage.getUser()/getOnboardingStatus()
   // and most route handlers actually read for "the logged-in user".
-  await storage.createUser({
-    id: DEMO_USER_ID,
-    email: DEMO_USER_EMAIL,
-    firstName: "Margaret",
-    lastName: "Chen",
-    authProvider: "demo",
-    emailVerified: true,
-    status: "active",
-  } as any);
+  try {
+    await storage.createUser({
+      id: DEMO_USER_ID,
+      email: DEMO_USER_EMAIL,
+      firstName: "Margaret",
+      lastName: "Chen",
+      authProvider: "demo",
+      emailVerified: true,
+      status: "active",
+    } as any);
+    console.log("[seed:demo] MemStorage user row created");
+  } catch (err: any) {
+    console.error("[seed:demo] FATAL: failed to create MemStorage user row:", err?.message);
+    return;
+  }
 
   // Mark onboarding complete so the demo lands on /dashboard, not /onboarding.
-  await storage.completeOnboarding(DEMO_USER_ID, [
-    "profile", "ehr_connection", "medications", "conditions",
-    "labs", "vitals", "appointments",
-  ]);
+  try {
+    await storage.completeOnboarding(DEMO_USER_ID, [
+      "profile", "ehr_connection", "medications", "conditions",
+      "labs", "vitals", "appointments",
+    ]);
+    console.log("[seed:demo] onboarding marked complete");
+  } catch (err: any) {
+    console.error("[seed:demo] FATAL: failed to complete onboarding:", err?.message);
+    return;
+  }
 
   // 3) EHR connection (synthetic) ---------------------------------------
   const ehrConn = await storage.createEhrConnection({
