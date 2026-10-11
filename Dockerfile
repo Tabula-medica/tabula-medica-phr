@@ -43,5 +43,6 @@ USER appuser
 EXPOSE 8080
 ENV PORT=8080
 ENV NODE_ENV=production
+ENV GCIP_PROJECT_ID=united-planet-485003-n7-9f345
 
 CMD ["node", "dist/index.cjs"]
