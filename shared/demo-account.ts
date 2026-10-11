@@ -13,6 +13,15 @@ export const DEMO_ALLOWED_MUTATING_PATHS = new Set<string>([
   "/api/search",
   "/api/search/voice",
   "/api/smart-search",
+  // AI health assistant — read-only generation, no persistence
+  "/api/health-coach/chat",
+  "/api/health-coach/suggest",
+  // CDS / clinical summaries — read-only
+  "/api/cds/summary",
+  "/api/cds/analyze",
+  // Auth session exchange happens before req.user is set, but adding as safety
+  "/api/mobile/auth/gcip/session",
+  "/api/auth/gcip/session",
 ]);
 
 /**
