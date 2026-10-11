@@ -45,13 +45,47 @@ export async function seedDemoAccount(): Promise<void> {
 
   console.log("[seed:demo] starting");
 
-  // 1) Real Postgres user row, so /api/auth/user resolves a profile.
+  // 1a) GCIP account — ensure demo@tabulamedica.health exists in Firebase Auth
+  // so the "Try demo →" button can sign in via GCIP. Uses the public REST API
+  // (no Admin SDK / service account needed). The account was pre-created with
+  // emailVerified=true via gcloud on 2026-10-11; this block is a safety net for
+  // environments where it may not exist (e.g. a new Firebase project).
+  const GCIP_API_KEY =
+    process.env.GCIP_API_KEY ||
+    process.env.VITE_GCIP_API_KEY ||
+    "AIzaSyBCCtuVajEza6yHonlkz8XkVQJjIgAMS9o";
+  const DEMO_PASSWORD = "Demo@2026";
+  try {
+    const signUpRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${GCIP_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: DEMO_USER_EMAIL, password: DEMO_PASSWORD, returnSecureToken: false }),
+      }
+    );
+    const signUpData = await signUpRes.json() as any;
+    if (!signUpRes.ok) {
+      const code = signUpData?.error?.message ?? "";
+      if (code.includes("EMAIL_EXISTS")) {
+        console.log("[seed:demo] GCIP account already exists");
+      } else {
+        console.warn("[seed:demo] GCIP account creation skipped:", code);
+      }
+    } else {
+      console.log("[seed:demo] GCIP account created (localId=%s)", signUpData.localId);
+    }
+  } catch (err: any) {
+    console.warn("[seed:demo] GCIP REST call failed (non-fatal):", err?.message);
+  }
+
+  // 1b) Real Postgres user row, so /api/auth/user resolves a profile.
   await authStorage
     .upsertUser({
       id: DEMO_USER_ID,
       email: DEMO_USER_EMAIL,
-      firstName: "Demo",
-      lastName: "Account",
+      firstName: "Margaret",
+      lastName: "Chen",
       authProvider: "demo",
       isVerified: true,
     } as any)
@@ -64,8 +98,8 @@ export async function seedDemoAccount(): Promise<void> {
   await storage.createUser({
     id: DEMO_USER_ID,
     email: DEMO_USER_EMAIL,
-    firstName: "Demo",
-    lastName: "Account",
+    firstName: "Margaret",
+    lastName: "Chen",
     authProvider: "demo",
     emailVerified: true,
     status: "active",
