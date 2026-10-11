@@ -45,6 +45,19 @@ Tests live in `tests/*.spec.ts` (Vitest). Custom lint rule: `eslint-rules/no-str
 - 19 UI languages via `client/src/components/language-provider.tsx`; new user-facing strings go
   through that layer, never hardcoded.
 
+## Working behavior
+
+- Action-first: no long intros or meta-announcements; do the work in files or markdown deliverables.
+- Structure output with Markdown headers, tables for comparisons, and bullets.
+- Non-critical ambiguity: assume reasonably, state the assumption in one line, and proceed.
+- Deliver complete files (no placeholders or truncation), with code, UI strings, and copy in distinct
+  blocks that are ready to copy.
+- Keep this app's regime separate from the other projects: HIPAA and the US/International region
+  rules here, never PIPL or other apps' audience and language rules.
+- End each task with a 3-bullet "Executive Recap": files created, actions taken, immediate next action.
+- Precedence: the Non-negotiables above and "ask before major or destructive changes" win over any
+  "decisive assumption" in this section.
+
 <!-- claude-prompt-codes:begin -->
 ## Library docs (Context7)
 
