@@ -111,3 +111,30 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/rate_limit_test
         run: npx vitest run tests/pg-rate-limit-store.integration.spec.ts tests/cac-enrollment-atomicity.integration.spec.ts tests/parkinsons-results.integration.spec.ts
+
+  semgrep:
+    # SAST over the app code with the public Semgrep registry packs. Results
+    # are uploaded as SARIF to the repo Security tab (code scanning) so the
+    # monthly "Security autofix" routine can triage them; the job itself is
+    # non-blocking so a new registry rule can never break an unrelated PR.
+    name: Semgrep SAST (SARIF → code scanning)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    container:
+      image: semgrep/semgrep:1.146.0
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan client/server/shared/scripts
+        run: |
+          semgrep scan \
+            --config p/nodejs --config p/typescript --config p/react \
+            --config p/owasp-top-ten --config p/secrets \
+            --metrics=off --sarif --output semgrep.sarif \
+            --exclude node_modules --exclude dist --exclude ios --exclude android \
+            client server shared scripts script || true
+          test -s semgrep.sarif
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
