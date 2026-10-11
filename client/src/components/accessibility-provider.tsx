@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { MotionConfig } from "framer-motion";
 
 export interface AccessibilitySettings {
   largeText: boolean;
@@ -127,7 +128,9 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
 
   return (
     <AccessibilityContext.Provider value={{ settings, updateSetting, resetSettings }}>
-      {children}
+      <MotionConfig reducedMotion={settings.reducedMotion || settings.geriatricMode ? "always" : "user"}>
+        {children}
+      </MotionConfig>
       {settings.readingGuide && <ReadingGuide />}
     </AccessibilityContext.Provider>
   );
@@ -139,6 +142,38 @@ export function useAccessibility() {
     throw new Error("useAccessibility must be used within an AccessibilityProvider");
   }
   return context;
+}
+
+/**
+ * True when motion should be reduced: the OS preference (live), or the in-app
+ * reduced-motion / geriatric setting. Safe outside AccessibilityProvider, where
+ * logged-out public routes render; there it reads the persisted setting.
+ */
+export function usePrefersReducedMotion(): boolean {
+  const context = useContext(AccessibilityContext);
+  const [osReduced, setOsReduced] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  useEffect(() => {
+    const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!query) return;
+    const onChange = (event: MediaQueryListEvent) => setOsReduced(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  const [stored] = useState<Partial<AccessibilitySettings>>(() => {
+    if (context || typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem("accessibility-settings") ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+
+  const settings = context?.settings ?? stored;
+  return osReduced || !!settings.reducedMotion || !!settings.geriatricMode;
 }
 
 function ReadingGuide() {
