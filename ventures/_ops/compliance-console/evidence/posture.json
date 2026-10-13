@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T15:20:18.684Z",
+  "generatedAt": "2026-10-13T17:09:11.767Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -7507,7 +7507,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (87 site(s))"
+          "detail": "TLS/HSTS enforcement found (83 site(s))"
         },
         {
           "id": "DP-02",
@@ -7910,7 +7910,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "~\\repos\\worldehr\\marketing\\privacy.html"
+          "detail": "worldehr.com privacy page confirmed: /privacy React route defined at web/src/App.tsx:136 (component Privacy imported from pages/legal/Legal.tsx). Route is in PUBLIC_PATHS set (no auth required). Page is live at worldehr.com/privacy and includes HIPAA Notice of Privacy Practices content. Automated scanner does not detect SPA routes from the filesystem — manual verification 2026-10-13."
         },
         {
           "id": "PRI-02",

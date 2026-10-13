@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-13T15:20:06.185Z",
+  "collectedAt": "2026-10-13T17:03:22.702Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -786,15 +786,15 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (87 site(s))"
+            "detail": "TLS/HSTS enforcement found (83 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
             "detail": "no hardcoded-secret patterns matched"
           },
           "privacyPolicyPresent": {
-            "verdict": "pass",
-            "detail": "~\\repos\\worldehr\\marketing\\privacy.html"
+            "verdict": "fail",
+            "detail": "no privacy page found"
           },
           "phiAiVertexOnly": {
             "verdict": "pass",

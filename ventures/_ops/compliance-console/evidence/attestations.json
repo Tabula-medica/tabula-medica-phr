@@ -143,6 +143,10 @@
       }
     },
     "omnihealth": {
+      "PRI-01": {
+        "verdict": "pass",
+        "detail": "worldehr.com privacy page confirmed: /privacy React route defined at web/src/App.tsx:136 (component Privacy imported from pages/legal/Legal.tsx). Route is in PUBLIC_PATHS set (no auth required). Page is live at worldehr.com/privacy and includes HIPAA Notice of Privacy Practices content. Automated scanner does not detect SPA routes from the filesystem — manual verification 2026-10-13."
+      },
       "CM-01": {
         "verdict": "pass",
         "detail": "Tabula-medica org rulesets 20585594 + 23992403 require PR reviews on main for all org repos including Tabula-medica/omnihealth-ehr. Confirmed active 2026-09-25. GitHub API unavailable for automated re-check 2026-10-05."
