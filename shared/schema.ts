@@ -3875,7 +3875,6 @@ export const insertAppointmentSchema = z.object({
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 // Health Goal - for tracking patient health objectives
-export type HealthGoalStatus = "active" | "in_progress" | "completed" | "abandoned";
 export type HealthGoalCategory = "weight" | "exercise" | "nutrition" | "medication" | "mental_health" | "sleep" | "other";
 
 export interface HealthGoal {
@@ -6966,7 +6965,6 @@ export interface AdherenceStatistics {
 
 // Drug Interaction Severity Levels
 export const interactionSeverities = ["minor", "moderate", "major", "contraindicated"] as const;
-export type InteractionSeverity = typeof interactionSeverities[number];
 
 // Drug Interaction Detection Result
 export interface DrugInteraction {
@@ -11104,7 +11102,6 @@ export const interventionStatus = [
   "declined",
   "deferred",
 ] as const;
-export type InterventionStatus = typeof interventionStatus[number];
 
 export interface HealthMonitoringAlert {
   id: string;
@@ -12471,7 +12468,6 @@ export const timelineEventTypes = [
   "diagnosis",
   "vaccination",
 ] as const;
-export type TimelineEventType = typeof timelineEventTypes[number];
 
 export const timelinePeriods = [6, 12, 18, 24] as const;
 export type TimelinePeriod = typeof timelinePeriods[number];
@@ -12488,7 +12484,6 @@ export const timelineEventSchema = z.object({
   significance: z.enum(["routine", "notable", "significant", "critical"]),
   relatedEventIds: z.array(z.string()).optional(),
 });
-export type TimelineEvent = z.infer<typeof timelineEventSchema>;
 
 export const quarterlyPeriodSchema = z.object({
   quarter: z.string(),
@@ -12719,7 +12714,6 @@ export type InsertOutreachTemplate = z.infer<typeof insertOutreachTemplateSchema
 // ============================================
 
 // Sleep Tracking
-export type SleepQuality = "excellent" | "good" | "fair" | "poor" | "very_poor";
 export type SleepStage = "awake" | "light" | "deep" | "rem";
 
 export interface SleepRecord {
@@ -12823,7 +12817,6 @@ export type InsertNutritionEntry = z.infer<typeof insertNutritionEntrySchema>;
 
 // Exercise/Activity Tracking
 export type ExerciseIntensity = "light" | "moderate" | "vigorous" | "maximum";
-export type ExerciseType = "cardio" | "strength" | "flexibility" | "balance" | "sports" | "walking" | "running" | "cycling" | "swimming" | "yoga" | "other";
 
 export interface ExerciseRecord {
   id: string;
@@ -13024,16 +13017,6 @@ export interface EnhancedMedication {
   updatedAt: string;
 }
 
-export interface DrugInteraction {
-  id: string;
-  interactingDrug: string;
-  severity: "major" | "moderate" | "minor" | "unknown";
-  description: string;
-  clinicalEffect?: string;
-  recommendation?: string;
-  source?: string;
-  checkedAt: string;
-}
 
 export interface MedicationAdherence {
   overallScore: number; // 0-100
@@ -13089,9 +13072,6 @@ export type InsertEnhancedMedication = z.infer<typeof insertEnhancedMedicationSc
 // COMPREHENSIVE ALLERGY RECORDS
 // ============================================
 
-export type AllergySeverity = "mild" | "moderate" | "severe" | "life_threatening" | "unknown";
-export type AllergyType = "drug" | "food" | "environmental" | "latex" | "insect" | "other";
-export type AllergyStatus = "active" | "inactive" | "resolved" | "entered_in_error";
 
 export interface ComprehensiveAllergy {
   id: string;
@@ -13294,13 +13274,6 @@ export type InsertSurgicalHistory = z.infer<typeof insertSurgicalHistorySchema>;
 // FAMILY HEALTH HISTORY
 // ============================================
 
-export type FamilyRelationship = 
-  | "mother" | "father" | "sister" | "brother" 
-  | "maternal_grandmother" | "maternal_grandfather" 
-  | "paternal_grandmother" | "paternal_grandfather"
-  | "maternal_aunt" | "maternal_uncle" | "paternal_aunt" | "paternal_uncle"
-  | "daughter" | "son" | "half_sister" | "half_brother"
-  | "maternal_cousin" | "paternal_cousin" | "twin" | "other";
 
 export interface FamilyMember {
   id: string;
@@ -13857,47 +13830,8 @@ export type InsertEnhancedVital = z.infer<typeof insertEnhancedVitalSchema>;
 // WEARABLE DATA IMPORT
 // ============================================
 
-export type WearablePlatform = "apple_health" | "google_fit" | "fitbit" | "garmin" | "whoop" | "oura" | "samsung_health" | "withings" | "dexcom" | "libre" | "other";
 
-export interface WearableConnection {
-  id: string;
-  patientId: string;
-  platform: WearablePlatform;
-  accountId?: string;
-  displayName: string;
-  // OAuth tokens — persisted ENCRYPTED via encryptConnectionForStorage
-  // (server/security/phi-encryption.ts). Always pass instances of this
-  // interface through that helper before storing, and through
-  // decryptConnectionFromStorage on read. The IStorage methods
-  // updateWearableConnection / getWearableConnection enforce this.
-  accessToken?: string;
-  refreshToken?: string;
-  tokenExpiresAt?: string;
-  // Sync settings
-  syncEnabled: boolean;
-  lastSyncAt?: string;
-  lastSyncStatus: "success" | "partial" | "failed" | "never";
-  syncError?: string;
-  // Data types
-  enabledDataTypes: WearableDataType[];
-  availableDataTypes: WearableDataType[];
-  // Permissions
-  permissionGrantedAt?: string;
-  permissionScope?: string[];
-  // Status
-  status: "connected" | "disconnected" | "expired" | "error" | "pending";
-  createdAt: string;
-  updatedAt: string;
-}
 
-export type WearableDataType = 
-  | "steps" | "distance" | "floors_climbed" | "active_minutes" | "calories"
-  | "heart_rate" | "heart_rate_variability" | "resting_heart_rate" | "vo2_max"
-  | "sleep" | "sleep_stages" | "respiratory_rate" | "blood_oxygen"
-  | "weight" | "body_fat" | "lean_mass" | "bmi" | "water_percent"
-  | "blood_pressure" | "blood_glucose" | "temperature"
-  | "workouts" | "workout_routes" | "cycling" | "running" | "swimming"
-  | "menstrual_cycle" | "mindfulness" | "stress";
 
 export interface WearableDataImport {
   id: string;
@@ -14041,25 +13975,12 @@ export const searchResultTypes = [
 ] as const;
 export type SearchResultType = typeof searchResultTypes[number];
 
-export interface SearchResult {
-  id: string;
-  type: SearchResultType;
-  title: string;
-  description: string;
-  date: string;
-  source: string;
-  sourcePlatform?: string;
-  matchType: "exact" | "synonym" | "fuzzy";
-  matchedTerms: string[];
-  relevanceScore: number;
-}
 
 export const searchQuerySchema = z.object({
   query: z.string().min(1).max(200),
   types: z.array(z.enum(searchResultTypes)).optional(),
   limit: z.number().min(1).max(100).default(20),
 });
-export type SearchQuery = z.infer<typeof searchQuerySchema>;
 
 export const searchResponseSchema = z.object({
   query: z.string(),
@@ -14718,7 +14639,6 @@ export const patientOutcomeSchema = z.object({
 
 // Care Plan Status
 export const carePlanStatuses = ["draft", "pending_review", "approved", "active", "completed", "cancelled"] as const;
-export type CarePlanStatus = typeof carePlanStatuses[number];
 
 // SMART Goal Status
 export const smartGoalStatuses = ["not_started", "in_progress", "achieved", "partially_achieved", "not_achieved", "deferred"] as const;
@@ -15731,18 +15651,9 @@ export type AssignPatientOnboardingTaskInput = z.infer<typeof assignPatientOnboa
 // Automated Alerting System Types
 // =====================================================
 
-export type AlertType = 
-  | "sync_failure_rate"
-  | "data_quality_increase"
-  | "validation_failure"
-  | "security_anomaly"
-  | "system_health";
 
-export type AlertSeverity = "critical" | "high" | "medium" | "low" | "info";
 
-export type NotificationChannel = "in_app" | "email" | "webhook";
 
-export type AlertStatus = "active" | "acknowledged" | "resolved" | "suppressed";
 
 export interface AlertThreshold {
   metricName: string;
@@ -18186,22 +18097,6 @@ export const insertConversationSchema = z.object({
 });
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 
-export interface SecureMessage {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  senderName: string;
-  senderRole: UserRole;
-  content: string;
-  attachmentUrl: string | null;
-  attachmentType: string | null;
-  status: SecureMessageStatus;
-  isEdited: boolean;
-  isDeleted: boolean;
-  replyToId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export const insertMessageSchema = z.object({
   conversationId: z.string().min(1),
@@ -18241,30 +18136,6 @@ export type AppointmentStatus = (typeof appointmentStatuses)[number];
 export const patientAppointmentTypes = ["routine_checkup", "follow_up", "vaccination", "specialist", "lab_work", "imaging", "telehealth", "urgent_care", "wellness", "dental", "vision", "mental_health"] as const;
 export type PatientAppointmentType = (typeof patientAppointmentTypes)[number];
 
-export interface PatientAppointment {
-  id: string;
-  profileId: string;
-  providerId: string | null;
-  providerName: string;
-  providerSpecialty: string | null;
-  facilityName: string | null;
-  facilityAddress: string | null;
-  appointmentType: PatientAppointmentType;
-  title: string;
-  description: string | null;
-  scheduledAt: string;
-  durationMinutes: number;
-  status: AppointmentStatus;
-  isTelehealth: boolean;
-  telehealthUrl: string | null;
-  notes: string | null;
-  reminderSentAt: string | null;
-  confirmedAt: string | null;
-  checkedInAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export const insertPatientDashboardAppointmentSchema = z.object({
   profileId: z.string().min(1),
@@ -18384,20 +18255,6 @@ export type UpdateChallengeProgress = z.infer<typeof updateChallengeProgressSche
 // GAMIFICATION - ACHIEVEMENTS & BADGES
 // ============================================
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  iconName: string;
-  colorTheme: string;
-  rarity: BadgeRarity;
-  pointsValue: number;
-  category: ChallengeCategory;
-  requirement: string;
-  requirementValue: number;
-  isHidden: boolean;
-  createdAt: string;
-}
 
 export interface UserAchievement {
   id: string;
@@ -18442,17 +18299,6 @@ export interface UserPoints {
   updatedAt: string;
 }
 
-export interface PointTransaction {
-  id: string;
-  userId: string;
-  profileId: string;
-  amount: number;
-  transactionType: "earned" | "spent" | "bonus" | "expired";
-  source: string;
-  sourceId: string | null;
-  description: string;
-  createdAt: string;
-}
 
 // ============================================
 // GAMIFICATION - LEADERBOARD
@@ -18461,18 +18307,6 @@ export interface PointTransaction {
 export const leaderboardPeriods = ["daily", "weekly", "monthly", "all_time"] as const;
 export type LeaderboardPeriod = (typeof leaderboardPeriods)[number];
 
-export interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  profileId: string;
-  displayName: string;
-  avatarUrl: string | null;
-  points: number;
-  level: number;
-  achievementCount: number;
-  streakDays: number;
-  isCurrentUser: boolean;
-}
 
 export interface LeaderboardData {
   period: LeaderboardPeriod;
@@ -19393,11 +19227,6 @@ export const insertSymptomEntrySchema = z.object({
 
 export type InsertSymptomEntry = z.infer<typeof insertSymptomEntrySchema>;
 
-export interface SymptomEntry extends InsertSymptomEntry {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 // ==========================================
 // SURVIVORSHIP ENGINE TYPES
@@ -22994,7 +22823,6 @@ export const insertRemediationWorkflowSchema = createInsertSchema(remediationWor
   updatedAt: true,
 });
 export type InsertRemediationWorkflow = z.infer<typeof insertRemediationWorkflowSchema>;
-export type RemediationWorkflow = typeof remediationWorkflows.$inferSelect;
 
 // ============================================
 // FHIR API DATA HUB
