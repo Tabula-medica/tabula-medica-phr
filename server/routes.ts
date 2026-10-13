@@ -2338,7 +2338,7 @@ export async function registerRoutes(
   });
 
   // High-risk patients list for provider dashboard
-  app.get("/api/analytics/high-risk-patients", async (req, res) => {
+  app.get("/api/analytics/high-risk-patients", requireUser, async (req, res) => {
     try {
       const highRiskPatients = [
         { patientId: "p-001", patientName: "John Smith", age: 68, riskScore: 85, riskLevel: "high" as const, primaryConditions: ["CHF", "Type 2 Diabetes", "CKD Stage 3"], lastVisit: new Date(Date.now() - 45 * 86400000).toISOString(), upcomingActions: ["Schedule cardiology follow-up", "Lab work overdue"], trend: "worsening" as const },
@@ -2355,7 +2355,7 @@ export async function registerRoutes(
   });
 
   // Generate analytics report
-  app.post("/api/analytics/generate-report", async (req, res) => {
+  app.post("/api/analytics/generate-report", requireUser, async (req, res) => {
     try {
       const { dateRange } = req.body;
       // Simulate report generation
@@ -4832,7 +4832,7 @@ export async function registerRoutes(
   console.log("[Routes] AI Patient Insights routes registered at /api/patient-insights");
   const aiPatientInsightsService = await import("./services/aiPatientInsightsService");
 
-  app.get("/api/patient-insights/:patientId", async (req, res) => {
+  app.get("/api/patient-insights/:patientId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4858,7 +4858,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/patient-insights/:patientId/generate", async (req, res) => {
+  app.post("/api/patient-insights/:patientId/generate", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4885,7 +4885,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/patient-insights/:patientId/adherence-risk", async (req, res) => {
+  app.get("/api/patient-insights/:patientId/adherence-risk", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -4918,7 +4918,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/patient-insights/:patientId/optimizations", async (req, res) => {
+  app.get("/api/patient-insights/:patientId/optimizations", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -5087,7 +5087,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/progress-feedback/:patientId/clinician-flags", async (req, res) => {
+  app.get("/api/progress-feedback/:patientId/clinician-flags", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -5110,7 +5110,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/progress-feedback/:patientId/clinician-flags", async (req, res) => {
+  app.post("/api/progress-feedback/:patientId/clinician-flags", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -5141,7 +5141,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/progress-feedback/:patientId/clinician-flags/:flagId", async (req, res) => {
+  app.patch("/api/progress-feedback/:patientId/clinician-flags/:flagId", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId = user?.claims?.sub || "clinician-default";
@@ -7137,7 +7137,7 @@ STRICT NO-CDS CONSTRAINTS:
     }
   });
 
-  app.post("/api/medications/analytics", async (req, res) => {
+  app.post("/api/medications/analytics", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const patientId = user?.claims?.sub || await getSamplePatientId();
@@ -7241,7 +7241,7 @@ STRICT NO-CDS CONSTRAINTS:
     }
   });
 
-  app.post("/api/snapshot/analytics", async (req, res) => {
+  app.post("/api/snapshot/analytics", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const patientId = user?.claims?.sub || await getSamplePatientId();
