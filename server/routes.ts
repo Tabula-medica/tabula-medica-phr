@@ -18473,7 +18473,7 @@ Be thorough but prioritize clinically relevant information. Mark high-relevance 
       const now = Date.now();
 
       if (!forceRefresh && cached && cached.dataHash === dataHash && (now - cached.generatedAt) < CHART_SUMMARY_STALE_MS) {
-        console.log(`[HIPAA-AUDIT] ${new Date().toISOString()} | Chart Summary Cache Hit | Patient: ${patientId}`);
+        logPhiAccess({ userId: patientId, patientId, resourceType: "ChartSummary", action: "read", details: "cache_hit" });
         return res.json({
           ...cached.summary,
           fromCache: true,
@@ -18482,7 +18482,7 @@ Be thorough but prioritize clinically relevant information. Mark high-relevance 
         });
       }
 
-      console.log(`[HIPAA-AUDIT] ${new Date().toISOString()} | Chart Summary Generation | Patient: ${patientId}`);
+      logPhiAccess({ userId: patientId, patientId, resourceType: "ChartSummary", action: "read", details: "generation_start" });
 
       const totalDataPoints = conditions.length + medications.length + labResults.length + vitals.length + medicalRecords.length + familyHistory.length;
 
@@ -20160,7 +20160,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
-      console.log(`[HIPAA-AUDIT] Telehealth session started: ${sessionId}, patient: ${session.patientId}`);
+      logPhiAccess({ userId: session.patientId, patientId: session.patientId, resourceType: "TelehealthSession", action: "update", details: `session_started:${sessionId}` });
       res.json(session);
     } catch (error) {
       console.error("Error starting telehealth session:", error);
@@ -20180,7 +20180,7 @@ Focus on actionable, clinically relevant predictions. Be specific about risk fac
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
-      console.log(`[HIPAA-AUDIT] Telehealth session ended: ${sessionId}, patient: ${session.patientId}, duration: ${duration || 30}min`);
+      logPhiAccess({ userId: session.patientId, patientId: session.patientId, resourceType: "TelehealthSession", action: "update", details: `session_ended:${sessionId}:${duration || 30}min` });
       res.json(session);
     } catch (error) {
       console.error("Error ending telehealth session:", error);
