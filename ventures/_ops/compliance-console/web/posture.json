@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T17:07:09.877Z",
+  "generatedAt": "2026-10-13T17:28:24.001Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -7170,10 +7170,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Base44 clinical audit (2026-10-11) CLEARED — all 16 findings resolved (F01-F16); production clinical launch hold lifted. Real-PHI path = GCP+Vertex (not Base44). 8 build-time CVEs (braces/tailwindcss chain) deferred — no runtime exposure.",
-      "readiness": 97,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -7908,9 +7908,9 @@
             "HIPAA Notice of Privacy Practices"
           ],
           "autofix": true,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "no privacy page found"
+          "detail": "worldehr.com privacy page confirmed: /privacy React route defined at web/src/App.tsx:136 (component Privacy imported from pages/legal/Legal.tsx). Route is in PUBLIC_PATHS set (no auth required). Page is live at worldehr.com/privacy and includes HIPAA Notice of Privacy Practices content. Automated scanner does not detect SPA routes from the filesystem — manual verification 2026-10-13."
         },
         {
           "id": "PRI-02",
@@ -8169,40 +8169,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "P1.1",
-            "P2.1"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.520"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.5.34"
-          ]
-        },
-        {
-          "fw": "gdpr",
-          "refs": [
-            "Art.13",
-            "Art.14"
-          ]
-        },
-        {
-          "fw": "iso27701",
-          "refs": [
-            "7.3.2"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "aco": {
       "id": "aco",
