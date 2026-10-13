@@ -52,8 +52,11 @@ export async function seedDemoAccount(): Promise<void> {
   // environments where it may not exist (e.g. a new Firebase project).
   const GCIP_API_KEY =
     process.env.GCIP_API_KEY ||
-    process.env.VITE_GCIP_API_KEY ||
-    "AIzaSyBCCtuVajEza6yHonlkz8XkVQJjIgAMS9o";
+    process.env.VITE_GCIP_API_KEY;
+  if (!GCIP_API_KEY) {
+    console.warn("[seed:demo] GCIP_API_KEY not set — skipping GCIP account creation");
+    return;
+  }
   const DEMO_PASSWORD = "Demo@2026";
   try {
     const signUpRes = await fetch(
