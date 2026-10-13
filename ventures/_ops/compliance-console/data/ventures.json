@@ -102,7 +102,7 @@
     "dataClass": "inpatient + outpatient clinical records",
     "stack": "hybrid Base44-demo / GCP-real-PHI build, Expo wrapper",
     "inScope": ["soc2", "hipaa", "aigov", "hitrust"],
-    "notes": "PHI HIGH. Newest. Hybrid Base44 build — confirm real-PHI path is GCP+Vertex, not Base44."
+    "notes": "PHI HIGH. Base44 clinical audit (2026-10-11) CLEARED — all 16 findings resolved (F01-F16); production clinical launch hold lifted. Real-PHI path = GCP+Vertex (not Base44). 8 build-time CVEs (braces/tailwindcss chain) deferred — no runtime exposure."
   },
   {
     "id": "aco",
