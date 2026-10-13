@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T09:46:31.290Z",
+  "generatedAt": "2026-10-13T14:24:32.783Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -359,7 +359,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (195 site(s))"
+          "detail": "TLS/HSTS enforcement found (200 site(s))"
         },
         {
           "id": "DP-02",
@@ -1380,7 +1380,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (46 site(s))"
+          "detail": "TLS/HSTS enforcement found (57 site(s))"
         },
         {
           "id": "DP-02",
@@ -2067,10 +2067,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
-      "readiness": 100,
+      "readiness": 94,
       "counts": {
-        "pass": 33,
-        "fail": 0,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -2404,7 +2404,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (243 site(s))"
+          "detail": "TLS/HSTS enforcement found (262 site(s))"
         },
         {
           "id": "DP-02",
@@ -2521,9 +2521,9 @@
             "secrets in GCP Secret Manager"
           ],
           "autofix": true,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "repo",
-          "detail": "no hardcoded-secret patterns matched"
+          "detail": "secret pattern(s) found: ~\\repos\\tabula-medica-phr\\server\\seed-demo-account.ts"
         },
         {
           "id": "SEC-02",
@@ -3066,7 +3066,39 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC6.1",
+            "CC6.7"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.312(a)(2)(iv)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.12"
+          ]
+        },
+        {
+          "fw": "hitrust",
+          "refs": [
+            "09.ab"
+          ]
+        },
+        {
+          "fw": "nist171",
+          "refs": [
+            "3.13.10"
+          ]
+        }
+      ]
     },
     "sawd": {
       "id": "sawd",
@@ -5468,7 +5500,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (54 site(s))"
+          "detail": "TLS/HSTS enforcement found (53 site(s))"
         },
         {
           "id": "DP-02",
@@ -6487,7 +6519,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (32 site(s))"
+          "detail": "TLS/HSTS enforcement found (36 site(s))"
         },
         {
           "id": "DP-02",
@@ -7507,7 +7539,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (84 site(s))"
+          "detail": "TLS/HSTS enforcement found (87 site(s))"
         },
         {
           "id": "DP-02",
@@ -10212,8 +10244,8 @@
     }
   },
   "portfolio": {
-    "readiness": 100,
+    "readiness": 99,
     "ventureCount": 10,
-    "p0Open": 0
+    "p0Open": 1
   }
 }

@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-09-28T16:43:40.361Z",
+  "collectedAt": "2026-10-13T14:23:38.667Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -86,7 +86,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (195 site(s))"
+            "detail": "TLS/HSTS enforcement found (200 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -186,7 +186,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (46 site(s))"
+            "detail": "TLS/HSTS enforcement found (57 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -286,11 +286,11 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (243 site(s))"
+            "detail": "TLS/HSTS enforcement found (262 site(s))"
           },
           "noHardcodedSecrets": {
-            "verdict": "pass",
-            "detail": "no hardcoded-secret patterns matched"
+            "verdict": "fail",
+            "detail": "secret pattern(s) found: ~\\repos\\tabula-medica-phr\\server\\seed-demo-account.ts"
           },
           "privacyPolicyPresent": {
             "verdict": "pass",
@@ -325,8 +325,8 @@
             "detail": "~\\ventures\\sawd-ai\\Sawd-finance\\compliance\\policies\\07-change-management-policy.md"
           },
           "policyPresent:data-classification": {
-            "verdict": "unknown",
-            "detail": "no data-classification policy found in compliance/policies/"
+            "verdict": "pass",
+            "detail": "~\\ventures\\sawd-ai\\Sawd-finance\\compliance\\policies\\13-data-classification-policy.md"
           },
           "policyPresent:business-continuity": {
             "verdict": "pass",
@@ -337,12 +337,12 @@
             "detail": "~\\ventures\\sawd-ai\\Sawd-finance\\compliance\\policies\\05-acceptable-use-policy.md"
           },
           "policyPresent:vendor-management": {
-            "verdict": "unknown",
-            "detail": "no vendor-management policy found in compliance/policies/"
+            "verdict": "pass",
+            "detail": "~\\ventures\\sawd-ai\\Sawd-finance\\compliance\\policies\\15-vendor-management-policy.md"
           },
           "policyPresent:cryptography": {
-            "verdict": "unknown",
-            "detail": "no cryptography policy found in compliance/policies/"
+            "verdict": "pass",
+            "detail": "~\\ventures\\sawd-ai\\Sawd-finance\\compliance\\policies\\14-cryptography-policy.md"
           },
           "policyPresent:vulnerability": {
             "verdict": "pass",
@@ -586,7 +586,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (54 site(s))"
+            "detail": "TLS/HSTS enforcement found (53 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -686,7 +686,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (32 site(s))"
+            "detail": "TLS/HSTS enforcement found (36 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -786,7 +786,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (84 site(s))"
+            "detail": "TLS/HSTS enforcement found (87 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
