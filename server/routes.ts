@@ -20696,7 +20696,13 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         const gaps = await storage.getPatientCareGaps(pid, status as any);
         allGaps.push(...gaps);
       }
-      res.json({ gaps: allGaps });
+      // Flatten nested recommendation fields so Base44 UI can render title/description directly.
+      const enriched = allGaps.map(g => ({
+        ...g,
+        title: g.recommendation?.title || g.notes || "Care gap",
+        description: g.recommendation?.description,
+      }));
+      res.json({ gaps: enriched });
     } catch (error) {
       console.error("[CareGaps] Error fetching gaps:", error);
       res.status(500).json({ error: "Failed to fetch care gaps" });
