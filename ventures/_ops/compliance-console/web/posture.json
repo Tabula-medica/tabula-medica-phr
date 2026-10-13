@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T10:04:10.181Z",
+  "generatedAt": "2026-10-13T16:22:03.170Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -359,7 +359,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (195 site(s))"
+          "detail": "TLS/HSTS enforcement found (200 site(s))"
         },
         {
           "id": "DP-02",
@@ -1380,7 +1380,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (46 site(s))"
+          "detail": "TLS/HSTS enforcement found (57 site(s))"
         },
         {
           "id": "DP-02",
@@ -2404,7 +2404,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (243 site(s))"
+          "detail": "TLS/HSTS enforcement found (262 site(s))"
         },
         {
           "id": "DP-02",
@@ -5468,7 +5468,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (54 site(s))"
+          "detail": "TLS/HSTS enforcement found (53 site(s))"
         },
         {
           "id": "DP-02",
@@ -6487,7 +6487,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (32 site(s))"
+          "detail": "TLS/HSTS enforcement found (36 site(s))"
         },
         {
           "id": "DP-02",
@@ -7507,7 +7507,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (84 site(s))"
+          "detail": "TLS/HSTS enforcement found (87 site(s))"
         },
         {
           "id": "DP-02",
