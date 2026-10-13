@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-13T14:23:38.667Z",
+  "collectedAt": "2026-10-13T14:49:25.123Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -289,8 +289,8 @@
             "detail": "TLS/HSTS enforcement found (262 site(s))"
           },
           "noHardcodedSecrets": {
-            "verdict": "fail",
-            "detail": "secret pattern(s) found: ~\\repos\\tabula-medica-phr\\server\\seed-demo-account.ts"
+            "verdict": "pass",
+            "detail": "no hardcoded-secret patterns matched"
           },
           "privacyPolicyPresent": {
             "verdict": "pass",

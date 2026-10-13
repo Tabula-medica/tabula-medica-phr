@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T14:24:32.783Z",
+  "generatedAt": "2026-10-13T14:49:25.325Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -2067,10 +2067,10 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
-      "readiness": 94,
+      "readiness": 100,
       "counts": {
-        "pass": 32,
-        "fail": 1,
+        "pass": 33,
+        "fail": 0,
         "unknown": 0,
         "na": 0
       },
@@ -2521,9 +2521,9 @@
             "secrets in GCP Secret Manager"
           ],
           "autofix": true,
-          "verdict": "fail",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "secret pattern(s) found: ~\\repos\\tabula-medica-phr\\server\\seed-demo-account.ts"
+          "detail": "no hardcoded-secret patterns matched"
         },
         {
           "id": "SEC-02",
@@ -3066,39 +3066,7 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": [
-        {
-          "fw": "soc2",
-          "refs": [
-            "CC6.1",
-            "CC6.7"
-          ]
-        },
-        {
-          "fw": "hipaa",
-          "refs": [
-            "164.312(a)(2)(iv)"
-          ]
-        },
-        {
-          "fw": "iso27001",
-          "refs": [
-            "A.8.12"
-          ]
-        },
-        {
-          "fw": "hitrust",
-          "refs": [
-            "09.ab"
-          ]
-        },
-        {
-          "fw": "nist171",
-          "refs": [
-            "3.13.10"
-          ]
-        }
-      ]
+      "gaps": []
     },
     "sawd": {
       "id": "sawd",
@@ -10244,8 +10212,8 @@
     }
   },
   "portfolio": {
-    "readiness": 99,
+    "readiness": 100,
     "ventureCount": 10,
-    "p0Open": 1
+    "p0Open": 0
   }
 }
