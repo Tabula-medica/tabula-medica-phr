@@ -5743,7 +5743,7 @@ Respond in JSON format with these fields:
   });
 
   // Lab Results endpoints
-  app.get("/api/lab-results", requirePermission("records:read"), async (req, res) => {
+  app.get("/api/lab-results", requireUser, async (req, res) => {
     try {
       const labResults = await storage.getLabResults();
       res.json(labResults);
@@ -8516,7 +8516,7 @@ STRICT NO-CDS CONSTRAINTS:
   });
 
   // Medications with reconciliation and deduplication
-  app.get("/api/medications", requirePermission("medications:read"), auditDataAccess("medications", "list"), async (req, res) => {
+  app.get("/api/medications", requireUser, auditDataAccess("medications", "list"), async (req, res) => {
     try {
       const connections = await storage.getEhrConnections();
       const patients = await storage.getPatients();
@@ -20675,7 +20675,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
 
   // Patient self-service care gaps — reads only the authenticated user's own gaps.
   // Base44 PHR CareGaps page calls this endpoint.
-  app.get("/api/care-gaps", requirePermission("records:read"), async (req, res) => {
+  app.get("/api/care-gaps", requireUser, async (req, res) => {
     try {
       const user = req.user as any;
       const userId: string = user?.claims?.sub || user?.id || await getSamplePatientId();
