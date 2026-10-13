@@ -20673,6 +20673,30 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     }
   });
 
+  // Patient self-service care gaps — reads only the authenticated user's own gaps.
+  // Base44 PHR CareGaps page calls this endpoint.
+  app.get("/api/care-gaps", requirePermission("records:read"), async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId: string = user?.claims?.sub || user?.id || await getSamplePatientId();
+      const status = req.query.status as string | undefined;
+
+      logPhiAccess({
+        userId,
+        patientId: userId,
+        resourceType: "CareGap",
+        action: "read",
+        details: "patient_care_gaps_list",
+      });
+
+      const gaps = await storage.getPatientCareGaps(userId, status as any);
+      res.json({ gaps: gaps ?? [] });
+    } catch (error) {
+      console.error("[CareGaps] Error fetching gaps:", error);
+      res.status(500).json({ error: "Failed to fetch care gaps" });
+    }
+  });
+
   // Get patient care gaps - requires provider access
   app.get("/api/preventive-care/patients/:patientId/care-gaps", requireRole("admin", "provider"), async (req, res) => {
     try {
