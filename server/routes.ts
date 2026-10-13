@@ -435,7 +435,7 @@ import insuranceLearningRoutes from "./routes/insurance-learning-routes";
 import familyVerificationRoutes from "./routes/family-verification-routes";
 import familyHubRoutes from "./family-hub-routes";
 import { requireFeature } from "./middleware/require-feature";
-import { requireUser, getUserId } from "./middleware/require-user";
+import { requireUser, getUserId, assertOwnsProfile } from "./middleware/require-user";
 import enterpriseSavingsRoutes from "./enterprise-savings-routes";
 import uninsuredResourcesRoutes from "./routes/uninsured-resources-routes";
 import cmsMarketplaceRoutes from "./routes/cms-marketplace-routes";
@@ -4832,10 +4832,9 @@ export async function registerRoutes(
   console.log("[Routes] AI Patient Insights routes registered at /api/patient-insights");
   const aiPatientInsightsService = await import("./services/aiPatientInsightsService");
 
-  app.get("/api/patient-insights/:patientId", requireUser, async (req, res) => {
+app.get("/api/patient-insights/:patientId", requireUser, assertOwnsProfile("patientId"), async (req, res) => {
     try {
-      const user = req.user as any;
-      const userId = user?.claims?.sub || "clinician-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4858,10 +4857,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/patient-insights/:patientId/generate", requireUser, async (req, res) => {
+app.post("/api/patient-insights/:patientId/generate", requireUser, assertOwnsProfile("patientId"), async (req, res) => {
     try {
-      const user = req.user as any;
-      const userId = user?.claims?.sub || "clinician-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
       const { patientData } = req.body;
 
@@ -4885,10 +4883,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/patient-insights/:patientId/adherence-risk", requireUser, async (req, res) => {
+app.get("/api/patient-insights/:patientId/adherence-risk", requireUser, assertOwnsProfile("patientId"), async (req, res) => {
     try {
-      const user = req.user as any;
-      const userId = user?.claims?.sub || "clinician-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({
@@ -4918,10 +4915,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/patient-insights/:patientId/optimizations", requireUser, async (req, res) => {
+app.get("/api/patient-insights/:patientId/optimizations", requireUser, assertOwnsProfile("patientId"), async (req, res) => {
     try {
-      const user = req.user as any;
-      const userId = user?.claims?.sub || "clinician-default";
+      const userId = getUserId(req);
       const { patientId } = req.params;
 
       logPhiAccess({

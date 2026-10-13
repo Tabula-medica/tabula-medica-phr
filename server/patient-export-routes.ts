@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import PDFDocument from "pdfkit";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
 
@@ -98,16 +99,19 @@ router.get("/formats", async (req: Request, res: Response) => {
   });
 });
 
-router.post("/generate", async (req: Request, res: Response) => {
+router.post("/generate", requireUser, async (req: Request, res: Response) => {
   const { format, dataTypes, patientId } = req.body;
-  const userId = req.query.userId as string || "patient";
+  const userId = getUserId(req);
   
   if (!format || !dataTypes || !Array.isArray(dataTypes) || dataTypes.length === 0) {
     return res.status(400).json({ success: false, error: "Format and at least one data type required" });
   }
 
   const exportAuditId = `export-${format}-${Date.now()}`;
-  const effectivePatientId = patientId || SAMPLE_PATIENT_ID;
+  const effectivePatientId = patientId || userId;
+  if (patientId && patientId !== userId) {
+    return res.status(403).json({ error: "FORBIDDEN", message: "Cannot export another patient's record." });
+  }
 
   await logPhiAccess({
     userId,
