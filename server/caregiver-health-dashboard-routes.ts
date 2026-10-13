@@ -7,8 +7,10 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { logPhiAccess } from "./security/hipaa-audit";
+import { requireUser } from "./middleware/require-user";
 
 const router = Router();
+router.use(requireUser);
 
 const SYSTEM_CAREGIVER_ID = "caregiver-michael-001";
 const SAMPLE_PATIENT_ID = "patient-001";
