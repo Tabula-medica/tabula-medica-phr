@@ -49,14 +49,15 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom", "wouter"],
-          ui: ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-tooltip"],
-          query: ["@tanstack/react-query"],
+        manualChunks: (id: string) => {
+          if (["react", "react-dom", "wouter"].some((p) => id.includes(`/node_modules/${p}/`))) return "vendor";
+          if (["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-tooltip"].some((p) => id.includes(p))) return "ui";
+          if (id.includes("@tanstack/react-query")) return "query";
         },
       },
     },
     chunkSizeWarningLimit: 600,
+    cssMinify: "esbuild",
   },
   server: {
     fs: {

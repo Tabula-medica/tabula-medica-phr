@@ -59,9 +59,6 @@ import {
   ArrowLeftRight,
   Crown,
   Stethoscope as StethoscopeIcon,
-  TestTubes,
-  ArrowLeftRight,
-  Crown,
   Tag,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
