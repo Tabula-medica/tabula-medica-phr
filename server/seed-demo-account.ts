@@ -98,15 +98,33 @@ export async function seedDemoAccount(): Promise<void> {
 
   // 2) MemStorage user row — this is what storage.getUser()/getOnboardingStatus()
   // and most route handlers actually read for "the logged-in user".
-  await storage.createUser({
-    id: DEMO_USER_ID,
-    email: DEMO_USER_EMAIL,
-    firstName: "Margaret",
-    lastName: "Chen",
-    authProvider: "demo",
-    emailVerified: true,
-    status: "active",
-  } as any);
+  try {
+    await storage.createUser({
+      id: DEMO_USER_ID,
+      email: DEMO_USER_EMAIL,
+      firstName: "Margaret",
+      lastName: "Chen",
+      authProvider: "demo",
+      emailVerified: true,
+      status: "active",
+    } as any);
+    console.log("[seed:demo] MemStorage user row created");
+  } catch (err: any) {
+    console.error("[seed:demo] FATAL: failed to create MemStorage user row:", err?.message);
+    return;
+  }
+
+  // Mark onboarding complete so the demo lands on /dashboard, not /onboarding.
+  try {
+    await storage.completeOnboarding(DEMO_USER_ID, [
+      "profile", "ehr_connection", "medications", "conditions",
+      "labs", "vitals", "appointments",
+    ]);
+    console.log("[seed:demo] onboarding marked complete");
+  } catch (err: any) {
+    console.error("[seed:demo] FATAL: failed to complete onboarding:", err?.message);
+    return;
+  }
 
   // 3) EHR connection (synthetic) ---------------------------------------
   const ehrConn = await storage.createEhrConnection({
@@ -319,10 +337,10 @@ export async function seedDemoAccount(): Promise<void> {
     recommendationId: "ANNUAL_A1C_FOR_DIABETES",
     status: "open",
     priority: "high",
-    dueDate: dateOnly(0),
-    notes: "A1C 7.8% — above target of 7.0%.",
+    dueDate: dateOnly(90),
+    notes: "A1C 7.8% — above target of 7.0%. Repeat in 3 months per ADA guidelines.",
     aiReasoning:
-      "Patient has Type 2 diabetes (E11.9). Last A1C was over a year ago. ADA guidelines recommend A1C every 3-6 months for patients with A1C above target.",
+      "Patient has Type 2 diabetes (E11.9). Most recent A1C is 7.8% (14 days ago), above the ADA target of <7.0% for most adults. ADA guidelines recommend repeat A1C every 3 months when above target. Endocrinology referral for GLP-1 evaluation is already scheduled.",
   } as any);
 
   await storage.createCareGap({

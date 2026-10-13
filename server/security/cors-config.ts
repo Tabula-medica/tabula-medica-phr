@@ -25,6 +25,9 @@ export function getCorsAllowlist(): (string | RegExp)[] {
       ...PRODUCTION_ORIGINS,
       /^https:\/\/[a-z0-9-]+\.tabulamedica\.health$/,
       /^https:\/\/[a-z0-9-]+\.uninsurance\.care$/,
+      // Base44 app preview and production origins (demo UI host)
+      /^https:\/\/[a-z0-9-]+\.base44\.app$/,
+      "https://app.base44.com",
     ];
 
     if (UNINSURANCE_ORIGIN) {

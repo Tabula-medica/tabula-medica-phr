@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
-import { eq, asc, desc, lte } from "drizzle-orm";
+import { eq, asc, desc, lte, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { Storage } from "@google-cloud/storage";
 import { db } from "../db";
 import {
   accounts,
@@ -540,6 +541,26 @@ router.get(
 );
 
 // =========================================================================
+// GCS OBJECT CLEANUP HELPER (used by purgeExpiredDeletions only)
+// =========================================================================
+
+/**
+ * Delete a single GCS object. objectKey format: "/bucket-name/path/to/file".
+ * Silently succeeds if the object is already gone (ignoreNotFound).
+ * Any other error is thrown so the caller can log and continue.
+ */
+async function deleteGcsObject(objectKey: string): Promise<void> {
+  const normalized = objectKey.startsWith("/") ? objectKey.slice(1) : objectKey;
+  const slashIdx = normalized.indexOf("/");
+  if (slashIdx === -1) throw new Error(`Cannot parse objectKey: "${objectKey}"`);
+  const bucketName = normalized.slice(0, slashIdx);
+  const objectName = normalized.slice(slashIdx + 1);
+  if (!bucketName || !objectName) throw new Error(`Blank bucket or object in key: "${objectKey}"`);
+  const gcs = new Storage();
+  await gcs.bucket(bucketName).file(objectName).delete({ ignoreNotFound: true });
+}
+
+// =========================================================================
 // DORMANT OPERATOR FUNCTION — NOT auto-invoked, NOT scheduled.
 // =========================================================================
 /**
@@ -608,10 +629,39 @@ export async function purgeExpiredDeletions(
 
   const purged: string[] = [];
   for (const accountId of candidates) {
-    // TODO: delete GCS objects for this account's profiles/documents FIRST.
-    await db.delete(accounts).where(eq(accounts.id, accountId)); // cascade
+    // 1. Collect GCS object keys BEFORE the cascade destroys the rows.
+    const accountProfiles = await db
+      .select({ id: profiles.id, photoObjectKey: profiles.photoObjectKey })
+      .from(profiles)
+      .where(eq(profiles.accountId, accountId));
+
+    const profileIds = accountProfiles.map((p) => p.id);
+    const photoKeys = accountProfiles
+      .map((p) => p.photoObjectKey)
+      .filter((k): k is string => !!k);
+
+    const docKeys: string[] = profileIds.length > 0
+      ? (await db
+          .select({ objectKey: documentsTable.objectKey })
+          .from(documentsTable)
+          .where(inArray(documentsTable.profileId, profileIds))
+        ).map((d) => d.objectKey).filter(Boolean)
+      : [];
+
+    // 2. Delete GCS objects; log failures but don't block erasure.
+    for (const key of [...photoKeys, ...docKeys]) {
+      try {
+        await deleteGcsObject(key);
+        console.log(`[GDPR-Account] deleted GCS object ${key}`);
+      } catch (gcsErr) {
+        console.error(`[GDPR-Account] WARN: GCS delete failed for ${key}:`, gcsErr);
+      }
+    }
+
+    // 3. DB cascade handles all child rows (profiles/documents/etc.).
+    await db.delete(accounts).where(eq(accounts.id, accountId));
     purged.push(accountId);
-    console.log(`[GDPR-Account] purged account ${accountId} (cascade)`);
+    console.log(`[GDPR-Account] purged account ${accountId} (${profileIds.length} profiles, ${photoKeys.length + docKeys.length} GCS objects)`);
   }
   return { candidates, purged };
 }

@@ -3,14 +3,13 @@ import { z } from "zod";
 import { format, subDays, addDays, parseISO } from "date-fns";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { storage } from "./storage";
+import { requireUser, getUserId } from "./middleware/require-user";
 
 const router = Router();
-
-const SAMPLE_PATIENT_ID = "patient-001";
+router.use(requireUser);
 
 function getPatientId(req: Request): string {
-  const user = (req as any).user;
-  return user?.claims?.sub || user?.id || SAMPLE_PATIENT_ID;
+  return getUserId(req);
 }
 
 interface TimelineEvent {

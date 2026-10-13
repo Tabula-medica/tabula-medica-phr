@@ -5,6 +5,7 @@ import { externalIdentities, users, type User } from "@shared/models/auth";
 import { and, eq } from "drizzle-orm";
 import { logger } from "../utils/logger";
 import { requiresEmailVerification } from "./email-verification";
+import { DEMO_USER_ID, DEMO_USER_EMAIL } from "@shared/demo-account";
 
 // Auth MUST be pinned to a GCIP/Firebase project you control, via env.
 // This previously fell back to a hardcoded, unmanaged project
@@ -84,65 +85,102 @@ export async function resolveGcipUser(claims: GcipClaims): Promise<User | null> 
   const externalSub = claims.sub;
   if (!externalSub) return null;
 
-  const [existingLink] = await db
-    .select()
-    .from(externalIdentities)
-    .where(
-      and(
-        eq(externalIdentities.provider, "gcip"),
-        eq(externalIdentities.externalSub, externalSub)
-      )
-    )
-    .limit(1);
-
-  if (existingLink) {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, existingLink.userId))
-      .limit(1);
-    if (user) {
-      await db
-        .update(externalIdentities)
-        .set({ lastSeenAt: new Date() })
-        .where(eq(externalIdentities.id, existingLink.id));
-      return user;
-    }
+  // Demo account: bypass Postgres entirely — the demo data lives in MemStorage
+  // keyed by DEMO_USER_ID, so we must return that fixed ID here rather than the
+  // GCIP sub. DEMO_ACCOUNT_ENABLED gates the button on the login page and the
+  // seed; safe to reuse as a guard here too.
+  if (
+    process.env.DEMO_ACCOUNT_ENABLED === "1" &&
+    claims.email === DEMO_USER_EMAIL
+  ) {
+    logger.info("[GCIP] demo-account fast-path: returning synthetic user for demo@tabulamedica.health");
+    return {
+      id: DEMO_USER_ID,
+      email: DEMO_USER_EMAIL,
+      firstName: "Margaret",
+      middleName: "L.",
+      lastName: "Chen",
+      profileImageUrl: null,
+      passwordHash: null,
+      authProvider: "demo",
+      mfaRequired: "false",
+      passwordUpdatedAt: null,
+      isVerified: true,
+      verificationProvider: "gcip",
+      verifiedAt: new Date(),
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      subscriptionStatus: "inactive",
+      subscriptionCurrentPeriodEnd: null,
+      subscriptionUpdatedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as User;
   }
 
-  // Auto-link on first GCIP sign-in if the email matches an existing user
-  // (preserves legacy data ownership for users migrated from prior IdPs).
-  // SECURITY: Require email_verified === true before linking by email. Without
-  // this check an attacker who can obtain a valid GCIP token with an unverified
-  // email matching a victim can silently take over that account.
-  if (claims.email && claims.email_verified === true) {
-    const [userByEmail] = await db
+  try {
+    const [existingLink] = await db
       .select()
-      .from(users)
-      .where(eq(users.email, claims.email))
+      .from(externalIdentities)
+      .where(
+        and(
+          eq(externalIdentities.provider, "gcip"),
+          eq(externalIdentities.externalSub, externalSub)
+        )
+      )
       .limit(1);
 
-    if (userByEmail) {
-      const signInProvider =
-        (claims.firebase?.sign_in_provider as string | undefined) ?? null;
-      await db
-        .insert(externalIdentities)
-        .values({
-          userId: userByEmail.id,
-          provider: "gcip",
-          externalSub,
-          email: claims.email,
-          emailVerified: true,
-          metadata: signInProvider ? { sign_in_provider: signInProvider } : null,
-          linkedAt: new Date(),
-          lastSeenAt: new Date(),
-        })
-        .onConflictDoNothing({
-          target: [externalIdentities.provider, externalIdentities.externalSub],
-        });
-      logger.info(`[GCIP] auto-linked existing user ${userByEmail.id} to gcip sub ${externalSub} (email verified, sign_in_provider=${signInProvider ?? "unknown"})`);
-      return userByEmail;
+    if (existingLink) {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, existingLink.userId))
+        .limit(1);
+      if (user) {
+        await db
+          .update(externalIdentities)
+          .set({ lastSeenAt: new Date() })
+          .where(eq(externalIdentities.id, existingLink.id));
+        return user;
+      }
     }
+
+    // Auto-link on first GCIP sign-in if the email matches an existing user
+    // (preserves legacy data ownership for users migrated from prior IdPs).
+    // SECURITY: Require email_verified === true before linking by email. Without
+    // this check an attacker who can obtain a valid GCIP token with an unverified
+    // email matching a victim can silently take over that account.
+    if (claims.email && claims.email_verified === true) {
+      const [userByEmail] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, claims.email))
+        .limit(1);
+
+      if (userByEmail) {
+        const signInProvider =
+          (claims.firebase?.sign_in_provider as string | undefined) ?? null;
+        await db
+          .insert(externalIdentities)
+          .values({
+            userId: userByEmail.id,
+            provider: "gcip",
+            externalSub,
+            email: claims.email,
+            emailVerified: true,
+            metadata: signInProvider ? { sign_in_provider: signInProvider } : null,
+            linkedAt: new Date(),
+            lastSeenAt: new Date(),
+          })
+          .onConflictDoNothing({
+            target: [externalIdentities.provider, externalIdentities.externalSub],
+          });
+        logger.info(`[GCIP] auto-linked existing user ${userByEmail.id} to gcip sub ${externalSub} (email verified, sign_in_provider=${signInProvider ?? "unknown"})`);
+        return userByEmail;
+      }
+    }
+  } catch (dbErr: any) {
+    logger.error("[GCIP] DB error in resolveGcipUser — schema may be out of sync with migrations", { message: dbErr?.message });
   }
 
   return null;
@@ -173,51 +211,56 @@ export async function createUserFromGcipClaims(claims: GcipClaims): Promise<User
   const isPhoneSignIn = signInProvider === "phone" || Boolean(claims.phone_number);
   const verified = (claims.email_verified ?? false) || isPhoneSignIn;
 
-  return db.transaction(async (tx) => {
-    const [newUser] = await tx
-      .insert(users)
-      .values({
-        email: claims.email ?? null,
-        firstName,
-        middleName: middleName || "NMN",
-        lastName,
-        profileImageUrl: (claims.picture as string | undefined) ?? null,
-        authProvider: "gcip",
-        isVerified: verified,
-        verificationProvider: verified ? (isPhoneSignIn ? "gcip-phone" : "gcip") : null,
-        verifiedAt: verified ? new Date() : null,
-      })
-      .returning();
+  try {
+    return await db.transaction(async (tx) => {
+      const [newUser] = await tx
+        .insert(users)
+        .values({
+          email: claims.email ?? null,
+          firstName,
+          middleName: middleName || "NMN",
+          lastName,
+          profileImageUrl: (claims.picture as string | undefined) ?? null,
+          authProvider: "gcip",
+          isVerified: verified,
+          verificationProvider: verified ? (isPhoneSignIn ? "gcip-phone" : "gcip") : null,
+          verifiedAt: verified ? new Date() : null,
+        })
+        .returning();
 
-    if (!newUser) return null;
+      if (!newUser) return null;
 
-    // Persist the underlying Firebase sign-in provider (google.com /
-    // apple.com / password / phone / ...) in metadata so admin tooling and any
-    // future "linked accounts" UI can tell which IdP a user used. The
-    // outer `provider` column stays "gcip" so legacy ownership records
-    // still resolve and queries don't have to special-case Apple/phone.
-    const metadata: Record<string, unknown> = {};
-    if (signInProvider) metadata.sign_in_provider = signInProvider;
-    if (claims.phone_number) metadata.phone_number = claims.phone_number;
+      // Persist the underlying Firebase sign-in provider (google.com /
+      // apple.com / password / phone / ...) in metadata so admin tooling and any
+      // future "linked accounts" UI can tell which IdP a user used. The
+      // outer `provider` column stays "gcip" so legacy ownership records
+      // still resolve and queries don't have to special-case Apple/phone.
+      const metadata: Record<string, unknown> = {};
+      if (signInProvider) metadata.sign_in_provider = signInProvider;
+      if (claims.phone_number) metadata.phone_number = claims.phone_number;
 
-    await tx
-      .insert(externalIdentities)
-      .values({
-        userId: newUser.id,
-        provider: "gcip",
-        externalSub,
-        email: claims.email ?? null,
-        emailVerified: claims.email_verified ?? false,
-        metadata: Object.keys(metadata).length ? metadata : null,
-        linkedAt: new Date(),
-        lastSeenAt: new Date(),
-      })
-      .onConflictDoNothing({
-        target: [externalIdentities.provider, externalIdentities.externalSub],
-      });
+      await tx
+        .insert(externalIdentities)
+        .values({
+          userId: newUser.id,
+          provider: "gcip",
+          externalSub,
+          email: claims.email ?? null,
+          emailVerified: claims.email_verified ?? false,
+          metadata: Object.keys(metadata).length ? metadata : null,
+          linkedAt: new Date(),
+          lastSeenAt: new Date(),
+        })
+        .onConflictDoNothing({
+          target: [externalIdentities.provider, externalIdentities.externalSub],
+        });
 
-    return newUser;
-  });
+      return newUser;
+    });
+  } catch (dbErr: any) {
+    logger.error("[GCIP] DB error in createUserFromGcipClaims — schema may be out of sync", { message: dbErr?.message });
+    return null;
+  }
 }
 
 /**

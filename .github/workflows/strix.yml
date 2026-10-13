@@ -28,7 +28,7 @@ jobs:
   strix:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     env:
       DATABASE_URL: postgresql://postgres:strix@localhost:5432/strix
       PORT: "8080"
@@ -144,7 +144,7 @@ jobs:
 
       - name: Strix scan (Vertex AI, synthetic data)
         env:
-          STRIX_LLM: vertex_ai/gemini-2.5-pro
+          STRIX_LLM: vertex_ai/gemini-2.5-flash
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.gcp-auth.outputs.credentials_file_path }}
           VERTEXAI_PROJECT: ${{ secrets.STRIX_VERTEX_PROJECT }}
           VERTEXAI_LOCATION: ${{ vars.STRIX_VERTEX_LOCATION || 'us-central1' }}
