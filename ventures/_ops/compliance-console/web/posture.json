@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T09:11:24.352Z",
+  "generatedAt": "2026-10-13T10:04:10.181Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -7169,7 +7169,7 @@
         "aigov",
         "hitrust"
       ],
-      "notes": "PHI HIGH. Newest. Hybrid Base44 build — confirm real-PHI path is GCP+Vertex, not Base44.",
+      "notes": "PHI HIGH. Base44 clinical audit (2026-10-11) CLEARED — all 16 findings resolved (F01-F16); production clinical launch hold lifted. Real-PHI path = GCP+Vertex (not Base44). 8 build-time CVEs (braces/tailwindcss chain) deferred — no runtime exposure.",
       "readiness": 100,
       "counts": {
         "pass": 33,
