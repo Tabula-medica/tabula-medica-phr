@@ -20689,8 +20689,14 @@ Available data types: ${searchableDataTypes.join(", ")}`,
         details: "patient_care_gaps_list",
       });
 
-      const gaps = await storage.getPatientCareGaps(userId, status as any);
-      res.json({ gaps: gaps ?? [] });
+      // Resolve patient IDs via user's EHR connections for IDOR safety.
+      const patientIds = await storage.getUserPatientIds(userId);
+      const allGaps: any[] = [];
+      for (const pid of patientIds) {
+        const gaps = await storage.getPatientCareGaps(pid, status as any);
+        allGaps.push(...gaps);
+      }
+      res.json({ gaps: allGaps });
     } catch (error) {
       console.error("[CareGaps] Error fetching gaps:", error);
       res.status(500).json({ error: "Failed to fetch care gaps" });
