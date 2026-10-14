@@ -387,6 +387,13 @@ async function initializeApp() {
       try { const { registerMultimodalRoutes } = await import("./multimodal-routes"); registerMultimodalRoutes(app); } catch (e) {}
       try { const { registerRecordLinkageRoutes } = await import("./record-linkage-routes"); registerRecordLinkageRoutes(app); } catch (e) {}
       try { const { registerMonitoringRoutes } = await import("./monitoring-routes"); registerMonitoringRoutes(app); } catch (e) {}
+      try {
+        const proxyRoutes = await import("./proxy-auth-routes");
+        app.use(proxyRoutes.default);
+        const { runAge18AutoRevocationJob } = proxyRoutes;
+        setInterval(() => { runAge18AutoRevocationJob().catch(() => {}); }, 24 * 60 * 60 * 1000);
+        console.log("[Startup] Proxy auth routes registered");
+      } catch (e) { console.error("[Startup] Proxy auth routes failed:", e); }
       app.get("/api/compliance-status", complianceStatusEndpoint);
       app.use(productionErrorHandler);
       markApiRoutesReady();
@@ -492,3 +499,4 @@ async function initializeApp() {
   process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
   process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 })();
+
