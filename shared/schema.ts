@@ -23613,3 +23613,22 @@ export const insertClinicianNoteTemplateSchema = z.object({
 });
 export type InsertClinicianNoteTemplate = z.infer<typeof insertClinicianNoteTemplateSchema>;
 export type ClinicianNoteTemplate = typeof clinicianNoteTemplatesTable.$inferSelect;
+
+
+// Scheduling Requests — AI-triaged patient scheduling requests
+// symptomText is stored encrypted (encryptPhiRow). triage_result is non-PHI JSONB.
+export const schedulingRequestStatuses = ["pending", "confirmed", "cancelled"] as const;
+export type SchedulingRequestStatus = (typeof schedulingRequestStatuses)[number];
+
+export const schedulingRequestsTable = pgTable("scheduling_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  patientId: uuid("patient_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  urgency: text("urgency").notNull(),
+  visitType: text("visit_type").notNull(),
+  symptomText: text("symptom_text").notNull(),
+  triageResult: jsonb("triage_result").$type<Record<string, unknown>>(),
+  language: text("language").notNull().default("en"),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  status: text("status").$type<SchedulingRequestStatus>().notNull().default("pending"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+});
