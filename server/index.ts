@@ -387,6 +387,7 @@ async function initializeApp() {
       try { const { registerMultimodalRoutes } = await import("./multimodal-routes"); registerMultimodalRoutes(app); } catch (e) {}
       try { const { registerRecordLinkageRoutes } = await import("./record-linkage-routes"); registerRecordLinkageRoutes(app); } catch (e) {}
       try { const { registerMonitoringRoutes } = await import("./monitoring-routes"); registerMonitoringRoutes(app); } catch (e) {}
+      try { const { registerSchedulingRoutes } = await import("./scheduling-routes"); registerSchedulingRoutes(app); } catch (e) { console.error("[Startup] Scheduling routes failed:", e instanceof Error ? e.message : e); }
       try {
         const proxyRoutes = await import("./proxy-auth-routes");
         app.use(proxyRoutes.default);
