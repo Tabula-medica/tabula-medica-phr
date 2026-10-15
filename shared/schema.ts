@@ -23632,3 +23632,42 @@ export const schedulingRequestsTable = pgTable("scheduling_requests", {
   status: text("status").$type<SchedulingRequestStatus>().notNull().default("pending"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CMS Blue Button 2.0 — Medicare claims connectivity
+// ─────────────────────────────────────────────────────────────────────────────
+
+// One row per patient; access/refresh tokens are PHI-encrypted at app layer.
+export const bluebuttonConnections = pgTable("bluebutton_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().unique().references(() => profiles.id, { onDelete: "cascade" }),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+  scope: text("scope"),
+  bb2PatientId: text("bb2_patient_id").notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+});
+
+export type BluebuttonConnection = typeof bluebuttonConnections.$inferSelect;
+export type InsertBluebuttonConnection = typeof bluebuttonConnections.$inferInsert;
+
+// FHIR resources fetched from Blue Button (EOB + Coverage). fhir_json encrypted.
+export const bluebuttonClaimResourceTypes = ["ExplanationOfBenefit", "Coverage"] as const;
+export type BluebuttonClaimResourceType = (typeof bluebuttonClaimResourceTypes)[number];
+
+export const bluebuttonClaims = pgTable("bluebutton_claims", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  resourceType: text("resource_type").$type<BluebuttonClaimResourceType>().notNull(),
+  resourceId: text("resource_id").notNull(),
+  fhirJson: text("fhir_json").notNull(),
+  serviceDateStart: timestamp("service_date_start", { withTimezone: true }),
+  serviceDateEnd: timestamp("service_date_end", { withTimezone: true }),
+  claimType: text("claim_type"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type BluebuttonClaim = typeof bluebuttonClaims.$inferSelect;
