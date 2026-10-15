@@ -25,6 +25,7 @@ import { registerRoutes } from "./routes";
 import { registerMobileApiRoutes } from "./mobile-api-routes";
 import { registerAbdmTransferRoute } from "./abdm-routes";
 import { registerPublicMcpRoute } from "./mcp/public-connector-route";
+import { registerBluebuttonRoutes } from "./bluebutton-routes";
 import { adminVhostMiddleware, vhostDiag } from "./middleware/admin-vhost";
 
 import { serveStatic, markApiRoutesReady } from "./static";
@@ -229,6 +230,9 @@ app.use(unifiedComplianceMiddleware());
 // because it is a machine-to-machine callback: it needs its own smaller body limit (body-parser
 // skips an already-parsed body) and cannot carry a CSRF token. No-op unless ABDM_ENABLED.
 registerAbdmTransferRoute(app);
+
+// CMS Blue Button 2.0 — Medicare claims data (OAuth callback is public).
+registerBluebuttonRoutes(app);
 
 // Public, PHI-free MCP connector (claude.ai custom connector). Same placement and
 // reasoning as ABDM: a machine caller with no CSRF header and its own small body
