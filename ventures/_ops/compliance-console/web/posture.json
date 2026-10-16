@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T17:19:19.890Z",
+  "generatedAt": "2026-10-16T19:32:25.004Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -10209,11 +10209,1031 @@
         }
       ],
       "gaps": []
+    },
+    "mds-platform": {
+      "id": "mds-platform",
+      "name": "MDS Platform",
+      "repo": "repos/mds-platform",
+      "github": "Tabula-medica/mds-platform",
+      "gcpProject": "mds-platform-prod",
+      "domains": [
+        "mds.tabulamedica.com"
+      ],
+      "phi": "high",
+      "dataClass": "CMS MDS 3.0 SNF assessment data, PDPM calculations, iQIES submissions — resident-level PHI",
+      "stack": "Node/Fastify API + React/Vite web, Cloud Run + Cloud SQL Postgres 15, GCP",
+      "inScope": [
+        "soc2",
+        "hipaa",
+        "iso27001",
+        "aigov"
+      ],
+      "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00.",
+      "readiness": 3,
+      "counts": {
+        "pass": 3,
+        "fail": 0,
+        "unknown": 30,
+        "na": 0
+      },
+      "rows": [
+        {
+          "id": "GOV-01",
+          "title": "Information Security Policy exists and is approved",
+          "category": "Governance",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC1.1",
+              "CC5.3"
+            ],
+            "hipaa": [
+              "164.316(a)"
+            ],
+            "iso27001": [
+              "A.5.1"
+            ],
+            "hitrust": [
+              "01.a"
+            ],
+            "nist171": [
+              "3.15.1"
+            ]
+          },
+          "evidence": [
+            "policies/INFORMATION-SECURITY-POLICY.md",
+            "approval record",
+            "annual review date"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "GOV-02",
+          "title": "Risk assessment performed and documented",
+          "category": "Governance",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC3.1",
+              "CC3.2",
+              "CC3.4"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(A)"
+            ],
+            "iso27001": [
+              "A.5.7",
+              "Clause 6.1"
+            ],
+            "hitrust": [
+              "03.a"
+            ],
+            "aigov": [
+              "Map-1"
+            ]
+          },
+          "evidence": [
+            "policies/RISK-ASSESSMENT.md",
+            "risk register with owners + dates"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "GOV-03",
+          "title": "Roles, responsibilities & control ownership defined",
+          "category": "Governance",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC1.2",
+              "CC1.3",
+              "CC2.2"
+            ],
+            "hipaa": [
+              "164.308(a)(2)"
+            ],
+            "iso27001": [
+              "A.5.2",
+              "A.5.3"
+            ],
+            "hitrust": [
+              "02.a"
+            ]
+          },
+          "evidence": [
+            "control ownership matrix",
+            "security officer designation"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "IR-01",
+          "title": "Incident response & breach notification plan",
+          "category": "Incident Response",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC7.3",
+              "CC7.4",
+              "CC7.5"
+            ],
+            "hipaa": [
+              "164.308(a)(6)",
+              "164.314(a)(2)(i)(C)"
+            ],
+            "iso27001": [
+              "A.5.25",
+              "A.5.26",
+              "A.5.27"
+            ],
+            "hitrust": [
+              "09.ab"
+            ]
+          },
+          "evidence": [
+            "policies/INCIDENT-RESPONSE.md",
+            "tabletop exercise date",
+            "breach-notification runbook"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "IR-02",
+          "title": "Security monitoring & alerting in place",
+          "category": "Incident Response",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC7.2",
+              "CC7.3"
+            ],
+            "hipaa": [
+              "164.312(b)"
+            ],
+            "iso27001": [
+              "A.8.15",
+              "A.8.16"
+            ],
+            "hitrust": [
+              "09.aa"
+            ]
+          },
+          "evidence": [
+            "logging/SIEM config",
+            "alert runbook",
+            "on-call rotation"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "AC-01",
+          "title": "Unique user identity & centralized authentication",
+          "category": "Access Control",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.2",
+              "CC6.3"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(i)"
+            ],
+            "iso27001": [
+              "A.5.15",
+              "A.5.16"
+            ],
+            "hitrust": [
+              "01.b",
+              "01.c"
+            ],
+            "nist171": [
+              "3.5.1",
+              "3.5.2"
+            ]
+          },
+          "evidence": [
+            "no shared/group accounts",
+            "centralized IdP (GCIP/SSO)"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "AC-02",
+          "title": "MFA enforced for privileged & admin access",
+          "category": "Access Control",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.3"
+            ],
+            "hipaa": [
+              "164.312(d)"
+            ],
+            "iso27001": [
+              "A.8.5"
+            ],
+            "hitrust": [
+              "01.d"
+            ],
+            "nist171": [
+              "3.5.3"
+            ]
+          },
+          "evidence": [
+            "MFA policy",
+            "enrollment proof",
+            "emergency-access process"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "AC-03",
+          "title": "Least-privilege IAM; no over-broad grants",
+          "category": "Access Control",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.3",
+              "CC6.6"
+            ],
+            "hipaa": [
+              "164.308(a)(3)(ii)(A)",
+              "164.312(a)(1)"
+            ],
+            "iso27001": [
+              "A.5.15",
+              "A.8.2"
+            ],
+            "hitrust": [
+              "01.c"
+            ],
+            "nist171": [
+              "3.1.1",
+              "3.1.2"
+            ]
+          },
+          "evidence": [
+            "IAM policy no allUsers/allAuthenticatedUsers at project level"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "AC-04",
+          "title": "Access reviews performed periodically",
+          "category": "Access Control",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC6.2",
+              "CC6.3"
+            ],
+            "hipaa": [
+              "164.308(a)(3)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.5.18"
+            ],
+            "hitrust": [
+              "01.b"
+            ],
+            "nist171": [
+              "3.1.6"
+            ]
+          },
+          "evidence": [
+            "quarterly access review record",
+            "deprovisioning log"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "DP-01",
+          "title": "Encryption in transit (TLS) enforced",
+          "category": "Data Protection",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.7"
+            ],
+            "hipaa": [
+              "164.312(e)(1)",
+              "164.312(e)(2)(ii)"
+            ],
+            "iso27001": [
+              "A.8.24"
+            ],
+            "hitrust": [
+              "10.f"
+            ],
+            "nist171": [
+              "3.13.8"
+            ]
+          },
+          "evidence": [
+            "HTTPS redirect config",
+            "TLS 1.2+ enforced",
+            "HSTS header"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "DP-02",
+          "title": "Encryption at rest for data stores",
+          "category": "Data Protection",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.1"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(iv)",
+              "164.312(e)(2)(ii)"
+            ],
+            "iso27001": [
+              "A.8.24"
+            ],
+            "hitrust": [
+              "10.f"
+            ],
+            "nist171": [
+              "3.13.10"
+            ]
+          },
+          "evidence": [
+            "GCP CMEK config or Google-managed-key attestation"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "DP-03",
+          "title": "No public storage buckets; public-access prevention on",
+          "category": "Data Protection",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.6"
+            ],
+            "hipaa": [
+              "164.312(a)(1)"
+            ],
+            "iso27001": [
+              "A.5.15"
+            ],
+            "hitrust": [
+              "09.ab"
+            ]
+          },
+          "evidence": [
+            "no allUsers on data buckets",
+            "public-access-prevention=enforced"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "DP-04",
+          "title": "Database requires SSL/TLS connections",
+          "category": "Data Protection",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.7"
+            ],
+            "hipaa": [
+              "164.312(e)(1)"
+            ],
+            "iso27001": [
+              "A.8.24"
+            ],
+            "hitrust": [
+              "10.f"
+            ]
+          },
+          "evidence": [
+            "Cloud SQL: requireSsl=true or use Cloud SQL Auth Proxy"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "SEC-01",
+          "title": "No secrets in source control",
+          "category": "Security",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.7"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(iv)"
+            ],
+            "iso27001": [
+              "A.8.12"
+            ],
+            "hitrust": [
+              "09.ab"
+            ],
+            "nist171": [
+              "3.13.10"
+            ]
+          },
+          "evidence": [
+            "no high-entropy strings / key patterns in code",
+            "secrets in GCP Secret Manager"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "SEC-02",
+          "title": "Secret scanning & push protection enabled",
+          "category": "Security",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.8"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(iv)"
+            ],
+            "iso27001": [
+              "A.8.8"
+            ],
+            "hitrust": [
+              "09.ab"
+            ]
+          },
+          "evidence": [
+            "GitHub Advanced Security: secret scanning + push protection enabled"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "github",
+          "detail": "github signals not available for mds-platform"
+        },
+        {
+          "id": "SEC-03",
+          "title": "Dependency vulnerability management",
+          "category": "Security",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC7.1",
+              "CC9.2"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.8"
+            ],
+            "hitrust": [
+              "10.m"
+            ],
+            "nist171": [
+              "3.14.1"
+            ]
+          },
+          "evidence": [
+            "0 prod critical/high vulns in npm/pip/gem audit",
+            "patch cadence SLA"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "deps",
+          "detail": "deps signals not available for mds-platform"
+        },
+        {
+          "id": "SEC-04",
+          "title": "Static code / secret analysis in CI",
+          "category": "Security",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC7.1"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.8"
+            ],
+            "hitrust": [
+              "10.m"
+            ]
+          },
+          "evidence": [
+            "CodeQL / SAST workflow enabled in CI"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "github",
+          "detail": "github signals not available for mds-platform"
+        },
+        {
+          "id": "CM-01",
+          "title": "Change management via PR + review",
+          "category": "Change Management",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC8.1"
+            ],
+            "hipaa": [
+              "164.308(a)(5)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.32"
+            ],
+            "hitrust": [
+              "10.k"
+            ]
+          },
+          "evidence": [
+            "branch protection on default branch: required PR reviews ≥1",
+            "no force-push"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "github",
+          "detail": "github signals not available for mds-platform"
+        },
+        {
+          "id": "CM-02",
+          "title": "CI runs tests before deploy",
+          "category": "Change Management",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC8.1"
+            ],
+            "hipaa": [
+              "164.308(a)(5)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.32"
+            ]
+          },
+          "evidence": [
+            "GitHub Actions workflow with test step on PR"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "github",
+          "detail": "github signals not available for mds-platform"
+        },
+        {
+          "id": "AV-01",
+          "title": "Backups configured and recoverable",
+          "category": "Availability",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "A1.2",
+              "CC9.1"
+            ],
+            "hipaa": [
+              "164.308(a)(7)(ii)(A)",
+              "164.310(d)(2)(iv)"
+            ],
+            "iso27001": [
+              "A.8.13"
+            ],
+            "hitrust": [
+              "09.l"
+            ]
+          },
+          "evidence": [
+            "Cloud SQL automated backups enabled",
+            "RTO/RPO documented"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "AV-02",
+          "title": "Monitoring, uptime & capacity",
+          "category": "Availability",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "A1.1",
+              "CC7.2"
+            ],
+            "hipaa": [
+              "164.308(a)(8)"
+            ],
+            "iso27001": [
+              "A.8.6"
+            ]
+          },
+          "evidence": [
+            "uptime monitoring SLO doc",
+            "on-call runbook"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "AV-03",
+          "title": "WAF / edge protection & rate limiting",
+          "category": "Availability",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC6.6",
+              "CC7.2"
+            ],
+            "hipaa": [
+              "164.312(e)(2)(i)"
+            ],
+            "iso27001": [
+              "A.8.20"
+            ]
+          },
+          "evidence": [
+            "Cloud Armor policy attached to LB or CDN",
+            "rate-limit rules configured"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "gcp",
+          "detail": "gcp signals not available for mds-platform"
+        },
+        {
+          "id": "VEN-01",
+          "title": "Vendor / BAA inventory & risk review",
+          "category": "Vendor Management",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC9.2"
+            ],
+            "hipaa": [
+              "164.308(b)(1)",
+              "164.314(a)"
+            ],
+            "iso27001": [
+              "A.5.19",
+              "A.5.20"
+            ],
+            "hitrust": [
+              "05.i"
+            ]
+          },
+          "evidence": [
+            "vendor-baa-register.md",
+            "annual BAA review date"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "PRI-01",
+          "title": "Privacy notice & lawful basis / consent",
+          "category": "Privacy",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "P1.1",
+              "P2.1"
+            ],
+            "hipaa": [
+              "164.520"
+            ],
+            "iso27001": [
+              "A.5.34"
+            ],
+            "gdpr": [
+              "Art.13",
+              "Art.14"
+            ],
+            "iso27701": [
+              "7.3.2"
+            ]
+          },
+          "evidence": [
+            "privacy.html or /privacy route",
+            "HIPAA Notice of Privacy Practices"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "PRI-02",
+          "title": "Data subject rights (access/delete/export)",
+          "category": "Privacy",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "P5.1",
+              "P5.2"
+            ],
+            "hipaa": [
+              "164.524",
+              "164.526",
+              "164.528"
+            ],
+            "gdpr": [
+              "Art.15",
+              "Art.17",
+              "Art.20"
+            ],
+            "iso27701": [
+              "7.3.4",
+              "7.3.5",
+              "7.3.6"
+            ]
+          },
+          "evidence": [
+            "DSAR/records-request procedure",
+            "export/delete feature"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "manual",
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+        },
+        {
+          "id": "PRI-03",
+          "title": "Data retention & minimization",
+          "category": "Privacy",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "P4.1",
+              "P4.2"
+            ],
+            "hipaa": [
+              "164.530(j)"
+            ],
+            "gdpr": [
+              "Art.5(1)(e)",
+              "Art.25"
+            ],
+            "iso27001": [
+              "A.8.10"
+            ]
+          },
+          "evidence": [
+            "retention-schedule.md",
+            "purge/delete job or policy"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "PI-01",
+          "title": "Processing integrity: input validation & quality",
+          "category": "Processing Integrity",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "PI1.1",
+              "PI1.2",
+              "PI1.3"
+            ],
+            "iso27001": [
+              "A.8.26"
+            ]
+          },
+          "evidence": [
+            "input-validation code",
+            "error-handling",
+            "reconciliation checks"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "manual",
+          "detail": "Input validation enforced portfolio-wide: TypeScript strict mode + Zod schema validation on all API request bodies (PHR, EHR, ACO, Uninsurance, Underinsured, SAWD). React/expo frontends use controlled components with server-side re-validation. Error handling returns structured error responses. Reconciliation: Plaid transaction imports cross-checked against bank balances in SAWD. Clinical data entry uses structured forms with range and type constraints."
+        },
+        {
+          "id": "AIG-01",
+          "title": "AI/model inventory & data-flow map",
+          "category": "AI Governance",
+          "severity": "P1",
+          "mappings": {
+            "aigov": [
+              "Map-1",
+              "Map-2"
+            ],
+            "soc2": [
+              "CC2.2"
+            ],
+            "iso27001": [
+              "A.5.9"
+            ]
+          },
+          "evidence": [
+            "ai-model-inventory.md",
+            "data-flow diagram for AI inputs/outputs"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "AIG-02",
+          "title": "No PHI/PII to non-BAA AI providers (Vertex-only)",
+          "category": "AI Governance",
+          "severity": "P0",
+          "mappings": {
+            "hipaa": [
+              "164.308(b)(1)",
+              "164.314(a)"
+            ],
+            "aigov": [
+              "Manage-4"
+            ],
+            "hitrust": [
+              "05.i"
+            ]
+          },
+          "evidence": [
+            "no InvokeLLM / OpenAI calls in PHI-handling code",
+            "AI routes through Vertex BAA"
+          ],
+          "autofix": true,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "AIG-03",
+          "title": "Human-in-the-loop & CDS/SaMD guardrails",
+          "category": "AI Governance",
+          "severity": "P1",
+          "mappings": {
+            "aigov": [
+              "Govern-1",
+              "Measure-2"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(D)"
+            ],
+            "hitrust": [
+              "01.a"
+            ]
+          },
+          "evidence": [
+            "HITL design doc",
+            "CDS/SaMD regulatory path decision"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "AIG-04",
+          "title": "Model validation & bias/quality evaluation",
+          "category": "AI Governance",
+          "severity": "P2",
+          "mappings": {
+            "aigov": [
+              "Measure-2",
+              "Measure-3"
+            ],
+            "soc2": [
+              "PI1.3"
+            ]
+          },
+          "evidence": [
+            "validation study",
+            "truth-set + metrics (F1)",
+            "norms provenance"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "manual",
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+        },
+        {
+          "id": "PHY-01",
+          "title": "Physical & endpoint safeguards (cloud + workstations)",
+          "category": "Physical Security",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC6.4",
+              "CC6.5"
+            ],
+            "hipaa": [
+              "164.310(a)",
+              "164.310(b)",
+              "164.310(c)",
+              "164.310(d)"
+            ],
+            "iso27001": [
+              "A.7.1",
+              "A.7.2",
+              "A.8.1"
+            ],
+            "hitrust": [
+              "07.a"
+            ]
+          },
+          "evidence": [
+            "GCP shared-responsibility attestation",
+            "MDM/endpoint policy for workstations"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        },
+        {
+          "id": "HR-01",
+          "title": "Security awareness training & confidentiality agreements",
+          "category": "Human Resources",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC1.4",
+              "CC1.5"
+            ],
+            "hipaa": [
+              "164.308(a)(5)"
+            ],
+            "iso27001": [
+              "A.6.3",
+              "A.6.6"
+            ],
+            "hitrust": [
+              "02.e"
+            ]
+          },
+          "evidence": [
+            "security-awareness-training-record.md",
+            "NDA / confidentiality agreements on file"
+          ],
+          "autofix": false,
+          "verdict": "unknown",
+          "source": "repo",
+          "detail": "repo signals not available for mds-platform"
+        }
+      ],
+      "gaps": []
     }
   },
   "portfolio": {
-    "readiness": 100,
-    "ventureCount": 10,
+    "readiness": 90,
+    "ventureCount": 11,
     "p0Open": 0
   }
 }
