@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-16T17:08:09.692Z",
+  "collectedAt": "2026-10-16T20:20:08.889Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -786,7 +786,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (89 site(s))"
+            "detail": "TLS/HSTS enforcement found (91 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -1001,6 +1001,106 @@
             "detail": "not a high-PHI app"
           }
         }
+      },
+      "mds-platform": {
+        "signals": {
+          "policyPresent:information-security": {
+            "verdict": "pass",
+            "detail": "~\\repos\\mds-platform\\compliance\\policies\\INFORMATION-SECURITY-POLICY.md"
+          },
+          "policyPresent:risk-assessment": {
+            "verdict": "pass",
+            "detail": "~\\repos\\mds-platform\\compliance\\policies\\RISK-ASSESSMENT.md"
+          },
+          "policyPresent:incident-response": {
+            "verdict": "pass",
+            "detail": "~\\repos\\mds-platform\\compliance\\policies\\INCIDENT-RESPONSE-AND-BREACH-NOTIFICATION.md"
+          },
+          "policyPresent:access-control": {
+            "verdict": "unknown",
+            "detail": "no access-control policy found in compliance/policies/"
+          },
+          "policyPresent:change-management": {
+            "verdict": "unknown",
+            "detail": "no change-management policy found in compliance/policies/"
+          },
+          "policyPresent:data-classification": {
+            "verdict": "unknown",
+            "detail": "no data-classification policy found in compliance/policies/"
+          },
+          "policyPresent:business-continuity": {
+            "verdict": "unknown",
+            "detail": "no business-continuity policy found in compliance/policies/"
+          },
+          "policyPresent:acceptable-use": {
+            "verdict": "unknown",
+            "detail": "no acceptable-use policy found in compliance/policies/"
+          },
+          "policyPresent:vendor-management": {
+            "verdict": "unknown",
+            "detail": "no vendor-management policy found in compliance/policies/"
+          },
+          "policyPresent:cryptography": {
+            "verdict": "unknown",
+            "detail": "no cryptography policy found in compliance/policies/"
+          },
+          "policyPresent:vulnerability": {
+            "verdict": "unknown",
+            "detail": "no vulnerability policy found in compliance/policies/"
+          },
+          "evidencePresent:vendor-baa-register": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\vendor-baa-register.md"
+          },
+          "evidencePresent:retention-schedule": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\retention-schedule.md"
+          },
+          "evidencePresent:ai-model-inventory": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\ai-model-inventory.md"
+          },
+          "evidencePresent:ai-hitl": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\ai-hitl-evidence.md"
+          },
+          "evidencePresent:control-ownership": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\control-ownership-matrix.md"
+          },
+          "evidencePresent:access-review": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\Q3-2026-access-review-record.md"
+          },
+          "evidencePresent:uptime-monitoring": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\uptime-monitoring-slo.md"
+          },
+          "evidencePresent:shared-responsibility": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\gcp-shared-responsibility-attestation.md"
+          },
+          "evidencePresent:security-awareness": {
+            "verdict": "pass",
+            "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
+          },
+          "httpsEnforced": {
+            "verdict": "pass",
+            "detail": "TLS/HSTS enforcement found (8 site(s))"
+          },
+          "noHardcodedSecrets": {
+            "verdict": "pass",
+            "detail": "no hardcoded-secret patterns matched"
+          },
+          "privacyPolicyPresent": {
+            "verdict": "fail",
+            "detail": "no privacy page found"
+          },
+          "phiAiVertexOnly": {
+            "verdict": "pass",
+            "detail": "no non-Vertex AI calls in PHI handling paths"
+          }
+        }
       }
     },
     "github": {
@@ -1032,8 +1132,8 @@
       "underinsured": {
         "signals": {
           "branchProtection": {
-            "verdict": "fail",
-            "detail": "main: protection exists but required PR reviews NOT configured"
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1045,7 +1145,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "9 workflow(s) configured"
+            "detail": "10 workflow(s) configured"
           }
         },
         "meta": {
@@ -1057,8 +1157,8 @@
       "phr": {
         "signals": {
           "branchProtection": {
-            "verdict": "fail",
-            "detail": "main: protection exists but required PR reviews NOT configured"
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1132,8 +1232,8 @@
       "cognita": {
         "signals": {
           "branchProtection": {
-            "verdict": "fail",
-            "detail": "main: protection exists but required PR reviews NOT configured"
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1157,8 +1257,8 @@
       "attentiva": {
         "signals": {
           "branchProtection": {
-            "verdict": "fail",
-            "detail": "main: protection exists but required PR reviews NOT configured"
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1207,8 +1307,8 @@
       "aco": {
         "signals": {
           "branchProtection": {
-            "verdict": "fail",
-            "detail": "main: protection exists but required PR reviews NOT configured"
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1232,8 +1332,8 @@
       "ltfm": {
         "signals": {
           "branchProtection": {
-            "verdict": "fail",
-            "detail": "main: protection exists but required PR reviews NOT configured"
+            "verdict": "pass",
+            "detail": "main: required PR reviews on (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1245,13 +1345,37 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "6 workflow(s) configured"
+            "detail": "7 workflow(s) configured"
           }
         },
         "meta": {
           "slug": "Tabula-medica/ltfm-health",
           "branch": "main",
           "available": true
+        }
+      },
+      "mds-platform": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "unknown",
+            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+          },
+          "secretScanning": {
+            "verdict": "unknown",
+            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+          },
+          "codeScanning": {
+            "verdict": "unknown",
+            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+          },
+          "ciTests": {
+            "verdict": "unknown",
+            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/mds-platform",
+          "available": false
         }
       }
     },
@@ -1335,6 +1459,14 @@
             "detail": "no dependency manifest (static/infra-only repo)"
           }
         }
+      },
+      "mds-platform": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 2, low 0)"
+          }
+        }
       }
     },
     "gcp": {
@@ -1381,8 +1513,8 @@
             "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
           },
           "noUserManagedSaKeys": {
-            "verdict": "fail",
-            "detail": "user-managed SA key(s): replit-storage-manager(1) — rotate to keyless/WIF & delete"
+            "verdict": "pass",
+            "detail": "no user-managed SA keys"
           }
         },
         "meta": {
@@ -1855,6 +1987,58 @@
         },
         "meta": {
           "proj": "ltfm-health-2026",
+          "available": true
+        }
+      },
+      "mds-platform": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
+          },
+          "encryptionAtRest": {
+            "verdict": "pass",
+            "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
+          },
+          "bucketsPrivate": {
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
+          },
+          "sqlSslRequired": {
+            "verdict": "pass",
+            "detail": "no Cloud SQL instances"
+          },
+          "backupsEnabled": {
+            "verdict": "pass",
+            "detail": "no Cloud SQL instances"
+          },
+          "loggingEnabled": {
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
+          },
+          "wafEnabled": {
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "GCIP API: Project 'projects/mds-platform-prod' not found or deleted."
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
+          }
+        },
+        "meta": {
+          "proj": "mds-platform-prod",
           "available": true
         }
       }

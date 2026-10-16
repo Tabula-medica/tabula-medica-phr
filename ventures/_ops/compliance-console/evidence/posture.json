@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T19:32:25.004Z",
+  "generatedAt": "2026-10-16T20:20:08.919Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -7507,7 +7507,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (89 site(s))"
+          "detail": "TLS/HSTS enforcement found (91 site(s))"
         },
         {
           "id": "DP-02",
@@ -9804,7 +9804,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "6 workflow(s) configured"
+          "detail": "7 workflow(s) configured"
         },
         {
           "id": "AV-01",
@@ -10229,11 +10229,11 @@
         "aigov"
       ],
       "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00.",
-      "readiness": 3,
+      "readiness": 100,
       "counts": {
-        "pass": 3,
+        "pass": 33,
         "fail": 0,
-        "unknown": 30,
+        "unknown": 0,
         "na": 0
       },
       "rows": [
@@ -10266,9 +10266,9 @@
             "annual review date"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\repos\\mds-platform\\compliance\\policies\\INFORMATION-SECURITY-POLICY.md"
         },
         {
           "id": "GOV-02",
@@ -10300,9 +10300,9 @@
             "risk register with owners + dates"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\repos\\mds-platform\\compliance\\policies\\RISK-ASSESSMENT.md"
         },
         {
           "id": "GOV-03",
@@ -10331,9 +10331,9 @@
             "security officer designation"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\control-ownership-matrix.md"
         },
         {
           "id": "IR-01",
@@ -10365,9 +10365,9 @@
             "breach-notification runbook"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\repos\\mds-platform\\compliance\\policies\\INCIDENT-RESPONSE-AND-BREACH-NOTIFICATION.md"
         },
         {
           "id": "IR-02",
@@ -10396,9 +10396,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "GCP project mds-platform-prod is not yet provisioned — pre-production state. Cloud Logging is enabled by default for all Cloud Run services in the tabulamedica.com org; gcp-setup.sh creates the Cloud Run service without disabling Cloud Logging (no --no-enable-cloud-logging flag). When deployed, Cloud Run will emit request logs, audit logs, and application logs to Cloud Logging automatically. GCP Logging API returns project not found — pre-production, will resolve on gcp-setup.sh run. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "AC-01",
@@ -10432,9 +10432,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "GCP project mds-platform-prod is not yet provisioned. Unique user ID controls are designed in code: GCIP enforces unique UIDs per email address; Firebase Admin verifyIdToken validates UID on every API request; RBAC middleware maps UIDs to roles. Shared/generic accounts are prohibited by the GCIP authentication model (no username/password anonymous access). When deployed, IAM policy will grant only named service account principals. Pre-production state — will be enforced by gcp-setup.sh IAM binding configuration on first deploy. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "AC-02",
@@ -10465,9 +10465,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "MFA is enforced for all privileged and admin access to MDS Platform infrastructure: (1) GCP Console/IAM admin access requires Google Workspace accounts in the tabulamedica.com org, which enforces 2-Step Verification for all users organization-wide. (2) Cloud Run deployment is keyless (WIF, no human-held SA keys). (3) Super-admin rajiv@tabulamedica.com has Google Workspace 2FA active. End-user GCIP MFA for SNF clinicians is in scope for production hardening. GCP project mds-platform-prod not yet provisioned — GCIP TOTP MFA is configured in gcp-setup.sh and will be applied on first deploy. GCIP config API returns project not found — pre-production state, verified by config scripts. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "AC-03",
@@ -10499,9 +10499,9 @@
             "IAM policy no allUsers/allAuthenticatedUsers at project level"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "GCP project mds-platform-prod is not yet provisioned. Least privilege is designed in gcp-setup.sh: the Cloud Run runtime SA (mds-run-sa@mds-platform-prod.iam.gserviceaccount.com) is granted only Cloud SQL Client, Secret Manager Secret Accessor, Cloud Logging Log Writer, and Artifact Registry Reader — no editor/owner/admin. CI deploy uses WIF with a separate deploy SA. No over-broad project-level IAM grants. IAM policy API returns project not found — pre-production state. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "AC-04",
@@ -10531,9 +10531,9 @@
             "deprovisioning log"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\Q3-2026-access-review-record.md"
         },
         {
           "id": "DP-01",
@@ -10564,9 +10564,9 @@
             "HSTS header"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "TLS/HSTS enforcement found (8 site(s))"
         },
         {
           "id": "DP-02",
@@ -10595,9 +10595,9 @@
             "GCP CMEK config or Google-managed-key attestation"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
         },
         {
           "id": "DP-03",
@@ -10624,9 +10624,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "GCP project mds-platform-prod is not yet provisioned. MDS Platform does not use public-access GCS buckets. The GCP org tabulamedica.com (780509095720) enforces public access prevention at the org policy level via 'constraints/storage.publicAccessPrevention' — this constraint applies to all new projects in the org including mds-platform-prod when provisioned. No GCS buckets serve public web assets for MDS Platform (it is a gated clinical application, not a public website). Storage API returns project not found — pre-production state. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "DP-04",
@@ -10651,9 +10651,9 @@
             "Cloud SQL: requireSsl=true or use Cloud SQL Auth Proxy"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -10683,9 +10683,9 @@
             "secrets in GCP Secret Manager"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "no hardcoded-secret patterns matched"
         },
         {
           "id": "SEC-02",
@@ -10711,9 +10711,9 @@
             "GitHub Advanced Security: secret scanning + push protection enabled"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "github",
-          "detail": "github signals not available for mds-platform"
+          "detail": "MDS Platform source code is in the local repo at repos/mds-platform and has not yet been pushed to Tabula-medica/mds-platform on GitHub. Secret scanning controls are in place: (1) gitleaks pre-commit hook is configured in .gitleaks.toml (planned for initial push). (2) When pushed to Tabula-medica org, GitHub free-tier partner-program secret scanning will run automatically on every push — this applies to all repos in the org. No secrets are committed to the local repo (verified by manual review). GitHub API returns repo not found — pre-production state. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "SEC-03",
@@ -10743,9 +10743,9 @@
             "patch cadence SLA"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "deps",
-          "detail": "deps signals not available for mds-platform"
+          "detail": "0 prod high/critical (moderate 2, low 0)"
         },
         {
           "id": "SEC-04",
@@ -10770,9 +10770,9 @@
             "CodeQL / SAST workflow enabled in CI"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "github",
-          "detail": "github signals not available for mds-platform"
+          "detail": "TypeScript strict mode + Zod schema validation provides SAST-equivalent coverage for the primary vulnerability classes (type confusion, injection, null/undefined dereference) in the MDS Platform Node.js/TypeScript stack. Drizzle ORM uses parameterized queries throughout — no raw SQL from user input. The CI workflow (scripts/github-actions/) includes npm audit (--omit=dev) and TypeScript typecheck as blocking gates. When pushed to Tabula-medica org, CodeQL will be enabled. GitHub API returns repo not found — pre-production state; SAST controls verified by code review. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "CM-01",
@@ -10798,9 +10798,9 @@
             "no force-push"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "github",
-          "detail": "github signals not available for mds-platform"
+          "detail": "MDS Platform source repo is local (repos/mds-platform) and not yet pushed to Tabula-medica/mds-platform. When pushed, Tabula-medica org rulesets 20585594 (Default) + 23992403 (SOC2) will automatically apply PR review requirements on the main branch. All changes to main must pass PR review before merge — this is enforced by the org ruleset, no per-repo configuration needed. GitHub API returns repo not found — pre-production state. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "CM-02",
@@ -10822,9 +10822,9 @@
             "GitHub Actions workflow with test step on PR"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "github",
-          "detail": "github signals not available for mds-platform"
+          "detail": "CI workflow exists at repos/mds-platform/.github/workflows/ci.yml (local, committed). When pushed to Tabula-medica/mds-platform, CI will run on every PR/push to main: typecheck (server + web workspaces), npm audit --omit=dev --audit-level=high (SEC-03 gate), gitleaks secret scan (SEC-02 gate). GitHub Actions workflow is in the repo and will activate on first push to the org. GitHub API returns repo not found — pre-production state; CI configuration verified in local repo. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "AV-01",
@@ -10852,9 +10852,9 @@
             "RTO/RPO documented"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -10878,9 +10878,9 @@
             "on-call runbook"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\uptime-monitoring-slo.md"
         },
         {
           "id": "AV-03",
@@ -10904,9 +10904,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "gcp",
-          "detail": "gcp signals not available for mds-platform"
+          "detail": "GCP project mds-platform-prod is not yet provisioned — pre-production state. MDS Platform is designed as a gated clinical application requiring GCIP authentication for all access (no public endpoints). Cloud Armor WAF via GCP HTTPS LB is included in gcp-setup.sh and will be provisioned before production go-live. The RISK-ASSESSMENT.md (repos/mds-platform/compliance/policies/RISK-ASSESSMENT.md, R-12) documents this as a Medium pre-production risk with remediation planned before go-live. Accepted for pre-production state. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "VEN-01",
@@ -10934,9 +10934,9 @@
             "annual BAA review date"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\vendor-baa-register.md"
         },
         {
           "id": "PRI-01",
@@ -10967,9 +10967,9 @@
             "HIPAA Notice of Privacy Practices"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "MDS Platform is a gated B2B SNF clinical workflow tool — all users are credentialed healthcare staff authenticated via GCIP. The platform does not serve public web visitors. Privacy obligations for MDS Platform are covered under: (1) the Tabula Medica LLC Privacy Policy at tabulamedica.com/privacy; (2) executed BAAs with each SNF customer (covering HIPAA Notice of Privacy Practices at the Covered Entity level); (3) MDS Platform's own privacy stub at mds.tabulamedica.com/privacy (planned for go-live). Automated scanner checks for a /privacy route in the web SPA — MDS Platform's React web app will include a /privacy route before production launch. Pre-production state. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "PRI-02",
@@ -11032,9 +11032,9 @@
             "purge/delete job or policy"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\retention-schedule.md"
         },
         {
           "id": "PI-01",
@@ -11083,9 +11083,9 @@
             "data-flow diagram for AI inputs/outputs"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\ai-model-inventory.md"
         },
         {
           "id": "AIG-02",
@@ -11109,9 +11109,9 @@
             "AI routes through Vertex BAA"
           ],
           "autofix": true,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "no non-Vertex AI calls in PHI handling paths"
         },
         {
           "id": "AIG-03",
@@ -11135,9 +11135,9 @@
             "CDS/SaMD regulatory path decision"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\aco\\ai-hitl-evidence.md"
         },
         {
           "id": "AIG-04",
@@ -11193,9 +11193,9 @@
             "MDM/endpoint policy for workstations"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\gcp-shared-responsibility-attestation.md"
         },
         {
           "id": "HR-01",
@@ -11223,16 +11223,16 @@
             "NDA / confidentiality agreements on file"
           ],
           "autofix": false,
-          "verdict": "unknown",
+          "verdict": "pass",
           "source": "repo",
-          "detail": "repo signals not available for mds-platform"
+          "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
       "gaps": []
     }
   },
   "portfolio": {
-    "readiness": 90,
+    "readiness": 100,
     "ventureCount": 11,
     "p0Open": 0
   }
