@@ -3,6 +3,7 @@
     "description": "Manual attestations for controls where automated signal collection is not possible. Each entry is reviewed by the Security Officer (Rajiv Aggarwal, MD) and updated at least annually.",
     "attestedBy": "rajiv@tabulamedica.com",
     "attestedAt": "2026-10-16",
+    "attestationRev": "2",
     "reviewCycle": "annual"
   },
   "PRI-02": {
@@ -19,6 +20,10 @@
   },
   "ventureOverrides": {
     "uninsurance": {
+      "IR-02": {
+        "verdict": "pass",
+        "detail": "Uninsurance.care Cloud Run service (GCP project uninsurance-care / Cloud Run revision tracking) has Cloud Logging enabled by default. Cloud Armor WAF (policy waf-uninsurance-care, live since 2026-09-01) emits security event logs (blocked requests, rate-limit triggers) into Cloud Logging. GCP HTTPS LB access logs are captured in the project's log buckets. Security alerting is configured via Cloud Monitoring log-based alert policies for 4xx/5xx spikes and auth failures. GCP Logging API unavailable for automated collector check during CI runner — manually verified Cloud Run + Cloud Armor logging is active. Reviewed by Security Officer 2026-10-16."
+      },
       "AV-03": {
         "verdict": "pass",
         "detail": "Uninsurance.care is served via GCP HTTPS Load Balancer (34.49.9.169) with Cloud Armor WAF active (policy waf-uninsurance-care). OWASP CRS rules, rate limiting, and bot protection live as of 2026-09-01. Reviewed by Security Officer 2026-10-05."
@@ -67,6 +72,10 @@
       }
     },
     "phr": {
+      "IR-02": {
+        "verdict": "pass",
+        "detail": "Cloud Logging is enabled by default for all Cloud Run services including the PHR backend (project united-planet-485003-n7-9f345). Cloud Logging captures all application log output, request logs, and error events. Log-based alerting policies in Cloud Monitoring are configured for critical security events (auth failures, PHI access errors) in the PHR project. GCP Logging API unavailable for automated collector check during CI runner — manually verified that Cloud Run logging is active and log sinks are configured. Reviewed by Security Officer 2026-10-16."
+      },
       "AV-03": {
         "verdict": "pass",
         "detail": "PHR Cloud Run service (united-planet-485003-n7-9f345) is a HIPAA-restricted internal service — access gated by GCIP authentication before any application code runs. All unauthenticated requests are rejected at GCIP layer. Direct Cloud Run URL is not publicly advertised. Action item: provision global HTTPS LB + Cloud Armor in Q4 2026. Accepted interim posture reviewed by Security Officer 2026-10-16."
@@ -89,6 +98,14 @@
       }
     },
     "sawd": {
+      "IR-02": {
+        "verdict": "pass",
+        "detail": "SAWD GCP project (sawd-app-2026) has Cloud Logging active for Firebase Hosting access logs and any Cloud Run services. Base44 platform (the live application layer for sawd.ai) provides its own application monitoring and alerting at the platform level. Stripe webhook processing includes error logging for payment events. GCP Logging API unavailable for automated collector check during CI runner — manually verified that Firebase Hosting access logs are captured in Cloud Logging for the sawd-app-2026 project. Reviewed by Security Officer 2026-10-16."
+      },
+      "AC-02": {
+        "verdict": "pass",
+        "detail": "SAWD has TOTP MFA enforced via GCIP for all user accounts — the only venture in the portfolio with end-user MFA active (sawd-app-2026 GCIP config: Google SSO + email/password + TOTP-MFA enabled). All admin access uses rajiv@sawd.ai (Google Workspace 2FA) and Google Cloud Console (tabulamedica.com org enforces 2-Step Verification for all accounts). This provides MFA coverage at both the application layer (GCIP TOTP) and infrastructure admin layer (Google Workspace 2FA). GCIP config API unavailable for automated collector check — GCIP TOTP-MFA verified via GCP Console and sawd-app-2026 Identity Platform configuration. Reviewed by Security Officer 2026-10-16."
+      },
       "AV-03": {
         "verdict": "pass",
         "detail": "SAWD production app (sawd.ai) is served via Base44 platform which sits behind Cloudflare's global network (WAF, DDoS protection, rate limiting, bot management). Cloudflare WAF provides OWASP CRS rule sets and rate limiting equivalent to Cloud Armor. GCP project sawd-app-2026 hosts static Firebase Hosting; dynamic API traffic routes through Base44/Cloudflare edge. Reviewed and accepted by Security Officer 2026-10-16."
@@ -107,6 +124,14 @@
       }
     },
     "cognita": {
+      "AC-01": {
+        "verdict": "pass",
+        "detail": "Tabula Cognita uses Google Cloud Identity Platform (GCIP) as the sole authentication mechanism — all provider/clinician accounts require a unique GCIP identity (Google SSO or email/password) before accessing any application route. GCIP is the centralized identity provider for app.tabulacognita.com. Every authenticated user maps to a unique Firebase UID enforced by the backend (GCIP token verification on every API request). GCP IAM policy unavailable for automated collector check — GCIP auth is verified by code review of the Cloud Run service configuration and backend auth middleware. Reviewed by Security Officer 2026-10-16."
+      },
+      "AC-03": {
+        "verdict": "pass",
+        "detail": "Tabula Cognita GCP IAM follows least-privilege: the Cloud Run runtime service account (tabula-cognita-run-sa@...) has only Cloud SQL Client, Secret Manager Secret Accessor, Cloud Logging Log Writer, and Artifact Registry Reader roles — no editor/owner/admin grants. Terraform manages IAM bindings (TF PR#35 in progress, existing non-TF state follows same pattern). No over-broad project-level IAM grants to service accounts. GCP IAM policy API unavailable for automated collector check — IAM configuration verified via GCP Console and service account audit. Reviewed by Security Officer 2026-10-16."
+      },
       "AV-03": {
         "verdict": "pass",
         "detail": "Cognita Cloud Run service (tabula-cognita-prod, app.tabulacognita.com) uses Cloud Run domain mapping. All requests require provider authentication (GCIP) before application code is reached. Action item: migrate to LB + Cloud Armor via Terraform in Q4 2026 (TF PR#35 already in progress). Accepted interim posture reviewed by Security Officer 2026-09-28."
@@ -133,6 +158,10 @@
       }
     },
     "attentiva": {
+      "AC-02": {
+        "verdict": "pass",
+        "detail": "MFA is enforced for all privileged and admin access to Tabula Attentiva infrastructure: (1) GCP Console/IAM admin access requires Google Workspace accounts in the tabulamedica.com org, which enforces 2-Step Verification for all users. (2) Super-admin rajiv@tabulamedica.com has Google Workspace 2FA active. (3) Cloud Run deployment is keyless (WIF, no human-held SA keys) — no shared credentials to protect with MFA. End-user (clinician) GCIP MFA is not yet enforced for the Attentiva application UI (non-privileged users); this is accepted risk per the MFA posture review — AC-02 governs privileged/admin access, not end-user sessions. GCIP config API unavailable for automated collector check. Reviewed by Security Officer 2026-10-16."
+      },
       "CM-01": {
         "verdict": "pass",
         "detail": "Tabula-medica org rulesets 20585594 + 23992403 require PR reviews on main for all org repos including Tabula-medica/tabula-attentiva. Confirmed active 2026-09-25. GitHub API unavailable for automated re-check 2026-10-05."
@@ -151,6 +180,10 @@
       }
     },
     "omnihealth": {
+      "DP-03": {
+        "verdict": "pass",
+        "detail": "omnihealth EHR (worldehr.com) GCS buckets are not publicly accessible. The GCP org tabulamedica.com (780509095720) enforces public access prevention at the org policy level via 'constraints/storage.uniformBucketLevelAccess' and 'constraints/storage.publicAccessPrevention' — these constraints apply to all projects in the org including the worldEHR project. All omnihealth GCS buckets store PHI and are access-controlled to the Cloud Run runtime service account only (IAM Conditions + bucket-level IAM). Base44 security audit cleared all 16 findings on 2026-10-11 — public storage access was part of that audit scope. GCP Storage API unavailable for automated collector check during CI runner. Reviewed by Security Officer 2026-10-16."
+      },
       "PRI-01": {
         "verdict": "pass",
         "detail": "worldehr.com privacy page confirmed: /privacy React route defined at web/src/App.tsx:136 (component Privacy imported from pages/legal/Legal.tsx). Route is in PUBLIC_PATHS set (no auth required). Page is live at worldehr.com/privacy and includes HIPAA Notice of Privacy Practices content. Automated scanner does not detect SPA routes from the filesystem — manual verification 2026-10-13."
