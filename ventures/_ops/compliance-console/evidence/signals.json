@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-13T17:48:14.627Z",
+  "collectedAt": "2026-10-16T17:08:09.692Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -186,7 +186,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (57 site(s))"
+            "detail": "TLS/HSTS enforcement found (60 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -286,7 +286,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (262 site(s))"
+            "detail": "TLS/HSTS enforcement found (263 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -486,7 +486,7 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (239 site(s))"
+            "detail": "TLS/HSTS enforcement found (240 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
@@ -706,15 +706,15 @@
         "signals": {
           "policyPresent:information-security": {
             "verdict": "pass",
-            "detail": "~\\repos\\worldehr\\policies\\INFORMATION-SECURITY-POLICY.md"
+            "detail": "~\\repos\\worldehr\\compliance\\policies\\INFORMATION-SECURITY-POLICY.md"
           },
           "policyPresent:risk-assessment": {
             "verdict": "pass",
-            "detail": "~\\repos\\worldehr\\policies\\RISK-ASSESSMENT.md"
+            "detail": "~\\repos\\worldehr\\compliance\\policies\\RISK-ASSESSMENT.md"
           },
           "policyPresent:incident-response": {
             "verdict": "pass",
-            "detail": "~\\repos\\worldehr\\policies\\INCIDENT-RESPONSE-AND-BREACH-NOTIFICATION.md"
+            "detail": "~\\repos\\worldehr\\compliance\\policies\\INCIDENT-RESPONSE-AND-BREACH-NOTIFICATION.md"
           },
           "policyPresent:access-control": {
             "verdict": "unknown",
@@ -786,15 +786,15 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (83 site(s))"
+            "detail": "TLS/HSTS enforcement found (89 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
             "detail": "no hardcoded-secret patterns matched"
           },
           "privacyPolicyPresent": {
-            "verdict": "fail",
-            "detail": "no privacy page found"
+            "verdict": "pass",
+            "detail": "~\\repos\\worldehr\\marketing\\privacy.html"
           },
           "phiAiVertexOnly": {
             "verdict": "pass",
@@ -1020,7 +1020,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "19 workflow(s) configured"
+            "detail": "22 workflow(s) configured"
           }
         },
         "meta": {
@@ -1032,33 +1032,8 @@
       "underinsured": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
-          },
-          "secretScanning": {
-            "verdict": "pass",
-            "detail": "native secret scanning enabled + push-protection"
-          },
-          "codeScanning": {
-            "verdict": "pass",
-            "detail": "code-scanning analyses present"
-          },
-          "ciTests": {
-            "verdict": "pass",
-            "detail": "7 workflow(s) configured"
-          }
-        },
-        "meta": {
-          "slug": "Tabula-medica/underinsured",
-          "branch": "main",
-          "available": true
-        }
-      },
-      "phr": {
-        "signals": {
-          "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1071,6 +1046,31 @@
           "ciTests": {
             "verdict": "pass",
             "detail": "9 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/underinsured",
+          "branch": "main",
+          "available": true
+        }
+      },
+      "phr": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
+          },
+          "secretScanning": {
+            "verdict": "pass",
+            "detail": "native secret scanning enabled + push-protection"
+          },
+          "codeScanning": {
+            "verdict": "pass",
+            "detail": "code-scanning analyses present"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "12 workflow(s) configured"
           }
         },
         "meta": {
@@ -1132,8 +1132,8 @@
       "cognita": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1157,8 +1157,8 @@
       "attentiva": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1195,7 +1195,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "16 workflow(s) configured"
+            "detail": "17 workflow(s) configured"
           }
         },
         "meta": {
@@ -1207,8 +1207,8 @@
       "aco": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1232,8 +1232,8 @@
       "ltfm": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1245,7 +1245,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "5 workflow(s) configured"
+            "detail": "6 workflow(s) configured"
           }
         },
         "meta": {
@@ -1268,7 +1268,7 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 3, low 0)"
+            "detail": "0 prod high/critical (moderate 1, low 0)"
           }
         }
       },
@@ -1276,15 +1276,15 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 2, low 0)"
+            "detail": "0 prod high/critical (moderate 0, low 0)"
           }
         }
       },
       "sawd": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 0, low 0)"
+            "verdict": "fail",
+            "detail": "0 critical + 5 high (5 actionable)"
           }
         }
       },
@@ -1299,8 +1299,8 @@
       "cognita": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 2, low 0)"
+            "verdict": "fail",
+            "detail": "0 critical + 2 high (2 actionable)"
           }
         }
       },
@@ -1316,15 +1316,15 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 2, low 0)"
+            "detail": "0 prod high/critical (moderate 0, low 0)"
           }
         }
       },
       "aco": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 2, low 0)"
+            "verdict": "unknown",
+            "detail": "could not parse audit JSON"
           }
         }
       },
