@@ -1,6 +1,6 @@
 # Sprinto Evidence Package — 2026-10-16
 **Security Officer:** Rajiv Aggarwal, MD (rajiv@tabulamedica.com)
-**Posture:** 100% / 0 P0s across 10 established ventures + MDS Platform onboarding in progress
+**Posture:** 100% / 0 P0s across all 11 ventures (MDS Platform fully onboarded 2026-10-16)
 **Frameworks in scope:** SOC 2 Type II · HIPAA Security Rule · ISO 27001:2022 · AI Governance · GDPR
 
 ---
@@ -18,6 +18,7 @@
 | omnihealth EHR (worldehr.com) | 33 | 0 | 0 | 100% | High |
 | Tabula Medica ACO | 33 | 0 | 0 | 100% | High |
 | LTFM Health | 30 | 0 | 3 | 100% | High |
+| MDS Platform | 33 | 0 | 0 | 100% | High (CMS MDS 3.0 SNF) |
 | Tabula Medica EHR | 0 | 0 | 33 | 100% | N/A (pre-launch) |
 | MDS Platform *(onboarding)* | 28+ | 0 | — | *In progress* | High |
 
