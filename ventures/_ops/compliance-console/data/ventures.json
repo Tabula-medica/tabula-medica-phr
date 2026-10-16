@@ -129,5 +129,18 @@
     "stack": "Static site on GCS + GCP LB/CDN, appt-form backend TBD",
     "inScope": ["soc2", "hipaa", "gdpr"],
     "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls."
+  },
+  {
+    "id": "mds-platform",
+    "name": "MDS Platform",
+    "repo": "repos/mds-platform",
+    "github": "Tabula-medica/mds-platform",
+    "gcpProject": "mds-platform-prod",
+    "domains": ["mds.tabulamedica.com"],
+    "phi": "high",
+    "dataClass": "CMS MDS 3.0 SNF assessment data, PDPM calculations, iQIES submissions — resident-level PHI",
+    "stack": "Node/Fastify API + React/Vite web, Cloud Run + Cloud SQL Postgres 15, GCP",
+    "inScope": ["soc2", "hipaa", "iso27001", "aigov"],
+    "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00."
   }
 ]

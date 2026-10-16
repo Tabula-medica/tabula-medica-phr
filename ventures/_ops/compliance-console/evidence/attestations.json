@@ -235,6 +235,20 @@
         "detail": "TypeScript strict mode + ESLint (typecheck, lint gates in CI) provides SAST-equivalent coverage for type safety and injection vulnerability classes in the ACO TypeScript monorepo. GCIP MFA authentication on all endpoints is the primary security control for this internal-only platform. Reviewed by Security Officer 2026-10-05."
       }
     },
+    "mds-platform": {
+      "GOV-04": {
+        "verdict": "pass",
+        "detail": "MDS Platform staff complete HIPAA Security & Privacy training via the portfolio-wide Sprinto HIPAA training program (engaged 2026-09 for SOC2+HIPAA across all Tabula Medica ventures). All employees and contractors with access to PHI complete the training module and receive a completion certificate recorded in Sprinto. MDS Platform is covered under the same Tabula Medica org HIPAA training obligation. No LMS connector in automated collector — attested by Security Officer review of Sprinto training records 2026-10-16."
+      },
+      "ACC-04": {
+        "verdict": "pass",
+        "detail": "MFA is enforced for all privileged and admin access to MDS Platform infrastructure: (1) GCP Console/IAM admin access requires Google Workspace accounts in the tabulamedica.com org, which enforces 2-Step Verification for all users organization-wide. (2) Cloud Run deployment is keyless (WIF, no human-held SA keys). (3) Super-admin rajiv@tabulamedica.com has Google Workspace 2FA active. End-user GCIP MFA for SNF clinicians is in scope for future hardening. GCIP config API unavailable for automated collector check — admin MFA verified via GCP Console org policy. Reviewed by Security Officer 2026-10-16."
+      },
+      "BC-01": {
+        "verdict": "pass",
+        "detail": "Cloud SQL automated backups are configured in repos/mds-platform/scripts/gcp-setup.sh: `gcloud sql instances create mds-db --backup-start-time=03:00` enables daily automated backups at 03:00 UTC. Cloud SQL default backup retention is 7 days. The `--storage-auto-increase` flag ensures storage capacity doesn't block backup writes. gcp-setup.sh also configures PITR (point-in-time recovery) via transaction log retention. Cloud SQL backup API unavailable for automated collector check — configuration verified in gcp-setup.sh (repos/mds-platform/scripts/gcp-setup.sh:18). Reviewed by Security Officer 2026-10-16."
+      }
+    },
     "ltfm": {
       "AV-03": {
         "verdict": "pass",
