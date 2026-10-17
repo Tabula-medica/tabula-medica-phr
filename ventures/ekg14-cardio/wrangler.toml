@@ -1,0 +1,3 @@
+name = "dextroheart"
+pages_build_output_dir = "./web/public"
+compatibility_date = "2026-10-17"
