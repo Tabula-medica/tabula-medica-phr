@@ -84,7 +84,7 @@
     "repo": "repos/tabula-attentiva",
     "github": "Tabula-medica/tabula-attentiva",
     "gcpProject": "tabula-attentiva-phi",
-    "domains": ["attentiva"],
+    "domains": ["tabulaattentiva.com"],
     "phi": "high",
     "dataClass": "ADHD-screening clinical data",
     "stack": "Python engine + API, Cloud SQL",
@@ -129,6 +129,19 @@
     "stack": "Static site on GCS + GCP LB/CDN, appt-form backend TBD",
     "inScope": ["soc2", "hipaa", "gdpr"],
     "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls."
+  },
+  {
+    "id": "accountable-law",
+    "name": "AccountableHub",
+    "repo": "ventures/accountable-law",
+    "github": "Tabula-medica/accountable-law",
+    "gcpProject": "accountable-law-prod",
+    "domains": ["accountablehub.com"],
+    "phi": "none",
+    "dataClass": "attorney directory, consumer legal-review PII (no PHI)",
+    "stack": "React/Vite + CF Pages; backend scaffold on GCP (not yet deployed)",
+    "inScope": ["soc2"],
+    "notes": "No PHI. Legal-tech marketplace. SOC2 only. Contact page live PR#38."
   },
   {
     "id": "mds-platform",

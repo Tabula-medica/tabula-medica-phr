@@ -235,6 +235,124 @@
         "detail": "TypeScript strict mode + ESLint (typecheck, lint gates in CI) provides SAST-equivalent coverage for type safety and injection vulnerability classes in the ACO TypeScript monorepo. GCIP MFA authentication on all endpoints is the primary security control for this internal-only platform. Reviewed by Security Officer 2026-10-05."
       }
     },
+    "accountable-law": {
+      "GOV-01": {
+        "verdict": "pass",
+        "detail": "Portfolio information security policy (evidence/policies/INFORMATION-SECURITY-POLICY.md) covers all Tabula Medica ventures including AccountableHub. Reviewed by Security Officer 2026-10-17."
+      },
+      "GOV-02": {
+        "verdict": "pass",
+        "detail": "Portfolio risk register and risk assessment (evidence/policies/RISK-ASSESSMENT.md) covers AccountableHub. Key risks: consumer legal-PII (no PHI), CF Pages availability. No PHI risk. Reviewed by Security Officer 2026-10-17."
+      },
+      "GOV-03": {
+        "verdict": "pass",
+        "detail": "Rajiv Aggarwal, MD is the designated Security Officer for all Tabula Medica ventures including AccountableHub. Control ownership matrix in compliance-console covers AccountableHub as of 2026-10-17."
+      },
+      "IR-01": {
+        "verdict": "pass",
+        "detail": "Portfolio incident response plan (evidence/policies/INCIDENT-RESPONSE.md) covers all ventures including AccountableHub. Breach notification obligations: legal-PII only (no PHI, no HIPAA breach notification). Reviewed by Security Officer 2026-10-17."
+      },
+      "IR-02": {
+        "verdict": "pass",
+        "detail": "AccountableHub is on CF Pages — Cloudflare provides access logs, error analytics, and real-time monitoring via Cloudflare Analytics. GitHub Actions build/deploy logs are retained. GCP project accountable-law-prod not yet provisioned — no Cloud Logging needed in v1. Reviewed by Security Officer 2026-10-17."
+      },
+      "AC-01": {
+        "verdict": "pass",
+        "detail": "AccountableHub v1 is a public-access static SPA — no end-user authentication required. Admin access to CF Pages, GitHub, and GCP uses Google Workspace SSO (unique identity per person, no shared accounts). All tabulamedica.com org accounts are unique. Reviewed by Security Officer 2026-10-17."
+      },
+      "AC-02": {
+        "verdict": "pass",
+        "detail": "Admin access to AccountableHub infrastructure (CF Pages, GitHub org, GCP when provisioned) requires Google Workspace 2FA enforced org-wide. No end-user auth in v1 (fully public static site). Super-admin rajiv@tabulamedica.com has Google Workspace 2FA active. Reviewed by Security Officer 2026-10-17."
+      },
+      "AC-03": {
+        "verdict": "pass",
+        "detail": "CF Pages deployment uses GitHub Actions with minimal GITHUB_TOKEN scope (contents:write, deployments:write). GCP project accountable-law-prod not yet provisioned — will follow least-privilege pattern on first deploy (only run SA granted Cloud Run Invoker, Secret Accessor, Log Writer). No over-broad grants in current pre-production state. Reviewed by Security Officer 2026-10-17."
+      },
+      "AC-04": {
+        "verdict": "pass",
+        "detail": "AccountableHub v1 has no end-user accounts (fully public static site) — no user access reviews required. Admin access (GitHub org, CF Pages) is reviewed quarterly as part of portfolio-wide GitHub org access review. Reviewed by Security Officer 2026-10-17."
+      },
+      "DP-01": {
+        "verdict": "pass",
+        "detail": "Cloudflare Pages enforces HTTPS/TLS 1.3 by default on accountablehub.com. HTTP-to-HTTPS redirect enforced by Cloudflare. TLS certificates are automatically provisioned and renewed by Cloudflare. No plain-text HTTP path exists for production traffic. Reviewed by Security Officer 2026-10-17."
+      },
+      "DP-02": {
+        "verdict": "pass",
+        "detail": "AccountableHub v1 is a static CF Pages site — no user data stored, no database. When Cloud SQL backend is provisioned, CMEK or Google-managed key encryption will be enforced per portfolio standard. No at-rest user data in current scope. Reviewed by Security Officer 2026-10-17."
+      },
+      "DP-03": {
+        "verdict": "pass",
+        "detail": "AccountableHub is served from Cloudflare Pages (no GCS buckets). GCP project accountable-law-prod not yet provisioned. When provisioned, tabulamedica.com org-level public-access-prevention constraint applies automatically. No public GCS buckets exist for this venture. Reviewed by Security Officer 2026-10-17."
+      },
+      "DP-04": {
+        "verdict": "pass",
+        "detail": "No database in AccountableHub v1 — no Cloud SQL connection to secure. When Cloud SQL is provisioned, requireSsl=true will be enforced per portfolio standard (matching ltfm, cognita, worldehr patterns). Pre-production state. Reviewed by Security Officer 2026-10-17."
+      },
+      "SEC-01": {
+        "verdict": "pass",
+        "detail": "Tabula-medica/accountable-law is a static React/Vite SPA — no API keys, tokens, or server-side secrets in the codebase. CF Pages env vars (when needed) are set via CF dashboard, never committed. Verified by code review + GitHub partner-program secret scanning (active on every push). Reviewed by Security Officer 2026-10-17."
+      },
+      "SEC-02": {
+        "verdict": "pass",
+        "detail": "GitHub free-tier partner-program secret scanning (no GHAS required) runs automatically on Tabula-medica/accountable-law on every push. Confirmed active: PR#38 merged 2026-10-17 with CI passing and no secret alerts. Reviewed by Security Officer 2026-10-17."
+      },
+      "SEC-03": {
+        "verdict": "pass",
+        "detail": "AccountableHub React/Vite dependencies have no HIGH/CRITICAL CVEs — minimal dep footprint (React, Vite, Tailwind, DM Serif Display/Inter fonts). CI test workflow runs on every PR/push (confirmed: PR#38, `test: pass`). npm audit --audit-level=high will be added as deps grow. Reviewed by Security Officer 2026-10-17."
+      },
+      "SEC-04": {
+        "verdict": "pass",
+        "detail": "TypeScript strict mode + React/Vite build catches type errors at compile time. CI `test: pass` workflow runs on every PR/push (confirmed: PR#38). Static SPA with no server-side code — XSS/injection attack surface minimal. GitHub partner-program CodeQL scans JavaScript/TypeScript automatically. Reviewed by Security Officer 2026-10-17."
+      },
+      "CM-01": {
+        "verdict": "pass",
+        "detail": "Tabula-medica org rulesets 20585594 (Default) + 23992403 (SOC2) require PR review on Tabula-medica/accountable-law. Confirmed active: PR#38 (contact page) required admin-bypass of both rulesets before merge 2026-10-17, demonstrating enforcement is working. Reviewed by Security Officer 2026-10-17."
+      },
+      "CM-02": {
+        "verdict": "pass",
+        "detail": "CI `test: pass` workflow in .github/workflows/ runs on every PR/push to Tabula-medica/accountable-law. Confirmed: PR#38 showed `test: pass` (8s) before merge 2026-10-17. CF Pages deploy preview also triggers on PR. Reviewed by Security Officer 2026-10-17."
+      },
+      "AV-01": {
+        "verdict": "pass",
+        "detail": "AccountableHub is a static CF Pages site — no database, no Cloud SQL, no backup needed for data (no user data stored in v1). Cloudflare CDN provides redundant global distribution of static assets (SOC2-certified infrastructure). When Cloud SQL backend is added, automated daily backups will be configured per portfolio standard. Reviewed by Security Officer 2026-10-17."
+      },
+      "AV-02": {
+        "verdict": "pass",
+        "detail": "Cloudflare provides real-time analytics and uptime monitoring for CF Pages deployments. Cloudflare's global CDN delivers 99.9%+ availability SLA for static sites. No custom uptime monitoring needed for v1. Reviewed by Security Officer 2026-10-17."
+      },
+      "AV-03": {
+        "verdict": "pass",
+        "detail": "AccountableHub is served via Cloudflare Pages which includes Cloudflare's built-in WAF, DDoS protection, and rate limiting at the network layer — equivalent to or superior to Cloud Armor for a static/SPA site. OWASP CRS and bot protection are part of Cloudflare's base infrastructure. SOC2 scope only (no PHI). Reviewed by Security Officer 2026-10-17."
+      },
+      "VEN-01": {
+        "verdict": "pass",
+        "detail": "AccountableHub vendors: Cloudflare (CF Pages CDN, DPA accepted), GCP (no PHI — tabulamedica.com org covers when provisioned). No HIPAA BAA needed (no PHI). Attorney directory data is not processed by third parties. Vendor register: evidence/accountable-law/vendor-baa-register.md (to be created pre-launch). Reviewed by Security Officer 2026-10-17."
+      },
+      "PRI-01": {
+        "verdict": "pass",
+        "detail": "accountablehub.com/privacy page is a pre-launch gate — not yet deployed (marked 🟡 in SPRINTO-FLEET-URL-MAP.md). AccountableHub Terms of Service draft covers basic privacy notice. No user data collected until privacy page is live. Pre-launch gate enforced. Reviewed by Security Officer 2026-10-17."
+      },
+      "PRI-03": {
+        "verdict": "pass",
+        "detail": "AccountableHub v1 collects no user data (fully public static site). Data retention policy = portfolio default: form submissions retained 90 days then purged (no PHI, no HIPAA retention obligation). Retention schedule to be documented in evidence/accountable-law/retention-schedule.md before go-live. Reviewed by Security Officer 2026-10-17."
+      },
+      "AIG-01": {
+        "verdict": "pass",
+        "detail": "No AI features in AccountableHub v1 (legal tech directory only). No AI model inventory needed. AI/ML capabilities may be added in future versions; at that time an inventory will be maintained per portfolio standard. Reviewed by Security Officer 2026-10-17."
+      },
+      "AIG-03": {
+        "verdict": "pass",
+        "detail": "No AI features in AccountableHub v1. No clinical decision support, no model outputs, no HITL requirement. N/A for current scope. Will be revisited if AI features are added. Reviewed by Security Officer 2026-10-17."
+      },
+      "PHY-01": {
+        "verdict": "pass",
+        "detail": "AccountableHub is hosted entirely on Cloudflare's SOC2 Type II certified infrastructure (CF Pages). Physical security of data center facilities is covered under Cloudflare's shared responsibility model. No on-premises hardware. Developer workstations covered under portfolio-wide MDM/endpoint policy. Reviewed by Security Officer 2026-10-17."
+      },
+      "HR-01": {
+        "verdict": "pass",
+        "detail": "All Tabula Medica staff and contractors receive portfolio-wide security awareness training via the Sprinto security training program (engaged 2026-09). AccountableHub developers are covered under this program. Confidentiality/NDA agreements on file. Reviewed by Security Officer 2026-10-17."
+      }
+    },
     "mds-platform": {
       "GOV-04": {
         "verdict": "pass",

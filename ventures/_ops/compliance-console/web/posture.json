@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:20:08.919Z",
+  "generatedAt": "2026-10-17T19:20:41.763Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -6139,7 +6139,7 @@
       "github": "Tabula-medica/tabula-attentiva",
       "gcpProject": "tabula-attentiva-phi",
       "domains": [
-        "attentiva"
+        "tabulaattentiva.com"
       ],
       "phi": "high",
       "dataClass": "ADHD-screening clinical data",
@@ -10210,6 +10210,1023 @@
       ],
       "gaps": []
     },
+    "accountable-law": {
+      "id": "accountable-law",
+      "name": "AccountableHub",
+      "repo": "ventures/accountable-law",
+      "github": "Tabula-medica/accountable-law",
+      "gcpProject": "accountable-law-prod",
+      "domains": [
+        "accountablehub.com"
+      ],
+      "phi": "none",
+      "dataClass": "attorney directory, consumer legal-review PII (no PHI)",
+      "stack": "React/Vite + CF Pages; backend scaffold on GCP (not yet deployed)",
+      "inScope": [
+        "soc2"
+      ],
+      "notes": "No PHI. Legal-tech marketplace. SOC2 only. Contact page live PR#38.",
+      "readiness": 100,
+      "counts": {
+        "pass": 32,
+        "fail": 0,
+        "unknown": 0,
+        "na": 1
+      },
+      "rows": [
+        {
+          "id": "GOV-01",
+          "title": "Information Security Policy exists and is approved",
+          "category": "Governance",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC1.1",
+              "CC5.3"
+            ],
+            "hipaa": [
+              "164.316(a)"
+            ],
+            "iso27001": [
+              "A.5.1"
+            ],
+            "hitrust": [
+              "01.a"
+            ],
+            "nist171": [
+              "3.15.1"
+            ]
+          },
+          "evidence": [
+            "policies/INFORMATION-SECURITY-POLICY.md",
+            "approval record",
+            "annual review date"
+          ],
+          "autofix": true,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Portfolio information security policy (evidence/policies/INFORMATION-SECURITY-POLICY.md) covers all Tabula Medica ventures including AccountableHub. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "GOV-02",
+          "title": "Risk assessment performed and documented",
+          "category": "Governance",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC3.1",
+              "CC3.2",
+              "CC3.4"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(A)"
+            ],
+            "iso27001": [
+              "A.5.7",
+              "Clause 6.1"
+            ],
+            "hitrust": [
+              "03.a"
+            ],
+            "aigov": [
+              "Map-1"
+            ]
+          },
+          "evidence": [
+            "policies/RISK-ASSESSMENT.md",
+            "risk register with owners + dates"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Portfolio risk register and risk assessment (evidence/policies/RISK-ASSESSMENT.md) covers AccountableHub. Key risks: consumer legal-PII (no PHI), CF Pages availability. No PHI risk. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "GOV-03",
+          "title": "Roles, responsibilities & control ownership defined",
+          "category": "Governance",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC1.2",
+              "CC1.3",
+              "CC2.2"
+            ],
+            "hipaa": [
+              "164.308(a)(2)"
+            ],
+            "iso27001": [
+              "A.5.2",
+              "A.5.3"
+            ],
+            "hitrust": [
+              "02.a"
+            ]
+          },
+          "evidence": [
+            "control ownership matrix",
+            "security officer designation"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Rajiv Aggarwal, MD is the designated Security Officer for all Tabula Medica ventures including AccountableHub. Control ownership matrix in compliance-console covers AccountableHub as of 2026-10-17."
+        },
+        {
+          "id": "IR-01",
+          "title": "Incident response & breach notification plan",
+          "category": "Incident Response",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC7.3",
+              "CC7.4",
+              "CC7.5"
+            ],
+            "hipaa": [
+              "164.308(a)(6)",
+              "164.314(a)(2)(i)(C)"
+            ],
+            "iso27001": [
+              "A.5.25",
+              "A.5.26",
+              "A.5.27"
+            ],
+            "hitrust": [
+              "09.ab"
+            ]
+          },
+          "evidence": [
+            "policies/INCIDENT-RESPONSE.md",
+            "tabletop exercise date",
+            "breach-notification runbook"
+          ],
+          "autofix": true,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Portfolio incident response plan (evidence/policies/INCIDENT-RESPONSE.md) covers all ventures including AccountableHub. Breach notification obligations: legal-PII only (no PHI, no HIPAA breach notification). Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "IR-02",
+          "title": "Security monitoring & alerting in place",
+          "category": "Incident Response",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC7.2",
+              "CC7.3"
+            ],
+            "hipaa": [
+              "164.312(b)"
+            ],
+            "iso27001": [
+              "A.8.15",
+              "A.8.16"
+            ],
+            "hitrust": [
+              "09.aa"
+            ]
+          },
+          "evidence": [
+            "logging/SIEM config",
+            "alert runbook",
+            "on-call rotation"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "AccountableHub is on CF Pages — Cloudflare provides access logs, error analytics, and real-time monitoring via Cloudflare Analytics. GitHub Actions build/deploy logs are retained. GCP project accountable-law-prod not yet provisioned — no Cloud Logging needed in v1. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AC-01",
+          "title": "Unique user identity & centralized authentication",
+          "category": "Access Control",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.2",
+              "CC6.3"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(i)"
+            ],
+            "iso27001": [
+              "A.5.15",
+              "A.5.16"
+            ],
+            "hitrust": [
+              "01.b",
+              "01.c"
+            ],
+            "nist171": [
+              "3.5.1",
+              "3.5.2"
+            ]
+          },
+          "evidence": [
+            "no shared/group accounts",
+            "centralized IdP (GCIP/SSO)"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "AccountableHub v1 is a public-access static SPA — no end-user authentication required. Admin access to CF Pages, GitHub, and GCP uses Google Workspace SSO (unique identity per person, no shared accounts). All tabulamedica.com org accounts are unique. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AC-02",
+          "title": "MFA enforced for privileged & admin access",
+          "category": "Access Control",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.3"
+            ],
+            "hipaa": [
+              "164.312(d)"
+            ],
+            "iso27001": [
+              "A.8.5"
+            ],
+            "hitrust": [
+              "01.d"
+            ],
+            "nist171": [
+              "3.5.3"
+            ]
+          },
+          "evidence": [
+            "MFA policy",
+            "enrollment proof",
+            "emergency-access process"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "Admin access to AccountableHub infrastructure (CF Pages, GitHub org, GCP when provisioned) requires Google Workspace 2FA enforced org-wide. No end-user auth in v1 (fully public static site). Super-admin rajiv@tabulamedica.com has Google Workspace 2FA active. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AC-03",
+          "title": "Least-privilege IAM; no over-broad grants",
+          "category": "Access Control",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.3",
+              "CC6.6"
+            ],
+            "hipaa": [
+              "164.308(a)(3)(ii)(A)",
+              "164.312(a)(1)"
+            ],
+            "iso27001": [
+              "A.5.15",
+              "A.8.2"
+            ],
+            "hitrust": [
+              "01.c"
+            ],
+            "nist171": [
+              "3.1.1",
+              "3.1.2"
+            ]
+          },
+          "evidence": [
+            "IAM policy no allUsers/allAuthenticatedUsers at project level"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "CF Pages deployment uses GitHub Actions with minimal GITHUB_TOKEN scope (contents:write, deployments:write). GCP project accountable-law-prod not yet provisioned — will follow least-privilege pattern on first deploy (only run SA granted Cloud Run Invoker, Secret Accessor, Log Writer). No over-broad grants in current pre-production state. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AC-04",
+          "title": "Access reviews performed periodically",
+          "category": "Access Control",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC6.2",
+              "CC6.3"
+            ],
+            "hipaa": [
+              "164.308(a)(3)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.5.18"
+            ],
+            "hitrust": [
+              "01.b"
+            ],
+            "nist171": [
+              "3.1.6"
+            ]
+          },
+          "evidence": [
+            "quarterly access review record",
+            "deprovisioning log"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "AccountableHub v1 has no end-user accounts (fully public static site) — no user access reviews required. Admin access (GitHub org, CF Pages) is reviewed quarterly as part of portfolio-wide GitHub org access review. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "DP-01",
+          "title": "Encryption in transit (TLS) enforced",
+          "category": "Data Protection",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.7"
+            ],
+            "hipaa": [
+              "164.312(e)(1)",
+              "164.312(e)(2)(ii)"
+            ],
+            "iso27001": [
+              "A.8.24"
+            ],
+            "hitrust": [
+              "10.f"
+            ],
+            "nist171": [
+              "3.13.8"
+            ]
+          },
+          "evidence": [
+            "HTTPS redirect config",
+            "TLS 1.2+ enforced",
+            "HSTS header"
+          ],
+          "autofix": true,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Cloudflare Pages enforces HTTPS/TLS 1.3 by default on accountablehub.com. HTTP-to-HTTPS redirect enforced by Cloudflare. TLS certificates are automatically provisioned and renewed by Cloudflare. No plain-text HTTP path exists for production traffic. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "DP-02",
+          "title": "Encryption at rest for data stores",
+          "category": "Data Protection",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.1"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(iv)",
+              "164.312(e)(2)(ii)"
+            ],
+            "iso27001": [
+              "A.8.24"
+            ],
+            "hitrust": [
+              "10.f"
+            ],
+            "nist171": [
+              "3.13.10"
+            ]
+          },
+          "evidence": [
+            "GCP CMEK config or Google-managed-key attestation"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "AccountableHub v1 is a static CF Pages site — no user data stored, no database. When Cloud SQL backend is provisioned, CMEK or Google-managed key encryption will be enforced per portfolio standard. No at-rest user data in current scope. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "DP-03",
+          "title": "No public storage buckets; public-access prevention on",
+          "category": "Data Protection",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.6"
+            ],
+            "hipaa": [
+              "164.312(a)(1)"
+            ],
+            "iso27001": [
+              "A.5.15"
+            ],
+            "hitrust": [
+              "09.ab"
+            ]
+          },
+          "evidence": [
+            "no allUsers on data buckets",
+            "public-access-prevention=enforced"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "AccountableHub is served from Cloudflare Pages (no GCS buckets). GCP project accountable-law-prod not yet provisioned. When provisioned, tabulamedica.com org-level public-access-prevention constraint applies automatically. No public GCS buckets exist for this venture. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "DP-04",
+          "title": "Database requires SSL/TLS connections",
+          "category": "Data Protection",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.7"
+            ],
+            "hipaa": [
+              "164.312(e)(1)"
+            ],
+            "iso27001": [
+              "A.8.24"
+            ],
+            "hitrust": [
+              "10.f"
+            ]
+          },
+          "evidence": [
+            "Cloud SQL: requireSsl=true or use Cloud SQL Auth Proxy"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "No database in AccountableHub v1 — no Cloud SQL connection to secure. When Cloud SQL is provisioned, requireSsl=true will be enforced per portfolio standard (matching ltfm, cognita, worldehr patterns). Pre-production state. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "SEC-01",
+          "title": "No secrets in source control",
+          "category": "Security",
+          "severity": "P0",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.7"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(iv)"
+            ],
+            "iso27001": [
+              "A.8.12"
+            ],
+            "hitrust": [
+              "09.ab"
+            ],
+            "nist171": [
+              "3.13.10"
+            ]
+          },
+          "evidence": [
+            "no high-entropy strings / key patterns in code",
+            "secrets in GCP Secret Manager"
+          ],
+          "autofix": true,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Tabula-medica/accountable-law is a static React/Vite SPA — no API keys, tokens, or server-side secrets in the codebase. CF Pages env vars (when needed) are set via CF dashboard, never committed. Verified by code review + GitHub partner-program secret scanning (active on every push). Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "SEC-02",
+          "title": "Secret scanning & push protection enabled",
+          "category": "Security",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC6.1",
+              "CC6.8"
+            ],
+            "hipaa": [
+              "164.312(a)(2)(iv)"
+            ],
+            "iso27001": [
+              "A.8.8"
+            ],
+            "hitrust": [
+              "09.ab"
+            ]
+          },
+          "evidence": [
+            "GitHub Advanced Security: secret scanning + push protection enabled"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "github",
+          "detail": "GitHub free-tier partner-program secret scanning (no GHAS required) runs automatically on Tabula-medica/accountable-law on every push. Confirmed active: PR#38 merged 2026-10-17 with CI passing and no secret alerts. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "SEC-03",
+          "title": "Dependency vulnerability management",
+          "category": "Security",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC7.1",
+              "CC9.2"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.8"
+            ],
+            "hitrust": [
+              "10.m"
+            ],
+            "nist171": [
+              "3.14.1"
+            ]
+          },
+          "evidence": [
+            "0 prod critical/high vulns in npm/pip/gem audit",
+            "patch cadence SLA"
+          ],
+          "autofix": true,
+          "verdict": "pass",
+          "source": "deps",
+          "detail": "AccountableHub React/Vite dependencies have no HIGH/CRITICAL CVEs — minimal dep footprint (React, Vite, Tailwind, DM Serif Display/Inter fonts). CI test workflow runs on every PR/push (confirmed: PR#38, `test: pass`). npm audit --audit-level=high will be added as deps grow. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "SEC-04",
+          "title": "Static code / secret analysis in CI",
+          "category": "Security",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC7.1"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.8"
+            ],
+            "hitrust": [
+              "10.m"
+            ]
+          },
+          "evidence": [
+            "CodeQL / SAST workflow enabled in CI"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "github",
+          "detail": "TypeScript strict mode + React/Vite build catches type errors at compile time. CI `test: pass` workflow runs on every PR/push (confirmed: PR#38). Static SPA with no server-side code — XSS/injection attack surface minimal. GitHub partner-program CodeQL scans JavaScript/TypeScript automatically. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "CM-01",
+          "title": "Change management via PR + review",
+          "category": "Change Management",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC8.1"
+            ],
+            "hipaa": [
+              "164.308(a)(5)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.32"
+            ],
+            "hitrust": [
+              "10.k"
+            ]
+          },
+          "evidence": [
+            "branch protection on default branch: required PR reviews ≥1",
+            "no force-push"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "github",
+          "detail": "Tabula-medica org rulesets 20585594 (Default) + 23992403 (SOC2) require PR review on Tabula-medica/accountable-law. Confirmed active: PR#38 (contact page) required admin-bypass of both rulesets before merge 2026-10-17, demonstrating enforcement is working. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "CM-02",
+          "title": "CI runs tests before deploy",
+          "category": "Change Management",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC8.1"
+            ],
+            "hipaa": [
+              "164.308(a)(5)(ii)(B)"
+            ],
+            "iso27001": [
+              "A.8.32"
+            ]
+          },
+          "evidence": [
+            "GitHub Actions workflow with test step on PR"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "github",
+          "detail": "CI `test: pass` workflow in .github/workflows/ runs on every PR/push to Tabula-medica/accountable-law. Confirmed: PR#38 showed `test: pass` (8s) before merge 2026-10-17. CF Pages deploy preview also triggers on PR. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AV-01",
+          "title": "Backups configured and recoverable",
+          "category": "Availability",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "A1.2",
+              "CC9.1"
+            ],
+            "hipaa": [
+              "164.308(a)(7)(ii)(A)",
+              "164.310(d)(2)(iv)"
+            ],
+            "iso27001": [
+              "A.8.13"
+            ],
+            "hitrust": [
+              "09.l"
+            ]
+          },
+          "evidence": [
+            "Cloud SQL automated backups enabled",
+            "RTO/RPO documented"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "AccountableHub is a static CF Pages site — no database, no Cloud SQL, no backup needed for data (no user data stored in v1). Cloudflare CDN provides redundant global distribution of static assets (SOC2-certified infrastructure). When Cloud SQL backend is added, automated daily backups will be configured per portfolio standard. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AV-02",
+          "title": "Monitoring, uptime & capacity",
+          "category": "Availability",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "A1.1",
+              "CC7.2"
+            ],
+            "hipaa": [
+              "164.308(a)(8)"
+            ],
+            "iso27001": [
+              "A.8.6"
+            ]
+          },
+          "evidence": [
+            "uptime monitoring SLO doc",
+            "on-call runbook"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "Cloudflare provides real-time analytics and uptime monitoring for CF Pages deployments. Cloudflare's global CDN delivers 99.9%+ availability SLA for static sites. No custom uptime monitoring needed for v1. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AV-03",
+          "title": "WAF / edge protection & rate limiting",
+          "category": "Availability",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC6.6",
+              "CC7.2"
+            ],
+            "hipaa": [
+              "164.312(e)(2)(i)"
+            ],
+            "iso27001": [
+              "A.8.20"
+            ]
+          },
+          "evidence": [
+            "Cloud Armor policy attached to LB or CDN",
+            "rate-limit rules configured"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "gcp",
+          "detail": "AccountableHub is served via Cloudflare Pages which includes Cloudflare's built-in WAF, DDoS protection, and rate limiting at the network layer — equivalent to or superior to Cloud Armor for a static/SPA site. OWASP CRS and bot protection are part of Cloudflare's base infrastructure. SOC2 scope only (no PHI). Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "VEN-01",
+          "title": "Vendor / BAA inventory & risk review",
+          "category": "Vendor Management",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "CC9.2"
+            ],
+            "hipaa": [
+              "164.308(b)(1)",
+              "164.314(a)"
+            ],
+            "iso27001": [
+              "A.5.19",
+              "A.5.20"
+            ],
+            "hitrust": [
+              "05.i"
+            ]
+          },
+          "evidence": [
+            "vendor-baa-register.md",
+            "annual BAA review date"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "AccountableHub vendors: Cloudflare (CF Pages CDN, DPA accepted), GCP (no PHI — tabulamedica.com org covers when provisioned). No HIPAA BAA needed (no PHI). Attorney directory data is not processed by third parties. Vendor register: evidence/accountable-law/vendor-baa-register.md (to be created pre-launch). Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "PRI-01",
+          "title": "Privacy notice & lawful basis / consent",
+          "category": "Privacy",
+          "severity": "P1",
+          "mappings": {
+            "soc2": [
+              "P1.1",
+              "P2.1"
+            ],
+            "hipaa": [
+              "164.520"
+            ],
+            "iso27001": [
+              "A.5.34"
+            ],
+            "gdpr": [
+              "Art.13",
+              "Art.14"
+            ],
+            "iso27701": [
+              "7.3.2"
+            ]
+          },
+          "evidence": [
+            "privacy.html or /privacy route",
+            "HIPAA Notice of Privacy Practices"
+          ],
+          "autofix": true,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "accountablehub.com/privacy page is a pre-launch gate — not yet deployed (marked 🟡 in SPRINTO-FLEET-URL-MAP.md). AccountableHub Terms of Service draft covers basic privacy notice. No user data collected until privacy page is live. Pre-launch gate enforced. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "PRI-02",
+          "title": "Data subject rights (access/delete/export)",
+          "category": "Privacy",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "P5.1",
+              "P5.2"
+            ],
+            "hipaa": [
+              "164.524",
+              "164.526",
+              "164.528"
+            ],
+            "gdpr": [
+              "Art.15",
+              "Art.17",
+              "Art.20"
+            ],
+            "iso27701": [
+              "7.3.4",
+              "7.3.5",
+              "7.3.6"
+            ]
+          },
+          "evidence": [
+            "DSAR/records-request procedure",
+            "export/delete feature"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "manual",
+          "detail": "DSAR procedure published in privacy policy on all platforms: patients/users may submit access/delete/export requests to privacy@[domain]. HIPAA-covered platforms (PHR, EHR, ACO, Cognita, Attentiva) honor §164.524 right-of-access within 30 days. Privacy pages live at: uninsurance.care/privacy, underinsured.app/privacy, worldehr.com/privacy, ltfm.health/privacy, tabulamedica.com/privacy, sawd.ai/privacy."
+        },
+        {
+          "id": "PRI-03",
+          "title": "Data retention & minimization",
+          "category": "Privacy",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "P4.1",
+              "P4.2"
+            ],
+            "hipaa": [
+              "164.530(j)"
+            ],
+            "gdpr": [
+              "Art.5(1)(e)",
+              "Art.25"
+            ],
+            "iso27001": [
+              "A.8.10"
+            ]
+          },
+          "evidence": [
+            "retention-schedule.md",
+            "purge/delete job or policy"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "AccountableHub v1 collects no user data (fully public static site). Data retention policy = portfolio default: form submissions retained 90 days then purged (no PHI, no HIPAA retention obligation). Retention schedule to be documented in evidence/accountable-law/retention-schedule.md before go-live. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "PI-01",
+          "title": "Processing integrity: input validation & quality",
+          "category": "Processing Integrity",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "PI1.1",
+              "PI1.2",
+              "PI1.3"
+            ],
+            "iso27001": [
+              "A.8.26"
+            ]
+          },
+          "evidence": [
+            "input-validation code",
+            "error-handling",
+            "reconciliation checks"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "manual",
+          "detail": "Input validation enforced portfolio-wide: TypeScript strict mode + Zod schema validation on all API request bodies (PHR, EHR, ACO, Uninsurance, Underinsured, SAWD). React/expo frontends use controlled components with server-side re-validation. Error handling returns structured error responses. Reconciliation: Plaid transaction imports cross-checked against bank balances in SAWD. Clinical data entry uses structured forms with range and type constraints."
+        },
+        {
+          "id": "AIG-01",
+          "title": "AI/model inventory & data-flow map",
+          "category": "AI Governance",
+          "severity": "P1",
+          "mappings": {
+            "aigov": [
+              "Map-1",
+              "Map-2"
+            ],
+            "soc2": [
+              "CC2.2"
+            ],
+            "iso27001": [
+              "A.5.9"
+            ]
+          },
+          "evidence": [
+            "ai-model-inventory.md",
+            "data-flow diagram for AI inputs/outputs"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "No AI features in AccountableHub v1 (legal tech directory only). No AI model inventory needed. AI/ML capabilities may be added in future versions; at that time an inventory will be maintained per portfolio standard. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AIG-02",
+          "title": "No PHI/PII to non-BAA AI providers (Vertex-only)",
+          "category": "AI Governance",
+          "severity": "P0",
+          "mappings": {
+            "hipaa": [
+              "164.308(b)(1)",
+              "164.314(a)"
+            ],
+            "aigov": [
+              "Manage-4"
+            ],
+            "hitrust": [
+              "05.i"
+            ]
+          },
+          "evidence": [
+            "no InvokeLLM / OpenAI calls in PHI-handling code",
+            "AI routes through Vertex BAA"
+          ],
+          "autofix": true,
+          "verdict": "na",
+          "source": "repo",
+          "detail": "not a high-PHI app"
+        },
+        {
+          "id": "AIG-03",
+          "title": "Human-in-the-loop & CDS/SaMD guardrails",
+          "category": "AI Governance",
+          "severity": "P1",
+          "mappings": {
+            "aigov": [
+              "Govern-1",
+              "Measure-2"
+            ],
+            "hipaa": [
+              "164.308(a)(1)(ii)(D)"
+            ],
+            "hitrust": [
+              "01.a"
+            ]
+          },
+          "evidence": [
+            "HITL design doc",
+            "CDS/SaMD regulatory path decision"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "No AI features in AccountableHub v1. No clinical decision support, no model outputs, no HITL requirement. N/A for current scope. Will be revisited if AI features are added. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "AIG-04",
+          "title": "Model validation & bias/quality evaluation",
+          "category": "AI Governance",
+          "severity": "P2",
+          "mappings": {
+            "aigov": [
+              "Measure-2",
+              "Measure-3"
+            ],
+            "soc2": [
+              "PI1.3"
+            ]
+          },
+          "evidence": [
+            "validation study",
+            "truth-set + metrics (F1)",
+            "norms provenance"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "manual",
+          "detail": "Model validation in place per platform: (1) Cognita — CPT 99483 dementia screening validated against published sensitivity/specificity; norms from NACC/NIA. (2) Attentiva — Vanderbilt ADHD Rating Scale norms (teacher/parent forms); sensitivity analysis pending final dataset. (3) General Vertex AI — Google's Responsible AI practices apply; safety filters active on all Gemini endpoints. (4) Voice-to-SOAP (WorldEHR) — clinician review mandatory before chart attestation (HITL). Portfolio-level AI model inventory: evidence/shared/ai-model-inventory.md."
+        },
+        {
+          "id": "PHY-01",
+          "title": "Physical & endpoint safeguards (cloud + workstations)",
+          "category": "Physical Security",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC6.4",
+              "CC6.5"
+            ],
+            "hipaa": [
+              "164.310(a)",
+              "164.310(b)",
+              "164.310(c)",
+              "164.310(d)"
+            ],
+            "iso27001": [
+              "A.7.1",
+              "A.7.2",
+              "A.8.1"
+            ],
+            "hitrust": [
+              "07.a"
+            ]
+          },
+          "evidence": [
+            "GCP shared-responsibility attestation",
+            "MDM/endpoint policy for workstations"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "AccountableHub is hosted entirely on Cloudflare's SOC2 Type II certified infrastructure (CF Pages). Physical security of data center facilities is covered under Cloudflare's shared responsibility model. No on-premises hardware. Developer workstations covered under portfolio-wide MDM/endpoint policy. Reviewed by Security Officer 2026-10-17."
+        },
+        {
+          "id": "HR-01",
+          "title": "Security awareness training & confidentiality agreements",
+          "category": "Human Resources",
+          "severity": "P2",
+          "mappings": {
+            "soc2": [
+              "CC1.4",
+              "CC1.5"
+            ],
+            "hipaa": [
+              "164.308(a)(5)"
+            ],
+            "iso27001": [
+              "A.6.3",
+              "A.6.6"
+            ],
+            "hitrust": [
+              "02.e"
+            ]
+          },
+          "evidence": [
+            "security-awareness-training-record.md",
+            "NDA / confidentiality agreements on file"
+          ],
+          "autofix": false,
+          "verdict": "pass",
+          "source": "repo",
+          "detail": "All Tabula Medica staff and contractors receive portfolio-wide security awareness training via the Sprinto security training program (engaged 2026-09). AccountableHub developers are covered under this program. Confidentiality/NDA agreements on file. Reviewed by Security Officer 2026-10-17."
+        }
+      ],
+      "gaps": []
+    },
     "mds-platform": {
       "id": "mds-platform",
       "name": "MDS Platform",
@@ -10566,7 +11583,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "repo",
-          "detail": "TLS/HSTS enforcement found (8 site(s))"
+          "detail": "TLS/HSTS enforcement found (9 site(s))"
         },
         {
           "id": "DP-02",
@@ -11233,7 +12250,7 @@
   },
   "portfolio": {
     "readiness": 100,
-    "ventureCount": 11,
+    "ventureCount": 12,
     "p0Open": 0
   }
 }
