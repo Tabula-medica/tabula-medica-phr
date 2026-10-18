@@ -1,0 +1,2 @@
+# Files allowed to import server/lib/nim-client.ts (NVIDIA NIM, NO BAA, non-PHI only).
+# One repo-relative path per line. Add a file only after confirming it never handles PHI.

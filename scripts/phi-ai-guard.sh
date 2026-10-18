@@ -131,4 +131,29 @@ if [ -n "$mcp_bad" ]; then
   exit 1
 fi
 
-echo "PHI-AI guard: OK — openai->Vertex alias in place, no new non-BAA proxy/client refs, Firecrawl boundary intact, public MCP connector PHI-free."
+# Sixth check — NVIDIA NIM (hosted API, NO BAA) boundary. Only the non-PHI wrapper
+# may name the NIM host or read NVIDIA_API_KEY, and only files listed in
+# scripts/phi-nim-allowlist.txt may import the wrapper.
+nim_host="$(grep -rlE "integrate\.api\.nvidia\.com|api\.nvcf\.nvidia\.com|NVIDIA_API_KEY|NVIDIA_NIM_BASE_URL" \
+  server/ client/ shared/ --include='*.ts' --include='*.tsx' 2>/dev/null \
+  | grep -vE '\.(test|spec)\.tsx?$' \
+  | grep -vx 'server/lib/nim-client.ts' \
+  || true)"
+NIM_ALLOWLIST="$(dirname "$0")/phi-nim-allowlist.txt"
+nim_importers="$(grep -rlE "nim-client" server/ client/ shared/ --include='*.ts' --include='*.tsx' 2>/dev/null \
+  | grep -vE '\.(test|spec)\.tsx?$' \
+  | grep -vx 'server/lib/nim-client.ts' \
+  | while IFS= read -r f; do
+      grep -qxF "$f" <(grep -vE '^[[:space:]]*(#|$)' "$NIM_ALLOWLIST" 2>/dev/null) || echo "$f"
+    done \
+  || true)"
+if [ -n "$nim_host$nim_importers" ]; then
+  echo "::error::PHI-AI GUARD FAILED — NVIDIA NIM (no BAA) used outside its non-PHI boundary."
+  echo "$nim_host"
+  echo "$nim_importers"
+  echo ""
+  echo "NIM is NON-PHI only: go through server/lib/nim-client.ts, and list new callers in scripts/phi-nim-allowlist.txt."
+  exit 1
+fi
+
+echo "PHI-AI guard: OK — openai->Vertex alias in place, no new non-BAA proxy/client refs, Firecrawl and NIM boundaries intact, public MCP connector PHI-free."
