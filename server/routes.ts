@@ -1360,13 +1360,21 @@ export async function registerRoutes(
 
     // A finished EHI export is what actually carries the patient's records:
     // hand it to the import pipeline (fire-and-forget so Fasten always gets a
-    // prompt 200 and never retries because our import was slow).
+    // prompt 200 and never retries because our import was slow). A failed
+    // export or a lost connection flips the connection to error/expired so
+    // the patient sees "Reconnect" instead of a silent stall.
     import("./auth/fasten-export-parsing")
-      .then(({ isFastenExportSuccessEvent }) => {
-        if (!isFastenExportSuccessEvent(event)) return;
-        return import("./auth/fasten-import").then(({ processFastenExportEvent }) =>
-          processFastenExportEvent(event).then(() => undefined),
-        );
+      .then(({ isFastenExportSuccessEvent, isFastenExportFailureEvent, isFastenConnectionLostEvent }) => {
+        if (isFastenExportSuccessEvent(event)) {
+          return import("./auth/fasten-import").then(({ processFastenExportEvent }) =>
+            processFastenExportEvent(event).then(() => undefined),
+          );
+        }
+        if (isFastenExportFailureEvent(event) || isFastenConnectionLostEvent(event)) {
+          return import("./auth/fasten-import").then(({ processFastenFailureEvent }) =>
+            processFastenFailureEvent(event).then(() => undefined),
+          );
+        }
       })
       .catch((err) => {
         console.error(`[FastenConnect] Export import dispatch error: ${err?.message}`);

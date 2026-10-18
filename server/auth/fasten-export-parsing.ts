@@ -196,3 +196,65 @@ export function bucketResources(resources: any[]): FhirResourceBuckets {
   }
   return buckets;
 }
+
+function eventType(event: unknown): string {
+  const e = event as Record<string, unknown> | null;
+  return String(e?.event_type ?? e?.type ?? "").toLowerCase();
+}
+
+/** True for the webhook event that signals a failed / cancelled EHI export. */
+export function isFastenExportFailureEvent(event: unknown): boolean {
+  const type = eventType(event);
+  if (!type.includes("ehi_export")) return false;
+  return tokenize(type).some(t => FAILURE_TOKENS.has(t));
+}
+
+/**
+ * True for connection.expired / connection.revoked style events: the
+ * patient's authorization at the provider is gone and only they can restore
+ * it by going through Stitch again.
+ */
+export function isFastenConnectionLostEvent(event: unknown): boolean {
+  const type = eventType(event);
+  if (!type.includes("connection")) return false;
+  return tokenize(type).some(t => t === "expired" || t === "revoked" || t === "disconnected");
+}
+
+// Words in Fasten's sanitized failure_reason that mean "the patient has to
+// sign in to the portal again" rather than "try later".
+const REAUTH_TOKENS = new Set([
+  "reauth", "reauthenticate", "reauthentication", "reauthorize", "reauthorization",
+  "unauthorized", "unauthorised", "expired", "revoked", "token", "credentials",
+  "authorization", "authorisation", "login", "password",
+]);
+
+export interface FastenFailurePayload extends FastenExportPayload {
+  /** Sanitized, control-char-stripped, length-capped reason (never logged raw). */
+  reason: string | null;
+  /** True when the fix is the patient re-authorizing through Stitch. */
+  needsReauth: boolean;
+}
+
+/**
+ * Pull the connection id and a display-safe reason out of a failure or
+ * connection-lost event. Returns null when no valid org_connection_id is
+ * present (same contract as extractExportPayload).
+ */
+export function extractFailurePayload(event: unknown): FastenFailurePayload | null {
+  const base = extractExportPayload(event);
+  if (!base) return null;
+  const e = (event ?? {}) as Record<string, any>;
+  const data = (e.data ?? {}) as Record<string, any>;
+  const raw = firstString(
+    data.failure_reason, e.failure_reason,
+    data.error_message, e.error_message,
+    data.reason, e.reason,
+  );
+  const reason = raw
+    ? raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) || null
+    : null;
+  const needsReauth =
+    isFastenConnectionLostEvent(event) ||
+    (reason ? tokenize(reason).some(t => REAUTH_TOKENS.has(t)) : false);
+  return { ...base, reason, needsReauth };
+}

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   bucketResources,
   extractExportPayload,
+  extractFailurePayload,
   isAllowedFastenDownloadUrl,
+  isFastenConnectionLostEvent,
+  isFastenExportFailureEvent,
   isFastenExportSuccessEvent,
   parseFhirResources,
 } from "../server/auth/fasten-export-parsing";
@@ -128,5 +131,69 @@ describe("bucketResources", () => {
     expect(buckets.encounters).toHaveLength(1);
     expect(buckets.immunizations).toHaveLength(1);
     expect(buckets.other).toBe(1);
+  });
+});
+
+describe("isFastenExportFailureEvent", () => {
+  it("matches the documented failure event and variants", () => {
+    expect(isFastenExportFailureEvent({ event_type: "patient.ehi_export_failed" })).toBe(true);
+    expect(isFastenExportFailureEvent({ type: "ehi_export.cancelled" })).toBe(true);
+    expect(isFastenExportFailureEvent({ event_type: "patient.ehi_export_incomplete" })).toBe(true);
+  });
+
+  it("ignores success and unrelated events", () => {
+    expect(isFastenExportFailureEvent({ event_type: "patient.ehi_export_success" })).toBe(false);
+    expect(isFastenExportFailureEvent({ event_type: "connection.expired" })).toBe(false);
+    expect(isFastenExportFailureEvent(null)).toBe(false);
+  });
+});
+
+describe("isFastenConnectionLostEvent", () => {
+  it("matches expired / revoked connection events only", () => {
+    expect(isFastenConnectionLostEvent({ event_type: "connection.expired" })).toBe(true);
+    expect(isFastenConnectionLostEvent({ event_type: "connection.revoked" })).toBe(true);
+    expect(isFastenConnectionLostEvent({ event_type: "connection.created" })).toBe(false);
+    expect(isFastenConnectionLostEvent({ event_type: "connection.updated" })).toBe(false);
+    expect(isFastenConnectionLostEvent({ event_type: "patient.ehi_export_failed" })).toBe(false);
+  });
+});
+
+describe("extractFailurePayload", () => {
+  it("returns null without a valid connection id", () => {
+    expect(extractFailurePayload({ event_type: "patient.ehi_export_failed", data: { failure_reason: "x" } })).toBeNull();
+    expect(extractFailurePayload({ event_type: "patient.ehi_export_failed", data: { org_connection_id: "not-a-uuid" } })).toBeNull();
+  });
+
+  it("carries a sanitized, capped reason and flags re-auth from the wording", () => {
+    const p = extractFailurePayload({
+      event_type: "patient.ehi_export_failed",
+      data: { org_connection_id: CONN_ID, task_id: "t1", failure_reason: "Portal\u0000 token  expired,\n please reauthenticate" },
+    });
+    expect(p).not.toBeNull();
+    expect(p!.orgConnectionId).toBe(CONN_ID);
+    expect(p!.taskId).toBe("t1");
+    expect(p!.reason).toBe("Portal token expired, please reauthenticate");
+    expect(p!.needsReauth).toBe(true);
+    const long = extractFailurePayload({
+      event_type: "patient.ehi_export_failed",
+      data: { org_connection_id: CONN_ID, failure_reason: "x".repeat(500) },
+    });
+    expect(long!.reason).toHaveLength(200);
+    expect(long!.needsReauth).toBe(false);
+  });
+
+  it("treats a lost connection as needing re-auth even without a reason", () => {
+    const p = extractFailurePayload({ event_type: "connection.revoked", data: { org_connection_id: CONN_ID } });
+    expect(p!.reason).toBeNull();
+    expect(p!.needsReauth).toBe(true);
+  });
+
+  it("does not flag transient failures as re-auth", () => {
+    const p = extractFailurePayload({
+      event_type: "patient.ehi_export_failed",
+      data: { org_connection_id: CONN_ID, failure_reason: "Provider endpoint timed out" },
+    });
+    expect(p!.needsReauth).toBe(false);
+    expect(p!.reason).toBe("Provider endpoint timed out");
   });
 });
