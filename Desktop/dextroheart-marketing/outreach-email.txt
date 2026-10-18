@@ -1,0 +1,30 @@
+SUBJECT: DextroHeart Early Access — 14-Lead ECG + Ultrasound on one tablet
+
+Dear Dr. [LAST NAME],
+
+I'm reaching out because your practice [or lab] is doing exactly the kind of work DextroHeart was built for.
+
+DextroHeart is a portable cardiac platform that combines 14-lead ECG, sternal seismocardiogram (SCG/PCG), and real-time ultrasound in a single wireless device — all controlled from an iPad or Android tablet.
+
+What makes it different:
+
+  • 5 lead profiles in one device: Standard 12, Right 14, Posterior 15, Legacy 14, Combined 17
+  • Sternal SCG/PCG — mechanical cardiac motion + heart sounds, no gel, from a mid-sternal patch
+  • Ultrasound EF (Simpson biplane), M-mode, Doppler — at the same session
+  • FHIR R4 export + open Python SDK (ekg14cardio) for research pipelines
+  • Vertex AI interpretation — PHI never leaves your institution
+
+We are currently accepting applications for our Early Access Research Program — no cost to qualified research sites in exchange for protocol validation and de-identified outcome data.
+
+If this aligns with a protocol you have underway (or one you've been wanting to run), I'd welcome a 20-minute call.
+
+Warm regards,
+
+Rajiv K. Aggarwal, MD
+Founder, DextroHeart | Tabula Medica LLC
+hello@dextroheart.com
+dextroheart.com
+
+---
+INVESTIGATIONAL DEVICE — NOT FDA CLEARED. For research and investigational use only.
+To opt out of future correspondence: reply REMOVE.

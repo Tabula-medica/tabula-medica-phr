@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "DextroHeart",
+    "slug": "dextroheart",
+    "owner": "rajivka2",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "scheme": "dextroheart",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a2332"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dextroheart.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSBluetoothAlwaysUsageDescription": "DextroHeart connects to the ECG/SCG sensor patch via Bluetooth to stream 14-lead cardiac data.",
+        "NSBluetoothPeripheralUsageDescription": "DextroHeart connects to the ECG/SCG sensor patch via Bluetooth.",
+        "NSCameraUsageDescription": "DextroHeart uses the camera for ultrasound image capture via the attached transducer.",
+        "NSMicrophoneUsageDescription": "DextroHeart uses the microphone to capture phonocardiogram (PCG) audio from the sternal sensor.",
+        "NSHealthShareUsageDescription": "DextroHeart may read heart rate and ECG data from HealthKit for comparison and trending.",
+        "NSHealthUpdateUsageDescription": "DextroHeart may save ECG session summaries to HealthKit."
+      }
+    },
+    "android": {
+      "package": "com.dextroheart.app",
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#1a2332",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "REGISTER-ON-EAS-FIRST"
+      }
+    },
+    "plugins": []
+  }
+}

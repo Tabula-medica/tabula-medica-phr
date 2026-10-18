@@ -1,0 +1,45 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEXTROHEART — EARLY ACCESS RESEARCH PROGRAM
+14-Lead ECG · Sternal SCG/PCG · Cardiac Ultrasound
+One wireless device. One tablet. Every cardiac signal.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dear Cardiologist / EP Lab Director,
+
+We are launching DextroHeart — the first portable all-in-one cardiac
+platform that captures:
+
+  ✓ 14-Lead ECG (5 profiles: Standard 12 / Right 14 / Posterior 15 /
+    Legacy 14 / Combined 17)
+  ✓ Sternal Seismocardiogram (SCG) + Phonocardiogram (PCG)
+    — PEP, LVET, S1/S2/S3/S4 detection, no gel
+  ✓ Cardiac Ultrasound — EF (Simpson biplane), M-mode, Doppler
+    (Vmax, VTI, E/A, PHT for aortic and mitral valves)
+
+All from a single Bluetooth patch + USB-C transducer.
+Controlled from an iPad or Android tablet app.
+FHIR R4 export. Open Python SDK.
+
+────────────────────────────────────────────────────
+EARLY ACCESS RESEARCH PROGRAM
+No cost to qualified research sites.
+In exchange: protocol validation + de-identified outcome data sharing.
+
+Ideal for: Academic EP labs · Cardiac research programs ·
+           Mobile cardiac screening initiatives · Telemedicine cardiology
+
+────────────────────────────────────────────────────
+TO APPLY OR REQUEST INFORMATION:
+
+  Web:   dextroheart.com
+  Email: hello@dextroheart.com
+
+Rajiv K. Aggarwal, MD
+Founder, DextroHeart | Tabula Medica LLC
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INVESTIGATIONAL DEVICE — NOT FDA CLEARED.
+For research and investigational use only.
+Patent pending. © 2026 Tabula Medica LLC.
+To opt out: reply with REMOVE or fax back this page.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

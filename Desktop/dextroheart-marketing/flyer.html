@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DextroHeart — 14-Lead ECG · SCG/PCG · Ultrasound</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:  #0d1b2a;
+    --navy2: #1a2e45;
+    --red:   #c0392b;
+    --red2:  #e74c3c;
+    --cream: #f8f5f0;
+    --slate: #64748b;
+    --white: #ffffff;
+  }
+
+  body {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    background: var(--cream);
+    color: var(--navy);
+    min-height: 100vh;
+  }
+
+  /* ── Print layout ── */
+  @media print {
+    body { background: white; }
+    .no-print { display: none; }
+    .page { page-break-after: always; }
+    @page { size: letter; margin: 0.5in; }
+  }
+
+  .page {
+    max-width: 850px;
+    margin: 0 auto;
+    background: white;
+    overflow: hidden;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: var(--navy);
+    padding: 48px 48px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 260px;
+    background: linear-gradient(135deg, transparent 40%, rgba(192,57,43,0.18) 100%);
+  }
+
+  .ecg-wave {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    overflow: hidden;
+    opacity: 0.22;
+  }
+
+  .ecg-wave svg { width: 100%; height: 100%; }
+
+  .hero-badge {
+    display: inline-block;
+    background: rgba(192,57,43,0.2);
+    border: 1px solid var(--red);
+    color: var(--red2);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 18px;
+  }
+
+  .hero-title {
+    font-size: 48px;
+    font-weight: 900;
+    color: white;
+    letter-spacing: -1px;
+    line-height: 1.05;
+    margin-bottom: 8px;
+  }
+
+  .hero-title span { color: var(--red2); }
+
+  .hero-tagline {
+    font-size: 16px;
+    font-weight: 400;
+    color: #94a3b8;
+    letter-spacing: 0.3px;
+    margin-bottom: 28px;
+  }
+
+  .hero-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 100px;
+  }
+
+  /* ── Three-column feature blocks ── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 3px solid var(--red);
+  }
+
+  .feat {
+    padding: 32px 28px;
+    border-right: 1px solid #e2e8f0;
+  }
+
+  .feat:last-child { border-right: none; }
+
+  .feat-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--navy);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
+
+  .feat-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+
+  .feat-desc {
+    font-size: 13px;
+    color: var(--slate);
+    line-height: 1.65;
+  }
+
+  .feat-leads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+  }
+
+  .lead-chip {
+    background: var(--navy);
+    color: #e2e8f0;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Specs ── */
+  .specs-section {
+    background: var(--navy);
+    padding: 36px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  .specs-col h3 {
+    color: var(--red2);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .spec-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    font-size: 13px;
+  }
+
+  .spec-row .sk { color: #94a3b8; }
+  .spec-row .sv { color: white; font-weight: 600; }
+
+  /* ── Profiles ── */
+  .profiles-section {
+    padding: 36px 48px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .profiles-section h2 {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+
+  .profiles-section p {
+    font-size: 13px;
+    color: var(--slate);
+    margin-bottom: 20px;
+  }
+
+  .profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+
+  .profile-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+
+  .profile-card .pc-name {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--navy);
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+
+  .profile-card .pc-leads {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--red);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .profile-card .pc-use {
+    font-size: 10px;
+    color: var(--slate);
+    line-height: 1.4;
+  }
+
+  /* ── CTA ── */
+  .cta-section {
+    background: var(--red);
+    padding: 32px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .cta-left h2 {
+    color: white;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .cta-left p {
+    color: rgba(255,255,255,0.8);
+    font-size: 13px;
+  }
+
+  .cta-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .cta-right .url {
+    color: white;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+
+  .cta-right .email {
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  /* ── Disclaimer ── */
+  .disclaimer {
+    background: var(--navy);
+    padding: 14px 48px;
+    font-size: 10px;
+    color: #475569;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  /* ── Print button ── */
+  .no-print {
+    text-align: center;
+    padding: 24px;
+    background: var(--cream);
+  }
+
+  .no-print button {
+    background: var(--navy);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-right: 10px;
+  }
+
+  .no-print button:hover { background: var(--navy2); }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button onclick="window.print()">Print / Save as PDF</button>
+  <button onclick="window.open('https://dextroheart.com','_blank')">Open App</button>
+</div>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">Early Access Research Program</div>
+    <div class="hero-title">Dextro<span>Heart</span></div>
+    <div class="hero-tagline">The first portable all-in-one cardiac platform — 14-lead ECG, sternal SCG/PCG, and real-time ultrasound on a single tablet.</div>
+    <div class="hero-pills">
+      <span class="pill">Wireless BLE</span>
+      <span class="pill">iPad &amp; Android</span>
+      <span class="pill">FHIR R4 Export</span>
+      <span class="pill">AI-Assisted Analysis</span>
+      <span class="pill">IEC 62304 Class B</span>
+    </div>
+    <div class="ecg-wave">
+      <svg viewBox="0 0 800 40" preserveAspectRatio="none" fill="none" stroke="#c0392b" stroke-width="1.5">
+        <polyline points="0,20 60,20 75,20 80,5 87,35 93,5 98,20 120,20 200,20 215,20 220,5 227,35 233,5 238,20 260,20 340,20 355,20 360,5 367,35 373,5 378,20 400,20 480,20 495,20 500,5 507,35 513,5 518,20 540,20 620,20 635,20 640,5 647,35 653,5 658,20 680,20 800,20"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">14-Lead ECG</div>
+      <div class="feat-desc">Standard + right-heart + posterior leads. 500 Hz, 24-bit ADC, BLE streaming. Five acquisition profiles:</div>
+      <div class="feat-leads">
+        <span class="lead-chip">Standard 12</span>
+        <span class="lead-chip">Right 14</span>
+        <span class="lead-chip">Posterior 15</span>
+        <span class="lead-chip">Legacy 14</span>
+        <span class="lead-chip">Combined 17</span>
+      </div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔊</div>
+      <div class="feat-title">Sternal SCG/PCG</div>
+      <div class="feat-desc">Mid-sternal patch captures seismocardiogram (mechanical cardiac motion) and phonocardiogram (heart sounds) simultaneously. PEP, LVET, S1/S2/S3/S4 auto-detected. No gel required.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🖼</div>
+      <div class="feat-title">Cardiac Ultrasound</div>
+      <div class="feat-desc">Apical-4C / 2C cine capture via USB-C transducer. Simpson biplane EF, M-mode LVIDs/LVIDd, Doppler valve analysis (aortic &amp; mitral Vmax, VTI, E/A, DT, PHT).</div>
+    </div>
+  </div>
+
+  <!-- SPECS -->
+  <div class="specs-section">
+    <div class="specs-col">
+      <h3>ECG Hardware</h3>
+      <div class="spec-row"><span class="sk">Sampling rate</span><span class="sv">500 Hz</span></div>
+      <div class="spec-row"><span class="sk">ADC resolution</span><span class="sv">24-bit signed</span></div>
+      <div class="spec-row"><span class="sk">Leads</span><span class="sv">Up to 17 (5 profiles)</span></div>
+      <div class="spec-row"><span class="sk">Connectivity</span><span class="sv">Bluetooth LE 5.0</span></div>
+      <div class="spec-row"><span class="sk">Protocol</span><span class="sv">DHB2 (open spec)</span></div>
+      <div class="spec-row"><span class="sk">Lead-off detect</span><span class="sv">Per-channel, flagged</span></div>
+    </div>
+    <div class="specs-col">
+      <h3>Software Platform</h3>
+      <div class="spec-row"><span class="sk">Platform</span><span class="sv">iOS / iPadOS / Android</span></div>
+      <div class="spec-row"><span class="sk">Export</span><span class="sv">FHIR R4 Bundle, NPZ</span></div>
+      <div class="spec-row"><span class="sk">AI model</span><span class="sv">Vertex AI (Gemini)</span></div>
+      <div class="spec-row"><span class="sk">HIPAA</span><span class="sv">No PHI in logs/cloud</span></div>
+      <div class="spec-row"><span class="sk">Regulatory class</span><span class="sv">IEC 62304 Class B</span></div>
+      <div class="spec-row"><span class="sk">Open source</span><span class="sv">ekg14cardio Python SDK</span></div>
+    </div>
+  </div>
+
+  <!-- PROFILES -->
+  <div class="profiles-section">
+    <h2>Acquisition Profiles</h2>
+    <p>Select the right lead set for each clinical scenario — the device auto-configures.</p>
+    <div class="profiles-grid">
+      <div class="profile-card">
+        <div class="pc-name">Standard 12</div>
+        <div class="pc-leads">12</div>
+        <div class="pc-use">Routine screening &amp; routine EDs</div>
+      </div>
+      <div class="profile-card">
+        <div class="pc-name">Right 14</div>
+        <div class="pc-leads">14</div>
+        <div class="pc-use">RV infarct, RBBB, dextrocardia</div>
+      </div>
+      <div class="profile-card">
+        <div class="pc-name">Posterior 15</div>
+        <div class="pc-leads">15</div>
+        <div class="pc-use">Posterior STEMI, circumflex occlusion</div>
+      </div>
+      <div class="profile-card">
+        <div class="pc-name">Legacy 14</div>
+        <div class="pc-leads">14</div>
+        <div class="pc-use">V4R + V8 research protocol</div>
+      </div>
+      <div class="profile-card">
+        <div class="pc-name">Combined 17</div>
+        <div class="pc-leads">17</div>
+        <div class="pc-use">Full right + posterior research</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <div class="cta-left">
+      <h2>Join the Early Access Research Program</h2>
+      <p>We are partnering with select cardiac practices, academic EP labs, and research centers for pilot deployment. No cost to qualified research sites.</p>
+    </div>
+    <div class="cta-right">
+      <div class="url">dextroheart.com</div>
+      <div class="email">hello@dextroheart.com</div>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    DextroHeart is an investigational device. Not FDA cleared. For research and investigational use only. IEC 62304 Class B software — measurement function only; no automated clinical decision. &copy; 2026 Tabula Medica LLC. All rights reserved. Patent pending.
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 20.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false,
+        "image": "latest"
+      },
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal",
+        "serviceAccountKeyPath": "C:\\Users\\Aggarwal\\.secrets-quarantine\\play-sa.json"
+      },
+      "ios": {
+        "ascAppId": "TBD-register-in-app-store-connect",
+        "ascApiKeyPath": "C:\\Users\\Aggarwal\\.secrets-quarantine\\apple-keys-20260625\\AuthKey_86N5FN7F5A.p8",
+        "ascApiKeyId": "86N5FN7F5A",
+        "ascApiKeyIssuerId": "b16f7932-7bf3-4131-8f94-1abe24b28d51"
+      }
+    }
+  }
+}
