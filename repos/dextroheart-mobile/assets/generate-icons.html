@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DextroHeart Icon Generator</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f1f5f9; padding: 32px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
+  .card h3 { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: #0f172a; }
+  .card canvas { display: block; margin: 0 auto 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
+  button {
+    display: block; width: 100%; padding: 8px 16px;
+    background: #1a2332; color: white; border: none;
+    border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+    margin-bottom: 6px;
+  }
+  button:hover { background: #c0392b; }
+  .all-btn {
+    margin: 0 auto 28px; display: block; width: auto; padding: 12px 32px;
+    background: #c0392b; font-size: 15px; border-radius: 10px; border: none;
+    color: white; font-weight: 700; cursor: pointer;
+  }
+  .all-btn:hover { background: #a93226; }
+  .note { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>DextroHeart Icon Generator</h1>
+<p>Click "Download All" to save all 5 required icon files, then move them into <code>repos/dextroheart-mobile/assets/</code>.</p>
+
+<button class="all-btn" onclick="downloadAll()">Download All Icons</button>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const NAVY  = '#1a2332';
+const RED   = '#c0392b';
+const WHITE = '#ffffff';
+const GRAY  = '#94a3b8';
+
+// ── Draw the DextroHeart mark on a canvas context ──
+// cx, cy = center; r = radius of the enclosing circle
+function drawMark(ctx, cx, cy, r, opts = {}) {
+  const { bg = NAVY, showBg = true, transparent = false } = opts;
+
+  if (!transparent && showBg) {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  }
+
+  // Heart shape (two bezier lobes)
+  const hs = r * 0.52;
+  ctx.save();
+  ctx.translate(cx, cy - r * 0.06);
+  ctx.scale(1, 0.92);
+
+  ctx.beginPath();
+  ctx.moveTo(0, hs * 0.35);
+  ctx.bezierCurveTo( hs * 0.05, -hs * 0.05,  hs * 0.9, -hs * 0.1,  hs * 0.9,  hs * 0.45);
+  ctx.bezierCurveTo( hs * 0.9,   hs * 0.85,  hs * 0.5,  hs * 1.15, 0,          hs * 1.55);
+  ctx.bezierCurveTo(-hs * 0.5,   hs * 1.15, -hs * 0.9,  hs * 0.85, -hs * 0.9,  hs * 0.45);
+  ctx.bezierCurveTo(-hs * 0.9,  -hs * 0.1,  -hs * 0.05,-hs * 0.05, 0,           hs * 0.35);
+  ctx.closePath();
+  ctx.fillStyle = RED;
+  ctx.fill();
+  ctx.restore();
+
+  // ECG wave cutting across the heart horizontally
+  const waveY = cy + r * 0.02;
+  const wl = r * 1.05;
+  const x0 = cx - lw(lw => lw = lw) - lw2();
+
+  // Helper inline
+  function pts() {
+    const x = cx;
+    return [
+      [cx - lw2() * 0.98, waveY],
+      [cx - lw2() * 0.55, waveY],
+      [cx - lw2() * 0.38, waveY - r * 0.08],  // P wave up
+      [cx - lw2() * 0.25, waveY],
+      [cx - lw2() * 0.12, waveY - r * 0.07],  // Q down
+      [cx              ,  waveY - r * 0.52],   // R peak (tall)
+      [cx + lw2() * 0.09, waveY + r * 0.22],  // S down
+      [cx + lw2() * 0.18, waveY],
+      [cx + lw2() * 0.35, waveY - r * 0.14],  // T wave up
+      [cx + lw2() * 0.55, waveY],
+      [cx + lw2() * 0.98, waveY],
+    ];
+  }
+  function lw2() { return r * 0.78; }
+  function lw(fn) { return fn(r * 0.78); }
+
+  const p = pts();
+
+  ctx.beginPath();
+  ctx.moveTo(p[0][0], p[0][1]);
+  for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
+
+  ctx.strokeStyle = WHITE;
+  ctx.lineWidth = r * 0.055;
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+  ctx.stroke();
+}
+
+// ── Canvas factories ──
+function makeCanvas(size, opts) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  drawMark(ctx, size / 2, size / 2, size * 0.38, opts);
+  return c;
+}
+
+// Rounded-rect clip (for App Store icon preview only — EAS adds rounding)
+function makeRounded(size, radius, opts) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const r = radius;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(size - r, 0);
+  ctx.arcTo(size, 0, size, r, r);
+  ctx.lineTo(size, size - r);
+  ctx.arcTo(size, size, size - r, size, r);
+  ctx.lineTo(r, size);
+  ctx.arcTo(0, size, 0, size - r, r);
+  ctx.lineTo(0, r);
+  ctx.arcTo(0, 0, r, 0, r);
+  ctx.closePath();
+  ctx.clip();
+  drawMark(ctx, size / 2, size / 2, size * 0.38, opts);
+  return c;
+}
+
+function makeForeground(size) {
+  // Transparent bg, red heart + white ECG
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  drawMark(ctx, size / 2, size / 2, size * 0.38, { transparent: true });
+  return c;
+}
+
+function makeFavicon(size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  // Rounded
+  const r = size * 0.22;
+  ctx.beginPath();
+  ctx.moveTo(r, 0); ctx.lineTo(size - r, 0);
+  ctx.arcTo(size, 0, size, r, r);
+  ctx.lineTo(size, size - r);
+  ctx.arcTo(size, size, size - r, size, r);
+  ctx.lineTo(r, size);
+  ctx.arcTo(0, size, 0, size - r, r);
+  ctx.lineTo(0, r);
+  ctx.arcTo(0, 0, r, 0, r);
+  ctx.closePath();
+  ctx.clip();
+  drawMark(ctx, size / 2, size / 2, size * 0.38, {});
+  return c;
+}
+
+// ── Specs ──
+const ICONS = [
+  { id: 'icon',      label: 'icon.png',                     file: 'icon.png',                     size: 1024, make: s => makeCanvas(s, {}) },
+  { id: 'splash',    label: 'splash-icon.png',              file: 'splash-icon.png',               size: 1024, make: s => makeCanvas(s, {}) },
+  { id: 'fg',        label: 'android-icon-foreground.png',  file: 'android-icon-foreground.png',   size: 1024, make: s => makeForeground(s) },
+  { id: 'bg',        label: 'android-icon-background.png',  file: 'android-icon-background.png',   size: 1024, make: s => {
+      const c = document.createElement('canvas'); c.width = c.height = s;
+      const ctx = c.getContext('2d'); ctx.fillStyle = NAVY; ctx.fillRect(0,0,s,s); return c;
+    }
+  },
+  { id: 'favicon',   label: 'favicon.png (48×48)',          file: 'favicon.png',                    size: 48,  make: s => makeFavicon(s) },
+];
+
+const grid = document.getElementById('grid');
+
+ICONS.forEach(spec => {
+  const preview = spec.make(Math.min(spec.size, 200));
+  preview.style.width  = preview.style.height = '160px';
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<h3>${spec.label}</h3>`;
+  card.appendChild(preview);
+
+  const btn = document.createElement('button');
+  btn.textContent = 'Download';
+  btn.onclick = () => download(spec);
+  card.appendChild(btn);
+
+  const note = document.createElement('div');
+  note.className = 'note';
+  note.textContent = `${spec.size}×${spec.size} px`;
+  card.appendChild(note);
+
+  grid.appendChild(card);
+});
+
+function download(spec) {
+  const full = spec.make(spec.size);
+  full.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = spec.file;
+    a.click();
+  }, 'image/png');
+}
+
+function downloadAll() {
+  ICONS.forEach((spec, i) => {
+    setTimeout(() => download(spec), i * 300);
+  });
+}
+</script>
+</body>
+</html>
