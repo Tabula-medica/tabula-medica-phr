@@ -7,7 +7,16 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-19 session-3)
+# MASTER RUNNING TODO — all projects (updated 2026-10-19 session-4)
+
+---
+
+### 2026-10-19 session-4 — mds-platform #2 merged; EHR #463 CI pending; GitHub 2FA lockout
+
+- **mds-platform PR #2 MERGED** — chore(deps-dev): bump vite from 5.4.21 to 6.4.3 (Dependabot rebase picked up .gitleaks.toml allowlist; CI passed)
+- **omnihealth-ehr PR #463** — feat(ehr): med reconciliation page; CI in_progress (build-test/a11y/pg-integration); needs merge after CI passes + 2FA unblocked
+- **GitHub 2FA BLOCKER** — org enforced TOTP/hardware-key-only; SMS no longer accepted; rajiv-maker account blocked; fix: GitHub Settings > Security > 2FA > add authenticator app + remove SMS; once unblocked, merge EHR #463 with ruleset bypass
+- **express-params.d.ts fix PUSHED** — added `export {}` to convert ambient→module augmentation; fixes 66-route typecheck failure on feat/med-reconciliation-page
 
 ---
 

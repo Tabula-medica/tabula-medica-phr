@@ -51,6 +51,19 @@ metadata:
 - `attorney_grade(status, discipline_count)` → A–F (F=disbarred/5+, D=suspended/3-4, C=resign/2, B=1, A=clean)
 - Grade shown as colored circle badge in leaderboard table + detail panel
 
+### Multi-State Attorney Support (Phase 3 — DEPLOYED 2026-10-19):
+- Backend: `ingestion/scrape_txbar.py` + `ingestion/scrape_nybar.py` — PR #45 merged to main
+  - TX: member directory (search-name/last-names) + discipline actions page
+  - NY: OCA registry (search + detail) + all 4 Appellate Division discipline pages (AD1–AD4)
+  - NY bar numbers stored as `NY-XXXXXXX` prefix (no CA collision)
+  - Run: `python ingestion/scrape_txbar.py --seed-from-discipline` (or `--dry-run` to verify)
+- Frontend: PR #45 merged to master → CF Pages deploy triggered
+  - State filter: CA / TX / NY / All States
+  - Section titles, stats, leaderboard all dynamic per state
+  - Verify links route to correct state bar per selection
+- **Data not yet populated**: scrapers ready but not run against prod DB yet
+  - Gate: run `scrape_txbar.py --seed-from-discipline` + `scrape_nybar.py --seed-from-discipline` with prod DATABASE_URL
+
 ### Base44 Admin App
 - Base44 app ID: `6ad59d952b833f25179435db`
 - Editor: https://app.base44.com/apps/6ad59d952b833f25179435db/editor/preview
@@ -109,4 +122,5 @@ metadata:
 2. **Android production**: Store listing + content rating + promote from internal in Play Console
 3. **GCS bucket**: `gcloud auth login` then create `gs://accountablehub-data`
 4. **Viral launch**: ProductHunt + HN + Twitter (drafts in LAUNCH-KIT.md)
-5. **Phase 3**: Hospital bill OCR, NY/TX/FL state bar scrapers
+5. **Phase 3 data seeding**: Run TX/NY scrapers against prod DB — `python ingestion/scrape_txbar.py --seed-from-discipline` + `scrape_nybar.py --seed-from-discipline` (both merged, just need DATABASE_URL)
+6. **Phase 3 next**: Hospital bill OCR, FL state bar scraper
