@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T17:20:00.000Z",
+  "generatedAt": "2026-10-19T17:30:00.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -11245,7 +11245,7 @@
         "iso27001",
         "aigov"
       ],
-      "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00. PR #1 merged 2026-10-19: gitleaks CLI fix (paid gitleaks-action@v2 replaced) + engine jest path fix (../node_modules/jest/bin/jest.js --passWithNoTests). Dependabot enabled 2026-10-19. PR #6 open 2026-10-19: npm overrides for braces (HIGH CVSS 7.5 GHSA-grv7-fg5c-xmjg) + postcss-selector-parser + esbuild CVEs — CI running.",
+      "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00. PR #1 merged 2026-10-19: gitleaks CLI fix. PR #6 merged 2026-10-19: npm overrides for braces (HIGH CVSS 7.5 GHSA-grv7-fg5c-xmjg, >=3.0.3) + postcss-selector-parser (>=7.1.6) + esbuild (>=0.25.0). CI passing. Open: react-router moderate (6→7 breaking, deferred).",
       "readiness": 100,
       "counts": {
         "pass": 33,
