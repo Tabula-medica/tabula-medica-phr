@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T14:08:21.000Z",
+  "generatedAt": "2026-10-19T16:04:31.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -3089,7 +3089,7 @@
         "gdpr",
         "nist171"
       ],
-      "notes": "Fintech, no PHI but sensitive financial + IRS MeF. PCI mostly SAQ-A via Stripe. Counsel-gated. PRs #261 login-hardening + #265 refresh-balances + #266 \u00a77216-consent+CVE merged 2026-10-19.",
+      "notes": "Fintech, no PHI but sensitive financial + IRS MeF. PCI mostly SAQ-A via Stripe. Counsel-gated. PRs #261 login-hardening + #265 refresh-balances + #266 \u00a77216-consent+CVE merged 2026-10-19. sawd-backend: uuid CVE fix confirmed in main (#49); duplicate PR #57 closed; 0 HIGH/CRIT Dependabot alerts 2026-10-19.",
       "readiness": 100,
       "counts": {
         "pass": 32,
