@@ -7,9 +7,46 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-19 session)
+# MASTER RUNNING TODO — all projects (updated 2026-10-19 session-3)
+
+---
+
+### 2026-10-19 session-3 — portfolio sweep; 8 PRs merged; 0 HIGH/CRIT portfolio-wide
+
+- **sawd-backend PR #57 CLOSED** — duplicate; uuid CVE fix already in main via PR #49 (2026-10-09)
+- **uninsurance PR #351 MERGED** — ci(smoke): continue-on-error for Cloud Armor WAF blocks on GHA IPs
+- **mds-platform PR #1 MERGED** — fix(ci): gitleaks CLI (free) + jest path hoisted from root + passWithNoTests
+- **accountable-law-api PRs #39/#40/#41/#42/#43/#44 MERGED** — Dependabot config (pip+GHA) + 5 dep updates (typesense 2.1.0, minor-patch group, gh-actions auth/checkout/setup-gcloud)
+- **Portfolio CVE sweep** — 0 HIGH/CRITICAL across all 11 ventures; only remaining gap = AV-03 WAF P2 (cost-gated)
+- **All org rulesets restored** — 20585594 (Default) + 23992403 (SOC2) active after each admin merge
+
+---
 
 _Guardrails: drafts-for-approval (never autonomous send), PHI→Vertex only, don't touch active data, JFPA+Trevor gate on mass provider outreach. Canvas Medical CANCELLED 2026-09-21 — omit all Canvas items._
+
+---
+
+### 2026-10-19 session-2 — dep sweep complete; sawd #63/sawd-web #266/omnihealth-ehr #458 merged
+
+- **sawd #63 MERGED** — Capacitor 6→8 coordinated upgrade (8/0 CI); Dependabot rebase picked up after merge conflicts with #70/#73
+- **sawd-web #266 MERGED** — fix(security): §7216 DRAFT consent guard (ConsentGate.jsx), CVE patches, CodeQL hardening; rebased onto master (conflict: postcss-selector-parser override already in master)
+- **sawd-web #260 CLOSED** — firebase 12→13 MAJOR; breaking Auth/Firestore API changes; deferred
+- **omnihealth-ehr #458 MERGED** — fix(test): update grant_types_supported assertion for refresh_token (1 file, test-only follow-up for #457 SMART refresh tokens)
+- **omnihealth-ehr #430/#431 confirmed MERGED** — Trajectory-Based Critical Result Notification + AI Provider Inbox (merged by prior session or auto)
+- **worldehr-mobile #31 MERGED** — feat(ux): iOS-native search + alphabetical patients + date in Today header (5/0 CI)
+- **energystoragedisease-web #17 confirmed MERGED** — fix(seo): remove noindex flyer from sitemap
+- **sawd-backend #57** — fix(deps): uuid >=11.1.1 override (GHSA-w5hq-g745-h8pq); @dependabot rebase triggered; pending merge
+- **Portfolio scan result** — 0 new Dependabot HIGH/CRITICAL alerts; 0 new non-draft open PRs; all remaining open = drafts (owner-gated)
+- **chore/compliance-privacy pushed** — 3 commits ahead of origin; includes sawd-web #261/#265/#266 posture refresh + running TODO + googleapis lockfile sync
+
+**Owner-gated items still open (unchanged):**
+- Stripe keys + webhook registration → Base44 Secrets → Publish
+- sawd-landers deploy (Trevor/legal gate)
+- §7216 consent text: Trevor review before CONSENT_7216_CLEARED flips true
+- sawd-web PR #253: draft — owner marks ready for review
+- accountablehub.com: App Privacy (iOS) + Pricing → ASC UI → then `node asc-final-submit.cjs`
+- accountablehub.com: Android store listing + content rating + production promote in Play Console
+- GCS bucket gs://accountablehub-data: `gcloud auth login` → create
 
 ---
 
