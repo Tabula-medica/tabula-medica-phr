@@ -4,7 +4,8 @@
 package that gets SAWD *to* an audit. **Not legal advice**; counsel + the Sprinto-partnered
 auditor own the sign-offs flagged below.
 
-Last updated: 2026-09-03 · Owner: Rajiv (founder) · Prepared by: Claude Code + exec panel
+Last updated: 2026-10-16 · Owner: Rajiv (founder) · Prepared by: Claude Code + exec panel
+**Architecture note:** SAWD is now Base44-native. Control matrix and integrations map updated 2026-10-16.
 
 ---
 

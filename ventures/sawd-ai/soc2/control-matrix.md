@@ -1,101 +1,137 @@
 # SAWD — SOC 2 Control Matrix (Sprinto audit prep)
 
-> **Draft — internal planning, not legal advice. Generated 2026-09-03 from a read-only audit of the SAWD codebases and infra** (`repos/sawd-web`, `repos/sawd-backend`, `repos/sawd-mobile`, `ventures/sawd-ai`). Evidence is cited to real files/config. Where no evidence exists, the row is marked **Gap** — no control was invented.
+> **Draft — internal planning, not legal advice. Updated 2026-10-16 to reflect Base44-native
+> architecture.** SAWD pivoted from GCP/GCIP/sawd-backend (parked) to Base44-managed hosting,
+> auth, DB, and functions. Most infrastructure controls are now **inherited from Base44** as the
+> primary subprocessor — evidence for those criteria = Base44's SOC 2 report + DPA.
+> Evidence is cited to real code/config. Where no evidence exists, the row is marked **Gap**.
 
 ## Summary
 
-SAWD has a genuinely strong *technical* control baseline for a pre-revenue company: fail-closed GCIP token auth, AES-256-GCM envelope encryption for Plaid secrets, owner-scoped row isolation, 15-min V4 signed URLs, a 20-min idle auto-logout, DOMPurify sanitization, hardened Firebase security headers (CSP/HSTS/X-Frame-Options), keyless (WIF) deploys, and a mature CI security gate (CodeQL SAST, gitleaks, npm audit, Dependabot). The gaps are almost entirely **operational/governance and identity-enforcement**, not code: **MFA is built but not yet mandatory** (`ENFORCE_MFA` defaults off; GCIP `mfa.state` not MANDATORY; GitHub org 2FA = false), **there is no persisted application audit log** (the `AIActionAuditLog` table exists in the schema but is never written), **no centralized log retention/SIEM/alerting**, **secrets historically sat in plaintext on an OneDrive-synced Desktop** (rotation pending), **no formally adopted+approved policy pack** (only the ISMS master is drafted), and **no HR/offboarding, vendor-management, incident-response, or BCP/DR evidence**. These are the audit blockers.
+The Base44-native pivot has **simplified the technical surface**: auth, hosting, DB, file storage,
+and functions all run inside Base44's managed platform. Most infrastructure-layer controls
+(encryption at rest, physical access, availability, TLS) are now inherited. The **primary new risk
+is subprocessor dependency** — Base44 holds all user financial data and the app's auth identity;
+their SOC 2 report and DPA are P0 evidence items.
+
+Application-layer controls that SAWD owns directly remain strong: §7216 consent gates (frontend
+ConsentGate + backend `aiInvokeSecure` gate), tenant isolation enforced server-side in every
+function (user.id from Base44 auth, not from request body — verified by tests in
+`tests/tenantIsolation.test.mjs`), Plaid webhook idempotency guard (`ProcessedWebhookEvent`
+entity), cent-based financial accumulation in 6 report libs, and a full `AuditLog` entity in-app.
+
+**Operational/governance gaps remain**: no formal risk register, no IR plan, no vendor DPAs
+collected, no pen test, MDM not enrolled. MFA enforcement at the Base44 platform level is
+owner-action pending.
 
 **Counts (39 criteria scored):**
 
 | Status | Count |
 |---|---|
-| **Met** | 8 |
-| **Partial** | 14 |
-| **Gap** | 13 |
-| **Owner-action** (blocked on a console/policy action, no code needed) | 4 |
+| **Met** | 12 |
+| **Partial** | 11 |
+| **Gap** | 10 |
+| **Owner-action** (console/policy action only, no code needed) | 6 |
 
-> Met = control operating with code/config evidence. Partial = control exists but incomplete or unenforced. Gap = no evidence found. Owner-action = the fix is a founder console/signature step, not engineering.
+> Met = control operating with evidence. Partial = control exists but incomplete/unenforced.
+> Gap = no evidence found. Owner-action = founder console/signature step, not engineering.
+> "Inherited (Base44)" = control is Base44's responsibility; evidence = their SOC 2 report.
 
 ---
 
 ## CC1 — Control Environment
 
-| Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check that would auto-verify | Remediation / owner |
+| Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC1.1 | Integrity & ethics; code of conduct | No code of conduct / ethics policy found. ISMS master drafted only (`ventures/sawd-ai/soc2/policies/information-security-policy.md`, v0.1 DRAFT, self-flags "no formally adopted ISMS"). | Gap | Sprinto policy module: employee acceptance of Code of Conduct | Author + adopt Code of Conduct in Sprinto; owner acceptance. Owner. |
-| CC1.2 | Board/governance independence & oversight | Single-founder company; ISMS names Founder as acting ISO and assigns roles in writing (`information-security-policy.md` §4–5). No independent oversight body. | Partial | Sprinto org chart + policy approver record | Document governance in Sprinto; engage fractional CISO (already noted in policy §4). Owner. |
-| CC1.3 | Org structure, authority & responsibility | Roles assigned in ISMS §4; exec-agent "operating layer" documented (`SAWD-RUNNING-LIST.md`, `exec/operating-model.md`) but these are AI drafts, not an HR structure. | Partial | Sprinto roles/responsibilities matrix | Formalize + approve responsibility matrix in Sprinto. Owner. |
-| CC1.4 | Competence — hiring, training, security awareness | No security-awareness training records; no employees. | Gap | Sprinto training module (security-awareness completion) | Enroll workforce (founder+contractors) in Sprinto security training. Owner. |
-| CC1.5 | Accountability / performance enforcement | Enforcement clause in ISMS §6 (access revocation, termination). No performance/accountability records. | Partial | Sprinto policy acceptance + enforcement records | Adopt policy; capture acceptances. Owner. |
+| CC1.1 | Integrity & ethics; code of conduct | No code of conduct / ethics policy adopted. ISMS master drafted (`soc2/policies/information-security-policy.md`, v0.1 DRAFT). | Gap | Sprinto policy module: employee acceptance of Code of Conduct | Author + adopt Code of Conduct; collect acceptance in Sprinto. Owner. |
+| CC1.2 | Board/governance oversight | Single-founder; ISMS names Founder as acting ISO. No independent oversight body. | Partial | Sprinto org chart + policy approver record | Document governance in Sprinto; engage fractional CISO. Owner. |
+| CC1.3 | Org structure, authority & responsibility | Roles assigned in ISMS §4. Exec-agent operating model documented (`ventures/sawd-ai/exec/operating-model.md`) but not formally adopted as HR structure. | Partial | Sprinto roles/responsibilities matrix | Formalize + approve responsibility matrix in Sprinto. Owner. |
+| CC1.4 | Competence — training & security awareness | No security-awareness training records; founder-only team. | Gap | Sprinto training module (security-awareness completion) | Enroll in Sprinto security training. Owner. |
+| CC1.5 | Accountability / performance enforcement | Enforcement clause in ISMS §6. No performance records (sole founder). | Partial | Sprinto policy acceptance records | Adopt policy; capture acceptance. Owner. |
+
+---
 
 ## CC2 — Communication & Information
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC2.1 | Quality information for internal control | Backend logs via Fastify pino logger (`sawd-backend/src/server.ts:49`, `logger:{level}`); Cloud Run → Cloud Logging (`cloudbuild.yaml` `logging: CLOUD_LOGGING_ONLY`). Frontend Sentry/PostHog DSNs wired at build (`deploy-web.yml:60-61`) but optional. No defined info-quality process. | Partial | GCP → Cloud Logging enabled; Sentry integration | Confirm Sentry/PostHog actually configured in prod; document. Owner+Eng. |
-| CC2.2 | Internal communication of security responsibilities | ISMS + runbooks exist (`exec/*.md`, `KEY-ROTATION-RUNBOOK.md`). Not yet published/acknowledged by workforce. | Partial | Sprinto policy publish + acceptance | Publish policy pack in Sprinto, require acceptance. Owner. |
-| CC2.3 | External communication (customers, vendors, regulators) | Legal/privacy pages exist (`sawd-web/legal/`); role addresses (support/privacy/security@) NOT yet created (`SAWD-RUNNING-LIST.md` Email/DNS). No breach-notification comms path. | Partial | Sprinto vendor/comms register; DNS record checks | Create security@/privacy@ role addresses; document breach-notification path w/ counsel. Owner. |
+| CC2.1 | Quality information for internal control | **Sentry DSN now configured** in Base44 Secrets (2026-10-16) — client-side error monitoring live. Base44 platform provides function execution logs. No independent SIEM or log-retention policy. | Partial | Sentry integration in Sprinto; Base44 function logs | Verify Sentry is receiving events; define log-retention policy. Owner+Eng. |
+| CC2.2 | Internal communication of security responsibilities | ISMS + runbooks exist (`soc2/policies/`, `ventures/sawd-ai/exec/`). Not yet published/acknowledged. | Partial | Sprinto policy publish + acceptance | Publish policy pack in Sprinto; require acceptance. Owner. |
+| CC2.3 | External communication (customers, vendors, regulators) | Privacy/terms pages at sawd.ai. Support phone 878-206-0393 in place. No security@ / privacy@ role addresses confirmed. No breach-notification comms path documented. | Partial | Sprinto vendor/comms register | Create security@/privacy@ role addresses; document breach-notification path w/ counsel. Owner. |
+
+---
 
 ## CC3 — Risk Assessment
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC3.1 | Specifies objectives to identify risk | ISMS §3 references a "risk register maintained under the Risk Assessment & Management Policy" — **that policy does not exist in `soc2/policies/`** (only the master + README). | Gap | Sprinto risk-register module populated | Create Risk Assessment Policy + risk register in Sprinto. Owner. |
-| CC3.2 | Identifies & analyzes risk | Ad-hoc risk identification exists in practice (`security-audit/`, `sawd-bank/SECURITY-AUDIT.md`, running-list P0s) but no formal scored register. | Partial | Sprinto risk assessment with likelihood/impact scoring | Formalize the existing findings into a Sprinto risk register. Owner+Eng. |
-| CC3.3 | Considers fraud potential | Financial-fraud surface acknowledged (Plaid/Stripe live, §7216 data) but no fraud-risk analysis doc. | Gap | Sprinto risk register (fraud category) | Add fraud scenarios to risk register. Owner. |
-| CC3.4 | Identifies changes affecting the system | Change tracked informally via git/running-list; no formal change-risk assessment. | Partial | GitHub → commit/PR history; Sprinto change log | Tie change management (CC8) into risk register. Eng. |
+| CC3.1 | Specifies objectives to identify risk | ISMS §3 references a risk register — **not yet created**. ChatGPT A-Z audit (2026-10-14) served as an informal risk sweep. | Gap | Sprinto risk-register module | Create Risk Assessment Policy + formal risk register in Sprinto. Owner. |
+| CC3.2 | Identifies & analyzes risk | Informal findings in A-Z audit response (2026-10-14), SOC 2 P0 punch list, security-audit files. No scored register. | Partial | Sprinto risk assessment with likelihood/impact scoring | Migrate A-Z + P0 findings into scored Sprinto risk register. Owner+Eng. |
+| CC3.3 | Considers fraud potential | Financial-fraud surface acknowledged (Plaid/Stripe, §7216 tax data, IRS e-file credentials). No formal fraud-risk analysis. | Gap | Sprinto risk register (fraud category) | Add fraud scenarios (tax refund fraud, account takeover, IRS EFIN misuse) to risk register. Owner. |
+| CC3.4 | Identifies changes affecting the system | Changes tracked via git history + Base44 checkpoint history + running-list. No formal change-risk assessment. | Partial | GitHub → commit/PR history; Base44 checkpoint log | Tie change management (CC8) into risk register. Eng. |
+
+---
 
 ## CC4 — Monitoring Activities
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC4.1 | Ongoing/separate control evaluations | Performed access review exists (`compliance/ACCESS-REVIEW-2026-08-19.md`) with a monthly cadence (next 2026-09-19). CI runs continuously. No independent evaluation / pen test. | Partial | Sprinto continuous control monitoring; scheduled reviews | Continue monthly reviews in Sprinto; schedule a pen test (ISMS §8 references pen tests). Owner. |
-| CC4.2 | Communicates deficiencies & tracks remediation | Findings tracked in running-list P0s and access-review §4; not in a formal tracker to closure. | Partial | Sprinto findings/remediation tracker | Migrate open findings into Sprinto tasks. Owner. |
+| CC4.1 | Ongoing/separate evaluations | A-Z audit (2026-10-14, external ChatGPT review, 26-item). CI runs continuously on sawd-web (`security.yml`, CodeQL, npm audit). No independent pen test. | Partial | Sprinto continuous monitoring; scheduled reviews | Continue periodic audits in Sprinto; schedule pen test. Owner. |
+| CC4.2 | Communicates deficiencies & tracks remediation | A-Z findings tracked in `sawd-audit-fixes-1014.md` memory + GitHub PRs. Not in a formal closure tracker. | Partial | Sprinto findings/remediation tracker | Migrate open findings into Sprinto tasks. Owner. |
+
+---
 
 ## CC5 — Control Activities
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC5.1 | Selects control activities that mitigate risk | Layered technical controls implemented (auth, encryption, headers, rate-limit, sanitization — see CC6/CC7). ISMS §3 "defense in depth" (§Policy Statement 5). | Met | Config presence checks across GCP/GitHub/Firebase | Maintain; map each to a risk-register item. Eng. |
-| CC5.2 | Technology general controls | CI gates (`security.yml`, `codeql.yml`, backend `ci.yml`), keyless WIF deploy (`deploy-web.yml`), least-privilege runtime SA (`sawd-run@` — access review §1). | Met | GitHub → required checks; GCP → IAM least-privilege | Maintain; add branch protection (CC8.1). Eng. |
-| CC5.3 | Deploys through policies & procedures | Runbooks exist (`KEY-ROTATION-RUNBOOK.md`, `exec/mfa-2sv-runbook.md`, `MIGRATION-PLAN.md`) but not adopted/approved. | Partial | Sprinto policy adoption records | Adopt SDLC/change/ops procedures in Sprinto. Owner. |
+| CC5.1 | Selects control activities that mitigate risk | Layered controls: auth (Base44 platform), §7216 consent (ConsentGate + `aiInvokeSecure` backend gate), tenant isolation (server-side user.id — `tests/tenantIsolation.test.mjs`), Cloudflare WAF, rate limiting. | Met | Config checks across GitHub/Cloudflare | Maintain; map each to risk-register item. Eng. |
+| CC5.2 | Technology general controls | CI gates on sawd-web (CodeQL, `security.yml`, npm audit, Dependabot). Base44 handles build/deploy for the app. Branch protection on sawd-web main (required reviews + status checks — confirmed 2026-09-29). | Met | GitHub → required checks + branch protection | Maintain. Eng. |
+| CC5.3 | Deploys through policies & procedures | sawd-web: Cloudflare Pages auto-deploy on push. Base44 app: checkpoint → Publish flow. Runbooks exist but not formally adopted. | Partial | Sprinto SDLC policy adoption | Adopt SDLC/change policy in Sprinto. Owner. |
+
+---
 
 ## CC6 — Logical & Physical Access
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC6.1 | Logical access security (identity, auth, encryption) | **Strong.** GCIP RS256 JWT verified on every `/api` route, fail-closed on missing project/token (`sawd-backend/src/auth.ts:80-135`); dev-bypass hard-blocked in prod (`auth.ts:47-52`). AES-256-GCM envelope encryption of Plaid tokens, fail-closed (`sawd-backend/src/lib/crypto.ts`). CORS fails closed in prod (`server.ts:33-45`). TLS everywhere. | Met | GCP → IAM/GCIP config; Cloud SQL encryption at rest; cert monitoring | Maintain. Add DB-column encryption for at-rest PII (entities.ts notes JSONB workaround). Eng. |
-| CC6.2 | Registration/authorization of new users (provisioning) | GCIP handles identity; role via custom claim (`auth.ts:121-128`). Owner-scoped provisioning implicit. No documented provisioning approval workflow. | Partial | Google Workspace → user provisioning; Sprinto access requests | Document provisioning/approval; centralize IAM (access-review §4). Owner. |
-| CC6.3 | Access modification & least privilege | Owner-scoped row isolation enforced server-side: non-admins only read/mutate `created_by = req.user.email` (`sawd-backend/src/routes/entities.ts:86-110, 136-137`); server forces `created_by`, strips client-set secrets (`entities.ts:202-217`). SA least-privilege reviewed (access-review §1) but **default-compute SA over-privileged** and **cross-project `github-deployer@sawd-ai` admin**. | Partial | GCP → IAM policy analyzer; Sprinto access reviews | Replace default-compute SA w/ minimal SAs; remove cross-project admin. Owner. |
-| CC6.4 | Physical access (data centers) | Fully inherited — GCP/Firebase/Cloudflare/Cloud Run. No SAWD-owned facilities. | Met (inherited) | GCP/Cloudflare SOC 2 reports as subservice orgs (carve-out) | Collect subservice-org SOC 2 reports in Sprinto vendor module. Owner. |
-| CC6.5 | Data disposal / secure removal | No documented data-disposal process; deletes are hard row deletes (`entities.ts:281-301`). GCS objects have no lifecycle/retention policy in evidence. | Gap | GCP → GCS lifecycle rules; Sprinto data-retention policy | Define data-retention + disposal policy; set GCS lifecycle rules. Owner+Eng. |
-| CC6.6 | External threat protection (edge, boundary) | Cloudflare edge + Firebase hardened headers (`firebase.json`: CSP, HSTS `max-age=63072000; preload`, X-Frame-Options DENY, nosniff, Permissions-Policy). `@fastify/rate-limit` 120/min keyed by uid/IP (`server.ts:83-88`). Health/webhooks intentionally unthrottled. | Met | Cloudflare → WAF/DDoS config; header scan | Maintain; consider Cloudflare WAF rules + Turnstile on public forms. Eng. |
-| CC6.7 | Restrict info transmission/movement (data in transit) | TLS enforced (HSTS preload). Private GCS uploads return opaque `gs://` URI, access only via **V4 signed URL, 300s default / 15-min owner-scoped** (`sawd-backend/src/lib/storage.ts:72-96`, `routes/files.ts:58-74`); cross-bucket refs rejected (`storage.ts:82-84`). Bank tokens redacted from all API responses (`entities.ts:49-59`). | Met | GCP → GCS IAM/uniform access; TLS scan | Maintain. Eng. |
-| CC6.8 | Prevent/detect unauthorized software (malware, integrity) | CodeQL SAST + gitleaks secret scan + npm audit + Dependabot (`security.yml`, `codeql.yml`, `dependabot.yml`). No endpoint/MDM anti-malware on the founder laptop. | Partial | GitHub → CodeQL/Dependabot alerts; MDM → EDR/anti-malware | Enroll endpoints in MDM w/ EDR. Owner. |
+| CC6.1 | Logical access security (identity, auth, encryption) | Auth is Base44 platform (Google OAuth + email/password). Session tokens managed by Base44 SDK (`src/lib/AuthContext.jsx`). §7216 consent gate blocks all authenticated routes until consent set (`ConsentGate.jsx`). Backend `aiInvokeSecure` fails closed on `consent_7216_use !== true`. Login loop fixed (2026-10-16). **MFA enforcement: Base44 platform MFA available but not yet enforced at platform level.** | Partial | Base44 → platform MFA setting; Google Workspace 2SV | Enable Base44 platform mandatory MFA. **Owner (P0).** |
+| CC6.2 | Registration/authorization of new users | Base44 handles user registration. Role via `user.role` field + `RoleProtected` component (`src/components/auth/RoleProtected.jsx`). No documented provisioning-approval workflow. | Partial | Google Workspace → provisioning; Sprinto access requests | Document provisioning/approval workflow. Owner. |
+| CC6.3 | Access modification & least privilege | Tenant isolation: server-side functions use `base44.auth.me()` user.id (never client-supplied). Verified in `tests/tenantIsolation.test.mjs`. Admin/user separation: `rajiv@sawd.ai` = ADMIN (no access to user financial data by design). Base44 RLS in progress. | Partial | Sprinto access reviews; Base44 RLS config | Complete Base44 RLS rollout; conduct quarterly access review in Sprinto. Owner+Eng. |
+| CC6.4 | Physical access (data centers) | Fully inherited — Base44 (app + DB + functions), Cloudflare (CDN/edge), GCP (sawd-web build pipeline, legacy services). No SAWD-owned facilities. | Met (inherited) | Base44 + Cloudflare + GCP SOC 2 reports as subservice orgs | **Collect Base44 SOC 2 report** + Cloudflare/GCP reports in Sprinto vendor module. Owner **(P0).** |
+| CC6.5 | Data disposal / secure removal | No data-disposal / retention policy. Base44 entity deletes are hard deletes. No lifecycle rules documented. GCS (document storage) has no evidenced lifecycle policy. | Gap | GCP → GCS lifecycle rules; Sprinto data-retention policy | Define data-retention + disposal policy; set GCS lifecycle rules; confirm Base44 deletion propagates to storage. Owner+Eng. |
+| CC6.6 | External threat protection (edge, boundary) | Cloudflare edge (WAF, DDoS, rate-limiting) in front of sawd.ai. Base44 hosting for the app. sawd-web on Cloudflare Pages. `@fastify/rate-limit` was in parked sawd-backend — Base44 function-level rate limiting applies. | Met | Cloudflare → WAF/DDoS config; header scan | Maintain. Verify Base44 function rate-limit config. Eng. |
+| CC6.7 | Restrict information transmission (data in transit) | TLS everywhere (Cloudflare HSTS, Base44 HTTPS). Document access via Base44 file-handling (short-lived signed URLs). Bank tokens stored in `PlaidAccount` entity — encrypted at rest by Base44 platform. IRS EFIN/ETIN in Base44 Secrets vault (set 2026-10-16), never logged. | Met | Cloudflare TLS scan; Base44 Secrets config | Maintain. Verify Base44 secrets are not echoed in function logs. Eng. |
+| CC6.8 | Prevent/detect unauthorized software | CodeQL SAST + gitleaks + npm audit + Dependabot on sawd-web/sawd-mobile (`security.yml`, `codeql.yml`, `dependabot.yml`). Base44 app code not in a traditional CI pipeline — checkpointed via builder. No endpoint/MDM on founder laptop. | Partial | GitHub → CodeQL/Dependabot; MDM → EDR | Enroll founder device in MDM with EDR. **Owner.** |
+
+---
 
 ## CC7 — System Operations
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC7.1 | Vulnerability detection & monitoring | **Strong.** CodeQL `security-extended` on PR + weekly cron (`codeql.yml`); npm audit `--audit-level=high` fails PRs (`security.yml:45-46`); gitleaks history scan (`security.yml:48-66`); Dependabot weekly npm + actions (`dependabot.yml`). Known open: 14 high CVEs in **sawd-bank** (separate venture), plaintext-secret rotation pending. | Met | GitHub → CodeQL alerts, Dependabot, secret scanning | Clear open Dependabot alerts; keep sawd-bank out of SOC 2 scope or remediate. Eng. |
-| CC7.2 | Monitoring for anomalies / security events | Cloud Run → Cloud Logging (`cloudbuild.yaml`), Fastify logs failed token verifications (`auth.ts:132`). **No SIEM, no alerting, no log-based anomaly detection, no defined retention.** | Gap | GCP → Cloud Logging sinks + alerting policies; Sprinto | Configure log sinks, retention, and alert policies (login failures, rate-limit hits). Eng. |
-| CC7.3 | Evaluate security events / incident evaluation | No incident-response plan or evaluation records found in `soc2/policies/`. | Gap | Sprinto incident-management module | Author Incident Response Policy; adopt in Sprinto. Owner. |
-| CC7.4 | Incident response & recovery | No IR runbook, no on-call, no ticketing. | Gap | Sprinto incident tracker; PagerDuty/Slack integration | Stand up IR process + tracker. Owner. |
-| CC7.5 | Recovery from incidents | No documented recovery/rollback playbook (Firebase hosting rollback + Cloud Run revisions exist technically). | Partial | GCP → Cloud Run revision history; Firebase rollback | Document rollback playbook (Cloud Run revisions, Firebase channel rollback). Eng. |
+| CC7.1 | Vulnerability detection & monitoring | CodeQL `security-extended` on PR + weekly cron, npm audit `--audit-level=high` fails PRs, gitleaks history scan, Dependabot weekly (sawd-web/sawd-mobile). Base44 app code is managed in Base44 sandbox — no traditional vuln scan pipeline. No pen test done. | Partial | GitHub → CodeQL/Dependabot alerts | Schedule pen test; clear open Dependabot alerts; define Base44 code security review cadence. Owner+Eng. |
+| CC7.2 | Monitoring for anomalies / security events | **Sentry DSN now set** (2026-10-16) — client-side error tracking. Base44 function logs available in platform. `AuditLog` entity records entity mutations + key events. **No SIEM, no alerting on auth failures or rate-limit hits, no defined log retention.** | Partial | Sentry integration; Base44 function logs | Configure Sentry alerting rules; define log retention; build Basic SIEM-lite on top of `AuditLog`. Eng. |
+| CC7.3 | Evaluate security events / incident evaluation | `AuditLog` entity built in-app (records who/what/when). `runCPAAuditTrail` function scoped to `performed_by`. No incident-evaluation process or IR plan. | Partial | Sprinto incident-management module; Base44 AuditLog | Author Incident Response Policy; adopt in Sprinto. Owner. |
+| CC7.4 | Incident response & recovery | No IR runbook, no on-call rotation, no ticketing system. | Gap | Sprinto incident tracker | Stand up IR process + tracker in Sprinto. Owner. |
+| CC7.5 | Recovery from incidents | Base44 checkpoint/rollback available (builder "Restore" to any checkpoint). sawd-web: Cloudflare Pages deployment rollback. No documented rollback playbook. | Partial | Base44 checkpoint history; Cloudflare Pages deploy history | Document rollback playbook (Base44 checkpoint restore + sawd-web Cloudflare rollback steps). Eng. |
+
+---
 
 ## CC8 — Change Management
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC8.1 | Authorized, tested changes | CI gates before merge: lint/build/test/audit (`security.yml`), CodeQL, backend typecheck (`ci.yml`). Deploy is manual `workflow_dispatch` w/ staging→prod choice + keyless WIF (`deploy-web.yml`). **Branch protection / required reviews NOT verified** (single-committer repos; running-list notes commits straight to feature branches). No PR-review-required evidence. | Partial | GitHub → branch protection + required status checks + required reviews | Enable branch protection on `main` w/ required checks + 1 review. Owner+Eng. |
+| CC8.1 | Authorized, tested changes | **sawd-web**: Branch protection on main with required reviews + required status checks confirmed (2026-09-29). Cloudflare Pages auto-deploys on merge. **Base44 app**: Changes via builder editor → checkpoint → Publish. No PR-review requirement on Base44 code (single-developer). Tests in `tests/` (18 passing: webhook, tenant isolation, ledger decimal). | Partial | GitHub → branch protection on sawd-web; Base44 checkpoint audit trail | Establish a "checkpoint + test-pass" requirement before every Base44 Publish; document in SDLC policy. Eng+Owner. |
+
+---
 
 ## CC9 — Risk Mitigation
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| CC9.1 | Risk mitigation for business disruptions | No BCP/DR plan. Cloud SQL backup/PITR config not evidenced in repo (`cloudbuild.yaml` shows Cloud SQL wiring commented/optional). | Gap | GCP → Cloud SQL automated backups + PITR; Sprinto BCP policy | Enable Cloud SQL backups+PITR; author BCP/DR. Owner+Eng. |
-| CC9.2 | Vendor & business-partner risk management | Subprocessors (Plaid, Stripe, Base44, GCP, Cloudflare, Anthropic/Vertex, Expo/EAS) used; **no vendor-risk register / no signed DPAs tracked**. Base44 flagged as highest-risk identity silo (access-review §3). | Gap | Sprinto vendor-management module (SOC 2 reports, DPAs) | Build vendor register; collect vendor SOC 2/DPAs. Owner. |
+| CC9.1 | Risk mitigation for business disruptions | No BCP/DR plan. **Base44 is the single point of failure** — all user data, auth, and compute runs there. Base44's backup/HA SLA not documented in SAWD's evidence. sawd-web is Cloudflare Pages (high availability). | Gap | Base44 DPA/SLA; Sprinto BCP policy | Obtain Base44 data-export/backup SLA; author BCP/DR plan. **Owner (P0).** |
+| CC9.2 | Vendor & business-partner risk management | Subprocessors: **Base44** (app/DB/auth/functions — highest risk), Plaid (bank data), Stripe (billing + IDV), GCP (pipeline + storage), Cloudflare (CDN/DNS), Anthropic (AI), Google AI/Vertex, HuggingFace (categorizer), Twilio/Vapi (voice — scoped), Smarty (address verification), IRS MeF (e-file scaffold). **No vendor-risk register, no signed DPAs tracked.** | Gap | Sprinto vendor-management module (SOC 2 reports, DPAs) | Build vendor register; collect vendor SOC 2 reports + DPAs. Start with Base44. **Owner (P0).** |
 
 ---
 
@@ -103,25 +139,64 @@ SAWD has a genuinely strong *technical* control baseline for a pre-revenue compa
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| A1.1 | Capacity monitoring / demand management | Cloud Run autoscaling (managed) + rate-limit caps abuse (`server.ts:83-88`); 25 MB upload cap (`server.ts:61`). No capacity-monitoring dashboards/alerts evidenced. | Partial | GCP → Cloud Run metrics + alerting | Add uptime checks + capacity alerts. Eng. |
-| A1.2 | Backup, recovery & environmental protections | Firebase Hosting + Cloud Run are highly available (inherited). **Cloud SQL backups/PITR not evidenced** (instance wiring optional in `cloudbuild.yaml`). GCS is durable by default. | Partial | GCP → Cloud SQL backups/PITR; GCS versioning | Turn on Cloud SQL automated backups + PITR; verify. Eng. |
-| A1.3 | Recovery testing / tested restoration | No restore/failover test evidence. | Gap | Sprinto BCP test records | Perform + document a backup-restore test. Owner+Eng. |
+| A1.1 | Capacity monitoring / demand management | Base44 managed hosting (capacity inherited). Cloudflare handles edge scaling. No custom capacity-monitoring dashboards or alerts for the SAWD application layer. | Partial | Cloudflare → traffic metrics; Base44 uptime | Add Sentry performance monitoring; document capacity assumptions in BCP. Eng. |
+| A1.2 | Backup, recovery & environmental protections | Base44 hosting HA (inherited). **Base44 DB backup policy unknown** — need their DPA/SLA. GCS (document storage) durable by default. sawd-web on Cloudflare Pages (HA). | Gap | Base44 DPA (backup SLA); GCP → GCS versioning | **Obtain Base44 backup SLA. Enable GCS versioning on document bucket. Owner (P0).** |
+| A1.3 | Recovery testing / tested restoration | No restore/failover test evidence. Base44 checkpoint restore not documented as a DR test. | Gap | Sprinto BCP test records | Perform + document a Base44 checkpoint restore test and a GCS document restore test. Owner+Eng. |
+
+---
 
 ## Confidentiality (C1)
 
 | Criterion | Control intent | SAWD current state (evidence) | Status | Sprinto check | Remediation / owner |
 |---|---|---|---|---|---|
-| C1.1 | Identify & protect confidential information | Bank tokens encrypted at rest (AES-256-GCM, `crypto.ts`) and redacted on the wire (`entities.ts:49-59`); private docs behind short-lived signed URLs (`storage.ts`); DOMPurify sanitizes AI HTML (`sawd-web/src/lib/safeAiHtml.js`, all 6 sinks route through it per running-list); mobile FaceID app-lock + on-device OCR (`sawd-mobile/AppLock.js`). **No data-classification policy adopted** (drafted only in ISMS §Policy Statement 6). At-rest PII in general JSONB is Cloud-SQL-disk-encrypted only, not field-level (`entities.ts:41-43` notes future dedicated encrypted column). | Partial | GCP → Cloud SQL CMEK/encryption at rest; Sprinto data-classification policy | Adopt data-classification policy; move remaining PII fields to field-level encryption. Owner+Eng. |
-| C1.2 | Retention & disposal of confidential information | No retention schedule; hard deletes only; no GCS lifecycle rules. Historically, prod secrets sat plaintext on an OneDrive-synced Desktop (running-list Security §; `KEY-ROTATION-RUNBOOK.md`) — **rotation to Secret Manager + secure-delete pending**. | Gap | GCP → GCS lifecycle + Secret Manager; Sprinto retention policy | Rotate all keys to Secret Manager, secure-delete Desktop copies; define retention/disposal. **Owner (P0).** |
+| C1.1 | Identify & protect confidential information | **§7216 consent**: ConsentGate blocks all authenticated routes; `aiInvokeSecure` fails closed server-side (`consent_7216_use !== true` → 403). Bank data in `PlaidAccount` entity (encrypted at rest by Base44 platform). Documents behind Base44 file-handling signed URLs. **IRS EFIN/ETIN in Base44 Secrets vault** (set 2026-10-16, masked in logs via `maskEfin()`). No data-classification policy adopted. | Partial | Base44 Secrets config; Sprinto data-classification policy | Adopt data-classification policy; confirm Base44 field-level encryption for sensitive PII. Owner+Eng. |
+| C1.2 | Retention & disposal of confidential information | No retention schedule. Base44 entity deletes are hard deletes. **GCP/OneDrive plaintext-secret rotation**: old GCIP/Plaid/Stripe/GCS service-account keys historically on OneDrive-synced Desktop — **rotation and secure-delete still pending** (parked sawd-backend not deleted). IRS secrets are now in Base44 vault. | Gap | GCP → Secret Manager; Sprinto retention policy | Rotate remaining GCP/Firebase/Plaid/Stripe keys to GCP Secret Manager or Base44 Secrets; secure-delete Desktop copies. **Owner (P0).** |
 
 ---
 
-## Top P0 technical remediations for audit readiness
+## P0 items before booking Type I
 
-1. **Rotate every prod secret into GCP Secret Manager and secure-delete the plaintext copies from the OneDrive-synced Desktop.** SA/Firebase/Stripe/OAuth/Plaid keys in cleartext on a synced laptop is the single highest-severity finding (touches CC6.1, C1.2, CC7.1). Runbook already exists (`KEY-ROTATION-RUNBOOK.md`) — execute it.
-2. **Make MFA mandatory end-to-end.** Code is done and fails closed (`ENFORCE_MFA` in `auth.ts:59,142-157`, client `MFAEnrollGate`/`MFAGate`), but enforcement is OFF at the platform layer. Ordered cutover (`exec/mfa-2sv-runbook.md`): enroll a test user on GCIP TOTP → prove the challenge → `ENFORCE_MFA=true` on Cloud Run → set GCIP `mfa.state=MANDATORY` last → turn on **GitHub org 2FA requirement** (currently `false`, access-review §2). Unblocks CC6.1/CC6.8 and Plaid attestations #5/#6.
-3. **Implement a persisted, tamper-evident application audit log.** The `AIActionAuditLog` table exists in `sawd-backend/src/db/schema.ts` but **is never written by any route** (verified: no writer in `src/`). Wire authn events, entity mutations, and privileged actions to it; ship logs to a retained Cloud Logging sink. Closes CC7.2 and materially strengthens CC4/CC7.3.
-4. **Turn on GitHub branch protection with required status checks + at least one review on `main`.** The CI gates (CodeQL, security.yml, backend ci.yml) exist but nothing forces them before merge, and commits currently land straight on feature branches. This is the CC8.1 change-management evidence Sprinto expects (GitHub integration).
-5. **Enable Cloud SQL automated backups + PITR and document a rollback/recovery playbook.** DB backups are not evidenced (`cloudbuild.yaml` Cloud SQL wiring is optional/commented), and there is no DR/BCP or restore test. Closes A1.2/A1.3/CC9.1 and CC7.5; run one restore test and capture the record.
+1. **Get Base44's SOC 2 report + DPA.** Base44 is the primary subprocessor (all user data, auth, DB, functions live there). Without their security attestation, CC6.4, CC9.1, CC9.2, A1.2 all have no evidence. Email Base44 support requesting: (a) SOC 2 Type II report, (b) DPA, (c) backup/HA SLA. `owner`.
 
-> **Fastest path to a defensible Type I:** items 1–4 are days of work and flip the majority of Partial/Owner-action rows to Met. The remaining Gaps (CC1 governance, CC3 risk register, CC7.3/7.4 incident response, CC9.2 vendor management) are **policy-adoption + Sprinto-configuration** tasks — the ISMS master (`soc2/policies/information-security-policy.md`) is the template; the subordinate policies it references still need to be written and adopted.
+2. **Rotate remaining plaintext secrets off OneDrive Desktop.** Old GCIP/Firebase/Plaid/Stripe/GCS SA keys from the parked sawd-backend era may still be live and sitting on a synced laptop. Execute `soc2/KEY-ROTATION-RUNBOOK.md`; secure-delete originals. `owner`. *C1.2 / CC6.7.*
+
+3. **Enable Base44 platform mandatory MFA.** MFA enforcement in the Base44 admin console (Settings → Security → Require MFA for all users). Also enforce on Google Workspace 2SV. `owner`. *CC6.1.*
+
+4. **Collect vendor DPAs.** Build the subprocessor register (Base44, Plaid, Stripe, GCP, Cloudflare, Anthropic, Google AI, HuggingFace, Smarty) + obtain DPAs from each. Upload to Sprinto vendor module. `owner`. *CC9.2.*
+
+5. **Obtain Base44 backup SLA / data-export capability.** Understand what Base44 backs up, at what frequency, and what the restore process is. Document as DR evidence. `owner`. *A1.2 / CC9.1.*
+
+6. **Connect Sprinto integrations** (after/while addressing items 1–3): GitHub (org) → GCP → Google Workspace → Cloudflare. See `sprinto-integrations.md` for sequence. `owner`.
+
+### P1 — needed within the observation window
+
+7. **Independent pen test.** None done. Schedule through Sprinto's auditor network. `owner`. *CC7.1.*
+8. **Risk register** (formal, scored) — CC3.1. Migrate A-Z audit findings + P0 list into Sprinto risk module.
+9. **Incident Response Policy + tracker** — CC7.3/7.4. Author from `soc2/policies/` template; adopt in Sprinto.
+10. **Security-awareness training** — CC1.4. Enroll in Sprinto training module.
+11. **Sentry alerting rules** — configure meaningful alerts (auth errors, unhandled exceptions) now that DSN is set.
+12. **BCP/DR plan** — author once Base44 backup SLA is obtained.
+
+### Counsel-gated ⚖️
+
+13. §7216/§6713 consent versioning + GLBA Safeguards / WISP formal adoption.
+14. ZDR confirmation for Anthropic + Google AI (are user tax data prompts zero-data-retention?).
+15. Breach-notification matrix in `incident-response-policy.md`.
+
+> ⚠️ **Do not publish an unmet policy assertion in Sprinto and do not submit "MFA everywhere"
+> attestations to Plaid/Stripe until the underlying control is actually enforced.**
+
+---
+
+## Architecture delta (Base44-native vs. prior GCP/GCIP matrix)
+
+| Prior evidence (parked) | Current evidence (Base44-native) | Impact |
+|---|---|---|
+| GCIP RS256 JWT, `sawd-backend/src/auth.ts` | Base44 platform auth (Google OAuth + email) | CC6.1: still Met, evidence = Base44 SOC 2 |
+| Cloud Run / Fastify `@fastify/rate-limit` | Base44 managed functions, platform rate-limiting | CC6.6: Met (inherited) |
+| Cloud SQL + AES-256-GCM `crypto.ts` | Base44 managed DB, platform encryption-at-rest | CC6.1/C1.1: Partial → need Base44 DPA to confirm |
+| Firebase Hosting `firebase.json` CSP/HSTS | Base44 hosting + Cloudflare Pages (sawd-web) | CC6.6/CC6.7: Met via Cloudflare |
+| `sawd-backend feat/audit-log-writer` | Base44 `AuditLog` entity (in-app, live) | CC7.2/7.3: Partial (built, not independently retained) |
+| GCP Secret Manager refs | Base44 Secrets vault (IRS/Sentry set 2026-10-16) | C1.2: Partial → remaining GCP keys still need rotation |
+| Cloud SQL PITR / `setup-cloudsql-backups.sh` | Base44 DB backup (SLA unknown) | A1.2: Gap until Base44 DPA obtained |
+| CodeQL / GitHub CI on sawd-backend | CodeQL / GitHub CI on sawd-web + sawd-mobile only | CC7.1: Partial (Base44 app code not in traditional CI) |

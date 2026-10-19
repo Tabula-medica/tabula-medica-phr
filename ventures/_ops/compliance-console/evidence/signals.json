@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-16T20:20:08.889Z",
+  "collectedAt": "2026-10-16T20:28:36.818Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1086,15 +1086,15 @@
           },
           "httpsEnforced": {
             "verdict": "pass",
-            "detail": "TLS/HSTS enforcement found (8 site(s))"
+            "detail": "TLS/HSTS enforcement found (9 site(s))"
           },
           "noHardcodedSecrets": {
             "verdict": "pass",
             "detail": "no hardcoded-secret patterns matched"
           },
           "privacyPolicyPresent": {
-            "verdict": "fail",
-            "detail": "no privacy page found"
+            "verdict": "pass",
+            "detail": "~\\repos\\mds-platform\\web\\src\\pages\\Privacy.tsx"
           },
           "phiAiVertexOnly": {
             "verdict": "pass",
@@ -1283,7 +1283,7 @@
         "signals": {
           "branchProtection": {
             "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1501,8 +1501,8 @@
             "detail": "Cloud Logging active (sinks/_Default present)"
           },
           "wafEnabled": {
-            "verdict": "pass",
-            "detail": "1 Cloud Armor policy(ies)"
+            "verdict": "unknown",
+            "detail": "Cloud Armor API unavailable"
           },
           "mfaEnforced": {
             "verdict": "pass",
