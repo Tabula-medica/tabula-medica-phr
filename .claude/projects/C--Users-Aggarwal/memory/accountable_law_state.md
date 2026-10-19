@@ -1,13 +1,13 @@
 ---
 name: accountable-law-state
-description: "accountablehub.com — 21 live pages; hospital/charity/physician/attorney/5 program audits; brand fleet-wide AccountableHub; launch kit drafted"
+description: "accountablehub.com — 21 live pages; iOS+Android apps submitted; Base44 admin app created; Kinbridge Global nonprofit; GCS bucket gate"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 387c3ff7-0ec8-4aa2-8dc3-d4db09d71141
 ---
 
-## accountablehub.com — Current State (2026-10-15)
+## accountablehub.com — Current State (2026-10-19)
 
 ### Domain & Deployment
 - **Canonical domain**: `accountablehub.com` (CF Pages, branch: `master`)
@@ -16,6 +16,39 @@ metadata:
 - Backend Cloud Run: `https://accountable-law-api-owiu7hqlja-uc.a.run.app` (GCP `accountable-law-prod`, `abhiaggarwalmd@gmail.com`)
 - API routing: CF Pages Functions proxy `/api/*` → Cloud Run (no CORS issues)
 - GA4: `G-7CS3Y78NB0`
+
+### Mobile Apps (Expo native-shell)
+- Repo: `C:\Users\Aggarwal\repos\accountablehub-mobile\`
+- EAS project: `22cf6c2f-2a8f-4c08-8217-f346562978ca` (owner: `rajivka2`)
+- Bundle ID: `com.accountablehub.app`
+- **iOS**: ASC app ID `6824271539`; build `c3ee4f7a` attached to version `cd317645`
+  - Screenshots: ✅ 4 uploaded (APP_IPHONE_67 ×2, APP_IPAD_PRO_3GEN_129 ×2)
+  - All metadata: ✅ set via API (description, keywords, subtitle, copyright, categories, age rating)
+  - Build attached: ✅
+  - **Remaining gates (UI-only)**:
+    - App Privacy → "Data Not Collected" → must be Published at appstoreconnect.apple.com
+    - Pricing → must be set to Free at appstoreconnect.apple.com/apps/6824271539
+  - **After those 2 gates**: `node asc-final-submit.cjs` in accountablehub-mobile/
+- **Android**: AAB uploaded to Play internal track
+  - Package: `com.accountablehub.app`
+  - Remaining: store listing + content rating + promote to production in Play Console
+- 3-tab native-shell: Home (stats/tools), Hospitals (expo-location GPS), Explore (WebView)
+
+### Base44 Admin App
+- Base44 app ID: `6ad59d952b833f25179435db`
+- Editor: https://app.base44.com/apps/6ad59d952b833f25179435db/editor/preview
+- Built 2026-10-19: admin dashboard for data upload, inquiry tracker, KPIs
+- Part of Kinbridge Global nonprofit umbrella
+
+### GCS Bucket (PENDING)
+- Bucket: `gs://accountablehub-data` (not yet created — gcloud auth expired)
+- Target project: `tabula-medica-bfd3d`, region `us-east1`
+- Gate: `! gcloud auth login --account rajiv@tabulamedica.com`
+- Then: `gcloud storage buckets create gs://accountablehub-data --project=tabula-medica-bfd3d --location=us-east1 --uniform-bucket-level-access`
+
+### Org Affiliation
+- Part of **Kinbridge Global** (nonprofit umbrella, covers UHR/Katha/NoorJyoti/UnRaj)
+- Data sensitivity is high — use GCS + Vertex (no PHI but accountability data)
 
 ### All Live Pages (21 total):
 **Hospital/Medical:**
@@ -57,11 +90,10 @@ metadata:
 
 ### Launch Assets:
 - `LAUNCH-KIT.md` in repo root — ProductHunt, HN Show HN, Twitter thread, Reddit drafts (review before posting)
-- All copy verified against live data numbers; tech stack description confirmed accurate
 
-### Next Steps:
-1. **Viral launch** — Rajiv posts ProductHunt + HN Show HN + Twitter thread (drafts in LAUNCH-KIT.md)
-2. **Phase 3**: Hospital bill OCR (anonymous upload → extract line items → compare to CMS rates)
-3. **Expand attorneys** — NY, TX, FL state bar scrapers
-4. **Attorney score/grade** — A-F like charity scoring
-5. **OG image / social preview** — per-page dynamic OG meta for richer Twitter/LinkedIn shares
+### Open Work:
+1. **iOS final submit**: After App Privacy + Pricing in ASC UI → `node asc-final-submit.cjs`
+2. **Android production**: Store listing + content rating + promote from internal in Play Console
+3. **GCS bucket**: `gcloud auth login` then create `gs://accountablehub-data`
+4. **Viral launch**: ProductHunt + HN + Twitter (drafts in LAUNCH-KIT.md)
+5. **Phase 3**: Hospital bill OCR, NY/TX/FL state bar scrapers, attorney grading
