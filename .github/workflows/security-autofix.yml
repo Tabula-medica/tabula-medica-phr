@@ -47,7 +47,7 @@ jobs:
           npm audit --omit=dev --audit-level=high
       - name: Open pull request
         if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: security/monthly-audit-fix
           delete-branch: true
