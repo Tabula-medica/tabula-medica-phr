@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-16T20:28:36.818Z",
+  "collectedAt": "2026-10-19T17:55:52.179Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1120,7 +1120,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "22 workflow(s) configured"
+            "detail": "23 workflow(s) configured"
           }
         },
         "meta": {
@@ -1145,7 +1145,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "10 workflow(s) configured"
+            "detail": "11 workflow(s) configured"
           }
         },
         "meta": {
@@ -1245,7 +1245,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "8 workflow(s) configured"
+            "detail": "9 workflow(s) configured"
           }
         },
         "meta": {
@@ -1295,7 +1295,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "17 workflow(s) configured"
+            "detail": "18 workflow(s) configured"
           }
         },
         "meta": {
@@ -1345,7 +1345,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "7 workflow(s) configured"
+            "detail": "8 workflow(s) configured"
           }
         },
         "meta": {
@@ -1354,28 +1354,54 @@
           "available": true
         }
       },
+      "accountable-law": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "pass",
+            "detail": "master: required PR reviews on (1 approval)"
+          },
+          "secretScanning": {
+            "verdict": "pass",
+            "detail": "native secret scanning enabled + push-protection"
+          },
+          "codeScanning": {
+            "verdict": "pass",
+            "detail": "code-scanning analyses present"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "5 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/accountable-law",
+          "branch": "master",
+          "available": true
+        }
+      },
       "mds-platform": {
         "signals": {
           "branchProtection": {
-            "verdict": "unknown",
-            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+            "verdict": "pass",
+            "detail": "main: PR review enforced via ruleset (1 approval)"
           },
           "secretScanning": {
-            "verdict": "unknown",
-            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+            "verdict": "pass",
+            "detail": "Gitleaks in CI workflows (native secret scanning requires GHAS)"
           },
           "codeScanning": {
-            "verdict": "unknown",
-            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+            "verdict": "fail",
+            "detail": "no code-scanning analyses or SAST CI tool found"
           },
           "ciTests": {
-            "verdict": "unknown",
-            "detail": "GitHub API unavailable for Tabula-medica/mds-platform"
+            "verdict": "pass",
+            "detail": "3 workflow(s) configured"
           }
         },
         "meta": {
           "slug": "Tabula-medica/mds-platform",
-          "available": false
+          "branch": "main",
+          "available": true
         }
       }
     },
