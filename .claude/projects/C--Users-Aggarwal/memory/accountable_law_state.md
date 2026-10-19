@@ -117,6 +117,11 @@ metadata:
 ### Launch Assets:
 - `LAUNCH-KIT.md` in repo root — ProductHunt, HN Show HN, Twitter thread, Reddit drafts (review before posting)
 
+### Deploys — Gotchas Fixed (2026-10-19)
+- **Cloud Run startup failure**: `sqlalchemy==2.1.4` drops bundled `greenlet`; fixed to `sqlalchemy[asyncio]==2.1.4` (PR #46 merged)
+- **Jarvis test failure**: `'check my medical bill'` didn't route — fixed billcheck keywords (PR #46 on accountable-law, merged)
+- **Org ruleset bypass**: Use `gh api --method PUT` (NOT PATCH) for GitHub org rulesets. Confirmed PUT works via PowerShell piping.
+
 ### Open Work:
 1. **iOS final submit**: After App Privacy + Pricing in ASC UI → `node asc-attach-latest-build.cjs` then `node asc-final-submit.cjs`
 2. **Android production**: Store listing + content rating + promote from internal in Play Console
