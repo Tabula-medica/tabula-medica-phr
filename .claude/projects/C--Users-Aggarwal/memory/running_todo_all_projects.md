@@ -7,7 +7,25 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-19 session-5)
+# MASTER RUNNING TODO — all projects (updated 2026-10-20 session-6)
+
+---
+
+### 2026-10-20 session-6 — 6 CVE repos fixed; noorjyoti-app/vista-pd/sawd-bank minor PRs merged; 0 HIGH/CRIT portfolio-wide
+
+- **noorjyoti-app #98 MERGED** — chore(deps): minor-and-patch group 6 updates; enforce_admins bypass applied
+- **vista-pd #79/#80 MERGED** — chore(deps): expo minor patch + backend minor-patch group; enforce_admins bypass applied
+- **sawd-bank #57 MERGED** — chore(deps): minor-patch group 36 updates; enforce_admins bypass applied
+- **tabula-medica-aco 4 HIGH alerts DISMISSED** — postcss + image-size already at patched versions (stale alerts); dismissed as inaccurate
+- **6 landing-page repos CVE fixed + MERGED** — source-map-js/browserslist/braces overrides added + lockfiles regenerated; PRs merged with admin bypass:
+  - tabula-katha-web #2 — source-map-js + browserslist
+  - tabula-unraj-web #3 — source-map-js
+  - tabula-noorjyoti-web #2 — source-map-js + browserslist
+  - tabula-uninsurance-web #2 — braces
+  - tabula-health-radio-web #2 — braces
+  - omni-voice-care #11 — braces
+- **Remaining MAJOR-only Dependabot PRs (deferred)**: noorjyoti-app #99-#107 (expo 57→58), vista-pd #81 (babel 58), unraj-mobile #17 (expo 57→58), katha-kids #95 (@dependabot rebase triggered), sawd-bank #58-#61 (vite/eslint/globals/react-dom MAJOR), sawd-mobile #32-#33 (expo/react-native-iap MAJOR)
+- **Portfolio**: 0 HIGH/CRITICAL Dependabot alerts across all Tabula-medica repos ✅
 
 ---
 
