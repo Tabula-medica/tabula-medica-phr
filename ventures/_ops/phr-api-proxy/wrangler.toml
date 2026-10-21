@@ -1,0 +1,7 @@
+name = "phr-api-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[[routes]]
+pattern = "tabulamedica.us/api/*"
+zone_name = "tabulamedica.us"
