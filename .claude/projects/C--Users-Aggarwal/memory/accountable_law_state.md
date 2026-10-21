@@ -51,18 +51,13 @@ metadata:
 - `attorney_grade(status, discipline_count)` → A–F (F=disbarred/5+, D=suspended/3-4, C=resign/2, B=1, A=clean)
 - Grade shown as colored circle badge in leaderboard table + detail panel
 
-### Multi-State Attorney Support (Phase 3 — DEPLOYED 2026-10-19):
-- Backend: `ingestion/scrape_txbar.py` + `ingestion/scrape_nybar.py` — PR #45 merged to main
-  - TX: member directory (search-name/last-names) + discipline actions page
-  - NY: OCA registry (search + detail) + all 4 Appellate Division discipline pages (AD1–AD4)
-  - NY bar numbers stored as `NY-XXXXXXX` prefix (no CA collision)
-  - Run: `python ingestion/scrape_txbar.py --seed-from-discipline` (or `--dry-run` to verify)
-- Frontend: PR #45 merged to master → CF Pages deploy triggered
-  - State filter: CA / TX / NY / All States
-  - Section titles, stats, leaderboard all dynamic per state
-  - Verify links route to correct state bar per selection
-- **Data not yet populated**: scrapers ready but not run against prod DB yet
-  - Gate: run `scrape_txbar.py --seed-from-discipline` + `scrape_nybar.py --seed-from-discipline` with prod DATABASE_URL
+### Multi-State Attorney Support (Phase 3 — DEPLOYED 2026-10-21):
+- **NY scraper** rewritten (PR #48) — uses `data.ny.gov/resource/2ea2-qc7r.json` Socrata API (24k disciplined attorneys); AD1-AD4 court pages were 403-everywhere
+- **TX scraper** rewritten (PR #48) — uses TBJ monthly discipline articles with `[#barnum]` pattern; `DisciplinaryActions` page had no structured data
+  - Known ContentIDs: 67750, 68662, 69661, 69920 (scan missed non-mod-5 IDs — 68662, 69661 confirmed manually)
+- **FL scraper** created (PR #49) — status-code filtering on FL Bar member directory (db/su/rl)
+- **Cloud Run Jobs running** (2026-10-21): `scrape-nybar-seed-sd6gz` + `scrape-txbar-seed-whb29` executing asynchronously
+- NY bar numbers stored as `NY-XXXXXXXX` prefix; FL as `FL-XXXXXX`
 
 ### Base44 Admin App
 - Base44 app ID: `6ad59d952b833f25179435db`
@@ -70,11 +65,8 @@ metadata:
 - Built 2026-10-19: admin dashboard for data upload, inquiry tracker, KPIs
 - Part of Kinbridge Global nonprofit umbrella
 
-### GCS Bucket (PENDING)
-- Bucket: `gs://accountablehub-data` (not yet created — gcloud auth expired)
-- Target project: `tabula-medica-bfd3d`, region `us-east1`
-- Gate: `! gcloud auth login --account rajiv@tabulamedica.com`
-- Then: `gcloud storage buckets create gs://accountablehub-data --project=tabula-medica-bfd3d --location=us-east1 --uniform-bucket-level-access`
+### GCS Bucket (CREATED)
+- Bucket: `gs://accountablehub-data` — created in `accountable-law-prod` (prior session)
 
 ### Org Affiliation
 - Part of **Kinbridge Global** (nonprofit umbrella, covers UHR/Katha/NoorJyoti/UnRaj)
@@ -122,10 +114,28 @@ metadata:
 - **Jarvis test failure**: `'check my medical bill'` didn't route — fixed billcheck keywords (PR #46 on accountable-law, merged)
 - **Org ruleset bypass**: Use `gh api --method PUT` (NOT PATCH) for GitHub org rulesets. Confirmed PUT works via PowerShell piping.
 
+### Bill OCR (Phase 3 — DEPLOYED 2026-10-21):
+- `POST /api/v1/bills/analyze` — upload JPEG/PNG/HEIC/WebP/PDF bill (≤20 MB)
+- Vertex AI Gemini Vision extracts CPT codes + amounts; cross-refs against `hospital_outpatient_charges`/`hospital_inpatient_charges` tables
+- Flags: OK / ELEVATED / HIGH / VERY_HIGH based on markup vs Medicare baseline
+- No PHI stored; images processed in-memory only
+- Gate: `roles/aiplatform.user` already granted to `accountable-law-sa@accountable-law-prod.iam.gserviceaccount.com`
+- PR #50 merged; Deploy to Cloud Run in progress (2026-10-21)
+
+### Bill OCR Frontend (DEPLOYED 2026-10-21):
+- PR #47 merged → CF Pages auto-deploy queued
+- Two-mode bill-check page at `/bill-check/`:
+  - Tab 1: "🔍 Lookup by Procedure" (original manual calculator, unchanged)
+  - Tab 2: "📷 Upload Your Bill" — OCR panel; POST `/api/v1/bills/analyze`; drag-drop or click upload; shows line items table with CPT codes, billed vs typical, markup ratio + color-coded flags
+- `switchMode()` JS function; OCR functions: `handleFileSelect`, `handleDrop`, `renderOcrResult`, `resetOcr`, `markupColor`
+
+### Seed Jobs — ALL COMPLETED (2026-10-21):
+- `scrape-nybar-seed-sd6gz` — ✅ Completed (Socrata 24k NY disciplined attorneys)
+- `scrape-txbar-seed-whb29` — ✅ Completed (TBJ article parsing)
+- `scrape-flbar-seed-d2tdj` — 🔄 Running (FL Bar status-code filtering — created 2026-10-21)
+
 ### Open Work:
 1. **iOS final submit**: After App Privacy + Pricing in ASC UI → `node asc-attach-latest-build.cjs` then `node asc-final-submit.cjs`
 2. **Android production**: Store listing + content rating + promote from internal in Play Console
-3. **GCS bucket**: `gcloud auth login` then create `gs://accountablehub-data`
-4. **Viral launch**: ProductHunt + HN + Twitter (drafts in LAUNCH-KIT.md)
-5. **Phase 3 data seeding**: Run TX/NY scrapers against prod DB — `python ingestion/scrape_txbar.py --seed-from-discipline` + `scrape_nybar.py --seed-from-discipline` (both merged, just need DATABASE_URL)
-6. **Phase 3 next**: Hospital bill OCR, FL state bar scraper
+3. **Viral launch**: ProductHunt + HN + Twitter (drafts in LAUNCH-KIT.md)
+4. **Verify FL seed job**: `gcloud run jobs executions describe scrape-flbar-seed-d2tdj --project=accountable-law-prod --region=us-central1`
