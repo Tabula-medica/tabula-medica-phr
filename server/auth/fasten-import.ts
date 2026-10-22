@@ -17,6 +17,7 @@ import {
 import { isFastenConfigured, fastenAuthHeader } from "./fasten";
 import {
   extractExportPayload,
+  extractFailurePayload,
   isAllowedFastenDownloadUrl,
   parseFhirResources,
   bucketResources,
@@ -105,6 +106,52 @@ async function downloadExport(downloadUrl: string): Promise<string | null> {
   } catch (err: any) {
     logger.error(`[FastenImport] export download error: ${err?.message}`);
     return null;
+  }
+}
+
+/**
+ * Handle patient.ehi_export_failed and connection.expired/revoked events:
+ * mark the fastenhealth EhrConnection so the connections page either offers
+ * "Reconnect" (status "expired" → Stitch again) or shows Fasten's sanitized
+ * reason (status "error"). Returns true when a connection was updated. Never
+ * throws — the webhook must always 200 to Fasten.
+ */
+export async function processFastenFailureEvent(event: unknown): Promise<boolean> {
+  const ts = () => new Date().toISOString();
+  try {
+    if (!isFastenConfigured()) {
+      logger.warn(`[FastenImport] failure event received but Fasten is not configured`);
+      return false;
+    }
+    const payload = extractFailurePayload(event);
+    if (!payload) {
+      console.warn(
+        `[HIPAA-AUDIT][FastenConnect] ${ts()} - FAILURE_EVENT_NO_CONNECTION_ID - preceding WEBHOOK_EVENT log has type/task/redacted-conn only`,
+      );
+      return false;
+    }
+    const userId = await findLinkedUserId(payload.orgConnectionId);
+    if (!userId) {
+      console.warn(
+        `[HIPAA-AUDIT][FastenConnect] ${ts()} - FAILURE_EVENT_UNLINKED - conn:${payload.orgConnectionId} (no external_identities row; signup may have been abandoned)`,
+      );
+      return false;
+    }
+    const connection = await getOrCreateFastenConnection(userId, payload.orgConnectionId);
+    const status = payload.needsReauth ? "expired" : "error";
+    const syncError =
+      payload.reason ??
+      (payload.needsReauth
+        ? "Your provider connection needs to be re-authorized."
+        : "Your provider did not return records this time. Try again later.");
+    await storage.updateEhrConnection(connection.id, { status, syncError });
+    console.log(
+      `[HIPAA-AUDIT][FastenConnect] ${ts()} - EXPORT_FAILED - conn:${payload.orgConnectionId} task:${payload.taskId ?? "none"} status:${status}`,
+    );
+    return true;
+  } catch (err: any) {
+    logger.error("[FastenImport] failure event error", { err: err?.message });
+    return false;
   }
 }
 
