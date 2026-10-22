@@ -38881,6 +38881,14 @@ startxref
   app.use("/api/longevity-preventive", longevityPreventiveRoutes.default);
   console.log("[Routes] Longevity & Preventive Health routes registered at /api/longevity-preventive/*");
 
+  // ================== Oncology Course & Survivorship (clinician-only) ==================
+  // Shared module shared/oncology-survivorship.ts — same engine for the Tabula
+  // Medica EHR chart and the World outpatient EHR mirror. Suggestions go to the
+  // provider only; AI refinement runs through the Vertex gateway (BAA).
+  const oncologySurvivorshipRoutes = await import("./routes/oncology-survivorship-routes");
+  app.use("/api/oncology-survivorship", isAuthenticated, requireRole("admin", "provider", "clinician"), oncologySurvivorshipRoutes.default);
+  console.log("[Routes] Oncology Survivorship routes registered at /api/oncology-survivorship/* (provider-only)");
+
   // ================== Drug Savings Routes ==================
   app.use("/api/drug-savings", drugSavingsRoutes);
   // Mounted as drug-label-lookup (not drug-interactions) because this is a passive

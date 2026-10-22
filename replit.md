@@ -33,6 +33,7 @@ Tabula Medica is a PWA that centralizes and simplifies patient health records fr
 *   **UI Components**: `client/src/components/`
 *   **Unified Health Summary Panel**: `client/src/components/unified-summary-panel.tsx`
 *   **Longevity & Preventive Health**: protocol module `shared/longevity-preventive.ts` (portable, mirror to WorldEHR), API `server/routes/longevity-preventive-routes.ts`, UI `client/src/components/longevity-preventive-panel.tsx` (PHR tab, clinician chart subtab, `/longevity-preventive-health` page), practice summary `docs/LONGEVITY_PREVENTIVE_HEALTH_PROTOCOL.md`
+*   **Oncology & Survivorship (clinician-only)**: protocol module `shared/oncology-survivorship.ts` (portable, mirror to WorldEHR), API `server/routes/oncology-survivorship-routes.ts` at `/api/oncology-survivorship` (admin/provider/clinician only; AI refinement via Vertex gateway, candidate-id whitelist), UI `client/src/components/oncology-survivorship-panel.tsx` (Oncology tab on the clinician chart), practice summary `docs/ONCOLOGY_SURVIVORSHIP.md`
 *   **Strategic Planning Docs**: `docs/`
 *   **Security Policy**: `client/public/.well-known/security.txt`
 *   **Security layer (identity, AI runtime guard, SIEM forwarder)**: `server/security/` — `session-binding.ts`, `ai-runtime-guard.ts`, `siem-forwarder.ts`; threat model in `threat_model.md`
