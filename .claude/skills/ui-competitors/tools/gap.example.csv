@@ -1,0 +1,4 @@
+pattern,area,us,c_competitorA,c_competitorB,impact,effort,verdict,evidence,notes
+Example pattern: guided check-in before free chat,companion,partial,yes,yes,4,2,adapt,seen,TEMPLATE ROW. Replace with real observations
+Example pattern: one-tap crisis resources banner,companion,no,yes,?,5,1,adopt,estimate,TEMPLATE ROW. B not seen on a public page
+Example pattern: avatar customization,companion,no,yes,no,1,4,skip,seen,TEMPLATE ROW. Not a fit for a clinical record product
