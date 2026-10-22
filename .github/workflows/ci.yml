@@ -50,6 +50,11 @@ jobs:
       fail-fast: false
       matrix:
         task:
+          - name: PHI-AI boundary guard
+            # Fails if any server file imports a non-BAA AI provider on a PHI path,
+            # or if nim-client.ts is imported outside the explicit allowlist.
+            # CLAUDE.md non-negotiable: CI must enforce this gate.
+            run: bash scripts/phi-ai-guard.sh
           - name: Dependency audit (high+)
             # npm 10 dropped --ignore; continue-on-error would silently pass future CVEs.
             # audit-filter.mjs fails on any HIGH/CRITICAL not in its ACCEPTED_GHSA list,
