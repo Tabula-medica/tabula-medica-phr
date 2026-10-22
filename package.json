@@ -232,7 +232,8 @@
     "http-cache-semantics": "^4.3.0",
     "postcss-selector-parser": "^7.1.6",
     "braces": "^3.0.3",
-    "micromatch": "^4.0.8"
+    "micromatch": "^4.0.8",
+    "follow-redirects": ">=1.16.1"
   },
   "optionalDependencies": {
     "bufferutil": "^4.1.0"
