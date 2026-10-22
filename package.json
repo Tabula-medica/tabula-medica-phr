@@ -208,7 +208,7 @@
     "browserslist": "^4.28.7",
     "axios": "^1.15.3",
     "tmp": "^0.2.6",
-    "dompurify": "^3.4.16",
+    "dompurify": ">=3.4.17",
     "joi": "^17.13.8",
     "proxy-addr": ">=2.0.8",
     "source-map-js": ">=1.2.2",
@@ -233,7 +233,8 @@
     "postcss-selector-parser": "^7.1.6",
     "braces": "^3.0.3",
     "micromatch": "^4.0.8",
-    "follow-redirects": ">=1.16.1"
+    "follow-redirects": ">=1.16.1",
+    "vite": ">=7.3.7"
   },
   "optionalDependencies": {
     "bufferutil": "^4.1.0"
