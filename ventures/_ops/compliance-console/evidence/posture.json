@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T20:30:00.000Z",
+  "generatedAt": "2026-10-22T22:00:00.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -12265,6 +12265,11 @@
     {
       "date": "2026-10-22",
       "action": "CVE sweep 2026-10-22: vite>=8.2.4+follow-redirects>=1.16.1+source-map-js>=1.2.2 lockfiles regenerated; 0 HIGH/CRIT portfolio-wide"
+    },
+    {
+      "date": "2026-10-22",
+      "action": "CVE sweep 2026-10-22 (session 2): merged noorjyoti-web+uninsurance-web vite 8.3.4 EOVERRIDE fix; confirmed 0 active HIGH/CRIT Dependabot alerts portfolio-wide; merged underinsured Expo SDK 58 dep bumps #108-111; merged omnihealth-ehr #481 (patient-timeline) + #482 (portal-ask-context)",
+      "result": "0 active HIGH/CRIT Dependabot alerts; 7 PRs merged across 4 repos"
     }
   ]
 }
