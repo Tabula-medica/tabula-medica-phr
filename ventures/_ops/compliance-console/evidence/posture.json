@@ -12258,7 +12258,8 @@
     "session-7 2026-10-20: katha-kids #95-99 (pino 9→10 fix, gesture 2→3, babel 7→8, expo-location 19→58) + noorjyoti-app #100,102,105,107 (expo 57→58 complete) all merged; 0 P0s; rulesets restored",
     "session-8 2026-10-22: vite HIGH (8.2.0–8.2.3) + markdown-it HIGH (<15.0.3) + python-multipart HIGH (<0.0.30) + google-cloud-aiplatform HIGH sweep — 8 PRs merged across omni-voice-care/#13, tabula-phr-unified/#12, tabula-underinsured-web/#7, tabula-unraj-web/#4, uninsurance/#356, noorjyoti/#97, noorjyoti-app/#119, accountable-law-api/#51; uninsurance-care closed (already on md-it 14.3.1); 0 P0s",
     "session-9 2026-10-22: completed remaining 6 repos — tabula-health-radio-web/#3 (vite+smap), tabula-katha-web/#3 (vite+braces), tabula-noorjyoti-web/#3 (vite+braces), tabula-uninsurance-web/#4 (vite+smap), tabula-unraj-web/#5 (braces), uninsurance-care/#129 (mdit 14.3.1→>=15.0.3 +lockfile); all merged; 0 HIGH/CRITICAL portfolio-wide; SEC-03 dep sweep COMPLETE",
-    "session-10 2026-10-22: new CVE wave — follow-redirects HIGH (>=1.16.0,<1.16.1) + certifi CRITICAL (>=2019.03.09,<2026.10.19); 5 PRs merged: tabula-health-radio-web/#4, tabula-uninsurance-web/#5, noorjyoti/#99, noorjyoti-app/#120, sawd-bank/#62 (dependabot); 0 HIGH/CRITICAL portfolio-wide"
+    "session-10 2026-10-22: new CVE wave — follow-redirects HIGH (>=1.16.0,<1.16.1) + certifi CRITICAL (>=2019.03.09,<2026.10.19); 5 PRs merged: tabula-health-radio-web/#4, tabula-uninsurance-web/#5, noorjyoti/#99, noorjyoti-app/#120, sawd-bank/#62 (dependabot); 0 HIGH/CRITICAL portfolio-wide",
+    "session-11 2026-10-22: second CVE wave — tabula-noorjyoti-web vite override missing (PR#5 vite>=8.2.4+follow-redirects); tabula-medica-phr follow-redirects+dompurify CRIT+vite HIGH (PR#264 merged: all three overrides); sawd-bank vite>=6.4.4 (PR#66); 5 stale phr alerts dismissed; 0 HIGH/CRITICAL portfolio-wide"
   ],
   "sweepLog": [
     {
