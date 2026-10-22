@@ -12,6 +12,8 @@ architecture decisions live in `replit.md`. Roadmap and program docs live in
   consumer Gemini API for PHI. CI enforces this with `scripts/phi-ai-guard.sh`.
 - Never log, email, or commit PHI. Operational alert emails stay PHI-free even though the
   provider is BAA-eligible.
+- NVIDIA NIM (hosted API) has no BAA: non-PHI only, via `server/lib/nim-client.ts`, with callers listed in
+  `scripts/phi-nim-allowlist.txt`. Enforced by `scripts/phi-ai-guard.sh`. See `docs/NIM_SETUP.md`.
 - Do not claim SOC 2 or HITRUST certification in any copy; say "aligned with" at most.
 - New public pages must be added to the public route lists in `client/src/App.tsx` or they
   silently render the landing page for logged-out users.
