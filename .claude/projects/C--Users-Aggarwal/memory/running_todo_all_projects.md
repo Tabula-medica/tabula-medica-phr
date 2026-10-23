@@ -7,7 +7,18 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-20 session-6)
+# MASTER RUNNING TODO — all projects (updated 2026-10-22 worldehr-session)
+
+---
+
+### 2026-10-22 worldehr-session — 5 priority PRs merged; 0 open PRs; mobile build triggered
+
+- **omnihealth-ehr PRs #472/#474/#477 MERGED** — DOB segmented entry + jose CryptoKey fix + Epic inpatient UX overhaul (MAR time-grid, flowsheet groups, InpatientNav sidebar, portal AI explainer, patient visit summaries); all squash-merged to main; auto-deploying to Cloud Run + CF Pages
+- **PRs #475/#476 CLOSED** — stale (changes included in #477 squash)
+- **worldehr-mobile build triggered** — `gh workflow run "Ship mobile (build + submit)"` run #39800118042; builds iOS+Android + auto-submits to App Store/Play Store
+- **0 open PRs in omnihealth-ehr** ✅
+- **worldehr-mobile PR #31 confirmed MERGED** (from prior session — iOS-native search UX + v1.0.5)
+- **Manual gates still open**: iOS ASC age-rating+pricing+territories+Submit; Android Play production promote; worldehr-pg appuser password rotation (URGENT, leaked 2026-09-07); verify Cloud Run migration log via `gcloud auth login`; Duo prod creds in Secret Manager
 
 ---
 
