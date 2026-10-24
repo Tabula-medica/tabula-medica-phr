@@ -55,7 +55,10 @@ jobs:
           node-version: 22
           cache: npm
       - name: Audit production dependency tree
-        run: npm audit --omit=dev --audit-level=high
+        # Uses audit-filter.mjs so breaking-major-only advisories in ACCEPTED_GHSA
+        # (documented with justification + review date) are excluded while keeping
+        # the gate strict for all other HIGH/CRITICAL findings.
+        run: node scripts/audit-filter.mjs --omit-dev
 
   phi-siem-fields:
     name: SIEM forwarder PHI allowlist test
