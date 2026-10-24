@@ -56,6 +56,7 @@ import { Link } from "wouter";
 import { StatusBadge, FlagBadge, LoadingState } from "@/components/shared";
 import { LongevityPreventivePanel } from "@/components/longevity-preventive-panel";
 import type { LongevityProfile } from "@shared/longevity-preventive";
+import { OncologySurvivorshipPanel } from "@/components/oncology-survivorship-panel";
 
 /** Derive the anonymous longevity profile (age + sex) from chart demographics. */
 function longevityProfileFromDemographics(
@@ -782,7 +783,7 @@ export default function PatientHealthRecord() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7" data-testid="tabs-health-record">
+        <TabsList className="grid w-full grid-cols-8" data-testid="tabs-health-record">
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="appointments" data-testid="tab-appointments">Appointments</TabsTrigger>
           <TabsTrigger value="vitals" data-testid="tab-vitals">Vitals</TabsTrigger>
@@ -790,6 +791,7 @@ export default function PatientHealthRecord() {
           <TabsTrigger value="notes" data-testid="tab-notes">Notes</TabsTrigger>
           <TabsTrigger value="telehealth" data-testid="tab-telehealth">Telehealth</TabsTrigger>
           <TabsTrigger value="preventive" data-testid="tab-preventive">Preventive</TabsTrigger>
+          <TabsTrigger value="oncology" data-testid="tab-oncology">Oncology</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
@@ -1160,6 +1162,17 @@ export default function PatientHealthRecord() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="oncology" className="mt-6">
+          {activeTab === "oncology" && (
+            <OncologySurvivorshipPanel
+              patientId={patientId}
+              age={longevityProfileFromDemographics(healthRecord?.demographics)?.age}
+              sex={longevityProfileFromDemographics(healthRecord?.demographics)?.sex}
+              labs={healthRecord?.labResults}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="preventive" className="mt-6">
