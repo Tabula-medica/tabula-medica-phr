@@ -26,8 +26,8 @@ function hashIdentifier(id: string): string {
 }
 
 const analyzeRequestSchema = z.object({
-  systemIds: z.array(z.string()).optional(),
-  resourceTypes: z.array(z.string()).optional(),
+  systemIds: z.array(z.string()).max(500).optional(),
+  resourceTypes: z.array(z.string()).max(500).optional(),
 });
 
 const mappingRequestSchema = z.object({
@@ -44,7 +44,7 @@ const mappingRequestSchema = z.object({
     cardinality: z.string().optional(),
     transform: z.string().optional(),
     required: z.boolean().optional(),
-  })).optional().default([]),
+  })).max(500).optional().default([]),
   codeSystemMappings: z.array(z.object({
     id: z.string().optional(),
     sourceCodeSystem: z.string(),
@@ -57,8 +57,8 @@ const mappingRequestSchema = z.object({
       targetCode: z.string(),
       targetDisplay: z.string().optional(),
       equivalence: z.string().optional(),
-    })).optional(),
-  })).optional().default([]),
+    })).max(5000).optional(),
+  })).max(100).optional().default([]),
 });
 
 const mappingUpdateSchema = z.object({
@@ -74,7 +74,7 @@ const mappingUpdateSchema = z.object({
     cardinality: z.string().optional(),
     transform: z.string().optional(),
     required: z.boolean().optional(),
-  })).optional(),
+  })).max(500).optional(),
   codeSystemMappings: z.array(z.object({
     id: z.string().optional(),
     sourceCodeSystem: z.string(),
@@ -87,8 +87,8 @@ const mappingUpdateSchema = z.object({
       targetCode: z.string(),
       targetDisplay: z.string().optional(),
       equivalence: z.string().optional(),
-    })).optional(),
-  })).optional(),
+    })).max(5000).optional(),
+  })).max(100).optional(),
 });
 
 const discrepancyStatusSchema = z.object({
@@ -100,7 +100,7 @@ const configUpdateSchema = z.object({
   autoDetectDiscrepancies: z.boolean().optional(),
   autoSuggestRules: z.boolean().optional(),
   discrepancyThreshold: z.enum(["low", "medium", "high", "critical"]).optional(),
-  preferredCodeSystems: z.array(z.string()).optional(),
+  preferredCodeSystems: z.array(z.string()).max(100).optional(),
   preferredDateFormat: z.string().optional(),
   enableAIAnalysis: z.boolean().optional(),
   notifyOnCritical: z.boolean().optional(),

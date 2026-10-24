@@ -24,10 +24,10 @@ const workflowUpdateSchema = z.object({
     name: z.string(),
     description: z.string().optional(),
     config: z.record(z.any()).optional(),
-    dependencies: z.array(z.string()).optional(),
+    dependencies: z.array(z.string()).max(50).optional(),
     position: z.object({ x: z.number(), y: z.number() }).optional(),
     estimatedDurationSeconds: z.number().optional()
-  })).optional()
+  })).max(100).optional()
 });
 
 const executionTriggerSchema = z.object({

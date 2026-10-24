@@ -80,6 +80,44 @@ export const PASSPORT_VERIFY_BODY_LIMIT =
  */
 export const WEBHOOK_BODY_LIMIT = process.env.WEBHOOK_BODY_LIMIT || "64kb";
 
+/**
+ * Routes that legitimately need a body larger than the 1 mb global default
+ * because they accept base64-encoded images, audio, or FHIR bulk payloads.
+ *
+ * Mounted BEFORE the global parser (same technique as UNAUTHENTICATED_BODY_LIMITS)
+ * so body-parser skips re-parsing and the route-specific limit wins.
+ *
+ * Every entry here requires the route to be authenticated — the rationale for
+ * keeping large-body surfaces behind auth is that an unauthenticated caller
+ * cannot push a 10 mb payload to an arbitrary endpoint.
+ */
+export const LARGE_BODY_ROUTES: readonly BodyLimit[] = [
+  {
+    path: "/api/documents/ocr",
+    limit: "10mb",
+    reason:
+      "Document OCR accepts a base64-encoded image/PDF that can approach 10 MB before encoding overhead.",
+  },
+  {
+    path: "/api/multimodal",
+    limit: "10mb",
+    reason:
+      "Multimodal document parser accepts base64 image/PDF data for both authenticated and anonymous parse paths.",
+  },
+  {
+    path: "/api/card-ocr",
+    limit: "10mb",
+    reason:
+      "Insurance-card OCR accepts a base64-encoded card image (front + back can be several MB).",
+  },
+  {
+    path: "/api/gcp-healthcare-services/medasr",
+    limit: "10mb",
+    reason:
+      "Medical Speech-to-Text accepts a base64-encoded audio payload (audioContent) that can exceed 1 MB for longer recordings.",
+  },
+];
+
 export const UNAUTHENTICATED_BODY_LIMITS: readonly BodyLimit[] = [
   {
     path: "/api/world/ips/verify",
@@ -111,10 +149,14 @@ export const UNAUTHENTICATED_BODY_LIMITS: readonly BodyLimit[] = [
  * The limit that governs `path`, or null when only the global cap applies.
  *
  * Prefix matching is `/`-delimited so `/s/redeem` never claims `/s/redeemer`.
+ * Unauthenticated caps take precedence over large-body caps so that a route
+ * that appears in both tables (which should never happen by design) is always
+ * constrained to the smaller limit.
  */
 export function bodyLimitFor(path: string): BodyLimit | null {
+  const all = [...UNAUTHENTICATED_BODY_LIMITS, ...LARGE_BODY_ROUTES];
   return (
-    UNAUTHENTICATED_BODY_LIMITS.find(
+    all.find(
       (entry) => path === entry.path || path.startsWith(entry.path + "/"),
     ) ?? null
   );
