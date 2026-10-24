@@ -85,3 +85,37 @@ jobs:
       - name: ${{ matrix.task.name }}
         run: ${{ matrix.task.run }}
         continue-on-error: ${{ matrix.task.allow-failure == true }}
+
+  # Rendered-page axe. eslint-plugin-jsx-a11y and the jsdom axe suite already
+  # run in the matrix above (lint:a11y, test:a11y) and fail the pull request.
+  # This job walks public routes in Chromium. It is non-blocking until the
+  # open gaps in docs/accessibility-conformance-report.md are closed, for the
+  # same reason typecheck is not gated yet: a pre-existing failure would stop
+  # every unrelated change. Promote it by deleting continue-on-error.
+  playwright-axe:
+    name: Playwright axe (public pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Axe public routes
+        env:
+          CI: true
+          # Boot placeholder only. The server refuses to start with an empty
+          # OpenAI env var; this value is not a credential and is not used for PHI.
+          AI_INTEGRATIONS_OPENAI_API_KEY: sk-placeholder-dev-only
+          TABULA_REGION: us
+        run: npx playwright test e2e/a11y-public.spec.ts

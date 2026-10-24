@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import type { DeploymentRegion } from "@shared/deployment-region";
 
 interface PublicConfig {
   tefcaEnabled: boolean;
+  region?: DeploymentRegion;
 }
 
 /**
@@ -14,10 +16,17 @@ interface PublicConfig {
  * is never briefly degraded; `.world` shows the TEFCA surface for a moment on
  * first paint, then hides it once config loads.
  */
-export function useTefcaEnabled(): boolean {
+export function usePublicConfig(): { tefcaEnabled: boolean; region: DeploymentRegion } {
   const { data } = useQuery<PublicConfig>({
     queryKey: ["/api/public-config"],
     staleTime: Infinity,
   });
-  return data?.tefcaEnabled ?? true;
+  return {
+    tefcaEnabled: data?.tefcaEnabled ?? true,
+    region: data?.region ?? "us",
+  };
+}
+
+export function useTefcaEnabled(): boolean {
+  return usePublicConfig().tefcaEnabled;
 }

@@ -1,0 +1,66 @@
+name: Deploy backend to Cloud Run
+
+# API, PHI, and webhooks. Authenticate with Workload Identity Federation.
+# Secret values stay in Secret Manager and are bound by name. The workflow
+# must not echo them. Dispatch only until the identity provider is configured.
+#
+# World and US are the same image. TABULA_REGION=world forces TEFCA off.
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: TABULA_REGION for this Cloud Run service
+        required: true
+        type: choice
+        options:
+          - us
+          - world
+        default: us
+      service_name:
+        description: Cloud Run service name
+        required: true
+        type: string
+        default: tabula-medica-phr
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  cloudrun:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy
+        env:
+          REGION_INPUT: ${{ inputs.region }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
+        run: |
+          set -euo pipefail
+          if [ "$REGION_INPUT" = "world" ]; then TEFCA=false; else TEFCA=true; fi
+          gcloud run deploy "$SERVICE_NAME" \
+            --source . \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --platform managed \
+            --add-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
+            --set-env-vars "TABULA_REGION=${REGION_INPUT},TEFCA_ENABLED=${TEFCA},AI_PROVIDER=vertex,GCS_USE_ADC=true" \
+            --set-secrets "DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,PHI_ENCRYPTION_SALT=PHI_ENCRYPTION_SALT:latest,MFA_ENCRYPTION_KEY=MFA_ENCRYPTION_KEY:latest,FASTEN_HEALTH_PRIVATE_KEY=FASTEN_HEALTH_PRIVATE_KEY:latest,FASTEN_HEALTH_CLIENT_ID=FASTEN_HEALTH_CLIENT_ID:latest" \
+            --ingress all \
+            --allow-unauthenticated \
+            --port 8080 \
+            --quiet

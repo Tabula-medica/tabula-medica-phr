@@ -1,0 +1,54 @@
+name: Deploy web to Cloudflare
+
+# Static client only. The API stays on Cloud Run. Cloudflare caches the
+# shell and nothing that can contain PHI. Do not point this workflow at
+# dist/index.cjs, server/, or any env file.
+#
+# Dispatch only until CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID exist
+# as Actions secrets. API hostname DNS stays grey-cloud (DNS only).
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: Deployment region baked into the static shell
+        required: true
+        type: choice
+        options:
+          - us
+          - world
+        default: us
+
+permissions:
+  contents: read
+
+jobs:
+  pages:
+    name: Publish static shell
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build client
+        env:
+          VITE_TABULA_REGION: ${{ inputs.region }}
+          VITE_API_ORIGIN: ${{ vars.VITE_API_ORIGIN }}
+          VITE_GCIP_API_KEY: ${{ secrets.VITE_GCIP_API_KEY }}
+          VITE_GCIP_AUTH_DOMAIN: ${{ vars.VITE_GCIP_AUTH_DOMAIN }}
+          VITE_GCIP_PROJECT_ID: ${{ vars.VITE_GCIP_PROJECT_ID }}
+        run: npm run build
+
+      - name: Deploy dist/public to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deploy dist/public --project-name=tabula-medica-phr --commit-dirty=true

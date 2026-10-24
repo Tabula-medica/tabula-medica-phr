@@ -25,6 +25,7 @@ import {
   accounts,
 } from "@shared/schema";
 import { generatePhiSafeChat, generatePhiSafeChatStream, generatePhiSafeText } from "./services/ai-gateway";
+import { resolveDeployment } from "@shared/deployment-region";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import {
   isFastenConfigured,
@@ -1141,17 +1142,21 @@ export async function registerRoutes(
     console.error("[Routes] Failed to initialize GCP integrations:", error);
   }
 
-  // ── TEFCA / Fasten Health feature flag ──────────────────────────────────
-  // TEFCA (the US-only health-information-exchange network) and its Fasten
-  // Health connector are US-only. The international `tabulamedica.world`
-  // deployment runs the SAME image with TEFCA_ENABLED=false so it exposes NO
-  // TEFCA/Fasten surface; the US `tabulamedica.us` deployment leaves the var
-  // unset (defaults ON). Default-on preserves existing behavior everywhere.
-  const TEFCA_ENABLED = process.env.TEFCA_ENABLED !== "false";
+  // ── Region + TEFCA / Fasten feature flag ───────────────────────────────
+  // One image. TABULA_REGION=world is the international deployment and forces
+  // TEFCA off. TEFCA_ENABLED=false still opts the US deployment out. The US
+  // default stays on so existing tabulamedica.us deploys do not change.
+  const deployment = resolveDeployment({
+    TABULA_REGION: process.env.TABULA_REGION,
+    TEFCA_ENABLED: process.env.TEFCA_ENABLED,
+  });
+  const TEFCA_ENABLED = deployment.tefcaEnabled;
 
   // Public, no-auth runtime config so the SPA can hide TEFCA UI on .world.
+  // no-store: this response must not be cached at a CDN.
   app.get("/api/public-config", (_req, res) => {
-    res.json({ tefcaEnabled: TEFCA_ENABLED });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ region: deployment.region, tefcaEnabled: deployment.tefcaEnabled });
   });
 
   // Non-PHI public chat proxy for uninsurance.html navigation assistant.
