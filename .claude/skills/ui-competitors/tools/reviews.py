@@ -122,6 +122,10 @@ def load_reviews(path, competitor=None):
         kept, dropped, dupes, withheld = [], 0, 0, 0
         seen = set()
         for i, raw in enumerate(reader, start=2):
+            if None in raw:
+                raise FeedbackError(
+                    "%s line %d has more fields than columns. Quote any comma "
+                    "inside a field." % (path, i))
             row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
             url, text = row.get("url", ""), row.get("text", "")
             if not url or not text or not re.match(r"^https?://", url):
