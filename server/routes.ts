@@ -436,6 +436,7 @@ import familyVerificationRoutes from "./routes/family-verification-routes";
 import familyHubRoutes from "./family-hub-routes";
 import { requireFeature } from "./middleware/require-feature";
 import { requireUser, getUserId, assertOwnsProfile } from "./middleware/require-user";
+import { boundedArray, nonEmptyBoundedArray } from "./lib/zod-helpers";
 import enterpriseSavingsRoutes from "./enterprise-savings-routes";
 import uninsuredResourcesRoutes from "./routes/uninsured-resources-routes";
 import cmsMarketplaceRoutes from "./routes/cms-marketplace-routes";
@@ -8717,7 +8718,7 @@ STRICT NO-CDS CONSTRAINTS:
         medicationName: z.string().min(1),
         dosage: z.string().min(1),
         frequency: z.enum(["once_daily", "twice_daily", "three_times_daily", "four_times_daily", "weekly", "as_needed"]),
-        scheduledTimes: z.array(z.string()).min(1).max(10),
+        scheduledTimes: nonEmptyBoundedArray(z.string(), 10),
         notifyViaApp: z.boolean().optional(),
         notifyViaPush: z.boolean().optional(),
       });
@@ -8756,7 +8757,7 @@ STRICT NO-CDS CONSTRAINTS:
       
       const updateSchema = z.object({
         isActive: z.boolean().optional(),
-        scheduledTimes: z.array(z.string()).max(10).optional(),
+        scheduledTimes: boundedArray(z.string(), 10).optional(),
         frequency: z.enum(["once_daily", "twice_daily", "three_times_daily", "four_times_daily", "weekly", "as_needed"]).optional(),
         notifyViaApp: z.boolean().optional(),
         notifyViaPush: z.boolean().optional(),
@@ -13848,7 +13849,7 @@ Generate a JSON response:
       // Validate completedSteps
       const { z } = await import("zod");
       const onboardingCompleteSchema = z.object({
-        completedSteps: z.array(z.string()).max(50).default([]),
+        completedSteps: boundedArray(z.string(), 50).default([]),
         goals: z.array(z.object({
           category: z.enum(["weight", "exercise", "nutrition", "medication", "mental_health", "sleep", "other"]).optional(),
           title: z.string().min(1),
@@ -13951,9 +13952,9 @@ Generate a JSON response:
             preferredLanguage: z.string().optional(),
           }).optional(),
           medicalHistory: z.object({
-            conditions: z.array(z.string()).max(200).optional(),
-            surgeries: z.array(z.object({ name: z.string(), date: z.string() })).max(100).optional(),
-            familyHistory: z.array(z.object({ condition: z.string(), relation: z.string() })).max(100).optional(),
+            conditions: boundedArray(z.string(), 200).optional(),
+            surgeries: boundedArray(z.object({ name: z.string(), date: z.string() }), 100).optional(),
+            familyHistory: boundedArray(z.object({ condition: z.string(), relation: z.string() }), 100).optional(),
           }).optional(),
           medications: z.array(z.object({
             name: z.string(),
@@ -13978,7 +13979,7 @@ Generate a JSON response:
             communicationConsent: z.boolean().optional(),
           }).optional(),
         }).optional(),
-        completedSteps: z.array(z.string()).max(50).optional(),
+        completedSteps: boundedArray(z.string(), 50).optional(),
       });
 
       const validation = patientRegistrationSchema.safeParse(req.body);
@@ -20330,7 +20331,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Voice search with transcription
-  app.post("/api/search/voice", async (req, res) => {
+  app.post("/api/search/voice", requireUser, async (req, res) => {
     try {
       const { audioBase64, language } = req.body;
 
@@ -22001,7 +22002,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     patientId: z.string().min(1, "Patient ID is required"),
     responses: z.array(z.object({
       fieldId: z.string(),
-      value: z.union([z.string(), z.array(z.string()).max(50), z.number(), z.boolean()]),
+      value: z.union([z.string(), boundedArray(z.string(), 50), z.number(), z.boolean()]),
     })).max(200),
   });
 
@@ -23070,7 +23071,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     recipientType: z.enum(["provider", "caregiver", "family", "care_team"]),
     recipientId: z.string().min(1),
     recipientName: z.string().min(1),
-    dataCategories: z.array(z.string()).min(1).max(50),
+    dataCategories: nonEmptyBoundedArray(z.string(), 50),
     accessLevel: z.enum(["view", "view_and_download"]).default("view"),
     validFrom: z.string().optional(),
     validUntil: z.string().optional(),
@@ -23848,9 +23849,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     patientId: z.string().optional(),
     patientContext: z.object({
       age: z.number().optional(),
-      conditions: z.array(z.string()).max(200).optional(),
-      medications: z.array(z.string()).max(500).optional(),
-      allergies: z.array(z.string()).max(200).optional(),
+      conditions: boundedArray(z.string(), 200).optional(),
+      medications: boundedArray(z.string(), 500).optional(),
+      allergies: boundedArray(z.string(), 200).optional(),
     }).optional(),
   });
 
@@ -28410,14 +28411,14 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     specialty: z.string(),
     scheduledDate: z.string(),
     patientContext: z.object({
-      conditions: z.array(z.string()).max(200).default([]),
-      medications: z.array(z.string()).max(500).default([]),
+      conditions: boundedArray(z.string(), 200).default([]),
+      medications: boundedArray(z.string(), 500).default([]),
       recentLabResults: z.array(z.object({
         name: z.string(),
         value: z.string(),
         date: z.string(),
       })).max(100).default([]),
-      allergies: z.array(z.string()).max(200).default([]),
+      allergies: boundedArray(z.string(), 200).default([]),
     }).optional(),
   });
 
@@ -29071,7 +29072,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     isRead: z.boolean().optional(),
     isPinned: z.boolean().optional(),
     isArchived: z.boolean().optional(),
-    tags: z.array(z.string()).max(100).optional(),
+    tags: boundedArray(z.string(), 100).optional(),
     notes: z.string().nullable().optional(),
     episodeId: z.string().nullable().optional(),
   });
@@ -29902,7 +29903,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
 
   const exportRequestSchema = z.object({
     format: z.enum(["json", "pdf", "fhir"]),
-    categories: z.array(z.string()).max(50),
+    categories: boundedArray(z.string(), 50),
   });
 
   app.post("/api/privacy/exports", async (req, res) => {
@@ -31192,7 +31193,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     severity: z.enum(["mild", "moderate", "severe"]),
     duration: z.string().min(1, "Duration is required"),
     notes: z.string().optional(),
-    triggers: z.array(symptomTriggerSchema).max(50).optional(),
+    triggers: boundedArray(symptomTriggerSchema, 50).optional(),
     triggerType: z.string().optional(),
     triggerDescription: z.string().optional(),
   });
@@ -31698,7 +31699,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     date: z.string(),
     content: z.string().min(1, "Content is required"),
     mood: z.enum(["very_negative", "negative", "neutral", "positive", "very_positive"]),
-    tags: z.array(z.string()).max(100).optional(),
+    tags: boundedArray(z.string(), 100).optional(),
   });
 
   app.post("/api/journal", async (req, res) => {
@@ -35522,7 +35523,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
 
   const unifiedSearchQuerySchema = z.object({
     query: z.string().min(1).max(200),
-    types: z.array(z.string()).max(20).optional(),
+    types: boundedArray(z.string(), 20).optional(),
     limit: z.number().min(1).max(100).default(20),
   });
 

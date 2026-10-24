@@ -20,15 +20,15 @@ const workflowUpdateSchema = z.object({
   description: z.string().optional(),
   status: z.enum(["draft", "active", "paused", "archived"]).optional(),
   triggerType: z.enum(["manual", "scheduled", "fhir_event", "data_quality_threshold", "new_data_source", "api_webhook"]).optional(),
-  steps: z.array(z.object({
+  steps: boundedArray(z.object({
     type: z.enum(["data_ingestion", "validation", "harmonization", "transformation", "enrichment", "quality_check", "report_generation", "notification", "condition", "parallel", "delay", "manual_review"]),
     name: z.string(),
     description: z.string().optional(),
     config: z.record(z.any()).optional(),
-    dependencies: z.array(z.string()).max(50).optional(),
+    dependencies: boundedArray(z.string(), 50).optional(),
     position: z.object({ x: z.number(), y: z.number() }).optional(),
     estimatedDurationSeconds: z.number().optional()
-  })).max(100).optional()
+  }), 100).optional()
 });
 
 const executionTriggerSchema = z.object({

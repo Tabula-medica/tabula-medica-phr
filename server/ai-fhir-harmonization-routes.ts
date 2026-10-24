@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { boundedArray } from "./lib/zod-helpers";
 import { createHash } from "crypto";
 import { aiFhirHarmonizationEngine } from "./services/ai-fhir-harmonization-engine";
 
@@ -26,8 +27,8 @@ function hashIdentifier(id: string): string {
 }
 
 const analyzeRequestSchema = z.object({
-  systemIds: z.array(z.string()).max(500).optional(),
-  resourceTypes: z.array(z.string()).max(500).optional(),
+  systemIds: boundedArray(z.string(), 500).optional(),
+  resourceTypes: boundedArray(z.string(), 500).optional(),
 });
 
 const mappingRequestSchema = z.object({
@@ -100,7 +101,7 @@ const configUpdateSchema = z.object({
   autoDetectDiscrepancies: z.boolean().optional(),
   autoSuggestRules: z.boolean().optional(),
   discrepancyThreshold: z.enum(["low", "medium", "high", "critical"]).optional(),
-  preferredCodeSystems: z.array(z.string()).max(100).optional(),
+  preferredCodeSystems: boundedArray(z.string(), 100).optional(),
   preferredDateFormat: z.string().optional(),
   enableAIAnalysis: z.boolean().optional(),
   notifyOnCritical: z.boolean().optional(),

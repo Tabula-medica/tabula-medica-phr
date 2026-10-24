@@ -192,7 +192,7 @@ describe("the table is complete against the routes themselves", () => {
   ];
 
   const AUTH_GUARDS =
-    /isAuthenticated|requireClinicStaff|requireEngagementStaff|requireProfile|requireProviderAuth|requireRole/;
+    /isAuthenticated|requireClinicStaff|requireEngagementStaff|requireProfile|requireProviderAuth|requireRole|requireUser/;
 
   /** Every `app.post|put|patch` path in those files that carries no guard. */
   function unauthenticatedBodyRoutes(): string[] {

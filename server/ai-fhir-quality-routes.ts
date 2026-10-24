@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import { boundedArray } from "./lib/zod-helpers";
 import * as qualityEngine from "./services/ai-fhir-data-quality-engine";
 import { requireRole } from "./rbac";
 import crypto from "crypto";
@@ -49,7 +50,7 @@ router.post("/analyze",
 
 const runScanSchema = z.object({
   profileId: z.string().optional().default("default-comprehensive"),
-  resources: z.array(z.record(z.unknown())).max(5000),
+  resources: boundedArray(z.record(z.unknown()), 5000),
 });
 
 router.post("/scan",
@@ -277,7 +278,7 @@ router.get("/profiles/:id",
 const createProfileSchema = z.object({
   name: z.string(),
   description: z.string(),
-  resourceTypes: z.array(z.string()).max(500),
+  resourceTypes: boundedArray(z.string(), 500),
   issueTypesMonitored: z.array(z.enum([
     "missing_required_field",
     "invalid_code_system",
@@ -297,7 +298,7 @@ const createProfileSchema = z.object({
     condition: z.string(),
     escalateTo: z.string(),
     priority: z.enum(["urgent", "high", "normal"]),
-    notifyChannels: z.array(z.enum(["email", "in_app", "webhook"])).max(3),
+    notifyChannels: boundedArray(z.enum(["email", "in_app", "webhook"]), 3),
   })).max(50).default([]),
   isActive: z.boolean().default(true),
 });

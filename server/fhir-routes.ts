@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { fhirAuditMiddleware } from "./middleware/fhir-audit-middleware";
 import { z } from "zod";
+import { boundedArray } from "./lib/zod-helpers";
 import { getFhirStore, getAuditLogger, getAnalyticsStore } from "./services/integrations/factory";
 import type { AuditLogEntry } from "./services/integrations/interfaces";
 import {
@@ -17,8 +18,8 @@ import {
 } from "./services/sync-export";
 
 const batchExportSchema = z.object({
-  resourceTypes: z.array(z.string()).min(1, "resourceTypes must have at least one item").max(500),
-  patientIds: z.array(z.string()).max(500).optional(),
+  resourceTypes: boundedArray(z.string(), 500).refine((arr) => arr.length >= 1, { message: "resourceTypes must have at least one item" }),
+  patientIds: boundedArray(z.string(), 500).optional(),
   deIdentify: z.boolean().default(true),
   format: z.enum(["fhir_ndjson", "csv", "parquet"]).default("fhir_ndjson"),
   destination: z.object({
@@ -29,7 +30,7 @@ const batchExportSchema = z.object({
 
 const syncConfigSchema = z.object({
   enabled: z.boolean().optional(),
-  resourceTypes: z.array(z.string()).max(500).optional(),
+  resourceTypes: boundedArray(z.string(), 500).optional(),
   destination: z.enum(["bigquery", "analytics_store"]).optional(),
   deIdentify: z.boolean().optional(),
   batchSize: z.number().int().min(1).max(10000).optional(),
@@ -51,7 +52,7 @@ const bigqueryExportSchema = z.object({
 
 const analyticsInsertSchema = z.object({
   table: z.string().min(1, "table name is required"),
-  rows: z.array(z.record(z.unknown())).min(1, "rows must have at least one item").max(1000),
+  rows: boundedArray(z.record(z.unknown()), 1000).refine((arr) => arr.length >= 1, { message: "rows must have at least one item" }),
   deIdentify: z.boolean().default(false),
 });
 
