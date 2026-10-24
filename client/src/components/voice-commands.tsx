@@ -7,6 +7,8 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAnnounce } from "@/components/screen-reader-announcer";
 import { useAccessibility } from "@/components/accessibility-provider";
+import { cancelPhiSpeech, speakPhiText } from "@/lib/phi-speech";
+import { usePhiDictation } from "@/hooks/use-phi-dictation";
 
 interface VoiceCommand {
   patterns: string[];
@@ -16,8 +18,9 @@ interface VoiceCommand {
 }
 
 export function VoiceCommands() {
-  const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  const dictation = usePhiDictation();
+  const isListening = dictation.listening;
+  const isSupported = dictation.available;
   const [transcript, setTranscript] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [lastCommand, setLastCommand] = useState("");
@@ -63,17 +66,14 @@ export function VoiceCommands() {
       patterns: ["read page", "read this page", "what's on this page", "describe page"],
       action: () => {
         const main = document.getElementById("main-content");
-        if (main && window.speechSynthesis) {
+        if (main) {
           const headings = main.querySelectorAll("h1, h2, h3");
           const texts: string[] = [];
           headings.forEach(h => texts.push(h.textContent || ""));
           const summary = texts.length > 0
             ? `This page contains: ${texts.join(". ")}`
             : "This page has no headings to summarize.";
-          const utterance = new SpeechSynthesisUtterance(summary);
-          utterance.rate = 0.9;
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
+          void speakPhiText(summary, { rate: 0.9 });
           announce(summary);
         }
       },
@@ -83,7 +83,7 @@ export function VoiceCommands() {
     {
       patterns: ["stop reading", "stop talking", "be quiet", "stop", "silence"],
       action: () => {
-        window.speechSynthesis?.cancel();
+        cancelPhiSpeech();
         announce("Speech stopped");
       },
       description: "Stop reading aloud",
@@ -153,62 +153,33 @@ export function VoiceCommands() {
     return false;
   }, [commands, toast, announce]);
 
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    setIsSupported(!!SpeechRecognition);
-  }, []);
-
   const startListening = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      const msg = "Voice not supported. Your browser doesn't support voice commands. Try Chrome or Safari.";
+    if (!isSupported) {
+      const msg = "Voice input is unavailable. Use the keyboard or the on-screen controls.";
       announce(msg, "assertive");
-      toast({ title: "Voice not supported", description: msg, variant: "destructive" });
+      toast({ title: "Voice unavailable", description: msg, variant: "destructive" });
       return;
     }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setTranscript("");
-      announce("Listening for voice command. Speak now.", "assertive");
-    };
-
-    recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const result = event.results[current];
-      const text = result[0].transcript;
-      setTranscript(text);
-
-      if (result.isFinal) {
+    if (isListening) {
+      dictation.stop();
+      return;
+    }
+    setTranscript("");
+    announce("Listening for voice command. Speak now, then click the button again to stop.", "assertive");
+    void dictation.start({
+      language: "en-US",
+      maxMs: 12_000,
+      onTranscript: (text) => {
+        setTranscript(text);
         announce(`Heard: ${text}. Processing command.`);
         processCommand(text);
-        setIsListening(false);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      setIsListening(false);
-      if (event.error === "no-speech") {
-        announce("No speech detected. Please try again.");
-      } else {
-        announce("Could not hear you clearly. Please try again.", "assertive");
-        toast({ title: "Voice error", description: "Could not hear you clearly. Please try again.", variant: "destructive" });
-      }
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  }, [processCommand, toast, announce]);
+      },
+      onError: () => {
+        announce("Could not transcribe that. Please try again or use the keyboard.", "assertive");
+        toast({ title: "Voice unavailable", description: "Type or use the on-screen controls instead.", variant: "destructive" });
+      },
+    });
+  }, [isSupported, isListening, dictation, processCommand, toast, announce]);
 
   useEffect(() => {
     if (showHelp) {
@@ -317,7 +288,6 @@ export function VoiceCommands() {
             ref={voiceBtnRef}
             size="lg"
             onClick={startListening}
-            disabled={isListening}
             className={`rounded-full shadow-lg min-h-[48px] min-w-[120px] ${isListening ? "bg-red-500 hover:bg-red-600" : ""}`}
             aria-label={isListening ? "Voice commands active. Listening for your command." : "Activate voice commands. Press to speak a navigation command. Keyboard shortcut: Alt plus V."}
             aria-pressed={isListening}

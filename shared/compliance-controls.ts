@@ -179,7 +179,7 @@ export const defaultSecurityHeaders: SecurityHeadersConfig = {
   },
   xFrameOptions: "DENY",
   xContentTypeOptions: "nosniff",
-  referrerPolicy: "strict-origin-when-cross-origin",
+  referrerPolicy: "strict-origin",
   permissionsPolicy: "camera=(), microphone=(), geolocation=()",
 };
 

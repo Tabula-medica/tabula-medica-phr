@@ -1,47 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { speakPhiText } from "@/lib/phi-speech";
+import { usePhiDictation } from "@/hooks/use-phi-dictation";
 
 type SupportedLanguage = "en" | "es" | "zh" | "hi" | "ar" | "pt" | "bn" | "ru" | "ja" | "pa" | "de" | "ko" | "fr" | "vi" | "tl" | "it";
-
-interface SpeechRecognitionResult {
-  readonly isFinal: boolean;
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  readonly transcript: string;
-  readonly confidence: number;
-}
-
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionEventData {
-  readonly resultIndex: number;
-  readonly results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorData {
-  readonly error: string;
-  readonly message: string;
-}
-
-interface WebkitSpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEventData) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorData) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-}
 
 interface VoiceNavigationSettings {
   userId: string;
@@ -99,7 +61,6 @@ interface UseVoiceNavigationReturn {
 export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoiceNavigationReturn {
   const { userId, language = "en", onNavigate, onResponse, onError } = options;
 
-  const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [lastResponse, setLastResponse] = useState<VoiceResponse | null>(null);
@@ -107,10 +68,10 @@ export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoice
   const [error, setError] = useState<string | null>(null);
 
   const [, setLocation] = useLocation();
-  const recognitionRef = useRef<WebkitSpeechRecognition | null>(null);
-  const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  const isSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  const dictation = usePhiDictation();
+  const isSupported = dictation.available;
+  const processCommandRef = useRef<(text: string) => Promise<void>>(async () => {});
+  const speakRef = useRef<(text: string) => void>(() => {});
 
   useEffect(() => {
     const initSettings = async () => {
@@ -134,72 +95,32 @@ export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoice
     }
   }, [userId, language]);
 
-  useEffect(() => {
-    if (!isSupported) return;
-
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) return;
-
-    const recognition: WebkitSpeechRecognition = new SpeechRecognitionAPI();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = language === "en" ? "en-US" : language;
-
-    recognition.onresult = (event: SpeechRecognitionEventData) => {
-      const results = event.results;
-      if (results.length > 0) {
-        const lastResult = results[results.length - 1];
-        if (lastResult && lastResult[0]) {
-          setTranscript(lastResult[0].transcript);
-          if (lastResult.isFinal) {
-            processCommand(lastResult[0].transcript);
-          }
-        }
-      }
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorData) => {
-      const errorMsg = `Speech recognition error: ${event.error}`;
-      setError(errorMsg);
-      setIsListening(false);
-      onError?.(errorMsg);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      recognition.abort();
-    };
-  }, [isSupported, language]);
-
   const startListening = useCallback(() => {
-    if (!isSupported || !recognitionRef.current) {
-      setError("Speech recognition not supported in this browser");
+    if (!isSupported) {
+      setError("Voice input is unavailable. Type a command instead.");
       return;
     }
 
     setError(null);
     setTranscript("");
-    setIsListening(true);
 
-    try {
-      recognitionRef.current.start();
-    } catch (err) {
-      setIsListening(false);
-      setError("Failed to start speech recognition");
-    }
-  }, [isSupported]);
+    void dictation.start({
+      language: language === "en" ? "en-US" : language,
+      maxMs: 12_000,
+      onTranscript: (text) => {
+        setTranscript(text);
+        void processCommandRef.current(text);
+      },
+      onError: (message) => {
+        setError(message);
+        onError?.(message);
+      },
+    });
+  }, [isSupported, dictation, language, onError]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    setIsListening(false);
-  }, []);
+    dictation.stop();
+  }, [dictation]);
 
   const processCommand = useCallback(async (text: string) => {
     if (!text.trim()) return;
@@ -226,7 +147,7 @@ export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoice
         onResponse?.(response);
 
         if (response.responseText) {
-          speak(response.responseText);
+          speakRef.current(response.responseText);
         }
 
         if (response.navigation && !response.requiresConfirmation) {
@@ -241,8 +162,8 @@ export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoice
       } else {
         throw new Error(data.error || "Failed to process command");
       }
-    } catch (err: any) {
-      const errorMsg = err.message || "Failed to process voice command";
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to process voice command";
       setError(errorMsg);
       onError?.(errorMsg);
     } finally {
@@ -250,20 +171,13 @@ export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoice
     }
   }, [userId, language, onNavigate, onResponse, onError, setLocation]);
 
+  processCommandRef.current = processCommand;
+
   const speak = useCallback((text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language === "en" ? "en-US" : language;
-
     const rate = settings?.speechRate === "slow" ? 0.8 : settings?.speechRate === "fast" ? 1.2 : 1;
-    utterance.rate = rate;
-
-    synthesisRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    void speakPhiText(text, { lang: language === "en" ? "en-US" : language, rate });
   }, [language, settings?.speechRate]);
+  speakRef.current = speak;
 
   const updateSettings = useCallback(async (updates: Partial<VoiceNavigationSettings>) => {
     try {
@@ -282,7 +196,7 @@ export function useVoiceNavigation(options: UseVoiceNavigationOptions): UseVoice
   }, [userId]);
 
   return {
-    isListening,
+    isListening: dictation.listening,
     isProcessing,
     transcript,
     lastResponse,

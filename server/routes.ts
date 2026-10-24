@@ -71,6 +71,7 @@ import {
 } from "./fhir";
 import { getActiveConfig, getFhirConnectionMode } from "./fhir/config";
 import { registerVoiceRoutes } from "./voice";
+import { registerPhiSpeechRoutes } from "./phi-speech-routes";
 import { 
   requireRole, 
   requirePermission, 
@@ -908,6 +909,7 @@ export async function registerRoutes(
 
   // Register voice access routes
   registerVoiceRoutes(app);
+  registerPhiSpeechRoutes(app);
   
   // Register data access policy routes (PHI/PII controls)
   registerPolicyRoutes(app);

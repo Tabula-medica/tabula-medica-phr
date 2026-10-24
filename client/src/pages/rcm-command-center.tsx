@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Activity, AlertTriangle, Bot, CheckCircle2, DollarSign, FileWarning, Play, RefreshCw, ShieldCheck, Sparkles, Stethoscope } from "lucide-react";
+import { speakPhiText } from "@/lib/phi-speech";
 
 interface Kpi { key: string; name: string; value: number; unit: "days" | "pct" | "usd" | "count"; target: number; status: "good" | "warning" | "critical"; definition: string }
 interface WorkItem { id: string; queue: string; title: string; amount?: number; priority: number; dueAt?: string; status: string; source: string; context?: Record<string, unknown> }
@@ -45,7 +46,7 @@ export default function RcmCommandCenter() {
   const runAgent = useMutation({ mutationFn: async (name: string) => (await apiRequest("POST", `/api/rcm/agents/${name}/run`, { dryRun: false })).json() as Promise<{ result: AgentRun }>, onSuccess: (d) => { setLastRun(d.result); invalidateAll(); toast({ title: `${d.result.agent} finished`, description: d.result.summary }); } });
   const decide = useMutation({ mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" }) => (await apiRequest("POST", `/api/rcm/approvals/${id}`, { decision })).json(), onSuccess: () => { invalidateAll(); toast({ title: "Decision recorded" }); } });
   const retry = useMutation({ mutationFn: async (id: string) => (await apiRequest("POST", `/api/rcm/approvals/${id}/retry`, {})).json() as Promise<{ executed?: { ok: boolean; error?: string } }>, onSuccess: (d) => { invalidateAll(); toast(d.executed?.ok ? { title: "Retried successfully" } : { title: "Retry failed", description: d.executed?.error, variant: "destructive" }); } });
-  const voiceCmd = useMutation({ mutationFn: async (transcript: string) => (await apiRequest("POST", "/api/rcm/voice/command", { transcript })).json() as Promise<{ intent: { type: string; queue?: string }; speak: string }>, onSuccess: (d) => { setVoiceReply(d.speak); if (d.intent.type === "open-queue" && d.intent.queue) setQueue(d.intent.queue); if ("speechSynthesis" in window) { try { window.speechSynthesis.speak(new SpeechSynthesisUtterance(d.speak)); } catch { /* TTS optional */ } } } });
+  const voiceCmd = useMutation({ mutationFn: async (transcript: string) => (await apiRequest("POST", "/api/rcm/voice/command", { transcript })).json() as Promise<{ intent: { type: string; queue?: string }; speak: string }>, onSuccess: (d) => { setVoiceReply(d.speak); if (d.intent.type === "open-queue" && d.intent.queue) setQueue(d.intent.queue); void speakPhiText(d.speak); } });
   const workItem = useMutation({ mutationFn: async ({ id, status }: { id: string; status: string }) => (await apiRequest("POST", `/api/rcm/worklist/${id}`, { status })).json(), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/rcm/worklist"] }) });
 
   const headline = useMemo(() => (kpis.data?.kpis ?? []).filter((k) => ["days_in_ar", "clean_claim_rate", "denial_rate", "net_collection_rate", "ar_over_90", "total_ar"].includes(k.key)), [kpis.data]);
@@ -66,11 +67,8 @@ export default function RcmCommandCenter() {
 
       <Card>
         <CardContent className="pt-4 flex flex-col md:flex-row gap-2 md:items-center">
-          {/* Typed commands only — no client-side speech-to-text. Browser SpeechRecognition
-              ships audio to the browser vendor's own (non-BAA) cloud STT service, which is not
-              an acceptable path for anything that can carry PHI (diagnosis codes, patient names
-              in eligibility/billing phrases). Voice input will return once it's wired through the
-              app's BAA-covered server-side STT instead. */}
+          {/* Typed commands only. Microphone audio is not captured in the browser.
+              Read-aloud goes through the on-device or Cloud TTS helper. */}
           <Input aria-label="RCM voice command" value={voice} onChange={(e) => setVoice(e.target.value)} placeholder='Try: "add 99214 with modifier 25, diagnosis E11 point 9" · "open the denials queue" · "what are our days in AR" · "run the denials agent"' onKeyDown={(e) => { if (e.key === "Enter" && voice.trim()) voiceCmd.mutate(voice); }} data-testid="input-voice" />
           <Button onClick={() => voice.trim() && voiceCmd.mutate(voice)} disabled={voiceCmd.isPending} data-testid="button-voice-send">Send</Button>
         </CardContent>

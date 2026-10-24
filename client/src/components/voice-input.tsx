@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
+import { usePhiDictation } from "@/hooks/use-phi-dictation";
 
 interface VoiceInputProps {
   onResult: (text: string) => void;
@@ -18,69 +19,46 @@ const LANG_MAP: Record<string, string> = {
 };
 
 export function VoiceInput({ onResult, language = "en", label = "Voice input", disabled = false, className = "" }: VoiceInputProps) {
-  const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(true);
-  const recognitionRef = useRef<any>(null);
-  const finalTranscriptRef = useRef("");
-
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setIsSupported(false);
-    }
-  }, []);
+  const dictation = usePhiDictation();
+  const [submitting, setSubmitting] = useState(false);
 
   const startListening = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = LANG_MAP[language] || "en-US";
-    recognition.maxAlternatives = 1;
-    finalTranscriptRef.current = "";
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0]?.[0]?.transcript || "";
-      finalTranscriptRef.current = transcript;
-      onResult(transcript);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [language, onResult]);
+    setSubmitting(false);
+    void dictation.start({
+      language: LANG_MAP[language] || "en-US",
+      onTranscript: (text) => {
+        setSubmitting(false);
+        if (text.trim()) onResult(text);
+      },
+      onError: () => setSubmitting(false),
+    });
+  }, [dictation, language, onResult]);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
-    setIsListening(false);
-  }, []);
+    dictation.stop();
+    setSubmitting(true);
+  }, [dictation]);
 
-  if (!isSupported) return null;
+  if (!dictation.available) return null;
+
+  const busy = dictation.listening || submitting;
 
   return (
     <Button
       type="button"
-      variant={isListening ? "destructive" : "outline"}
+      variant={dictation.listening ? "destructive" : "outline"}
       size="icon"
-      onClick={isListening ? stopListening : startListening}
-      disabled={disabled}
+      onClick={dictation.listening ? stopListening : startListening}
+      disabled={disabled || (submitting && !dictation.listening)}
       className={`shrink-0 h-9 w-9 ${className}`}
-      aria-label={isListening ? "Stop voice input" : label}
-      aria-pressed={isListening}
+      aria-label={dictation.listening ? "Stop voice input" : label}
+      aria-pressed={dictation.listening}
       data-testid="button-voice-input"
-      title={isListening ? "Recording... Click to stop" : label}
+      title={dictation.listening ? "Recording... Click to stop" : label}
     >
-      {isListening ? (
+      {busy && !dictation.listening ? (
+        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+      ) : dictation.listening ? (
         <MicOff className="w-4 h-4 animate-pulse" aria-hidden="true" />
       ) : (
         <Mic className="w-4 h-4" aria-hidden="true" />

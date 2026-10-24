@@ -24,7 +24,7 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     (gcipProject ? `${gcipProject}.firebaseapp.com` : "*.firebaseapp.com");
   res.setHeader("Content-Security-Policy", 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.fastenhealth.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.fastenhealth.com https://plausible.io; " +
     "style-src 'self' 'unsafe-inline' https://cdn.fastenhealth.com https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
     "img-src 'self' data: blob: https:; " +
     "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; " +
@@ -44,6 +44,9 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
     // "took too long to load". This CSP is set LAST in the chain and overwrites
     // helmet's, so the allowance must live here too.
     "https://*.fastenhealth.com " +
+    // Marketing analytics only. client/src/components/public-analytics.tsx
+    // inserts this host on the logged-out allowlist and nowhere else.
+    "https://plausible.io " +
     "https://rxnav.nlm.nih.gov " +
     "https://clinicaltables.nlm.nih.gov " +
     "wss://api.tabulamedica.health" + devConnectSrc + "; " +
@@ -55,7 +58,7 @@ export const atsSecurityHeaders: RequestHandler = (req: Request, res: Response, 
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Referrer-Policy", "strict-origin");
   res.setHeader("Permissions-Policy", 
     "accelerometer=(), camera=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), payment=(), usb=()"
   );

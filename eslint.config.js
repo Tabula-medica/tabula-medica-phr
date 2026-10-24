@@ -26,6 +26,7 @@ import { dirname, resolve } from "node:path";
 import tseslint from "typescript-eslint";
 import noStringFormLoggerPlugin from "./eslint-rules/no-string-form-logger.js";
 import noFallbackIdentityPlugin from "./eslint-rules/no-fallback-identity.js";
+import noBrowserSpeechPlugin from "./eslint-rules/no-browser-speech-recognition.js";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -304,8 +305,14 @@ export default tseslint.config(
   // so the server-only guardrails must not run against it.
   {
     files: ["client/src/**/*.{ts,tsx}"],
+    plugins: {
+      tabulaSpeech: noBrowserSpeechPlugin,
+    },
     rules: {
       "no-restricted-syntax": "off",
+      // Browser speech recognition leaves the Cloud BAA. Synthesis is
+      // allowed only in client/src/lib/phi-speech.ts. See shared/voice/policy.ts.
+      "tabulaSpeech/no-browser-speech-recognition": "error",
     },
   },
 );

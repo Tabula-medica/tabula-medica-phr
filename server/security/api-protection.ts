@@ -173,8 +173,8 @@ export const helmetMiddleware = helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: isProduction
-        ? ["'self'", "https://cdn.fastenhealth.com"]
-        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.fastenhealth.com"],
+        ? ["'self'", "https://cdn.fastenhealth.com", "https://plausible.io"]
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.fastenhealth.com", "https://plausible.io"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.fastenhealth.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
@@ -189,6 +189,7 @@ export const helmetMiddleware = helmet({
       upgradeInsecureRequests: isProduction ? [] : null,
     },
   },
+  referrerPolicy: { policy: "strict-origin" },
   frameguard: false,
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: false,

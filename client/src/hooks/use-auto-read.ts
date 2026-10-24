@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAccessibility } from "@/components/accessibility-provider";
+import { cancelPhiSpeech, speakPhiText } from "@/lib/phi-speech";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard. Your health overview and quick actions.",
@@ -45,38 +46,31 @@ export function useAutoRead() {
   const [location] = useLocation();
   const { settings } = useAccessibility();
   const lastReadLocation = useRef("");
-  const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     if (!settings.autoReadAloud) return;
     if (location === lastReadLocation.current) return;
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
 
     lastReadLocation.current = location;
 
-    window.speechSynthesis.cancel();
+    cancelPhiSpeech();
 
     const pageTitle = PAGE_TITLES[location] || document.title?.replace(" - Tabula Medica", "");
     if (!pageTitle) return;
 
     const delay = setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(pageTitle);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
-      synthRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+      void speakPhiText(pageTitle, { rate: 0.9 });
     }, 500);
 
     return () => {
       clearTimeout(delay);
-      window.speechSynthesis.cancel();
+      cancelPhiSpeech();
     };
   }, [location, settings.autoReadAloud]);
 
   useEffect(() => {
     return () => {
-      window.speechSynthesis?.cancel();
+      cancelPhiSpeech();
     };
   }, []);
 }
