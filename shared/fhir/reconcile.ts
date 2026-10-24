@@ -1,25 +1,30 @@
 /**
- * Deterministic reconciliation for FHIR already stored in the Cloud
- * Healthcare API FHIR store.
+ * Reconciliation that does not invent a clinical fact.
  *
- * Order of use:
- * 1. Call `reconcileDeterministic` (identifiers, canonical codes, date, value).
- * 2. Normalize terminology to RxNorm, LOINC, or SNOMED before that call when
- *    a mapping is known. Unmapped codes stay unmapped.
- * 3. Send `semanticCandidates` only to Vertex (Healthcare Natural Language
- *    API or embeddings) under the Google Cloud BAA, with data logging off.
- *    Apply the decision with `applySemanticDecision`.
+ * Automatic grouping is limited to the same instance: a replay of one
+ * source resource, or two copies that carry the same instance identifier
+ * (an accession or source id, not a terminology code).
  *
- * Source records stay members of a group. This module has no delete.
+ * Terminology, clock time, and model scores never merge medications,
+ * allergies, problems, labs, or vitals. Those become confirmation
+ * candidates. Device streams never match on a value. A calendar day
+ * without a time zone is not a key. entered-in-error stays stored and
+ * stays out of the current view.
+ *
+ * Nothing here deletes a source record.
  */
 
 export type IngestSource =
   | "fasten"
   | "direct-smart"
   | "cms-blue-button"
+  | "payer-access"
   | "device"
   | "patient-entered"
-  | "upload";
+  | "upload"
+  | "records-request";
+
+export type ClinicalClass = "medication" | "allergy" | "problem" | "lab" | "vital" | "device-stream" | "other";
 
 export interface Coding {
   system: string;
@@ -34,10 +39,16 @@ export interface IncomingFhirRecord {
   sourceResourceId: string;
   identifiers: readonly { system: string; value: string }[];
   codings: readonly Coding[];
-  /** Calendar day, YYYY-MM-DD. */
-  effectiveDate?: string;
-  /** Quantity already converted to one UCUM unit, e.g. "10|mg". */
+  /**
+   * Absolute instant, ISO-8601 with a offset or Z.
+   * A bare calendar day is not accepted as a match key.
+   */
+  effectiveInstant?: string;
+  timeZone?: string;
   valueKey?: string;
+  encounterId?: string;
+  status?: string;
+  clinicalClass: ClinicalClass;
 }
 
 export const CANONICAL_CODE_SYSTEMS = {
@@ -46,37 +57,36 @@ export const CANONICAL_CODE_SYSTEMS = {
   snomed: "http://snomed.info/sct",
 } as const;
 
-const CANONICAL_SET = new Set<string>(Object.values(CANONICAL_CODE_SYSTEMS));
+/** Classes a model score is not allowed to merge. */
+export const NEVER_AUTO_MERGE: readonly ClinicalClass[] = ["medication", "allergy", "problem", "lab", "vital", "device-stream"];
 
-export function terminologyStatus(coding: Coding): "canonical" | "unmapped" {
-  const system = coding.system.trim();
-  const code = coding.code.trim();
-  if (!system || !code) return "unmapped";
-  return CANONICAL_SET.has(system) ? "canonical" : "unmapped";
-}
+/** A suggestion at or above this score may be shown. It still does not merge a clinical fact. */
+export const SUGGESTION_THRESHOLD = 0.9;
+
+const TERMINOLOGY_SYSTEMS = new Set<string>(Object.values(CANONICAL_CODE_SYSTEMS));
+const MEDICATION_TYPES = new Set(["MedicationRequest", "MedicationStatement", "MedicationDispense", "ExplanationOfBenefit"]);
 
 export interface ProvenanceMember {
   record: IncomingFhirRecord;
-  match: "source" | "deterministic" | "semantic";
+  match: "source" | "same-instance";
 }
 
 export interface ReconciledGroup {
   patientId: string;
   resourceType: string;
   members: ProvenanceMember[];
-  algorithm: "deterministic" | "semantic" | "singleton";
+  algorithm: "same-instance" | "singleton";
+  conflict: boolean;
+  /** entered-in-error copies stay stored and out of the current view. */
+  suppressed: boolean;
 }
 
-export interface SemanticCandidatePair {
+export interface ConfirmationCandidate {
   left: IncomingFhirRecord;
   right: IncomingFhirRecord;
-  reason: "unresolved-terminology";
-}
-
-export interface ValueConflict {
-  left: IncomingFhirRecord;
-  right: IncomingFhirRecord;
-  reason: "same-code-different-value";
+  reason: "shared-terminology-across-records" | "semantic-suggestion";
+  /** Always true for medications, allergies, and problems. */
+  requiresPatientConfirmation: boolean;
 }
 
 export interface SemanticDecision {
@@ -89,52 +99,56 @@ function memberIdentity(record: IncomingFhirRecord): string {
   return [record.patientId, record.source, record.sourceSystem, record.resourceType, record.sourceResourceId].join("\u001f");
 }
 
-function canonicalCodeKeys(record: IncomingFhirRecord): string[] {
-  const keys: string[] = [];
-  for (const coding of record.codings) {
-    if (terminologyStatus(coding) !== "canonical") continue;
-    keys.push(`${coding.system.trim()}|${coding.code.trim()}`);
-  }
-  return keys;
+export function hasExplicitOffset(instant: string | undefined): boolean {
+  if (!instant) return false;
+  return /(?:Z|[+-]\d{2}:\d{2})$/.test(instant.trim());
 }
 
-function identifierKeys(record: IncomingFhirRecord): string[] {
+export function terminologyStatus(coding: Coding): "canonical" | "unmapped" {
+  const system = coding.system.trim();
+  const code = coding.code.trim();
+  if (!system || !code) return "unmapped";
+  return TERMINOLOGY_SYSTEMS.has(system) ? "canonical" : "unmapped";
+}
+
+function instanceKeys(record: IncomingFhirRecord): string[] {
   const keys: string[] = [];
   for (const identifier of record.identifiers) {
     const system = identifier.system.trim();
     const value = identifier.value.trim();
-    if (!system || !value) continue;
-    keys.push(`${record.patientId}|${record.resourceType}|${system}|${value}`);
+    if (!system || !value || TERMINOLOGY_SYSTEMS.has(system)) continue;
+    keys.push(`${record.patientId}|${system}|${value}`);
   }
   return keys;
 }
 
-function factKey(record: IncomingFhirRecord): string | null {
-  const codes = canonicalCodeKeys(record);
-  if (codes.length === 0 || !record.effectiveDate || !record.valueKey) return null;
-  const code = [...codes].sort()[0];
-  return `${record.patientId}|${record.resourceType}|${code}|${record.effectiveDate}|${record.valueKey}`;
+function canonicalKeys(record: IncomingFhirRecord, system: string): string[] {
+  const keys: string[] = [];
+  for (const coding of record.codings) {
+    if (coding.system.trim() !== system || !coding.code.trim()) continue;
+    keys.push(coding.code.trim());
+  }
+  return keys;
 }
 
-function sharesCanonicalCode(left: IncomingFhirRecord, right: IncomingFhirRecord): boolean {
-  const rightKeys = new Set(canonicalCodeKeys(right));
-  return canonicalCodeKeys(left).some((key) => rightKeys.has(key));
+function sharesCode(left: IncomingFhirRecord, right: IncomingFhirRecord, system: string): boolean {
+  const rightKeys = new Set(canonicalKeys(right, system));
+  return canonicalKeys(left, system).some((code) => rightKeys.has(code));
 }
 
-function codesConflict(left: IncomingFhirRecord, right: IncomingFhirRecord): boolean {
-  const leftKeys = canonicalCodeKeys(left);
-  const rightKeys = canonicalCodeKeys(right);
-  if (leftKeys.length === 0 || rightKeys.length === 0) return false;
-  return !sharesCanonicalCode(left, right);
+function isError(record: IncomingFhirRecord): boolean {
+  return (record.status ?? "").toLowerCase() === "entered-in-error";
+}
+
+function medicationFamily(record: IncomingFhirRecord): boolean {
+  return record.clinicalClass === "medication" || MEDICATION_TYPES.has(record.resourceType);
 }
 
 class UnionFind {
   private parent: number[];
-
   constructor(size: number) {
     this.parent = Array.from({ length: size }, (_, index) => index);
   }
-
   find(index: number): number {
     let current = index;
     while (this.parent[current] !== current) {
@@ -143,7 +157,6 @@ class UnionFind {
     }
     return current;
   }
-
   union(left: number, right: number): void {
     const leftRoot = this.find(left);
     const rightRoot = this.find(right);
@@ -151,10 +164,9 @@ class UnionFind {
   }
 }
 
-export function reconcileDeterministic(records: readonly IncomingFhirRecord[]): {
+export function reconcileRecords(records: readonly IncomingFhirRecord[]): {
   groups: ReconciledGroup[];
-  semanticCandidates: SemanticCandidatePair[];
-  conflicts: ValueConflict[];
+  confirmationCandidates: ConfirmationCandidate[];
 } {
   const unique: IncomingFhirRecord[] = [];
   const seen = new Set<string>();
@@ -166,20 +178,14 @@ export function reconcileDeterministic(records: readonly IncomingFhirRecord[]): 
   }
 
   const unionFind = new UnionFind(unique.length);
-  const identifiers = new Map<string, number>();
-  const facts = new Map<string, number>();
-
+  const instances = new Map<string, number>();
   unique.forEach((record, index) => {
-    for (const key of identifierKeys(record)) {
-      const previous = identifiers.get(key);
-      if (previous === undefined) identifiers.set(key, index);
-      else unionFind.union(previous, index);
+    if (isError(record) || record.clinicalClass === "device-stream") return;
+    for (const key of instanceKeys(record)) {
+      const previous = instances.get(key);
+      if (previous === undefined) instances.set(key, index);
+      else if (!isError(unique[previous])) unionFind.union(previous, index);
     }
-    const fact = factKey(record);
-    if (!fact) return;
-    const previous = facts.get(fact);
-    if (previous === undefined) facts.set(fact, index);
-    else unionFind.union(previous, index);
   });
 
   const buckets = new Map<number, number[]>();
@@ -191,82 +197,74 @@ export function reconcileDeterministic(records: readonly IncomingFhirRecord[]): 
   });
 
   const groups: ReconciledGroup[] = [];
-  const groupedWithOthers = new Set<number>();
   for (const indexes of buckets.values()) {
-    if (indexes.length > 1) indexes.forEach((index) => groupedWithOthers.add(index));
     const members = indexes.map((index) => unique[index]);
+    const values = new Set(members.map((record) => record.valueKey).filter((value) => value));
+    const suppressed = members.every(isError);
     groups.push({
       patientId: members[0].patientId,
       resourceType: members[0].resourceType,
-      algorithm: indexes.length > 1 ? "deterministic" : "singleton",
+      algorithm: indexes.length > 1 ? "same-instance" : "singleton",
+      conflict: indexes.length > 1 && values.size > 1,
+      suppressed,
       members: members.map((record, memberIndex) => ({
         record,
-        match: indexes.length > 1 && memberIndex > 0 ? "deterministic" : "source",
+        match: indexes.length > 1 && memberIndex > 0 ? "same-instance" : "source",
       })),
     });
   }
 
-  const semanticCandidates: SemanticCandidatePair[] = [];
-  const conflicts: ValueConflict[] = [];
-  const singletons = unique
-    .map((record, index) => ({ record, index }))
-    .filter(({ index }) => !groupedWithOthers.has(index));
-
-  for (let leftIndex = 0; leftIndex < singletons.length; leftIndex++) {
-    for (let rightIndex = leftIndex + 1; rightIndex < singletons.length; rightIndex++) {
-      const left = singletons[leftIndex].record;
-      const right = singletons[rightIndex].record;
-      if (left.patientId !== right.patientId || left.resourceType !== right.resourceType) continue;
-      if ((left.effectiveDate ?? "") !== (right.effectiveDate ?? "")) continue;
-      if (codesConflict(left, right)) continue;
-      if (sharesCanonicalCode(left, right) && left.valueKey && right.valueKey && left.valueKey !== right.valueKey) {
-        conflicts.push({ left, right, reason: "same-code-different-value" });
-        continue;
-      }
-      const bothCanonical = canonicalCodeKeys(left).length > 0 && canonicalCodeKeys(right).length > 0;
-      if (bothCanonical && left.valueKey && right.valueKey) continue;
-      semanticCandidates.push({ left, right, reason: "unresolved-terminology" });
+  const confirmationCandidates: ConfirmationCandidate[] = [];
+  for (let leftIndex = 0; leftIndex < unique.length; leftIndex++) {
+    for (let rightIndex = leftIndex + 1; rightIndex < unique.length; rightIndex++) {
+      const left = unique[leftIndex];
+      const right = unique[rightIndex];
+      if (left.patientId !== right.patientId || isError(left) || isError(right)) continue;
+      if (unionFind.find(leftIndex) === unionFind.find(rightIndex) && instanceKeys(left).length > 0) continue;
+      const medication = medicationFamily(left) && medicationFamily(right) && sharesCode(left, right, CANONICAL_CODE_SYSTEMS.rxnorm);
+      const allergy = left.clinicalClass === "allergy" && right.clinicalClass === "allergy" && (sharesCode(left, right, CANONICAL_CODE_SYSTEMS.snomed) || sharesCode(left, right, CANONICAL_CODE_SYSTEMS.rxnorm));
+      const problem = left.clinicalClass === "problem" && right.clinicalClass === "problem" && sharesCode(left, right, CANONICAL_CODE_SYSTEMS.snomed);
+      if (!medication && !allergy && !problem) continue;
+      confirmationCandidates.push({
+        left,
+        right,
+        reason: "shared-terminology-across-records",
+        requiresPatientConfirmation: true,
+      });
     }
   }
 
-  return { groups, semanticCandidates, conflicts };
+  return { groups, confirmationCandidates };
 }
 
+/**
+ * A model decision never merges a clinical fact. At or above the suggestion
+ * threshold it can add a confirmation candidate. Below the threshold it
+ * changes nothing.
+ */
 export function applySemanticDecision(
   groups: readonly ReconciledGroup[],
-  pair: SemanticCandidatePair,
+  left: IncomingFhirRecord,
+  right: IncomingFhirRecord,
   decision: SemanticDecision,
-): ReconciledGroup[] {
-  const cloned = groups.map((group) => ({ ...group, members: [...group.members] }));
-  if (!decision.same) return cloned;
-
-  const leftKey = memberIdentity(pair.left);
-  const rightKey = memberIdentity(pair.right);
-  let leftGroup: ReconciledGroup | undefined;
-  let rightGroup: ReconciledGroup | undefined;
-  const rest: ReconciledGroup[] = [];
-
-  for (const group of cloned) {
-    const keys = new Set(group.members.map((member) => memberIdentity(member.record)));
-    if (keys.has(leftKey)) leftGroup = group;
-    else if (keys.has(rightKey)) rightGroup = group;
-    else rest.push(group);
+): { groups: ReconciledGroup[]; confirmationCandidates: ConfirmationCandidate[] } {
+  const cloned = groups.map((group) => ({ ...group, members: group.members.map((member) => ({ ...member })) }));
+  const clinical = NEVER_AUTO_MERGE.includes(left.clinicalClass) || NEVER_AUTO_MERGE.includes(right.clinicalClass);
+  if (!decision.same || decision.score < SUGGESTION_THRESHOLD || left.patientId !== right.patientId) {
+    return { groups: cloned, confirmationCandidates: [] };
   }
-
-  if (!leftGroup || !rightGroup || leftGroup.patientId !== rightGroup.patientId) return cloned;
-
-  return [
-    ...rest,
-    {
-      patientId: leftGroup.patientId,
-      resourceType: leftGroup.resourceType,
-      algorithm: "semantic",
-      members: [
-        ...leftGroup.members,
-        ...rightGroup.members.map((member) => ({ record: member.record, match: "semantic" as const })),
-      ],
-    },
-  ];
+  if (clinical) {
+    return {
+      groups: cloned,
+      confirmationCandidates: [{
+        left,
+        right,
+        reason: "semantic-suggestion",
+        requiresPatientConfirmation: true,
+      }],
+    };
+  }
+  return { groups: cloned, confirmationCandidates: [] };
 }
 
 export function sourceRecordCount(groups: readonly ReconciledGroup[]): number {

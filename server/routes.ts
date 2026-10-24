@@ -1142,21 +1142,33 @@ export async function registerRoutes(
     console.error("[Routes] Failed to initialize GCP integrations:", error);
   }
 
-  // ── Region + TEFCA / Fasten feature flag ───────────────────────────────
-  // One image. TABULA_REGION=world is the international deployment and forces
-  // TEFCA off. TEFCA_ENABLED=false still opts the US deployment out. The US
-  // default stays on so existing tabulamedica.us deploys do not change.
+  // ── Region, TEFCA, and Fasten are three switches ───────────────────────
+  // Unset TABULA_REGION stays US. An unknown value fails closed and refuses
+  // to boot. World forces TEFCA and Fasten off. On US, FASTEN_ENABLED and
+  // TEFCA_ENABLED are independent: Fasten is patient-mediated retrieval and
+  // does not require the TEFCA network.
   const deployment = resolveDeployment({
     TABULA_REGION: process.env.TABULA_REGION,
     TEFCA_ENABLED: process.env.TEFCA_ENABLED,
+    FASTEN_ENABLED: process.env.FASTEN_ENABLED,
   });
+  if (!deployment.accepted || deployment.region == null) {
+    throw new Error(
+      `TABULA_REGION="${process.env.TABULA_REGION ?? ""}" is not a known region. Refusing to start.`,
+    );
+  }
   const TEFCA_ENABLED = deployment.tefcaEnabled;
+  const FASTEN_ENABLED = deployment.fastenEnabled;
 
-  // Public, no-auth runtime config so the SPA can hide TEFCA UI on .world.
+  // Public, no-auth runtime config so the SPA can hide US-only networks.
   // no-store: this response must not be cached at a CDN.
   app.get("/api/public-config", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    res.json({ region: deployment.region, tefcaEnabled: deployment.tefcaEnabled });
+    res.json({
+      region: deployment.region,
+      tefcaEnabled: deployment.tefcaEnabled,
+      fastenEnabled: deployment.fastenEnabled,
+    });
   });
 
   // Non-PHI public chat proxy for uninsurance.html navigation assistant.
@@ -1179,17 +1191,12 @@ export async function registerRoutes(
     }
   });
 
-  // When disabled, hard-block the entire TEFCA/Fasten API surface. Registered
-  // here (before those routes are mounted below) so it intercepts every
-  // sub-route regardless of where it is added later in this large file.
+  // Registered before those routes are mounted so each switch intercepts
+  // every sub-route added later in this file. Fasten is not part of TEFCA.
   if (!TEFCA_ENABLED) {
     const TEFCA_BLOCKED_PREFIXES = [
       "/api/tefca",
       "/api/tefca-patient-viewer",
-      "/api/fasten-connect",
-      "/webhooks/fasten",
-      "/api/webhooks",
-      "/api/aggregator-sync",
       "/api/fhir-streaming",
       "/api/compliance-export",
       "/api/phr-pipeline",
@@ -1203,7 +1210,23 @@ export async function registerRoutes(
       }
       next();
     });
-    console.log("[Routes] TEFCA_ENABLED=false — TEFCA/Fasten API surface disabled for this deployment.");
+    console.log("[Routes] TEFCA_ENABLED=false — TEFCA API surface disabled for this deployment.");
+  }
+  if (!FASTEN_ENABLED) {
+    const FASTEN_BLOCKED_PREFIXES = [
+      "/api/fasten-connect",
+      "/webhooks/fasten",
+      "/api/webhooks",
+      "/api/aggregator-sync",
+    ];
+    app.use((req, res, next) => {
+      const p = req.path;
+      if (FASTEN_BLOCKED_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix + "/"))) {
+        return res.status(404).json({ error: "NOT_FOUND", message: "Feature not available in this region." });
+      }
+      next();
+    });
+    console.log("[Routes] FASTEN_ENABLED=false — Fasten API surface disabled for this deployment.");
   }
 
   // Register patient onboarding routes

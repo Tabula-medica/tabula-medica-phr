@@ -25,7 +25,7 @@ import { NotificationDropdown, MobileNotificationDropdown } from "@/components/n
 import { EnhancedNotificationCenter } from "@/components/enhanced-notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
-import { useTefcaEnabled } from "@/hooks/use-tefca";
+import { useFastenEnabled, useTefcaEnabled } from "@/hooks/use-tefca";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { SessionTimeoutModal } from "@/components/session-timeout-modal";
 import LandingPage from "@/pages/landing";
@@ -219,17 +219,17 @@ const MedplumFHIR = lazy(() => import("@/pages/medplum-fhir"));
 const EarlyAccessSignup = lazy(() => import("@/pages/signup"));
 
 function Router() {
-  // TEFCA/Fasten is US-only. On the international `.world` deployment
-  // (TEFCA_ENABLED=false) these routes are not registered, so direct
-  // navigation falls through to NotFound.
+  // TEFCA and Fasten are separate US switches. World turns both off.
+  // Direct navigation to a hidden route falls through to NotFound.
   const tefcaEnabled = useTefcaEnabled();
+  const fastenEnabled = useFastenEnabled();
   return (
     <RouteErrorBoundary>
     <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/my-health-record" component={MyHealthRecord} />
-      {tefcaEnabled && <Route path="/fasten-connect" component={FastenConnect} />}
+      {fastenEnabled && <Route path="/fasten-connect" component={FastenConnect} />}
       <Route path="/provider-onboarding" component={ProviderOnboarding} />
       <Route path="/join-directory" component={ProviderOnboarding} />
       <Route path="/cash-prices" component={CashPrices} />

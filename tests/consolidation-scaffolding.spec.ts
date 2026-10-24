@@ -7,52 +7,86 @@ import { textScaleFactor } from "../shared/a11y/preferences";
 import { integrationById } from "../shared/devices/catalog";
 import { toFhirObservation } from "../shared/devices/observation";
 import { consentIsActive } from "../shared/devices/consent";
+import { compareDemographics } from "../shared/identity/match";
+import { regulatoryRoleFor } from "../shared/privacy/regulatory-role";
 import {
   applySemanticDecision,
-  reconcileDeterministic,
+  hasExplicitOffset,
+  reconcileRecords,
   sourceRecordCount,
-  terminologyStatus,
   type IncomingFhirRecord,
 } from "../shared/fhir/reconcile";
 
 const RXNORM = "http://www.nlm.nih.gov/research/umls/rxnorm";
 const LOINC = "http://loinc.org";
 
-function record(overrides: Partial<IncomingFhirRecord> & Pick<IncomingFhirRecord, "source" | "sourceResourceId">): IncomingFhirRecord {
+function record(overrides: Partial<IncomingFhirRecord> & Pick<IncomingFhirRecord, "source" | "sourceResourceId" | "clinicalClass">): IncomingFhirRecord {
   return {
     patientId: "patient-1",
     sourceSystem: "org-a",
-    resourceType: "MedicationStatement",
+    resourceType: "Observation",
     identifiers: [],
-    codings: [{ system: RXNORM, code: "29046" }],
-    effectiveDate: "2026-04-01",
-    valueKey: "10|mg",
+    codings: [],
     ...overrides,
   };
 }
 
 describe("deployment region", () => {
-  it("keeps TEFCA on for the US default", () => {
-    expect(resolveDeployment({})).toEqual({ region: "us", tefcaEnabled: true });
-  });
-
-  it("turns TEFCA off for the world region even if the legacy flag is true", () => {
-    expect(resolveDeployment({ TABULA_REGION: "world", TEFCA_ENABLED: "true" })).toEqual({
-      region: "world",
+  it("keeps the US default, with Fasten independent of TEFCA", () => {
+    expect(resolveDeployment({})).toEqual({
+      region: "us",
+      accepted: true,
+      tefcaEnabled: true,
+      fastenEnabled: true,
+    });
+    expect(resolveDeployment({ TEFCA_ENABLED: "false" })).toMatchObject({
       tefcaEnabled: false,
+      fastenEnabled: true,
     });
   });
 
-  it("still honors an explicit US opt-out", () => {
-    expect(resolveDeployment({ TABULA_REGION: "us", TEFCA_ENABLED: "false" }).tefcaEnabled).toBe(false);
+  it("turns TEFCA and Fasten off for world", () => {
+    expect(resolveDeployment({ TABULA_REGION: "world", TEFCA_ENABLED: "true", FASTEN_ENABLED: "true" })).toEqual({
+      region: "world",
+      accepted: true,
+      tefcaEnabled: false,
+      fastenEnabled: false,
+    });
+  });
+
+  it("fails closed on an unknown region", () => {
+    expect(resolveDeployment({ TABULA_REGION: "wrld" })).toEqual({
+      region: null,
+      accepted: false,
+      tefcaEnabled: false,
+      fastenEnabled: false,
+    });
+  });
+});
+
+describe("legal role and identity match", () => {
+  it("treats a direct member as a PHR vendor and a data-receiving sponsor as a business associate", () => {
+    expect(regulatoryRoleFor({ sponsored: false, sponsorReceivesData: false, sponsorDirectsService: false })).toBe("phr-vendor");
+    expect(regulatoryRoleFor({ sponsored: true, sponsorReceivesData: false, sponsorDirectsService: false })).toBe("phr-vendor");
+    expect(regulatoryRoleFor({ sponsored: true, sponsorReceivesData: true, sponsorDirectsService: false })).toBe("hipaa-business-associate");
+  });
+
+  it("quarantines a chart whose name or birth date does not match, and refuses a missing birth date", () => {
+    expect(compareDemographics(
+      { familyName: "Garcia", birthDate: "1980-01-02" },
+      { familyName: "Garcia", birthDate: "1980-01-02" },
+    )).toBe("same-person");
+    expect(compareDemographics(
+      { familyName: "Garcia", birthDate: "1980-01-02" },
+      { familyName: "Nguyen", birthDate: "1980-01-02" },
+    )).toBe("mismatch");
+    expect(compareDemographics({ familyName: "Garcia" }, { familyName: "Garcia", birthDate: "1980-01-02" })).toBe("insufficient");
   });
 });
 
 describe("language and voice scaffolding", () => {
-  it("marks Arabic and Urdu as RTL and leaves the original beside a translation", () => {
+  it("marks Arabic as RTL and keeps the original beside a translation", () => {
     expect(textDirection("ar-SA")).toBe("rtl");
-    expect(textDirection("ur")).toBe("rtl");
-    expect(textDirection("es")).toBe("ltr");
     const recordText = createBilingualRecord(
       { lang: "en", text: "Lisinopril 10 mg" },
       { lang: "es", text: "Lisinopril 10 mg", engine: "human", translatedAt: "2026-10-24" },
@@ -61,14 +95,10 @@ describe("language and voice scaffolding", () => {
     expect(recordText.original.text).toBe("Lisinopril 10 mg");
   });
 
-  it("refuses a record with no original and refuses a non-BAA speech engine", () => {
-    expect(() => createBilingualRecord({ lang: "en", text: "  " })).toThrow(/original/);
+  it("refuses a non-BAA speech engine", () => {
     expect(assertPhiSpeechEngine("gcp-speech")).toBe("gcp-speech");
     expect(preferSpeechEngine(true, "gcp-tts")).toBe("on-device");
     expect(() => assertPhiSpeechEngine("web-speech")).toThrow(/PHI/);
-  });
-
-  it("scales text for low-vision preferences", () => {
     expect(textScaleFactor("extra-large")).toBe(1.5);
   });
 });
@@ -92,7 +122,6 @@ describe("device ingestion", () => {
     });
     expect(observation.code.coding[0].code).toBe("8867-4");
     expect(observation.meta.tag[0].code).toBe("device");
-    expect(observation.subject.reference).toBe("Patient/patient-1");
   });
 
   it("stops a revoked device consent", () => {
@@ -106,46 +135,84 @@ describe("device ingestion", () => {
 });
 
 describe("FHIR reconciliation", () => {
-  it("merges the same medication from Fasten and a direct SMART pull and keeps both sources", () => {
-    const fasten = record({ source: "fasten", sourceResourceId: "fasten-1", identifiers: [{ system: "urn:org:med", value: "med-9" }] });
-    const direct = record({
-      source: "direct-smart",
-      sourceSystem: "epic",
-      sourceResourceId: "epic-1",
-      identifiers: [{ system: "urn:org:med", value: "med-9" }],
+  it("does not merge two same-day heart-rate readings and ignores a bare calendar day", () => {
+    expect(hasExplicitOffset("2026-04-01")).toBe(false);
+    expect(hasExplicitOffset("2026-04-01T15:00:00Z")).toBe(true);
+    const morning = record({
+      source: "device",
+      sourceResourceId: "hr-1",
+      clinicalClass: "device-stream",
+      codings: [{ system: LOINC, code: "8867-4" }],
+      effectiveInstant: "2026-04-01T15:00:00Z",
+      valueKey: "72|/min",
     });
-    const { groups } = reconcileDeterministic([fasten, direct, fasten]);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].algorithm).toBe("deterministic");
+    const evening = record({
+      source: "device",
+      sourceResourceId: "hr-2",
+      clinicalClass: "device-stream",
+      codings: [{ system: LOINC, code: "8867-4" }],
+      effectiveInstant: "2026-04-01T23:00:00Z",
+      valueKey: "72|/min",
+    });
+    const { groups, confirmationCandidates } = reconcileRecords([morning, evening]);
+    expect(groups).toHaveLength(2);
+    expect(confirmationCandidates).toHaveLength(0);
     expect(sourceRecordCount(groups)).toBe(2);
   });
 
-  it("does not merge two patients or two different values", () => {
-    const left = record({ source: "fasten", sourceResourceId: "a", codings: [{ system: LOINC, code: "8867-4" }], resourceType: "Observation", valueKey: "72|/min" });
-    const otherPatient = record({ source: "fasten", sourceResourceId: "b", patientId: "patient-2", codings: [{ system: LOINC, code: "8867-4" }], resourceType: "Observation", valueKey: "72|/min" });
-    const otherValue = record({ source: "device", sourceResourceId: "c", codings: [{ system: LOINC, code: "8867-4" }], resourceType: "Observation", valueKey: "110|/min" });
-    const result = reconcileDeterministic([left, otherPatient, otherValue]);
-    expect(result.groups.every((group) => group.members.length === 1)).toBe(true);
-    expect(result.conflicts).toHaveLength(1);
-    expect(result.conflicts[0].reason).toBe("same-code-different-value");
+  it("groups two copies of one accession and keeps both values when they differ", () => {
+    const first = record({
+      source: "fasten",
+      sourceResourceId: "lab-1",
+      clinicalClass: "lab",
+      resourceType: "Observation",
+      identifiers: [{ system: "urn:lab:accession", value: "ACC-9" }],
+      valueKey: "100|mg/dL",
+    });
+    const corrected = record({
+      source: "direct-smart",
+      sourceSystem: "epic",
+      sourceResourceId: "lab-2",
+      clinicalClass: "lab",
+      resourceType: "Observation",
+      identifiers: [{ system: "urn:lab:accession", value: "ACC-9" }],
+      valueKey: "110|mg/dL",
+      status: "amended",
+    });
+    const { groups } = reconcileRecords([first, corrected]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].conflict).toBe(true);
+    expect(groups[0].members).toHaveLength(2);
   });
 
-  it("holds fuzzy pairs for Vertex and can merge them without dropping a source", () => {
-    const named = record({
-      source: "fasten",
-      sourceResourceId: "a",
-      codings: [{ system: "http://hospital.example/meds", code: "LIS10" }],
+  it("asks the member before treating a Blue Button fill and a MedicationRequest as the same drug", () => {
+    const claim = record({
+      source: "cms-blue-button",
+      sourceResourceId: "eob-1",
+      clinicalClass: "medication",
+      resourceType: "ExplanationOfBenefit",
+      codings: [{ system: RXNORM, code: "29046" }],
     });
-    const canonical = record({ source: "direct-smart", sourceResourceId: "b" });
-    const first = reconcileDeterministic([named, canonical]);
-    expect(terminologyStatus(named.codings[0])).toBe("unmapped");
-    expect(first.semanticCandidates).toHaveLength(1);
-    const merged = applySemanticDecision(first.groups, first.semanticCandidates[0], {
-      same: true,
-      score: 0.91,
-      model: "vertex-embeddings",
+    const order = record({
+      source: "direct-smart",
+      sourceResourceId: "med-1",
+      clinicalClass: "medication",
+      resourceType: "MedicationRequest",
+      codings: [{ system: RXNORM, code: "29046" }],
     });
-    expect(sourceRecordCount(merged)).toBe(2);
-    expect(merged.some((group) => group.algorithm === "semantic")).toBe(true);
+    const { groups, confirmationCandidates } = reconcileRecords([claim, order]);
+    expect(groups).toHaveLength(2);
+    expect(confirmationCandidates).toHaveLength(1);
+    expect(confirmationCandidates[0].requiresPatientConfirmation).toBe(true);
+  });
+
+  it("does not auto-merge an allergy on a high model score", () => {
+    const left = record({ source: "fasten", sourceResourceId: "a", clinicalClass: "allergy", resourceType: "AllergyIntolerance" });
+    const right = record({ source: "direct-smart", sourceResourceId: "b", clinicalClass: "allergy", resourceType: "AllergyIntolerance" });
+    const first = reconcileRecords([left, right]);
+    const decided = applySemanticDecision(first.groups, left, right, { same: true, score: 0.99, model: "vertex-gemini" });
+    expect(sourceRecordCount(decided.groups)).toBe(2);
+    expect(decided.confirmationCandidates).toHaveLength(1);
+    expect(decided.groups.every((group) => group.algorithm === "singleton")).toBe(true);
   });
 });

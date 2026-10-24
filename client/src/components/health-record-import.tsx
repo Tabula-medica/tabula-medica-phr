@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useTefcaEnabled } from "@/hooks/use-tefca";
+import { useFastenEnabled } from "@/hooks/use-tefca";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,9 +88,9 @@ export function HealthRecordImport({
   onPlatformConnected,
 }: HealthRecordImportProps) {
   const { toast } = useToast();
-  const tefcaEnabled = useTefcaEnabled();
-  // Fasten Health is the TEFCA connector (US-only); hide it on .world.
-  const platforms = HEALTH_PLATFORMS.filter((p) => tefcaEnabled || p.id !== "fasten_health");
+  const fastenEnabled = useFastenEnabled();
+  // Fasten is the US retrieval path. It is independent of TEFCA and hidden on world.
+  const platforms = HEALTH_PLATFORMS.filter((p) => fastenEnabled || p.id !== "fasten_health");
   const [activeTab, setActiveTab] = useState("upload");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);

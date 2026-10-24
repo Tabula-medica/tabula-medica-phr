@@ -51,14 +51,18 @@ jobs:
           CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
         run: |
           set -euo pipefail
-          if [ "$REGION_INPUT" = "world" ]; then TEFCA=false; else TEFCA=true; fi
+          case "$REGION_INPUT" in
+            world) TEFCA=false; FASTEN=false ;;
+            us) TEFCA=true; FASTEN=true ;;
+            *) echo "Unknown region: $REGION_INPUT" >&2; exit 1 ;;
+          esac
           gcloud run deploy "$SERVICE_NAME" \
             --source . \
             --project "$GCP_PROJECT_ID" \
             --region "$GCP_REGION" \
             --platform managed \
             --add-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
-            --set-env-vars "TABULA_REGION=${REGION_INPUT},TEFCA_ENABLED=${TEFCA},AI_PROVIDER=vertex,GCS_USE_ADC=true" \
+            --set-env-vars "TABULA_REGION=${REGION_INPUT},TEFCA_ENABLED=${TEFCA},FASTEN_ENABLED=${FASTEN},AI_PROVIDER=vertex,GCS_USE_ADC=true" \
             --set-secrets "DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,PHI_ENCRYPTION_SALT=PHI_ENCRYPTION_SALT:latest,MFA_ENCRYPTION_KEY=MFA_ENCRYPTION_KEY:latest,FASTEN_HEALTH_PRIVATE_KEY=FASTEN_HEALTH_PRIVATE_KEY:latest,FASTEN_HEALTH_CLIENT_ID=FASTEN_HEALTH_CLIENT_ID:latest" \
             --ingress all \
             --allow-unauthenticated \

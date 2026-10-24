@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { useTefcaEnabled } from "@/hooks/use-tefca";
+import { useFastenEnabled, useTefcaEnabled } from "@/hooks/use-tefca";
 import {
   CommandDialog,
   CommandEmpty,
@@ -61,6 +61,7 @@ export function CommandPalette() {
   }, [setLocation]);
 
   const tefcaEnabled = useTefcaEnabled();
+  const fastenEnabled = useFastenEnabled();
 
   const sections: CommandSection[] = [
     {
@@ -195,13 +196,19 @@ export function CommandPalette() {
     },
   ];
 
-  // Hide TEFCA/Fasten-only commands on the international (.world) deployment.
-  const TEFCA_ONLY_COMMAND_IDS = new Set(["nav-connect", "nav-compliance-export", "nav-network-health"]);
-  const visibleSections = tefcaEnabled
-    ? sections
-    : sections
-        .map((s) => ({ ...s, items: s.items.filter((i) => !TEFCA_ONLY_COMMAND_IDS.has(i.id)) }))
-        .filter((s) => s.items.length > 0);
+  // Fasten and TEFCA hide independently. World hides both.
+  const FASTEN_ONLY_COMMAND_IDS = new Set(["nav-connect"]);
+  const TEFCA_ONLY_COMMAND_IDS = new Set(["nav-compliance-export", "nav-network-health"]);
+  const visibleSections = sections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => {
+        if (!fastenEnabled && FASTEN_ONLY_COMMAND_IDS.has(i.id)) return false;
+        if (!tefcaEnabled && TEFCA_ONLY_COMMAND_IDS.has(i.id)) return false;
+        return true;
+      }),
+    }))
+    .filter((s) => s.items.length > 0);
 
   return (
     <>

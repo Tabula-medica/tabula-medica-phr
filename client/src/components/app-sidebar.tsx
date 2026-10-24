@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useRegion } from "@/components/region-provider";
-import { useTefcaEnabled } from "@/hooks/use-tefca";
+import { useFastenEnabled, useTefcaEnabled } from "@/hooks/use-tefca";
 import { 
   LayoutDashboard, 
   Clock, 
@@ -113,7 +113,7 @@ const mainNavItems = [
     url: "/fasten-connect",
     icon: Link2,
     badge: null,
-    requiresTefca: true,
+    requiresFasten: true,
   },
   {
     title: "Cash Prices",
@@ -698,9 +698,13 @@ function SectionHeader({
 export function AppSidebar() {
   const [location] = useLocation();
   const tefcaEnabled = useTefcaEnabled();
-  const mainNavItemsForRegion = mainNavItems.filter(
-    (item) => tefcaEnabled || !(item as { requiresTefca?: boolean }).requiresTefca,
-  );
+  const fastenEnabled = useFastenEnabled();
+  const mainNavItemsForRegion = mainNavItems.filter((item) => {
+    const flag = item as { requiresTefca?: boolean; requiresFasten?: boolean };
+    if (flag.requiresFasten && !fastenEnabled) return false;
+    if (flag.requiresTefca && !tefcaEnabled) return false;
+    return true;
+  });
   const [healthToolsOpen, setHealthToolsOpen] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [engagementOpen, setEngagementOpen] = useState(false);
