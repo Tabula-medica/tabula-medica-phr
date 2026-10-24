@@ -116,6 +116,36 @@ export const LARGE_BODY_ROUTES: readonly BodyLimit[] = [
     reason:
       "Medical Speech-to-Text accepts a base64-encoded audio payload (audioContent) that can exceed 1 MB for longer recordings.",
   },
+  {
+    path: "/api/clinical-docs/transcribe",
+    limit: "10mb",
+    reason:
+      "Clinical documentation transcription accepts a base64-encoded audio recording (audioBase64) that commonly exceeds 1 MB after encoding.",
+  },
+  {
+    path: "/api/ai-automated-documentation/transcribe",
+    limit: "10mb",
+    reason:
+      "Automated clinical documentation transcription accepts a base64-encoded voice note (audioBase64) that commonly exceeds 1 MB after encoding.",
+  },
+  {
+    path: "/api/ai-clinical-documentation/transcribe",
+    limit: "10mb",
+    reason:
+      "AI clinical documentation assistant transcription accepts a base64-encoded audio payload (audioBase64) that commonly exceeds 1 MB after encoding.",
+  },
+  {
+    path: "/api/search/voice",
+    limit: "10mb",
+    reason:
+      "Voice search accepts a base64-encoded audio clip (audioBase64) that commonly exceeds 1 MB after encoding.",
+  },
+  {
+    path: "/api/document-categorization/analyze-image",
+    limit: "10mb",
+    reason:
+      "Smart document upload sends a base64-encoded camera or scan image (base64Image) that commonly exceeds 1 MB after encoding.",
+  },
 ];
 
 export const UNAUTHENTICATED_BODY_LIMITS: readonly BodyLimit[] = [

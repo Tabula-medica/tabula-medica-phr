@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import crypto from "crypto";
+import { boundedArray } from "./lib/zod-helpers";
 import {
   aiFHIRWorkflowOrchestrator,
   FHIRWorkflowStatus,
@@ -134,7 +135,7 @@ const workflowStepSchema = z.object({
   order: z.number(),
   position: z.object({ x: z.number(), y: z.number() }),
   config: z.record(z.unknown()),
-  dependencies: z.array(z.string()).optional(),
+  dependencies: boundedArray(z.string(), 50).optional(),
   estimatedDurationSeconds: z.number().optional()
 });
 
@@ -148,14 +149,14 @@ const createWorkflowSchema = z.object({
   description: z.string(),
   category: z.string().min(1),
   status: z.enum(["draft", "active", "paused", "archived"]).default("draft"),
-  triggers: z.array(workflowTriggerSchema),
-  steps: z.array(workflowStepSchema),
-  connections: z.array(z.object({
+  triggers: boundedArray(workflowTriggerSchema, 50),
+  steps: boundedArray(workflowStepSchema, 100),
+  connections: boundedArray(z.object({
     sourceStepId: z.string(),
     targetStepId: z.string(),
     label: z.string().optional()
-  })),
-  tags: z.array(z.string()).default([]),
+  }), 200),
+  tags: boundedArray(z.string(), 100).default([]),
   createdBy: z.string(),
   estimatedDurationMinutes: z.number().optional(),
   autoRetry: z.boolean().default(true),

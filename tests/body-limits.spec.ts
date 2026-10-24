@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   UNAUTHENTICATED_BODY_LIMITS,
+  LARGE_BODY_ROUTES,
   PASSPORT_VERIFY_BODY_LIMIT,
   WEBHOOK_BODY_LIMIT,
   bodyLimitFor,
@@ -137,6 +138,30 @@ describe("unauthenticated body limits", () => {
       // caller off to debug the wrong number.
       expect(source).toContain("bodyLimitFor(req.path)");
     });
+  });
+});
+
+describe("large body routes", () => {
+  it("gives base64 audio and image uploads the 10mb cap", () => {
+    // The global default is 1mb. Base64 inflates a recording or phone photo
+    // by ~33%, so these JSON clients 413 on legitimate requests unless listed.
+    const required = [
+      "/api/clinical-docs/transcribe",
+      "/api/ai-automated-documentation/transcribe",
+      "/api/ai-clinical-documentation/transcribe",
+      "/api/search/voice",
+      "/api/document-categorization/analyze-image",
+    ];
+    for (const path of required) {
+      expect(LARGE_BODY_ROUTES.some((e) => e.path === path), path).toBe(true);
+      expect(bodyLimitFor(path)?.limit, path).toBe("10mb");
+    }
+  });
+
+  it("states why each route needs the larger cap", () => {
+    for (const entry of LARGE_BODY_ROUTES) {
+      expect(entry.reason.length, `${entry.path} explains itself`).toBeGreaterThan(20);
+    }
   });
 });
 
