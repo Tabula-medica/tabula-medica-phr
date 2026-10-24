@@ -18,3 +18,7 @@ reason = """postcss-selector-parser <7.1.6 (quadratic complexity in flat selecto
 [[IgnoredVulns]]
 id = "GHSA-vfj7-8cjw-p6xm"
 reason = """braces 3.0.3 stack-exhaustion DoS via deeply nested glob patterns — no upstream fix exists (3.0.3 is the latest npm release). Reached only via devDependencies: firebase-tools -> chokidar@3 and tailwindcss -> micromatch, both devDependencies. Production tree is clean (`npm audit --omit=dev --audit-level=high` passes). Inputs are glob patterns from local developer tooling, never user-supplied. Review by 2027-01-04 or when braces publishes a patched release."""
+
+[[IgnoredVulns]]
+id = "GHSA-mrhx-c7xc-m3w5"
+reason = """zod <4.6.6 memory exhaustion via oversized constrained collections. The only fix (zod@4.6.7) is a breaking major — zod v4 rewrites the entire API surface; migrating our server schemas is a multi-sprint effort tracked separately. Risk is low here: all routes using zod validation require authentication (requireUser middleware), limiting the attack surface to authenticated users. firecrawl is used only for non-PHI admin routes. Review by 2027-04-01 or when drizzle-zod/hookform-resolvers/@mcp/sdk ship zod@4-compatible releases allowing a coordinated migration."""

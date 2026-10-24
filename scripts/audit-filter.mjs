@@ -12,11 +12,18 @@ import { execSync } from 'node:child_process';
 // Format: GHSA-xxxx-xxxx-xxxx  (from https://github.com/advisories/<id>)
 const ACCEPTED_GHSA = new Set([
   'GHSA-vfj7-8cjw-p6xm', // braces <=3.0.3 — Patched: <0.0.0; needs tailwindcss v4 upgrade
+  'GHSA-mrhx-c7xc-m3w5', // zod <4.6.6 memory exhaustion — fix requires zod v4 (breaking); all affected routes are auth-gated; review 2027-04-01
 ]);
+
+// Pass --omit-dev to exclude devDependencies from the audit (mirrors --omit=dev on npm audit).
+const omitDev = process.argv.includes('--omit-dev');
+const auditCmd = omitDev
+  ? 'npm audit --json --audit-level=high --omit=dev 2>/dev/null'
+  : 'npm audit --json --audit-level=high 2>/dev/null';
 
 let raw;
 try {
-  raw = execSync('npm audit --json --audit-level=high 2>/dev/null', { encoding: 'utf8' });
+  raw = execSync(auditCmd, { encoding: 'utf8' });
 } catch (err) {
   // npm audit exits non-zero when vulnerabilities are found; stdout is still valid JSON.
   // If stdout is absent the command itself failed (network error, missing lockfile, etc.) —
