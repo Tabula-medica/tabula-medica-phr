@@ -58,12 +58,12 @@ const SelfHealingConfigSchema = z.object({
   maxRetryAttempts: z.number().min(1).max(10).optional(),
   retryDelayMs: z.number().min(100).max(60000).optional(),
   exponentialBackoff: z.boolean().optional(),
-  healableErrorTypes: z.array(z.string()).optional(),
+  healableErrorTypes: z.array(z.string()).max(100).optional(),
   autoRecoveryActions: z.array(z.object({
     errorPattern: z.string(),
     actionType: z.enum(["retry", "skip", "fallback", "notify", "pause_source", "reset_connection"]),
     parameters: z.record(z.unknown()).optional(),
-  })).optional(),
+  })).max(100).optional(),
 });
 
 const router = Router();

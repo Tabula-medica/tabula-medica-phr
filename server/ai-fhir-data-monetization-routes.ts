@@ -89,8 +89,8 @@ router.get("/dashboard", async (req: Request, res: Response) => {
 
 const identifyDatasetsSchema = z.object({
   minRecords: z.number().optional(),
-  resourceTypes: z.array(z.string()).optional(),
-  conditions: z.array(z.string()).optional(),
+  resourceTypes: z.array(z.string()).max(500).optional(),
+  conditions: z.array(z.string()).max(500).optional(),
   dateRange: z.object({
     start: z.string(),
     end: z.string()
@@ -176,7 +176,7 @@ router.get("/datasets/:id", async (req: Request, res: Response) => {
 const createDatasetSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
-  resourceTypes: z.array(z.string()),
+  resourceTypes: z.array(z.string()).max(500),
   recordCount: z.number().min(1),
   dateRange: z.object({
     startDate: z.string(),
@@ -185,10 +185,10 @@ const createDatasetSchema = z.object({
   demographics: z.object({
     ageRange: z.string(),
     genderDistribution: z.record(z.number()),
-    geographicRegions: z.array(z.string())
+    geographicRegions: z.array(z.string()).max(200)
   }),
-  conditions: z.array(z.string()),
-  procedures: z.array(z.string()),
+  conditions: z.array(z.string()).max(500),
+  procedures: z.array(z.string()).max(500),
   dataQualityScore: z.number().min(0).max(100),
   anonymizationStatus: z.enum(["not_started", "in_progress", "completed", "verified"]),
   anonymizationLevel: z.enum(["none", "de_identified", "limited_dataset", "safe_harbor", "expert_determination"]),
