@@ -291,6 +291,19 @@ describe("buildSurvivorshipSuggestions", () => {
     expect(ids(buildSurvivorshipSuggestions(breastCase(), ctx).suggestions)).toContain("genetics-referral");
   });
 
+  it("endocrine adherence follows the current regimen, not a past aromatase inhibitor", () => {
+    const laterRegimen = breastCase({
+      treatments: [
+        ...breastCase().treatments.filter((t) => t.id !== "t4"),
+        { id: "t4", modality: "hormone_therapy", title: "Anastrozole", start: "2022-02-01", end: "2024-02-01", agents: ["Anastrozole"] },
+        { id: "cape", modality: "chemotherapy", title: "Capecitabine", start: "2025-06-01", ongoing: true, agents: ["Capecitabine"] },
+      ],
+    });
+    expect(ids(buildSurvivorshipSuggestions(laterRegimen, ctx).suggestions)).not.toContain("endocrine-therapy-adherence");
+    const onTherapy = buildSurvivorshipSuggestions(breastCase(), ctx).suggestions.find((s) => s.id === "endocrine-therapy-adherence");
+    expect(onTherapy?.triggers).toEqual(["Anastrozole ongoing"]);
+  });
+
   it("tobacco cessation only for current smokers", () => {
     expect(ids(buildSurvivorshipSuggestions(breastCase(), { ...ctx, smokingStatus: "current" }).suggestions)).toContain("tobacco-cessation");
     expect(ids(buildSurvivorshipSuggestions(breastCase(), { ...ctx, smokingStatus: "never" }).suggestions)).not.toContain("tobacco-cessation");

@@ -58,20 +58,30 @@ import { LongevityPreventivePanel } from "@/components/longevity-preventive-pane
 import type { LongevityProfile } from "@shared/longevity-preventive";
 import { OncologySurvivorshipPanel } from "@/components/oncology-survivorship-panel";
 
-/** Derive the anonymous longevity profile (age + sex) from chart demographics. */
+/**
+ * Calendar age from a date of birth. Ages outside [minAge, 120] are omitted.
+ * Longevity screening stays adult-only (minAge 18). Oncology passes minAge 0 so
+ * childhood-cancer survivors still match age-gated COG rules.
+ */
+export function ageFromDateOfBirth(dateOfBirth: string | undefined, minAge = 0, now = new Date()): number | undefined {
+  if (!dateOfBirth) return undefined;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return undefined;
+  let age = now.getFullYear() - dob.getFullYear();
+  const beforeBirthday = now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+  if (beforeBirthday) age -= 1;
+  if (age >= minAge && age <= 120) return age;
+  return undefined;
+}
+
+/** Derive the anonymous longevity profile (age + sex) from chart demographics. Adult preventive care only. */
 function longevityProfileFromDemographics(
   demographics: ComprehensiveHealthRecord["demographics"] | undefined,
 ): Partial<LongevityProfile> | undefined {
   if (!demographics) return undefined;
   const profile: Partial<LongevityProfile> = {};
-  const dob = demographics.dateOfBirth ? new Date(demographics.dateOfBirth) : undefined;
-  if (dob && !Number.isNaN(dob.getTime())) {
-    const now = new Date();
-    let age = now.getFullYear() - dob.getFullYear();
-    const beforeBirthday = now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
-    if (beforeBirthday) age -= 1;
-    if (age >= 18 && age <= 120) profile.age = age;
-  }
+  const age = ageFromDateOfBirth(demographics.dateOfBirth, 18);
+  if (age !== undefined) profile.age = age;
   const gender = (demographics.gender ?? "").toLowerCase();
   if (gender.startsWith("f")) profile.sex = "female";
   else if (gender.startsWith("m")) profile.sex = "male";
@@ -79,6 +89,8 @@ function longevityProfileFromDemographics(
 }
 
 const DEFAULT_PATIENT_ID = "patient-001";
+/** Cancer Track indexes the seeded course by profile. The chart patient id is a different key. */
+const CANCER_TRACK_PROFILE_ID = "profile-default";
 
 function DemographicsSection({ demographics }: { demographics: ComprehensiveHealthRecord["demographics"] }) {
   return (
@@ -1168,7 +1180,8 @@ export default function PatientHealthRecord() {
           {activeTab === "oncology" && (
             <OncologySurvivorshipPanel
               patientId={patientId}
-              age={longevityProfileFromDemographics(healthRecord?.demographics)?.age}
+              profileId={CANCER_TRACK_PROFILE_ID}
+              age={ageFromDateOfBirth(healthRecord?.demographics?.dateOfBirth)}
               sex={longevityProfileFromDemographics(healthRecord?.demographics)?.sex}
               labs={healthRecord?.labResults}
             />

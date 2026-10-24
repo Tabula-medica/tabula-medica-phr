@@ -99,6 +99,29 @@ describe("refine", () => {
     expect(prompt.system).toMatch(/do NOT create new recommendations/i);
   });
 
+  it("does not send calendar dates that clinician alerts interpolate from study reads", async () => {
+    generate.mockResolvedValue(JSON.stringify({ items: [] }));
+    const dated = {
+      case: {
+        ...caseBody,
+        studies: [
+          ...caseBody.studies,
+          { id: "i2", kind: "imaging", date: "2026-09-01", title: "CT", response: "progression" },
+          { id: "e1", kind: "cardiac", date: "2026-01-10", title: "Echo", lvefPercent: 42 },
+          { id: "d1", kind: "bone_density", date: "2026-02-10", title: "DEXA", tScore: -2.7 },
+        ],
+      },
+      context: analyze.context,
+    };
+    expect((await post("/refine", dated)).status).toBe(200);
+    const prompt = generate.mock.calls[0][0] as { user: string };
+    expect(prompt.user).not.toMatch(/2026-09-01|2026-01-10|2026-02-10|2021-03-15|2025-06-10/);
+    expect(prompt.user).toMatch(/LVEF 42%/);
+    expect(prompt.user).toMatch(/T-score -2\.7/);
+    expect(prompt.user).toMatch(/progression/);
+    expect(prompt.user).toMatch(/months ago/);
+  });
+
   it("never lets a rule-assigned high priority fall below routine, nor consider jump to high", async () => {
     generate.mockResolvedValue(
       JSON.stringify({ items: [{ id: "care-plan-treatment-summary", adjustedPriority: "consider" }, { id: "fatigue-function", adjustedPriority: "high" }] }),

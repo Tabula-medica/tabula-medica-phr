@@ -175,6 +175,11 @@ function TrendIcon({ direction }: { direction: MarkerTrend["direction"] }) {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+/** Rule ids are shared across cancers; persist decisions under the cancer that was reviewed. */
+function storedSuggestionId(cancerId: string, ruleId: string): string {
+  return `${cancerId}--${ruleId}`;
+}
+
 export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs = [] }: OncologySurvivorshipPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -185,6 +190,13 @@ export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs
   const [manualTreatments, setManualTreatments] = useState<OncologyTreatment[]>([]);
   const [statusFilter, setStatusFilter] = useState<"open" | "all">("open");
   const [refined, setRefined] = useState<RefineResponse | null>(null);
+
+  const switchCancer = (id: string) => {
+    setCancerId(id);
+    setManualStudies([]);
+    setManualTreatments([]);
+    setRefined(null);
+  };
 
   const { data: cancers, isLoading: cancersLoading } = useQuery<CancerRecord[]>({ queryKey: ["/api/cancer-track/profiles", profile] });
   const activeCancer = cancers?.find((c) => c.id === cancerId) ?? cancers?.[0];
@@ -201,7 +213,18 @@ export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs
 
   const decisionsKey = ["/api/oncology-survivorship/patients", patientId, "decisions"];
   const { data: decisionData } = useQuery<{ decisions: Record<string, SuggestionDecision> }>({ queryKey: decisionsKey });
-  const decisions = decisionData?.decisions ?? {};
+  const storedDecisions = decisionData?.decisions ?? {};
+  const decisions = useMemo(() => {
+    if (!activeId) return {} as Record<string, SuggestionDecision>;
+    const prefix = `${activeId}--`;
+    const out: Record<string, SuggestionDecision> = {};
+    for (const [key, decision] of Object.entries(storedDecisions)) {
+      if (!key.startsWith(prefix)) continue;
+      const ruleId = key.slice(prefix.length);
+      out[ruleId] = { ...decision, suggestionId: ruleId };
+    }
+    return out;
+  }, [storedDecisions, activeId]);
 
   const completions = useMemo(() => {
     const out: Record<string, string> = {};
@@ -224,8 +247,9 @@ export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs
   );
 
   const decide = useMutation({
-    mutationFn: async (v: { id: string; status: DecisionStatus; note?: string }) => {
-      const res = await apiRequest("PUT", `/api/oncology-survivorship/patients/${patientId}/decisions/${v.id}`, { status: v.status, note: v.note });
+    mutationFn: async (v: { id: string; cancerId: string; status: DecisionStatus; note?: string }) => {
+      const storedId = storedSuggestionId(v.cancerId, v.id);
+      const res = await apiRequest("PUT", `/api/oncology-survivorship/patients/${patientId}/decisions/${storedId}`, { status: v.status, note: v.note });
       return (await res.json()) as { decision: SuggestionDecision };
     },
     onSuccess: ({ decision }) => {
@@ -310,7 +334,7 @@ export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs
               <CardDescription data-testid="text-oncology-headline">{course ? course.headline : "Loading course…"}</CardDescription>
             </div>
             {cancers.length > 1 && (
-              <Select value={activeId} onValueChange={(v) => setCancerId(v)}>
+              <Select value={activeId} onValueChange={switchCancer}>
                 <SelectTrigger className="w-56" aria-label="Select cancer record" data-testid="select-cancer">
                   <SelectValue placeholder="Select cancer" />
                 </SelectTrigger>
@@ -448,7 +472,7 @@ export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs
                 decision={decisions[s.id]}
                 refinement={refinementById.get(s.id)}
                 busy={decide.isPending}
-                onDecide={(status, note) => decide.mutate({ id: s.id, status, note })}
+                onDecide={(status, note) => activeId && decide.mutate({ id: s.id, cancerId: activeId, status, note })}
               />
             ))}
           </TabsContent>
@@ -647,6 +671,7 @@ export function OncologySurvivorshipPanel({ patientId, profileId, age, sex, labs
           {/* ── Add data ── */}
           <TabsContent value="add" className="space-y-4">
             <AddDataForms
+              key={activeId}
               onStudy={(s) => setManualStudies((prev) => [...prev, s])}
               onTreatment={(t) => setManualTreatments((prev) => [...prev, t])}
             />

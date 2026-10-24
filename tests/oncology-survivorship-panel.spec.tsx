@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 // Oncology tab: renders from Cancer Track data, shows the provider-only framing, and wires decisions.
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { render, cleanup, screen, waitFor, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axe, { type Result } from "axe-core";
 import { OncologySurvivorshipPanel } from "../client/src/components/oncology-survivorship-panel";
 import { getQueryFn } from "../client/src/lib/queryClient";
+
+beforeAll(() => {
+  const proto = HTMLElement.prototype;
+  if (!proto.hasPointerCapture) proto.hasPointerCapture = () => false;
+  if (!proto.setPointerCapture) proto.setPointerCapture = () => {};
+  if (!proto.releasePointerCapture) proto.releasePointerCapture = () => {};
+});
 
 afterEach(cleanup);
 
@@ -74,9 +82,73 @@ describe("OncologySurvivorshipPanel", () => {
     fireEvent.click(accept);
     await waitFor(() => expect(putBodies.length).toBe(1));
     expect(putBodies[0]).toMatchObject({
-      url: "/api/oncology-survivorship/patients/patient-001/decisions/cardiac-surveillance",
+      url: "/api/oncology-survivorship/patients/patient-001/decisions/cancer-1--cardiac-surveillance",
       body: { status: "accepted" },
     });
+  });
+
+  it("does not carry session entries, AI notes, or decisions onto the next cancer", async () => {
+    const colon = {
+      id: "cancer-2",
+      cancerType: "colon",
+      subtype: "Adenocarcinoma",
+      stage: "III",
+      diagnosisDate: "2019-04-01",
+      inRemission: true,
+      biomarkers: [] as { name: string; value: string; status: string }[],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+        if (init?.method === "POST" && String(url).includes("/refine")) {
+          return json({ aiRefined: true, courseNarrative: "BREAST-ONLY-NOTE", refinements: [], clarifyingQuestions: [] });
+        }
+        if (String(url).includes("/api/cancer-track/profiles/")) return json([cancer, colon]);
+        if (String(url).includes("/cancer-2/") && String(url).endsWith("/timeline")) return json([]);
+        if (String(url).endsWith("/timeline")) return json(timeline);
+        if (String(url).endsWith("/documents")) return json(documents);
+        if (String(url).includes("/decisions")) {
+          return json({
+            decisions: {
+              "cancer-1--psychosocial-distress": {
+                suggestionId: "cancer-1--psychosocial-distress",
+                status: "completed",
+                decidedBy: "u",
+                decidedAt: "2026-09-01T00:00:00Z",
+              },
+            },
+          });
+        }
+        return json({});
+      }),
+    );
+
+    const user = userEvent.setup();
+    mount();
+    await screen.findByTestId("suggestion-cardiac-surveillance");
+    // Completed items are hidden in the open filter, so the breast decision must not be visible yet.
+    expect(screen.queryByTestId("suggestion-psychosocial-distress")).toBeNull();
+
+    await user.click(screen.getByTestId("subtab-add-data"));
+    fireEvent.change(screen.getByTestId("input-study-title"), { target: { value: "Session-only PET" } });
+    await user.click(screen.getByTestId("button-add-study"));
+    await user.click(screen.getByTestId("subtab-studies"));
+    expect(screen.getByText(/Session-only PET/)).toBeTruthy();
+
+    await user.click(screen.getByTestId("subtab-survivorship"));
+    await user.click(screen.getByTestId("button-ai-refine"));
+    await screen.findByText("BREAST-ONLY-NOTE");
+
+    await user.click(screen.getByTestId("select-cancer"));
+    await user.click(await screen.findByRole("option", { name: /colon/i }));
+
+    await waitFor(() => expect(screen.getByTestId("text-oncology-headline").textContent).toMatch(/Adenocarcinoma colon/));
+    expect(screen.queryByText("BREAST-ONLY-NOTE")).toBeNull();
+    expect(screen.getByTestId("suggestion-psychosocial-distress").textContent).toMatch(/No record/);
+    expect(screen.getByTestId("suggestion-psychosocial-distress").textContent).not.toMatch(/completed/);
+    await user.click(screen.getByTestId("subtab-studies"));
+    expect(screen.queryByText(/Session-only PET/)).toBeNull();
   });
 
   it("has no WCAG A/AA violations", async () => {

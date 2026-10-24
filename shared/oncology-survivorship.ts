@@ -765,6 +765,13 @@ const has = (k: RuleInput, ...e: Exposure[]) => e.some((x) => k.p.exposures.has(
 const labelOf = (e: Exposure) => EXPOSURE_LABELS[e];
 const bm = (c: OncologyCase, re: RegExp) => c.biomarkers.find((b) => re.test(b.name));
 
+/** The treatment itself is adjuvant endocrine therapy, not merely a case that once had it. */
+function treatmentIsEndocrine(t: OncologyTreatment): boolean {
+  if (t.modality === "hormone_therapy") return true;
+  const agentText = [...(t.agents ?? []), t.title].join(" ; ");
+  return DRUG_PATTERNS.aromatase_inhibitor!.test(agentText) || DRUG_PATTERNS.tamoxifen!.test(agentText);
+}
+
 function hormoneReceptorPositive(c: OncologyCase): boolean {
   const er = bm(c, /\ber\b|estrogen/i);
   const pr = bm(c, /\bpr\b|progesterone/i);
@@ -1268,9 +1275,9 @@ const RULES: Rule[] = [
     frequencyMonths: 6,
     sources: ["ASCO-SURV"],
     match: (k) => {
-      const ongoing = k.c.treatments.filter((t) => t.ongoing && (t.modality === "hormone_therapy" || has(k, "aromatase_inhibitor", "tamoxifen")));
-      if (!ongoing.length || k.c.primarySite !== "breast") return null;
-      if (!hormoneReceptorPositive(k.c)) return null;
+      if (k.c.primarySite !== "breast" || !hormoneReceptorPositive(k.c)) return null;
+      const ongoing = k.c.treatments.filter((t) => t.ongoing && treatmentIsEndocrine(t));
+      if (!ongoing.length) return null;
       return { triggers: ongoing.map((t) => `${t.title} ongoing`), priority: "routine" };
     },
   },

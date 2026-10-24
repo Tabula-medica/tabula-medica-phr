@@ -223,7 +223,17 @@ interface RefinedItem {
 function buildRefinePrompt(c: OncologyCase, ctx: SurvivorContext, candidates: SurvivorshipSuggestion[]): string {
   const course = buildOncologyCourse(c);
   const today = new Date();
-  const monthsAgo = (iso: string) => Math.max(0, Math.round((today.getTime() - new Date(iso).getTime()) / (86_400_000 * 30.4375)));
+  const monthsAgo = (iso: string) => {
+    const months = Math.round((today.getTime() - new Date(iso).getTime()) / (86_400_000 * 30.4375));
+    return Number.isFinite(months) ? Math.max(0, months) : undefined;
+  };
+  // Clinician-facing alert and trigger strings interpolate study dates. Replace every
+  // ISO date in the prompt so Vertex only sees relative time.
+  const relativizeDates = (text: string) =>
+    text.replace(/\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/g, (iso) => {
+      const months = monthsAgo(iso);
+      return months === undefined ? "date not documented" : `${months} months ago`;
+    });
   const digest = {
     age: ctx.age,
     sex: ctx.sex,
@@ -250,7 +260,7 @@ function buildRefinePrompt(c: OncologyCase, ctx: SurvivorContext, candidates: Su
     dataGaps: course.dataGaps,
   };
   const items = candidates.map((s) => ({ id: s.id, title: s.title, priority: s.priority, dueState: s.dueState, triggers: s.triggers.slice(0, 6), dataGaps: s.dataGaps }));
-  return [
+  const prompt = [
     "CASE DIGEST (structured, relative times):",
     JSON.stringify(digest),
     "",
@@ -264,6 +274,7 @@ function buildRefinePrompt(c: OncologyCase, ctx: SurvivorContext, candidates: Su
     '            "dataToConfirm": string[] (<=4 short items the clinician should verify before acting)}],',
     ' "clarifyingQuestions": string[] (<=5 questions about missing or inconsistent chart data)}',
   ].join("\n");
+  return relativizeDates(prompt);
 }
 
 const REFINE_SYSTEM =
