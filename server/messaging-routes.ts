@@ -11,6 +11,7 @@ import {
   SecureMessageStatus,
 } from "@shared/schema";
 import { messagingWebSocketService, generateSignedToken, verifySignedToken } from "./services/messaging-websocket-service";
+import { requireUser } from "./middleware/require-user";
 
 interface Message {
   id: string;
@@ -30,6 +31,11 @@ interface Message {
 }
 
 const router = Router();
+
+// GHSA-mrhx-c7xc-m3w5: insertConversationSchema is an unbounded constrained
+// array. Every handler on this router, including POST /conversations, must
+// sit behind requireUser so that parse is not reachable without a login.
+router.use(requireUser);
 
 const upload = multer({
   storage: multer.memoryStorage(),
