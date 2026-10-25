@@ -36,7 +36,7 @@ const mappingRequestSchema = z.object({
   systemName: z.string().min(1, "systemName is required"),
   systemType: z.enum(["ehr", "lab", "pharmacy", "payer", "hie", "registry", "other"]),
   resourceType: z.string().min(1, "resourceType is required"),
-  fieldMappings: z.array(z.object({
+  fieldMappings: boundedArray(z.object({
     id: z.string().optional(),
     sourcePath: z.string(),
     sourceType: z.string(),
@@ -45,28 +45,28 @@ const mappingRequestSchema = z.object({
     cardinality: z.string().optional(),
     transform: z.string().optional(),
     required: z.boolean().optional(),
-  })).max(500).optional().default([]),
-  codeSystemMappings: z.array(z.object({
+  }), 500).optional().default([]),
+  codeSystemMappings: boundedArray(z.object({
     id: z.string().optional(),
     sourceCodeSystem: z.string(),
     sourceCodeSystemUrl: z.string().optional(),
     targetCodeSystem: z.string(),
     targetCodeSystemUrl: z.string().optional(),
-    mappings: z.array(z.object({
+    mappings: boundedArray(z.object({
       sourceCode: z.string(),
       sourceDisplay: z.string().optional(),
       targetCode: z.string(),
       targetDisplay: z.string().optional(),
       equivalence: z.string().optional(),
-    })).max(5000).optional(),
-  })).max(100).optional().default([]),
+    }), 5000).optional(),
+  }), 100).optional().default([]),
 });
 
 const mappingUpdateSchema = z.object({
   systemName: z.string().min(1).optional(),
   systemType: z.enum(["ehr", "lab", "pharmacy", "payer", "hie", "registry", "other"]).optional(),
   resourceType: z.string().min(1).optional(),
-  fieldMappings: z.array(z.object({
+  fieldMappings: boundedArray(z.object({
     id: z.string().optional(),
     sourcePath: z.string(),
     sourceType: z.string(),
@@ -75,21 +75,21 @@ const mappingUpdateSchema = z.object({
     cardinality: z.string().optional(),
     transform: z.string().optional(),
     required: z.boolean().optional(),
-  })).max(500).optional(),
-  codeSystemMappings: z.array(z.object({
+  }), 500).optional(),
+  codeSystemMappings: boundedArray(z.object({
     id: z.string().optional(),
     sourceCodeSystem: z.string(),
     sourceCodeSystemUrl: z.string().optional(),
     targetCodeSystem: z.string(),
     targetCodeSystemUrl: z.string().optional(),
-    mappings: z.array(z.object({
+    mappings: boundedArray(z.object({
       sourceCode: z.string(),
       sourceDisplay: z.string().optional(),
       targetCode: z.string(),
       targetDisplay: z.string().optional(),
       equivalence: z.string().optional(),
-    })).max(5000).optional(),
-  })).max(100).optional(),
+    }), 5000).optional(),
+  }), 100).optional(),
 });
 
 const discrepancyStatusSchema = z.object({
@@ -179,7 +179,7 @@ export function registerAIFHIRHarmonizationRoutes(router: Express): void {
         return res.status(400).json({
           success: false,
           error: "Invalid request parameters",
-          details: validationResult.error.issues,
+          details: validationResult.error.issues.slice(0, 20),
         });
       }
 
@@ -460,7 +460,7 @@ export function registerAIFHIRHarmonizationRoutes(router: Express): void {
         return res.status(400).json({
           success: false,
           error: "Invalid mapping data",
-          details: validationResult.error.issues,
+          details: validationResult.error.issues.slice(0, 20),
         });
       }
 
@@ -536,7 +536,7 @@ export function registerAIFHIRHarmonizationRoutes(router: Express): void {
         return res.status(400).json({
           success: false,
           error: "Invalid mapping update data",
-          details: validationResult.error.issues,
+          details: validationResult.error.issues.slice(0, 20),
         });
       }
       
@@ -824,7 +824,7 @@ export function registerAIFHIRHarmonizationRoutes(router: Express): void {
         return res.status(400).json({
           success: false,
           error: "Invalid status data",
-          details: validationResult.error.issues,
+          details: validationResult.error.issues.slice(0, 20),
         });
       }
 
@@ -1240,7 +1240,7 @@ export function registerAIFHIRHarmonizationRoutes(router: Express): void {
         return res.status(400).json({
           success: false,
           error: "Invalid configuration data",
-          details: validationResult.error.issues,
+          details: validationResult.error.issues.slice(0, 20),
         });
       }
 
