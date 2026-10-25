@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import * as docService from "../services/ai-automated-documentation-service";
+import { requireUser, aiUserRateLimiter } from "../middleware/require-user";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.get("/stats", (_req: Request, res: Response) => {
   }
 });
 
-router.post("/transcribe", async (req: Request, res: Response) => {
+router.post("/transcribe", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
   try {
     const { audioBase64, mimeType, clinicianId } = req.body;
     if (!audioBase64 || !clinicianId) {

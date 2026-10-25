@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { multimodalDocumentParser } from "./services/multimodal-document-parser";
 import { medicalSafetyValidator } from "./services/medical-safety-validator";
+import { requireUser, aiUserRateLimiter } from "./middleware/require-user";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.post("/api/multimodal/parse", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/api/multimodal/parse-anonymous", async (req: Request, res: Response) => {
+router.post("/api/multimodal/parse-anonymous", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
   try {
     const { imageData, mimeType, documentType } = req.body;
 

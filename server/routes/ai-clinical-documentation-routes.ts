@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { aiClinicalDocService } from "../services/ai-clinical-documentation";
+import { requireUser, aiUserRateLimiter } from "../middleware/require-user";
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.get("/metadata", (_req: Request, res: Response) => {
   });
 });
 
-router.post("/transcribe", async (req: Request, res: Response) => {
+router.post("/transcribe", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
   try {
     const { audioBase64, mimeType } = req.body;
 

@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { logPhiAccess } from "./security/hipaa-audit";
 import { generatePhiSafeChat } from "./services/ai-gateway";
 import { speechToText } from "./replit_integrations/audio/client";
+import { requireUser, getUserId, aiUserRateLimiter } from "./middleware/require-user";
 
 interface EncounterData {
   patientName: string;
@@ -123,10 +124,9 @@ function generateFallbackAnalysis(noteText: string) {
 }
 
 export function registerClinicalDocumentationRoutes(app: Express) {
-  app.post("/api/clinical-docs/transcribe", async (req: Request, res: Response) => {
+  app.post("/api/clinical-docs/transcribe", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
-      const userId = user?.claims?.sub || "current-user";
+      const userId = getUserId(req);
       const { audioBase64, mimeType } = req.body;
 
       if (!audioBase64) {
