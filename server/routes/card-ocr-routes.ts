@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { generatePhiSafeVision } from "../services/ai-gateway";
+import { requireUser, aiUserRateLimiter } from "../middleware/require-user";
 
 const router = Router();
 
@@ -87,7 +88,7 @@ function validatePharmacyRouting(fields: ExtractedCardFields): PharmacyRouting |
   };
 }
 
-router.post("/scan", async (req, res) => {
+router.post("/scan", requireUser, aiUserRateLimiter, async (req, res) => {
   const startTime = Date.now();
 
   try {

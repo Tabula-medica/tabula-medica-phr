@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { healthcareDeidentificationService } from "./services/gcp/healthcare-deidentification";
 import { medicalSpeechToTextService } from "./services/gcp/medical-speech-to-text";
 import { loadSecretsFromGCP, storeSecret, getSecretManagerStatus } from "./services/gcp-secret-manager";
+import { requireUser, aiUserRateLimiter } from "./middleware/require-user";
 
 const router = Router();
 
@@ -81,7 +82,7 @@ router.get("/deidentify/info-types", async (_req: Request, res: Response) => {
   res.json({ infoTypes: healthcareDeidentificationService.getHipaaInfoTypes() });
 });
 
-router.post("/medasr/transcribe", async (req: Request, res: Response) => {
+router.post("/medasr/transcribe", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
   try {
     const { audioContent, audioUri, encoding, sampleRateHertz, languageCode, model, speakerDiarization, maxSpeakers, punctuation } = req.body;
 
@@ -125,7 +126,7 @@ router.post("/medasr/session", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/medasr/session/:sessionId/transcribe", async (req: Request, res: Response) => {
+router.post("/medasr/session/:sessionId/transcribe", requireUser, aiUserRateLimiter, async (req: Request, res: Response) => {
   try {
     const result = await medicalSpeechToTextService.addToSession(req.params.sessionId, req.body);
     if (!result) return res.status(404).json({ error: "Session not found or already completed" });
