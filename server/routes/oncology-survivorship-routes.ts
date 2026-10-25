@@ -20,6 +20,7 @@
  */
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
+import { boundedArray } from "../lib/zod-helpers";
 import {
   CLINICIAN_DISCLAIMER,
   ONCOLOGY_SURVIVORSHIP_VERSION,
@@ -85,8 +86,8 @@ const treatmentSchema = z.object({
   end: isoDate.optional(),
   ongoing: z.boolean().optional(),
   intent: z.enum(["curative", "adjuvant", "neoadjuvant", "palliative", "maintenance"]).optional(),
-  agents: z.array(z.string().max(100)).max(30).optional(),
-  cumulativeDoseMgM2: z.array(z.object({ agent: z.string().max(100), dose: z.number().min(0).max(5000) })).max(10).optional(),
+  agents: boundedArray(z.string().max(100), 30).optional(),
+  cumulativeDoseMgM2: boundedArray(z.object({ agent: z.string().max(100), dose: z.number().min(0).max(5000) }), 10).optional(),
   radiation: z.object({ site: z.string().max(200), doseGy: z.number().min(0).max(120).optional(), fractions: z.number().int().min(1).max(100).optional() }).optional(),
   surgery: z
     .object({ procedure: z.string().max(200), axillaryDissection: z.boolean().optional(), oophorectomy: z.boolean().optional(), splenectomy: z.boolean().optional() })
@@ -105,12 +106,10 @@ const caseSchema = z.object({
   diagnosisDate: isoDate,
   status: z.enum(["active_treatment", "surveillance", "remission", "recurrent", "metastatic", "unknown"]),
   remissionDate: isoDate.optional(),
-  biomarkers: z
-    .array(z.object({ name: short, value: z.string().max(200), status: z.enum(["positive", "negative", "equivocal", "unknown"]), testedAt: z.string().max(30).optional() }))
-    .max(100),
-  geneticFindings: z.array(z.object({ gene: z.string().max(30), result: z.enum(["pathogenic", "likely_pathogenic", "vus", "negative"]) })).max(100).optional(),
-  studies: z.array(studySchema).max(500),
-  treatments: z.array(treatmentSchema).max(200),
+  biomarkers: boundedArray(z.object({ name: short, value: z.string().max(200), status: z.enum(["positive", "negative", "equivocal", "unknown"]), testedAt: z.string().max(30).optional() }), 100),
+  geneticFindings: boundedArray(z.object({ gene: z.string().max(30), result: z.enum(["pathogenic", "likely_pathogenic", "vus", "negative"]) }), 100).optional(),
+  studies: boundedArray(studySchema, 500),
+  treatments: boundedArray(treatmentSchema, 200),
   treatmentSummaryDocumented: z.boolean().optional(),
   survivorshipCarePlanDocumented: z.boolean().optional(),
 });

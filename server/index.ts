@@ -211,6 +211,7 @@ import { aiCountryGate } from "./middleware/ai-country-gate";
 import { redactPath } from "./security/redact-path";
 import {
   UNAUTHENTICATED_BODY_LIMITS,
+  LARGE_BODY_ROUTES,
   bodyLimitFor,
 } from "./security/body-limits";
 app.use(geoCountryMiddleware());
@@ -239,8 +240,8 @@ registerBluebuttonRoutes(app);
 // limit. Reads no cookies, sessions, or DB. No-op unless PUBLIC_MCP_ENABLED=true.
 registerPublicMcpRoute(app);
 
-const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "10mb";
-const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "10mb";
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "1mb";
+const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "1mb";
 
 /**
  * Caps for the endpoints an anonymous client can reach. The table, and the
@@ -254,6 +255,20 @@ for (const { path, limit } of UNAUTHENTICATED_BODY_LIMITS) {
   // Both parsers: a carrier posts form-encoded, a browser form posts
   // form-encoded, a client posts JSON, and a cap that covers only one of
   // them is not a cap.
+  app.use(path, express.json({ limit }));
+  app.use(path, express.urlencoded({ extended: false, limit }));
+}
+
+/**
+ * Routes that legitimately exceed the 1 mb global default (base64 images,
+ * audio, FHIR bulk data). Mounted before the global parser for the same
+ * reason as UNAUTHENTICATED_BODY_LIMITS — first parser wins.
+ *
+ * Note: the Stripe and Fasten webhooks use req.rawBody from the global
+ * parser's verify hook; they are intentionally NOT listed here so that hook
+ * still fires. See body-limits.ts for the full rationale.
+ */
+for (const { path, limit } of LARGE_BODY_ROUTES) {
   app.use(path, express.json({ limit }));
   app.use(path, express.urlencoded({ extended: false, limit }));
 }

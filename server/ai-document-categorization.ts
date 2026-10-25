@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import { requireUser } from "./middleware/require-user";
 import { generatePhiSafeChat, generatePhiSafeVision } from "./services/ai-gateway";
 
 export interface DocumentCategory {
@@ -273,7 +274,7 @@ router.post("/api/document-categorization/analyze-text", async (req: Request, re
   }
 });
 
-router.post("/api/document-categorization/analyze-image", async (req: Request, res: Response) => {
+router.post("/api/document-categorization/analyze-image", requireUser, async (req: Request, res: Response) => {
   const { base64Image, filename, mimeType } = req.body;
   
   if (!base64Image) {

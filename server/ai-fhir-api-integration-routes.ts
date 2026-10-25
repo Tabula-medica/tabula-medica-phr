@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { boundedArray } from './lib/zod-helpers';
 import { aiFHIRAPIIntegrationService } from './services/ai-fhir-api-integration-service';
 import { comprehensiveAuditTrailService } from './services/comprehensive-audit-trail-service';
 
@@ -15,7 +16,7 @@ const createMappingSchema = z.object({
   sourceServerId: z.string(),
   targetServerId: z.string().default('local'),
   resourceType: z.string(),
-  mappings: z.array(z.object({
+  mappings: boundedArray(z.object({
     id: z.string(),
     sourcePath: z.string(),
     targetPath: z.string(),
@@ -23,8 +24,8 @@ const createMappingSchema = z.object({
     defaultValue: z.string().optional(),
     required: z.boolean().default(false),
     description: z.string().optional()
-  })).default([]),
-  transformations: z.array(z.object({
+  }), 500).default([]),
+  transformations: boundedArray(z.object({
     id: z.string(),
     name: z.string(),
     type: z.enum(['terminology', 'format', 'structure', 'calculation', 'conditional']),
@@ -32,8 +33,8 @@ const createMappingSchema = z.object({
     targetPath: z.string(),
     config: z.record(z.unknown()).default({}),
     description: z.string()
-  })).default([]),
-  validationRules: z.array(z.object({
+  }), 500).default([]),
+  validationRules: boundedArray(z.object({
     id: z.string(),
     name: z.string(),
     type: z.enum(['required', 'format', 'range', 'reference', 'terminology', 'custom']),
@@ -41,7 +42,7 @@ const createMappingSchema = z.object({
     config: z.record(z.unknown()).default({}),
     severity: z.enum(['error', 'warning', 'info']),
     message: z.string()
-  })).default([]),
+  }), 500).default([]),
   status: z.enum(['draft', 'active', 'testing']).default('draft')
 });
 
@@ -648,7 +649,7 @@ const createConnectorSchema = z.object({
   authConfig: z.object({
     authType: z.enum(['none', 'basic', 'oauth2', 'smart_on_fhir']),
     tokenEndpoint: z.string().optional(),
-    scopes: z.array(z.string()).optional()
+    scopes: boundedArray(z.string(), 100).optional()
   }).optional(),
   syncConfig: z.object({
     syncMode: z.enum(['real_time', 'batch', 'on_demand']),

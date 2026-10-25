@@ -436,6 +436,7 @@ import familyVerificationRoutes from "./routes/family-verification-routes";
 import familyHubRoutes from "./family-hub-routes";
 import { requireFeature } from "./middleware/require-feature";
 import { requireUser, getUserId, assertOwnsProfile } from "./middleware/require-user";
+import { boundedArray, nonEmptyBoundedArray } from "./lib/zod-helpers";
 import enterpriseSavingsRoutes from "./enterprise-savings-routes";
 import uninsuredResourcesRoutes from "./routes/uninsured-resources-routes";
 import cmsMarketplaceRoutes from "./routes/cms-marketplace-routes";
@@ -2699,7 +2700,7 @@ export async function registerRoutes(
     conversationHistory: z.array(z.object({
       role: z.enum(["user", "assistant"]),
       content: z.string(),
-    })).optional().default([]),
+    })).max(100).optional().default([]),
   });
 
   const interventionSchema = z.object({
@@ -8717,7 +8718,7 @@ STRICT NO-CDS CONSTRAINTS:
         medicationName: z.string().min(1),
         dosage: z.string().min(1),
         frequency: z.enum(["once_daily", "twice_daily", "three_times_daily", "four_times_daily", "weekly", "as_needed"]),
-        scheduledTimes: z.array(z.string()).min(1),
+        scheduledTimes: nonEmptyBoundedArray(z.string(), 10),
         notifyViaApp: z.boolean().optional(),
         notifyViaPush: z.boolean().optional(),
       });
@@ -8756,7 +8757,7 @@ STRICT NO-CDS CONSTRAINTS:
       
       const updateSchema = z.object({
         isActive: z.boolean().optional(),
-        scheduledTimes: z.array(z.string()).optional(),
+        scheduledTimes: boundedArray(z.string(), 10).optional(),
         frequency: z.enum(["once_daily", "twice_daily", "three_times_daily", "four_times_daily", "weekly", "as_needed"]).optional(),
         notifyViaApp: z.boolean().optional(),
         notifyViaPush: z.boolean().optional(),
@@ -13848,14 +13849,14 @@ Generate a JSON response:
       // Validate completedSteps
       const { z } = await import("zod");
       const onboardingCompleteSchema = z.object({
-        completedSteps: z.array(z.string()).default([]),
+        completedSteps: boundedArray(z.string(), 50).default([]),
         goals: z.array(z.object({
           category: z.enum(["weight", "exercise", "nutrition", "medication", "mental_health", "sleep", "other"]).optional(),
           title: z.string().min(1),
           description: z.string().optional(),
           targetValue: z.string().optional(),
           unit: z.string().optional(),
-        })).optional(),
+        })).max(50).optional(),
       });
 
       const validation = onboardingCompleteSchema.safeParse(req.body);
@@ -13951,26 +13952,26 @@ Generate a JSON response:
             preferredLanguage: z.string().optional(),
           }).optional(),
           medicalHistory: z.object({
-            conditions: z.array(z.string()).optional(),
-            surgeries: z.array(z.object({ name: z.string(), date: z.string() })).optional(),
-            familyHistory: z.array(z.object({ condition: z.string(), relation: z.string() })).optional(),
+            conditions: boundedArray(z.string(), 200).optional(),
+            surgeries: boundedArray(z.object({ name: z.string(), date: z.string() }), 100).optional(),
+            familyHistory: boundedArray(z.object({ condition: z.string(), relation: z.string() }), 100).optional(),
           }).optional(),
           medications: z.array(z.object({
             name: z.string(),
             dosage: z.string().optional(),
             frequency: z.string().optional(),
-          })).optional(),
+          })).max(500).optional(),
           allergies: z.array(z.object({
             allergen: z.string(),
             reaction: z.string().optional(),
             severity: z.enum(["mild", "moderate", "severe"]).optional(),
-          })).optional(),
+          })).max(200).optional(),
           emergencyContacts: z.array(z.object({
             name: z.string(),
             relationship: z.string(),
             phone: z.string(),
             email: z.string().optional(),
-          })).optional(),
+          })).max(20).optional(),
           consent: z.object({
             termsAccepted: z.boolean(),
             privacyPolicyAccepted: z.boolean(),
@@ -13978,7 +13979,7 @@ Generate a JSON response:
             communicationConsent: z.boolean().optional(),
           }).optional(),
         }).optional(),
-        completedSteps: z.array(z.string()).optional(),
+        completedSteps: boundedArray(z.string(), 50).optional(),
       });
 
       const validation = patientRegistrationSchema.safeParse(req.body);
@@ -20330,7 +20331,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
   });
 
   // Voice search with transcription
-  app.post("/api/search/voice", async (req, res) => {
+  app.post("/api/search/voice", requireUser, async (req, res) => {
     try {
       const { audioBase64, language } = req.body;
 
@@ -22001,8 +22002,8 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     patientId: z.string().min(1, "Patient ID is required"),
     responses: z.array(z.object({
       fieldId: z.string(),
-      value: z.union([z.string(), z.array(z.string()), z.number(), z.boolean()]),
-    })),
+      value: z.union([z.string(), boundedArray(z.string(), 50), z.number(), z.boolean()]),
+    })).max(200),
   });
 
   // AI Intelligent Scheduling - Optimize appointment slots
@@ -23070,7 +23071,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     recipientType: z.enum(["provider", "caregiver", "family", "care_team"]),
     recipientId: z.string().min(1),
     recipientName: z.string().min(1),
-    dataCategories: z.array(z.string()).min(1),
+    dataCategories: nonEmptyBoundedArray(z.string(), 50),
     accessLevel: z.enum(["view", "view_and_download"]).default("view"),
     validFrom: z.string().optional(),
     validUntil: z.string().optional(),
@@ -23098,7 +23099,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       resourceId: z.string(),
       resourceName: z.string(),
       reason: z.string().optional(),
-    })).default([]),
+    })).max(50).default([]),
     reminderEnabled: z.boolean().default(false),
     reminderFrequency: z.enum(["daily", "weekly"]).optional(),
   });
@@ -23848,9 +23849,9 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     patientId: z.string().optional(),
     patientContext: z.object({
       age: z.number().optional(),
-      conditions: z.array(z.string()).optional(),
-      medications: z.array(z.string()).optional(),
-      allergies: z.array(z.string()).optional(),
+      conditions: boundedArray(z.string(), 200).optional(),
+      medications: boundedArray(z.string(), 500).optional(),
+      allergies: boundedArray(z.string(), 200).optional(),
     }).optional(),
   });
 
@@ -24701,7 +24702,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     diagnoses: z.array(z.object({
       code: z.string(),
       description: z.string(),
-    })).optional(),
+    })).max(200).optional(),
   });
 
   app.post("/api/provider-integration/ehr/connections/:connectionId/send-prescription", requireRole("provider", "admin"), async (req, res) => {
@@ -28410,14 +28411,14 @@ Available data types: ${searchableDataTypes.join(", ")}`,
     specialty: z.string(),
     scheduledDate: z.string(),
     patientContext: z.object({
-      conditions: z.array(z.string()).default([]),
-      medications: z.array(z.string()).default([]),
+      conditions: boundedArray(z.string(), 200).default([]),
+      medications: boundedArray(z.string(), 500).default([]),
       recentLabResults: z.array(z.object({
         name: z.string(),
         value: z.string(),
         date: z.string(),
-      })).default([]),
-      allergies: z.array(z.string()).default([]),
+      })).max(100).default([]),
+      allergies: boundedArray(z.string(), 200).default([]),
     }).optional(),
   });
 
@@ -28502,7 +28503,7 @@ Available data types: ${searchableDataTypes.join(", ")}`,
       type: z.enum(["wrong_dose", "duplicate", "discontinued", "changed", "other"]),
       description: z.string(),
       suggestedCorrection: z.string().optional(),
-    })).optional(),
+    })).max(50).optional(),
   });
 
   app.post("/api/med-reconciliation/update", async (req, res) => {
@@ -29071,7 +29072,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     isRead: z.boolean().optional(),
     isPinned: z.boolean().optional(),
     isArchived: z.boolean().optional(),
-    tags: z.array(z.string()).optional(),
+    tags: boundedArray(z.string(), 100).optional(),
     notes: z.string().nullable().optional(),
     episodeId: z.string().nullable().optional(),
   });
@@ -29902,7 +29903,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
 
   const exportRequestSchema = z.object({
     format: z.enum(["json", "pdf", "fhir"]),
-    categories: z.array(z.string()),
+    categories: boundedArray(z.string(), 50),
   });
 
   app.post("/api/privacy/exports", async (req, res) => {
@@ -30600,7 +30601,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
           role: z.enum(["user", "assistant"]),
           content: z.string(),
           timestamp: z.string(),
-        })).optional().default([]),
+        })).max(100).optional().default([]),
       });
 
       const parsed = chatSchema.safeParse(req.body);
@@ -31192,7 +31193,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     severity: z.enum(["mild", "moderate", "severe"]),
     duration: z.string().min(1, "Duration is required"),
     notes: z.string().optional(),
-    triggers: z.array(symptomTriggerSchema).optional(),
+    triggers: boundedArray(symptomTriggerSchema, 50).optional(),
     triggerType: z.string().optional(),
     triggerDescription: z.string().optional(),
   });
@@ -31698,7 +31699,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
     date: z.string(),
     content: z.string().min(1, "Content is required"),
     mood: z.enum(["very_negative", "negative", "neutral", "positive", "very_positive"]),
-    tags: z.array(z.string()).optional(),
+    tags: boundedArray(z.string(), 100).optional(),
   });
 
   app.post("/api/journal", async (req, res) => {
@@ -35522,7 +35523,7 @@ Return to clinic in 2 weeks for glucose monitoring.`;
 
   const unifiedSearchQuerySchema = z.object({
     query: z.string().min(1).max(200),
-    types: z.array(z.string()).optional(),
+    types: boundedArray(z.string(), 20).optional(),
     limit: z.number().min(1).max(100).default(20),
   });
 
