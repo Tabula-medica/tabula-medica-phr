@@ -7,7 +7,29 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-22 worldehr-session)
+# MASTER RUNNING TODO — all projects (updated 2026-10-26 compliance+ehr-session)
+
+---
+
+### 2026-10-26 session — compliance sweep + EHR wave2 a11y fix
+
+- **noorjyoti #110 MERGED** — certifi 2026.4.22→2026.10.19 (CVE-2024-39689); pyproject.toml constraint + uv.lock updated
+- **ACO #65 MERGED** — undici≥6.29.1 + body-parser≥2.4.0 overrides + pnpm lockfile regen; fixed ERR_PNPM_LOCKFILE_CONFIG_MISMATCH
+- **3 zod CVE-2023-54404 alerts DISMISSED tolerable_risk** — noorjyoti #167 + vista-pd #48 + ACO #123; no server-side z.array().max() patterns anywhere
+- **Portfolio 0 HIGH/CRIT open** ✅; posture.json updated + pushed to chore/compliance-privacy
+- **PHR docs review PRs CLOSED** — #272/#273/#274 were AI cursor-agent noise; closed
+- **MAJOR Dependabot PRs CLOSED (deferred)** — PHR #277/#278/#279, ACO #60/#61/#62/#64, noorjyoti #102-108; all MAJOR version bumps, await upgrade window
+- **omnihealth-ehr PR #499 IN PROGRESS** — feat: A-Z wave2 Clinical Pharmacy/Nursing Schedule/Blood Bank/Telehealth/Conditions/Care Team; fixed a11y violations (yellow/orange badge contrast + amber-600 expiring-soon text + label-content-name-mismatch); CI re-running, awaiting green merge
+
+**Owner-gated items still open (unchanged):**
+- Stripe keys + webhook registration → Base44 Secrets → Publish (SAWD)
+- sawd-landers deploy (Trevor/legal gate)
+- §7216 consent text: Trevor review before CONSENT_7216_CLEARED flips true
+- worldehr-pg appuser password rotation (URGENT, leaked 2026-09-07)
+- iOS ASC: ESD App Privacy+Pricing → `eas submit --platform ios --latest`
+- iOS ASC gates for various apps (LTFM, NoorJyoti, WorldEHR, SAWD)
+
+---
 
 ---
 
