@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T16:40:00.000Z",
+  "generatedAt": "2026-10-26T16:45:00.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -21,7 +21,7 @@
         "aigov",
         "gdpr"
       ],
-      "notes": "Closest to launch. WAF live. DPC cash-pay marketplace. PR#133 merged 2026-10-26: lockfile fix + HIGH CVEs (vite/ip-address/undici/body-parser/fast-uri/zod@4); 0 open Dependabot alerts.",
+      "notes": "Closest to launch. WAF live. DPC cash-pay marketplace. PR#133 MERGED + PR#134 closed 2026-10-26: zod@4.6.7 override + lockfile fix + HIGH CVEs (vite/ip-address/undici/body-parser/fast-uri); 0 open HIGH/CRIT alerts. Only open gate: Cloud Run WIF auth error (founder gate).",
       "readiness": 100,
       "counts": {
         "pass": 32,
