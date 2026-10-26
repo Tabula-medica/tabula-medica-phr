@@ -48,6 +48,9 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - sawd-bank PR#69 (MERGED): server-authoritative money mutation hardening (9 server functions)
   - omnihealth-ehr PR#499 (MERGED): wave 2 features (pharmacy/staff-schedule/blood-bank/telehealth/conditions)
   - **0 unignored HIGH/CRITICAL portfolio-wide confirmed 2026-10-26** (posture.json commit 95f5a02)
+- **Session-17b (2026-10-26)**: Second sweep — tabula-cognita PR#102 MERGED (body-parser 2.4.0+fast-uri+undici CVEs; approve-first pattern); tabula-medica-EHRB PR#55 MERGED (vite 6.4.5 patch); total 9 PRs merged in session; **100%/0 P0s** (posture.json 8dd861c)
+  - **Open gates for human action**: (1) 35 stale uninsurance Dependabot alerts — dismiss via GH UI or authorize batch dismiss; (2) world-ehr-base PR#62 (Medicare Blue Button+Epic connectors) — needs approval from non-tabulamedica246-web account; (3) tabula-unraj-web zod HIGH alert #33 — no v3 fix, dismiss manually; (4) uninsurance Cloud Run WIF error — pre-existing GCP gate; (5) uninsurance-care PR#131 (vite 7.3.5→7.3.7) — CI failing, investigate before merge
+  - **Approve-then-merge pattern**: Dependabot PRs require approve (as non-Dependabot actor) THEN merge with --admin; PRs authored by tabulamedica246-web are self-PRs and cannot be self-approved (need different GitHub account)
   - OPEN GATE: 50 uninsurance build-tool-only Dependabot alerts (#190–#107 range) — auto-mode blocked; need explicit "yes, dismiss..." text from user
 
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
