@@ -1,15 +1,17 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 10 ventures, 100%/0 P0s as of 2026-10-08; only gap = AV-03 WAF P2 (6 ventures, cost-gated); all branches merged"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s as of 2026-10-26; only gap = AV-03 WAF P2 (6 ventures, cost-gated)"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 7a23926b-9805-40b6-ad56-d80b58c2bfee
 ---
 
-Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/compliance-console/` — a self-hosted, AI-assisted GRC platform. Monitors 10 ventures (uninsurance, underinsured, phr, sawd, ehr/canvas, cognita, attentiva, omnihealth, aco, ltfm) against a unified 33-control library multi-framework-mapped to SOC2 TSC, HIPAA, ISO 27001/27701, GDPR/CCPA, etc.
+Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/compliance-console/` — a self-hosted, AI-assisted GRC platform. Monitors 17 ventures against a unified 33-control library multi-framework-mapped to SOC2 TSC, HIPAA, ISO 27001/27701, GDPR/CCPA, etc.
 
-**Current posture: 100% / 0 P0s** (as of 2026-10-22, `chore/compliance-privacy` pushed to remote)
+**Current posture: 100% / 0 P0s** (as of 2026-10-26, `chore/compliance-privacy` commit 7ef8af2)
+- **17 ventures** at 100%: uninsurance, underinsured, phr, sawd, ehr(archived), cognita, attentiva, omnihealth, aco, ltfm, accountable-law, mds-platform, **ESD, DextroHeart, VISTA-PD, ContinuEEG, DPN** (5 new added 2026-10-26)
+- New ventures added 2026-10-26 with full ventureOverride attestations in attestations.json
 - 11 ventures at 100% (posture verified 2026-10-22); MDS Platform added
 - Contact pages deployed to all 5 Sprinto entities: omnihealth PR#449 + PHR PR#96 merged 2026-10-16
 - **Session-7 (2026-10-20)**: katha-kids #95-99 (minor-patch + expo-location + pino 9→10 + babel 7→8 + gesture-handler 2→3) all merged; noorjyoti-app #100+#102+#105+#107 (expo 57→58 complete) all merged; 0 HIGH/CRIT portfolio-wide; pino-10 required `Logger<string>` type fix in api-server
