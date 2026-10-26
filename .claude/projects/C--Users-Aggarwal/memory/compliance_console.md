@@ -75,6 +75,12 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - VISTA-PD repo-level branch protection: requires 1 reviewer + enforce_admins:true → must patch BOTH repo-level protection AND org rulesets for merges
   - **100%/0 P0s portfolio-wide confirmed 2026-10-26**
 
+- **Session-23 (2026-10-26)**: uninsurance Gitleaks BLOCKING scan restored:
+  - Root cause: commit f110a489 (2026-10-09) added 3 new eas.json lines before `ascApiKeyIssuerId`, shifting it from line 51 → line 60; old baseline fingerprint (line 51) no longer matched
+  - PR#368 (manual fingerprint — wrong line, still failed) then PR#369 (baseline regen via workflow, MERGED) resolved the BLOCKING Gitleaks scan
+  - Post-merge push-scan: SUCCESS; Gitleaks clean; **0 BLOCKING failures portfolio-wide**
+  - uninsurance-care PR#367 (image-size 2.0.4 + 35 build-tool GHSAs accepted) also MERGED in this session
+
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
 **How posture is maintained:**
