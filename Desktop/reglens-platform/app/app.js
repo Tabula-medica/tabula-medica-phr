@@ -16,6 +16,7 @@ const state={
   surveyDate:'',
   addForm:{tag:'',severity:'D',dept:'Nursing',notes:'',date:'',title:''},
   addOpen:false,
+  activeFtag:null,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -175,6 +176,29 @@ function pageOverview(){
 </div>`;
 }
 
+// ── F-Tag detail panel ─────────────────────────────────────────────────────
+function ftagDetail(f){
+  const sevInfo=SEVERITY[f.severity_typical]||{};
+  const cmsBase='https://www.cms.gov/medicare/provider-enrollment-and-certification/guidanceforlawsandregulations/nursing-homes';
+  return`
+<div class="ftag-detail-panel">
+  <div class="ftag-detail-header">
+    <span class="td-tag" style="font-size:1rem;color:var(--teal-dark)">${esc(f.tag)}</span>
+    <span>${esc(f.title)}</span>
+  </div>
+  <div class="ftag-detail-grid">
+    <div><strong>Regulation</strong><span>${esc(f.reg)}</span></div>
+    <div><strong>Category</strong><span>${esc(f.cat)}</span></div>
+    <div><strong>Primary Dept</strong><span>${esc(f.dept)}</span></div>
+    <div><strong>Citation Frequency</strong><span>${freqChip(f.freq)}</span></div>
+    <div style="grid-column:span 2"><strong>Typical Severity</strong><span style="display:inline-flex;align-items:center;gap:8px;margin-top:3px">${sevBadge(f.severity_typical)}<span style="font-size:0.82rem;color:var(--text-muted)">${esc(sevInfo.label||'')} · ${esc(sevInfo.scope||'')} scope</span></span></div>
+  </div>
+  <div class="ftag-detail-actions">
+    <button class="btn btn-primary btn-sm" data-action="log-ftag" data-tag="${esc(f.tag)}">Log Deficiency →</button>
+    <a href="${esc(cmsBase)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">CMS SOM Reference ↗</a>
+  </div>
+</div>`;}
+
 // ── F-Tags Browser ─────────────────────────────────────────────────────────
 function pageFtags(){
   const q=state.query.toLowerCase();
@@ -228,8 +252,8 @@ function pageFtags(){
     <thead><tr><th>F-Tag</th><th>Regulation</th><th>Title</th><th>Category</th><th>Dept</th><th>Freq</th><th>Typical Sev</th></tr></thead>
     <tbody>
       ${filtered.length===0?`<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No F-tags match the current filters.</td></tr>`:''}
-      ${filtered.map(f=>`
-        <tr>
+      ${filtered.map(f=>{const active=state.activeFtag===f.tag;return`
+        <tr class="ftag-row${active?' ftag-row-active':''}" data-ftag="${esc(f.tag)}" title="Click to expand details">
           <td class="td-tag">${esc(f.tag)}</td>
           <td class="td-reg">${esc(f.reg)}</td>
           <td class="td-title">${esc(f.title)}</td>
@@ -237,7 +261,8 @@ function pageFtags(){
           <td class="td-muted">${esc(f.dept)}</td>
           <td>${freqChip(f.freq)}</td>
           <td>${sevBadge(f.severity_typical)}</td>
-        </tr>`).join('')}
+        </tr>
+        ${active?`<tr class="ftag-detail-expand"><td colspan="7">${ftagDetail(f)}</td></tr>`:''}`}).join('')}
     </tbody>
   </table>
 </div>`;
@@ -257,6 +282,7 @@ function pageTracker(){
   <button class="btn btn-primary" id="add-def-btn">${state.addOpen?'✕ Cancel':'+ Add Deficiency'}</button>
   <button class="btn btn-outline btn-sm" id="load-demo-btn">Load Demo Data</button>
   <button class="btn btn-outline btn-sm" id="clear-defs-btn">Clear All</button>
+  ${state.deficiencies.length?`<button class="btn btn-outline btn-sm" id="export-csv-btn" style="margin-left:auto">Export CSV ↓</button>`:''}
 </div>
 ${state.addOpen?addDefForm():''}
 <div class="deficiency-list">
@@ -599,11 +625,28 @@ function bindEvents(){
     });
   }
 
-  // Deficiency actions
+  // F-tag row expand
+  document.querySelectorAll('.ftag-row').forEach(row=>{
+    row.addEventListener('click',e=>{
+      if(e.target.closest('.btn')||e.target.closest('a'))return;
+      const tag=row.dataset.ftag;
+      state.activeFtag=state.activeFtag===tag?null:tag;
+      render();bindEvents();
+    });
+  });
+
+  // Deficiency actions + log-ftag
   document.querySelectorAll('[data-action]').forEach(btn=>{
     btn.addEventListener('click',e=>{
-      const id=e.currentTarget.dataset.id;
       const action=e.currentTarget.dataset.action;
+      if(action==='log-ftag'){
+        const tag=e.currentTarget.dataset.tag||'';
+        const info=FTAGS.find(f=>f.tag===tag);
+        state.page='tracker';state.addOpen=true;state.activeFtag=null;
+        state.addForm={tag,severity:info?.severity_typical||'D',dept:info?.dept||'Nursing',notes:'',date:today(),title:info?.title||''};
+        render();bindEvents();return;
+      }
+      const id=e.currentTarget.dataset.id;
       const idx=state.deficiencies.findIndex(d=>d.id===id);
       if(idx===-1)return;
       if(action==='correct'){state.deficiencies[idx].status='Corrected';}
@@ -612,6 +655,19 @@ function bindEvents(){
       render();bindEvents();
     });
   });
+
+  // Export CSV
+  const exportCsvBtn=$('#export-csv-btn');
+  if(exportCsvBtn){
+    exportCsvBtn.addEventListener('click',()=>{
+      const fields=['id','tag','title','dept','severity','date','status','notes'];
+      const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
+      const csv=[fields.join(','),...state.deficiencies.map(d=>fields.map(f=>q(d[f])).join(','))].join('\r\n');
+      const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+      const a=document.createElement('a');a.href=url;a.download='RegLens-Deficiencies.csv';a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),500);
+    });
+  }
 
   // Prep checklist
   document.querySelectorAll('[data-prep-id]').forEach(cb=>{
