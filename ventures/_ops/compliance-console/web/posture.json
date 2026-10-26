@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T00:00:00.000Z",
+  "generatedAt": "2026-10-26T00:00:00.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -12263,6 +12263,10 @@
     "session-12 2026-10-23: third CVE wave \u2014 world-ehr-base (PR#70: follow-redirects>=1.16.1+dompurify>=3.4.17), tabula-medica-EHRB (PR#54: dompurify>=3.4.17+follow-redirects>=1.16.1), tabula-medica-phr-world (PR#104: dompurify>=3.4.17+vite>=7.3.7+follow-redirects>=1.16.1), unraj (PR#117: vite>=7.3.7 pnpm.overrides+lockfile); 4 PRs merged; 9 stale alerts dismissed; 0 HIGH/CRITICAL portfolio-wide confirmed"
   ],
   "sweepLog": [
+    {
+      "date": "2026-10-26",
+      "action": "CVE/dep sweep 2026-10-26: PHR #275 (privacy guard analytics+speech off non-BAA) + #281 (minor-and-patch 19 deps + zod-helpers fix) merged; ACO #59 + noorjyoti #109/#107 + EHRB #56 minor-and-patch merged; 0 HIGH/CRIT portfolio-wide; org rulesets restored to count=1"
+    },
     {
       "date": "2026-10-22",
       "action": "CVE sweep 2026-10-22: vite>=8.2.4+follow-redirects>=1.16.1+source-map-js>=1.2.2 lockfiles regenerated; 0 HIGH/CRIT portfolio-wide"
