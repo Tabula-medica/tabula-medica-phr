@@ -425,8 +425,9 @@ function pagePricingCard(){
         <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">107+ F-tags with full SOM citations</span></li>
         <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">Deficiency tracker (severity A–L)</span></li>
         <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">Department prep checklists (46 items)</span></li>
-        <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">CMS Care Compare 5-star ratings</span></li>
-        <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">Mobile app — iOS &amp; Android</span></li>
+        <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">CMS Care Compare 5-star ratings by CCN</span></li>
+        <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">NPI Registry lookup — any SNF</span></li>
+        <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">CSV export of deficiency tracker</span></li>
       </ul>
     </div>
     <div style="flex-shrink:0;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(47,174,126,0.4);border-radius:14px;padding:28px 32px;min-width:200px">
