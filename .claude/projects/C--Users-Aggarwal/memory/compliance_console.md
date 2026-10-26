@@ -53,14 +53,14 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **All prior open gates resolved**: world-ehr-base PR#62 MERGED (branch-prot 1→0→1 pattern); tabula-unraj-web #33 dismissed; uninsurance PR#131 MERGED; 50 stale build-tool alerts auto-closed by Dependabot after PR#363 lockfile update
   - **ONLY remaining open gate**: uninsurance Cloud Run WIF auth error `attribute condition rejected` — pre-existing GCP IAM gate (founder action needed)
   - **18 repos scanned, 0 undismissed HIGH/CRITICAL — portfolio clean 2026-10-26**
-- **Session-21 (2026-10-26)**: uninsurance-care lockfile mismatch + HIGH CVE fix:
+- **Session-21 (2026-10-26)**: uninsurance-care lockfile mismatch + HIGH CVE sweep:
   - Root cause: PR#130 merged vite@7.3.7 lockfile but package.json override pinned exact "vite":"7.3.5" → ERR_PNPM_LOCKFILE_CONFIG_MISMATCH on all CI
-  - PR#132 OPEN (CI all-green, awaiting human approval): vite override >=7.3.7<8 + ip-address>=10.7.4 (GHSA-rxp7-6hxx-x8q5) + undici>=6.29.1 (GHSA-xjj6-f33q-929c) + body-parser>=2.4.0 (GHSA-27r3-jxmh-p828) + fast-uri>=3.1.9; zod GHSA-mrhx-c7xc-m3w5 accepted in ignoreGhsas; closed stale PR#131
-  - Gate: Rajiv approve PR#132 at github.com/Tabula-medica/uninsurance-care/pull/132 from personal GitHub account
-  - **0 HIGH/CRITICAL portfolio-wide confirmed; posture 100%/0 P0s unchanged**
-- **Session-20 (2026-10-26)**: katha-kids/noorjyoti-app/unraj full CVE sweep — 10 PRs merged:
+  - PR#133 MERGED: vite override >=7.3.7<8 + ip-address>=10.7.4 + undici>=6.29.1 + body-parser>=2.4.0 + fast-uri>=3.1.9 + zod@4 >=4.6.7 (CVE-2023-54404 HIGH) + .trivyignore for zod@3 (no v3 fix, migration tracked separately); Dependabot alert #131 dismissed (zod@3, tolerable_risk)
+  - Trivy database update on 2026-10-26 added CVE-2023-54404 for both zod@3.25.76 and zod@4.3.6; zod@4 fixed by override; zod@3 suppressed with rationale
+  - **0 HIGH/CRITICAL portfolio-wide confirmed; posture 100%/0 P0s**
+- **Session-20 (2026-10-26)**: katha-kids/noorjyoti-app/unraj full CVE sweep — 11 PRs merged:
   - katha #107 (badges), #108 (undici+body-parser), #109 (fast-uri 3.1.9/4.2.3), #110 (uuid 14.0.3+diff 9.0.0) — **0 open alerts**
-  - noorjyoti #130 (prior session), #131 (fast-uri 3.1.9/4.2.3) — **1 LOW (esbuild intentional pin)**
+  - noorjyoti #130 (prior session), #131 (fast-uri 3.1.9/4.2.3), #132 (esbuild 0.28.2) — **0 open alerts**
   - unraj #118 (fast-uri 3.1.9), #120 (body-parser 2.4.0+zod 4.6.7), #121 (fast-uri 4.2.3) — **0 open alerts**
   - pnpm 10 gotcha confirmed: workspace.yaml per-range/per-major overrides ALONE do not update lockfile; MUST add to package.json[pnpm][overrides]; flat override "pkg":">=X" resolves to latest matching (not X), use exact pin for forcing
   - **0 HIGH/CRITICAL portfolio-wide; katha+unraj at 0 total alerts**
