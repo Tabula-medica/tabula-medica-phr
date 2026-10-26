@@ -64,6 +64,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - unraj #118 (fast-uri 3.1.9), #120 (body-parser 2.4.0+zod 4.6.7), #121 (fast-uri 4.2.3) — **0 open alerts**
   - pnpm 10 gotcha confirmed: workspace.yaml per-range/per-major overrides ALONE do not update lockfile; MUST add to package.json[pnpm][overrides]; flat override "pkg":">=X" resolves to latest matching (not X), use exact pin for forcing
   - **0 HIGH/CRITICAL portfolio-wide; katha+unraj at 0 total alerts**
+- **Session-22 (2026-10-26)**: dextroheart-web scaffold + uninsurance-care CVE closure:
+  - dextroheart-web Vite+React+TS+Tailwind COMPLETE — 9 components; CI passes (26s); pushed to Tabula-medica/dextroheart-web; CF Pages gated on Pages:Edit token (ops token read-only, code 9106)
+  - uninsurance-care: PR#133 already MERGED (zod@4.6.7+HIGH CVEs); PR#134 closed as superseded; 0 HIGH/CRIT; pnpm audit exits 0
+  - world-ehr-base/#68-69-72 + EHRB/#57-60 + phr-world/#98-101: MAJOR bumps deferred (react 19/tailwindcss 4/vite 8/eslint 10)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-26** (posture.json fd20a99)
 - **Session-19 (2026-10-26)**: 5-venture advancement (ESD/DextroHeart/VISTA-PD/ContinuEEG/DPN) + CI hygiene:
   - cognita CI fix: pnpm/action-setup@v6 rejected `version:11` vs `packageManager:pnpm@10.26.1` — fixed via PR#106 (10) + PR#107 (remove version key entirely, let packageManager drive); Dependabot PR#94 (@anthropic-ai/vertex-sdk 0.21.0→1.1.0) merged
   - VISTA-PD CI fix: EAS build-mobile.yml was trying iOS internal-distribution non-interactively (needs device UDIDs); fixed via PR#94 → preview builds Android-only; push on main completed SUCCESS
