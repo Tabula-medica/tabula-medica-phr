@@ -32,6 +32,7 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - EHR PR#498 (MERGED): voice.ts body-validation ordering fix (400 before 503); CodeQL `Analyze` failure was infrastructure-level (actions:read permission) with continue-on-error:true; all required CI checks pass
   - uninsurance PR#360 (MERGED): health-check follow-redirects + fix API target to api.uninsurance.care; issue #328 auto-closes on next run; ROOT CAUSE=Cloudflare redirect rule uninsurance.care→underinsured.health needs CF dashboard removal (founder gate, API token is zone:read only)
   - underinsured PR#115 zod 3→4 (MERGED), PR#116 zod 4.6.7 (MERGED)
+- **Session-16 (2026-10-26)**: uninsurance dep sweep — PR#363 (72 minor-and-patch packages + undici@8>=8.12.2 + 35 build-tool GHSAs accepted: tar×6/node-forge×6/minimatch×3/@xmldom/xmldom×13/nanoid×3/postcss×2/joi×1/@grpc/grpc-js×1) MERGED; PR#364 (p-retry 8.0.1) MERGED; coverage-v8 reverted ^5→^4.x; **100%/0 P0s portfolio-wide confirmed 2026-10-26**
 - **Session-16 (2026-10-26)**: uninsurance Dependabot PRs #361–#364 all merged:
   - PR#361 (zod 4.6.6), PR#362 (daily compliance), PR#364 (p-retry 7→8): merged cleanly
   - PR#363 (72 minor-patch packages): required 4 squash rebases due to conflict churn; added full 49-GHSA allow-list to `.github/workflows/dependency-review.yml` (synced to pnpm-workspace.yaml ignoreGhsas — build-tool only CVEs); merged at `fab7fc5f`; pnpm audit exits 0 on main
