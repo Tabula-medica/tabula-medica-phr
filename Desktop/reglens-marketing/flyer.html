@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RegLens — SNF Survey Intelligence</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Inter',sans-serif;background:#fff;color:#0A1628;width:8.5in;margin:0 auto}
+  @media print{body{width:100%}@page{size:letter;margin:.5in}}
+
+  .page{width:8.5in;min-height:11in;display:flex;flex-direction:column}
+
+  /* HEADER */
+  .header{background:#0A1628;color:#fff;padding:40px 48px 32px;display:flex;justify-content:space-between;align-items:flex-start}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo-mark{width:40px;height:40px;background:#2FAE7E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#0A1628}
+  .logo-text{font-size:22px;font-weight:800;letter-spacing:-.5px}
+  .logo-sub{font-size:11px;color:#94a3b8;margin-top:2px;letter-spacing:.5px;text-transform:uppercase}
+  .badge{background:#2FAE7E;color:#0A1628;font-size:11px;font-weight:700;padding:6px 14px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;align-self:flex-start;margin-top:4px}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#0f1f3d 0%,#0A1628 60%,#0d2a1a 100%);color:#fff;padding:48px 48px 40px;position:relative;overflow:hidden}
+  .hero::before{content:'';position:absolute;right:-80px;top:-80px;width:320px;height:320px;background:radial-gradient(circle,rgba(47,174,126,.18) 0%,transparent 70%)}
+  .hero-eyebrow{font-size:11px;font-weight:700;color:#2FAE7E;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+  .hero-headline{font-size:38px;font-weight:800;line-height:1.1;margin-bottom:16px;letter-spacing:-.5px}
+  .hero-headline span{color:#2FAE7E}
+  .hero-sub{font-size:16px;color:#94a3b8;line-height:1.6;max-width:580px;margin-bottom:28px}
+  .hero-stats{display:flex;gap:40px}
+  .stat{text-align:center}
+  .stat-num{font-size:36px;font-weight:800;color:#2FAE7E;line-height:1}
+  .stat-label{font-size:11px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+
+  /* PROBLEM */
+  .section{padding:36px 48px}
+  .section-title{font-size:13px;font-weight:700;color:#2FAE7E;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px}
+  .problem-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:8px}
+  .problem-card{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:18px;position:relative}
+  .problem-card::before{content:'⚠';position:absolute;top:14px;right:14px;font-size:16px;opacity:.6}
+  .problem-num{font-size:28px;font-weight:800;color:#E53E3E;margin-bottom:4px}
+  .problem-label{font-size:13px;color:#7f1d1d;font-weight:600;line-height:1.4}
+
+  /* FEATURES */
+  .how-bg{background:#f8fafc;padding:36px 48px}
+  .features{padding:36px 48px}
+  .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+  .feature{display:flex;gap:12px;align-items:flex-start;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0}
+  .feature-icon{width:36px;height:36px;background:#0A1628;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .feature-title{font-size:13px;font-weight:700;color:#0A1628;margin-bottom:3px}
+  .feature-desc{font-size:11px;color:#475569;line-height:1.5}
+
+  /* WORKFLOW */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:20px;position:relative}
+  .steps::before{content:'';position:absolute;top:28px;left:12%;right:12%;height:2px;background:linear-gradient(90deg,#2FAE7E,#0A1628)}
+  .step{text-align:center;position:relative;z-index:1}
+  .step-circle{width:56px;height:56px;border-radius:50%;background:#0A1628;color:#2FAE7E;font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:3px solid #2FAE7E}
+  .step-title{font-size:12px;font-weight:700;color:#0A1628;margin-bottom:4px}
+  .step-desc{font-size:11px;color:#64748b;line-height:1.4}
+
+  /* PRICING */
+  .pricing{padding:32px 48px;background:#f0fdf4}
+  .pricing-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px}
+  .price-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:8px}
+  .price-card.featured{border:2px solid #2FAE7E;position:relative}
+  .price-card.featured::before{content:'Most Popular';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#2FAE7E;color:#0A1628;font-size:10px;font-weight:700;padding:3px 12px;border-radius:10px;white-space:nowrap}
+  .price-tier{font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+  .price-amount{font-size:28px;font-weight:800;color:#0A1628;line-height:1.1}
+  .price-period{font-size:11px;color:#64748b}
+  .price-items{font-size:11px;color:#475569;line-height:1.8;margin-top:4px;padding-left:0;list-style:none}
+  .price-items li::before{content:'✓ ';color:#2FAE7E;font-weight:700}
+
+  /* CTA */
+  .cta{padding:36px 48px;display:flex;justify-content:space-between;align-items:center;background:#0A1628;border-top:3px solid #2FAE7E}
+  .cta-left h2{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
+  .cta-left p{font-size:13px;color:#94a3b8}
+  .cta-buttons{display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+  .btn-primary{background:#2FAE7E;color:#0A1628;font-weight:700;font-size:13px;padding:12px 28px;border-radius:8px;text-decoration:none;text-align:center;letter-spacing:.3px}
+  .btn-secondary{background:rgba(255,255,255,.1);color:#fff;font-weight:600;font-size:12px;padding:10px 24px;border-radius:8px;text-decoration:none;text-align:center;border:1px solid rgba(255,255,255,.2)}
+  .contact-info{font-size:11px;color:#64748b;margin-top:6px;text-align:right}
+
+  /* FOOTER */
+  .footer{background:#0A1628;color:#475569;padding:16px 48px;display:flex;justify-content:space-between;align-items:center;font-size:10px;margin-top:auto;border-top:1px solid #1e293b}
+  .footer-logo{color:#2FAE7E;font-weight:700}
+  .footer-legal{text-align:right;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">RL</div>
+      <div>
+        <div class="logo-text">RegLens</div>
+        <div class="logo-sub">by Tabula Medica</div>
+      </div>
+    </div>
+    <div class="badge">Free 30-Day Trial</div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">SNF Survey Intelligence Platform</div>
+    <div class="hero-headline">Know every F-tag.<br><span>Before surveyors arrive.</span></div>
+    <div class="hero-sub">RegLens gives DONs and quality directors a complete F-tag reference, a department-level prep checklist, and a deficiency tracker — all in one browser-based platform built for the pace of SNF operations.</div>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">107+</div><div class="stat-label">F-Tags indexed<br>with SOM citations</div></div>
+      <div class="stat"><div class="stat-num">46</div><div class="stat-label">Prep checklist<br>items, P0/P1</div></div>
+      <div class="stat"><div class="stat-num">6.7</div><div class="stat-label">Avg deficiencies<br>per CMS survey¹</div></div>
+    </div>
+  </div>
+
+  <!-- THE PROBLEM -->
+  <div class="section">
+    <div class="section-title">The problem your team faces today</div>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="problem-num">~14 mo</div>
+        <div class="problem-label">Average time since last survey — most facilities are in the survey window without a structured prep plan</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">F689</div>
+        <div class="problem-label">Top cited deficiency nationwide — falls and accident hazards almost always traced to documentation gaps present for weeks</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">Binders</div>
+        <div class="problem-label">Most SNF survey prep still lives in printed SOM binders, spreadsheets, and department-head institutional memory</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-bg">
+    <div class="section-title" style="padding:0">How RegLens works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-circle">1</div>
+        <div class="step-title">Browse F-Tags</div>
+        <div class="step-desc">Search 107+ F-tags by code, keyword, or department — each with full SOM citations and severity A–L</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">2</div>
+        <div class="step-title">Work the Checklist</div>
+        <div class="step-desc">46-item prep checklist by department — Nursing, Pharmacy, Dietary, Infection Control, and more</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">3</div>
+        <div class="step-title">Track Deficiencies</div>
+        <div class="step-desc">Log, assign, and resolve open deficiency findings; export to CSV for reporting and administration</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">4</div>
+        <div class="step-title">Look Up Your Facility</div>
+        <div class="step-desc">Pull live CMS Care Compare 5-star ratings by CCN and NPI Registry lookups for any SNF</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="features">
+    <div class="section-title">What's inside RegLens</div>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="feature-icon">🔍</div>
+        <div>
+          <div class="feature-title">F-Tag Browser — 107+ tags</div>
+          <div class="feature-desc">Every CMS F-tag with full Survey Operations Manual citations, severity A–L, department mapping, and click-to-expand detail. Searchable by code or keyword.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✅</div>
+        <div>
+          <div class="feature-title">Department-Level Prep Checklists</div>
+          <div class="feature-desc">46 P0/P1 action items across Nursing, Pharmacy, Dietary, Infection Control, Housekeeping, Activities, and Administration. Built around the most-cited F-tags.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📋</div>
+        <div>
+          <div class="feature-title">Deficiency Tracker</div>
+          <div class="feature-desc">Log open deficiency findings, assign by department and severity, track resolution status, and export the full history to CSV for administrator reporting.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⭐</div>
+        <div>
+          <div class="feature-title">CMS Care Compare — Live 5-Star</div>
+          <div class="feature-desc">Enter any CCN to pull live CMS Care Compare 5-star ratings. See overall, health inspection, staffing, and quality measure scores for your facility — or any competitor.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🏥</div>
+        <div>
+          <div class="feature-title">NPI Registry Lookup</div>
+          <div class="feature-desc">Search the CMS NPI Registry by facility name or NPI number — confirm taxonomy, licensure state, and address for any SNF in the country.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📅</div>
+        <div>
+          <div class="feature-title">Survey Countdown Calendar</div>
+          <div class="feature-desc">Set your survey window and get a running countdown that surfaces your prep checklist. Automatic reminders keep department heads aligned in the weeks before a survey.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="pricing">
+    <div class="section-title">Simple, facility-level pricing</div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-tier">Starter</div>
+        <div class="price-amount">$349<span style="font-size:14px;font-weight:400;color:#64748b">/mo</span></div>
+        <div class="price-period">Monthly, no commitment</div>
+        <ul class="price-items">
+          <li>F-tag browser (107+ tags)</li>
+          <li>Prep checklists (46 items)</li>
+          <li>NPI Registry lookup</li>
+          <li>Survey countdown calendar</li>
+        </ul>
+      </div>
+      <div class="price-card featured">
+        <div class="price-tier">Professional</div>
+        <div class="price-amount">$299<span style="font-size:14px;font-weight:400;color:#64748b">/mo</span></div>
+        <div class="price-period">Billed annually ($2,988/yr)</div>
+        <ul class="price-items">
+          <li>Everything in Starter</li>
+          <li>Deficiency tracker + CSV export</li>
+          <li>CMS Care Compare 5-star by CCN</li>
+          <li>Priority email support</li>
+          <li>2 months free vs. monthly</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount" style="font-size:20px;padding-top:6px">Contact us</div>
+        <div class="price-period">Multi-facility, chains</div>
+        <ul class="price-items">
+          <li>Everything in Professional</li>
+          <li>Multi-facility dashboard</li>
+          <li>Chain-wide deficiency reporting</li>
+          <li>Volume discounts</li>
+          <li>Dedicated onboarding</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="cta-left">
+      <h2>Start your free 30-day trial today</h2>
+      <p>Full Professional access. No credit card required. Cancel anytime.</p>
+    </div>
+    <div class="cta-buttons">
+      <a href="https://reglens.health/workspace/" class="btn-primary">Open RegLens Free →</a>
+      <a href="mailto:rajiv@tabulamedica.com" class="btn-secondary">Request a walkthrough</a>
+      <div class="contact-info">rajiv@tabulamedica.com &nbsp;|&nbsp; reglens.health</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div><span class="footer-logo">RegLens by Tabula Medica</span> — SNF Survey Intelligence · McLean, VA</div>
+    <div class="footer-legal">
+      ¹CMS Nursing Home Survey data, national average. Survey outcomes vary by facility.<br>
+      RegLens is a clinical reference and quality-improvement tool. Not a guarantee of survey outcomes. Browser-based, no EHR integration required.
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

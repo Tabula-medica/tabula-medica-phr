@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RegLens — SNF Survey Intelligence</title>
+<style>
+  /* ── Reset & base ───────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #f4f1eb;
+    color: #0A1628;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Page wrapper — A4/Letter width ────────────────────────── */
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    background: #fff;
+  }
+
+  /* ── Header band ────────────────────────────────────────────── */
+  .header {
+    background: #0A1628;
+    color: #fff;
+    padding: 48px 56px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    right: -60px;
+    top: -60px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: rgba(47,174,126,0.12);
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .logo-hex {
+    font-size: 1.8rem;
+    color: #2FAE7E;
+    line-height: 1;
+  }
+  .logo-name {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fff;
+  }
+  .logo-sub {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.72rem;
+    color: #2FAE7E;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .headline {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #fff;
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 1;
+  }
+  .headline span { color: #2FAE7E; }
+  .subhead {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: #c8d8e8;
+    max-width: 600px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Feature columns ────────────────────────────────────────── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-bottom: 3px solid #0A1628;
+  }
+  .feature {
+    padding: 34px 32px 30px;
+    border-right: 1px solid #e8e4dd;
+  }
+  .feature:last-child { border-right: none; }
+  .feat-icon {
+    width: 44px;
+    height: 44px;
+    background: #0A1628;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 14px;
+    color: #2FAE7E;
+  }
+  .feat-title {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0A1628;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .feat-desc {
+    font-size: 0.88rem;
+    line-height: 1.58;
+    color: #374151;
+  }
+  .feat-bullets {
+    margin-top: 10px;
+    padding-left: 14px;
+    font-size: 0.83rem;
+    color: #555;
+    line-height: 1.7;
+  }
+  .feat-bullets li { margin-bottom: 2px; }
+
+  /* ── Stats strip ────────────────────────────────────────────── */
+  .stats {
+    background: #2FAE7E;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .stat {
+    padding: 22px 20px;
+    text-align: center;
+    border-right: 1px solid rgba(255,255,255,0.25);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-num {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+  .stat-label {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 5px;
+  }
+
+  /* ── Pricing section ────────────────────────────────────────── */
+  .pricing {
+    padding: 44px 56px;
+    background: #f9f8f5;
+    border-bottom: 3px solid #0A1628;
+  }
+  .section-label {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #2FAE7E;
+    margin-bottom: 10px;
+  }
+  .pricing-headline {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: #0A1628;
+    margin-bottom: 28px;
+  }
+  .pricing-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .price-card {
+    background: #fff;
+    border: 2px solid #e8e4dd;
+    border-radius: 12px;
+    padding: 24px 20px;
+    position: relative;
+  }
+  .price-card.featured {
+    border-color: #2FAE7E;
+    box-shadow: 0 4px 18px rgba(47,174,126,0.18);
+  }
+  .badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2FAE7E;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .card-tier {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .card-price {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0A1628;
+    line-height: 1;
+  }
+  .card-price sub {
+    font-size: 0.9rem;
+    font-weight: 600;
+    vertical-align: baseline;
+    color: #555;
+  }
+  .card-billed {
+    font-size: 0.78rem;
+    color: #888;
+    margin-top: 4px;
+    margin-bottom: 14px;
+  }
+  .card-billed strong { color: #2FAE7E; }
+  .card-features {
+    list-style: none;
+    font-size: 0.82rem;
+    color: #374151;
+    line-height: 1.65;
+  }
+  .card-features li::before {
+    content: '✓ ';
+    color: #2FAE7E;
+    font-weight: 700;
+  }
+  .card-features.enterprise li::before { content: '◆ '; }
+
+  .cta-row {
+    text-align: center;
+    margin-top: 8px;
+  }
+  .cta-btn {
+    display: inline-block;
+    background: #2FAE7E;
+    color: #fff;
+    text-decoration: none;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 14px 38px;
+    border-radius: 8px;
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+  .cta-note {
+    font-size: 0.8rem;
+    color: #888;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  /* ── Social proof strip ─────────────────────────────────────── */
+  .proof {
+    background: #0A1628;
+    padding: 32px 56px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .quote-block {
+    border-left: 3px solid #2FAE7E;
+    padding-left: 16px;
+  }
+  .quote-text {
+    font-size: 0.88rem;
+    font-style: italic;
+    color: #c8d8e8;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .quote-attr {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.75rem;
+    color: #2FAE7E;
+    font-weight: 600;
+  }
+
+  /* ── Mobile strip ───────────────────────────────────────────── */
+  .mobile-strip {
+    background: #f9f8f5;
+    padding: 24px 56px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-bottom: 1px solid #e8e4dd;
+  }
+  .mobile-icon { font-size: 2rem; }
+  .mobile-text {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.9rem;
+    color: #374151;
+    line-height: 1.5;
+  }
+  .mobile-text strong { color: #0A1628; }
+
+  /* ── Footer ─────────────────────────────────────────────────── */
+  .footer {
+    background: #0A1628;
+    color: #7a96af;
+    padding: 20px 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .footer-brand {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.85rem;
+    color: #fff;
+    font-weight: 600;
+  }
+  .footer-links {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.78rem;
+    color: #7a96af;
+  }
+  .footer-links a {
+    color: #7a96af;
+    text-decoration: none;
+  }
+  .footer-links a:hover { color: #2FAE7E; }
+
+  /* ── Print ───────────────────────────────────────────────────── */
+  @media print {
+    body { background: #fff; }
+    .page { max-width: 100%; box-shadow: none; }
+    .cta-btn { background: #2FAE7E !important; color: #fff !important; }
+    .header, .stats, .proof, .footer { -webkit-print-color-adjust: exact; }
+  }
+  @page { size: letter; margin: 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-row">
+      <span class="logo-hex">⬡</span>
+      <div>
+        <div class="logo-name">RegLens</div>
+        <div class="logo-sub">SNF Survey Intelligence</div>
+      </div>
+    </div>
+    <div class="headline">Be Survey-Ready.<br><span>Always.</span></div>
+    <div class="subhead">
+      RegLens gives skilled nursing facilities real-time F-tag intelligence, deficiency tracking,
+      and department prep tools — so your next CMS survey is never a surprise.
+    </div>
+  </div>
+
+  <!-- Feature Columns -->
+  <div class="features">
+    <div class="feature">
+      <div class="feat-icon">📋</div>
+      <div class="feat-title">F-Tag Intelligence</div>
+      <div class="feat-desc">
+        Instant access to 107+ CMS F-tags with regulatory citations, severity profiles,
+        and department mappings — all cross-referenced to the Survey Operations Manual.
+      </div>
+      <ul class="feat-bullets">
+        <li>Full SOM regulatory text</li>
+        <li>Severity A–L explained</li>
+        <li>Filter by department or frequency</li>
+        <li>High-deficiency tags flagged</li>
+      </ul>
+    </div>
+    <div class="feature">
+      <div class="feat-icon">⚠️</div>
+      <div class="feat-title">Deficiency Tracker</div>
+      <div class="feat-desc">
+        Log, assign, and resolve survey deficiencies by department and severity.
+        Track open items, escalate risk, and demonstrate QAPI follow-through.
+      </div>
+      <ul class="feat-bullets">
+        <li>Real-time risk score</li>
+        <li>Status: Open / In Progress / Corrected</li>
+        <li>Severity A–L color-coded cards</li>
+        <li>CMS Care Compare 5-star integration</li>
+      </ul>
+    </div>
+    <div class="feature">
+      <div class="feat-icon">✅</div>
+      <div class="feat-title">Survey Prep Engine</div>
+      <div class="feat-desc">
+        Department-level prep checklists with 46 P0/P1 action items, a survey
+        calendar, and milestone countdowns — so every team knows what to do
+        and when.
+      </div>
+      <ul class="feat-bullets">
+        <li>46-item departmental checklist</li>
+        <li>P0 / P1 priority tiers</li>
+        <li>Survey date countdown</li>
+        <li>Live NPI Registry lookup</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Stats Strip -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">107+</div>
+      <div class="stat-label">F-Tags Indexed</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">6.7</div>
+      <div class="stat-label">Avg Deficiencies Per Survey</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">46</div>
+      <div class="stat-label">Prep Checklist Items</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">12 mo</div>
+      <div class="stat-label">CMS Survey Cycle</div>
+    </div>
+  </div>
+
+  <!-- Pricing Section -->
+  <div class="pricing">
+    <div class="section-label">Transparent Pricing</div>
+    <div class="pricing-headline">One flat price. No per-user fees. No surprises.</div>
+    <div class="pricing-cards">
+      <div class="price-card">
+        <div class="card-tier">Starter</div>
+        <div class="card-price">$349<sub>/mo</sub></div>
+        <div class="card-billed">Billed monthly</div>
+        <ul class="card-features">
+          <li>F-tag browser (107+ tags)</li>
+          <li>Department prep checklist</li>
+          <li>Live NPI Registry lookup</li>
+          <li>Survey calendar</li>
+        </ul>
+      </div>
+      <div class="price-card featured">
+        <div class="badge">Most Popular</div>
+        <div class="card-tier">Professional</div>
+        <div class="card-price">$299<sub>/mo</sub></div>
+        <div class="card-billed">Billed annually — $2,988/yr<br><strong>Save 2 months free</strong></div>
+        <ul class="card-features">
+          <li>Everything in Starter</li>
+          <li>Deficiency tracker + CSV export</li>
+          <li>Risk scoring dashboard</li>
+          <li>CMS Care Compare 5-star by CCN</li>
+          <li>NPI Registry lookup</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="card-tier">Enterprise</div>
+        <div class="card-price" style="font-size:1.5rem;padding-top:0.4rem">Contact Us</div>
+        <div class="card-billed">Multi-facility pricing</div>
+        <ul class="card-features enterprise">
+          <li>Multi-facility dashboard</li>
+          <li>Data export &amp; reporting</li>
+          <li>EHR integration</li>
+          <li>Priority support</li>
+        </ul>
+      </div>
+    </div>
+    <div class="cta-row">
+      <a class="cta-btn" href="https://reglens.health/workspace/">Start Free 30-Day Trial</a>
+      <div class="cta-note">No credit card required &nbsp;·&nbsp; Full Professional access during trial &nbsp;·&nbsp; Cancel anytime</div>
+    </div>
+  </div>
+
+  <!-- Built for SNF leadership -->
+  <div class="proof">
+    <div class="quote-block">
+      <div class="quote-text">
+        Built specifically for SNF clinical and quality leadership — not bolted onto
+        a billing platform or generic compliance tool. Designed around the F-tag
+        categories surveyors actually cite, at a price that fits a single facility's budget.
+      </div>
+      <div class="quote-attr">Tabula Medica · McLean, VA · reglens.health</div>
+    </div>
+    <div class="quote-block">
+      <div class="quote-text">
+        Free 30-day trial. Full access to every F-tag, prep checklist,
+        deficiency tracker, and CMS Care Compare integration.
+        No credit card. No commitment.
+      </div>
+      <div class="quote-attr">Start today at reglens.health/workspace/</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-brand">Tabula Medica &nbsp;|&nbsp; RegLens</div>
+    <div class="footer-links">
+      <a href="https://reglens.health">reglens.health</a>
+      &nbsp;·&nbsp;
+      <a href="mailto:hello@reglens.health">hello@reglens.health</a>
+      &nbsp;·&nbsp;
+      <a href="https://reglens.health/workspace/">Start Free Trial</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
