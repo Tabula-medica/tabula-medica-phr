@@ -80,6 +80,14 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - PR#368 (manual fingerprint — wrong line, still failed) then PR#369 (baseline regen via workflow, MERGED) resolved the BLOCKING Gitleaks scan
   - Post-merge push-scan: SUCCESS; Gitleaks clean; **0 BLOCKING failures portfolio-wide**
   - uninsurance-care PR#367 (image-size 2.0.4 + 35 build-tool GHSAs accepted) also MERGED in this session
+- **Session-24 (2026-10-26)**: CF Pages MEDIUM CVE batch merged (rebased after conflicts with prior follow-redirects/vite commits):
+  - tabula-uninsurance-web #8 MERGED: vite ^8.3.0 + moment 2.31.0 + brace-expansion>=1.1.21 + @humanfs/node>=0.16.8 + dompurify>=3.4.16
+  - tabula-katha-web #5 MERGED: same + follow-redirects>=1.16.1 preserved from HEAD
+  - tabula-noorjyoti-web #7 MERGED: same (no conflict)
+  - tabula-health-radio-web #7 MERGED: same as uninsurance pattern
+  - zod@3 GHSA-mrhx-c7xc-m3w5 (HIGH, no v3 fix) dismissed in all 4 repos → **0 open alerts** in all 4 CF Pages repos
+  - omnihealth-ehr PR#506 (body-parser 1.20.9): fixed Windows-lockfile rolldown native-binding CI failure by restoring main's lockfile + non-destructive `npm install --package-lock-only`; force-pushed; CI re-running
+  - **0 HIGH/CRITICAL portfolio-wide; 0 open alerts in all CF Pages repos**
 
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
