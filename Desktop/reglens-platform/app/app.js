@@ -33,8 +33,31 @@ function today(){return new Date().toISOString().slice(0,10);}
 function daysUntil(d){if(!d)return null;const diff=new Date(d+'T00:00:00Z')-new Date();return Math.ceil(diff/(1000*60*60*24));}
 function uniqueCats(){return [...new Set(FTAGS.map(f=>f.cat))].sort();}
 
+// ── Persistence ───────────────────────────────────────────────────────────
+const LS_KEY='reglens_v1';
+function saveState(){
+  try{
+    localStorage.setItem(LS_KEY,JSON.stringify({
+      deficiencies:state.deficiencies,
+      checkedPrep:state.checkedPrep,
+      surveyDate:state.surveyDate,
+    }));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw)return;
+    const saved=JSON.parse(raw);
+    if(Array.isArray(saved.deficiencies)&&saved.deficiencies.length)state.deficiencies=saved.deficiencies;
+    if(Array.isArray(saved.checkedPrep))state.checkedPrep=saved.checkedPrep;
+    if(typeof saved.surveyDate==='string')state.surveyDate=saved.surveyDate;
+  }catch(e){}
+}
+loadState();
+
 // ── Render ─────────────────────────────────────────────────────────────────
-function render(){$('#app').innerHTML=shell();}
+function render(){saveState();$('#app').innerHTML=shell();}
 
 function shell(){return`
 <nav class="nav">
