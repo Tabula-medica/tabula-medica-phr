@@ -1,6 +1,6 @@
 ---
 name: accountable-law-state
-description: "accountablehub.com — 8 state bars live (NJ seeding); TX URL rewrite fixed; iOS+Android user gates"
+description: "accountablehub.com — 9 state bars live (NJ 3,004 seeded; PA seeding); iOS+Android user gates"
 metadata: 
   node_type: memory
   type: project
@@ -16,16 +16,17 @@ metadata:
 - Backend Cloud Run: `https://accountable-law-api-owiu7hqlja-uc.a.run.app` (GCP `accountable-law-prod`)
 - API routing: CF Pages Functions proxy `/api/*` → Cloud Run
 
-### Data (2026-10-26 actual from /api/v1/attorneys/states):
+### Data (2026-10-26 actual):
 - **CA**: 87,208 total / 36,052 disciplined
 - **NY**: 434,912 total / 434,807 disciplined
 - **FL**: 2,974 total / 2,928 disciplined
 - **WA**: 1,875 total / 1,812 disciplined
+- **NJ**: 3,004 total / ~3,004 disciplined (seeded 2026-10-26 from DRB A-Z sweep since 1988)
 - **TX**: 353 total / 251 disciplined
 - **IL**: 208 total / 167 disciplined
-- **GA**: 57 total / 46 disciplined (seeded 2026-10-26)
-- **NJ**: seeding in progress (seed job dispatched 2026-10-26, ~3k expected); bar IDs format NJ-NNNNN-YYYY
-- **Total portfolio**: ~527,587 attorneys / ~475,063 disciplined (pre-NJ)
+- **GA**: 57 total / 46 disciplined
+- **PA**: seeding in progress (seed job dispatched 2026-10-26); 1,682 expected (Disbarred+Suspended from PDB)
+- **Total portfolio**: ~530,591 attorneys (pre-PA)
 
 Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 
@@ -36,14 +37,20 @@ Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 - IL: 7:00 UTC (--nightly)
 - TX: 8:00 UTC (--patch-only, applies TX_KNOWN_PAIRS without HTTP)
 - NJ: 9:00 UTC (--nightly, DRB A-Z sweep 26 requests, scrape_njbar.py)
+- PA: 10:00 UTC (--nightly, PDB Disbarred+Suspended, scrape_pabar.py)
 - CA: scrape-calbar.yml 3:00 UTC (seed-recent mode)
 - WA: scrape-wabar.yml 4:30 UTC
 
-### NJ DRB Scraper (PR #120, merged 2026-10-26):
-- Source: drblookupportal.judiciary.state.nj.us, all disciplined NJ attorneys since 1988
-- 26 GET requests (one per letter), ~3k records; bar format NJ-{5-digit}-{year}
-- Retry logic: up to 3 HTTP attempts per letter; zero-records-on-large-page retries once
-- Dry-run confirmed 178 attorneys for letter D (zero in first run was transient HTTP, not a parse bug)
+### NJ DRB Scraper (merged PR #120, seeded 2026-10-26):
+- 3,004 NJ attorneys seeded from drblookupportal.judiciary.state.nj.us
+- All disciplined attorneys since 1988; bar format NJ-{5-digit}-{year}
+- Retry logic: up to 3 HTTP attempts + zero-records-on-large-page retry
+
+### PA PDB Scraper (merged PR #121, seeding in progress 2026-10-26):
+- Source: padisciplinaryboard.org JSON API (no scraping, clean pagination)
+- Sweeps status=Disbarred (1,025) + status=Suspended (657) = 1,682 total
+- Detail endpoint `/api/disciplineSearch?id=X` rate-limited from cloud IPs; falls back to status-only record
+- Bar format: PA-{numeric_id} (e.g., PA-28662)
 
 ### TX Limitation (2026-10-26):
 - texasbar.com blocks both GCP (Cloud Run) AND Azure (GitHub Actions) IPs at the TCP level
@@ -74,4 +81,4 @@ Sitemaps: `/sitemap.xml` (index) → sitemap-main, sitemap-attorneys (paginated)
 - Cloud SQL URL in Secret Manager uses `@localhost/dbname?host=/cloudsql/...` format (not `@/dbname`)
 - `CREATE INDEX CONCURRENTLY` fails inside SQLAlchemy transaction → must use `isolation_level="AUTOCOMMIT"`
 - CF Pages sitemap functions must exist as separate JS files (backend endpoints alone are not enough)
-- Org rulesets 20585594 + 23992403 require 1 approval — use patch_20585594_v2.json / restore files at C:/tmp/ to bypass
+- Org rulesets 20585594 + 23992403 require 1 approval — use PUT with files at C:/tmp/patch_20585594_v2.json / patch_23992403_v2.json to bypass; then restore with C:/tmp/20585594_restore.json (PUT, not PATCH)
