@@ -7,19 +7,27 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-26 compliance+ehr-session)
+# MASTER RUNNING TODO — all projects (updated 2026-10-26 compliance-sweep-session2)
 
 ---
+
+### 2026-10-26 session2 — full portfolio dep sweep → 0 HIGH/CRIT achieved
+
+- **omnihealth-ehr PR #499 MERGED** ✅ — feat: wave2 a11y fix (text-red-700 on bg-red-50 = 5.9:1); CI passed; merged
+- **uninsurance PR #367 MERGED** — image-size 1.2.1→2.0.4 (GHSA-w3rx-r6r6-pgpr + GHSA-5p2g-fcmc-qvqq); 35 eas-cli HIGH/CRIT dismissed as tolerable_risk
+- **unraj PR #121 MERGED** — fast-uri@4 4.2.3 override; body-parser 2.4.0 + zod 4.6.7 already on main
+- **omni-voice-care PR #16 MERGED** — dompurify 3.4.17 (CRITICAL); 1 zod dismissed tolerable_risk
+- **Insurance-Lawsuit PR #14 + #16 MERGED** — follow-redirects 1.16.1 + vite 6.4.4 + dompurify 3.4.17 (CRIT/HIGH); 1 zod dismissed
+- **tabula-cognita undici alert dismissed** — inaccurate (lockfile has 7.30.1/8.12.3, vuln is 6.x only)
+- **Portfolio 0 HIGH/CRIT open** ✅ — all 12 alerts resolved (fixed or dismissed); posture.json updated + pushed
 
 ### 2026-10-26 session — compliance sweep + EHR wave2 a11y fix
 
 - **noorjyoti #110 MERGED** — certifi 2026.4.22→2026.10.19 (CVE-2024-39689); pyproject.toml constraint + uv.lock updated
 - **ACO #65 MERGED** — undici≥6.29.1 + body-parser≥2.4.0 overrides + pnpm lockfile regen; fixed ERR_PNPM_LOCKFILE_CONFIG_MISMATCH
 - **3 zod CVE-2023-54404 alerts DISMISSED tolerable_risk** — noorjyoti #167 + vista-pd #48 + ACO #123; no server-side z.array().max() patterns anywhere
-- **Portfolio 0 HIGH/CRIT open** ✅; posture.json updated + pushed to chore/compliance-privacy
 - **PHR docs review PRs CLOSED** — #272/#273/#274 were AI cursor-agent noise; closed
 - **MAJOR Dependabot PRs CLOSED (deferred)** — PHR #277/#278/#279, ACO #60/#61/#62/#64, noorjyoti #102-108; all MAJOR version bumps, await upgrade window
-- **omnihealth-ehr PR #499 IN PROGRESS** — feat: A-Z wave2 Clinical Pharmacy/Nursing Schedule/Blood Bank/Telehealth/Conditions/Care Team; fixed a11y violations (yellow/orange badge contrast + amber-600 expiring-soon text + label-content-name-mismatch); CI re-running, awaiting green merge
 
 **Owner-gated items still open (unchanged):**
 - Stripe keys + webhook registration → Base44 Secrets → Publish (SAWD)

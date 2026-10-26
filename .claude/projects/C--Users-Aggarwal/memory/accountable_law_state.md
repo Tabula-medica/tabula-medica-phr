@@ -1,6 +1,6 @@
 ---
 name: accountable-law-state
-description: "accountablehub.com — 7 state bars live; GA seeded; TX URL rewrite fixed; iOS+Android user gates"
+description: "accountablehub.com — 8 state bars live (NJ seeding); TX URL rewrite fixed; iOS+Android user gates"
 metadata: 
   node_type: memory
   type: project
@@ -23,8 +23,9 @@ metadata:
 - **WA**: 1,875 total / 1,812 disciplined
 - **TX**: 353 total / 251 disciplined
 - **IL**: 208 total / 167 disciplined
-- **GA**: 57 total / 46 disciplined (seeded 2026-10-26 from GA State Bar 6-month page)
-- **Total portfolio**: ~527,587 attorneys / ~475,063 disciplined
+- **GA**: 57 total / 46 disciplined (seeded 2026-10-26)
+- **NJ**: seeding in progress (seed job dispatched 2026-10-26, ~3k expected); bar IDs format NJ-NNNNN-YYYY
+- **Total portfolio**: ~527,587 attorneys / ~475,063 disciplined (pre-NJ)
 
 Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 
@@ -34,20 +35,20 @@ Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 - NY: 6:00 UTC (--nightly)
 - IL: 7:00 UTC (--nightly)
 - TX: 8:00 UTC (--patch-only, applies TX_KNOWN_PAIRS without HTTP)
+- NJ: 9:00 UTC (--nightly, DRB A-Z sweep 26 requests, scrape_njbar.py)
 - CA: scrape-calbar.yml 3:00 UTC (seed-recent mode)
 - WA: scrape-wabar.yml 4:30 UTC
 
+### NJ DRB Scraper (PR #120, merged 2026-10-26):
+- Source: drblookupportal.judiciary.state.nj.us, all disciplined NJ attorneys since 1988
+- 26 GET requests (one per letter), ~3k records; bar format NJ-{5-digit}-{year}
+- Retry logic: up to 3 HTTP attempts per letter; zero-records-on-large-page retries once
+- Dry-run confirmed 178 attorneys for letter D (zero in first run was transient HTTP, not a parse bug)
+
 ### TX Limitation (2026-10-26):
 - texasbar.com blocks both GCP (Cloud Run) AND Azure (GitHub Actions) IPs at the TCP level
-- `--last-names` A-Z sweep returns "All connection attempts failed" for every letter
 - Only `--patch-only` works (no HTTP needed), so TX is capped at 353 profiles / 251 disciplined
 - FIX if needed: use a residential proxy or Cloudflare WARP or a different data source
-
-### TX Workflow Fix History (2026-10-26):
-- PR #117: heredoc approach → broke YAML parser (GitHub 422 on workflow_dispatch)
-- PR #118: replaced heredoc with python3 one-liner (fixed YAML issue)
-- PR #119: broadened URL regex from `@/` to `@[^/]*/` to handle `@localhost/` in stored secret
-- All merged. URL rewrite now works: `@localhost/accountable_law?host=/cloudsql/...` → `@127.0.0.1:5432/accountable_law`
 
 ### Mobile Apps (Expo native-shell):
 - Repo: `C:\Users\Aggarwal\repos\accountablehub-mobile\`

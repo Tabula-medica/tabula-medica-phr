@@ -53,6 +53,12 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **All prior open gates resolved**: world-ehr-base PR#62 MERGED (branch-prot 1→0→1 pattern); tabula-unraj-web #33 dismissed; uninsurance PR#131 MERGED; 50 stale build-tool alerts auto-closed by Dependabot after PR#363 lockfile update
   - **ONLY remaining open gate**: uninsurance Cloud Run WIF auth error `attribute condition rejected` — pre-existing GCP IAM gate (founder action needed)
   - **18 repos scanned, 0 undismissed HIGH/CRITICAL — portfolio clean 2026-10-26**
+- **Session-20 (2026-10-26)**: katha-kids/noorjyoti-app/unraj full CVE sweep — 10 PRs merged:
+  - katha #107 (badges), #108 (undici+body-parser), #109 (fast-uri 3.1.9/4.2.3), #110 (uuid 14.0.3+diff 9.0.0) — **0 open alerts**
+  - noorjyoti #130 (prior session), #131 (fast-uri 3.1.9/4.2.3) — **1 LOW (esbuild intentional pin)**
+  - unraj #118 (fast-uri 3.1.9), #120 (body-parser 2.4.0+zod 4.6.7), #121 (fast-uri 4.2.3) — **0 open alerts**
+  - pnpm 10 gotcha confirmed: workspace.yaml per-range/per-major overrides ALONE do not update lockfile; MUST add to package.json[pnpm][overrides]; flat override "pkg":">=X" resolves to latest matching (not X), use exact pin for forcing
+  - **0 HIGH/CRITICAL portfolio-wide; katha+unraj at 0 total alerts**
 - **Session-19 (2026-10-26)**: 5-venture advancement (ESD/DextroHeart/VISTA-PD/ContinuEEG/DPN) + CI hygiene:
   - cognita CI fix: pnpm/action-setup@v6 rejected `version:11` vs `packageManager:pnpm@10.26.1` — fixed via PR#106 (10) + PR#107 (remove version key entirely, let packageManager drive); Dependabot PR#94 (@anthropic-ai/vertex-sdk 0.21.0→1.1.0) merged
   - VISTA-PD CI fix: EAS build-mobile.yml was trying iOS internal-distribution non-interactively (needs device UDIDs); fixed via PR#94 → preview builds Android-only; push on main completed SUCCESS
