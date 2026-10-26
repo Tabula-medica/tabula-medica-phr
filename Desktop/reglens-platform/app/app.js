@@ -419,7 +419,7 @@ function pagePricingCard(){
       <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#2FAE7E;margin-bottom:8px">Upgrade to Full Access</div>
       <div style="font-size:1.4rem;font-weight:800;margin-bottom:6px">RegLens Professional</div>
       <div style="font-size:0.88rem;color:#c8d8e8;line-height:1.6;margin-bottom:16px">
-        Everything you see here, plus unlimited deficiency tracking, CMS Care Compare data, and mobile app access — for one flat facility price.
+        Everything you see here, plus unlimited deficiency tracking, CMS Care Compare data, and CSV export — for one flat facility price.
       </div>
       <ul style="list-style:none;font-size:0.85rem;color:#c8d8e8;line-height:1.9;padding:0">
         <li style="color:#2FAE7E">✓ <span style="color:#c8d8e8">107+ F-tags with full SOM citations</span></li>
