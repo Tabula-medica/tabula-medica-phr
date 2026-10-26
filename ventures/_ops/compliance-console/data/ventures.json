@@ -155,5 +155,70 @@
     "stack": "Node/Fastify API + React/Vite web, Cloud Run + Cloud SQL Postgres 15, GCP",
     "inScope": ["soc2", "hipaa", "iso27001", "aigov"],
     "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00."
+  },
+  {
+    "id": "esd",
+    "name": "Energy Storage Disease",
+    "repo": "repos/energystoragedisease-web",
+    "github": "Tabula-medica/energystoragedisease-web",
+    "gcpProject": null,
+    "domains": ["energystoragedisease.com"],
+    "phi": "none",
+    "dataClass": "waitlist email PII (CF KV), no PHI",
+    "stack": "React/Vite + CF Pages + KV (ESD_WAITLIST); Expo mobile iOS/Android",
+    "inScope": ["soc2", "gdpr"],
+    "notes": "T2D reframe: Energy Storage Disease. CF Pages LIVE at energystoragedisease.com. iOS build 7 + Android vCode 4 in stores. HOMA-IR calculator + localStorage history. No PHI. Plausible analytics USER gate pending."
+  },
+  {
+    "id": "dextroheart",
+    "name": "DextroHeart",
+    "repo": "repos/dextroheart-mobile",
+    "github": "Tabula-medica/dextroheart-mobile",
+    "gcpProject": null,
+    "domains": ["dextroheart.com"],
+    "phi": "none",
+    "dataClass": "ECG waveform data (device — PHI scope activates at clinical use, not yet)",
+    "stack": "Expo mobile (iOS ASC 6824245200 + Android Play); nRF52840 + 2×ADS1298 hardware Gate A",
+    "inScope": ["soc2", "hipaa", "fda"],
+    "notes": "14-lead ECG device targeting inferior/RV/posterior MI detection. 510(k) path, ~$450k to clearance, target Jan 2028. Gate A (Define) in progress. iOS build 2 + Android vCode 4 already in stores. Pre-PHI until clinical use."
+  },
+  {
+    "id": "vista-pd",
+    "name": "VISTA-PD",
+    "repo": "repos/vista-pd",
+    "github": "Tabula-medica/vista-pd",
+    "gcpProject": "vista-pd-2026",
+    "domains": ["vista-pd.com"],
+    "phi": "low",
+    "dataClass": "acoustic biomarker samples — ephemeral /tmp, secure-wipe pre-response; no persistent PHI until Phase 2",
+    "stack": "FastAPI + Parselmouth/LibROSA/XGBoost (Cloud Run); Expo mobile; CF Pages landing",
+    "inScope": ["soc2", "hipaa", "aigov", "fda"],
+    "notes": "Vocal biomarker PD/ET screener. Phase 1 LIVE (INFERENCE_ENABLED=false, data collection). Phase 2=inference after ≥30 labelled samples/class. GCP BAA gate + ASC app creation gate open. Backend LIVE at vista-pd-backend-cxixro2dqq-uc.a.run.app."
+  },
+  {
+    "id": "continuouseeg",
+    "name": "ContinuEEG",
+    "repo": "repos/continuouseeg-web",
+    "github": "Tabula-medica/continuouseeg-web",
+    "gcpProject": null,
+    "domains": ["continuouseeg.com", "continuouseeg.pages.dev"],
+    "phi": "none",
+    "dataClass": "waitlist email PII (CF KV); seizure risk calculator results (localStorage only)",
+    "stack": "React/Vite + CF Pages + KV (CEEG_WAITLIST); Expo mobile (EAS gates pending)",
+    "inScope": ["soc2", "gdpr"],
+    "notes": "Ambulatory EEG platform. CF Pages LIVE at continuouseeg.pages.dev. 10-question seizure risk calculator. Domain continuouseeg.com not yet registered. Mobile EAS init + ASC app creation gates open. Phase 1=data collection."
+  },
+  {
+    "id": "diabeticneuropathy",
+    "name": "Diabetic Neuropathy (MNI)",
+    "repo": "repos/diabeticneuropathy-web",
+    "github": "Tabula-medica/diabeticneuropathy-web",
+    "gcpProject": null,
+    "domains": ["diabeticneuropathy.com", "diabeticneuropathy.pages.dev"],
+    "phi": "none",
+    "dataClass": "waitlist email PII (CF KV); MNSI calculator results (localStorage only)",
+    "stack": "React/Vite + CF Pages + KV (DPN_WAITLIST); Expo mobile (EAS gates pending)",
+    "inScope": ["soc2", "gdpr"],
+    "notes": "T2D neuropathy reframe: 'Metabolic Nerve Injury' (MNI). CF Pages LIVE at diabeticneuropathy.pages.dev. 7-question validated MNSI. Domain diabeticneuropathy.com not yet registered. Mobile EAS gates open. Natural companion to ESD venture."
   }
 ]
