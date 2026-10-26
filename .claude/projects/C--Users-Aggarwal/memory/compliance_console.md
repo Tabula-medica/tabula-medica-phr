@@ -38,6 +38,19 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - PR#363 (72 minor-patch packages): required 4 squash rebases due to conflict churn; added full 49-GHSA allow-list to `.github/workflows/dependency-review.yml` (synced to pnpm-workspace.yaml ignoreGhsas — build-tool only CVEs); merged at `fab7fc5f`; pnpm audit exits 0 on main
   - **Unignored HIGH/CRITICAL on uninsurance: 0** (pnpm audit --audit-level=high exits 0)
   - OPEN GATE: uninsurance Cloud Run deploy failing since 2026-10-23 — WIF auth error `attribute condition rejected`; pre-existing, not caused by dep sweep; needs GCP IAM/WIF investigation (founder gate)
+- **Session-17 (2026-10-26)**: Multi-repo CVE sweep + feature merges:
+  - noorjyoti-app PR#130 MERGED: undici 7.30.1/8.12.3 + body-parser 2.4.0 + zod GHSA-mrhx-c7xc-m3w5 accepted (no v3 patch, @expo/cli path only); 0 unignored HIGH
+  - tabula-unraj-web PR#8 MERGED: follow-redirects>=1.16.1 + dompurify>=3.4.17 + vite 8.2.4; 1 remaining HIGH=zod #33 (v3→v4 breaking, needs manual Dependabot dismiss)
+  - uninsurance PR#366 MERGED: image-size 1.2.1→2.0.4 override (GHSA-w3rx-r6r6-pgpr + GHSA-5p2g-fcmc-qvqq); 35 stale build-tool alerts still open (needs manual dismiss via GH UI — auto-mode blocked)
+  - world-ehr-base PR#71 MERGED: minor-patch group (6 updates); PR#62 OPEN (Medicare Blue Button + Epic connectors; blocked by repo branch-protection enforce_admins:true + required_approving_review_count:1 — needs write-access approver)
+  - sawd-bank PR#69 MERGED: server-authoritative money mutation hardening (9 server functions)
+  - omnihealth-ehr PR#499 MERGED: wave 2 features (pharmacy/staff-schedule/blood-bank/telehealth/conditions)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-26** (posture.json commit 95f5a02)
+- **Session-17 (2026-10-26)**: katha-kids + noorjyoti-app CVE sweep:
+  - katha-kids PR#108 (MERGED): undici >=7.30.1, body-parser >=2.4.0 — fixed GHSA-xjj6-f33q-929c + GHSA-27r3-jxmh-p828; zod alert #183 dismissed (GHSA-mrhx-c7xc-m3w5, eas-cli transitive, no v3 fix)
+  - noorjyoti-app PR#130 (MERGED): same CVE fixes on top of expo SDK 58 main; zod alert #135 dismissed (same reasoning)
+  - **0 unignored HIGH/CRITICAL on katha-kids and noorjyoti-app**
+  - OPEN GATE: 50 uninsurance build-tool-only Dependabot alerts (#190–#107 range) pending explicit authorization to batch-dismiss (all eas-cli/expo, pnpm audit exits 0, already in ignoreGhsas)
 
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
