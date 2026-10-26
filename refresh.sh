@@ -46,12 +46,19 @@ done
 
 echo ""
 echo "=== Step 3: Deploying to Cloud Run ==="
+# Drop a non-BAA OpenAI key when a previous revision still binds it.
+REMOVE_OPENAI=()
+if gcloud run services describe "${SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='yaml(spec.template.spec.containers)' 2>/dev/null | grep -q 'OPENAI_API_KEY'; then
+  REMOVE_OPENAI=(--remove-secrets=OPENAI_API_KEY)
+  echo "Removing non-BAA OPENAI_API_KEY secret binding"
+fi
 gcloud run deploy "${SERVICE}" \
   --image "${IMAGE}" \
   --region "${REGION}" \
   --project "${PROJECT_ID}" \
   --service-account "${SERVICE_ACCOUNT}" \
-  --update-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,SESSION_SECRET=SESSION_SECRET:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,PHI_ENCRYPTION_SALT=PHI_ENCRYPTION_SALT:latest,DATABASE_URL=patient-db-secret-us-central1:latest,INTERNAL_SYNC_TOKEN=INTERNAL_SYNC_TOKEN:latest" \
+  --update-secrets="SESSION_SECRET=SESSION_SECRET:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,PHI_ENCRYPTION_SALT=PHI_ENCRYPTION_SALT:latest,DATABASE_URL=patient-db-secret-us-central1:latest,INTERNAL_SYNC_TOKEN=INTERNAL_SYNC_TOKEN:latest" \
+  "${REMOVE_OPENAI[@]}" \
   --add-cloudsql-instances="${PROJECT_ID}:${REGION}:tabula-medica-db" \
   --allow-unauthenticated
 

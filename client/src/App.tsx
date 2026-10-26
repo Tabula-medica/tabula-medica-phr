@@ -18,6 +18,7 @@ import { LegalFooter } from "@/components/legal-footer";
 import { RouteErrorBoundary } from "@/components/route-error-boundary";
 
 import { GuardrailsDisclaimer } from "@/components/guardrails-disclaimer";
+import { PublicAnalytics } from "@/components/public-analytics";
 import { DemoModeBanner } from "@/components/demo-mode-banner";
 import { ProfileSwitcher } from "@/components/profile-switcher";
 import { Button } from "@/components/ui/button";
@@ -936,6 +937,7 @@ function App() {
                 <AppContent />
               </MotionConfig>
               <ServerFeatureGateListener />
+              <PublicAnalytics />
               {!IS_VISTA && <WelcomeModal />}
               <Toaster />
             </RegionProvider>

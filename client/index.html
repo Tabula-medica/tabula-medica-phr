@@ -63,13 +63,15 @@
     <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <meta name="referrer" content="strict-origin" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" referrerpolicy="no-referrer" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin referrerpolicy="no-referrer" />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
       rel="stylesheet"
+      referrerpolicy="no-referrer"
       media="print"
       onload="this.media='all'"
     />
@@ -77,6 +79,7 @@
       <link
         href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
         rel="stylesheet"
+        referrerpolicy="no-referrer"
       />
     </noscript>
 
@@ -175,38 +178,10 @@
     </script>
 
     <!--
-      Plausible Analytics — cookieless, GDPR/CCPA/PECR compliant by design,
-      so it can load before any consent banner. Only fires on production
-      hostnames; localhost / *.replit.dev / *.replit.app are filtered out
-      by the data-exclude attribute below.
+      No third-party analytics in this shell. Plausible is injected by
+      PublicAnalytics only on logged-out marketing paths. Health and account
+      routes must not request the vendor.
     -->
-    <script
-      defer
-      data-domain="tabulamedica.health"
-      data-exclude="/admin/**,/dashboard/**,/patient/**,/provider/**,/clinician/**,/settings/**,/onboarding/**,/consent,/auth/**"
-      src="https://plausible.io/js/script.outbound-links.js"
-    ></script>
-
-    <!--
-      Usercentrics Consent Management Platform — loads only when the build
-      provides a settings ID via VITE_USERCENTRICS_SETTINGS_ID. The CMP
-      itself decides which consent-gated vendors (ads, marketing, embedded
-      media) are allowed to fire after the user's response. Plausible is
-      not gated through it because Plausible is cookieless and lawful
-      under GDPR Article 6(1)(f) without consent.
-    -->
-    <script>
-      (function () {
-        var SID = "%VITE_USERCENTRICS_SETTINGS_ID%";
-        if (!SID || SID.indexOf("VITE_USERCENTRICS") !== -1) return;
-        var s = document.createElement("script");
-        s.id = "usercentrics-cmp";
-        s.async = true;
-        s.src = "https://app.usercentrics.eu/browser-ui/latest/loader.js";
-        s.setAttribute("data-settings-id", SID);
-        document.head.appendChild(s);
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

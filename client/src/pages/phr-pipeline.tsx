@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePhiDictation } from "@/hooks/use-phi-dictation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function PHRPipelinePage() {
   const { toast } = useToast();
   const [voiceQuery, setVoiceQuery] = useState("");
-  const [isListening, setIsListening] = useState(false);
+  const dictation = usePhiDictation();
 
   const statusQuery = useQuery<{
     lastRun: string | null;
@@ -93,27 +94,24 @@ export default function PHRPipelinePage() {
   });
 
   const startVoiceListening = () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      toast({ title: "Not Supported", description: "Speech recognition not available in this browser.", variant: "destructive" });
+    if (!dictation.available) {
+      toast({ title: "Type your question", description: "Voice transcription is unavailable. Use the text box.", variant: "destructive" });
       return;
     }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setVoiceQuery(transcript);
-      voiceQueryMutation.mutate(transcript);
-    };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-
-    recognition.start();
+    if (dictation.listening) {
+      dictation.stop();
+      return;
+    }
+    void dictation.start({
+      language: "en-US",
+      onTranscript: (transcript) => {
+        setVoiceQuery(transcript);
+        voiceQueryMutation.mutate(transcript);
+      },
+      onError: () => {
+        toast({ title: "Type your question", description: "Voice transcription is unavailable. Use the text box.", variant: "destructive" });
+      },
+    });
   };
 
   const handleTextQuery = () => {
@@ -324,14 +322,14 @@ export default function PHRPipelinePage() {
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <Button
-                    variant={isListening ? "destructive" : "default"}
+                    variant={dictation.listening ? "destructive" : "default"}
                     onClick={startVoiceListening}
                     className="shrink-0"
                     data-testid="button-voice-listen"
-                    aria-label={isListening ? "Stop listening" : "Start voice input"}
+                    aria-label={dictation.listening ? "Stop listening" : "Start voice input"}
                   >
-                    {isListening ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
-                    {isListening ? "Listening..." : "Ask by Voice"}
+                    {dictation.listening ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
+                    {dictation.listening ? "Listening..." : "Ask by Voice"}
                   </Button>
                   <Input
                     value={voiceQuery}
@@ -413,7 +411,7 @@ export default function PHRPipelinePage() {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {[
-                      { label: "Voice Input", desc: "Web Speech API + Whisper fallback", icon: Mic },
+                      { label: "Voice Input", desc: "Cloud transcription when enabled; otherwise type", icon: Mic },
                       { label: "Screen Reader", desc: "ARIA live regions for all responses", icon: Volume2 },
                       { label: "Keyboard Nav", desc: "Alt+V to activate, full tab support", icon: Zap },
                     ].map((feat) => (

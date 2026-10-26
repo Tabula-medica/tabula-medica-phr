@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cancelPhiSpeech, speakPhiText } from "@/lib/phi-speech";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { HelpCircle, Volume2, Loader2 } from "lucide-react";
@@ -94,25 +95,16 @@ export function ExplainPageButton({ pathname }: { pathname: string }) {
   const explanation = pageExplanations[pathname] || defaultExplanation;
   
   const speakExplanation = () => {
-    if ('speechSynthesis' in window) {
-      setSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(
-        `${explanation.title}. ${explanation.simpleSummary}. ` +
-        (explanation.steps ? `Steps: ${explanation.steps.join('. ')}. ` : '') +
-        (explanation.tips ? `Tips: ${explanation.tips.join('. ')}` : '')
-      );
-      utterance.rate = 0.9;
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    }
+    setSpeaking(true);
+    const spoken = `${explanation.title}. ${explanation.simpleSummary}. ` +
+      (explanation.steps ? `Steps: ${explanation.steps.join('. ')}. ` : '') +
+      (explanation.tips ? `Tips: ${explanation.tips.join('. ')}` : '');
+    void speakPhiText(spoken, { rate: 0.9, onEnd: () => setSpeaking(false) });
   };
   
   const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-    }
+    cancelPhiSpeech();
+    setSpeaking(false);
   };
 
   return (
@@ -174,7 +166,7 @@ export function ExplainPageButton({ pathname }: { pathname: string }) {
           </div>
           
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            {settings.textFirst && 'speechSynthesis' in (typeof window !== 'undefined' ? window : {}) && (
+            {settings.textFirst && (
               <Button
                 variant="secondary"
                 size="lg"

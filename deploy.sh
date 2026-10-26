@@ -49,6 +49,13 @@ else
   echo "   (new service → initial revision takes 100%)"
 fi
 
+# Drop a non-BAA OpenAI key if an older revision bound it. A missing binding is fine.
+REMOVE_OPENAI=()
+if gcloud run services describe "${SERVICE_NAME}" --project "${PROJECT_ID}" --region "${REGION}" --format='yaml(spec.template.spec.containers)' 2>/dev/null | grep -q 'OPENAI_API_KEY'; then
+  REMOVE_OPENAI=(--remove-secrets=OPENAI_API_KEY)
+  echo "   Removing non-BAA OPENAI_API_KEY secret binding"
+fi
+
 MSYS2_ARG_CONV_EXCL="PRIVATE_OBJECT_DIR=" \
 gcloud run deploy "${SERVICE_NAME}" \
   --source . \
@@ -68,6 +75,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --allow-unauthenticated \
   --port 8080 \
   "${TRAFFIC_FLAGS[@]}" \
+  "${REMOVE_OPENAI[@]}" \
   --quiet
 
 # ---- Health-check the candidate before promoting ----

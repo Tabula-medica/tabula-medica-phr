@@ -29,7 +29,8 @@ IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${SERVICE_
 ENV_VARS="GCS_USE_ADC=true,PUBLIC_OBJECT_SEARCH_PATHS=/tabula-medica-gcs/public,AI_PROVIDER=vertex,VERTEX_PROJECT_ID=united-planet-485003-n7,VERTEX_LOCATION=us-central1,TEFCA_ENABLED=false"
 
 # Secret bindings — cloned from the US service (identical secret names/keys).
-SECRETS="DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SESSION_SECRET=SESSION_SECRET:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,PHI_ENCRYPTION_SALT=PHI_ENCRYPTION_SALT:latest,MFA_ENCRYPTION_KEY=MFA_ENCRYPTION_KEY:latest"
+# OPENAI_API_KEY is not mounted. There is no OpenAI BAA; PHI AI stays on Vertex.
+SECRETS="DATABASE_URL=patient-db-secret-us-central1:latest,FHIR_BASE_URL=FHIR_BASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,PHI_ENCRYPTION_SALT=PHI_ENCRYPTION_SALT:latest,MFA_ENCRYPTION_KEY=MFA_ENCRYPTION_KEY:latest"
 
 echo "🧠 Deploying Vista PD to Cloud Run: ${SERVICE_NAME} (${REGION}) in ${PROJECT_ID}"
 echo "   Branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')  Commit: $(git rev-parse --short HEAD 2>/dev/null || echo '?')"

@@ -127,9 +127,10 @@ ${opts.noindex ? '<meta name="robots" content="noindex,follow" />' : ""}
 <meta name="twitter:title" content="${escapeAttr(opts.title)}" />
 <meta name="twitter:description" content="${escapeAttr(opts.description)}" />
 <link rel="icon" type="image/png" href="/favicon.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<meta name="referrer" content="strict-origin" />
+<link rel="preconnect" href="https://fonts.googleapis.com" referrerpolicy="no-referrer" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin referrerpolicy="no-referrer" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" referrerpolicy="no-referrer" />
 ${opts.schemaJson ? `<script type="application/ld+json">${opts.schemaJson}</script>` : ""}
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}

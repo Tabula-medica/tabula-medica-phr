@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useVoiceNavigation } from "@/hooks/use-voice-navigation";
+import { cancelPhiSpeech } from "@/lib/phi-speech";
 import { useAccessibility } from "@/components/accessibility-provider";
 import {
   Mic,
@@ -105,7 +106,7 @@ export function VoiceNavigationControl({
   const toggleMute = () => {
     setIsMuted(!isMuted);
     if (!isMuted) {
-      window.speechSynthesis.cancel();
+      cancelPhiSpeech();
     }
   };
 

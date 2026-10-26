@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cancelPhiSpeech, speakPhiText } from "@/lib/phi-speech";
+import { usePhiDictation } from "@/hooks/use-phi-dictation";
 
 type CommandHandlers = {
   onNext?: () => void;
@@ -49,111 +51,60 @@ export function useTourVoice({
   commands,
 }: UseTourVoiceOptions): UseTourVoiceReturn {
   const [speaking, setSpeaking] = useState(false);
-  const [listening, setListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
   const commandsRef = useRef(commands);
   commandsRef.current = commands;
-
-  const ttsSupported =
-    typeof window !== "undefined" && "speechSynthesis" in window;
-  const voiceSupported =
-    typeof window !== "undefined" &&
-    (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
+  const dictation = usePhiDictation();
 
   const stopSpeaking = useCallback(() => {
-    if (!ttsSupported) return;
-    window.speechSynthesis.cancel();
+    cancelPhiSpeech();
     setSpeaking(false);
-  }, [ttsSupported]);
-
-  const speakNow = useCallback(() => {
-    if (!ttsSupported || !text) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang;
-    u.rate = 1;
-    u.pitch = 1;
-    u.onstart = () => setSpeaking(true);
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(u);
-  }, [ttsSupported, text, lang]);
-
-  useEffect(() => {
-    if (!enabled || !ttsSupported) return;
-    speakNow();
-    return () => {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-    };
-  }, [enabled, text, speakNow, ttsSupported]);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    setListening(false);
   }, []);
 
-  const startListening = useCallback(() => {
-    if (!voiceSupported) return;
-    const Ctor: any =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!Ctor) return;
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    const rec = new Ctor();
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.lang = lang;
-    rec.onresult = (e: any) => {
-      const last = e.results?.[e.results.length - 1];
-      const transcript = last?.[0]?.transcript;
-      if (!transcript) return;
-      const cmd = pickCommand(String(transcript));
-      if (cmd && commandsRef.current?.[cmd]) {
-        commandsRef.current[cmd]?.();
-      }
-    };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
-    try {
-      rec.start();
-      recognitionRef.current = rec;
-      setListening(true);
-    } catch {
-      setListening(false);
-    }
-  }, [voiceSupported, lang]);
+  const speakNow = useCallback(() => {
+    if (!text) return;
+    cancelPhiSpeech();
+    setSpeaking(true);
+    void speakPhiText(text, {
+      lang,
+      rate: 1,
+      onEnd: () => setSpeaking(false),
+    });
+  }, [text, lang]);
 
   useEffect(() => {
+    if (!enabled) return;
+    speakNow();
     return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          /* ignore */
-        }
-      }
-      if (ttsSupported) window.speechSynthesis.cancel();
+      cancelPhiSpeech();
+      setSpeaking(false);
     };
-  }, [ttsSupported]);
+  }, [enabled, text, speakNow]);
+
+  const stopListening = useCallback(() => {
+    dictation.stop();
+  }, [dictation]);
+
+  const startListening = useCallback(() => {
+    if (!dictation.available) return;
+    void dictation.start({
+      language: lang,
+      maxMs: 8_000,
+      onTranscript: (transcript) => {
+        const cmd = pickCommand(transcript);
+        if (cmd && commandsRef.current?.[cmd]) commandsRef.current[cmd]?.();
+      },
+    });
+  }, [dictation, lang]);
+
+  useEffect(() => () => {
+    cancelPhiSpeech();
+  }, []);
 
   return {
     speaking,
-    listening,
-    ttsSupported,
-    voiceSupported,
+    listening: dictation.listening,
+    ttsSupported: true,
+    voiceSupported: dictation.available,
     speakNow,
     stopSpeaking,
     startListening,

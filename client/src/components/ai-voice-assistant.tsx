@@ -1,11 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-
-declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
-}
+import { useState, useCallback, useEffect } from "react";
+import { cancelPhiSpeech, speakPhiText } from "@/lib/phi-speech";
+import { usePhiDictation } from "@/hooks/use-phi-dictation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,18 +67,14 @@ export function AIVoiceAssistant({
   const { language, languageInfo, t } = useLanguage();
   const { toast } = useToast();
 
-  const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [aiResponse, setAIResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  const recognitionRef = useRef<any>(null);
-  const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  const isSupported = typeof window !== "undefined" && 
-    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  const dictation = usePhiDictation();
+  const isListening = dictation.listening;
+  const isSupported = dictation.available;
 
   const processVoiceCommand = useMutation({
     mutationFn: async (text: string) => {
@@ -121,104 +112,43 @@ export function AIVoiceAssistant({
 
   const isProcessing = processVoiceCommand.isPending;
 
-  const initRecognition = useCallback(() => {
-    if (!isSupported) return null;
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = LANGUAGE_TO_SPEECH_CODE[language] || "en-US";
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setError(null);
-      setTranscript("");
-    };
-
-    recognition.onresult = (event: any) => {
-      const results = Array.from(event.results) as any[];
-      const transcript = results
-        .map((result: any) => result[0].transcript)
-        .join("");
-      setTranscript(transcript);
-
-      if (results.some((result: any) => result.isFinal)) {
-        onTranscript?.(transcript, language);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      setIsListening(false);
-      if (event.error !== "aborted") {
-        setError(`Speech recognition error: ${event.error}`);
-      }
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      if (transcript) {
-        processVoiceCommand.mutate(transcript);
-      }
-    };
-
-    return recognition;
-  }, [language, isSupported, transcript, onTranscript, processVoiceCommand]);
-
   const startListening = useCallback(() => {
     if (!isSupported) {
       toast({
-        title: "Not Supported",
-        description: "Speech recognition is not supported in this browser.",
+        title: "Voice unavailable",
+        description: "Secure transcription is off. Type instead.",
         variant: "destructive",
       });
       return;
     }
-
-    recognitionRef.current = initRecognition();
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        setError("Failed to start speech recognition");
-      }
-    }
-  }, [isSupported, initRecognition, toast]);
+    setError(null);
+    setTranscript("");
+    void dictation.start({
+      language: LANGUAGE_TO_SPEECH_CODE[language] || "en-US",
+      onTranscript: (text) => {
+        setTranscript(text);
+        onTranscript?.(text, language);
+        processVoiceCommand.mutate(text);
+      },
+      onError: (message) => setError(message),
+    });
+  }, [isSupported, dictation, language, onTranscript, processVoiceCommand, toast]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-  }, []);
+    dictation.stop();
+  }, [dictation]);
 
   const speakResponse = useCallback((text: string) => {
-    if (!window.speechSynthesis) return;
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = LANGUAGE_TO_SPEECH_CODE[language] || "en-US";
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-
-    const voices = window.speechSynthesis.getVoices();
-    const langCode = LANGUAGE_TO_SPEECH_CODE[language] || "en-US";
-    const voice = voices.find((v) => v.lang.startsWith(langCode.split("-")[0]));
-    if (voice) {
-      utterance.voice = voice;
-    }
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    synthesisRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+    void speakPhiText(text, {
+      lang: LANGUAGE_TO_SPEECH_CODE[language] || "en-US",
+      rate: 0.9,
+      onEnd: () => setIsSpeaking(false),
+    });
   }, [language]);
 
   const stopSpeaking = useCallback(() => {
-    window.speechSynthesis?.cancel();
+    cancelPhiSpeech();
     setIsSpeaking(false);
   }, []);
 
@@ -229,18 +159,9 @@ export function AIVoiceAssistant({
     setIsMuted(!isMuted);
   }, [isMuted, isSpeaking, stopSpeaking]);
 
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.abort();
-      window.speechSynthesis?.cancel();
-    };
+  useEffect(() => () => {
+    cancelPhiSpeech();
   }, []);
-
-  useEffect(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.lang = LANGUAGE_TO_SPEECH_CODE[language] || "en-US";
-    }
-  }, [language]);
 
   if (compact) {
     return (
@@ -369,7 +290,7 @@ export function AIVoiceAssistant({
         {!isSupported && (
           <div className="p-3 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-md text-sm" data-testid="text-not-supported">
             <AlertTriangle className="h-4 w-4 inline mr-2" />
-            Speech recognition is not supported in this browser. Try using Chrome, Edge, or Safari.
+            Voice input is off until secure transcription is available. You can type instead.
           </div>
         )}
 

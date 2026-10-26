@@ -8,7 +8,7 @@ function getSecurityHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     "X-Content-Type-Options": "nosniff",
     "X-XSS-Protection": "1; mode=block",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Referrer-Policy": "strict-origin",
     "Permissions-Policy": "geolocation=(), microphone=(self), camera=(self)",
   };
   
