@@ -2,11 +2,11 @@
  * Shared Zod schema helpers that enforce sensible cardinality bounds on
  * collection types parsed from untrusted input.
  *
- * Background: CVE-2023-54404 â€” Zod accumulates one ZodIssue per failing
+ * Background: CVE-2023-54404 — Zod accumulates one ZodIssue per failing
  * element in z.array / z.set / z.map / z.record, so an unbounded collection
  * in a request body schema can exhaust memory during validation.  Callers
  * that accept request-body arrays MUST use boundedArray instead of bare
- * z.array() â€” a naked .max() does NOT stop Zod 3 from walking every element.
+ * z.array() — a naked .max() does NOT stop Zod 3 from walking every element.
  */
 
 import { z } from "zod";
@@ -34,7 +34,7 @@ export function boundedArray<T extends z.ZodTypeAny>(item: T, max: number) {
       });
     }
   });
-  return withinCap.pipe(z.array(item).max(max));
+  return withinCap.pipe(z.array(item));
 }
 
 /**
