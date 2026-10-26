@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T20:00:00.000Z",
+  "generatedAt": "2026-10-26T16:16:01.588Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -1559,7 +1559,7 @@
           "autofix": true,
           "verdict": "pass",
           "source": "deps",
-          "detail": "Dependency audit 2026-10-26: 0 HIGH/CRIT prod-runtime vulnerabilities. 35 HIGH/CRIT Dependabot alerts (tar×6, node-forge×6, @xmldom/xmldom×13, minimatch×3, nanoid×3, postcss×2, joi×1, @grpc/grpc-js×1) dismissed as tolerable_risk — all in eas-cli build-tool path only, never deployed to Cloud Run; pnpm overrides + auditConfig.ignoreGhsas floor in pnpm-workspace.yaml. image-size bumped 1.2.1→2.0.4 (GHSA-w3rx-r6r6-pgpr + GHSA-5p2g-fcmc-qvqq); PR#367 open. 24 MEDIUM + 4 LOW remain (all eas-cli build-tool, cost-gated major bumps). Reviewed by Security Officer 2026-10-26."
+          "detail": "Dependency audit 2026-10-16: 2 pre-existing HIGH no-upstream-fix vulnerabilities remain accepted (unchanged from 2026-10-05 review): (1) braces <=3.0.3 GHSA-vfj7-8cjw-p6xm (fix: <0.0.0) — transitive build-tool dep; pattern matching is server-config-driven, user-supplied globs not accepted; (2) node-forge <=1.4.0 GHSA-86w9-cpqp-85rv (fix: <0.0.0) — @expo/cli dev toolchain only, not in production runtime. NEW: Dependabot alert #10 (uuid <11.1.1 GHSA moderate) — pnpm override uuid:11.1.1 applied in pnpm-workspace.yaml; override effective in all workspace packages. Reviewed by Security Officer 2026-10-16."
         },
         {
           "id": "SEC-04",

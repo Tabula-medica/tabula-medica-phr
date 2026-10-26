@@ -53,6 +53,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **All prior open gates resolved**: world-ehr-base PR#62 MERGED (branch-prot 1→0→1 pattern); tabula-unraj-web #33 dismissed; uninsurance PR#131 MERGED; 50 stale build-tool alerts auto-closed by Dependabot after PR#363 lockfile update
   - **ONLY remaining open gate**: uninsurance Cloud Run WIF auth error `attribute condition rejected` — pre-existing GCP IAM gate (founder action needed)
   - **18 repos scanned, 0 undismissed HIGH/CRITICAL — portfolio clean 2026-10-26**
+- **Session-19 (2026-10-26)**: 5-venture advancement (ESD/DextroHeart/VISTA-PD/ContinuEEG/DPN) + CI hygiene:
+  - cognita CI fix: pnpm/action-setup@v6 rejected `version:11` vs `packageManager:pnpm@10.26.1` — fixed via PR#106 (10) + PR#107 (remove version key entirely, let packageManager drive); Dependabot PR#94 (@anthropic-ai/vertex-sdk 0.21.0→1.1.0) merged
+  - VISTA-PD CI fix: EAS build-mobile.yml was trying iOS internal-distribution non-interactively (needs device UDIDs); fixed via PR#94 → preview builds Android-only; push on main completed SUCCESS
+  - VISTA-PD repo-level branch protection: requires 1 reviewer + enforce_admins:true → must patch BOTH repo-level protection AND org rulesets for merges
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-26**
 
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
