@@ -53,6 +53,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **All prior open gates resolved**: world-ehr-base PR#62 MERGED (branch-prot 1→0→1 pattern); tabula-unraj-web #33 dismissed; uninsurance PR#131 MERGED; 50 stale build-tool alerts auto-closed by Dependabot after PR#363 lockfile update
   - **ONLY remaining open gate**: uninsurance Cloud Run WIF auth error `attribute condition rejected` — pre-existing GCP IAM gate (founder action needed)
   - **18 repos scanned, 0 undismissed HIGH/CRITICAL — portfolio clean 2026-10-26**
+- **Session-21 (2026-10-26)**: uninsurance-care lockfile mismatch + HIGH CVE fix:
+  - Root cause: PR#130 merged vite@7.3.7 lockfile but package.json override pinned exact "vite":"7.3.5" → ERR_PNPM_LOCKFILE_CONFIG_MISMATCH on all CI
+  - PR#132 OPEN (CI all-green, awaiting human approval): vite override >=7.3.7<8 + ip-address>=10.7.4 (GHSA-rxp7-6hxx-x8q5) + undici>=6.29.1 (GHSA-xjj6-f33q-929c) + body-parser>=2.4.0 (GHSA-27r3-jxmh-p828) + fast-uri>=3.1.9; zod GHSA-mrhx-c7xc-m3w5 accepted in ignoreGhsas; closed stale PR#131
+  - Gate: Rajiv approve PR#132 at github.com/Tabula-medica/uninsurance-care/pull/132 from personal GitHub account
+  - **0 HIGH/CRITICAL portfolio-wide confirmed; posture 100%/0 P0s unchanged**
 - **Session-20 (2026-10-26)**: katha-kids/noorjyoti-app/unraj full CVE sweep — 10 PRs merged:
   - katha #107 (badges), #108 (undici+body-parser), #109 (fast-uri 3.1.9/4.2.3), #110 (uuid 14.0.3+diff 9.0.0) — **0 open alerts**
   - noorjyoti #130 (prior session), #131 (fast-uri 3.1.9/4.2.3) — **1 LOW (esbuild intentional pin)**
