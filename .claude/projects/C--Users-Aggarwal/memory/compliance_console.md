@@ -21,6 +21,15 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
 
 - **Session-13 (2026-10-24)**: underinsured.app CVE sweep PR #114 — markdown-it >=15.0.3, fast-uri >=3.1.9, undici@8 8.12.2, body-parser 2.4.0 floor; 5 HIGH all ignored (3 unfixable: zod 3→4 breaking, body-parser express-locked, undici@8 via dev-only @expo/cli); **0 unignored HIGH/CRITICAL production exposure**
 - **Session-14 (2026-10-24)**: tabula-medica-phr CVE sweep — body-parser@1 >=1.20.9 + body-parser@2 >=2.4.0 (HIGH), multer >=2.5.0 (HIGH), undici >=7.30.1 (3×HIGH), fast-uri >=3.1.9 (MODERATE), hono >=4.13.11 (MEDIUM), vitest+@vitest/mocker >=4.1.12 (2×MEDIUM), zod GHSA-mrhx-c7xc-m3w5 accepted in ACCEPTED_GHSA+osv-scanner.toml (no v3 patch, all routes auth-gated, review 2027-04-01); PR#269 merged; PRs #261(skills) + #262(oncology) rebased + merged; **0 unignored HIGH/CRITICAL portfolio-wide**
+- **Session-15 (2026-10-25/26)**: P0/P1 security + safety fixes across 4 repos:
+  - PHR PR#282 (MERGED): gated 7 anonymous AI endpoints (multimodal, MedASR ×2, transcription ×4, card-OCR) behind requireUser+aiUserRateLimiter — fixes DoS/cost-abuse surface
+  - EHR PR#498: SEP-1 sepsis vitals bug (newest→oldest fix), hardcoded "u1" provider identity removed from DenialMgmt/QualityDashboard/RapidResponse; WCAG a11y fixes (color-contrast+label-content-name); CI pending
+  - UHR PR#123 (MERGED): reverted premature 501(c)(3) "granted" language back to "pending" (7 locations) — legal gate until IRS letter + Trevor review
+  - underinsured PR#114 (MERGED): CVE sweep — markdown-it>=15.0.3 + fast-uri>=3.1.9 + undici@8 8.12.2 + body-parser 2.4.0 floor
+  - underinsured PR#113 (MERGED): FQHC+DPC care-near-ZIP page; CodeQL false-positive CSRF+XSS suppressed via `// codeql[...]` inline comments (Bearer token auth, encodeURIComponent sanitizer); lockfile fixed + rebased onto #114 CVE sweep
+  - EHR PR#498 (MERGED): voice.ts body-validation ordering fix (400 before 503); CodeQL `Analyze` failure was infrastructure-level (actions:read permission) with continue-on-error:true; all required CI checks pass
+  - uninsurance PR#360 (MERGED): health-check follow-redirects + fix API target to api.uninsurance.care; issue #328 auto-closes on next run; ROOT CAUSE=Cloudflare redirect rule uninsurance.care→underinsured.health needs CF dashboard removal (founder gate, API token is zone:read only)
+  - underinsured PR#115 zod 3→4 (MERGED), PR#116 zod 4.6.7 (MERGED)
 
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
