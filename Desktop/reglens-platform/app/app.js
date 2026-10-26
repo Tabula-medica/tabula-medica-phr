@@ -306,6 +306,7 @@ function pageTracker(){
   <button class="btn btn-outline btn-sm" id="load-demo-btn">Load Demo Data</button>
   <button class="btn btn-outline btn-sm" id="clear-defs-btn">Clear All</button>
   ${state.deficiencies.length?`<button class="btn btn-outline btn-sm" id="export-csv-btn" style="margin-left:auto">Export CSV ↓</button>`:''}
+  <button class="btn btn-outline btn-sm" id="reset-storage-btn" style="color:var(--red);border-color:var(--red);margin-left:auto" title="Clear all saved data from this browser">Reset saved data</button>
 </div>
 ${state.addOpen?addDefForm():''}
 <div class="deficiency-list">
@@ -620,6 +621,8 @@ function bindEvents(){
   if(loadDemo){loadDemo.addEventListener('click',()=>{state.deficiencies=demoDeficiencies();state.addOpen=false;render();bindEvents();});}
   const clearBtn=$('#clear-defs-btn');
   if(clearBtn){clearBtn.addEventListener('click',()=>{if(confirm('Clear all deficiencies?')){state.deficiencies=[];render();bindEvents();}});}
+  const resetStorageBtn=$('#reset-storage-btn');
+  if(resetStorageBtn){resetStorageBtn.addEventListener('click',()=>{if(confirm('Clear all saved data? This resets deficiencies, checklist progress, and survey date.')){try{localStorage.removeItem(LS_KEY);}catch(e){}state.deficiencies=demoDeficiencies();state.checkedPrep=[];state.surveyDate='';render();bindEvents();}});}
   const cancelDef=$('#cancel-def-btn');
   if(cancelDef){cancelDef.addEventListener('click',()=>{state.addOpen=false;render();bindEvents();});}
   const saveDef=$('#save-def-btn');
