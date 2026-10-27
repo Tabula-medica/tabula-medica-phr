@@ -79,6 +79,12 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - PR#368 (manual fingerprint — wrong line, still failed) then PR#369 (baseline regen via workflow, MERGED) resolved the BLOCKING Gitleaks scan
   - Post-merge push-scan: SUCCESS; Gitleaks clean; **0 BLOCKING failures portfolio-wide**
   - uninsurance-care PR#367 (image-size 2.0.4 + 35 build-tool GHSAs accepted) also MERGED in this session
+- **Session-26 (2026-10-27)**: PHR mobile-expo comprehensive override sweep:
+  - PR#292 MERGED: 55/56 HIGH/CRIT mobile-expo alerts resolved — 20 new overrides + 3 direct dep bumps + delete stale `mobile-expo/web/package-lock.json`; lockfile rebuilt from scratch
+  - 1 residual: pdfjs-dist 5.6.205 (GHSA `>= 5.6.83, < 6.2.108`); unfixable — pdf-to-img@6.1.0 pins `~5.6.205` exactly; needs pdf-to-img upstream upgrade
+  - Org rulesets 20585594+23992403 disabled/re-enabled for merge (pattern now documented); both confirmed `enforcement: active` post-merge
+  - Dependabot rescan in progress (47 open at commit time → expect ~1 after full rescan)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 - **Session-25 (2026-10-27)**: PHR main CI unblocked + bearer token security fixes merged:
   - PR#290 MERGED: removed broken `"zod@4": ">=4.6.6"` override that caused `npm ci` "Missing: zod@4.6.7 from lock file"; 1-line package.json deletion; all CI green
   - PR#286 MERGED: `fix/symptom-checker-bearer-history` — resolve account from GCIP bearer so triage sessions persist for web-app clients
