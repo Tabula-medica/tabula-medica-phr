@@ -26,7 +26,7 @@ import { PHI_COLUMN_MAP } from "../server/security/phi-column-map";
 describe("outpatient order schema", () => {
   it("accepts a minimal valid lab order", () => {
     const result = insertOutpatientOrderSchema.safeParse({
-      profileId: "11111111-1111-1111-1111-111111111111",
+      profileId: "11111111-1111-4111-8111-111111111111",
       orderedByUserId: "provider-1",
       orderType: "lab",
       description: "CBC with differential",
@@ -36,7 +36,7 @@ describe("outpatient order schema", () => {
 
   it("rejects an order type outside the five defined types", () => {
     const result = insertOutpatientOrderSchema.safeParse({
-      profileId: "11111111-1111-1111-1111-111111111111",
+      profileId: "11111111-1111-4111-8111-111111111111",
       orderedByUserId: "provider-1",
       orderType: "surgery", // not one of lab/imaging/referral/medication/dme
       description: "Appendectomy",
@@ -46,7 +46,7 @@ describe("outpatient order schema", () => {
 
   it("rejects an order with no description", () => {
     const result = insertOutpatientOrderSchema.safeParse({
-      profileId: "11111111-1111-1111-1111-111111111111",
+      profileId: "11111111-1111-4111-8111-111111111111",
       orderedByUserId: "provider-1",
       orderType: "dme",
       description: "",
@@ -56,7 +56,7 @@ describe("outpatient order schema", () => {
 
   it("defaults priority to routine and transmissionMethod to pending", () => {
     const result = insertOutpatientOrderSchema.parse({
-      profileId: "11111111-1111-1111-1111-111111111111",
+      profileId: "11111111-1111-4111-8111-111111111111",
       orderedByUserId: "provider-1",
       orderType: "imaging",
       description: "MRI brain without contrast",
@@ -91,7 +91,7 @@ describe("outpatient order schema", () => {
 describe("outpatient order event schema", () => {
   it("accepts a valid event", () => {
     const result = insertOutpatientOrderEventSchema.safeParse({
-      orderId: "11111111-1111-1111-1111-111111111111",
+      orderId: "11111111-1111-4111-8111-111111111111",
       eventType: "transmitted",
       actorUserId: "provider-1",
     });
@@ -100,7 +100,7 @@ describe("outpatient order event schema", () => {
 
   it("rejects an unknown event type", () => {
     const result = insertOutpatientOrderEventSchema.safeParse({
-      orderId: "11111111-1111-1111-1111-111111111111",
+      orderId: "11111111-1111-4111-8111-111111111111",
       eventType: "resurrected",
       actorUserId: "provider-1",
     });
