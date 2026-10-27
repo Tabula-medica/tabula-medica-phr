@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s as of 2026-10-27; PHR mobile-expo 0 HIGH/CRIT; only gap = AV-03 WAF P2 (6 ventures, cost-gated)"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s as of 2026-10-27T15:09Z; PHR zod v4 merged PR#299; only gap = AV-03 WAF P2 (6 ventures, cost-gated)"
 metadata: 
   node_type: memory
   type: project
@@ -118,6 +118,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - omnihealth-ehr PR#506 (body-parser 1.20.9): fixed Windows-lockfile rolldown native-binding CI failure by restoring main's lockfile + non-destructive `npm install --package-lock-only`; force-pushed; CI re-running
   - **0 HIGH/CRITICAL portfolio-wide; 0 open alerts in all CF Pages repos**
 
+- **Session-29 (2026-10-27)**: Post-compaction resume — PHR zod v4 + posture refresh:
+  - PHR PR#299 MERGED: `fix/phr-zod-v4` — zod `^3.25.76`→`^4.6.7` (GHSA-mrhx-c7xc-m3w5 HIGH); scoped npm overrides for `@mendable/firecrawl-js`+`firecrawl` nested zod@3 copies; test UUID RFC 4122 fix (zod v4 `uuid()` enforces variant bits `[89abAB]` — all-1s test UUIDs `11111111-1111-1111-1111-111111111111` fail, updated to `11111111-1111-4111-8111-111111111111`); tsc --noEmit exits 0; npm audit --omit=dev: 0 HIGH/CRIT
+  - mds-platform confirmed clean on main — zod v4 already merged (PR#10); `npm audit --omit=dev: 0 vulnerabilities`
+  - posture.json regenerated 2026-10-27T15:09:32Z via `collect-deps.mjs` + `build-posture.mjs`: **17 ventures, 100%, 0 P0s, 0 fails**
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 - **Session-28 (2026-10-27)**: Post-compaction restore + PHR/vista-pd sweep:
   - Org rulesets 20585594+23992403 restored to count:1+enforcement:active (were left at 0 from previous session)
   - vista-pd branch protection restored to count:1+enforce_admins:true
