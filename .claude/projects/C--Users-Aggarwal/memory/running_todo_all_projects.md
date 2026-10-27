@@ -15,7 +15,7 @@ metadata:
 
 - **Insurance-Lawsuit PR #15 MERGED** ✅ — fix(sec): vite 6.4.4 + dompurify >=3.4.17 (CRIT/HIGH CVEs); all protections patched/restored
 - **SAWD iOS TestFlight build run 40515721500** — in_progress (Vite + Xcode); run triggered from PR #273 (bundle exec fastlane fix)
-- **SAWD v2.1 App Store** — UNRESOLVED_ISSUES since 2026-10-18; rejection reason only in ASC UI (user must check)
+- **SAWD v2.1 App Store** — UNRESOLVED_ISSUES since 2026-10-18; v2.1 state=REJECTED; builds #48+#49 VALID; rejection reason NOT available via API — **must check ASC Resolution Center at appstoreconnect.apple.com/apps/6784523327** (likely: Guideline 5.2.5 financial-services disclosure or missing demo account)
 - **sawd-bank PR #70 MERGED** 2026-10-27 — fix: spending chart transfer_out + bill pay balance sync
 
 **Owner-gated items still open (unchanged):**
