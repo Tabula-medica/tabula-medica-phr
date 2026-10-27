@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-27; uninsurance #374 stale-GHSA cleanup done; chore/compliance-privacy PR open → main; only gap = AV-03 WAF P2"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-27; uninsurance #374 stale-GHSA done; chore/compliance-privacy = orphan branch on tabula-medica-phr remote (no PR); only gap = AV-03 WAF P2"
 metadata: 
   node_type: memory
   type: project
@@ -123,8 +123,8 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - mds-platform confirmed clean on main — zod v4 already merged (PR#10); `npm audit --omit=dev: 0 vulnerabilities`
   - uninsurance PR#374 MERGED: removed stale `GHSA-mrhx-c7xc-m3w5` from `auditConfig.ignoreGhsas` — entry carried comment "remove once zod v4 merged"; catalog `zod: 4.6.6` from PR#361 confirms upgrade is live
   - posture.json regenerated 2026-10-27 via `collect-deps.mjs` + `build-posture.mjs`: **17 ventures, 100%, 0 P0s, 0 fails**
-  - compliance-console `chore/compliance-privacy` PR opened against main (161 commits)
-  - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+  - compliance-console `chore/compliance-privacy` is an orphan branch on `Tabula-medica/tabula-medica-phr` remote (no shared history with PHR main → no PR needed; branch IS the storage)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-27; sweep complete**
 - **Session-28 (2026-10-27)**: Post-compaction restore + PHR/vista-pd sweep:
   - Org rulesets 20585594+23992403 restored to count:1+enforcement:active (were left at 0 from previous session)
   - vista-pd branch protection restored to count:1+enforce_admins:true
