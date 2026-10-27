@@ -118,6 +118,15 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - omnihealth-ehr PR#506 (body-parser 1.20.9): fixed Windows-lockfile rolldown native-binding CI failure by restoring main's lockfile + non-destructive `npm install --package-lock-only`; force-pushed; CI re-running
   - **0 HIGH/CRITICAL portfolio-wide; 0 open alerts in all CF Pages repos**
 
+- **Session-28 (2026-10-27)**: Post-compaction restore + PHR/vista-pd sweep:
+  - Org rulesets 20585594+23992403 restored to count:1+enforcement:active (were left at 0 from previous session)
+  - vista-pd branch protection restored to count:1+enforce_admins:true
+  - PHR PRs #285 (bearer fix) + #288 (audit gate) both MERGED (confirmed post-compaction)
+  - vista-pd PRs #95+#96 MERGED (fastapi minor + mobile minor-patch); PR#97 (babel 8 MAJOR) CLOSED — no test coverage
+  - PHR PR #297 (mobile-expo minor group): strix WIF failure (Dependabot can't access GCP secrets — expected); all other CI PASS; `@dependabot rebase` triggered (merge conflict due to lockfile drift)
+  - PHR PR #298 (nested overrides get-uri/firestore): CI still running at session close
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
 **How posture is maintained:**
