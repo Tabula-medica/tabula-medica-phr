@@ -7,9 +7,16 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-27 Insurance-Lawsuit PR#15 + iOS build)
+# MASTER RUNNING TODO — all projects (updated 2026-10-27 omnihealth #529 + insurance-lawsuit #13 access control)
 
 ---
+
+### 2026-10-27 session-28 — omnihealth wave24 + insurance-lawsuit access control merged
+
+- **omnihealth-ehr PR #529 MERGED** ✅ — feat(ehr-wave24): Forensic Psych + C-L Psych + Interventional Endo + Thoracic Onc + Clinical Tox; all CI green
+- **insurance-lawsuit PR #13 MERGED** ✅ — fix(security): limit case documents and co-plaintiff records to owners and admins (access control P0); rebased from conflict (package.json overrides ordering), force-pushed + merged
+- **accountable-law-api PR #134** — SKIP for Rajiv review; 54 diverged commits, large accumulated branch (MO/VA/MD scrapers + ScraperAPI proxy); not a routine security fix
+- **org rulesets 20585594+23992403** — confirmed count:1, enforcement:active; SAWD iOS TestFlight run 40515721500 still in_progress
 
 ### 2026-10-27 session — Insurance-Lawsuit PR#15 merged; SAWD iOS build running
 
