@@ -1,0 +1,1001 @@
+name: Security Alerts (Scheduled)
+
+# Daily dependency-vulnerability scan with Slack alerting and an optional
+# manual trigger. Complements .github/workflows/security-scan.yml (which only
+# runs on PRs) by catching CVEs that land in transitive deps without a PR
+# touching package-lock.json — e.g. a new advisory published against an
+# already-pinned version. Pairs with .github/dependabot.yml: Dependabot opens
+# PRs to FIX vulns, this workflow ALERTS when new high/critical CVEs appear
+# so on-call knows before the next manual security scan.
+#
+# Why a separate workflow instead of extending security-scan.yml:
+#   - security-scan.yml is gated on `pull_request`, so a new CVE published
+#     mid-week against an existing pinned dep would not trigger any scan
+#     until someone opens an unrelated PR.
+#   - We want Slack alerting + GitHub-issue fallback, which doesn't belong on
+#     PR-blocking jobs (would spam the channel on every PR).
+
+on:
+  schedule:
+    # 13:00 UTC = 09:00 ET / 06:00 PT — lands before the US workday so on-call
+    # sees fresh CVEs at standup, not at 3am.
+    - cron: '0 13 * * *'
+    # 13:00 UTC on the 1st of each month — drives the `suppression-expiry`
+    # job below. Same cron line covers the daily container/audit scans
+    # because GitHub Actions fans out a single workflow trigger to every
+    # matching job; the expiry job just gates itself on day-of-month.
+    - cron: '0 13 1 * *'
+    # 13:00 UTC every Monday — drives the `weekly-digest` job below.
+    # Daily/per-detection email pages already mirror the GitHub-issue
+    # dedup, so a CVE that sits open for weeks goes silent after day 1.
+    # The weekly digest reopens that visibility window without
+    # reintroducing daily noise.
+    - cron: '0 13 * * 1'
+  workflow_dispatch:
+    inputs:
+      test_email:
+        description: 'Send a synthetic [TEST] CVE alert through SendGrid to validate the on-call email path. Fails the run if SendGrid returns non-2xx or the required secrets are missing. Skips the real audit/container jobs.'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: npm audit (high/critical)
+    runs-on: ubuntu-latest
+    # Two independent gates combined:
+    # 1. GitHub Actions fans every matching `on.schedule` cron out into
+    #    its own workflow run, so without this gate the Monday digest
+    #    cron (`0 13 * * 1`) and the monthly suppression-expiry cron
+    #    (`0 13 1 * *`) would each trigger a second daily scan on the
+    #    days they coincide — duplicating Slack pings and issue
+    #    comments. Restrict scheduled runs to the daily cron only.
+    # 2. Skip on SendGrid smoke-test manual runs — the test path doesn't
+    #    need (and shouldn't pay for) a full scan; the dedicated
+    #    `email-smoke-test` job below covers it.
+    if: (github.event_name == 'workflow_dispatch' && inputs.test_email != true) || (github.event_name == 'schedule' && github.event.schedule == '0 13 * * *')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Scan production deps only — dev-only CVEs (build tools, test
+      # runners) are tracked separately via Dependabot PRs and don't reach
+      # the runtime PHI surface, so they shouldn't page on-call at 09:00.
+      # `|| true` keeps the step alive when audit exits non-zero so the
+      # next step can parse the JSON and post a structured Slack message
+      # instead of a generic red X.
+      - name: Run npm audit
+        id: audit
+        run: |
+          set +e
+          npm audit --omit=dev --json > audit.json
+          AUDIT_EXIT=$?
+          set -e
+          echo "audit_exit=$AUDIT_EXIT" >> "$GITHUB_OUTPUT"
+
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' audit.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high // 0' audit.json)
+          MODERATE=$(jq '.metadata.vulnerabilities.moderate // 0' audit.json)
+          LOW=$(jq '.metadata.vulnerabilities.low // 0' audit.json)
+          TOTAL=$((CRITICAL + HIGH + MODERATE + LOW))
+
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
+          echo "moderate=$MODERATE" >> "$GITHUB_OUTPUT"
+          echo "low=$LOW" >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+
+          # Build a human-readable summary of the offending advisories for
+          # the Slack code block. Truncated to 20 entries so a wide-blast
+          # advisory (e.g. lodash) doesn't blow past Slack's 3000-char
+          # block limit.
+          jq -r '
+            .vulnerabilities
+            | to_entries
+            | map(select(.value.severity == "high" or .value.severity == "critical"))
+            | .[0:20]
+            | .[]
+            | "[\(.value.severity | ascii_upcase)] \(.key) — \(.value.via | map(if type == "object" then .title else . end) | join(", "))"
+          ' audit.json > advisories.txt || true
+
+          {
+            echo "## npm audit results"
+            echo ""
+            echo "| Severity | Count |"
+            echo "|----------|-------|"
+            echo "| Critical | $CRITICAL |"
+            echo "| High     | $HIGH |"
+            echo "| Moderate | $MODERATE |"
+            echo "| Low      | $LOW |"
+            echo ""
+            if [ -s advisories.txt ]; then
+              echo "### High/Critical advisories"
+              echo ""
+              echo '```'
+              cat advisories.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ github.run_id }}
+          path: |
+            audit.json
+            advisories.txt
+          retention-days: 30
+
+      # Slack alert when any high/critical CVE is present. Reuses the shared
+      # post-slack-notification action so the message shape matches the
+      # deploy-failure pings on-call already recognises.
+      - name: Notify Slack on high/critical CVEs
+        id: notify
+        if: steps.audit.outputs.high != '0' || steps.audit.outputs.critical != '0'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'New high/critical npm CVEs detected on main ({commit_link})'
+          markdown: |
+            :warning: *New npm vulnerabilities on `main`*
+            Daily `npm audit --omit=dev` against {commit_link} found *${{ steps.audit.outputs.critical }} critical* and *${{ steps.audit.outputs.high }} high* advisories. See <{run_url}|workflow run> for the full report (artifact `npm-audit-${{ github.run_id }}`).
+          code_block: |
+            critical: ${{ steps.audit.outputs.critical }}
+            high:     ${{ steps.audit.outputs.high }}
+            moderate: ${{ steps.audit.outputs.moderate }}
+            low:      ${{ steps.audit.outputs.low }}
+
+      # GitHub issue as the email-fallback channel: anyone watching the repo
+      # gets an email, and the issue is dedup'd by title so a multi-day
+      # outage of a CVE doesn't spam the tracker. Only opens for
+      # high/critical to mirror the Slack threshold.
+      - name: Open/update tracking issue
+        id: issue
+        if: steps.audit.outputs.high != '0' || steps.audit.outputs.critical != '0'
+        uses: actions/github-script@v7
+        env:
+          CRITICAL: ${{ steps.audit.outputs.critical }}
+          HIGH: ${{ steps.audit.outputs.high }}
+          MODERATE: ${{ steps.audit.outputs.moderate }}
+          LOW: ${{ steps.audit.outputs.low }}
+        with:
+          script: |
+            const fs = require('fs');
+            const advisories = fs.existsSync('advisories.txt')
+              ? fs.readFileSync('advisories.txt', 'utf8').trim()
+              : '(advisory list unavailable)';
+            const title = '[security] npm audit found high/critical CVEs';
+            const body = [
+              `Scheduled \`npm audit --omit=dev\` on commit ${context.sha} found:`,
+              '',
+              `- Critical: ${process.env.CRITICAL}`,
+              `- High: ${process.env.HIGH}`,
+              `- Moderate: ${process.env.MODERATE}`,
+              `- Low: ${process.env.LOW}`,
+              '',
+              '### High/Critical advisories',
+              '```',
+              advisories || '(none captured)',
+              '```',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'Close this issue once the offending packages are upgraded; the next scheduled scan will reopen it if any high/critical CVEs remain.',
+            ].join('\n');
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            let created = false;
+            let issueUrl = '';
+            let issueNumber = 0;
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body,
+              });
+              issueUrl = match.html_url;
+              issueNumber = match.number;
+            } else {
+              const { data: opened } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'automated'],
+              });
+              created = true;
+              issueUrl = opened.html_url;
+              issueNumber = opened.number;
+            }
+            // `created=true` only on the first scan that finds a given CVE
+            // batch — once the tracking issue is open we only comment, so
+            // the email step below stays silent until the issue is closed
+            // (i.e. the CVE is fixed) and a fresh one reopens. This mirrors
+            // the GitHub-issue dedup the task asked for.
+            core.setOutput('created', created ? 'true' : 'false');
+            core.setOutput('issue_url', issueUrl);
+            core.setOutput('issue_number', String(issueNumber));
+            core.setOutput('issue_title', title);
+            core.setOutput('email_body', body);
+
+      # Auto-close the tracking issue when the scan is green (zero
+      # high/critical). Without this, an issue opened on day 1 stays open
+      # indefinitely after a Dependabot bump fixes the CVE, which would
+      # keep showing up in the weekly digest until a human remembers to
+      # close it. We only close issues that carry the `automated` label so
+      # we never close a human-filed security issue that happened to reuse
+      # the title.
+      - name: Auto-close tracking issue when scan is green (npm)
+        if: steps.audit.outputs.high == '0' && steps.audit.outputs.critical == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[security] npm audit found high/critical CVEs';
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            if (!match) {
+              core.info('No open npm-audit tracking issue to close.');
+              return;
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              body: [
+                `Auto-closing: scheduled \`npm audit --omit=dev\` on commit ${context.sha} now reports 0 high and 0 critical CVEs.`,
+                '',
+                `Green run: ${runUrl}`,
+                '',
+                'The next scheduled scan will reopen this issue automatically if any high/critical CVEs reappear.',
+              ].join('\n'),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+            core.info(`Closed npm-audit tracking issue #${match.number}.`);
+
+      # Email page — fires only when a NEW tracking issue was opened, so the
+      # security distribution list mirrors the GitHub-issue dedup instead of
+      # paging daily until the CVE is fixed. Skipped silently when
+      # `SENDGRID_API_KEY` / `SECURITY_ALERT_EMAIL_TO` are not configured so
+      # the workflow stays usable in forks and pre-prod repos.
+      - name: Email security distribution list (npm)
+        if: steps.issue.outputs.created == 'true' && env.SENDGRID_API_KEY != '' && env.SECURITY_ALERT_EMAIL_TO != ''
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SECURITY_ALERT_EMAIL_TO: ${{ secrets.SECURITY_ALERT_EMAIL_TO }}
+          SECURITY_ALERT_EMAIL_FROM: ${{ secrets.SECURITY_ALERT_EMAIL_FROM }}
+          ISSUE_URL: ${{ steps.issue.outputs.issue_url }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.issue_title }}
+          CRITICAL: ${{ steps.audit.outputs.critical }}
+          HIGH: ${{ steps.audit.outputs.high }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          node .github/scripts/send-security-email.mjs \
+            --subject "[security][npm] ${CRITICAL} critical / ${HIGH} high CVEs on main" \
+            --advisories advisories.txt \
+            --kind npm
+
+  # Container-layer scan. npm audit only covers JS dependencies — the
+  # Cloud Run runtime image also ships a Node base image whose OS packages
+  # (openssl, glibc, zlib, ...) can carry CVEs that never show up in
+  # npm audit. We build the production Dockerfile exactly as the deploy
+  # workflow does and run Trivy against the resulting image so on-call
+  # learns about base-image CVEs at standup, not in a pen-test.
+  container-scan:
+    name: Trivy container scan (high/critical)
+    runs-on: ubuntu-latest
+    # Daily-cron / non-smoke-test manual-dispatch only — same combined
+    # reasoning as the `audit` job above. Without the cron gate, the
+    # Monday digest cron and the 1st-of-month suppression-expiry cron
+    # would each trigger a duplicate Trivy scan on the days they overlap
+    # with the daily run; without the smoke-test gate, the SendGrid
+    # email validation would needlessly rebuild the container.
+    if: (github.event_name == 'workflow_dispatch' && inputs.test_email != true) || (github.event_name == 'schedule' && github.event.schedule == '0 13 * * *')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build to the local Docker daemon so Trivy can scan by image ref
+      # without needing a registry push. `load: true` is the buildx
+      # equivalent of `docker build`'s default load behaviour.
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: tabula-medica-web:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Scan with Trivy. `exit-code: 0` keeps the step alive when CVEs are
+      # present so the downstream Slack + issue steps can run; the JSON
+      # report below is parsed for the gating decision. Severity filter
+      # matches the npm-audit job (HIGH + CRITICAL only) so on-call sees
+      # one consistent threshold across both alert paths.
+      # `trivyignores` points at the repo-root suppressions file. Same path
+      # is wired into the deploy-time gate in deploy-cloudrun.yml so a CVE
+      # that on-call has triaged and silenced here cannot still block a
+      # deploy (and vice versa). Entries in that file MUST carry a
+      # justification and an `expired_at` date — see the file's header and
+      # the `suppression-expiry` job below.
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: tabula-medica-web:scan
+          format: json
+          output: trivy.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: '0'
+          trivyignores: .trivyignore.yaml
+
+      - name: Summarize Trivy results
+        id: trivy
+        run: |
+          CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy.json)
+          HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy.json)
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
+
+          # Human-readable advisory list for the Slack code block and the
+          # GitHub-issue body. Truncated to 30 entries so a wide-blast OS
+          # advisory (e.g. an openssl chain) doesn't blow past Slack's
+          # 3000-char block limit.
+          jq -r '
+            [.Results[]? | . as $r | ($r.Vulnerabilities // [])[] |
+              "[\(.Severity)] \($r.Target) — \(.PkgName) \(.InstalledVersion) → \(.FixedVersion // "no fix") (\(.VulnerabilityID))"
+            ] | unique | .[0:30] | .[]
+          ' trivy.json > trivy-advisories.txt || true
+
+          {
+            echo "## Trivy container scan results"
+            echo ""
+            echo "Image: \`tabula-medica-web:scan\` (built from \`Dockerfile\`)"
+            echo ""
+            echo "| Severity | Count |"
+            echo "|----------|-------|"
+            echo "| Critical | $CRITICAL |"
+            echo "| High     | $HIGH |"
+            echo ""
+            if [ -s trivy-advisories.txt ]; then
+              echo "### High/Critical advisories (fixed-only)"
+              echo ""
+              echo '```'
+              cat trivy-advisories.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-container-${{ github.run_id }}
+          path: |
+            trivy.json
+            trivy-advisories.txt
+          retention-days: 30
+
+      - name: Notify Slack on high/critical container CVEs
+        if: steps.trivy.outputs.high != '0' || steps.trivy.outputs.critical != '0'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'New high/critical container CVEs detected on main ({commit_link})'
+          markdown: |
+            :warning: *New container-image vulnerabilities on `main`*
+            Daily Trivy scan of the production `Dockerfile` at {commit_link} found *${{ steps.trivy.outputs.critical }} critical* and *${{ steps.trivy.outputs.high }} high* fixed advisories in the base image / OS packages. See <{run_url}|workflow run> for the full report (artifact `trivy-container-${{ github.run_id }}`).
+            Triage runbook (silence vs. fix): <https://github.com/${{ github.repository }}/blob/main/docs/SECURITY_CVE_TRIAGE.md|docs/SECURITY_CVE_TRIAGE.md>.
+          code_block: |
+            critical: ${{ steps.trivy.outputs.critical }}
+            high:     ${{ steps.trivy.outputs.high }}
+
+      - name: Open/update container tracking issue
+        id: issue
+        if: steps.trivy.outputs.high != '0' || steps.trivy.outputs.critical != '0'
+        uses: actions/github-script@v7
+        env:
+          CRITICAL: ${{ steps.trivy.outputs.critical }}
+          HIGH: ${{ steps.trivy.outputs.high }}
+        with:
+          script: |
+            const fs = require('fs');
+            const advisories = fs.existsSync('trivy-advisories.txt')
+              ? fs.readFileSync('trivy-advisories.txt', 'utf8').trim()
+              : '(advisory list unavailable)';
+            const title = '[security] Trivy found high/critical container CVEs';
+            const body = [
+              `Scheduled Trivy scan of the production \`Dockerfile\` on commit ${context.sha} found:`,
+              '',
+              `- Critical: ${process.env.CRITICAL}`,
+              `- High: ${process.env.HIGH}`,
+              '',
+              'Scope: OS packages + language libraries in the runtime image, fixed-only (`ignore-unfixed: true`).',
+              '',
+              '### High/Critical advisories',
+              '```',
+              advisories || '(none captured)',
+              '```',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'Triage runbook (silence vs. fix, required approvers, where to record the decision): [`docs/SECURITY_CVE_TRIAGE.md`](../blob/main/docs/SECURITY_CVE_TRIAGE.md).',
+              '',
+              'Typical fix: bump the `FROM node:20-slim` base tag in `Dockerfile` to pull the latest patched image, then redeploy. Close this issue once the offending packages are upgraded; the next scheduled scan will reopen it if any high/critical CVEs remain.',
+            ].join('\n');
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            let created = false;
+            let issueUrl = '';
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body,
+              });
+              issueUrl = match.html_url;
+            } else {
+              const { data: opened } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'automated'],
+              });
+              created = true;
+              issueUrl = opened.html_url;
+            }
+            // See npm-audit job for dedup rationale — email pages only on
+            // first detection (issue creation), not on daily re-comments.
+            core.setOutput('created', created ? 'true' : 'false');
+            core.setOutput('issue_url', issueUrl);
+            core.setOutput('issue_title', title);
+
+      # Auto-close the container tracking issue when the scan is green
+      # (zero high/critical). Same rationale as the npm-audit auto-close
+      # above: a base-image bump that lands via Dependabot / a Dockerfile
+      # update shouldn't require a human to remember to close the issue,
+      # and the weekly digest depends on issue state to stop mentioning
+      # fixed CVEs. We only touch issues with the `automated` label so a
+      # human-filed container security issue is never auto-closed.
+      - name: Auto-close container tracking issue when scan is green
+        if: steps.trivy.outputs.high == '0' && steps.trivy.outputs.critical == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[security] Trivy found high/critical container CVEs';
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            if (!match) {
+              core.info('No open Trivy container tracking issue to close.');
+              return;
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              body: [
+                `Auto-closing: scheduled Trivy scan of the production \`Dockerfile\` on commit ${context.sha} now reports 0 high and 0 critical CVEs (OS packages + language libraries, fixed-only).`,
+                '',
+                `Green run: ${runUrl}`,
+                '',
+                'The next scheduled scan will reopen this issue automatically if any high/critical CVEs reappear.',
+              ].join('\n'),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+            core.info(`Closed Trivy container tracking issue #${match.number}.`);
+
+      - name: Email security distribution list (container)
+        if: steps.issue.outputs.created == 'true' && env.SENDGRID_API_KEY != '' && env.SECURITY_ALERT_EMAIL_TO != ''
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SECURITY_ALERT_EMAIL_TO: ${{ secrets.SECURITY_ALERT_EMAIL_TO }}
+          SECURITY_ALERT_EMAIL_FROM: ${{ secrets.SECURITY_ALERT_EMAIL_FROM }}
+          ISSUE_URL: ${{ steps.issue.outputs.issue_url }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.issue_title }}
+          CRITICAL: ${{ steps.trivy.outputs.critical }}
+          HIGH: ${{ steps.trivy.outputs.high }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          node .github/scripts/send-security-email.mjs \
+            --subject "[security][container] ${CRITICAL} critical / ${HIGH} high CVEs on main" \
+            --advisories trivy-advisories.txt \
+            --kind container
+
+  # Monthly review of `.trivyignore.yaml`. Trivy itself silently stops
+  # honoring an entry once `expired_at` is in the past — which means a
+  # CVE that on-call previously triaged-and-silenced will quietly come
+  # back into the daily scan and the deploy gate. That's the right
+  # default behaviour, but if nobody is paying attention the suppression
+  # author won't know their justification needs to be refreshed (or the
+  # entry deleted) until a deploy is suddenly blocked.
+  #
+  # This job runs on the 1st of each month and opens (or updates) a
+  # single tracking issue listing every entry whose `expired_at` is in
+  # the past OR within the next 30 days. Day-of-month gate is enforced
+  # in-job because GitHub Actions doesn't let us scope individual cron
+  # entries to specific jobs. `workflow_dispatch` always runs it so we
+  # can re-trigger the check on demand.
+  suppression-expiry:
+    name: Trivy suppression expiry check
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' && inputs.test_email != true) || (github.event_name == 'schedule' && github.event.schedule == '0 13 1 * *')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find expired / soon-to-expire suppressions
+        id: scan
+        run: |
+          set -euo pipefail
+          if [ ! -f .trivyignore.yaml ]; then
+            echo "No .trivyignore.yaml at repo root — nothing to check." >> "$GITHUB_STEP_SUMMARY"
+            echo "expired_count=0" >> "$GITHUB_OUTPUT"
+            echo "soon_count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Parse the YAML with python (preinstalled on ubuntu-latest) so
+          # we don't need a third-party action. Emits two files:
+          #   expired.txt — entries whose expired_at is on/before today
+          #                 (plus malformed entries: no/unparseable date)
+          #   soon.txt    — entries expiring within the next 30 days
+          python3 - <<'PY'
+          import datetime, os, subprocess, sys
+          try:
+              import yaml
+          except ImportError:
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "pyyaml"])
+              import yaml
+
+          today = datetime.date.today()
+          horizon = today + datetime.timedelta(days=30)
+
+          with open(".trivyignore.yaml") as f:
+              data = yaml.safe_load(f) or {}
+
+          entries = (data.get("vulnerabilities") or [])
+          expired, soon = [], []
+
+          for e in entries:
+              cve = e.get("id", "(no id)")
+              exp = e.get("expired_at")
+              raw_stmt = (e.get("statement") or "").strip()
+              stmt_lines = raw_stmt.splitlines()
+              stmt = stmt_lines[0] if stmt_lines else "(no justification)"
+              # Missing/blank `statement` is a policy violation per the
+              # header in `.trivyignore.yaml` — treat it as malformed so
+              # the monthly issue surfaces it for the author to fix,
+              # rather than relying on social enforcement alone.
+              if not raw_stmt:
+                  expired.append(f"- `{cve}` — missing `statement` (justification required)")
+                  continue
+              if exp is None:
+                  expired.append(f"- `{cve}` — missing `expired_at` — {stmt}")
+                  continue
+              if isinstance(exp, str):
+                  try:
+                      exp = datetime.date.fromisoformat(exp)
+                  except ValueError:
+                      expired.append(f"- `{cve}` — unparseable `expired_at` ({exp!r}) — {stmt}")
+                      continue
+              if exp <= today:
+                  expired.append(f"- `{cve}` (expired {exp.isoformat()}) — {stmt}")
+              elif exp <= horizon:
+                  soon.append(f"- `{cve}` (expires {exp.isoformat()}) — {stmt}")
+
+          with open("expired.txt", "w") as f:
+              f.write("\n".join(expired))
+          with open("soon.txt", "w") as f:
+              f.write("\n".join(soon))
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"expired_count={len(expired)}\n")
+              f.write(f"soon_count={len(soon)}\n")
+          PY
+
+          {
+            echo "## Trivy suppression expiry review"
+            echo ""
+            echo "Checked \`.trivyignore.yaml\` on $(date -u +%Y-%m-%d)."
+            echo ""
+            if [ -s expired.txt ]; then
+              echo "### Expired / malformed"
+              echo ""
+              cat expired.txt
+              echo ""
+            fi
+            if [ -s soon.txt ]; then
+              echo "### Expiring within 30 days"
+              echo ""
+              cat soon.txt
+              echo ""
+            fi
+            if [ ! -s expired.txt ] && [ ! -s soon.txt ]; then
+              echo "All suppressions are current — no review needed this month."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open/update suppression review issue
+        if: steps.scan.outputs.expired_count != '0' || steps.scan.outputs.soon_count != '0'
+        uses: actions/github-script@v7
+        env:
+          EXPIRED_COUNT: ${{ steps.scan.outputs.expired_count }}
+          SOON_COUNT: ${{ steps.scan.outputs.soon_count }}
+        with:
+          script: |
+            const fs = require('fs');
+            const readList = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8').trim() : '');
+            const expired = readList('expired.txt');
+            const soon = readList('soon.txt');
+            const title = '[security] Trivy suppression review needed (.trivyignore.yaml)';
+            const body = [
+              `Monthly review of \`.trivyignore.yaml\` on commit ${context.sha}:`,
+              '',
+              `- Expired or malformed entries: ${process.env.EXPIRED_COUNT}`,
+              `- Expiring within 30 days: ${process.env.SOON_COUNT}`,
+              '',
+              'Expired entries are no longer honored by Trivy, so the CVEs they cover will start appearing in the daily container scan and may begin blocking deploys via the gate in `deploy-cloudrun.yml`. For each entry below, either refresh the `expired_at` date with a new justification, or delete the entry so the underlying advisory is treated as a real finding.',
+              '',
+              'Triage runbook (criteria for refresh vs. delete, required approver): [`docs/SECURITY_CVE_TRIAGE.md`](../blob/main/docs/SECURITY_CVE_TRIAGE.md), §6.',
+              '',
+              '### Expired / malformed',
+              '',
+              expired || '_(none)_',
+              '',
+              '### Expiring within 30 days',
+              '',
+              soon || '_(none)_',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'automated'],
+              });
+            }
+
+      # Auto-close the suppression-review issue when every entry is current
+      # (zero expired/malformed and zero soon-to-expire). Same rationale as
+      # the npm-audit and container auto-close steps above: once an author
+      # refreshes the `expired_at` dates (or deletes the stale entries) the
+      # tracking issue should close itself instead of waiting for a human to
+      # remember, otherwise the weekly digest keeps mentioning a resolved
+      # review. We only touch issues with the `automated` label so a
+      # human-filed suppression issue that reused the title is never closed.
+      - name: Auto-close suppression review issue when all entries are current
+        if: steps.scan.outputs.expired_count == '0' && steps.scan.outputs.soon_count == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[security] Trivy suppression review needed (.trivyignore.yaml)';
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            if (!match) {
+              core.info('No open Trivy suppression review issue to close.');
+              return;
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              body: [
+                `Auto-closing: monthly review of \`.trivyignore.yaml\` on commit ${context.sha} now reports 0 expired/malformed and 0 soon-to-expire (within 30 days) entries.`,
+                '',
+                `Green run: ${runUrl}`,
+                '',
+                'The next scheduled review will reopen this issue automatically if any entry expires or falls within 30 days of expiry.',
+              ].join('\n'),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+            core.info(`Closed Trivy suppression review issue #${match.number}.`);
+
+  # Weekly digest of unresolved security alerts. The per-detection email
+  # in the `audit` / `container-scan` jobs pages on-call only on first
+  # detection of a CVE batch (mirroring the GitHub-issue dedup) — which
+  # keeps the inbox quiet but means a CVE that sits open for weeks goes
+  # silent after day 1. This job runs every Monday at 13:00 UTC, lists
+  # every open issue labelled `security,automated`, and emails a single
+  # digest so unresolved alerts stay visible without reintroducing daily
+  # noise. `workflow_dispatch` always runs it (unless it's a SendGrid
+  # smoke-test run) so we can re-trigger on demand; the schedule branch
+  # is gated on the Monday cron so the daily / monthly triggers don't
+  # fan out into a digest as well.
+  weekly-digest:
+    name: Weekly unresolved-alert digest
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' && inputs.test_email != true) || (github.event_name == 'schedule' && github.event.schedule == '0 13 * * 1')
+    steps:
+      - uses: actions/checkout@v4
+
+      # Collect every open issue labelled `security,automated` along with
+      # its last-comment timestamp (the GitHub list endpoint returns
+      # `updated_at` but not the last-comment date, and on-call cares
+      # about "has anyone touched this lately?"). Writes the result to
+      # `digest-issues.json` for the email step.
+      - name: Collect open security tracking issues
+        id: collect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            // Filter out PRs — listForRepo returns both, and a PR
+            // labelled `security` would otherwise show up in the digest.
+            const issuesOnly = issues.filter(i => !i.pull_request);
+
+            const enriched = [];
+            for (const i of issuesOnly) {
+              let lastCommentAt = null;
+              if (i.comments > 0) {
+                // Fetch only the most recent comment to keep the API
+                // budget bounded on issues with long comment histories.
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: i.number,
+                  per_page: 1,
+                  page: Math.max(1, Math.ceil(i.comments / 1)),
+                });
+                if (comments.length > 0) {
+                  lastCommentAt = comments[comments.length - 1].created_at;
+                }
+              }
+              enriched.push({
+                number: i.number,
+                title: i.title,
+                html_url: i.html_url,
+                created_at: i.created_at,
+                updated_at: i.updated_at,
+                last_comment_at: lastCommentAt,
+              });
+            }
+
+            fs.writeFileSync('digest-issues.json', JSON.stringify(enriched, null, 2));
+            core.setOutput('count', String(enriched.length));
+
+            {
+              const lines = [];
+              lines.push('## Weekly unresolved security-alert digest');
+              lines.push('');
+              lines.push(`Found **${enriched.length}** open issue(s) labelled \`security,automated\`.`);
+              lines.push('');
+              if (enriched.length > 0) {
+                lines.push('| Issue | Title | Opened | Last activity |');
+                lines.push('|-------|-------|--------|---------------|');
+                for (const e of enriched) {
+                  const last = e.last_comment_at || e.updated_at || e.created_at;
+                  lines.push(`| [#${e.number}](${e.html_url}) | ${e.title.replace(/\|/g, '\\|')} | ${e.created_at.slice(0, 10)} | ${last.slice(0, 10)} |`);
+                }
+              } else {
+                lines.push('_No unresolved security alerts — digest email reports a clean week._');
+              }
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+            }
+
+      - name: Upload digest payload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-digest-${{ github.run_id }}
+          path: digest-issues.json
+          retention-days: 30
+
+      # Email the digest. Skipped silently when SENDGRID_API_KEY /
+      # SECURITY_ALERT_EMAIL_TO are not configured — same pattern as the
+      # per-detection email step above, so the workflow stays usable in
+      # forks and pre-prod repos without extra secret setup.
+      - name: Email weekly digest
+        if: env.SENDGRID_API_KEY != '' && env.SECURITY_ALERT_EMAIL_TO != ''
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SECURITY_ALERT_EMAIL_TO: ${{ secrets.SECURITY_ALERT_EMAIL_TO }}
+          SECURITY_ALERT_EMAIL_FROM: ${{ secrets.SECURITY_ALERT_EMAIL_FROM }}
+          ISSUES_JSON: digest-issues.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: node .github/scripts/send-security-digest.mjs
+
+  # End-to-end SendGrid smoke test. Manually triggered via
+  # `workflow_dispatch` with `test_email=true`. Posts a synthetic, clearly
+  # marked `[TEST]` alert through the exact same script + secrets that the
+  # production CVE paths use, and fails the run if SendGrid returns
+  # non-2xx (or if the required secrets are missing). The whole point is
+  # to catch a rotated API key, a revoked verified sender, or a deleted
+  # distribution-list alias BEFORE a real CVE batch lands and silently
+  # never pages on-call.
+  #
+  # Why this exists: the real email steps above are gated on
+  # `steps.issue.outputs.created == 'true'`, so they only fire the first
+  # time a NEW CVE batch is detected. That makes the integration almost
+  # impossible to validate after a secret rotation — you'd have to wait
+  # for a real high/critical CVE to publish. This job gives on-call a
+  # one-click "is the alias healthy?" check that exercises the full
+  # SendGrid path without depending on a real CVE.
+  email-smoke-test:
+    name: SendGrid email smoke test ([TEST] alert)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.test_email == true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # Fail loudly (not silently) when the secrets are missing — the
+      # whole purpose of this job is to verify the integration, so a
+      # silent skip would defeat it. The production email steps above
+      # intentionally no-op when these are unset (so forks/pre-prod can
+      # still run the workflow), but the smoke test must be strict.
+      - name: Assert SendGrid secrets are configured
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SECURITY_ALERT_EMAIL_TO: ${{ secrets.SECURITY_ALERT_EMAIL_TO }}
+        run: |
+          missing=0
+          if [ -z "${SENDGRID_API_KEY}" ]; then
+            echo "::error::SENDGRID_API_KEY secret is not set — cannot run the email smoke test."
+            missing=1
+          fi
+          if [ -z "${SECURITY_ALERT_EMAIL_TO}" ]; then
+            echo "::error::SECURITY_ALERT_EMAIL_TO secret is not set — cannot run the email smoke test."
+            missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+          echo "SendGrid secrets present; proceeding with synthetic alert."
+
+      # Synthetic advisory list, clearly marked as a test so an on-call
+      # who opens the email immediately knows this is not a real CVE.
+      - name: Build synthetic advisory payload
+        run: |
+          cat > advisories.txt <<'TXT'
+          [TEST] this is a synthetic advisory generated by the SendGrid smoke-test job.
+          [TEST] no real CVE has been detected — this run was triggered manually
+          [TEST] via workflow_dispatch with test_email=true to validate that the
+          [TEST] on-call security alias still receives mail through SendGrid.
+          TXT
+
+      # Reuses the exact production script + env shape so a green run
+      # here means the real CVE path will also work. The script exits
+      # non-zero on any non-2xx SendGrid response, which fails this step
+      # and surfaces a red X on the workflow run.
+      - name: Send synthetic [TEST] alert via SendGrid
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SECURITY_ALERT_EMAIL_TO: ${{ secrets.SECURITY_ALERT_EMAIL_TO }}
+          SECURITY_ALERT_EMAIL_FROM: ${{ secrets.SECURITY_ALERT_EMAIL_FROM }}
+          ISSUE_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_TITLE: '[TEST] SendGrid smoke test — no real CVE'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          CRITICAL: '0'
+          HIGH: '0'
+        run: |
+          node .github/scripts/send-security-email.mjs \
+            --subject "[TEST][security] SendGrid smoke test — please ignore (run ${GITHUB_RUN_ID})" \
+            --advisories advisories.txt \
+            --kind npm
+
+      - name: Smoke test summary
+        if: always()
+        run: |
+          {
+            echo "## SendGrid email smoke test"
+            echo ""
+            echo "Triggered by: \`${{ github.actor }}\`"
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            if [ "${{ job.status }}" = "success" ]; then
+              echo ":white_check_mark: SendGrid accepted the synthetic \`[TEST]\` alert. Confirm with on-call that the message landed in \`SECURITY_ALERT_EMAIL_TO\` — SendGrid 2xx only proves the API call succeeded, not deliverability to the recipient inbox."
+            else
+              echo ":x: SendGrid smoke test failed. Likely causes: rotated/revoked \`SENDGRID_API_KEY\`, unverified \`SECURITY_ALERT_EMAIL_FROM\` sender, or a SendGrid account suspension. See \`docs/CLOUD_RUN_DEPLOYMENT.md\` for the validation runbook."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,2822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabula Medica - Provider Portal</title>
+<meta name="description" content="Secure provider portal for Tabula Medica. Authenticated access only - HIPAA-compliant clinical workspace for verified healthcare providers and care team members.">
+<!-- Intentionally non-indexable: this is an authenticated PHI surface. -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--primary:#2563EB;--primary-dark:#1D4ED8;--primary-light:#DBEAFE;
+--sidebar-bg:#1E293B;--sidebar-text:#94A3B8;--sidebar-hover:#334155;--sidebar-active:#2563EB;
+--success:#10B981;--success-light:#D1FAE5;--warning:#F59E0B;--warning-light:#FEF3C7;--danger:#EF4444;--danger-light:#FEE2E2;
+--text:#1E293B;--text-light:#64748B;--border:#E2E8F0;--bg:#F8FAFC;--white:#FFFFFF;
+--shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);
+--shadow-md:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);
+--radius:12px;--radius-sm:8px;
+}
+html,body{height:100%;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);font-size:14px;line-height:1.5}
+a{color:var(--primary);text-decoration:none}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+.app-layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:260px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;transition:transform 0.3s ease;z-index:100;position:relative}
+.sidebar-brand{padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:12px}
+.sidebar-brand svg{width:32px;height:32px;flex-shrink:0}
+.sidebar-brand-text{font-size:16px;font-weight:700;color:#F8FAFC;letter-spacing:-0.3px}
+.sidebar-brand-sub{font-size:11px;color:var(--sidebar-text);font-weight:400}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;color:var(--sidebar-text);cursor:pointer;transition:all 0.15s ease;border-left:3px solid transparent;font-size:13.5px;font-weight:500}
+.nav-item:hover{background:var(--sidebar-hover);color:#E2E8F0}
+.nav-item.active{background:rgba(37,99,235,0.15);color:#60A5FA;border-left-color:var(--primary)}
+.nav-item svg{width:20px;height:20px;flex-shrink:0;opacity:0.7}
+.nav-item.active svg{opacity:1}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08)}
+.sidebar-user{display:flex;align-items:center;gap:10px}
+.sidebar-avatar{width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:13px;flex-shrink:0}
+.sidebar-user-info{flex:1;min-width:0}
+.sidebar-user-name{color:#F1F5F9;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-user-role{color:var(--sidebar-text);font-size:11px;text-transform:capitalize}
+.btn-logout{background:none;border:none;color:var(--sidebar-text);padding:4px;transition:color 0.15s}
+.btn-logout:hover{color:#EF4444}
+.btn-logout svg{width:18px;height:18px}
+.main-content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.header{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+.mobile-menu-btn{display:none;background:none;border:none;color:var(--text);padding:4px}
+.mobile-menu-btn svg{width:24px;height:24px}
+.header-title{font-size:18px;font-weight:700;color:var(--text)}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light);margin-left:auto}
+.breadcrumb span{opacity:0.5}
+.content-area{flex:1;overflow-y:auto;padding:28px}
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);padding:20px}
+.login-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:40px;width:100%;max-width:420px}
+.login-logo{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:8px}
+.login-logo svg{width:40px;height:40px}
+.login-logo-text{font-size:22px;font-weight:700;color:var(--text)}
+.login-subtitle{text-align:center;color:var(--text-light);margin-bottom:28px;font-size:14px}
+.form-group{margin-bottom:18px}
+.form-label{display:block;margin-bottom:6px;font-weight:600;font-size:13px;color:var(--text)}
+.form-input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;transition:border-color 0.15s,box-shadow 0.15s;background:var(--white);color:var(--text)}
+.form-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.form-input::placeholder{color:#94A3B8}
+textarea.form-input{resize:vertical;min-height:80px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:var(--radius-sm);font-weight:600;font-size:13.5px;border:none;transition:all 0.15s ease;white-space:nowrap}
+.btn-primary{background:var(--primary);color:white}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:var(--white);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg)}
+.btn-danger{background:var(--danger);color:white}
+.btn-danger:hover{background:#DC2626}
+.btn-success{background:var(--success);color:white}
+.btn-success:hover{background:#059669}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-block{width:100%}
+.btn:disabled{opacity:0.6;cursor:not-allowed}
+.alert{padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;font-weight:500}
+.alert-error{background:var(--danger-light);color:#B91C1C;border:1px solid #FECACA}
+.alert-success{background:var(--success-light);color:#065F46;border:1px solid #A7F3D0}
+.alert-info{background:var(--primary-light);color:#1E40AF;border:1px solid #93C5FD}
+.demo-creds{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;margin-top:20px;font-size:12px;color:var(--text-light)}
+.demo-creds strong{color:var(--text)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:28px}
+.stat-card{background:var(--white);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);display:flex;align-items:flex-start;gap:16px;transition:box-shadow 0.15s}
+.stat-card:hover{box-shadow:var(--shadow-md)}
+.stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-icon svg{width:24px;height:24px}
+.stat-icon.blue{background:var(--primary-light);color:var(--primary)}
+.stat-icon.green{background:var(--success-light);color:var(--success)}
+.stat-icon.amber{background:var(--warning-light);color:var(--warning)}
+.stat-icon.purple{background:#EDE9FE;color:#7C3AED}
+.stat-value{font-size:28px;font-weight:700;color:var(--text);line-height:1.1}
+.stat-label{font-size:13px;color:var(--text-light);margin-top:2px}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;margin-bottom:20px}
+.card-header{display:flex;align-items:center;justify-content:between;margin-bottom:16px;gap:12px}
+.card-title{font-size:16px;font-weight:700;color:var(--text);flex:1}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:6px;flex-shrink:0}
+.activity-text{flex:1;font-size:13px;color:var(--text)}
+.activity-time{font-size:11px;color:var(--text-light);white-space:nowrap}
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:12px}
+.bar-label{width:100px;font-size:12px;color:var(--text-light);text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:24px;background:var(--bg);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:var(--primary);transition:width 0.5s ease;display:flex;align-items:center;padding-left:8px;font-size:11px;color:white;font-weight:600;min-width:24px}
+.search-bar{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.search-bar .form-input{flex:1;min-width:200px}
+.patient-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.patient-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;cursor:pointer;transition:all 0.15s ease;border:1px solid transparent}
+.patient-card:hover{box-shadow:var(--shadow-md);border-color:var(--primary)}
+.patient-card-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;flex-shrink:0}
+.avatar-blue{background:var(--primary-light);color:var(--primary)}
+.avatar-green{background:var(--success-light);color:var(--success)}
+.avatar-amber{background:var(--warning-light);color:var(--warning)}
+.patient-name{font-weight:600;color:var(--text);font-size:15px}
+.patient-email{font-size:12px;color:var(--text-light)}
+.patient-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text-light)}
+.patient-meta span{display:flex;align-items:center;gap:4px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-blue{background:var(--primary-light);color:var(--primary)}
+.badge-green{background:var(--success-light);color:#065F46}
+.badge-red{background:var(--danger-light);color:#B91C1C}
+.badge-amber{background:var(--warning-light);color:#92400E}
+.badge-purple{background:#EDE9FE;color:#6D28D9}
+.badge-gray{background:#F1F5F9;color:var(--text-light)}
+.detail-header{display:flex;align-items:center;gap:20px;margin-bottom:24px;flex-wrap:wrap}
+.detail-avatar{width:64px;height:64px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:22px;flex-shrink:0}
+.detail-info h2{font-size:22px;font-weight:700;color:var(--text);margin-bottom:2px}
+.detail-info p{font-size:13px;color:var(--text-light)}
+.back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--text-light);font-size:13px;font-weight:500;cursor:pointer;margin-bottom:16px;padding:4px 0;transition:color 0.15s}
+.back-btn:hover{color:var(--primary)}
+.back-btn svg{width:16px;height:16px}
+.profile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+.profile-item{font-size:13px}
+.profile-item label{display:block;color:var(--text-light);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px}
+.profile-item span{color:var(--text);font-weight:500}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;color:var(--text-light);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:var(--bg)}
+th{padding:10px 14px;text-align:left;font-weight:600;color:var(--text-light);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:hover{background:rgba(37,99,235,0.02)}
+.table-actions{display:flex;gap:6px}
+.filter-bar{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filter-bar .form-input,.filter-bar select{padding:8px 12px;font-size:13px}
+.filter-bar select{min-width:140px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;visibility:hidden;transition:all 0.2s ease}
+.modal-overlay.open{opacity:1;visibility:visible}
+.modal{background:var(--white);border-radius:var(--radius);box-shadow:0 25px 50px rgba(0,0,0,0.25);width:90%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;transform:translateY(20px);transition:transform 0.2s ease}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-header h3{font-size:17px;font-weight:700;color:var(--text)}
+.modal-close{background:none;border:none;color:var(--text-light);padding:4px;transition:color 0.15s}
+.modal-close:hover{color:var(--text)}
+.modal-close svg{width:20px;height:20px}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.toast-container{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 20px;border-radius:var(--radius-sm);color:white;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);animation:toastIn 0.3s ease;display:flex;align-items:center;gap:8px;max-width:360px}
+.toast-success{background:#059669}
+.toast-error{background:#DC2626}
+.toast-info{background:var(--primary)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.spinner{display:flex;align-items:center;justify-content:center;padding:60px}
+.spinner::after{content:'';width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-light)}
+.empty-state svg{width:48px;height:48px;margin-bottom:12px;opacity:0.4}
+.empty-state h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
+.empty-state p{font-size:13px}
+.insight-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.insight-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);text-align:center}
+.insight-card .stat-value{font-size:24px}
+.prediction-card{background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border);padding:16px;margin-bottom:12px}
+.prediction-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.prediction-type{font-weight:600;font-size:14px;color:var(--text)}
+.prediction-details{font-size:13px;color:var(--text-light);line-height:1.6}
+.risk-bar{height:6px;border-radius:3px;background:var(--border);margin-top:8px;overflow:hidden}
+.risk-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px}
+.pagination button{padding:6px 12px;border:1px solid var(--border);background:var(--white);border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;transition:all 0.15s}
+.pagination button:hover:not(:disabled){background:var(--bg);border-color:var(--primary)}
+.pagination button.active{background:var(--primary);color:white;border-color:var(--primary)}
+.pagination button:disabled{opacity:0.4;cursor:not-allowed}
+.pagination span{font-size:13px;color:var(--text-light)}
+.task-card{background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border);padding:16px;margin-bottom:12px;transition:border-color 0.15s}
+.task-card:hover{border-color:var(--primary)}
+.task-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.task-title{font-weight:600;font-size:14px;color:var(--text)}
+.task-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text-light);align-items:center}
+.task-actions{display:flex;gap:6px;margin-top:10px}
+.status-select{padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--white);cursor:pointer}
+.records-badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.sources-list{display:flex;flex-wrap:wrap;gap:8px}
+.source-tag{padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text)}
+.appt-status{display:flex;gap:16px;flex-wrap:wrap}
+.appt-status-item{text-align:center}
+.appt-status-count{font-size:20px;font-weight:700}
+.appt-status-label{font-size:11px;color:var(--text-light);text-transform:capitalize}
+.ai-alert-card{background:var(--white);border-radius:var(--radius-sm);border-left:4px solid var(--border);padding:14px 16px;margin-bottom:10px;transition:border-color 0.15s}
+.ai-alert-card.alert-critical{border-left-color:var(--danger);background:#FEF2F2}
+.ai-alert-card.alert-warning{border-left-color:var(--warning);background:#FFFBEB}
+.ai-alert-card.alert-info{border-left-color:var(--primary);background:#EFF6FF}
+.ai-alert-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.ai-alert-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0}
+.ai-alert-icon.critical{background:var(--danger)}
+.ai-alert-icon.warning{background:var(--warning)}
+.ai-alert-icon.info{background:var(--primary)}
+.ai-alert-message{font-size:13px;color:var(--text);font-weight:500;flex:1}
+.ai-alert-category{font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px}
+.ai-alert-patient{font-size:12px;color:var(--primary);cursor:pointer;font-weight:500}
+.ai-alert-patient:hover{text-decoration:underline}
+.ai-suggestion{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:8px}
+.ai-suggestion-priority{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.ai-suggestion-priority.urgent{background:var(--danger)}
+.ai-suggestion-priority.high{background:var(--warning)}
+.ai-suggestion-priority.medium{background:var(--primary)}
+.ai-suggestion-priority.low{background:var(--success)}
+.ai-suggestion-text{font-size:13px;color:var(--text);flex:1}
+.ai-suggestion-reason{font-size:11px;color:var(--text-light);margin-top:2px}
+.ai-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.ai-stat-mini{background:var(--white);border-radius:var(--radius-sm);padding:14px;text-align:center;box-shadow:var(--shadow)}
+.ai-stat-mini .stat-value{font-size:22px;font-weight:700}
+.ai-stat-mini .stat-label{font-size:11px;color:var(--text-light);margin-top:2px}
+.risk-prediction-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;position:relative;overflow:hidden}
+.risk-prediction-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.risk-prediction-card.risk-critical::before{background:var(--danger)}
+.risk-prediction-card.risk-high::before{background:var(--warning)}
+.risk-prediction-card.risk-medium::before{background:var(--primary)}
+.risk-prediction-card.risk-low::before{background:var(--success)}
+.risk-prediction-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.risk-prediction-area{font-weight:600;font-size:14px;color:var(--text)}
+.risk-prediction-desc{font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:10px}
+.risk-factors{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.risk-factor-tag{font-size:11px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:12px;color:var(--text)}
+.risk-actions{margin-top:8px}
+.risk-action{font-size:12px;color:var(--primary);padding:2px 0;display:flex;align-items:center;gap:4px}
+.risk-action::before{content:'>';font-weight:700}
+.trend-indicator{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:12px}
+.trend-improving{color:#059669;background:#D1FAE5}
+.trend-declining{color:#DC2626;background:#FEE2E2}
+.trend-stable{color:#6B7280;background:#F3F4F6}
+#login-page{width:100%}
+#app-layout{display:none}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99}
+@media(max-width:768px){
+.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}
+.mobile-overlay.open{display:block}
+.mobile-menu-btn{display:block}
+.content-area{padding:16px}
+.stats-grid{grid-template-columns:1fr 1fr}
+.grid-2{grid-template-columns:1fr}
+.patient-grid{grid-template-columns:1fr}
+.form-row{grid-template-columns:1fr}
+.header{padding:0 16px}
+.filter-bar{flex-direction:column}
+.filter-bar .form-input,.filter-bar select{width:100%}
+}
+@media(max-width:480px){
+.stats-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="login-page" class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#2563EB"/><path d="M20 10v20M10 20h20" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+      <span class="login-logo-text">Tabula Medica</span>
+    </div>
+    <p class="login-subtitle">Sign in to Provider Portal</p>
+    <div id="login-error"></div>
+    <form id="login-form" autocomplete="on">
+      <div class="form-group">
+        <label class="form-label" for="login-email">Email Address</label>
+        <input class="form-input" id="login-email" type="email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="login-password">Password</label>
+        <input class="form-input" id="login-password" type="password" placeholder="Enter your password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="login-btn">Sign In</button>
+    </form>
+    <div class="demo-creds">
+      <strong>Demo Credentials</strong><br>
+      Email: admin@tabulamedica.com<br>
+      Password: admin123
+    </div>
+  </div>
+</div>
+
+<div id="app-layout" class="app-layout">
+  <div class="mobile-overlay" id="mobile-overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#2563EB"/><path d="M16 8v16M8 16h16" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <div>
+        <div class="sidebar-brand-text">Tabula Medica</div>
+        <div class="sidebar-brand-sub">Provider Portal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="sidebar-avatar"></div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-name"></div>
+          <div class="sidebar-user-role" id="sidebar-role"></div>
+        </div>
+        <button class="btn-logout" onclick="logout()" title="Sign out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="header">
+      <button class="mobile-menu-btn" id="mobile-menu-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <h1 class="header-title" id="header-title">Dashboard</h1>
+      <div class="breadcrumb" id="breadcrumb"><span>Portal</span></div>
+    </header>
+    <div class="content-area" id="content-area"></div>
+  </main>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Modal</h3>
+      <button class="modal-close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/api/portal';
+let currentProvider = null;
+let currentToken = null;
+
+const ICONS = {
+  dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  patients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+  appointments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  insights: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>',
+  tasks: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
+  aiassistant: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 014 4v1a1 1 0 001 1h1a4 4 0 010 8h-1a1 1 0 00-1 1v1a4 4 0 01-8 0v-1a1 1 0 00-1-1H6a4 4 0 010-8h1a1 1 0 001-1V6a4 4 0 014-4z"/><circle cx="12" cy="12" r="3"/></svg>',
+  reporting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+  medmanagement: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 16.5h3M8.25 7.5h7.5m-7.5 3h7.5"/></svg>',
+  admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>'
+};
+
+function formatDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '-';
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function formatShortDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '-';
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function timeAgo(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  const now = new Date();
+  const diff = Math.floor((now - dt) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  return formatShortDate(d);
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function apiFetch(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+  const res = await fetch(API_BASE + path, { ...options, headers });
+  if (res.status === 401) { logout(); throw new Error('Session expired'); }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+function showToast(message, type = 'success') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><${type === 'success' ? 'polyline points="20 6 9 17 4 12"' : type === 'error' ? 'circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"' : 'circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"'}/></svg>${escapeHtml(message)}`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+function openModal(title, bodyHtml, footerHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-footer').innerHTML = footerHtml;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('mobile-overlay').classList.toggle('open');
+});
+
+document.getElementById('mobile-overlay').addEventListener('click', function() {
+  document.getElementById('sidebar').classList.remove('open');
+  this.classList.remove('open');
+});
+
+function closeMobileMenu() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mobile-overlay').classList.remove('open');
+}
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'patients', label: 'Patients', icon: 'patients' },
+  { id: 'appointments', label: 'Appointments', icon: 'appointments' },
+  { id: 'medmanagement', label: 'Medication Mgmt', icon: 'medmanagement' },
+  { id: 'reporting', label: 'Reporting', icon: 'reporting' },
+  { id: 'insights', label: 'AI Insights', icon: 'insights' },
+  { id: 'aiassistant', label: 'AI Assistant', icon: 'aiassistant' },
+  { id: 'tasks', label: 'Tasks', icon: 'tasks' },
+  { id: 'admin', label: 'Administration', icon: 'admin', adminOnly: true }
+];
+
+function buildSidebar() {
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = NAV_ITEMS.filter(item => !item.adminOnly || (currentProvider && currentProvider.role === 'admin'))
+    .map(item => `<div class="nav-item" data-page="${item.id}" onclick="navigateTo('${item.id}')">${ICONS[item.icon]}<span>${item.label}</span></div>`).join('');
+  if (currentProvider) {
+    document.getElementById('sidebar-avatar').textContent = getInitials(currentProvider.name);
+    document.getElementById('sidebar-name').textContent = currentProvider.name;
+    document.getElementById('sidebar-role').textContent = currentProvider.role;
+  }
+}
+
+function updateActiveNav(page) {
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+}
+
+const PAGE_TITLES = {
+  dashboard: 'Dashboard',
+  patients: 'Patients',
+  'patient-detail': 'Patient Detail',
+  appointments: 'Appointments',
+  medmanagement: 'Medication Management',
+  reporting: 'Reporting',
+  insights: 'AI Insights',
+  aiassistant: 'AI Assistant',
+  admin: 'Administration',
+  tasks: 'Tasks'
+};
+
+function navigateTo(page, params) {
+  closeMobileMenu();
+  let hash = '#' + page;
+  if (params) hash += '?' + new URLSearchParams(params).toString();
+  window.location.hash = hash;
+}
+
+function parseHash() {
+  const hash = window.location.hash.slice(1) || 'login';
+  const [page, queryStr] = hash.split('?');
+  const params = queryStr ? Object.fromEntries(new URLSearchParams(queryStr)) : {};
+  return { page, params };
+}
+
+function route() {
+  const { page, params } = parseHash();
+  if (!currentToken && page !== 'login') {
+    window.location.hash = '#login';
+    return;
+  }
+  if (currentToken && page === 'login') {
+    window.location.hash = '#dashboard';
+    return;
+  }
+  if (page === 'login') {
+    document.getElementById('login-page').style.display = 'flex';
+    document.getElementById('app-layout').style.display = 'none';
+    return;
+  }
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app-layout').style.display = 'flex';
+
+  const mainPage = page === 'patient-detail' ? 'patients' : page;
+  updateActiveNav(mainPage);
+  document.getElementById('header-title').textContent = PAGE_TITLES[page] || page;
+
+  const breadParts = ['Portal'];
+  if (page === 'patient-detail') breadParts.push('Patients', 'Detail');
+  else breadParts.push(PAGE_TITLES[page] || page);
+  document.getElementById('breadcrumb').innerHTML = breadParts.map((p, i) => i < breadParts.length - 1 ? `<span>${p}</span> <span>/</span>` : `<span style="color:var(--text)">${p}</span>`).join(' ');
+
+  const content = document.getElementById('content-area');
+  content.innerHTML = '<div class="spinner"></div>';
+
+  switch (page) {
+    case 'dashboard': renderDashboard(); break;
+    case 'patients': renderPatients(params); break;
+    case 'patient-detail': renderPatientDetail(params); break;
+    case 'appointments': renderAppointments(params); break;
+    case 'insights': renderInsights(params); break;
+    case 'medmanagement': renderMedManagement(params); break;
+    case 'reporting': renderReporting(params); break;
+    case 'aiassistant': renderAIAssistant(params); break;
+    case 'admin': renderAdmin(params); break;
+    case 'tasks': renderTasks(params); break;
+    default: content.innerHTML = '<div class="empty-state"><h3>Page Not Found</h3><p>The page you are looking for does not exist.</p></div>';
+  }
+}
+
+window.addEventListener('hashchange', route);
+
+document.getElementById('login-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const errDiv = document.getElementById('login-error');
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+  errDiv.innerHTML = '';
+  try {
+    const data = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    }).then(r => r.json());
+    if (data.token) {
+      currentToken = data.token;
+      currentProvider = data.provider;
+      localStorage.setItem('portal_token', data.token);
+      localStorage.setItem('portal_provider', JSON.stringify(data.provider));
+      buildSidebar();
+      window.location.hash = '#dashboard';
+    } else {
+      errDiv.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error || 'Invalid credentials')}</div>`;
+    }
+  } catch (err) {
+    errDiv.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Login failed')}</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = 'Sign In';
+});
+
+function logout() {
+  if (currentToken) {
+    fetch(API_BASE + '/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${currentToken}` } }).catch(() => {});
+  }
+  currentToken = null;
+  currentProvider = null;
+  localStorage.removeItem('portal_token');
+  localStorage.removeItem('portal_provider');
+  window.location.hash = '#login';
+}
+
+async function renderDashboard() {
+  const content = document.getElementById('content-area');
+  try {
+    const stats = await apiFetch('/dashboard/stats');
+    const statCards = [
+      { label: 'Total Patients', value: stats.totalPatients, icon: 'blue', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/></svg>' },
+      { label: 'Health Records', value: stats.totalRecords, icon: 'green', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+      { label: 'Appointments', value: stats.totalAppointments, icon: 'amber', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+      { label: 'Active Providers', value: stats.activeProviders, icon: 'purple', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>' }
+    ];
+    const apptStatMap = {};
+    (stats.appointmentStats || []).forEach(s => { apptStatMap[s.status] = s.count; });
+    const maxRecordCount = Math.max(1, ...((stats.recordDistribution || []).map(r => Number(r.count))));
+
+    content.innerHTML = `
+      <div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;color:var(--text)">Welcome back, ${escapeHtml(currentProvider ? currentProvider.name : '')}</h2><p style="color:var(--text-light);font-size:14px;margin-top:4px">Here is an overview of your healthcare system.</p></div>
+      <div class="stats-grid">${statCards.map(c => `
+        <div class="stat-card"><div class="stat-icon ${c.icon}">${c.svg}</div><div><div class="stat-value">${c.value}</div><div class="stat-label">${c.label}</div></div></div>`).join('')}
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Activity</div></div>
+          ${(stats.recentActivity && stats.recentActivity.length > 0) ? stats.recentActivity.map(a => `
+            <div class="activity-item"><div class="activity-dot"></div><div class="activity-text">${escapeHtml(a.action || '')} - ${escapeHtml(a.resourceType || '')}</div><div class="activity-time">${timeAgo(a.createdAt)}</div></div>`).join('') : '<div class="empty-state"><p>No recent activity</p></div>'}
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Appointment Status</div></div>
+            <div class="appt-status">
+              <div class="appt-status-item"><div class="appt-status-count" style="color:var(--primary)">${apptStatMap['scheduled'] || 0}</div><div class="appt-status-label">Scheduled</div></div>
+              <div class="appt-status-item"><div class="appt-status-count" style="color:var(--success)">${apptStatMap['completed'] || 0}</div><div class="appt-status-label">Completed</div></div>
+              <div class="appt-status-item"><div class="appt-status-count" style="color:var(--danger)">${apptStatMap['cancelled'] || 0}</div><div class="appt-status-label">Cancelled</div></div>
+              <div class="appt-status-item"><div class="appt-status-count" style="color:#7C3AED">${apptStatMap['confirmed'] || 0}</div><div class="appt-status-label">Confirmed</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Record Distribution</div></div>
+            <div class="bar-chart">${(stats.recordDistribution || []).map(r => {
+              const pct = Math.round((Number(r.count) / maxRecordCount) * 100);
+              return `<div class="bar-row"><div class="bar-label">${escapeHtml(r.type)}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%">${r.count}</div></div></div>`;
+            }).join('') || '<div class="empty-state"><p>No records yet</p></div>'}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } catch (err) {
+    content.innerHTML = `<div class="alert alert-error">Failed to load dashboard: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+let patientSearchTimeout;
+async function renderPatients(params) {
+  const content = document.getElementById('content-area');
+  const search = params.search || '';
+  content.innerHTML = `
+    <div class="search-bar">
+      <input class="form-input" id="patient-search" type="text" placeholder="Search patients by name or email..." value="${escapeHtml(search)}">
+    </div>
+    <div id="patient-list"><div class="spinner"></div></div>`;
+  document.getElementById('patient-search').addEventListener('input', function() {
+    clearTimeout(patientSearchTimeout);
+    patientSearchTimeout = setTimeout(() => loadPatients(this.value), 300);
+  });
+  loadPatients(search);
+}
+
+async function loadPatients(search) {
+  const listEl = document.getElementById('patient-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="spinner"></div>';
+  try {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    const patients = await apiFetch('/patients' + q);
+    if (patients.length === 0) {
+      listEl.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/></svg><h3>No patients found</h3><p>Try adjusting your search criteria.</p></div>';
+      return;
+    }
+    const colors = ['blue', 'green', 'amber'];
+    listEl.innerHTML = '<div class="patient-grid">' + patients.map((p, i) => `
+      <div class="patient-card" onclick="navigateTo('patient-detail',{id:'${p.id}'})">
+        <div class="patient-card-header">
+          <div class="avatar avatar-${colors[i % 3]}">${getInitials(p.name)}</div>
+          <div><div class="patient-name">${escapeHtml(p.name)}</div><div class="patient-email">${escapeHtml(p.email)}</div></div>
+        </div>
+        <div class="patient-meta">
+          <span>${formatShortDate(p.createdAt)}</span>
+          ${p.gender ? `<span>${escapeHtml(p.gender)}</span>` : ''}
+          ${p.phone ? `<span>${escapeHtml(p.phone)}</span>` : ''}
+          <span class="badge badge-blue">${p.recordCount} records</span>
+        </div>
+      </div>`).join('') + '</div>';
+  } catch (err) {
+    listEl.innerHTML = `<div class="alert alert-error">Failed to load patients: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function renderPatientDetail(params) {
+  const content = document.getElementById('content-area');
+  if (!params.id) { content.innerHTML = '<div class="alert alert-error">No patient ID specified.</div>'; return; }
+  try {
+    const data = await apiFetch(`/patients/${params.id}`);
+    const p = data.patient;
+    const pr = data.profile;
+    content.innerHTML = `
+      <div class="back-btn" onclick="navigateTo('patients')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Patients
+      </div>
+      <div class="detail-header">
+        <div class="detail-avatar">${getInitials(p.name)}</div>
+        <div class="detail-info"><h2>${escapeHtml(p.name)}</h2><p>${escapeHtml(p.email)}</p></div>
+        <div style="margin-left:auto"><span class="badge badge-blue">${data.totalRecords} total records</span></div>
+      </div>
+      ${pr ? `<div class="card"><div class="card-header"><div class="card-title">Profile Details</div></div>
+        <div class="profile-grid">
+          ${pr.dateOfBirth ? `<div class="profile-item"><label>Date of Birth</label><span>${formatShortDate(pr.dateOfBirth)}</span></div>` : ''}
+          ${pr.gender ? `<div class="profile-item"><label>Gender</label><span>${escapeHtml(pr.gender)}</span></div>` : ''}
+          ${pr.phone ? `<div class="profile-item"><label>Phone</label><span>${escapeHtml(pr.phone)}</span></div>` : ''}
+          ${pr.bloodType ? `<div class="profile-item"><label>Blood Type</label><span>${escapeHtml(pr.bloodType)}</span></div>` : ''}
+          ${pr.height ? `<div class="profile-item"><label>Height</label><span>${pr.height}</span></div>` : ''}
+          ${pr.weight ? `<div class="profile-item"><label>Weight</label><span>${pr.weight}</span></div>` : ''}
+          ${pr.emergencyContactName ? `<div class="profile-item"><label>Emergency Contact</label><span>${escapeHtml(pr.emergencyContactName)} ${pr.emergencyContactPhone ? '(' + escapeHtml(pr.emergencyContactPhone) + ')' : ''}</span></div>` : ''}
+        </div>
+      </div>` : ''}
+      <div class="records-badge-row">
+        ${(data.recordCountsByType || []).map(r => `<span class="badge badge-blue">${escapeHtml(r.type)}: ${r.count}</span>`).join('')}
+      </div>
+      ${(data.dataSources && data.dataSources.length > 0) ? `<div class="card"><div class="card-header"><div class="card-title">Data Sources</div></div><div class="sources-list">${data.dataSources.map(s => `<span class="source-tag">${escapeHtml(s.name || s.sourceType || 'Unknown')}</span>`).join('')}</div></div>` : ''}
+      <div class="tabs" id="pd-tabs">
+        <div class="tab active" data-tab="records" onclick="switchPatientTab('records','${params.id}')">Health Records</div>
+        <div class="tab" data-tab="intake" onclick="switchPatientTab('intake','${params.id}')">Intake History</div>
+      </div>
+      <div id="pd-tab-content"><div class="spinner"></div></div>`;
+    loadPatientRecords(params.id, '');
+  } catch (err) {
+    content.innerHTML = `<div class="alert alert-error">Failed to load patient: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function switchPatientTab(tab, patientId) {
+  document.querySelectorAll('#pd-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const tc = document.getElementById('pd-tab-content');
+  tc.innerHTML = '<div class="spinner"></div>';
+  if (tab === 'records') loadPatientRecords(patientId, '');
+  else loadPatientIntake(patientId);
+}
+
+async function loadPatientRecords(patientId, type) {
+  const tc = document.getElementById('pd-tab-content');
+  if (!tc) return;
+  try {
+    const q = type ? `?type=${encodeURIComponent(type)}` : '';
+    const records = await apiFetch(`/patients/${patientId}/records${q}`);
+    const types = [...new Set(records.map(r => r.type))].sort();
+    tc.innerHTML = `
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <select class="form-input" style="width:auto;min-width:140px" onchange="loadPatientRecords('${patientId}',this.value)">
+          <option value="">All Types</option>
+          ${types.map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+        <span style="font-size:13px;color:var(--text-light);align-self:center">${records.length} records</span>
+      </div>
+      ${records.length > 0 ? `<div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Type</th><th>Title</th><th>Provider</th><th>Summary</th></tr></thead>
+        <tbody>${records.map(r => `<tr>
+          <td>${formatShortDate(r.date)}</td>
+          <td><span class="badge badge-gray">${escapeHtml(r.type)}</span></td>
+          <td>${escapeHtml(r.title || '-')}</td>
+          <td>${escapeHtml(r.provider || '-')}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.summary || '-')}</td>
+        </tr>`).join('')}</tbody></table></div>` : '<div class="empty-state"><h3>No records found</h3><p>No health records match this filter.</p></div>'}`;
+  } catch (err) {
+    tc.innerHTML = `<div class="alert alert-error">Failed to load records: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadPatientIntake(patientId) {
+  const tc = document.getElementById('pd-tab-content');
+  if (!tc) return;
+  try {
+    const records = await apiFetch(`/patients/${patientId}/intake`);
+    if (records.length === 0) {
+      tc.innerHTML = '<div class="empty-state"><h3>No intake records</h3><p>No intake history found for this patient.</p></div>';
+      return;
+    }
+    tc.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Title</th><th>Provider</th><th>Summary</th></tr></thead>
+      <tbody>${records.map(r => `<tr>
+        <td>${formatShortDate(r.date)}</td>
+        <td>${escapeHtml(r.title || '-')}</td>
+        <td>${escapeHtml(r.provider || '-')}</td>
+        <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.summary || '-')}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+  } catch (err) {
+    tc.innerHTML = `<div class="alert alert-error">Failed to load intake: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function renderAppointments(params) {
+  const content = document.getElementById('content-area');
+  content.innerHTML = `
+    <div class="filter-bar">
+      <select class="form-input" id="appt-status-filter" onchange="loadAppointments()">
+        <option value="">All Statuses</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <input class="form-input" type="date" id="appt-date-filter" onchange="loadAppointments()">
+      <input class="form-input" type="text" id="appt-search" placeholder="Filter by patient ID..." style="max-width:220px">
+      <div style="margin-left:auto"><button class="btn btn-primary" onclick="openNewAppointmentModal()">+ New Appointment</button></div>
+    </div>
+    <div id="appt-list"><div class="spinner"></div></div>`;
+  document.getElementById('appt-search').addEventListener('input', function() {
+    clearTimeout(patientSearchTimeout);
+    patientSearchTimeout = setTimeout(loadAppointments, 300);
+  });
+  loadAppointments();
+}
+
+async function loadAppointments() {
+  const listEl = document.getElementById('appt-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="spinner"></div>';
+  try {
+    const status = document.getElementById('appt-status-filter')?.value || '';
+    const date = document.getElementById('appt-date-filter')?.value || '';
+    const patientId = document.getElementById('appt-search')?.value || '';
+    let q = [];
+    if (status) q.push(`status=${encodeURIComponent(status)}`);
+    if (date) q.push(`date=${encodeURIComponent(date)}`);
+    if (patientId) q.push(`patientId=${encodeURIComponent(patientId)}`);
+    const qs = q.length > 0 ? '?' + q.join('&') : '';
+    const appts = await apiFetch('/appointments' + qs);
+    const statusColors = { scheduled: 'blue', completed: 'green', cancelled: 'red', confirmed: 'purple' };
+    if (appts.length === 0) {
+      listEl.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><h3>No appointments found</h3><p>Try adjusting your filters or create a new appointment.</p></div>';
+      return;
+    }
+    listEl.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Date/Time</th><th>Patient</th><th>Type</th><th>Provider</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${appts.map(a => `<tr>
+        <td>${formatDate(a.scheduledAt)}</td>
+        <td>${escapeHtml(a.patientName || a.userId || '-')}</td>
+        <td>${escapeHtml(a.appointmentType || '-')}</td>
+        <td>${escapeHtml(a.providerName || '-')}</td>
+        <td><span class="badge badge-${statusColors[a.status] || 'gray'}">${escapeHtml(a.status)}</span></td>
+        <td><div class="table-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openEditAppointmentModal('${a.id}')">Edit</button>
+          ${a.status !== 'cancelled' ? `<button class="btn btn-danger btn-sm" onclick="cancelAppointment('${a.id}')">Cancel</button>` : ''}
+        </div></td>
+      </tr>`).join('')}</tbody></table></div>`;
+  } catch (err) {
+    listEl.innerHTML = `<div class="alert alert-error">Failed to load appointments: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function openNewAppointmentModal() {
+  openModal('New Appointment', `
+    <div class="form-group"><label class="form-label">Patient ID</label><input class="form-input" id="appt-patient-id" placeholder="Enter patient ID"></div>
+    <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="appt-title" placeholder="Appointment title" required></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Type</label><select class="form-input" id="appt-type"><option value="checkup">Checkup</option><option value="follow_up">Follow Up</option><option value="consultation">Consultation</option><option value="procedure">Procedure</option><option value="lab_work">Lab Work</option><option value="imaging">Imaging</option><option value="telehealth">Telehealth</option></select></div>
+      <div class="form-group"><label class="form-label">Duration (min)</label><input class="form-input" id="appt-duration" type="number" value="30" min="5"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Provider Name</label><input class="form-input" id="appt-provider" placeholder="Dr. Smith"></div>
+      <div class="form-group"><label class="form-label">Facility</label><input class="form-input" id="appt-facility" placeholder="Main Clinic"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Date/Time</label><input class="form-input" id="appt-datetime" type="datetime-local" required></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="appt-notes" placeholder="Additional notes..."></textarea></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createAppointment()">Create Appointment</button>`);
+}
+
+async function createAppointment() {
+  try {
+    await apiFetch('/appointments', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: document.getElementById('appt-patient-id').value,
+        title: document.getElementById('appt-title').value,
+        appointmentType: document.getElementById('appt-type').value,
+        duration: parseInt(document.getElementById('appt-duration').value) || 30,
+        providerName: document.getElementById('appt-provider').value,
+        facilityName: document.getElementById('appt-facility').value,
+        scheduledAt: document.getElementById('appt-datetime').value,
+        notes: document.getElementById('appt-notes').value
+      })
+    });
+    closeModal();
+    showToast('Appointment created successfully');
+    loadAppointments();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function openEditAppointmentModal(id) {
+  try {
+    const appts = await apiFetch('/appointments');
+    const appt = appts.find(a => a.id === id);
+    if (!appt) { showToast('Appointment not found', 'error'); return; }
+    const dt = appt.scheduledAt ? new Date(appt.scheduledAt).toISOString().slice(0, 16) : '';
+    openModal('Edit Appointment', `
+      <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="edit-appt-title" value="${escapeHtml(appt.title || '')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="edit-appt-status"><option value="scheduled" ${appt.status==='scheduled'?'selected':''}>Scheduled</option><option value="confirmed" ${appt.status==='confirmed'?'selected':''}>Confirmed</option><option value="completed" ${appt.status==='completed'?'selected':''}>Completed</option><option value="cancelled" ${appt.status==='cancelled'?'selected':''}>Cancelled</option></select></div>
+        <div class="form-group"><label class="form-label">Duration (min)</label><input class="form-input" id="edit-appt-duration" type="number" value="${appt.duration || 30}" min="5"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Provider Name</label><input class="form-input" id="edit-appt-provider" value="${escapeHtml(appt.providerName || '')}"></div>
+        <div class="form-group"><label class="form-label">Facility</label><input class="form-input" id="edit-appt-facility" value="${escapeHtml(appt.facilityName || '')}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Date/Time</label><input class="form-input" id="edit-appt-datetime" type="datetime-local" value="${dt}"></div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="edit-appt-notes">${escapeHtml(appt.notes || '')}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="updateAppointment('${id}')">Save Changes</button>`);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function updateAppointment(id) {
+  try {
+    await apiFetch(`/appointments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: document.getElementById('edit-appt-title').value,
+        status: document.getElementById('edit-appt-status').value,
+        duration: parseInt(document.getElementById('edit-appt-duration').value) || 30,
+        providerName: document.getElementById('edit-appt-provider').value,
+        facilityName: document.getElementById('edit-appt-facility').value,
+        scheduledAt: document.getElementById('edit-appt-datetime').value,
+        notes: document.getElementById('edit-appt-notes').value
+      })
+    });
+    closeModal();
+    showToast('Appointment updated successfully');
+    loadAppointments();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function cancelAppointment(id) {
+  if (!confirm('Are you sure you want to cancel this appointment?')) return;
+  try {
+    await apiFetch(`/appointments/${id}`, { method: 'DELETE' });
+    showToast('Appointment cancelled');
+    loadAppointments();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function renderReporting(params) {
+  const content = document.getElementById('content-area');
+  let reportTypes = [];
+  try {
+    reportTypes = await apiFetch('/reports/types');
+  } catch (e) { console.error('Failed to load report types', e); }
+
+  content.innerHTML = `
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <h3>Report Builder</h3>
+          <p style="color:var(--text-light);font-size:13px;margin-bottom:16px">
+            Select a report type, configure parameters, and let AI generate actionable insights from your clinic data.
+          </p>
+          <div style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px">Report Type</label>
+            <select id="report-type-select" onchange="onReportTypeChange()" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px;cursor:pointer">
+              ${reportTypes.map(r => `<option value="${r.id}">${r.label}</option>`).join('')}
+            </select>
+            <div id="report-type-desc" style="font-size:12px;color:var(--text-light);margin-top:6px;font-style:italic">${reportTypes[0]?.description || ''}</div>
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px">Time Range</label>
+            <select id="report-time-range" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+              <option value="30">Last 30 Days</option>
+              <option value="90" selected>Last 90 Days</option>
+              <option value="180">Last 6 Months</option>
+              <option value="365">Last 12 Months</option>
+            </select>
+          </div>
+          <div id="report-condition-field" style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px">Condition Filter <span style="font-weight:400">(optional)</span></label>
+            <input type="text" id="report-condition" placeholder="e.g., diabetes, hypertension" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+          </div>
+          <div id="report-custom-field" style="margin-bottom:14px;display:none">
+            <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px">Describe Your Report</label>
+            <textarea id="report-custom-prompt" rows="4" placeholder="Describe the report you need in natural language, e.g., 'Show me patients over 65 with diabetes who have low medication adherence and haven't had a checkup in 6 months'" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <button onclick="generateReport()" id="generate-report-btn" style="width:100%;padding:12px;background:var(--primary);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">
+            ${ICONS.insights} Generate Report
+          </button>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Quick Reports</h3>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button onclick="runQuickReport('high-risk-patients')" class="quick-report-btn" style="text-align:left;padding:12px 16px;background:var(--danger-light);border:1px solid #FECACA;border-radius:10px;cursor:pointer;color:var(--text)">
+              <div style="font-weight:600;font-size:13px;color:#991B1B">High-Risk Patient Review</div>
+              <div style="font-size:11px;color:#B91C1C;margin-top:2px">90-day scan of patients with elevated risk factors</div>
+            </button>
+            <button onclick="runQuickReport('adherence-trends')" class="quick-report-btn" style="text-align:left;padding:12px 16px;background:var(--warning-light);border:1px solid #FDE68A;border-radius:10px;cursor:pointer;color:var(--text)">
+              <div style="font-weight:600;font-size:13px;color:#92400E">Adherence Trend Report</div>
+              <div style="font-size:11px;color:#B45309;margin-top:2px">Clinic-wide medication adherence analysis</div>
+            </button>
+            <button onclick="runQuickReport('proactive-outreach')" class="quick-report-btn" style="text-align:left;padding:12px 16px;background:var(--primary-light);border:1px solid #93C5FD;border-radius:10px;cursor:pointer;color:var(--text)">
+              <div style="font-weight:600;font-size:13px;color:#1E40AF">Outreach Candidate List</div>
+              <div style="font-size:11px;color:#2563EB;margin-top:2px">Patients needing proactive care follow-up</div>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="report-results-card">
+          <div id="report-results" style="min-height:300px">
+            <div class="empty-state" style="padding:60px 20px">
+              <div style="font-size:40px;margin-bottom:16px;opacity:0.3">${ICONS.reporting}</div>
+              <h3 style="color:var(--text-light);margin-bottom:8px">No Report Generated</h3>
+              <p style="color:var(--text-light);font-size:13px">Select a report type and click "Generate Report" to create an AI-powered analysis of your clinic data.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  onReportTypeChange();
+}
+
+const REPORT_DESCRIPTIONS = {};
+
+function onReportTypeChange() {
+  const sel = document.getElementById('report-type-select');
+  if (!sel) return;
+  const val = sel.value;
+  const condField = document.getElementById('report-condition-field');
+  const customField = document.getElementById('report-custom-field');
+  const descEl = document.getElementById('report-type-desc');
+
+  if (condField) condField.style.display = (val === 'high-risk-patients' || val === 'condition-prevalence') ? 'block' : 'none';
+  if (customField) customField.style.display = val === 'custom' ? 'block' : 'none';
+
+  const descriptions = {
+    'high-risk-patients': 'Identify patients at elevated risk for specific conditions based on health records, predictions, and vital trends.',
+    'adherence-trends': 'Analyze medication adherence patterns across the patient population with trend analysis and outlier detection.',
+    'proactive-outreach': 'Identify patients who may benefit from proactive care outreach based on gaps in care, missed appointments, and declining metrics.',
+    'condition-prevalence': 'Break down the prevalence of conditions across the patient population with demographic correlations.',
+    'medication-utilization': 'Analyze medication prescribing patterns, polypharmacy rates, and drug interaction prevalence across the clinic.',
+    'appointment-analytics': 'Review appointment completion rates, no-show patterns, and scheduling efficiency across providers and time periods.',
+    'custom': 'Generate a custom report by describing what you need in natural language. AI will query and analyze relevant data.',
+  };
+  if (descEl) descEl.textContent = descriptions[val] || '';
+}
+
+function runQuickReport(type) {
+  const sel = document.getElementById('report-type-select');
+  if (sel) { sel.value = type; onReportTypeChange(); }
+  generateReport();
+}
+
+async function generateReport() {
+  const reportType = document.getElementById('report-type-select')?.value;
+  const timeRange = parseInt(document.getElementById('report-time-range')?.value || '90');
+  const condition = document.getElementById('report-condition')?.value?.trim() || null;
+  const customPrompt = document.getElementById('report-custom-prompt')?.value?.trim() || null;
+
+  if (reportType === 'custom' && !customPrompt) {
+    showToast('Please describe the report you need', 'error');
+    return;
+  }
+
+  const resultsDiv = document.getElementById('report-results');
+  const btn = document.getElementById('generate-report-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Generating Report...'; }
+  resultsDiv.innerHTML = '<div style="text-align:center;padding:60px 20px"><div class="spinner"></div><p style="color:var(--text-light);margin-top:16px;font-size:13px">Analyzing clinic data and generating AI insights...</p><p style="color:var(--text-light);font-size:11px;margin-top:4px">This may take a moment for large datasets.</p></div>';
+
+  try {
+    const data = await apiFetch('/reports/generate', {
+      method: 'POST',
+      body: JSON.stringify({ reportType, parameters: { timeRange, condition, customPrompt } }),
+    });
+    renderReportResults(data);
+  } catch (e) {
+    resultsDiv.innerHTML = '<div class="empty-state"><h3>Report Generation Failed</h3><p>' + escapeHtml(e.message) + '</p></div>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = ICONS.insights + ' Generate Report'; }
+  }
+}
+
+function renderReportResults(report) {
+  const resultsDiv = document.getElementById('report-results');
+  const ai = report.aiAnalysis || {};
+  const data = report.data || {};
+  let html = '';
+
+  const reportLabels = {
+    'high-risk-patients': 'High-Risk Patient Identification',
+    'adherence-trends': 'Clinic-Wide Adherence Trends',
+    'proactive-outreach': 'Proactive Outreach Candidates',
+    'condition-prevalence': 'Condition Prevalence Analysis',
+    'medication-utilization': 'Medication Utilization Report',
+    'appointment-analytics': 'Appointment Analytics',
+    'custom': 'Custom AI Report',
+  };
+
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px">';
+  html += '<div><h3 style="margin:0">' + (reportLabels[report.reportType] || 'Report') + '</h3>';
+  html += '<div style="font-size:11px;color:var(--text-light);margin-top:4px">Generated ' + formatShortDate(report.generatedAt) + ' | ' + (report.parameters?.timeRange || 90) + '-day window</div></div>';
+  html += '<button onclick="exportReportCSV()" style="padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;gap:4px;color:var(--text)">' + ICONS.tasks + ' Export</button>';
+  html += '</div>';
+
+  if (ai.executiveSummary) {
+    html += '<div style="background:linear-gradient(135deg,#EFF6FF,#F0FDF4);border:1px solid #BFDBFE;border-radius:12px;padding:16px;margin-bottom:16px">';
+    html += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Executive Summary</div>';
+    html += '<div style="font-size:13px;color:var(--text);line-height:1.6">' + escapeHtml(ai.executiveSummary) + '</div>';
+    html += '</div>';
+  }
+
+  html += renderReportDataCards(report.reportType, data);
+
+  if (ai.keyFindings && ai.keyFindings.length > 0) {
+    html += '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:10px">Key Findings</h4>';
+    ai.keyFindings.forEach((f, i) => {
+      const finding = typeof f === 'string' ? f : f.finding || f.detail || JSON.stringify(f);
+      const detail = typeof f === 'object' ? (f.detail || f.significance || '') : '';
+      html += '<div style="padding:10px 14px;border-left:3px solid var(--primary);background:var(--bg);border-radius:0 8px 8px 0;margin-bottom:8px">';
+      html += '<div style="font-size:13px;font-weight:600">' + escapeHtml(finding) + '</div>';
+      if (detail && detail !== finding) html += '<div style="font-size:12px;color:var(--text-light);margin-top:2px">' + escapeHtml(detail) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  if (ai.findings && ai.findings.length > 0) {
+    html += '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:10px">Findings</h4>';
+    ai.findings.forEach(f => {
+      const finding = typeof f === 'string' ? f : f.finding || JSON.stringify(f);
+      const detail = typeof f === 'object' ? (f.detail || '') : '';
+      const significance = typeof f === 'object' ? (f.significance || '') : '';
+      html += '<div style="padding:10px 14px;border-left:3px solid var(--primary);background:var(--bg);border-radius:0 8px 8px 0;margin-bottom:8px">';
+      html += '<div style="font-size:13px;font-weight:600">' + escapeHtml(finding) + '</div>';
+      if (detail) html += '<div style="font-size:12px;color:var(--text-light);margin-top:2px">' + escapeHtml(detail) + '</div>';
+      if (significance) html += '<div style="font-size:11px;color:var(--primary);margin-top:2px;font-style:italic">' + escapeHtml(significance) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  const renderRecommendations = (recs, title) => {
+    if (!recs || recs.length === 0) return '';
+    let h = '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:10px">' + title + '</h4>';
+    recs.forEach(r => {
+      const text = typeof r === 'string' ? r : r.recommendation || r.suggestion || r.action || JSON.stringify(r);
+      const rationale = typeof r === 'object' ? (r.rationale || r.expectedImpact || r.impact || '') : '';
+      const priority = typeof r === 'object' ? (r.priority || r.effort || '') : '';
+      const prioColor = priority === 'high' ? 'var(--danger)' : priority === 'medium' ? 'var(--warning)' : 'var(--success)';
+      h += '<div style="padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">';
+      h += '<div style="display:flex;align-items:center;gap:8px">';
+      if (priority) h += '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:' + prioColor + '15;color:' + prioColor + ';text-transform:uppercase">' + escapeHtml(priority) + '</span>';
+      h += '<span style="font-size:13px;font-weight:600">' + escapeHtml(text) + '</span></div>';
+      if (rationale) h += '<div style="font-size:12px;color:var(--text-light);margin-top:4px">' + escapeHtml(rationale) + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    return h;
+  };
+
+  html += renderRecommendations(ai.recommendations || ai.interventions || ai.improvements, 'Recommendations');
+  html += renderRecommendations(ai.actionItems, 'Action Items');
+
+  if (ai.strategies && ai.strategies.length > 0) {
+    html += '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:10px">Strategies</h4>';
+    ai.strategies.forEach(s => {
+      const tier = typeof s === 'object' ? (s.tier || '') : '';
+      const approach = typeof s === 'string' ? s : s.approach || JSON.stringify(s);
+      const timeline = typeof s === 'object' ? (s.timeline || '') : '';
+      html += '<div style="padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">';
+      if (tier) html += '<div style="font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;margin-bottom:4px">' + escapeHtml(tier) + '</div>';
+      html += '<div style="font-size:13px">' + escapeHtml(approach) + '</div>';
+      if (timeline) html += '<div style="font-size:11px;color:var(--text-light);margin-top:2px">Timeline: ' + escapeHtml(timeline) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  const otherSections = ['trendAnalysis', 'atRiskSummary', 'prevalenceAnalysis', 'prescribingPatterns', 'polypharmacyAssessment', 'efficiencyAnalysis', 'noShowInsights', 'analysis', 'urgencyBreakdown', 'riskDistribution'];
+  for (const key of otherSections) {
+    if (ai[key]) {
+      const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+      if (typeof ai[key] === 'string') {
+        html += '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:8px">' + label + '</h4>';
+        html += '<div style="font-size:13px;color:var(--text);line-height:1.5;padding:12px;background:var(--bg);border-radius:8px">' + escapeHtml(ai[key]) + '</div></div>';
+      } else if (typeof ai[key] === 'object') {
+        html += '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:8px">' + label + '</h4>';
+        html += '<div style="padding:12px;background:var(--bg);border-radius:8px">';
+        if (Array.isArray(ai[key])) {
+          ai[key].forEach(item => {
+            const text = typeof item === 'string' ? item : JSON.stringify(item);
+            html += '<div style="font-size:12px;margin-bottom:4px;padding-left:12px;border-left:2px solid var(--border)">' + escapeHtml(text) + '</div>';
+          });
+        } else {
+          Object.entries(ai[key]).forEach(([k, v]) => {
+            html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">';
+            html += '<span style="font-weight:600">' + escapeHtml(k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())) + '</span>';
+            html += '<span>' + escapeHtml(String(v)) + '</span></div>';
+          });
+        }
+        html += '</div></div>';
+      }
+    }
+  }
+
+  if (ai.limitations && ai.limitations.length > 0) {
+    html += '<div style="margin-top:16px;padding:10px 14px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px">';
+    html += '<div style="font-size:12px;font-weight:600;color:#92400E;margin-bottom:4px">Limitations</div>';
+    html += '<ul style="margin:0;padding-left:16px">';
+    ai.limitations.forEach(l => {
+      html += '<li style="font-size:12px;color:#92400E;margin-bottom:2px">' + escapeHtml(l) + '</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  if (ai.expectedOutcomes && ai.expectedOutcomes.length > 0) {
+    html += '<div style="margin-top:16px"><h4 style="font-size:14px;margin-bottom:8px">Expected Outcomes</h4>';
+    html += '<ul style="margin:0;padding-left:16px">';
+    ai.expectedOutcomes.forEach(o => {
+      html += '<li style="font-size:12px;margin-bottom:4px">' + escapeHtml(typeof o === 'string' ? o : JSON.stringify(o)) + '</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  html += '<div style="margin-top:20px;padding:10px;background:var(--bg);border-radius:8px;font-size:11px;color:var(--text-light);text-align:center">This report was generated by AI for clinical decision support purposes only. Always exercise clinical judgment when acting on these recommendations.</div>';
+
+  window._lastReport = report;
+  resultsDiv.innerHTML = html;
+}
+
+function renderReportDataCards(reportType, data) {
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:16px">';
+
+  switch (reportType) {
+    case 'high-risk-patients':
+      html += statCard(data.totalPatients, 'Total Patients', 'var(--text)');
+      html += statCard(data.highRiskCount, 'High Risk', 'var(--danger)');
+      html += statCard(data.highRiskCount > 0 && data.totalPatients > 0 ? Math.round((data.highRiskCount / data.totalPatients) * 100) + '%' : '0%', 'Risk Rate', 'var(--warning)');
+      html += statCard(data.timeRangeDays + 'd', 'Window', 'var(--text-light)');
+      html += '</div>';
+      if (data.patients && data.patients.length > 0) {
+        html += '<h4 style="font-size:14px;margin:12px 0 8px">Identified High-Risk Patients</h4>';
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="background:var(--bg)"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)">Patient</th><th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">Risk Factors</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Conditions</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Meds</th></tr>';
+        data.patients.forEach(p => {
+          html += '<tr style="border-bottom:1px solid var(--border)">';
+          html += '<td style="padding:8px 10px;font-weight:600">' + escapeHtml(p.name) + '</td>';
+          html += '<td style="padding:8px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + p.riskFactors.map(r => '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:var(--danger-light);color:#991B1B">' + escapeHtml(r) + '</span>').join('') + '</div></td>';
+          html += '<td style="padding:8px;text-align:center">' + p.conditions.length + '</td>';
+          html += '<td style="padding:8px;text-align:center">' + p.medCount + '</td>';
+          html += '</tr>';
+        });
+        html += '</table></div>';
+      }
+      break;
+
+    case 'adherence-trends':
+      html += statCard(data.overallAdherenceRate + '%', 'Overall Rate', data.overallAdherenceRate >= 80 ? 'var(--success)' : data.overallAdherenceRate >= 60 ? 'var(--warning)' : 'var(--danger)');
+      html += statCard(data.patientsTracked, 'Patients', 'var(--primary)');
+      html += statCard(data.taken, 'Taken', 'var(--success)');
+      html += statCard(data.missed, 'Missed', 'var(--danger)');
+      html += '</div>';
+      if (data.weeklyTrend && data.weeklyTrend.length > 0) {
+        html += '<h4 style="font-size:14px;margin:12px 0 8px">Weekly Adherence Trend</h4>';
+        const maxRate = Math.max(...data.weeklyTrend.map(w => w.rate), 1);
+        html += '<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0">';
+        data.weeklyTrend.slice(-12).forEach(w => {
+          const h = Math.max(4, (w.rate / 100) * 100);
+          const color = w.rate >= 80 ? 'var(--success)' : w.rate >= 60 ? 'var(--warning)' : 'var(--danger)';
+          html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+          html += '<div style="font-size:9px;color:var(--text-light);margin-bottom:2px">' + w.rate + '%</div>';
+          html += '<div style="width:100%;max-width:30px;height:' + h + '%;background:' + color + ';border-radius:4px 4px 0 0;min-height:4px" title="Week of ' + w.week + ': ' + w.rate + '%"></div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      if (data.lowAdherencePatients && data.lowAdherencePatients.length > 0) {
+        html += '<h4 style="font-size:14px;margin:16px 0 8px;color:var(--danger)">Low Adherence Patients (&lt;80%)</h4>';
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="background:var(--bg)"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)">Patient</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Rate</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Taken</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Total</th></tr>';
+        data.lowAdherencePatients.forEach(p => {
+          const c = p.rate < 60 ? 'var(--danger)' : 'var(--warning)';
+          html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px;font-weight:600">' + escapeHtml(p.name) + '</td><td style="padding:8px;text-align:center;font-weight:700;color:' + c + '">' + p.rate + '%</td><td style="padding:8px;text-align:center">' + p.taken + '</td><td style="padding:8px;text-align:center">' + p.total + '</td></tr>';
+        });
+        html += '</table></div>';
+      }
+      break;
+
+    case 'proactive-outreach':
+      html += statCard(data.totalPatients, 'Total Patients', 'var(--text)');
+      html += statCard(data.outreachCount, 'Need Outreach', 'var(--primary)');
+      html += statCard(data.highUrgency, 'High Urgency', 'var(--danger)');
+      html += statCard(data.moderateUrgency, 'Moderate', 'var(--warning)');
+      html += '</div>';
+      if (data.candidates && data.candidates.length > 0) {
+        html += '<h4 style="font-size:14px;margin:12px 0 8px">Outreach Priority List</h4>';
+        data.candidates.slice(0, 25).forEach(c => {
+          const urgColor = c.urgency === 'high' ? 'var(--danger)' : c.urgency === 'moderate' ? 'var(--warning)' : 'var(--success)';
+          html += '<div style="padding:10px 14px;border-left:3px solid ' + urgColor + ';background:var(--bg);border-radius:0 8px 8px 0;margin-bottom:6px">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+          html += '<span style="font-weight:600;font-size:13px">' + escapeHtml(c.name) + '</span>';
+          html += '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:' + urgColor + '15;color:' + urgColor + ';text-transform:uppercase">' + c.urgency + '</span>';
+          html += '</div>';
+          html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' + c.reasons.map(r => '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:var(--bg);border:1px solid var(--border)">' + escapeHtml(r) + '</span>').join('') + '</div>';
+          html += '</div>';
+        });
+      }
+      break;
+
+    case 'condition-prevalence':
+      html += statCard(data.totalPatients, 'Total Patients', 'var(--text)');
+      html += statCard(data.uniqueConditions, 'Conditions', 'var(--primary)');
+      html += statCard(data.totalConditionRecords, 'Records', 'var(--text-light)');
+      html += '</div>';
+      if (data.topConditions && data.topConditions.length > 0) {
+        html += '<h4 style="font-size:14px;margin:12px 0 8px">Top Conditions by Patient Count</h4>';
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="background:var(--bg)"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)">Condition</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Patients</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Prevalence</th></tr>';
+        data.topConditions.forEach(c => {
+          html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px;font-weight:600;text-transform:capitalize">' + escapeHtml(c.condition) + '</td><td style="padding:8px;text-align:center">' + c.patientCount + '</td><td style="padding:8px;text-align:center;font-weight:600;color:var(--primary)">' + c.prevalenceRate + '%</td></tr>';
+        });
+        html += '</table></div>';
+      }
+      break;
+
+    case 'medication-utilization':
+      html += statCard(data.activePrescriptions, 'Active Rx', 'var(--primary)');
+      html += statCard(data.uniqueMedications, 'Unique Meds', 'var(--text)');
+      html += statCard(data.polypharmacyPatients, 'Polypharmacy', 'var(--danger)');
+      html += statCard(data.averageMedsPerPatient, 'Avg/Patient', 'var(--warning)');
+      html += '</div>';
+      if (data.topMedications && data.topMedications.length > 0) {
+        html += '<h4 style="font-size:14px;margin:12px 0 8px">Top Prescribed Medications</h4>';
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="background:var(--bg)"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)">Medication</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Patients</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Total Rx</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Active</th></tr>';
+        data.topMedications.forEach(m => {
+          html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px;font-weight:600;text-transform:capitalize">' + escapeHtml(m.medication) + '</td><td style="padding:8px;text-align:center">' + m.uniquePatients + '</td><td style="padding:8px;text-align:center">' + m.totalPrescriptions + '</td><td style="padding:8px;text-align:center;color:var(--success)">' + m.activePrescriptions + '</td></tr>';
+        });
+        html += '</table></div>';
+      }
+      break;
+
+    case 'appointment-analytics':
+      html += statCard(data.totalAppointments, 'Total', 'var(--text)');
+      html += statCard(data.completionRate + '%', 'Completed', 'var(--success)');
+      html += statCard(data.noShowRate + '%', 'No-Show', 'var(--danger)');
+      html += statCard(data.cancellationRate + '%', 'Cancelled', 'var(--warning)');
+      html += '</div>';
+      if (data.byProvider && data.byProvider.length > 0) {
+        html += '<h4 style="font-size:14px;margin:12px 0 8px">Provider Performance</h4>';
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="background:var(--bg)"><th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)">Provider</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Total</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Completed</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">No-Shows</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Rate</th></tr>';
+        data.byProvider.forEach(p => {
+          html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px;font-weight:600">' + escapeHtml(p.provider) + '</td><td style="padding:8px;text-align:center">' + p.total + '</td><td style="padding:8px;text-align:center;color:var(--success)">' + p.completed + '</td><td style="padding:8px;text-align:center;color:var(--danger)">' + p.noShows + '</td><td style="padding:8px;text-align:center;font-weight:700">' + p.completionRate + '%</td></tr>';
+        });
+        html += '</table></div>';
+      }
+      break;
+
+    case 'custom':
+      html += statCard(data.totalPatients, 'Patients', 'var(--text)');
+      html += statCard(data.healthRecords?.total || 0, 'Records', 'var(--primary)');
+      html += statCard(data.medications?.active || 0, 'Active Meds', 'var(--success)');
+      html += statCard(data.appointments?.total || 0, 'Appointments', 'var(--warning)');
+      html += '</div>';
+      break;
+
+    default:
+      html += '</div>';
+  }
+  return html;
+}
+
+function statCard(value, label, color) {
+  return '<div style="background:var(--bg);padding:14px;border-radius:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:' + color + '">' + value + '</div><div style="font-size:11px;color:var(--text-light);margin-top:2px">' + label + '</div></div>';
+}
+
+function exportReportCSV() {
+  if (!window._lastReport) { showToast('No report to export', 'error'); return; }
+  const report = window._lastReport;
+  let csv = 'Report Type,' + report.reportType + '\nGenerated,' + report.generatedAt + '\nTime Range,' + (report.parameters?.timeRange || 90) + ' days\n\n';
+
+  if (report.aiAnalysis?.executiveSummary) {
+    csv += 'Executive Summary\n"' + report.aiAnalysis.executiveSummary.replace(/"/g, '""') + '"\n\n';
+  }
+
+  const data = report.data;
+  if (data.patients) {
+    csv += 'Patient,Risk Factors,Conditions,Medications\n';
+    data.patients.forEach(p => { csv += '"' + p.name + '","' + p.riskFactors.join('; ') + '",' + p.conditions.length + ',' + p.medCount + '\n'; });
+  } else if (data.lowAdherencePatients) {
+    csv += 'Patient,Adherence Rate,Taken,Total\n';
+    data.lowAdherencePatients.forEach(p => { csv += '"' + p.name + '",' + p.rate + '%,' + p.taken + ',' + p.total + '\n'; });
+  } else if (data.candidates) {
+    csv += 'Patient,Urgency,Reasons,Adherence Rate\n';
+    data.candidates.forEach(c => { csv += '"' + c.name + '",' + c.urgency + ',"' + c.reasons.join('; ') + '",' + (c.adherenceRate !== null ? c.adherenceRate + '%' : 'N/A') + '\n'; });
+  } else if (data.topConditions) {
+    csv += 'Condition,Patients,Prevalence Rate\n';
+    data.topConditions.forEach(c => { csv += '"' + c.condition + '",' + c.patientCount + ',' + c.prevalenceRate + '%\n'; });
+  } else if (data.topMedications) {
+    csv += 'Medication,Patients,Total Prescriptions,Active\n';
+    data.topMedications.forEach(m => { csv += '"' + m.medication + '",' + m.uniquePatients + ',' + m.totalPrescriptions + ',' + m.activePrescriptions + '\n'; });
+  } else if (data.byProvider) {
+    csv += 'Provider,Total,Completed,No-Shows,Completion Rate\n';
+    data.byProvider.forEach(p => { csv += '"' + p.provider + '",' + p.total + ',' + p.completed + ',' + p.noShows + ',' + p.completionRate + '%\n'; });
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'report_' + report.reportType + '_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Report exported successfully', 'success');
+}
+
+async function renderMedManagement(params) {
+  const content = document.getElementById('content-area');
+  content.innerHTML = `
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <h3>Patient Medication Review</h3>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
+            Enter a patient ID to view comprehensive medication insights, adherence tracking, drug interactions, and AI-powered regimen recommendations.
+          </p>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="med-patient-id" placeholder="Patient ID" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:13px">
+            <button onclick="loadMedSummary()" style="padding:10px 20px;background:var(--primary);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">Review Medications</button>
+          </div>
+          <div id="med-summary-result" style="margin-top:16px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>AI Regimen Recommendations</h3>
+          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
+            Get AI-powered suggestions for medication effectiveness, adherence improvement strategies, and potential regimen adjustments.
+          </p>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="med-rec-patient-id" placeholder="Patient ID" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:13px">
+            <button onclick="loadAIRecommendations()" style="padding:10px 20px;background:var(--success);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">Get AI Insights</button>
+          </div>
+          <div id="med-rec-result" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Drug Interaction Checker</h3>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
+        Check if a new medication has potential interactions with a patient's current regimen before prescribing.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="interaction-patient-id" placeholder="Patient ID" style="flex:1;min-width:150px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:13px">
+        <input type="text" id="interaction-new-med" placeholder="New Medication Name" style="flex:2;min-width:200px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:13px">
+        <button onclick="checkInteraction()" style="padding:10px 20px;background:var(--warning);color:#1a1a2e;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">Check Interactions</button>
+      </div>
+      <div id="interaction-result" style="margin-top:16px"></div>
+    </div>`;
+}
+
+async function loadMedSummary() {
+  const id = document.getElementById('med-patient-id').value.trim();
+  if (!id) return;
+  const container = document.getElementById('med-summary-result');
+  container.innerHTML = '<div class="spinner"></div>';
+  try {
+    const data = await apiFetch('/medications/provider/patient-summary/' + id);
+    let html = '';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px">';
+    html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center"><div style="font-size:24px;font-weight:700;color:var(--primary)">' + data.medicationCount + '</div><div style="font-size:11px;color:var(--text-secondary)">Active Meds</div></div>';
+    html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center"><div style="font-size:24px;font-weight:700;color:' + (data.overallAdherence.rate >= 80 ? 'var(--success)' : data.overallAdherence.rate >= 60 ? 'var(--warning)' : 'var(--danger)') + '">' + data.overallAdherence.rate + '%</div><div style="font-size:11px;color:var(--text-secondary)">Overall Adherence</div></div>';
+    html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center"><div style="font-size:24px;font-weight:700;color:' + (data.drugInteractions.length > 0 ? 'var(--danger)' : 'var(--success)') + '">' + data.drugInteractions.length + '</div><div style="font-size:11px;color:var(--text-secondary)">Interactions</div></div>';
+    html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center"><div style="font-size:24px;font-weight:700;color:' + (data.polypharmacyRisk === 'high' ? 'var(--danger)' : data.polypharmacyRisk === 'moderate' ? 'var(--warning)' : 'var(--success)') + '">' + data.polypharmacyRisk.charAt(0).toUpperCase() + data.polypharmacyRisk.slice(1) + '</div><div style="font-size:11px;color:var(--text-secondary)">Polypharmacy Risk</div></div>';
+    html += '</div>';
+
+    if (data.activeMedications.length > 0) {
+      html += '<h4 style="margin:16px 0 8px;font-size:14px">Active Medications</h4>';
+      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+      html += '<tr style="background:var(--bg-secondary)"><th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)">Medication</th><th style="padding:8px;text-align:left;border-bottom:1px solid var(--border)">Dosage</th><th style="padding:8px;text-align:center;border-bottom:1px solid var(--border)">90-Day</th><th style="padding:8px;text-align:center;border-bottom:1px solid var(--border)">7-Day</th><th style="padding:8px;text-align:center;border-bottom:1px solid var(--border)">Trend</th><th style="padding:8px;text-align:center;border-bottom:1px solid var(--border)">Missed</th></tr>';
+      data.activeMedications.forEach(m => {
+        const rateColor = m.adherenceRate90Day >= 80 ? 'var(--success)' : m.adherenceRate90Day >= 60 ? 'var(--warning)' : 'var(--danger)';
+        const trendIcon = m.trend === 'improving' ? '&#9650;' : m.trend === 'declining' ? '&#9660;' : '&#8212;';
+        const trendColor = m.trend === 'improving' ? 'var(--success)' : m.trend === 'declining' ? 'var(--danger)' : 'var(--text-secondary)';
+        html += '<tr style="border-bottom:1px solid var(--border)">';
+        html += '<td style="padding:8px 10px;font-weight:600">' + escapeHtml(m.medicationName) + '</td>';
+        html += '<td style="padding:8px;color:var(--text-secondary)">' + escapeHtml(m.dosage || '-') + ' / ' + escapeHtml(m.frequency) + '</td>';
+        html += '<td style="padding:8px;text-align:center;font-weight:600;color:' + rateColor + '">' + m.adherenceRate90Day + '%</td>';
+        html += '<td style="padding:8px;text-align:center">' + m.adherenceRate7Day + '%</td>';
+        html += '<td style="padding:8px;text-align:center;color:' + trendColor + '">' + trendIcon + '</td>';
+        html += '<td style="padding:8px;text-align:center;color:var(--danger)">' + m.missed + '</td>';
+        html += '</tr>';
+      });
+      html += '</table></div>';
+    } else {
+      html += '<div class="empty-state" style="padding:20px"><p>No active medications found for this patient.</p></div>';
+    }
+
+    if (data.drugInteractions.length > 0) {
+      html += '<h4 style="margin:16px 0 8px;font-size:14px;color:var(--danger)">Drug Interactions Detected</h4>';
+      data.drugInteractions.forEach(i => {
+        const sevColor = i.severity === 'high' ? 'var(--danger)' : 'var(--warning)';
+        html += '<div style="background:' + (i.severity === 'high' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)') + ';border-left:3px solid ' + sevColor + ';padding:10px 14px;border-radius:6px;margin-bottom:8px">';
+        html += '<div style="font-weight:600;font-size:13px"><span style="color:' + sevColor + '">[' + i.severity.toUpperCase() + ']</span> ' + escapeHtml(i.drug1) + ' + ' + escapeHtml(i.drug2) + '</div>';
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">' + escapeHtml(i.description) + '</div></div>';
+      });
+    }
+
+    if (data.discontinuedMedications.length > 0) {
+      html += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:13px;color:var(--text-secondary)">Discontinued Medications (' + data.discontinuedMedications.length + ')</summary>';
+      html += '<div style="margin-top:8px">';
+      data.discontinuedMedications.forEach(m => {
+        html += '<div style="padding:6px 0;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--border)">' + escapeHtml(m.medicationName) + ' ' + escapeHtml(m.dosage || '') + ' <span style="opacity:0.7">(ended ' + formatShortDate(m.endDate) + ')</span></div>';
+      });
+      html += '</div></details>';
+    }
+
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state"><p>Error: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+async function loadAIRecommendations() {
+  const id = document.getElementById('med-rec-patient-id').value.trim();
+  if (!id) return;
+  const container = document.getElementById('med-rec-result');
+  container.innerHTML = '<div class="spinner"></div><p style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:8px">Analyzing patient data with AI...</p>';
+  try {
+    const data = await apiFetch('/medications/provider/ai-recommendations/' + id, { method: 'POST' });
+    const r = data.recommendations;
+    let html = '';
+
+    if (r.overallAssessment) {
+      html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;margin-bottom:16px;font-size:13px"><strong>Overall Assessment:</strong> ' + escapeHtml(r.overallAssessment) + '</div>';
+    }
+
+    if (r.effectivenessAssessment && r.effectivenessAssessment.length > 0) {
+      html += '<h4 style="margin:12px 0 8px;font-size:14px">Medication Effectiveness</h4>';
+      r.effectivenessAssessment.forEach(e => {
+        const confColor = e.confidence === 'high' ? 'var(--success)' : e.confidence === 'moderate' ? 'var(--warning)' : 'var(--text-secondary)';
+        html += '<div style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:13px">' + escapeHtml(e.medication) + '</strong><span style="font-size:11px;padding:2px 8px;border-radius:12px;background:' + confColor + '20;color:' + confColor + ';font-weight:600">' + e.confidence + ' confidence</span></div>';
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">' + escapeHtml(e.assessment) + '</div>';
+        if (e.reasoning) html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;font-style:italic">' + escapeHtml(e.reasoning) + '</div>';
+        html += '</div>';
+      });
+    }
+
+    if (r.adherenceStrategies && r.adherenceStrategies.length > 0) {
+      html += '<h4 style="margin:16px 0 8px;font-size:14px">Adherence Improvement Strategies</h4>';
+      html += '<ul style="margin:0;padding-left:20px">';
+      r.adherenceStrategies.forEach(s => {
+        const text = typeof s === 'string' ? s : s.strategy || s.suggestion || JSON.stringify(s);
+        html += '<li style="font-size:12px;margin-bottom:6px;line-height:1.4">' + escapeHtml(text) + '</li>';
+      });
+      html += '</ul>';
+    }
+
+    if (r.regimenSuggestions && r.regimenSuggestions.length > 0) {
+      html += '<h4 style="margin:16px 0 8px;font-size:14px">Regimen Adjustment Suggestions</h4>';
+      r.regimenSuggestions.forEach(s => {
+        const prioColor = s.priority === 'high' ? 'var(--danger)' : s.priority === 'medium' ? 'var(--warning)' : 'var(--text-secondary)';
+        html += '<div style="border-left:3px solid ' + prioColor + ';padding:8px 14px;margin-bottom:8px;border-radius:0 8px 8px 0;background:var(--bg-secondary)">';
+        html += '<div style="font-size:13px;font-weight:600"><span style="color:' + prioColor + '">[' + (s.priority || 'info').toUpperCase() + ']</span> ' + escapeHtml(s.suggestion) + '</div>';
+        if (s.rationale) html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">' + escapeHtml(s.rationale) + '</div>';
+        html += '</div>';
+      });
+    }
+
+    if (r.monitoringRecommendations && r.monitoringRecommendations.length > 0) {
+      html += '<h4 style="margin:16px 0 8px;font-size:14px">Monitoring Recommendations</h4>';
+      html += '<ul style="margin:0;padding-left:20px">';
+      r.monitoringRecommendations.forEach(m => {
+        const text = typeof m === 'string' ? m : m.recommendation || JSON.stringify(m);
+        html += '<li style="font-size:12px;margin-bottom:4px">' + escapeHtml(text) + '</li>';
+      });
+      html += '</ul>';
+    }
+
+    if (r.concerns && r.concerns.length > 0) {
+      html += '<h4 style="margin:16px 0 8px;font-size:14px;color:var(--danger)">Clinical Concerns</h4>';
+      r.concerns.forEach(c => {
+        html += '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;margin-bottom:8px;font-size:12px">' + escapeHtml(c) + '</div>';
+      });
+    }
+
+    html += '<div style="margin-top:12px;padding:8px;background:rgba(37,99,235,0.06);border-radius:8px;font-size:11px;color:var(--text-secondary)">Data analyzed: ' + data.dataUsed.medicationCount + ' medications, ' + data.dataUsed.adherenceLogCount + ' adherence logs, ' + data.dataUsed.healthRecordCount + ' health records over ' + data.dataUsed.periodDays + ' days. Generated ' + formatShortDate(data.generatedAt) + '.</div>';
+
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state"><p>Error: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+async function checkInteraction() {
+  const patientId = document.getElementById('interaction-patient-id').value.trim();
+  const newMed = document.getElementById('interaction-new-med').value.trim();
+  if (!patientId || !newMed) return;
+  const container = document.getElementById('interaction-result');
+  container.innerHTML = '<div class="spinner"></div>';
+  try {
+    const data = await apiFetch('/medications/check-interaction?patientId=' + encodeURIComponent(patientId), {
+      method: 'POST',
+      body: JSON.stringify({ newMedication: newMed }),
+    });
+    let html = '';
+
+    if (data.hasInteractions) {
+      html += '<div style="background:rgba(239,68,68,0.08);padding:14px;border-radius:10px;margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:var(--danger);margin-bottom:8px">Interactions Found (' + data.interactions.length + ')</div>';
+      data.interactions.forEach(i => {
+        const sevColor = i.severity === 'high' ? 'var(--danger)' : 'var(--warning)';
+        html += '<div style="border-left:3px solid ' + sevColor + ';padding:8px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:0 8px 8px 0">';
+        html += '<div style="font-weight:600;font-size:13px"><span style="color:' + sevColor + '">[' + i.severity.toUpperCase() + ']</span> ' + escapeHtml(i.existingMedication) + ' + ' + escapeHtml(i.newMedication) + '</div>';
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">' + escapeHtml(i.description) + '</div></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="background:rgba(16,185,129,0.08);padding:14px;border-radius:10px;margin-bottom:12px"><div style="font-size:14px;font-weight:600;color:var(--success)">No Known Interactions Found</div><div style="font-size:12px;color:var(--text-secondary);margin-top:4px">' + escapeHtml(newMed) + ' does not have known interactions with the patient\'s ' + data.currentMedicationCount + ' current medication(s) in our database.</div></div>';
+    }
+
+    if (data.sideEffects) {
+      html += '<div style="margin-top:12px">';
+      html += '<h4 style="font-size:14px;margin-bottom:8px">Side Effect Profile: ' + escapeHtml(newMed) + '</h4>';
+      if (data.sideEffects.common.length > 0) {
+        html += '<div style="margin-bottom:8px"><span style="font-size:12px;font-weight:600;color:var(--text-secondary)">Common:</span> <span style="font-size:12px">' + data.sideEffects.common.map(s => escapeHtml(s)).join(', ') + '</span></div>';
+      }
+      if (data.sideEffects.serious.length > 0) {
+        html += '<div style="margin-bottom:8px"><span style="font-size:12px;font-weight:600;color:var(--danger)">Serious:</span> <span style="font-size:12px">' + data.sideEffects.serious.map(s => escapeHtml(s)).join(', ') + '</span></div>';
+      }
+      if (data.sideEffects.watchFor.length > 0) {
+        html += '<div><span style="font-size:12px;font-weight:600;color:var(--warning)">Watch For:</span> <span style="font-size:12px">' + data.sideEffects.watchFor.map(s => escapeHtml(s)).join(', ') + '</span></div>';
+      }
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state"><p>Error: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+async function renderAIAssistant(params) {
+  const content = document.getElementById('content-area');
+
+  let patientOptions = '';
+  try {
+    const pData = await apiFetch('/patients?limit=100');
+    const patients = pData.patients || pData || [];
+    patientOptions = patients.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.email || '')})</option>`).join('');
+  } catch (e) { console.error('Failed to load patients', e); }
+
+  content.innerHTML = `
+    <div class="ai-stats-row" id="ai-alert-stats"><div class="spinner"></div></div>
+    <div style="margin-bottom:16px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <label style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">Select Patient:</label>
+          <select id="ai-patient-select" style="flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+            <option value="">-- Select a patient --</option>
+            ${patientOptions}
+          </select>
+          <input class="form-input" id="ai-patient-id" placeholder="...or enter Patient ID" style="width:200px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="runPatientReview()" style="white-space:nowrap">Review</button>
+            <button class="btn btn-success" onclick="runAISummary()" style="white-space:nowrap">AI Summary</button>
+            <button class="btn" onclick="runPredictiveAnalysis()" style="white-space:nowrap;background:var(--warning);color:white">Predict Risks</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn ${!params?.tab || params?.tab === 'review' ? 'btn-primary' : ''}" onclick="switchAITab('review')" style="font-size:12px;padding:8px 16px">Patient Review</button>
+      <button class="btn ${params?.tab === 'summary' ? 'btn-primary' : ''}" onclick="switchAITab('summary')" style="font-size:12px;padding:8px 16px">AI Record Summary</button>
+      <button class="btn ${params?.tab === 'referral' ? 'btn-primary' : ''}" onclick="switchAITab('referral')" style="font-size:12px;padding:8px 16px">Referral Letter</button>
+      <button class="btn ${params?.tab === 'differential' ? 'btn-primary' : ''}" onclick="switchAITab('differential')" style="font-size:12px;padding:8px 16px">Differential Diagnosis</button>
+      <button class="btn ${params?.tab === 'alerts' ? 'btn-primary' : ''}" onclick="switchAITab('alerts')" style="font-size:12px;padding:8px 16px">System Alerts</button>
+    </div>
+
+    <div id="ai-tab-review" class="ai-tab-panel" style="display:${!params?.tab || params?.tab === 'review' ? 'block' : 'none'}">
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Patient Review</div></div>
+            <div id="ai-review-content"><div class="empty-state"><p>Select a patient and click "Review" to start.</p></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">System-Wide Alerts</div></div>
+            <div id="ai-system-alerts"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="ai-predictions-panel"></div>
+    </div>
+
+    <div id="ai-tab-summary" class="ai-tab-panel" style="display:${params?.tab === 'summary' ? 'block' : 'none'}">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">AI-Powered Record Summary</div>
+          <span style="font-size:11px;color:var(--text-light)">Comprehensive patient record summarization for quick clinical overview</span>
+        </div>
+        <div id="ai-summary-content">
+          <div class="empty-state" style="padding:40px">
+            <p>Select a patient above and click "AI Summary" to automatically generate a comprehensive clinical summary of their records.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ai-tab-referral" class="ai-tab-panel" style="display:${params?.tab === 'referral' ? 'block' : 'none'}">
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Draft Referral Letter</div></div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Reason for Referral</label>
+              <input type="text" id="referral-reason" class="form-input" placeholder="e.g., Persistent chest pain, uncontrolled diabetes" style="width:100%">
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Target Specialty</label>
+              <select id="referral-specialty" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+                <option value="Cardiology">Cardiology</option>
+                <option value="Endocrinology">Endocrinology</option>
+                <option value="Gastroenterology">Gastroenterology</option>
+                <option value="Neurology">Neurology</option>
+                <option value="Oncology">Oncology</option>
+                <option value="Orthopedics">Orthopedics</option>
+                <option value="Pulmonology">Pulmonology</option>
+                <option value="Rheumatology">Rheumatology</option>
+                <option value="Urology">Urology</option>
+                <option value="Dermatology">Dermatology</option>
+                <option value="Ophthalmology">Ophthalmology</option>
+                <option value="Psychiatry">Psychiatry</option>
+                <option value="General Surgery">General Surgery</option>
+                <option value="Physical Therapy">Physical Therapy</option>
+                <option value="Other">Other Specialty</option>
+              </select>
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Urgency</label>
+              <select id="referral-urgency" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+                <option value="routine">Routine</option>
+                <option value="urgent">Urgent</option>
+                <option value="emergent">Emergent</option>
+              </select>
+            </div>
+            <div style="margin-bottom:14px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Additional Notes</label>
+              <textarea id="referral-notes" rows="3" placeholder="Any additional clinical context or specific questions for the specialist..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="draftReferralLetter()" id="referral-generate-btn" style="width:100%;padding:12px;font-size:14px">
+              ${ICONS.aiassistant} Draft Referral Letter
+            </button>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Generated Letter</div>
+              <button onclick="copyReferralLetter()" class="btn" style="font-size:11px;padding:4px 10px;display:none" id="copy-referral-btn">Copy</button>
+            </div>
+            <div id="referral-letter-content">
+              <div class="empty-state" style="padding:40px">
+                <p>Select a patient, fill in referral details, and click "Draft Referral Letter" to generate a professional referral.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ai-tab-differential" class="ai-tab-panel" style="display:${params?.tab === 'differential' ? 'block' : 'none'}">
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Differential Diagnosis Tool</div></div>
+            <p style="font-size:12px;color:var(--text-light);margin-bottom:14px">Enter presenting symptoms to get AI-driven differential diagnosis suggestions. If a patient is selected, their history will be considered.</p>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Presenting Symptoms</label>
+              <div id="symptom-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="symptom-input" class="form-input" placeholder="Type a symptom and press Enter" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addSymptom()}">
+                <button class="btn btn-primary" onclick="addSymptom()" style="white-space:nowrap">Add</button>
+              </div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px" id="common-symptoms">
+                ${['Headache','Chest pain','Shortness of breath','Fatigue','Nausea','Abdominal pain','Dizziness','Cough','Fever','Joint pain','Back pain','Weight loss'].map(s => `<button onclick="addSymptomDirect('${s}')" style="font-size:10px;padding:3px 8px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-light);cursor:pointer">${s}</button>`).join('')}
+              </div>
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Duration</label>
+              <select id="ddx-duration" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+                <option value="acute (hours)">Acute (hours)</option>
+                <option value="acute (days)" selected>Acute (days)</option>
+                <option value="subacute (weeks)">Subacute (weeks)</option>
+                <option value="chronic (months)">Chronic (months)</option>
+                <option value="chronic (years)">Chronic (years)</option>
+              </select>
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Severity</label>
+              <select id="ddx-severity" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px">
+                <option value="mild">Mild</option>
+                <option value="moderate" selected>Moderate</option>
+                <option value="severe">Severe</option>
+              </select>
+            </div>
+            <div style="margin-bottom:14px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-light);display:block;margin-bottom:4px">Additional Clinical Context</label>
+              <textarea id="ddx-context" rows="3" placeholder="e.g., Pain worsens with exertion, history of smoking, recent travel..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="runDifferentialDiagnosis()" id="ddx-generate-btn" style="width:100%;padding:12px;font-size:14px">
+              ${ICONS.insights} Generate Differential Diagnosis
+            </button>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Differential Results</div></div>
+            <div id="ddx-results">
+              <div class="empty-state" style="padding:40px">
+                <p>Enter symptoms and click "Generate Differential Diagnosis" for AI-powered suggestions.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ai-tab-alerts" class="ai-tab-panel" style="display:${params?.tab === 'alerts' ? 'block' : 'none'}">
+      <div class="card">
+        <div class="card-header"><div class="card-title">System-Wide Alerts (Full View)</div></div>
+        <div id="ai-alerts-full"><div class="spinner"></div></div>
+      </div>
+    </div>`;
+
+  loadSystemAlerts();
+  loadAlertsFullView();
+  document.getElementById('ai-patient-select')?.addEventListener('change', function() {
+    document.getElementById('ai-patient-id').value = this.value;
+  });
+}
+
+let _currentAITab = 'review';
+function switchAITab(tab) {
+  _currentAITab = tab;
+  document.querySelectorAll('.ai-tab-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById('ai-tab-' + tab);
+  if (panel) panel.style.display = 'block';
+  const btns = document.querySelectorAll('[onclick^="switchAITab"]');
+  btns.forEach(b => { b.classList.remove('btn-primary'); });
+  btns.forEach(b => { if (b.getAttribute('onclick').includes("'" + tab + "'")) b.classList.add('btn-primary'); });
+}
+
+function getSelectedPatientId() {
+  return document.getElementById('ai-patient-id')?.value || document.getElementById('ai-patient-select')?.value || '';
+}
+
+async function loadAlertsFullView() {
+  const container = document.getElementById('ai-alerts-full');
+  if (!container) return;
+  try {
+    const data = await apiFetch('/ai-assistant/alerts');
+    if (data.alerts.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No Active Alerts</h3><p>All patients appear to be within normal parameters.</p></div>';
+      return;
+    }
+    container.innerHTML = data.alerts.map(a => `
+      <div class="ai-alert-card alert-${a.type}">
+        <div class="ai-alert-header">
+          <div class="ai-alert-icon ${a.type}">${a.type === 'critical' ? '!' : a.type === 'warning' ? '!' : 'i'}</div>
+          <div class="ai-alert-message">${escapeHtml(a.message)}</div>
+          <div class="ai-alert-category">${escapeHtml(a.category || '').replace(/_/g, ' ')}</div>
+        </div>
+        ${a.patientName ? `<div class="ai-alert-patient" onclick="document.getElementById('ai-patient-id').value='${a.patientId}';document.getElementById('ai-patient-select').value='${a.patientId}';runAISummary();switchAITab('summary')">${escapeHtml(a.patientName)} - View Summary</div>` : ''}
+      </div>`).join('');
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-error">' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+async function runAISummary() {
+  const id = getSelectedPatientId();
+  const container = document.getElementById('ai-summary-content');
+  if (!container) return;
+  if (!id) { container.innerHTML = '<div class="alert alert-info">Please select a patient first.</div>'; switchAITab('summary'); return; }
+  switchAITab('summary');
+  container.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div><p style="color:var(--text-light);font-size:13px;margin-top:12px">Generating comprehensive patient summary...</p><p style="color:var(--text-light);font-size:11px">Analyzing records, medications, vitals, labs, and journal entries.</p></div>';
+  try {
+    const data = await apiFetch(`/ai-assistant/summarize-patient/${id}`, { method: 'POST' });
+    const s = data.summary || {};
+    const dp = data.dataPoints || {};
+    let html = '';
+
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px">';
+    html += '<div><div style="font-size:16px;font-weight:700;color:var(--text)">' + escapeHtml(data.patient.name) + '</div>';
+    html += '<div style="font-size:11px;color:var(--text-light);margin-top:2px">Generated ' + formatShortDate(data.generatedAt) + '</div></div>';
+    html += '<button onclick="printSummary()" class="btn" style="font-size:11px;padding:6px 12px">Print Summary</button></div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:8px;margin-bottom:16px">';
+    html += statCard(dp.totalRecords || 0, 'Records', 'var(--text)');
+    html += statCard(dp.conditions || 0, 'Conditions', 'var(--primary)');
+    html += statCard(dp.activeMedications || 0, 'Meds', 'var(--success)');
+    html += statCard(dp.vitals || 0, 'Vitals', 'var(--warning)');
+    html += statCard(dp.labs || 0, 'Labs', 'var(--info, var(--primary))');
+    html += statCard(dp.appointments || 0, 'Appts', 'var(--text-light)');
+    html += '</div>';
+
+    if (s.patientOverview) {
+      html += '<div style="background:linear-gradient(135deg,#EFF6FF,#F0FDF4);border:1px solid #BFDBFE;border-radius:12px;padding:14px;margin-bottom:16px">';
+      html += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Patient Overview</div>';
+      html += '<div style="font-size:13px;color:var(--text);line-height:1.5">' + escapeHtml(s.patientOverview) + '</div></div>';
+    }
+
+    const sections = [
+      { key: 'activeProblemList', title: 'Active Problem List', isList: true },
+      { key: 'medicationSummary', title: 'Medication Summary' },
+      { key: 'vitalsSummary', title: 'Vitals Summary' },
+      { key: 'labsSummary', title: 'Labs Summary' },
+      { key: 'riskAssessment', title: 'Risk Assessment' },
+      { key: 'recentActivity', title: 'Recent Activity' },
+    ];
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px">';
+    sections.forEach(sec => {
+      if (s[sec.key]) {
+        html += '<div style="padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">' + sec.title + '</div>';
+        if (sec.isList && Array.isArray(s[sec.key])) {
+          html += '<ul style="margin:0;padding-left:16px">' + s[sec.key].map(item => '<li style="font-size:12px;margin-bottom:2px">' + escapeHtml(item) + '</li>').join('') + '</ul>';
+        } else {
+          html += '<div style="font-size:12px;color:var(--text);line-height:1.5">' + escapeHtml(s[sec.key]) + '</div>';
+        }
+        html += '</div>';
+      }
+    });
+    html += '</div>';
+
+    if (s.clinicalConcerns && s.clinicalConcerns.length > 0) {
+      html += '<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--danger)">Clinical Concerns</div>';
+      s.clinicalConcerns.forEach(c => {
+        const concern = typeof c === 'string' ? c : c.concern || JSON.stringify(c);
+        const urgency = typeof c === 'object' ? c.urgency : '';
+        const recommendation = typeof c === 'object' ? c.recommendation : '';
+        const urgColor = urgency === 'high' || urgency === 'urgent' ? 'var(--danger)' : urgency === 'medium' ? 'var(--warning)' : 'var(--success)';
+        html += '<div style="padding:10px 14px;border-left:3px solid ' + urgColor + ';background:var(--bg);border-radius:0 8px 8px 0;margin-bottom:6px">';
+        html += '<div style="display:flex;align-items:center;gap:8px">';
+        if (urgency) html += '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:' + urgColor + '15;color:' + urgColor + ';text-transform:uppercase">' + escapeHtml(urgency) + '</span>';
+        html += '<span style="font-size:12px;font-weight:600">' + escapeHtml(concern) + '</span></div>';
+        if (recommendation) html += '<div style="font-size:11px;color:var(--text-light);margin-top:4px">' + escapeHtml(recommendation) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (s.recommendedActions && s.recommendedActions.length > 0) {
+      html += '<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Recommended Actions</div>';
+      html += '<ul style="margin:0;padding-left:16px">' + s.recommendedActions.map(a => '<li style="font-size:12px;margin-bottom:4px">' + escapeHtml(typeof a === 'string' ? a : JSON.stringify(a)) + '</li>').join('') + '</ul></div>';
+    }
+
+    html += '<div style="font-size:10px;color:var(--text-light);text-align:center;padding:8px;background:var(--bg);border-radius:8px">AI-generated summary for clinical decision support. Review all data and apply clinical judgment before making care decisions.</div>';
+
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-error">' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function printSummary() {
+  const content = document.getElementById('ai-summary-content');
+  if (!content) return;
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>Patient Summary</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:20px;font-size:13px;line-height:1.6;color:#333} h1{font-size:18px} @media print{body{margin:0}}</style></head><body>');
+  w.document.write(content.innerHTML);
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+let _ddxSymptoms = [];
+
+function addSymptom() {
+  const input = document.getElementById('symptom-input');
+  const val = input?.value?.trim();
+  if (!val) return;
+  addSymptomDirect(val);
+  input.value = '';
+}
+
+function addSymptomDirect(symptom) {
+  if (_ddxSymptoms.includes(symptom)) return;
+  _ddxSymptoms.push(symptom);
+  renderSymptomTags();
+}
+
+function removeSymptom(idx) {
+  _ddxSymptoms.splice(idx, 1);
+  renderSymptomTags();
+}
+
+function renderSymptomTags() {
+  const container = document.getElementById('symptom-tags');
+  if (!container) return;
+  container.innerHTML = _ddxSymptoms.map((s, i) => `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary-light);border:1px solid var(--primary);border-radius:16px;font-size:12px;color:var(--primary)">${escapeHtml(s)}<span onclick="removeSymptom(${i})" style="cursor:pointer;font-weight:700;color:var(--danger);margin-left:2px">x</span></span>`).join('');
+}
+
+async function draftReferralLetter() {
+  const id = getSelectedPatientId();
+  const container = document.getElementById('referral-letter-content');
+  const btn = document.getElementById('referral-generate-btn');
+  const copyBtn = document.getElementById('copy-referral-btn');
+  if (!container) return;
+  if (!id) { showToast('Please select a patient first', 'error'); return; }
+  const reason = document.getElementById('referral-reason')?.value?.trim();
+  if (!reason) { showToast('Please enter a reason for referral', 'error'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Drafting...'; }
+  container.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div><p style="color:var(--text-light);font-size:13px;margin-top:12px">AI is drafting the referral letter...</p></div>';
+
+  try {
+    const data = await apiFetch(`/ai-assistant/draft-referral/${id}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        referralReason: reason,
+        specialtyTarget: document.getElementById('referral-specialty')?.value,
+        urgency: document.getElementById('referral-urgency')?.value,
+        additionalNotes: document.getElementById('referral-notes')?.value?.trim(),
+      }),
+    });
+
+    const r = data.referral || {};
+    let html = '';
+
+    if (r.summary) {
+      html += '<div style="background:var(--primary-light);border:1px solid var(--primary);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--primary)">' + escapeHtml(r.summary) + '</div>';
+    }
+
+    if (r.urgencyJustification) {
+      const urgVal = data.parameters?.urgency || 'routine';
+      const urgColor = urgVal === 'emergent' ? 'var(--danger)' : urgVal === 'urgent' ? 'var(--warning)' : 'var(--success)';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:' + urgColor + '15;color:' + urgColor + ';text-transform:uppercase">' + escapeHtml(urgVal) + '</span><span style="font-size:12px;color:var(--text-light)">' + escapeHtml(r.urgencyJustification) + '</span></div>';
+    }
+
+    html += '<div id="referral-letter-text" style="background:var(--white);border:1px solid var(--border);border-radius:8px;padding:20px;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:\'Georgia\',serif;color:var(--text)">' + escapeHtml(r.letterText || 'Letter generation failed.') + '</div>';
+
+    if (r.keyFindings && r.keyFindings.length > 0) {
+      html += '<div style="margin-top:12px"><div style="font-size:12px;font-weight:600;margin-bottom:6px">Key Clinical Findings</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px">' + r.keyFindings.map(f => '<span style="font-size:11px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px">' + escapeHtml(f) + '</span>').join('') + '</div></div>';
+    }
+
+    if (r.recommendedTests && r.recommendedTests.length > 0) {
+      html += '<div style="margin-top:12px"><div style="font-size:12px;font-weight:600;margin-bottom:6px">Recommended Pre-Referral Tests</div>';
+      html += '<ul style="margin:0;padding-left:16px">' + r.recommendedTests.map(t => '<li style="font-size:12px;margin-bottom:2px">' + escapeHtml(typeof t === 'string' ? t : t.test || JSON.stringify(t)) + '</li>').join('') + '</ul></div>';
+    }
+
+    html += '<div style="margin-top:12px;font-size:10px;color:var(--text-light);text-align:center;padding:8px;background:var(--bg);border-radius:6px">AI-drafted letter. Review, edit, and finalize before sending to the specialist.</div>';
+
+    window._lastReferralText = r.letterText || '';
+    container.innerHTML = html;
+    if (copyBtn) copyBtn.style.display = 'inline-block';
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-error">' + escapeHtml(err.message) + '</div>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = ICONS.aiassistant + ' Draft Referral Letter'; }
+  }
+}
+
+function copyReferralLetter() {
+  if (window._lastReferralText) {
+    navigator.clipboard.writeText(window._lastReferralText).then(() => showToast('Referral letter copied to clipboard', 'success')).catch(() => showToast('Failed to copy', 'error'));
+  }
+}
+
+async function runDifferentialDiagnosis() {
+  if (_ddxSymptoms.length === 0) { showToast('Please add at least one symptom', 'error'); return; }
+  const container = document.getElementById('ddx-results');
+  const btn = document.getElementById('ddx-generate-btn');
+  if (!container) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing...'; }
+  container.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div><p style="color:var(--text-light);font-size:13px;margin-top:12px">Running differential diagnosis analysis...</p><p style="color:var(--text-light);font-size:11px">Correlating symptoms with patient history and clinical patterns.</p></div>';
+
+  try {
+    const patientId = getSelectedPatientId() || null;
+    const data = await apiFetch('/ai-assistant/differential-diagnosis', {
+      method: 'POST',
+      body: JSON.stringify({
+        patientId,
+        symptoms: _ddxSymptoms,
+        duration: document.getElementById('ddx-duration')?.value,
+        severity: document.getElementById('ddx-severity')?.value,
+        additionalContext: document.getElementById('ddx-context')?.value?.trim(),
+      }),
+    });
+
+    const diff = data.differential || {};
+    let html = '';
+
+    if (data.patientContext) {
+      html += '<div style="background:var(--bg);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;display:flex;align-items:center;gap:8px"><strong>' + escapeHtml(data.patientContext.name) + '</strong><span style="color:var(--text-light)">' + (data.patientContext.existingConditions || []).length + ' existing conditions | ' + (data.patientContext.medicationCount || 0) + ' medications</span></div>';
+    }
+
+    html += '<div style="margin-bottom:12px;font-size:12px;color:var(--text-light)"><strong>Symptoms:</strong> ' + _ddxSymptoms.map(s => '<span style="padding:2px 6px;background:var(--primary-light);border-radius:4px;font-size:11px">' + escapeHtml(s) + '</span>').join(' ') + ' | <strong>Duration:</strong> ' + escapeHtml(data.duration || 'N/A') + ' | <strong>Severity:</strong> ' + escapeHtml(data.severity || 'N/A') + '</div>';
+
+    if (diff.emergencyFlags && diff.emergencyFlags.length > 0) {
+      html += '<div style="background:#FEE2E2;border:1px solid #FECACA;border-radius:8px;padding:12px;margin-bottom:12px">';
+      html += '<div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:6px">Emergency Flags</div>';
+      diff.emergencyFlags.forEach(f => {
+        html += '<div style="font-size:12px;color:#991B1B;margin-bottom:2px;padding-left:12px;border-left:2px solid #DC2626">' + escapeHtml(f) + '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (diff.criticalConsiderations && diff.criticalConsiderations.length > 0) {
+      html += '<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:12px;margin-bottom:12px">';
+      html += '<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px">Critical Considerations</div>';
+      diff.criticalConsiderations.forEach(c => {
+        html += '<div style="font-size:12px;color:#92400E;margin-bottom:2px">' + escapeHtml(c) + '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (diff.differentialDiagnoses && diff.differentialDiagnoses.length > 0) {
+      html += '<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;margin-bottom:10px">Differential Diagnoses</div>';
+      diff.differentialDiagnoses.forEach((dx, i) => {
+        const likeColor = dx.likelihood === 'high' ? 'var(--danger)' : dx.likelihood === 'moderate' ? 'var(--warning)' : 'var(--success)';
+        html += '<div style="padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+        html += '<span style="font-size:16px;font-weight:700;color:var(--text-light);min-width:24px">' + (i + 1) + '</span>';
+        html += '<span style="font-size:14px;font-weight:700;color:var(--text)">' + escapeHtml(dx.diagnosis) + '</span>';
+        html += '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:' + likeColor + '15;color:' + likeColor + ';text-transform:uppercase;margin-left:auto">' + escapeHtml(dx.likelihood) + '</span>';
+        if (dx.icd10) html += '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:var(--bg);border:1px solid var(--border);color:var(--text-light)">' + escapeHtml(dx.icd10) + '</span>';
+        html += '</div>';
+        if (dx.reasoning) html += '<div style="font-size:12px;color:var(--text);margin-bottom:6px;padding-left:32px">' + escapeHtml(dx.reasoning) + '</div>';
+        if (dx.keyFeatures && dx.keyFeatures.length > 0) {
+          html += '<div style="padding-left:32px;display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">';
+          dx.keyFeatures.forEach(f => { html += '<span style="font-size:10px;padding:2px 6px;background:var(--primary-light);border-radius:4px">' + escapeHtml(f) + '</span>'; });
+          html += '</div>';
+        }
+        if (dx.redFlags && dx.redFlags.length > 0) {
+          html += '<div style="padding-left:32px;display:flex;flex-wrap:wrap;gap:4px">';
+          dx.redFlags.forEach(f => { html += '<span style="font-size:10px;padding:2px 6px;background:#FEE2E2;color:#991B1B;border-radius:4px">' + escapeHtml(f) + '</span>'; });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (diff.recommendedWorkup && diff.recommendedWorkup.length > 0) {
+      html += '<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Recommended Workup</div>';
+      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+      html += '<tr style="background:var(--bg)"><th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">Test</th><th style="padding:8px;text-align:left;border-bottom:2px solid var(--border)">Rationale</th><th style="padding:8px;text-align:center;border-bottom:2px solid var(--border)">Priority</th></tr>';
+      diff.recommendedWorkup.forEach(w => {
+        const test = typeof w === 'string' ? w : w.test || JSON.stringify(w);
+        const rationale = typeof w === 'object' ? (w.rationale || '') : '';
+        const priority = typeof w === 'object' ? (w.priority || '') : '';
+        const prioColor = priority === 'immediate' ? 'var(--danger)' : priority === 'routine' ? 'var(--success)' : 'var(--text-light)';
+        html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600">' + escapeHtml(test) + '</td><td style="padding:8px;color:var(--text-light)">' + escapeHtml(rationale) + '</td><td style="padding:8px;text-align:center"><span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:' + prioColor + '15;color:' + prioColor + '">' + escapeHtml(priority) + '</span></td></tr>';
+      });
+      html += '</table></div></div>';
+    }
+
+    if (diff.clinicalPearls && diff.clinicalPearls.length > 0) {
+      html += '<div style="margin-bottom:12px;padding:12px;background:linear-gradient(135deg,#EFF6FF,#FEF3C7);border:1px solid #BFDBFE;border-radius:8px">';
+      html += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px">Clinical Pearls</div>';
+      diff.clinicalPearls.forEach(p => {
+        html += '<div style="font-size:12px;margin-bottom:4px;padding-left:12px;border-left:2px solid var(--primary)">' + escapeHtml(p) + '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '<div style="font-size:10px;color:var(--text-light);text-align:center;padding:10px;background:var(--bg);border-radius:8px">' + escapeHtml(data.disclaimer || 'AI-generated differential diagnosis for clinical decision support only.') + '</div>';
+
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-error">' + escapeHtml(err.message) + '</div>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = ICONS.insights + ' Generate Differential Diagnosis'; }
+  }
+}
+
+async function loadSystemAlerts() {
+  const container = document.getElementById('ai-system-alerts');
+  const statsContainer = document.getElementById('ai-alert-stats');
+  if (!container) return;
+  try {
+    const data = await apiFetch('/ai-assistant/alerts');
+    statsContainer.innerHTML = `
+      <div class="ai-stat-mini"><div class="stat-value">${data.totalAlerts}</div><div class="stat-label">Total Alerts</div></div>
+      <div class="ai-stat-mini"><div class="stat-value" style="color:var(--danger)">${data.criticalCount}</div><div class="stat-label">Critical</div></div>
+      <div class="ai-stat-mini"><div class="stat-value" style="color:var(--warning)">${data.warningCount}</div><div class="stat-label">Warnings</div></div>`;
+
+    if (data.alerts.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No Active Alerts</h3><p>All patients appear to be within normal parameters.</p></div>';
+      return;
+    }
+
+    container.innerHTML = data.alerts.map(a => `
+      <div class="ai-alert-card alert-${a.type}">
+        <div class="ai-alert-header">
+          <div class="ai-alert-icon ${a.type}">${a.type === 'critical' ? '!' : a.type === 'warning' ? '!' : 'i'}</div>
+          <div class="ai-alert-message">${escapeHtml(a.message)}</div>
+          <div class="ai-alert-category">${escapeHtml(a.category || '').replace(/_/g, ' ')}</div>
+        </div>
+        ${a.patientName ? `<div class="ai-alert-patient" onclick="document.getElementById('ai-patient-id').value='${a.patientId}';runPatientReview()">${escapeHtml(a.patientName)} - View Review</div>` : ''}
+      </div>`).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+    statsContainer.innerHTML = '';
+  }
+}
+
+async function runPatientReview() {
+  const id = getSelectedPatientId();
+  const container = document.getElementById('ai-review-content');
+  switchAITab('review');
+  if (!container) return;
+  if (!id) { container.innerHTML = '<div class="alert alert-info">Please enter a patient ID.</div>'; return; }
+  container.innerHTML = '<div class="spinner"></div>';
+  try {
+    const data = await apiFetch(`/ai-assistant/patient-review/${id}`);
+
+    let alertsHtml = '';
+    if (data.alerts.length > 0) {
+      alertsHtml = `<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text)">Alerts (${data.alerts.length})</div>
+        ${data.alerts.map(a => `<div class="ai-alert-card alert-${a.type}">
+          <div class="ai-alert-header">
+            <div class="ai-alert-icon ${a.type}">${a.type === 'critical' ? '!' : '!'}</div>
+            <div class="ai-alert-message">${escapeHtml(a.message)}</div>
+          </div>
+          ${a.date ? `<div style="font-size:11px;color:var(--text-light);margin-top:4px">${formatShortDate(a.date)}</div>` : ''}
+        </div>`).join('')}</div>`;
+    } else {
+      alertsHtml = '<div class="alert alert-success" style="margin-bottom:16px">No active alerts for this patient.</div>';
+    }
+
+    let adherenceHtml = '';
+    if (data.adherenceStats.rate !== null) {
+      const rateColor = data.adherenceStats.rate >= 80 ? 'var(--success)' : data.adherenceStats.rate >= 60 ? 'var(--warning)' : 'var(--danger)';
+      adherenceHtml = `<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:8px">Medication Adherence (30-day)</div>
+        <div class="ai-stats-row">
+          <div class="ai-stat-mini"><div class="stat-value" style="color:${rateColor}">${data.adherenceStats.rate}%</div><div class="stat-label">Adherence Rate</div></div>
+          <div class="ai-stat-mini"><div class="stat-value">${data.adherenceStats.activeMedications}</div><div class="stat-label">Active Meds</div></div>
+          <div class="ai-stat-mini"><div class="stat-value">${data.adherenceStats.takenDoses}</div><div class="stat-label">Doses Taken</div></div>
+          <div class="ai-stat-mini"><div class="stat-value" style="color:var(--danger)">${data.adherenceStats.missedDoses}</div><div class="stat-label">Missed</div></div>
+        </div></div>`;
+    }
+
+    let journalHtml = '';
+    if (data.journalSummary.totalEntries > 0) {
+      journalHtml = `<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:8px">Health Journal Summary</div>
+        <div class="ai-stats-row">
+          <div class="ai-stat-mini"><div class="stat-value">${data.journalSummary.totalEntries}</div><div class="stat-label">Journal Entries</div></div>
+          ${data.journalSummary.recentPainAvg !== null ? `<div class="ai-stat-mini"><div class="stat-value" style="color:${data.journalSummary.recentPainAvg >= 5 ? 'var(--danger)' : 'var(--text)'}">${data.journalSummary.recentPainAvg}/10</div><div class="stat-label">Avg Pain</div></div>` : ''}
+          ${data.journalSummary.recentMoodAvg !== null ? `<div class="ai-stat-mini"><div class="stat-value">${data.journalSummary.recentMoodAvg}/4</div><div class="stat-label">Avg Mood</div></div>` : ''}
+        </div>
+        ${data.journalSummary.frequentSymptoms.length > 0 ? `<div style="margin-top:8px"><span style="font-size:12px;font-weight:600;color:var(--text-light)">Frequent symptoms:</span> ${data.journalSummary.frequentSymptoms.map(([s, c]) => `<span class="risk-factor-tag">${escapeHtml(s)} (${c}x)</span>`).join(' ')}</div>` : ''}</div>`;
+    }
+
+    let suggestionsHtml = '';
+    if (data.suggestions.length > 0) {
+      suggestionsHtml = `<div><div style="font-weight:600;font-size:13px;margin-bottom:8px">Recommended Actions</div>
+        ${data.suggestions.map(s => `<div class="ai-suggestion">
+          <div class="ai-suggestion-priority ${s.priority}"></div>
+          <div style="flex:1">
+            <div class="ai-suggestion-text">${escapeHtml(s.action)}</div>
+            <div class="ai-suggestion-reason">${escapeHtml(s.reason)}</div>
+          </div>
+        </div>`).join('')}</div>`;
+    }
+
+    container.innerHTML = `
+      <div style="margin-bottom:16px;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+        <div style="font-weight:600;font-size:15px;color:var(--text);margin-bottom:4px">${escapeHtml(data.patient.name)}</div>
+        <div style="font-size:12px;color:var(--text-light)">${escapeHtml(data.patient.email)} | ${data.recordsSummary.total} records | ${data.recordsSummary.vitals} vitals | ${data.recordsSummary.labs} labs</div>
+      </div>
+      ${alertsHtml}${adherenceHtml}${journalHtml}${suggestionsHtml}`;
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function runPredictiveAnalysis() {
+  const id = getSelectedPatientId();
+  const panel = document.getElementById('ai-predictions-panel');
+  switchAITab('review');
+  if (!panel) return;
+  if (!id) { panel.innerHTML = '<div class="alert alert-info">Please enter a patient ID first.</div>'; return; }
+  panel.innerHTML = '<div class="card"><div class="card-header"><div class="card-title">Predictive Risk Analysis</div></div><div class="spinner"></div><p style="text-align:center;font-size:13px;color:var(--text-light)">Running AI analysis... This may take a moment.</p></div>';
+  try {
+    const data = await apiFetch(`/ai-assistant/predict-risks/${id}`, { method: 'POST' });
+    const analysis = data.analysis || {};
+    const predictions = analysis.riskPredictions || [];
+    const trends = analysis.trendAnalysis || {};
+
+    let predictionsHtml = '';
+    if (predictions.length > 0) {
+      predictionsHtml = predictions.map(p => `
+        <div class="risk-prediction-card risk-${p.riskLevel || 'low'}">
+          <div class="risk-prediction-header">
+            <div class="risk-prediction-area">${escapeHtml(p.riskArea || 'General')}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge badge-${p.riskLevel === 'critical' ? 'red' : p.riskLevel === 'high' ? 'red' : p.riskLevel === 'medium' ? 'amber' : 'green'}">${escapeHtml(p.riskLevel || 'low')}</span>
+              ${p.confidence ? `<span style="font-size:11px;color:var(--text-light)">${Math.round(p.confidence * 100)}% confidence</span>` : ''}
+            </div>
+          </div>
+          <div class="risk-prediction-desc">${escapeHtml(p.description || '')}</div>
+          ${p.supportingFactors && p.supportingFactors.length > 0 ? `<div class="risk-factors">${p.supportingFactors.map(f => `<span class="risk-factor-tag">${escapeHtml(f)}</span>`).join('')}</div>` : ''}
+          ${p.recommendedActions && p.recommendedActions.length > 0 ? `<div class="risk-actions">${p.recommendedActions.map(a => `<div class="risk-action">${escapeHtml(a)}</div>`).join('')}</div>` : ''}
+          ${p.timeframe ? `<div style="margin-top:8px;font-size:11px;color:var(--text-light)">Timeframe: ${escapeHtml(p.timeframe)}</div>` : ''}
+        </div>`).join('');
+    } else {
+      predictionsHtml = '<div class="empty-state"><h3>No risk predictions</h3><p>Insufficient data for risk prediction analysis.</p></div>';
+    }
+
+    let trendsHtml = '';
+    if (trends.improving || trends.declining || trends.stable) {
+      const trendItems = [];
+      (trends.improving || []).forEach(t => trendItems.push(`<span class="trend-indicator trend-improving">+ ${escapeHtml(t)}</span>`));
+      (trends.declining || []).forEach(t => trendItems.push(`<span class="trend-indicator trend-declining">- ${escapeHtml(t)}</span>`));
+      (trends.stable || []).forEach(t => trendItems.push(`<span class="trend-indicator trend-stable">= ${escapeHtml(t)}</span>`));
+      if (trendItems.length > 0) {
+        trendsHtml = `<div class="card"><div class="card-header"><div class="card-title">Health Trends</div></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">${trendItems.join('')}</div></div>`;
+      }
+    }
+
+    panel.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Predictive Risk Analysis - ${escapeHtml(data.patient.name)}</div>
+          <span style="font-size:11px;color:var(--text-light)">${data.note ? escapeHtml(data.note) : 'AI-powered analysis'} | ${formatDate(data.generatedAt)}</span>
+        </div>
+        ${analysis.prioritySummary ? `<div class="alert alert-info" style="margin-bottom:16px">${escapeHtml(analysis.prioritySummary)}</div>` : ''}
+        <div class="ai-stats-row">
+          <div class="ai-stat-mini"><div class="stat-value">${data.dataPoints.healthRecords}</div><div class="stat-label">Records Analyzed</div></div>
+          <div class="ai-stat-mini"><div class="stat-value">${data.dataPoints.medications}</div><div class="stat-label">Medications</div></div>
+          <div class="ai-stat-mini"><div class="stat-value">${data.dataPoints.journalEntries}</div><div class="stat-label">Journal Entries</div></div>
+          <div class="ai-stat-mini"><div class="stat-value">${predictions.length}</div><div class="stat-label">Risk Predictions</div></div>
+        </div>
+        ${predictionsHtml}
+      </div>
+      ${trendsHtml}`;
+  } catch (err) {
+    panel.innerHTML = `<div class="alert alert-error">Failed to run predictive analysis: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function renderInsights(params) {
+  const content = document.getElementById('content-area');
+  try {
+    const summary = await apiFetch('/insights/summary');
+    const riskMap = {};
+    (summary.riskDistribution || []).forEach(r => { riskMap[r.riskLevel] = r.count; });
+    const riskColors = { low: 'var(--success)', medium: 'var(--warning)', high: 'var(--danger)', critical: '#7C3AED' };
+
+    content.innerHTML = `
+      <div class="insight-summary">
+        <div class="insight-card"><div class="stat-value">${summary.totalPredictions}</div><div class="stat-label">Total Predictions</div></div>
+        ${Object.entries(riskMap).map(([level, cnt]) => `<div class="insight-card"><div class="stat-value" style="color:${riskColors[level] || 'var(--text)'}">${cnt}</div><div class="stat-label">${level.charAt(0).toUpperCase() + level.slice(1)} Risk</div></div>`).join('')}
+      </div>
+      ${(summary.predictionTypes || []).length > 0 ? `<div class="card"><div class="card-header"><div class="card-title">Prediction Types</div></div>
+        <div class="bar-chart">${summary.predictionTypes.map(pt => {
+          const maxPT = Math.max(1, ...summary.predictionTypes.map(x => Number(x.count)));
+          const pct = Math.round((Number(pt.count) / maxPT) * 100);
+          return `<div class="bar-row"><div class="bar-label">${escapeHtml(pt.type)}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%">${pt.count}</div></div></div>`;
+        }).join('')}</div></div>` : ''}
+      <div class="card">
+        <div class="card-header"><div class="card-title">Patient Insights Lookup</div></div>
+        <div class="search-bar" style="margin-bottom:12px">
+          <input class="form-input" id="insight-patient-id" placeholder="Enter Patient ID to view insights..." style="max-width:360px">
+          <button class="btn btn-primary" onclick="loadPatientInsights()">View Insights</button>
+        </div>
+        <div id="patient-insights-content"></div>
+      </div>
+      ${(summary.recentPredictions || []).length > 0 ? `<div class="card"><div class="card-header"><div class="card-title">Recent Predictions</div></div>
+        ${summary.recentPredictions.map(p => `<div class="prediction-card">
+          <div class="prediction-header"><span class="prediction-type">${escapeHtml(p.predictionType || 'Prediction')}</span><span class="badge badge-${p.riskLevel === 'low' ? 'green' : p.riskLevel === 'medium' ? 'amber' : p.riskLevel === 'high' ? 'red' : 'purple'}">${escapeHtml(p.riskLevel || '-')}</span></div>
+          <div class="prediction-details">${escapeHtml(p.description || '')}</div>
+          ${p.confidence ? `<div class="risk-bar"><div class="risk-bar-fill" style="width:${Math.round(p.confidence * 100)}%;background:${riskColors[p.riskLevel] || 'var(--primary)'}"></div></div>` : ''}
+        </div>`).join('')}</div>` : ''}`;
+  } catch (err) {
+    content.innerHTML = `<div class="alert alert-error">Failed to load insights: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadPatientInsights() {
+  const id = document.getElementById('insight-patient-id')?.value;
+  const container = document.getElementById('patient-insights-content');
+  if (!container) return;
+  if (!id) { container.innerHTML = '<div class="alert alert-info">Please enter a patient ID.</div>'; return; }
+  container.innerHTML = '<div class="spinner"></div>';
+  try {
+    const data = await apiFetch(`/insights/patients/${id}`);
+    if (data.predictions && data.predictions.length > 0) {
+      const riskColors = { low: 'var(--success)', medium: 'var(--warning)', high: 'var(--danger)', critical: '#7C3AED' };
+      container.innerHTML = `
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+          <span class="badge badge-blue">${data.totalPredictions} predictions</span>
+          <span class="badge badge-red">${data.highRiskCount} high risk</span>
+        </div>
+        ${data.predictions.map(p => `<div class="prediction-card">
+          <div class="prediction-header"><span class="prediction-type">${escapeHtml(p.predictionType || 'Prediction')}</span><span class="badge badge-${p.riskLevel === 'low' ? 'green' : p.riskLevel === 'medium' ? 'amber' : p.riskLevel === 'high' ? 'red' : 'purple'}">${escapeHtml(p.riskLevel || '-')}</span></div>
+          <div class="prediction-details">${escapeHtml(p.description || '')}</div>
+          ${p.factors ? `<div style="margin-top:8px;font-size:12px;color:var(--text-light)"><strong>Factors:</strong> ${escapeHtml(typeof p.factors === 'string' ? p.factors : JSON.stringify(p.factors))}</div>` : ''}
+          ${p.recommendations ? `<div style="margin-top:4px;font-size:12px;color:var(--text-light)"><strong>Recommendations:</strong> ${escapeHtml(typeof p.recommendations === 'string' ? p.recommendations : JSON.stringify(p.recommendations))}</div>` : ''}
+          ${p.confidence ? `<div class="risk-bar"><div class="risk-bar-fill" style="width:${Math.round(p.confidence * 100)}%;background:${riskColors[p.riskLevel] || 'var(--primary)'}"></div></div>` : ''}
+        </div>`).join('')}`;
+    } else {
+      container.innerHTML = '<div class="empty-state"><h3>No predictions found</h3><p>No AI insights available for this patient.</p></div>';
+    }
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error">Failed to load patient insights: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+let adminTab = 'providers';
+async function renderAdmin(params) {
+  const content = document.getElementById('content-area');
+  if (currentProvider && currentProvider.role !== 'admin') {
+    content.innerHTML = '<div class="alert alert-error">You do not have access to this section.</div>';
+    return;
+  }
+  adminTab = params.tab || 'providers';
+  content.innerHTML = `
+    <div class="tabs" id="admin-tabs">
+      <div class="tab ${adminTab==='providers'?'active':''}" onclick="switchAdminTab('providers')">Providers</div>
+      <div class="tab ${adminTab==='roles'?'active':''}" onclick="switchAdminTab('roles')">Roles</div>
+      <div class="tab ${adminTab==='audit'?'active':''}" onclick="switchAdminTab('audit')">Audit Log</div>
+    </div>
+    <div id="admin-tab-content"><div class="spinner"></div></div>`;
+  loadAdminTab(adminTab);
+}
+
+function switchAdminTab(tab) {
+  adminTab = tab;
+  document.querySelectorAll('#admin-tabs .tab').forEach(t => t.classList.toggle('active', t.textContent.toLowerCase().includes(tab === 'audit' ? 'audit' : tab)));
+  const tc = document.getElementById('admin-tab-content');
+  tc.innerHTML = '<div class="spinner"></div>';
+  loadAdminTab(tab);
+}
+
+async function loadAdminTab(tab) {
+  const tc = document.getElementById('admin-tab-content');
+  if (!tc) return;
+  if (tab === 'providers') await loadAdminProviders(tc);
+  else if (tab === 'roles') await loadAdminRoles(tc);
+  else if (tab === 'audit') await loadAdminAudit(tc, 1);
+}
+
+async function loadAdminProviders(container) {
+  try {
+    const providers = await apiFetch('/admin/providers');
+    container.innerHTML = `
+      <div style="margin-bottom:16px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="openAddProviderModal()">+ Add Provider</button></div>
+      ${providers.length > 0 ? `<div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Specialty</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+        <tbody>${providers.map(p => `<tr>
+          <td>${escapeHtml(p.name)}</td>
+          <td>${escapeHtml(p.email)}</td>
+          <td><span class="badge badge-${p.role==='admin'?'purple':'blue'}">${escapeHtml(p.role)}</span></td>
+          <td>${escapeHtml(p.specialty || '-')}</td>
+          <td><span class="badge badge-${p.isActive?'green':'red'}">${p.isActive ? 'Active' : 'Inactive'}</span></td>
+          <td>${p.lastLoginAt ? timeAgo(p.lastLoginAt) : 'Never'}</td>
+          <td><div class="table-actions">
+            <button class="btn btn-secondary btn-sm" onclick="openEditProviderModal('${p.id}')">Edit</button>
+            ${p.isActive ? `<button class="btn btn-danger btn-sm" onclick="deactivateProvider('${p.id}')">Deactivate</button>` : ''}
+          </div></td>
+        </tr>`).join('')}</tbody></table></div>` : '<div class="empty-state"><h3>No providers</h3></div>'}`;
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function openAddProviderModal() {
+  openModal('Add Provider', `
+    <div class="form-row"><div class="form-group"><label class="form-label">Name</label><input class="form-input" id="prov-name" required></div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="prov-email" type="email" required></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Password</label><input class="form-input" id="prov-password" type="password" required></div>
+    <div class="form-group"><label class="form-label">Role</label><select class="form-input" id="prov-role"><option value="provider">Provider</option><option value="admin">Admin</option><option value="nurse">Nurse</option><option value="staff">Staff</option></select></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Specialty</label><input class="form-input" id="prov-specialty"></div>
+    <div class="form-group"><label class="form-label">Organization</label><input class="form-input" id="prov-org"></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="prov-phone"></div>
+    <div class="form-group"><label class="form-label">NPI Number</label><input class="form-input" id="prov-npi"></div></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="addProvider()">Add Provider</button>`);
+}
+
+async function addProvider() {
+  try {
+    await apiFetch('/admin/providers', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('prov-name').value,
+        email: document.getElementById('prov-email').value,
+        password: document.getElementById('prov-password').value,
+        role: document.getElementById('prov-role').value,
+        specialty: document.getElementById('prov-specialty').value,
+        organization: document.getElementById('prov-org').value,
+        phone: document.getElementById('prov-phone').value,
+        npiNumber: document.getElementById('prov-npi').value
+      })
+    });
+    closeModal();
+    showToast('Provider added successfully');
+    loadAdminTab('providers');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function openEditProviderModal(id) {
+  try {
+    const providers = await apiFetch('/admin/providers');
+    const p = providers.find(x => x.id === id);
+    if (!p) { showToast('Provider not found', 'error'); return; }
+    openModal('Edit Provider', `
+      <div class="form-row"><div class="form-group"><label class="form-label">Name</label><input class="form-input" id="edit-prov-name" value="${escapeHtml(p.name)}"></div>
+      <div class="form-group"><label class="form-label">Role</label><select class="form-input" id="edit-prov-role"><option value="provider" ${p.role==='provider'?'selected':''}>Provider</option><option value="admin" ${p.role==='admin'?'selected':''}>Admin</option><option value="nurse" ${p.role==='nurse'?'selected':''}>Nurse</option><option value="staff" ${p.role==='staff'?'selected':''}>Staff</option></select></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Specialty</label><input class="form-input" id="edit-prov-specialty" value="${escapeHtml(p.specialty || '')}"></div>
+      <div class="form-group"><label class="form-label">Organization</label><input class="form-input" id="edit-prov-org" value="${escapeHtml(p.organization || '')}"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="edit-prov-phone" value="${escapeHtml(p.phone || '')}"></div>
+      <div class="form-group"><label class="form-label">NPI Number</label><input class="form-input" id="edit-prov-npi" value="${escapeHtml(p.npiNumber || '')}"></div></div>
+      <div class="form-group"><label class="form-label">New Password (leave blank to keep current)</label><input class="form-input" id="edit-prov-password" type="password"></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="updateProvider('${id}')">Save Changes</button>`);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function updateProvider(id) {
+  try {
+    const body = {
+      name: document.getElementById('edit-prov-name').value,
+      role: document.getElementById('edit-prov-role').value,
+      specialty: document.getElementById('edit-prov-specialty').value,
+      organization: document.getElementById('edit-prov-org').value,
+      phone: document.getElementById('edit-prov-phone').value,
+      npiNumber: document.getElementById('edit-prov-npi').value
+    };
+    const pw = document.getElementById('edit-prov-password').value;
+    if (pw) body.password = pw;
+    await apiFetch(`/admin/providers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    closeModal();
+    showToast('Provider updated successfully');
+    loadAdminTab('providers');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function deactivateProvider(id) {
+  if (!confirm('Are you sure you want to deactivate this provider?')) return;
+  try {
+    await apiFetch(`/admin/providers/${id}`, { method: 'DELETE' });
+    showToast('Provider deactivated');
+    loadAdminTab('providers');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadAdminRoles(container) {
+  try {
+    const roles = await apiFetch('/admin/roles');
+    container.innerHTML = `
+      <div style="margin-bottom:16px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="openAddRoleModal()">+ Add Role</button></div>
+      ${roles.length > 0 ? `<div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th>Display Name</th><th>Description</th><th>Priority</th><th>Actions</th></tr></thead>
+        <tbody>${roles.map(r => `<tr>
+          <td><span class="badge badge-blue">${escapeHtml(r.name)}</span></td>
+          <td>${escapeHtml(r.displayName)}</td>
+          <td>${escapeHtml(r.description || '-')}</td>
+          <td>${r.priority}</td>
+          <td><button class="btn btn-secondary btn-sm" onclick="openEditRoleModal('${r.id}')">Edit</button></td>
+        </tr>`).join('')}</tbody></table></div>` : '<div class="empty-state"><h3>No roles defined</h3><p>Create roles to manage access.</p></div>'}`;
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function openAddRoleModal() {
+  openModal('Add Role', `
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="role-name" placeholder="e.g. physician" required></div>
+    <div class="form-group"><label class="form-label">Display Name</label><input class="form-input" id="role-display" placeholder="e.g. Physician" required></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="role-desc" placeholder="Role description..."></textarea></div>
+    <div class="form-group"><label class="form-label">Priority</label><input class="form-input" id="role-priority" type="number" value="0"></div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="addRole()">Add Role</button>`);
+}
+
+async function addRole() {
+  try {
+    await apiFetch('/admin/roles', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('role-name').value,
+        displayName: document.getElementById('role-display').value,
+        description: document.getElementById('role-desc').value,
+        priority: parseInt(document.getElementById('role-priority').value) || 0
+      })
+    });
+    closeModal();
+    showToast('Role created successfully');
+    loadAdminTab('roles');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function openEditRoleModal(id) {
+  try {
+    const roles = await apiFetch('/admin/roles');
+    const r = roles.find(x => x.id === id);
+    if (!r) { showToast('Role not found', 'error'); return; }
+    openModal('Edit Role', `
+      <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="edit-role-name" value="${escapeHtml(r.name)}"></div>
+      <div class="form-group"><label class="form-label">Display Name</label><input class="form-input" id="edit-role-display" value="${escapeHtml(r.displayName)}"></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="edit-role-desc">${escapeHtml(r.description || '')}</textarea></div>
+      <div class="form-group"><label class="form-label">Priority</label><input class="form-input" id="edit-role-priority" type="number" value="${r.priority || 0}"></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="updateRole('${id}')">Save Changes</button>`);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function updateRole(id) {
+  try {
+    await apiFetch(`/admin/roles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: document.getElementById('edit-role-name').value,
+        displayName: document.getElementById('edit-role-display').value,
+        description: document.getElementById('edit-role-desc').value,
+        priority: parseInt(document.getElementById('edit-role-priority').value) || 0
+      })
+    });
+    closeModal();
+    showToast('Role updated successfully');
+    loadAdminTab('roles');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+let auditPage = 1;
+async function loadAdminAudit(container, page) {
+  auditPage = page || 1;
+  try {
+    const data = await apiFetch(`/admin/audit-log?page=${auditPage}&limit=20`);
+    const logs = data.logs || [];
+    const pg = data.pagination || {};
+    container.innerHTML = `
+      ${logs.length > 0 ? `<div class="table-wrap"><table>
+        <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th><th>IP Address</th></tr></thead>
+        <tbody>${logs.map(l => `<tr>
+          <td>${formatDate(l.createdAt)}</td>
+          <td>${escapeHtml(l.userId || '-')}</td>
+          <td>${escapeHtml(l.action || '-')}</td>
+          <td>${escapeHtml(l.resourceType || '')} ${l.resourceId ? '(' + escapeHtml(l.resourceId) + ')' : ''}</td>
+          <td>${escapeHtml(l.ipAddress || '-')}</td>
+        </tr>`).join('')}</tbody></table></div>
+        <div class="pagination">
+          <button ${auditPage <= 1 ? 'disabled' : ''} onclick="loadAdminAudit(document.getElementById('admin-tab-content'),${auditPage - 1})">Previous</button>
+          <span>Page ${pg.page || auditPage} of ${pg.totalPages || 1}</span>
+          <button ${auditPage >= (pg.totalPages || 1) ? 'disabled' : ''} onclick="loadAdminAudit(document.getElementById('admin-tab-content'),${auditPage + 1})">Next</button>
+        </div>` : '<div class="empty-state"><h3>No audit logs</h3><p>Activity will appear here as actions are performed.</p></div>'}`;
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function renderTasks(params) {
+  const content = document.getElementById('content-area');
+  content.innerHTML = `
+    <div class="filter-bar">
+      <select class="form-input" id="task-status-filter" onchange="loadTasks()">
+        <option value="">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="in_progress">In Progress</option>
+        <option value="completed">Completed</option>
+      </select>
+      <select class="form-input" id="task-priority-filter" onchange="loadTasks()">
+        <option value="">All Priorities</option>
+        <option value="urgent">Urgent</option>
+        <option value="high">High</option>
+        <option value="normal">Normal</option>
+        <option value="low">Low</option>
+      </select>
+      <div style="margin-left:auto"><button class="btn btn-primary" onclick="openNewTaskModal()">+ New Task</button></div>
+    </div>
+    <div id="task-list"><div class="spinner"></div></div>`;
+  loadTasks();
+}
+
+async function loadTasks() {
+  const listEl = document.getElementById('task-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="spinner"></div>';
+  try {
+    const tasks = await apiFetch('/tasks');
+    const statusFilter = document.getElementById('task-status-filter')?.value || '';
+    const priorityFilter = document.getElementById('task-priority-filter')?.value || '';
+    let filtered = tasks;
+    if (statusFilter) filtered = filtered.filter(t => t.status === statusFilter);
+    if (priorityFilter) filtered = filtered.filter(t => t.priority === priorityFilter);
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg><h3>No tasks found</h3><p>Create a new task to get started.</p></div>';
+      return;
+    }
+    const priorityColors = { urgent: 'red', high: 'amber', normal: 'blue', low: 'gray' };
+    const statusBadge = { pending: 'amber', in_progress: 'blue', completed: 'green' };
+    listEl.innerHTML = filtered.map(t => `
+      <div class="task-card">
+        <div class="task-header">
+          <div class="task-title">${escapeHtml(t.title)}</div>
+          <span class="badge badge-${priorityColors[t.priority] || 'gray'}">${escapeHtml(t.priority || 'normal')}</span>
+        </div>
+        ${t.description ? `<div style="font-size:13px;color:var(--text-light);margin-bottom:8px">${escapeHtml(t.description)}</div>` : ''}
+        <div class="task-meta">
+          <span class="badge badge-${statusBadge[t.status] || 'gray'}">${escapeHtml((t.status || '').replace('_', ' '))}</span>
+          ${t.taskType ? `<span class="badge badge-gray">${escapeHtml(t.taskType.replace('_', ' '))}</span>` : ''}
+          ${t.dueDate ? `<span>Due: ${formatShortDate(t.dueDate)}</span>` : ''}
+          ${t.patientId ? `<span>Patient: ${escapeHtml(t.patientId)}</span>` : ''}
+        </div>
+        <div class="task-actions">
+          <select class="status-select" onchange="updateTaskStatus('${t.id}',this.value)">
+            <option value="pending" ${t.status==='pending'?'selected':''}>Pending</option>
+            <option value="in_progress" ${t.status==='in_progress'?'selected':''}>In Progress</option>
+            <option value="completed" ${t.status==='completed'?'selected':''}>Completed</option>
+          </select>
+        </div>
+      </div>`).join('');
+  } catch (err) {
+    listEl.innerHTML = `<div class="alert alert-error">Failed to load tasks: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function openNewTaskModal() {
+  openModal('New Task', `
+    <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="task-title" placeholder="Task title" required></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="task-desc" placeholder="Task description..."></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Type</label><select class="form-input" id="task-type"><option value="follow_up">Follow Up</option><option value="review_results">Review Results</option><option value="call_patient">Call Patient</option><option value="prescription">Prescription</option><option value="referral">Referral</option><option value="documentation">Documentation</option><option value="other">Other</option></select></div>
+      <div class="form-group"><label class="form-label">Priority</label><select class="form-input" id="task-priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Due Date</label><input class="form-input" id="task-due" type="date"></div>
+      <div class="form-group"><label class="form-label">Patient ID (optional)</label><input class="form-input" id="task-patient" placeholder="Patient ID"></div>
+    </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createTask()">Create Task</button>`);
+}
+
+async function createTask() {
+  try {
+    await apiFetch('/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: document.getElementById('task-title').value,
+        description: document.getElementById('task-desc').value,
+        taskType: document.getElementById('task-type').value,
+        priority: document.getElementById('task-priority').value,
+        dueDate: document.getElementById('task-due').value || null,
+        patientId: document.getElementById('task-patient').value || null
+      })
+    });
+    closeModal();
+    showToast('Task created successfully');
+    loadTasks();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function updateTaskStatus(id, status) {
+  try {
+    await apiFetch(`/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    });
+    showToast('Task status updated');
+    loadTasks();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function init() {
+  const savedToken = localStorage.getItem('portal_token');
+  const savedProvider = localStorage.getItem('portal_provider');
+  if (savedToken && savedProvider) {
+    currentToken = savedToken;
+    try { currentProvider = JSON.parse(savedProvider); } catch (e) { currentProvider = null; }
+    buildSidebar();
+  }
+  if (!window.location.hash || window.location.hash === '#') {
+    window.location.hash = currentToken ? '#dashboard' : '#login';
+  } else {
+    route();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

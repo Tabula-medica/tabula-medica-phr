@@ -1,0 +1,101 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# TypeScript incremental build cache
+.cache/
+*.tsbuildinfo
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env.*
+.env*.local
+
+# secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.p8
+*.jks
+*.mobileprovision
+*.keystore
+serviceAccountKey.json
+gcp-wif-config.json
+firebase-admin-sdk*.json
+google-credentials*.json
+google-service-account.json
+credentials.json
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+
+# build artifacts
+/tabula-medica.zip
+/.export-project.*/
+server_dist/
+static-build/
+build/
+dist/
+
+# uploads (may contain PHI)
+uploads/
+
+# logs
+*.log
+logs/
+
+# coverage
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# session/local state
+.local/
+appstore-api-key.p8
+credentials.json
+profile.mobileprovision
+dist_cert.p12
+dist_cert.key

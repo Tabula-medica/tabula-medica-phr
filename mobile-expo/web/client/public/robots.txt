@@ -1,0 +1,144 @@
+# Tabula Medica — robots.txt
+#
+# One consolidated `User-agent: *` group governs ALL crawlers — search engines
+# (Googlebot, Bingbot, etc.) AND AI/LLM crawlers (GPTBot, ClaudeBot,
+# PerplexityBot, etc.). We do this on purpose: per the robots.txt spec a bot
+# obeys only the single most-specific matching group, so giving each bot its
+# own `Allow: /`-only group would silently drop the Disallow rules below for
+# exactly the crawlers that matter most. Keeping a single group means the
+# private-route protections apply to everyone.
+#
+# Public marketing pages and patient-facing content are open to all crawlers,
+# including AI training/answer crawlers (AEO/GEO), so the brand and product
+# information can surface in AI Overviews, ChatGPT, Claude, Perplexity, etc.
+# We intentionally do NOT block AI crawlers from public content.
+#
+# Authenticated routes are protected by auth at the application layer (no PHI
+# ever renders without a valid session); we still disallow crawling them so
+# empty app shells don't get indexed.
+
+User-agent: *
+Allow: /
+Allow: /care/*
+
+# --- Authenticated / account / PHI surfaces — keep out of the index ---
+Disallow: /api/
+Disallow: /auth/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /patient/
+Disallow: /provider/
+Disallow: /clinician/
+Disallow: /settings/
+Disallow: /onboarding/
+Disallow: /consent/
+# Beta-program consent flow — gated, not public marketing content.
+Disallow: /beta-consent
+# Account security settings (2FA, sessions, password) — not the public
+# /about/security overview, which stays indexable.
+Disallow: /security
+# Privacy / data-sharing controls dashboard. The explicit Allow keeps the
+# public /privacy-policy legal page indexable, and the `$` anchor limits the
+# Disallow to the exact /privacy route for crawlers that support it.
+Allow: /privacy-policy
+Disallow: /privacy$
+
+# --- The noindex-vs-Disallow split (READ BEFORE ADDING A ROUTE) ---
+# Every route falls into exactly ONE of three buckets:
+#   1. INDEXABLE — public marketing/tool pages. Listed in sitemap.xml AND in
+#      INDEXABLE_ROUTES in web/client/src/App.tsx. Served `index, follow`.
+#      NEVER Disallow these.
+#   2. noindex (must stay CRAWLABLE) — any route NOT in INDEXABLE_ROUTES gets a
+#      JS-injected `noindex, nofollow` (see App.tsx). This is the default and it
+#      relies on the crawler EXECUTING the page to read the tag, so the route
+#      must NOT be Disallowed here — a Disallowed route is never fetched, so the
+#      noindex tag is never seen. Use this bucket for borderline informational /
+#      compliance / marketing pages we want kept out of the index but still
+#      reachable (e.g. /welcome, /trust-center, /gdpr, /ccpa, /accessibility).
+#   3. Disallow (URL-only suppression) — genuinely private, auth-gated PHI /
+#      account app shells below. They carry no public value and never need to be
+#      crawled, so we hard-block them here. This stops non-JS crawlers (which
+#      never see the bucket-2 noindex tag) from listing the bare URL. Because
+#      these are blocked from crawling, do NOT also depend on noindex for them —
+#      Disallow alone is the suppression mechanism.
+# RULE: a route is EITHER bucket 2 (crawlable + noindex) OR bucket 3 (Disallow),
+# never both. Never put an INDEXABLE_ROUTES path in bucket 3.
+
+# --- Private PHI / health-record app shells — URL-only suppression ---
+Disallow: /medications
+Disallow: /conditions
+Disallow: /lab-results
+Disallow: /vitals
+Disallow: /immunizations
+Disallow: /allergies
+Disallow: /appointments
+Disallow: /timeline
+Disallow: /documents
+Disallow: /health-records
+Disallow: /my-health-record
+Disallow: /intake-history
+Disallow: /health-journal
+Disallow: /pet-health-records
+Disallow: /fhir-data-hub
+Disallow: /care-packets
+
+# --- Private account / personal-data app shells — URL-only suppression ---
+Disallow: /connections
+Disallow: /messages
+Disallow: /billing
+Disallow: /bills-eob
+Disallow: /notifications
+Disallow: /my-profile
+Disallow: /identity
+Disallow: /my-family
+Disallow: /my-audit-trail
+Disallow: /audit-logs
+Disallow: /audit-visualization
+
+# --- Private provider / clinical / admin app shells — URL-only suppression ---
+# Same treatment as the PHI/account shells above: auth-gated, no public value,
+# and never in INDEXABLE_ROUTES. Non-JS crawlers never execute the bucket-2
+# noindex tag, so we hard-block the bare URLs here. Full exact paths are used so
+# none of these prefix-collide with an INDEXABLE_ROUTES entry (e.g. /care-team-hub
+# and /care-gaps do NOT match the indexable /care/find-a-doctor).
+Disallow: /provider-portal
+Disallow: /clinician-dashboard
+Disallow: /patients
+Disallow: /patient-viewer
+Disallow: /admin-analytics
+Disallow: /internal-analytics
+Disallow: /extraction-pipeline
+Disallow: /data-integration-hub
+Disallow: /compliance-dashboard
+Disallow: /uscdi-v3-compliance
+Disallow: /telehealth
+Disallow: /patient-telehealth-portal
+Disallow: /care-team-hub
+Disallow: /collaborative-care-plans
+Disallow: /caregiver-portal
+Disallow: /family-verification
+Disallow: /medical-scribe
+Disallow: /visit-summary
+Disallow: /ambient-encounter
+Disallow: /preventive-screening
+Disallow: /care-gaps
+Disallow: /womens-health
+Disallow: /fertility-cycle
+Disallow: /menopause-resilience
+Disallow: /longevity-tracking
+Disallow: /advance-directives
+Disallow: /patient-reported-outcomes
+Disallow: /my-health-goals
+Disallow: /search
+Disallow: /deduplication
+
+# AI & search crawlers explicitly welcomed on public content. These bots are
+# governed by the `User-agent: *` rules above (allowed on public pages,
+# disallowed on the private routes listed there). Listed here only to document
+# that AI training/answer crawlers are intentionally permitted.
+# GPTBot, ChatGPT-User, OAI-SearchBot, Google-Extended, Googlebot, ClaudeBot,
+# Claude-Web, anthropic-ai, PerplexityBot, Perplexity-User, Applebot,
+# Applebot-Extended, Bingbot, Bytespider, CCBot, cohere-ai,
+# Meta-ExternalAgent, FacebookBot.
+
+Sitemap: https://tabulamedica.health/sitemap.xml

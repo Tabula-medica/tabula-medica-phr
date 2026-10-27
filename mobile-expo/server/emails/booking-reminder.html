@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointment Reminder - Tabula Medica</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F2F2F7; color: #1C1C1E; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .card { background: #FFFFFF; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+    .header { text-align: center; padding: 32px 0 16px; }
+    .logo { width: 48px; height: 48px; background: linear-gradient(135deg, #F59E0B, #D97706); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+    .logo-text { color: #FFF; font-size: 24px; font-weight: 700; }
+    h1 { font-size: 24px; font-weight: 700; margin: 8px 0 4px; color: #1C1C1E; }
+    .subtitle { font-size: 14px; color: #8E8E93; }
+    .countdown { text-align: center; margin: 16px 0; }
+    .countdown-box { display: inline-block; background: linear-gradient(135deg, #FEF3C7, #FDE68A); border-radius: 16px; padding: 16px 32px; }
+    .countdown-number { font-size: 36px; font-weight: 800; color: #D97706; }
+    .countdown-label { font-size: 12px; color: #92400E; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F2F2F7; }
+    .detail-label { color: #8E8E93; font-size: 13px; }
+    .detail-value { font-weight: 600; font-size: 14px; }
+    .checklist { list-style: none; padding: 0; margin: 0; }
+    .checklist li { padding: 8px 0; font-size: 14px; color: #374151; display: flex; align-items: center; }
+    .checklist li::before { content: "\2713"; display: inline-block; width: 24px; height: 24px; background: #D1FAE5; color: #059669; border-radius: 12px; text-align: center; line-height: 24px; margin-right: 12px; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+    .cta-button { display: block; text-align: center; background: #007AFF; color: #FFFFFF; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 16px 0; }
+    .cancel-link { display: block; text-align: center; color: #EF4444; font-size: 13px; margin-top: 8px; text-decoration: underline; }
+    .footer { text-align: center; padding: 24px 0; font-size: 11px; color: #8E8E93; line-height: 18px; }
+    .cost-banner { background: #F0FDF4; border: 1px solid #A7F3D0; border-radius: 12px; padding: 16px; text-align: center; margin: 16px 0; }
+    .cost-amount { font-size: 28px; font-weight: 800; color: #059669; }
+    .cost-label { font-size: 12px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo"><span class="logo-text">T</span></div>
+      <h1>Appointment Reminder</h1>
+      <p class="subtitle">Don't forget your upcoming visit</p>
+    </div>
+
+    <div class="countdown">
+      <div class="countdown-box">
+        <div class="countdown-number">{{daysUntil}}</div>
+        <div class="countdown-label">days until your visit</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="detail-row">
+        <span class="detail-label">Appointment</span>
+        <span class="detail-value">{{appointmentDate}} at {{appointmentTime}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Provider</span>
+        <span class="detail-value">{{providerName}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Location</span>
+        <span class="detail-value">{{providerAddress}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Confirmation</span>
+        <span class="detail-value">{{bookingId}}</span>
+      </div>
+    </div>
+
+    <div class="cost-banner">
+      <div class="cost-label">YOUR ESTIMATED COST</div>
+      <div class="cost-amount">{{totalCost}}</div>
+      <div class="cost-label">Based on your Good Faith Estimate ({{gfeId}})</div>
+    </div>
+
+    <div class="card">
+      <p style="font-weight: 700; margin-bottom: 12px;">What to Bring</p>
+      <ul class="checklist">
+        <li>Photo ID (any government-issued ID accepted)</li>
+        <li>Your Tabula Medica Health Access Card (physical or digital)</li>
+        {{#isLaneA}}
+        <li>Payment method (card, HSA, or bank info for ACH)</li>
+        {{/isLaneA}}
+        {{#isLaneB}}
+        <li>VA Community Care referral letter</li>
+        <li>VA ID card or veteran identification</li>
+        {{/isLaneB}}
+        <li>List of current medications</li>
+        <li>Any recent lab results or medical records</li>
+      </ul>
+    </div>
+
+    <a href="{{appLink}}" class="cta-button">View Appointment Details</a>
+    <a href="{{cancelLink}}" class="cancel-link">Need to reschedule or cancel?</a>
+
+    <div class="footer">
+      <p>Tabula Medica, Inc. DBA Uninsurance</p>
+      <p>This email contains protected health information (PHI) under HIPAA.</p>
+      <p>To stop reminders, update your notification preferences in the app.</p>
+    </div>
+  </div>
+</body>
+</html>

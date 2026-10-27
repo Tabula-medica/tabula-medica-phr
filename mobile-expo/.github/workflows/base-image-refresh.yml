@@ -1,0 +1,136 @@
+name: Base Image Auto-Refresh
+
+# Pairs with the Trivy `container-scan` job in `.github/workflows/security-alerts.yml`
+# (task #59). That job pages on-call when the production `node:20-slim` base image
+# ships a new high/critical CVE; without this workflow, the fix is fully manual
+# (an engineer has to bump the Dockerfile tag and push). For HIPAA posture we want
+# time-to-patch on base-image CVEs measured in hours, not days.
+#
+# Strategy: pin `Dockerfile`'s `FROM node:20-slim` lines to an explicit
+# `@sha256:...` digest, and run this workflow daily to check whether Docker Hub
+# resolves the floating `node:20-slim` tag to a newer manifest digest. When it
+# does, open a PR that repins both `FROM` stages to the new digest. Merging the
+# PR is a `Dockerfile` change, which re-triggers `deploy-cloudrun.yml` — that
+# workflow already enforces the critical-CVE Trivy + npm-audit deploy gates, so
+# a regression introduced by the new base image still cannot ship.
+#
+# We deliberately open a PR (rather than directly triggering a rebuild via
+# workflow_dispatch) so:
+#   - the change is auditable in git history (HIPAA: who applied which OS patches, when),
+#   - the existing branch-protection / required-reviews policies still apply,
+#   - the deploy gate sees a real diff and runs its normal Trivy + npm audit checks.
+
+on:
+  schedule:
+    # 14:00 UTC = 1h after `security-alerts.yml` (13:00 UTC). Letting the daily
+    # CVE scan land first means on-call sees the alert in Slack/email before the
+    # auto-PR shows up in the review queue, so the PR has obvious context.
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    name: Refresh node:20-slim base image pin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Resolve the manifest-list digest the floating `node:20-slim` tag points
+      # at right now. `docker buildx imagetools inspect` returns the multi-arch
+      # manifest digest (the same value `docker pull node:20-slim` would record
+      # locally), which is exactly what we want to pin so Cloud Run rebuilds
+      # against the same image bytes the upstream tag currently advertises.
+      - name: Resolve latest node:20-slim digest
+        id: resolve
+        run: |
+          set -euo pipefail
+          DIGEST=$(docker buildx imagetools inspect node:20-slim --format '{{json .Manifest}}' | jq -r '.digest')
+          if [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
+            echo "Failed to resolve digest for node:20-slim" >&2
+            exit 1
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      # Read the digest currently pinned in `Dockerfile`. If the file isn't
+      # pinned yet (initial run, before this workflow has ever opened a PR),
+      # both FROM lines will match the bare `node:20-slim` form and `CURRENT`
+      # will be empty — that's expected and the diff step below will treat it
+      # as "needs initial pin".
+      - name: Read current pinned digest
+        id: current
+        run: |
+          set -euo pipefail
+          # `grep` exits 1 when the Dockerfile isn't pinned yet (initial run,
+          # before this workflow has ever opened a PR). We treat "no match" as
+          # a valid state — the comparison below will see `none` vs the live
+          # digest and trigger the first auto-pin PR. The `|| true` keeps the
+          # pipeline alive under `set -e`; without it the entire step would
+          # abort and the initial-pin path could never run.
+          CURRENT=$(grep -oE 'node:20-slim@sha256:[a-f0-9]+' Dockerfile | head -n1 | sed 's/.*@//' || true)
+          echo "digest=${CURRENT:-none}" >> "$GITHUB_OUTPUT"
+
+      # Rewrite both `FROM node:20-slim ...` stages to pin the new digest.
+      # The sed pattern matches the bare tag and any existing
+      # `@sha256:...` suffix, so it works for both the initial pin and
+      # subsequent refreshes without needing a separate code path.
+      - name: Update Dockerfile if digest changed
+        id: update
+        if: steps.resolve.outputs.digest != steps.current.outputs.digest
+        env:
+          NEW_DIGEST: ${{ steps.resolve.outputs.digest }}
+        run: |
+          set -euo pipefail
+          sed -i -E "s|FROM node:20-slim(@sha256:[a-f0-9]+)?|FROM node:20-slim@${NEW_DIGEST}|g" Dockerfile
+          # Sanity check: both FROM stages should now reference the new digest.
+          if ! grep -q "FROM node:20-slim@${NEW_DIGEST} AS builder" Dockerfile \
+             || ! grep -q "FROM node:20-slim@${NEW_DIGEST} AS runtime" Dockerfile; then
+            echo "Dockerfile rewrite failed — FROM stages did not pick up the new digest" >&2
+            echo "--- Dockerfile ---" >&2
+            cat Dockerfile >&2
+            exit 1
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Open (or update) the auto-refresh PR. Using `peter-evans/create-pull-request`
+      # because it handles the "idempotent branch / refresh existing PR" case for
+      # free — re-running this workflow against the same upstream digest just
+      # no-ops, and a newer upstream digest force-updates the existing branch
+      # instead of stacking up duplicate PRs.
+      #
+      # The PR is created with the default GITHUB_TOKEN. That means *opening* the
+      # PR will not trigger downstream workflows, but the eventual merge to `main`
+      # is performed by a human reviewer and DOES trigger `deploy-cloudrun.yml`
+      # (Dockerfile is in its paths filter), so the critical-CVE deploy gate runs
+      # before the new base image reaches Cloud Run.
+      - name: Open pull request
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/base-image-refresh
+          delete-branch: true
+          commit-message: |
+            chore(docker): refresh node:20-slim base image digest
+
+            Auto-refresh from .github/workflows/base-image-refresh.yml.
+            Old digest: ${{ steps.current.outputs.digest }}
+            New digest: ${{ steps.resolve.outputs.digest }}
+          title: 'chore(docker): refresh node:20-slim base image to latest patched digest'
+          body: |
+            Automated PR from [`.github/workflows/base-image-refresh.yml`](../blob/main/.github/workflows/base-image-refresh.yml).
+
+            The floating `node:20-slim` tag on Docker Hub now resolves to a new manifest digest, which usually means a patched OS-package set is available upstream. Merging this PR re-pins both `FROM` stages in `Dockerfile` to the new digest and re-triggers `deploy-cloudrun.yml`, which runs the critical-CVE Trivy + `npm audit` deploy gates before shipping the rebuilt image to Cloud Run.
+
+            - Previous digest: `${{ steps.current.outputs.digest }}`
+            - New digest: `${{ steps.resolve.outputs.digest }}`
+
+            No application code changes — this is a base-image-only rebuild to pick up upstream OS patches (typically clearing high/critical CVEs filed against the `[security] Trivy found high/critical container CVEs` tracking issue by `security-alerts.yml`).
+
+            If the deploy gate blocks this PR on a *new* critical CVE introduced by the refreshed base image, do **not** force-merge — revert to the previous digest and escalate, since the upstream patch itself is the regression.
+          labels: |
+            security
+            automated
+            dependencies

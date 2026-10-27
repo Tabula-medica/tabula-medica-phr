@@ -1,0 +1,104 @@
+name: Test CI-gates branch-protection wiring
+
+# Regression coverage for the four critical CI gate jobs. Verifies that:
+#
+#   1. ci-cd.yml defines all four gate jobs (server-tests, jest-tests,
+#      reviewer-login-gate, script-tests) and contains the consolidated
+#      "Assert all critical CI jobs are in branch-protection required-checks"
+#      step that verifies the wiring at runtime.
+#
+#   2. (When GH_ADMIN_PAT is configured) all four gate job IDs are in the
+#      required-status-checks list for `main`, detected in both new-style
+#      .checks[] and legacy .contexts[] format.
+#
+# Branch-protection API assertion (check 2):
+#   - When GH_ADMIN_PAT is set as an Actions secret, REQUIRE_BP_CHECK=1 is
+#     passed so check 2 is mandatory — the job FAILS if any gate cannot be
+#     confirmed. This mode is used on push to main (the hardening path).
+#   - On PRs from forks or when GH_ADMIN_PAT is absent, check 2 is skipped
+#     with a warning (REQUIRE_BP_CHECK defaults to 0). Check 1 still runs
+#     and catches structural regressions (deleted jobs, renamed IDs, etc.).
+#
+# Runs whenever ci-cd.yml, the CI-gates branch-protection scripts, or this
+# workflow file itself changes — catching a regression (a job renamed or
+# removed, the assertion step deleted) before it silently lands on main.
+# Also exposed via workflow_dispatch.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/test-ci-gates-branch-protection.yml'
+      - 'scripts/verify-ci-gates-branch-protection.sh'
+      - 'scripts/set-ci-gates-branch-protection.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/test-ci-gates-branch-protection.yml'
+      - 'scripts/verify-ci-gates-branch-protection.sh'
+      - 'scripts/set-ci-gates-branch-protection.sh'
+  workflow_dispatch:
+
+jobs:
+  verify-ci-gates-wiring:
+    name: CI gates configuration check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install jq for the branch-protection API check (check 2).
+      # jq is not pre-installed on ubuntu-latest runners.
+      - name: Install jq
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y jq
+          fi
+          jq --version
+
+      # Verify CI gate wiring across both checks.
+      #
+      # REQUIRE_BP_CHECK is set to "1" when GH_ADMIN_PAT is available so the
+      # branch-protection API assertion is mandatory on hardening runs (push to
+      # main, manual dispatch with the secret configured). When GH_ADMIN_PAT is
+      # absent (PRs from forks, repos without the secret), REQUIRE_BP_CHECK is
+      # "0" and check 2 is skipped with a warning — structural check 1 still
+      # runs and catches regressions (deleted jobs, renamed IDs, missing step).
+      #
+      # Store GH_ADMIN_PAT as a GitHub Actions secret (a Personal Access Token
+      # with `repo` / admin:repo scope). The default GITHUB_TOKEN cannot read
+      # branch-protection rules (see .agents/memory/github-token-admin-scopes.md).
+      - name: Verify CI gates wiring (ci-cd.yml + branch protection)
+        run: bash scripts/verify-ci-gates-branch-protection.sh
+        env:
+          GH_ADMIN_PAT: ${{ secrets.GH_ADMIN_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BRANCH: main
+          # Require the branch-protection API check when the admin PAT is
+          # present; allow skip otherwise (REQUIRE_BP_CHECK=0 is the default).
+          REQUIRE_BP_CHECK: ${{ secrets.GH_ADMIN_PAT != '' && '1' || '0' }}
+
+      - name: Verify bash shebang on set-ci-gates-branch-protection.sh
+        run: |
+          first=$(head -n1 scripts/set-ci-gates-branch-protection.sh)
+          case "$first" in
+            "#!/usr/bin/env bash"|"#!/bin/bash")
+              echo "PASS  bash shebang OK: $first"
+              ;;
+            *)
+              echo "FAIL  expected bash shebang, got: $first" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Verify bash shebang on verify-ci-gates-branch-protection.sh
+        run: |
+          first=$(head -n1 scripts/verify-ci-gates-branch-protection.sh)
+          case "$first" in
+            "#!/usr/bin/env bash"|"#!/bin/bash")
+              echo "PASS  bash shebang OK: $first"
+              ;;
+            *)
+              echo "FAIL  expected bash shebang, got: $first" >&2
+              exit 1
+              ;;
+          esac

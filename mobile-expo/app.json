@@ -1,0 +1,159 @@
+{
+  "expo": {
+    "name": "Tabula Medica",
+    "slug": "tabula-medica",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tabulamedica",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0ea5e9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.replit.tabulamedica",
+      "buildNumber": "23",
+      "deploymentTarget": "16.0",
+      "usesAppleSignIn": true,
+      "requireFullScreen": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to securely access your health records",
+        "NSHealthShareUsageDescription": "Access your health data to provide personalized insights and track your wellness journey",
+        "NSHealthUpdateUsageDescription": "Update your health records with new data from connected sources",
+        "NSCameraUsageDescription": "Take photos of documents or prescriptions to add to your health records",
+        "NSPhotoLibraryUsageDescription": "Select photos of medical documents to upload to your records",
+        "NSContactsUsageDescription": "Add emergency contacts and share health information with family members",
+        "NSLocationWhenInUseUsageDescription": "Find nearby healthcare providers and pharmacies",
+        "NSMicrophoneUsageDescription": "Tabula Medica uses the microphone to transcribe your medical appointments so you never miss important instructions from your provider."
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "85F4.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "package": "com.tabulamedica.app",
+      "versionCode": 23,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_CONTACTS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "tabulamedica.health",
+              "pathPrefix": "/share"
+            },
+            {
+              "scheme": "https",
+              "host": "app.tabulamedica.health"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#1F2937"
+          }
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-local-authentication",
+      "expo-camera",
+      "expo-video",
+      "@sentry/react-native"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/34fa03f5-06e7-4164-9d44-26a3fd50377e"
+    },
+    "experiments": {
+      "reactCompiler": true
+    },
+    "extra": {
+      "fhirRedirectScheme": "tabulamedica",
+      "gcipApiKey": "$EXPO_PUBLIC_GCIP_API_KEY",
+      "gcipAuthDomain": "$EXPO_PUBLIC_GCIP_AUTH_DOMAIN",
+      "gcipProjectId": "$EXPO_PUBLIC_GCIP_PROJECT_ID",
+      "googleIosClientId": "$EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
+      "googleAndroidClientId": "$EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID",
+      "eas": {
+        "projectId": "34fa03f5-06e7-4164-9d44-26a3fd50377e"
+      }
+    },
+    "owner": "rajivka2"
+  }
+}

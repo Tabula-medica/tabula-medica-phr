@@ -1,0 +1,19 @@
+{
+  "scripts/__tests__": [
+    "bash-guard-expansion.test.mjs",
+    "bash-guard-google-client-id.test.mjs",
+    "branch-protection-check-parity.test.mjs",
+    "check-deploy-smoke-channel-parity.test.mjs",
+    "check-reviewer-alert-parity.test.mjs",
+    "ci-env-skip-mutation.test.mjs",
+    "ci-guard-files.test.mjs",
+    "ci-guard-manifest-coverage.test.mjs",
+    "dev-web-smoke-test.test.mjs",
+    "smoke-test-non200-catchall-audit.test.mjs",
+    "staging-auth-smoke-skip.test.mjs"
+  ],
+  "server/__tests__": [
+    "ci-guard-file-canary-meta.test.ts",
+    "required-checks-verifier-canary.test.ts"
+  ]
+}

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visit Confirmation - Tabula Medica</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F2F2F7; color: #1C1C1E; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .card { background: #FFFFFF; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+    .header { text-align: center; padding: 32px 0 16px; }
+    .logo { width: 48px; height: 48px; background: linear-gradient(135deg, #10B981, #059669); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+    .logo-text { color: #FFF; font-size: 24px; font-weight: 700; }
+    h1 { font-size: 24px; font-weight: 700; margin: 8px 0 4px; color: #1C1C1E; }
+    .subtitle { font-size: 14px; color: #8E8E93; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    .badge-green { background: #D1FAE5; color: #059669; }
+    .badge-blue { background: #DBEAFE; color: #2563EB; }
+    .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F2F2F7; }
+    .detail-label { color: #8E8E93; font-size: 13px; }
+    .detail-value { font-weight: 600; font-size: 14px; }
+    .total-row { display: flex; justify-content: space-between; padding: 12px 0; }
+    .total-label { font-weight: 700; font-size: 16px; }
+    .total-value { font-weight: 800; font-size: 18px; color: #10B981; }
+    .cta-button { display: block; text-align: center; background: #007AFF; color: #FFFFFF; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 16px 0; }
+    .footer { text-align: center; padding: 24px 0; font-size: 11px; color: #8E8E93; line-height: 18px; }
+    .nsa-notice { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 16px; margin-top: 16px; }
+    .nsa-notice p { font-size: 12px; color: #1E40AF; line-height: 18px; margin: 0; }
+    .service-item { padding: 8px 0; border-bottom: 1px solid #F2F2F7; }
+    .service-name { font-weight: 600; font-size: 14px; }
+    .service-cpt { font-size: 12px; color: #8E8E93; }
+    .service-price { font-weight: 700; color: #10B981; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo"><span class="logo-text">T</span></div>
+      <h1>Visit Confirmed</h1>
+      <p class="subtitle">Tabula Medica Direct Access</p>
+    </div>
+
+    <div class="card">
+      <p>Dear <strong>{{patientName}}</strong>,</p>
+      <p style="color: #8E8E93; line-height: 22px;">Your appointment has been confirmed. Below are the details of your upcoming visit.</p>
+
+      <div class="detail-row">
+        <span class="detail-label">Confirmation ID</span>
+        <span class="detail-value">{{bookingId}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Provider</span>
+        <span class="detail-value">{{providerName}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Location</span>
+        <span class="detail-value">{{providerAddress}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Date</span>
+        <span class="detail-value">{{appointmentDate}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Payment</span>
+        <span class="detail-value"><span class="badge {{paymentBadgeClass}}">{{paymentLane}}</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-weight: 700; margin-bottom: 12px;">Services</p>
+      {{#services}}
+      <div class="service-item">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="service-name">{{description}}</div>
+            <div class="service-cpt">CPT {{cptCode}}</div>
+          </div>
+          <div class="service-price">{{price}}</div>
+        </div>
+      </div>
+      {{/services}}
+      <div class="total-row">
+        <span class="total-label">Your Estimated Cost</span>
+        <span class="total-value">{{totalCost}}</span>
+      </div>
+    </div>
+
+    <div class="nsa-notice">
+      <p><strong>No Surprises Act Protection:</strong> This estimate is protected under the No Surprises Act. If your final bill exceeds this estimate by more than $400, you may dispute through the PPDR process within 120 days. For more info: cms.gov/nosurprises or 1-800-985-3059.</p>
+    </div>
+
+    <a href="{{appLink}}" class="cta-button">View in Tabula Medica</a>
+
+    <div class="card" style="text-align: center;">
+      <p style="font-size: 13px; color: #8E8E93; margin: 0;">Questions? Contact your provider or email support@tabulamedica.health</p>
+    </div>
+
+    <div class="footer">
+      <p>Tabula Medica, Inc. DBA Uninsurance</p>
+      <p>This email contains protected health information (PHI) under HIPAA.</p>
+      <p>GFE ID: {{gfeId}} | Ref: {{bookingId}}</p>
+    </div>
+  </div>
+</body>
+</html>

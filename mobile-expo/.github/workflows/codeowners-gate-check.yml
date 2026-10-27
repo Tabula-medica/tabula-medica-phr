@@ -1,0 +1,259 @@
+name: CODEOWNERS Gate Check (Scheduled)
+
+# Weekly assertion that the Security review gate behind `.trivyignore.yaml` is
+# actually enforced on the GitHub side.
+#
+# `.github/CODEOWNERS` routes any change to `.trivyignore.yaml` to
+# `@tabula-medica/security`, but that routing only BLOCKS a self-approved merge
+# when settings that live OUTSIDE the repo are intact:
+#   1. branch protection on `main` has
+#      `required_pull_request_reviews.require_code_owner_reviews = true`,
+#   2. branch protection requires >= 1 approving review
+#      (`required_pull_request_reviews.required_approving_review_count >= 1`) —
+#      a count of 0 lets a PR merge with no review at all,
+#   3. branch protection enforces rules for administrators
+#      (`enforce_admins.enabled = true`) — otherwise a repo admin can quietly
+#      bypass the code-owner gate, and
+#   4. the owning team (parsed from CODEOWNERS) exists and has >= 1 member.
+#
+# If any silently regresses — someone toggles a branch-protection setting,
+# disables admin enforcement, drops the required-review count to 0, the team is
+# emptied, or the team slug is renamed — self-approved (or admin-bypassed)
+# suppressions become possible again with NO signal in the codebase. GitHub
+# silently ignores an unknown/empty owner, so the failure mode is invisible
+# until a pen-test or an actual self-approved suppression. This job asserts
+# these conditions weekly and pages on-call (a `[security] CODEOWNERS gate
+# misconfigured` GitHub issue plus the same Slack channel as
+# `security-alerts.yml`).
+#
+# Runbook: docs/SECURITY_CVE_TRIAGE.md §7.
+#
+# NOTE ON TOKEN: branch-protection (repo administration) and org-team
+# membership (`read:org`) are NOT readable by the default `GITHUB_TOKEN`.
+# Provide a PAT or GitHub App token with repo administration + `read:org` as the
+# `SECURITY_GATE_GITHUB_TOKEN` secret. Without it the check still runs but
+# reports "could not verify" (a 403/401), which itself opens the issue so the
+# missing scope gets fixed rather than silently masking a real regression.
+
+on:
+  schedule:
+    # Mondays 14:00 UTC — an hour after the security-alerts weekly digest, so
+    # the gate verdict lands in the same Monday-morning on-call sweep.
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  verify-gate:
+    name: Verify CODEOWNERS gate is enforced
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert CODEOWNERS gate is wired up
+        id: check
+        uses: actions/github-script@v7
+        with:
+          # Prefer the dedicated admin/org-scoped token; fall back to the
+          # default GITHUB_TOKEN (which can read issues but will 403 on
+          # branch-protection / org-team reads — surfaced as a finding).
+          github-token: ${{ secrets.SECURITY_GATE_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+
+            // The decision logic lives in an importable, unit-tested module
+            // (.github/scripts/codeowners-gate.mjs, covered by
+            // .github/workflows/test-codeowners-gate.yml) so a regression in
+            // the glob parser / canonical-org skip / 401-403-404 handling
+            // can't silently let this weekly check pass while the gate is
+            // actually broken. This step is a thin adapter: it reads
+            // CODEOWNERS, wires the two GitHub API calls, and renders outputs.
+            const { evaluateGate, formatSummary } = await import(
+              pathToFileURL(path.resolve('.github/scripts/codeowners-gate.mjs')).href
+            );
+
+            const TARGET = '.trivyignore.yaml';
+            const BRANCH = 'main';
+
+            let codeownersText = null;
+            try {
+              codeownersText = fs.readFileSync('.github/CODEOWNERS', 'utf8');
+            } catch (e) {
+              codeownersText = null; // file missing — evaluateGate records it as a failure
+            }
+
+            const result = await evaluateGate({
+              codeownersText,
+              target: TARGET,
+              branch: BRANCH,
+              repoOwner: context.repo.owner,
+              getBranchProtection: async () => {
+                const { data } = await github.rest.repos.getBranchProtection({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  branch: BRANCH,
+                });
+                return data;
+              },
+              listTeamMembers: async (org, slug) => {
+                return await github.paginate(github.rest.teams.listMembersInOrg, {
+                  org,
+                  team_slug: slug,
+                  per_page: 100,
+                });
+              },
+            });
+
+            if (result.skipped) {
+              core.info('Skipping: not the canonical org for the CODEOWNERS gate.');
+            }
+
+            core.setOutput('ok', result.ok ? 'true' : 'false');
+            core.setOutput('failures', result.failures.map(f => '- ' + f).join('\n'));
+            core.setOutput('notes', result.notes.map(n => '- ' + n).join('\n'));
+            await core.summary.addRaw(formatSummary(result)).write();
+
+      # GitHub issue as the email-fallback channel (anyone watching the repo
+      # gets an email), dedup'd by title so a multi-week regression doesn't
+      # spam the tracker. Mirrors the issue pattern in security-alerts.yml.
+      - name: Open/update gate-misconfigured issue
+        id: issue
+        if: steps.check.outputs.ok != 'true'
+        uses: actions/github-script@v7
+        env:
+          FAILURES: ${{ steps.check.outputs.failures }}
+          NOTES: ${{ steps.check.outputs.notes }}
+        with:
+          script: |
+            const title = '[security] CODEOWNERS gate misconfigured';
+            const failures = (process.env.FAILURES || '').trim();
+            const notes = (process.env.NOTES || '').trim();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The weekly CODEOWNERS gate check on commit ${context.sha} found the GitHub-side enforcement of the \`.trivyignore.yaml\` Security review gate has regressed.`,
+              '',
+              '**Why this matters:** when this gate is broken, a PR author can self-approve a container-CVE suppression with no second reviewer — a HIPAA-relevant finding (see `docs/SECURITY_CVE_TRIAGE.md` §7).',
+              '',
+              '### Findings',
+              '',
+              failures || '- (no detail captured)',
+              ...(notes ? ['', '### Notes', '', notes] : []),
+              '',
+              '### How to fix',
+              '',
+              '- **"Require review from Code Owners" disabled:** re-enable it on the `main` branch-protection rule (Settings → Branches → `main`).',
+              '- **Required approving reviews is 0:** set "Require a pull request before merging" → "Required number of approvals" to at least 1 on the `main` rule, otherwise a suppression PR can merge with no review.',
+              '- **"Do not allow bypassing the above settings" / admin enforcement off:** enable "Include administrators" (`enforce_admins`) on the `main` rule so repo admins cannot quietly merge a suppression past the code-owner gate.',
+              '- **Team missing / renamed:** restore the `@tabula-medica/security` team (or update `.github/CODEOWNERS` to the current slug in a PR that itself goes through the gate).',
+              '- **Team has 0 members:** add at least one Security on-call member to the team.',
+              '- **"Could not verify" (HTTP 401/403):** set the `SECURITY_GATE_GITHUB_TOKEN` repo secret to a PAT/GitHub App token with repo administration + `read:org`.',
+              '',
+              'Runbook: [`docs/SECURITY_CVE_TRIAGE.md`](../blob/main/docs/SECURITY_CVE_TRIAGE.md) §7.',
+              '',
+              `Run: ${runUrl}`,
+              '',
+              'This issue is auto-closed by the next run once the gate is healthy again.',
+            ].join('\n');
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            let issueUrl = '';
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body,
+              });
+              issueUrl = match.html_url;
+            } else {
+              const { data: opened } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'automated'],
+              });
+              issueUrl = opened.html_url;
+            }
+            core.setOutput('issue_url', issueUrl);
+
+      # Slack page on the same webhook security-alerts.yml uses. No-op in
+      # forks / un-configured clones (the action handles a missing webhook).
+      - name: Notify Slack on gate misconfiguration
+        if: steps.check.outputs.ok != 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'CODEOWNERS suppression gate misconfigured on main ({commit_link})'
+          markdown: |
+            :rotating_light: *Security review gate on `.trivyignore.yaml` is not enforced*
+            The weekly CODEOWNERS gate check at {commit_link} found the GitHub-side enforcement has regressed — a `.trivyignore.yaml` change could now be self-approved. See <{run_url}|workflow run> and the `[security] CODEOWNERS gate misconfigured` issue.
+            Triage runbook: <https://github.com/${{ github.repository }}/blob/main/docs/SECURITY_CVE_TRIAGE.md|docs/SECURITY_CVE_TRIAGE.md> §7.
+          code_block: ${{ steps.check.outputs.failures }}
+
+      # Auto-close the tracking issue once the gate is healthy again, so a
+      # transient misconfiguration that's since been fixed doesn't linger.
+      # Only touches issues carrying the `automated` label.
+      - name: Auto-close gate issue when healthy
+        if: steps.check.outputs.ok == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[security] CODEOWNERS gate misconfigured';
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,automated',
+              per_page: 100,
+            });
+            const match = existing.find(i => i.title === title);
+            if (!match) {
+              core.info('No open CODEOWNERS-gate issue to close.');
+              return;
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              body: [
+                `Auto-closing: the CODEOWNERS gate check on commit ${context.sha} now confirms \`main\` branch protection requires code-owner reviews and every owning team has members.`,
+                '',
+                `Green run: ${runUrl}`,
+                '',
+                'The next scheduled run will reopen this issue automatically if the gate regresses again.',
+              ].join('\n'),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: match.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+            core.info(`Closed CODEOWNERS-gate issue #${match.number}.`);
+
+      # Fail the run AFTER the issue + Slack page have gone out, so the
+      # workflow shows red in the Actions tab and on-call has a second signal.
+      - name: Fail the run if the gate is broken
+        if: steps.check.outputs.ok != 'true'
+        run: |
+          echo "::error::CODEOWNERS suppression gate is not enforced — see the '[security] CODEOWNERS gate misconfigured' issue and docs/SECURITY_CVE_TRIAGE.md §7."
+          exit 1

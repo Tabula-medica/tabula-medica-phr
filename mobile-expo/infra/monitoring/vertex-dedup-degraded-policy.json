@@ -1,0 +1,39 @@
+{
+  "displayName": "Vertex dedup AI matching DEGRADED — platform backstop",
+  "enabled": true,
+  "combiner": "OR",
+  "userLabels": {
+    "managed_by": "vertex-dedup-backstop"
+  },
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Cloud Logging received an AI matching DEGRADED entry from production. This platform-side notification does not depend on the Node process or its Slack webhook. Inspect Cloud Run / Vertex AI health and the authenticated GET /api/phr/dedup/status endpoint. Matching may be using the rule-based fallback. See docs/CLOUD_RUN_DEPLOYMENT.md, AI matching platform backstop. Automatic closure means no recent matching log entries, NOT confirmed AI recovery or server availability. The source emits on transition, not continuously. Do not include patient data in incident updates."
+  },
+  "conditions": [
+    {
+      "displayName": "At least one degraded log entry in five minutes",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"logging.googleapis.com/user/vertex_dedup_ai_matching_degraded\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": []
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "60s",
+        "evaluationMissingData": "EVALUATION_MISSING_DATA_INACTIVE",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s",
+    "notificationPrompts": ["OPENED", "CLOSED"]
+  }
+}

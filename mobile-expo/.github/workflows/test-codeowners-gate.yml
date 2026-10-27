@@ -1,0 +1,53 @@
+name: Test CODEOWNERS gate-check logic
+
+# Regression coverage for `.github/scripts/codeowners-gate.mjs`, the decision
+# logic behind `.github/workflows/codeowners-gate-check.yml` (the weekly
+# assertion that the Security review gate on `.trivyignore.yaml` is actually
+# enforced on the GitHub side).
+#
+# That logic — a CODEOWNERS last-match-wins glob parser, the canonical-org skip,
+# and the 401/403-vs-404 branch handling for branch-protection / team-membership
+# reads — used to live inline in an `actions/github-script` step where it could
+# not be tested. If it regressed so that `ok` came back true while the gate was
+# actually broken, the weekly check would go green and no one would be paged
+# until a pen-test or an actual self-approved CVE suppression.
+#
+# The harness (`.github/scripts/codeowners-gate.test.mjs`) injects fake GitHub
+# API callbacks into `evaluateGate()` and exercises every branch against
+# fixtures: missing CODEOWNERS, team-owner vs user-owner, branch-protection
+# 404 / 403 / require_code_owner_reviews=false/true, team with 0 vs >=1 members,
+# and the non-canonical-org skip. No network or GitHub token is required.
+#
+# Runs whenever the module, the harness, or this workflow itself changes. Also
+# exposed via workflow_dispatch so it can be re-run on demand.
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/codeowners-gate.mjs'
+      - '.github/scripts/codeowners-gate.test.mjs'
+      - '.github/workflows/codeowners-gate-check.yml'
+      - '.github/workflows/test-codeowners-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/codeowners-gate.mjs'
+      - '.github/scripts/codeowners-gate.test.mjs'
+      - '.github/workflows/codeowners-gate-check.yml'
+      - '.github/workflows/test-codeowners-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: codeowners-gate decision-logic branches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # The module and its test use only Node's built-in `node:test` runner and
+      # standard library — no third-party deps, so no install step is needed.
+      - name: Run CODEOWNERS gate-check regression tests
+        run: node --test .github/scripts/codeowners-gate.test.mjs

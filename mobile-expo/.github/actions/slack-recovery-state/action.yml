@@ -1,0 +1,267 @@
+name: Slack Recovery State
+description: |
+  Owns the cross-run state machine that decides whether a "recovered" Slack
+  ping should fire after a green run that follows a notified failure.
+
+  Centralises the cache-restore + previous-status read + persist + cache-save
+  quartet that used to be hand-rolled around every Slack-with-recovery
+  notification site (originally duplicated between the deploy and smoke jobs
+  in .github/workflows/deploy-cloudrun.yml). New workflows that want the same
+  "ping on failure, ping once on recovery, never spam consecutive greens"
+  behaviour should call this action instead of re-implementing the quartet.
+
+  Wiring at the call site (sketch):
+
+    - name: Notify Slack on <thing> failure
+      id: notify-failure
+      if: failure() && steps.<thing>.conclusion == 'failure'
+      uses: ./.github/actions/post-slack-notification
+      with: { ... }
+
+    - name: Update Slack recovery state
+      id: state
+      if: always()
+      uses: ./.github/actions/slack-recovery-state
+      with:
+        state_key: <thing>-state
+        notify_posted: steps.notify-failure.outputs.posted
+        deploy_status: steps.<thing>.conclusion
+
+    - name: Notify Slack on <thing> recovery
+      if: success() && steps.<thing>.conclusion == 'success' && steps.state.outputs.should_notify_recovery == 'true'
+      uses: ./.github/actions/post-slack-notification
+      with: { ... }
+
+  Behaviour:
+    - Cache key is `<state_key>-github.run_id` for save and
+      `<state_key>-` (via restore-keys) for restore — matches the original
+      hand-rolled keys exactly so existing caches are picked up unchanged.
+    - State file lives at `.<state_key>/last-status.txt` with one of three
+      values:
+        passing            -> last run was green
+        failure-notified <unix_epoch>
+                           -> last run was red AND Slack confirmed delivery
+                              of the failure ping (HTTP 2xx). This is the
+                              ONLY state that arms a recovery message on
+                              the next green run. The trailing unix
+                              timestamp is the moment we wrote the state
+                              and is used to expire stale failures via
+                              `failure_ttl_seconds` (see below).
+        failure-silent     -> last run was red but the failure ping was not
+                              actually delivered (webhook missing, curl
+                              errored, Slack returned non-2xx). We
+                              deliberately do NOT arm a recovery from this
+                              state — there is no failure ping to "close",
+                              so an out-of-context "recovered" message
+                              would be worse than silence.
+    - `should_notify_recovery` is "true" ONLY when `deploy_status` is
+      `success` AND the persisted previous status was `failure-notified`
+      AND that failure was recorded within `failure_ttl_seconds` of now.
+      Defaults to "false" when the cache is missing (first ever run, cache
+      evicted under quota pressure, > 7 day GitHub-cache TTL) — better to
+      miss an all-clear than to fire a spurious one.
+    - Stale-failure TTL: a `failure-notified` entry older than
+      `failure_ttl_seconds` (default 7 days, matching the GitHub cache
+      lifetime) is treated as expired. The next green run after that
+      silently flips the state to `passing` and does NOT post a recovery
+      ping, on the assumption that the original failure's Slack thread
+      has scrolled off and an unsolicited "recovered" message would be
+      more confusing than helpful. State files written by older versions
+      of this action (status-only, no timestamp) are read as
+      timestamp = 0 and therefore always treated as expired — safe by
+      construction.
+    - The persist + save steps gate internally on
+      `deploy_status in (success, failure)` so a job that was skipped or
+      cancelled before the underlying step ran does not overwrite the
+      previous run's state.
+
+  Caveat: this action MUST be invoked with `if: always()` at the call site so
+  it runs on both the success and failure paths of the underlying step.
+  Without `always()`, GitHub will skip the action on failure and the persist
+  step will never record `failure-notified`, which would break the recovery
+  ping on the next green run.
+
+inputs:
+  state_key:
+    description: |
+      Per-workflow state namespace, e.g. `deploy-state` or `smoke-state`.
+      Used as both the cache key prefix and the on-disk directory name
+      (`.<state_key>/last-status.txt`). Must be unique per state machine —
+      two jobs sharing a state_key will stomp on each other's state.
+    required: true
+  notify_posted:
+    description: |
+      The `posted` output of the failure-notify step (i.e. the
+      post-slack-notification action invoked under `if: failure()`).
+      "true" means Slack acknowledged the failure ping with HTTP 2xx and
+      the next green run should fire a recovery message; anything else
+      (including the empty string when the failure step was skipped on a
+      green run) routes to `failure-silent` and does NOT arm a recovery.
+    required: true
+  deploy_status:
+    description: |
+      The `conclusion` of the underlying step this state machine wraps
+      (e.g. `steps.deploy.conclusion` or `steps.smoke.conclusion`). Only
+      `success` and `failure` cause state to be persisted; any other value
+      (`skipped`, `cancelled`) leaves the previous run's state untouched.
+    required: true
+  failure_ttl_seconds:
+    description: |
+      How long (in seconds) a `failure-notified` state stays armed for a
+      recovery ping before being treated as expired. The next green run
+      after the TTL has elapsed silently flips the state to `passing` and
+      does NOT post a recovery message, avoiding stale all-clears for
+      incidents whose Slack thread context has scrolled off (e.g. a long
+      weekend with no merges to main).
+
+      Default is 604800 (7 days), which matches the GitHub Actions cache
+      lifetime — past that point the underlying cache will likely have
+      been evicted anyway, so the TTL just makes the in-cache case
+      consistent with the evicted-cache case.
+    required: false
+    default: '604800'
+
+outputs:
+  should_notify_recovery:
+    description: |
+      "true" only when ALL of the following hold:
+        1. `deploy_status` is `success` (this run was green), AND
+        2. the persisted previous status was `failure-notified`, AND
+        3. that failure was recorded within `failure_ttl_seconds` of
+           now (default 7 days) — older entries are treated as expired
+           and silently flip to `passing` without firing a recovery.
+
+      Callers MUST gate their recovery-notify step on this output (in
+      addition to their own success/conclusion checks) — this is what
+      prevents spurious "recovered" pings from being sent after the
+      very first green run ever, after consecutive greens, after a
+      failure that never actually reached Slack, or after a long quiet
+      gap (e.g. nobody merged to main over a long weekend) where the
+      original failure's Slack thread context has scrolled off.
+    value: ${{ steps.decide.outputs.should_notify }}
+
+runs:
+  using: composite
+  steps:
+    # Pull whatever state the *previous* run left behind so the decide step
+    # below can tell whether this run is a recovery from a notified failure.
+    # Uses the GitHub Actions cache so we don't need any extra IAM/secrets.
+    # Cache keys must be unique per save, so we save with a run-id suffix
+    # and restore with the `<state_key>-` prefix via `restore-keys`, which
+    # gives us "the most recently saved state for this prefix".
+    - name: Restore previous ${{ inputs.state_key }}
+      id: restore
+      uses: actions/cache/restore@v4
+      with:
+        path: .${{ inputs.state_key }}
+        key: ${{ inputs.state_key }}-${{ github.run_id }}
+        restore-keys: |
+          ${{ inputs.state_key }}-
+
+    # Decide whether the caller's recovery-notify step should fire. Only
+    # outputs `should_notify=true` when this run was green AND the previous
+    # run's persisted state is `failure-notified` — i.e. there was an actual
+    # Slack failure ping that needs closing out. Defaults to "passing" when
+    # there's no prior state file at all (first ever run, cache evicted,
+    # etc.) so the very first green run we ever observe will NOT spam Slack
+    # with an unsolicited all-clear.
+    - name: Decide whether ${{ inputs.state_key }} recovery should notify
+      id: decide
+      shell: bash
+      env:
+        STATE_DIR: .${{ inputs.state_key }}
+        DEPLOY_STATUS: ${{ inputs.deploy_status }}
+        FAILURE_TTL_SECONDS: ${{ inputs.failure_ttl_seconds }}
+      run: |
+        # Short-circuit on non-success: a recovery ping only ever fires when
+        # this run itself was green. Failure / skipped / cancelled runs MUST
+        # NOT emit `should_notify=true` — their `failure-silent` /
+        # `failure-notified` persistence is handled by the persist step
+        # below.
+        if [ "$DEPLOY_STATUS" != "success" ]; then
+          echo "Underlying step status is '$DEPLOY_STATUS' (not success) — no recovery message needed."
+          echo "should_notify=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Parse the state file as up to two whitespace-separated tokens:
+        #   <status> [<unix_epoch>]
+        # The timestamp is only meaningful for `failure-notified`; for
+        # `passing` / `failure-silent` it's absent and we ignore it.
+        # State files written by older versions of this action have no
+        # timestamp at all — `read` leaves PREVIOUS_TS empty, which
+        # `${PREVIOUS_TS:-0}` below normalises to 0. now - 0 is always
+        # greater than any sane TTL, so legacy entries are treated as
+        # expired and silently flip to `passing` on the next green run
+        # (safe by construction — better than firing a stale all-clear).
+        PREVIOUS_STATUS="passing"
+        PREVIOUS_TS=""
+        if [ -f "$STATE_DIR/last-status.txt" ]; then
+          read -r PREVIOUS_STATUS PREVIOUS_TS < "$STATE_DIR/last-status.txt" || true
+        fi
+        echo "Previous $STATE_DIR status: '$PREVIOUS_STATUS' (recorded at: '${PREVIOUS_TS:-<none>}')"
+
+        if [ "$PREVIOUS_STATUS" != "failure-notified" ]; then
+          echo "should_notify=false" >> "$GITHUB_OUTPUT"
+          echo "Previous run was not a notified failure — no recovery message needed."
+          exit 0
+        fi
+
+        # Stale-failure TTL check: a `failure-notified` entry that's older
+        # than failure_ttl_seconds is treated as expired so we don't post
+        # an out-of-context all-clear days/weeks after the original Slack
+        # failure thread has scrolled off (e.g. quiet long-weekend gap).
+        # The persist step below will overwrite the state to `passing` on
+        # this same run, so the next green run starts from a clean slate.
+        NOW=$(date +%s)
+        AGE=$(( NOW - ${PREVIOUS_TS:-0} ))
+        if [ "$AGE" -gt "$FAILURE_TTL_SECONDS" ]; then
+          echo "should_notify=false" >> "$GITHUB_OUTPUT"
+          echo "Previous failure-notified state is ${AGE}s old (TTL ${FAILURE_TTL_SECONDS}s) — treating as expired, no recovery message."
+          exit 0
+        fi
+
+        echo "should_notify=true" >> "$GITHUB_OUTPUT"
+        echo "Previous failure-notified state is ${AGE}s old (within TTL ${FAILURE_TTL_SECONDS}s) — arming recovery message."
+
+    # Persist the result of *this* run so the next run's decide step can
+    # decide whether to post an all-clear. Runs on both success and failure
+    # (but not when the underlying step was skipped/cancelled, e.g. a
+    # checkout/auth failure before the wrapped step ever ran — in that case
+    # we leave the previous run's state untouched).
+    #
+    # Crucially we key the failure-notified branch off `notify_posted` (the
+    # post-slack-notification action's `posted` output), NOT off the failure
+    # step's `conclusion`. That action intentionally exits 0 when the
+    # webhook secret is missing (so forks don't break) AND when Slack
+    # rejects the payload (so a Slack outage doesn't mask the underlying
+    # failure), which means its conclusion can be `success` even when
+    # nothing was actually delivered.
+    - name: Persist ${{ inputs.state_key }} for next run
+      if: inputs.deploy_status == 'success' || inputs.deploy_status == 'failure'
+      shell: bash
+      env:
+        STATE_DIR: .${{ inputs.state_key }}
+        DEPLOY_STATUS: ${{ inputs.deploy_status }}
+        NOTIFY_POSTED: ${{ inputs.notify_posted }}
+      run: |
+        mkdir -p "$STATE_DIR"
+        if [ "$DEPLOY_STATUS" = "success" ]; then
+          echo "passing" > "$STATE_DIR/last-status.txt"
+        elif [ "$NOTIFY_POSTED" = "true" ]; then
+          # Tag failure-notified with the unix epoch so the next run's
+          # decide step can expire stale failures (see failure_ttl_seconds
+          # input). Format MUST stay `<status> <epoch>` on a single line —
+          # the decide step parses it with `read -r STATUS TS`.
+          echo "failure-notified $(date +%s)" > "$STATE_DIR/last-status.txt"
+        else
+          echo "failure-silent" > "$STATE_DIR/last-status.txt"
+        fi
+        echo "Wrote $STATE_DIR state: $(cat "$STATE_DIR/last-status.txt")"
+
+    - name: Save ${{ inputs.state_key }} cache
+      if: inputs.deploy_status == 'success' || inputs.deploy_status == 'failure'
+      uses: actions/cache/save@v4
+      with:
+        path: .${{ inputs.state_key }}
+        key: ${{ inputs.state_key }}-${{ github.run_id }}

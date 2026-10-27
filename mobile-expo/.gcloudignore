@@ -1,0 +1,6 @@
+.git/
+.gitignore
+node_modules/
+.expo/
+web-build/
+server_dist/

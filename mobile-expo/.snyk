@@ -1,0 +1,38 @@
+# Snyk (https://snyk.io) policy file
+# Reviewed: 2026-06-11
+# All high/critical findings: NONE (0 found across 1,250 dependencies)
+# Medium findings below are suppressed with justification.
+version: v1.25.1
+
+ignore:
+  SNYK-JS-INFLIGHT-6095116:
+    - inflight:
+        reason: >
+          inflight@1.0.6 is a deprecated npm utility (resource leak in
+          long-running glob iteration). It appears only as a transitive
+          dependency of geoip-lite (IP geolocation, server-side only) and
+          jest-expo (dev/test tooling, never bundled into production). No
+          fix is available upstream without a breaking major-version bump in
+          the parent chains. Not reachable as a production security risk;
+          severity is medium with no CVSS exploitability vector applicable
+          to our runtime. Re-evaluate when geoip-lite or jest-expo release a
+          major update that removes this transitive dependency.
+        expires: "2026-12-11T00:00:00.000Z"
+
+  SNYK-JS-IPADDRESS-16636412:
+    - ip-address:
+        reason: >
+          ip-address@5.9.4 XSS in HTML-emitting methods (Address6.prototype
+          .toHTML / toArray). This package is pulled in exclusively by
+          geoip-lite, which we use server-side only for IP geolocation
+          enrichment — the vulnerable HTML-rendering helper is never called,
+          and output is never injected into a browser DOM. The fix requires
+          geoip-lite to upgrade to ip-address >=10.1.0, which is a breaking
+          major-version change; upgrading via `npm audit fix --force` would
+          downgrade geoip-lite to 1.2.2 (a breaking API change). Not
+          reachable as a browser XSS vector in our server-side Node.js
+          context. Re-evaluate when geoip-lite publishes a non-breaking
+          release that pins ip-address >=10.
+        expires: "2026-12-11T00:00:00.000Z"
+
+patch: {}

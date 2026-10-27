@@ -1,0 +1,58 @@
+# Cloud Build pipeline — manual / fallback path.
+# Primary deploy path is .github/workflows/deploy-cloudrun.yml (GitHub Actions).
+# Service name `tabula-medica-web` MUST match the GitHub Actions workflow,
+# the Cloud Run service in the GCP console, and the custom domain mapping
+# (api.tabulamedica.health → tabula-medica-web).
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/tabula-medica-web', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/tabula-medica-web']
+
+  # Container image signing via Sigstore cosign (keyless OIDC mode).
+  # Cloud Build's service account is automatically issued a short-lived OIDC
+  # token by GCP; cosign uses it to sign the image against the Fulcio CA and
+  # record the signature in the Rekor transparency log — no long-lived key
+  # material is needed. Consumers can verify provenance with:
+  #   cosign verify gcr.io/$PROJECT_ID/tabula-medica-web \
+  #     --certificate-identity-regexp=".*cloud-run-runtime.*" \
+  #     --certificate-oidc-issuer=https://accounts.google.com
+  - name: 'gcr.io/projectsigstore/cosign'
+    entrypoint: cosign
+    args:
+      - sign
+      - '--yes'
+      - 'gcr.io/$PROJECT_ID/tabula-medica-web'
+    env:
+      # Tell cosign to use GCP Workload Identity (OIDC) for keyless signing.
+      - 'COSIGN_EXPERIMENTAL=1'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'tabula-medica-web'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/tabula-medica-web'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '4Gi'
+      - '--cpu'
+      - '4'
+      - '--service-account'
+      - 'cloud-run-runtime@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars'
+      - 'NODE_ENV=production'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest,PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest,SESSION_SECRET=SESSION_SECRET:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,GCS_ENCRYPTION_KEY=GCS_ENCRYPTION_KEY:latest,GOOGLE_APPLICATION_CREDENTIALS_JSON=GOOGLE_APPLICATION_CREDENTIALS_JSON:latest,CROSS_APP_SECRET=CROSS_APP_SECRET:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/tabula-medica-web'
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabula Medica — Your Family Health Hub</title>
+<meta name="description" content="Tabula Medica is your family's unified health hub: one secure, deduplicated medical record across every doctor, pharmacy, and EHR — with AI-powered insights, a 24/7 health assistant, and HIPAA-grade privacy.">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="googlebot" content="index, follow">
+<meta name="theme-color" content="#040d1a">
+<link rel="canonical" href="https://www.tabulamedica.health/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tabula Medica — Your Family Health Hub">
+<meta property="og:description" content="One secure, unified medical record for your whole family — across every doctor, pharmacy, and EHR. AI insights, 24/7 health assistant, HIPAA-grade privacy.">
+<meta property="og:url" content="https://www.tabulamedica.health/">
+<meta property="og:site_name" content="Tabula Medica">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tabula Medica — Your Family Health Hub">
+<meta name="twitter:description" content="One secure, unified medical record for your whole family — with AI insights, a 24/7 health assistant, and HIPAA-grade privacy.">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night: #040d1a;
+  --deep: #071428;
+  --navy: #0b1f3a;
+  --teal: #0d9e8a;
+  --teal2: #14c4ad;
+  --teal3: #d0f5f0;
+  --amber: #f59e0b;
+  --amber2: #fbbf24;
+  --amber3: #fef3c7;
+  --rose: #e11d48;
+  --rose3: #ffe4e6;
+  --violet: #7c3aed;
+  --violet3: #ede9fe;
+  --sky: #0284c7;
+  --sky3: #e0f2fe;
+  --green: #15803d;
+  --green3: #dcfce7;
+  --paper: #f8f7f4;
+  --ink: #0f1923;
+  --mid: #4a5568;
+  --muted: #8fa3b8;
+  --border: #e2dfd8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Sora',sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden}
+a{text-decoration:none;color:inherit}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;width:100%;z-index:1000;height:58px;
+  background:rgba(4,13,26,.96);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(13,158,138,.2);
+  display:flex;align-items:center;justify-content:space-between;padding:0 40px}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--teal),var(--teal2));
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:800;color:#fff}
+.nav-brand{font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.nav-brand span{color:var(--teal2)}
+.nav-links{display:flex;align-items:center;gap:4px}
+.nav-link{color:rgba(255,255,255,.5);font-size:12px;font-weight:500;padding:6px 12px;
+  border-radius:6px;transition:all .2s;cursor:pointer}
+.nav-link:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-lang{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  border-radius:6px;padding:5px 10px;font-size:11px;color:rgba(255,255,255,.6);cursor:pointer}
+.nav-mode{background:var(--teal);color:#fff;padding:6px 16px;border-radius:6px;
+  font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;border:none}
+.nav-mode:hover{background:var(--teal2)}
+
+/* ── HERO ── */
+.hero{min-height:100vh;background:var(--night);display:flex;align-items:center;
+  padding:80px 40px 60px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 60% at 20% 50%,rgba(13,158,138,.12) 0%,transparent 60%),
+             radial-gradient(ellipse 50% 50% at 80% 80%,rgba(245,158,11,.07) 0%,transparent 60%),
+             radial-gradient(ellipse 40% 40% at 90% 10%,rgba(124,58,237,.06) 0%,transparent 60%)}
+.hero-content{max-width:560px;position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;
+  background:rgba(13,158,138,.12);border:1px solid rgba(13,158,138,.3);
+  padding:6px 14px;border-radius:100px;font-size:11px;font-weight:600;
+  letter-spacing:1px;text-transform:uppercase;color:var(--teal2);margin-bottom:28px}
+.hero-badge .dot{width:6px;height:6px;background:var(--teal2);border-radius:50%;
+  animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+.hero h1{font-size:clamp(40px,5.5vw,72px);font-weight:800;line-height:.97;
+  color:#fff;letter-spacing:-2px;margin-bottom:20px}
+.hero h1 .t{color:var(--teal2)}
+.hero h1 .a{color:var(--amber2);font-style:italic}
+.hero-deck{font-size:17px;color:rgba(255,255,255,.5);font-weight:300;
+  line-height:1.7;max-width:480px;margin-bottom:36px}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:40px}
+.cta-primary{background:var(--teal);color:#fff;padding:14px 28px;border-radius:8px;
+  font-size:14px;font-weight:700;border:none;cursor:pointer;transition:all .2s;
+  display:inline-flex;align-items:center;gap:8px}
+.cta-primary:hover{background:var(--teal2);transform:translateY(-1px)}
+.cta-outline{border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);
+  padding:14px 28px;border-radius:8px;font-size:14px;font-weight:500;
+  background:transparent;cursor:pointer;transition:all .2s;
+  display:inline-flex;align-items:center;gap:8px}
+.cta-outline:hover{border-color:var(--teal2);color:var(--teal2)}
+.hero-stats{display:flex;gap:32px;flex-wrap:wrap}
+.hstat{text-align:left}
+.hstat-n{font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:var(--teal2);display:block}
+.hstat-l{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+
+/* Hero right — phone mockup */
+.hero-right{position:absolute;right:80px;top:50%;transform:translateY(-50%);width:340px;z-index:1}
+.phone-frame{background:var(--deep);border:2px solid rgba(13,158,138,.25);border-radius:28px;
+  overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.5)}
+.phone-header{background:rgba(13,158,138,.1);padding:14px 18px;
+  border-bottom:1px solid rgba(13,158,138,.15);display:flex;align-items:center;justify-content:space-between}
+.ph-title{font-size:13px;font-weight:700;color:#fff}
+.ph-mode{font-size:10px;padding:2px 8px;border-radius:100px;font-weight:600}
+.ph-mode.insured{background:rgba(21,128,61,.2);color:#4ade80}
+.ph-mode.uninsured{background:rgba(245,158,11,.2);color:var(--amber2)}
+.phone-body{padding:16px}
+.family-tabs{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto}
+.ftab{flex-shrink:0;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap}
+.ftab.active{background:var(--teal);color:#fff}
+.ftab.kids{background:rgba(245,158,11,.15);color:var(--amber2)}
+.ftab.kids.active{background:var(--amber);color:var(--night)}
+.ftab.pets{background:rgba(124,58,237,.15);color:#c4b5fd}
+.ftab.pets.active{background:var(--violet);color:#fff}
+.ftab.inactive{background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)}
+.record-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:12px;margin-bottom:10px}
+.rc-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rc-avatar{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0}
+.rc-info h4{font-size:13px;font-weight:600;color:#fff;margin-bottom:1px}
+.rc-info p{font-size:10px;color:rgba(255,255,255,.4)}
+.rc-vitals{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.rv{background:rgba(255,255,255,.04);border-radius:6px;padding:6px 8px;text-align:center}
+.rv-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--teal2);display:block}
+.rv-lbl{font-size:9px;color:rgba(255,255,255,.3);margin-top:1px}
+.uninsurance-banner{background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(245,158,11,.05));
+  border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:10px 12px;margin-bottom:10px;
+  display:flex;align-items:center;gap:10px}
+.ub-icon{font-size:20px}
+.ub-text h4{font-size:11px;font-weight:700;color:var(--amber2);margin-bottom:2px}
+.ub-text p{font-size:10px;color:rgba(255,255,255,.4);line-height:1.4}
+.aaneel-card{background:linear-gradient(135deg,#0b2040,#0d3358);border:1px solid rgba(13,158,138,.3);
+  border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+.ac-icon{width:36px;height:36px;background:rgba(13,158,138,.2);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ac-info h4{font-size:11px;font-weight:700;color:var(--teal2);margin-bottom:1px}
+.ac-info p{font-size:10px;color:rgba(255,255,255,.35);line-height:1.4}
+.ac-nfc{font-size:9px;background:rgba(13,158,138,.15);color:var(--teal2);
+  padding:2px 7px;border-radius:100px;font-weight:600;margin-top:4px;display:inline-block}
+.phone-nav{display:flex;justify-content:space-around;padding:12px 16px;
+  border-top:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.2)}
+.pnav-item{text-align:center;cursor:pointer;opacity:.4;transition:opacity .15s}
+.pnav-item.active{opacity:1}
+.pnav-icon{font-size:18px;display:block;margin-bottom:2px}
+.pnav-label{font-size:9px;color:rgba(255,255,255,.6)}
+.pnav-item.active .pnav-label{color:var(--teal2)}
+
+/* ── SECTIONS BASE ── */
+section{padding:80px 40px}
+.s-label{display:inline-flex;align-items:center;gap:6px;
+  font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:2px;
+  text-transform:uppercase;padding:5px 12px;border-radius:100px;margin-bottom:12px}
+.s-label.t{color:var(--teal);background:var(--teal3);border:1px solid rgba(13,158,138,.2)}
+.s-label.a{color:#92400e;background:var(--amber3);border:1px solid rgba(245,158,11,.2)}
+.s-label.v{color:var(--violet);background:var(--violet3);border:1px solid rgba(124,58,237,.2)}
+.s-label.r{color:var(--rose);background:var(--rose3)}
+.s-label.s{color:var(--sky);background:var(--sky3)}
+h2.S{font-size:clamp(30px,4vw,52px);font-weight:800;line-height:1.05;letter-spacing:-1.5px;margin-bottom:14px}
+h2.S .t{color:var(--teal)}
+h2.S .a{color:var(--amber);font-style:italic}
+h2.S .v{color:var(--violet)}
+.sub{font-size:16px;color:var(--mid);line-height:1.8;max-width:600px}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:0 40px}
+
+/* PATIENT ONBOARDING INTAKE PROGRAM */
+.intake-section{padding:80px 40px;background:linear-gradient(180deg,#f7f4eb 0%,var(--paper) 100%);max-width:1280px;margin:0 auto}
+.intake-deck{font-size:18px;color:var(--mid);max-width:720px;margin:16px 0 16px;line-height:1.6}
+.intake-badges{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:40px}
+.intake-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:rgba(13,158,138,.10);border:1px solid rgba(13,158,138,.25);color:var(--teal);font-size:13px;font-weight:600;font-family:'DM Mono',monospace}
+.intake-lang-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px;padding:16px 20px;background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:14px;align-items:center}
+.intake-lang-label{font-size:12px;font-weight:700;color:var(--mid);letter-spacing:.8px;text-transform:uppercase;margin-right:8px;font-family:'DM Mono',monospace}
+.intake-lang-pill{padding:5px 12px;border-radius:999px;background:#fff;border:1px solid var(--border);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;user-select:none}
+.intake-lang-pill:hover{border-color:var(--teal);transform:translateY(-1px)}
+.intake-lang-pill.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+.intake-lang-more{color:var(--mid);font-size:12px;font-style:italic;margin-left:6px}
+.intake-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:32px;align-items:start}
+.intake-sections{display:flex;flex-direction:column;gap:10px}
+.intake-sec{display:flex;align-items:center;gap:14px;padding:16px 18px;background:#fff;border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .18s;text-align:left;width:100%;font-family:inherit}
+.intake-sec:hover{border-color:var(--teal);transform:translateX(4px);box-shadow:0 4px 12px rgba(13,158,138,.10)}
+.intake-sec.active{border-color:var(--teal);background:linear-gradient(135deg,rgba(13,158,138,.06),rgba(13,158,138,.02));box-shadow:0 6px 20px rgba(13,158,138,.15)}
+.intake-sec-icon{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(13,158,138,.10);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:16px}
+.intake-sec.active .intake-sec-icon{background:var(--teal);color:#fff}
+.intake-sec-body{flex:1;min-width:0}
+.intake-sec-title{font-size:15px;font-weight:600;color:var(--ink);display:block}
+.intake-sec-sub{font-size:12px;color:var(--mid);margin-top:2px;display:block}
+.intake-sec-count{font-size:11px;font-weight:700;color:var(--teal);font-family:'DM Mono',monospace;background:rgba(13,158,138,.10);padding:3px 8px;border-radius:6px;flex-shrink:0}
+/* AI assist demo panel */
+.intake-demo{background:linear-gradient(180deg,#0a1428 0%,#040d1a 100%);border-radius:18px;padding:24px;color:#fff;min-height:520px;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(4,13,26,.30)}
+.intake-demo-top{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.intake-demo-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal2));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.intake-demo-info h5{font-size:14px;font-weight:600;color:#fff;margin:0}
+.intake-demo-info p{font-size:11px;color:rgba(255,255,255,.55);margin:2px 0 0;font-family:'DM Mono',monospace}
+.intake-demo-live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:#3dd99c;font-family:'DM Mono',monospace}
+.intake-demo-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#3dd99c;box-shadow:0 0 8px #3dd99c;animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.intake-demo-current{padding:14px 0;font-size:12px;color:rgba(255,255,255,.55);font-family:'DM Mono',monospace;letter-spacing:.5px}
+.intake-demo-current b{color:#fff;font-weight:700}
+.intake-demo-q{padding:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:14px}
+.intake-demo-q-label{font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;font-family:'DM Mono',monospace;margin-bottom:8px;font-weight:700}
+.intake-demo-q-text{font-size:16px;color:#fff;line-height:1.5;font-weight:500}
+.intake-demo-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.intake-demo-chip{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:13px;cursor:pointer;transition:all .15s;user-select:none}
+.intake-demo-chip:hover{background:rgba(13,158,138,.20);border-color:var(--teal)}
+.intake-demo-chip.selected{background:var(--teal);border-color:var(--teal)}
+.intake-demo-ai{margin-top:auto;padding:14px;background:rgba(13,158,138,.08);border:1px solid rgba(13,158,138,.25);border-radius:12px;display:flex;gap:12px;align-items:flex-start}
+.intake-demo-ai-icon{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:14px}
+.intake-demo-ai-text{font-size:13px;color:rgba(255,255,255,.85);line-height:1.5;flex:1}
+.intake-demo-ai-text b{color:var(--teal)}
+.intake-demo-progress{margin-top:14px;display:flex;align-items:center;gap:10px;font-size:11px;color:rgba(255,255,255,.55);font-family:'DM Mono',monospace}
+.intake-demo-progress-bar{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.intake-demo-progress-fill{height:100%;background:linear-gradient(90deg,var(--teal),#3dd99c);transition:width .4s ease}
+@media(max-width:880px){
+  .intake-section{padding:56px 24px}
+  .intake-grid{grid-template-columns:1fr;gap:24px}
+  .intake-demo{min-height:auto}
+}
+
+/* HOW IT WORKS */
+.how-section{padding:80px 40px;background:linear-gradient(180deg,var(--paper) 0%,#f0ebe0 100%);max-width:1280px;margin:0 auto}
+.how-deck{font-size:18px;color:var(--mid);max-width:680px;margin:16px 0 48px;line-height:1.6}
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;margin-bottom:48px}
+.how-video-wrap{position:relative;border-radius:20px;overflow:hidden;background:#000;aspect-ratio:16/9;box-shadow:0 20px 50px rgba(4,13,26,.20);cursor:pointer}
+.how-video{width:100%;height:100%;display:block;object-fit:cover}
+.how-video-play{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(13,158,138,.85),rgba(4,13,26,.7));border:0;color:#fff;cursor:pointer;transition:opacity .3s;gap:12px}
+.how-video-play.hidden{opacity:0;pointer-events:none}
+.how-play-icon{width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.95);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:28px;padding-left:6px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.how-play-label{font-size:15px;font-weight:600;letter-spacing:.3px}
+.how-steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:20px}
+.how-step{display:flex;gap:20px;padding:20px;background:rgba(255,255,255,.6);border-radius:14px;border:1px solid var(--border);transition:transform .2s,box-shadow .2s}
+.how-step:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(4,13,26,.08)}
+.how-step-num{flex-shrink:0;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;font-family:'DM Mono',monospace}
+.how-step-body h4{font-size:17px;font-weight:600;color:var(--ink);margin-bottom:4px}
+.how-step-body p{font-size:14px;color:var(--mid);line-height:1.5}
+.how-cta-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+@media(max-width:880px){
+  .how-section{padding:56px 24px}
+  .how-grid{grid-template-columns:1fr;gap:32px}
+  .how-video-wrap{aspect-ratio:16/9}
+  .how-play-icon{width:64px;height:64px;font-size:22px}
+}
+
+/* ── FAMILY HUB ── */
+.hub-section{background:var(--paper)}
+.hub-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px}
+.hub-card{border-radius:16px;padding:24px;transition:transform .2s;cursor:pointer}
+.hub-card:hover{transform:translateY(-4px)}
+.hub-card.adult{background:linear-gradient(135deg,#e0f5f0,#c8ede8);border:1px solid rgba(13,158,138,.2)}
+.hub-card.child{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid rgba(245,158,11,.25)}
+.hub-card.parent{background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:1px solid rgba(124,58,237,.2)}
+.hub-card.pet{background:linear-gradient(135deg,#e0f2fe,#bae6fd);border:1px solid rgba(2,132,199,.2)}
+.hub-icon{font-size:36px;margin-bottom:14px}
+.hub-card h3{font-size:17px;font-weight:700;margin-bottom:6px}
+.hub-card.adult h3{color:#065f46}
+.hub-card.child h3{color:#92400e}
+.hub-card.parent h3{color:#4c1d95}
+.hub-card.pet h3{color:#0c4a6e}
+.hub-card p{font-size:12px;line-height:1.7;margin-bottom:14px}
+.hub-card.adult p{color:#047857}
+.hub-card.child p{color:#b45309}
+.hub-card.parent p{color:#6d28d9}
+.hub-card.pet p{color:#0369a1}
+.hub-features{list-style:none}
+.hub-features li{font-size:11px;padding:3px 0;display:flex;gap:6px;align-items:flex-start}
+.hub-card.adult .hub-features li{color:#047857}
+.hub-card.child .hub-features li{color:#b45309}
+.hub-card.parent .hub-features li{color:#6d28d9}
+.hub-card.pet .hub-features li{color:#0369a1}
+.hub-features li::before{content:'✓';font-weight:700;flex-shrink:0;margin-top:1px}
+.hub-count{display:inline-block;margin-top:12px;font-family:'DM Mono',monospace;font-size:11px;
+  font-weight:500;padding:4px 10px;border-radius:100px}
+.hub-card.adult .hub-count{background:rgba(13,158,138,.15);color:#047857}
+.hub-card.child .hub-count{background:rgba(245,158,11,.2);color:#92400e}
+.hub-card.parent .hub-count{background:rgba(124,58,237,.15);color:#4c1d95}
+.hub-card.pet .hub-count{background:rgba(2,132,199,.15);color:#0c4a6e}
+
+/* ── UNINSURANCE MODE ── */
+.uninsurance-section{background:var(--night);position:relative;overflow:hidden}
+.uninsurance-section::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 60% at 70% 50%,rgba(245,158,11,.08) 0%,transparent 60%)}
+.u-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.u-left h2{color:#fff}
+.u-left h2 .a{color:var(--amber2)}
+.u-left .sub{color:rgba(255,255,255,.45)}
+.lanes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px}
+.lane{border-radius:14px;padding:20px;border:1px solid}
+.lane.a{border-color:rgba(13,158,138,.3);background:rgba(13,158,138,.07)}
+.lane.b{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.07)}
+.lane-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.lane.a .lane-label{color:var(--teal2)}
+.lane.b .lane-label{color:var(--amber2)}
+.lane h4{font-size:14px;font-weight:700;margin-bottom:6px}
+.lane.a h4{color:var(--teal2)}
+.lane.b h4{color:var(--amber2)}
+.lane p{font-size:11px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:10px}
+.lane-detail{font-size:11px;color:rgba(255,255,255,.3)}
+.u-right{}
+.rate-table-wrap{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;overflow:hidden}
+.rt-header{padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:space-between}
+.rt-header h4{font-size:14px;font-weight:700;color:#fff}
+.rt-badge{font-size:10px;background:rgba(13,158,138,.15);color:var(--teal2);
+  border:1px solid rgba(13,158,138,.2);padding:3px 10px;border-radius:100px;font-weight:600}
+.rt-body{padding:0}
+.rt-row{display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 20px;
+  border-bottom:1px solid rgba(255,255,255,.04);align-items:center;font-size:12px}
+.rt-row:last-child{border-bottom:none}
+.rt-row:hover{background:rgba(255,255,255,.02)}
+.rt-service{color:rgba(255,255,255,.65)}
+.rt-market{color:rgba(255,255,255,.25);text-decoration:line-through;font-size:11px;padding:0 16px}
+.rt-our{font-family:'DM Mono',monospace;font-weight:500;color:var(--teal2)}
+.rt-save{font-size:10px;background:rgba(21,128,61,.15);color:#4ade80;
+  padding:2px 7px;border-radius:100px;font-weight:600}
+.hrsa-finder{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:16px;margin-top:14px}
+.hrsa-title{font-size:11px;font-weight:700;color:var(--teal2);letter-spacing:.5px;
+  text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:10px}
+.hrsa-input-row{display:flex;gap:8px}
+.hrsa-input{flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  border-radius:8px;padding:9px 12px;font-size:13px;color:#fff;
+  font-family:'Sora',sans-serif;outline:none}
+.hrsa-input::placeholder{color:rgba(255,255,255,.25)}
+.hrsa-input:focus{border-color:var(--teal2)}
+.hrsa-btn{background:var(--teal);color:#fff;padding:9px 16px;border-radius:8px;
+  font-size:12px;font-weight:700;border:none;cursor:pointer;transition:all .2s;white-space:nowrap}
+.hrsa-btn:hover{background:var(--teal2)}
+.hrsa-results{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.hrsa-result{background:rgba(255,255,255,.04);border-radius:8px;padding:10px 12px;
+  display:flex;align-items:center;gap:10px;font-size:12px}
+.hrsa-dot{width:8px;height:8px;background:var(--teal2);border-radius:50%;flex-shrink:0}
+.hrsa-name{color:rgba(255,255,255,.8);font-weight:500}
+.hrsa-dist{color:rgba(255,255,255,.3);margin-left:auto;font-family:'DM Mono',monospace;font-size:11px}
+.hrsa-type{font-size:10px;background:rgba(13,158,138,.1);color:var(--teal2);
+  padding:1px 6px;border-radius:100px}
+#hrsa-loader{display:none;font-size:11px;color:rgba(255,255,255,.4);padding:8px 0;text-align:center}
+
+/* ── AANEEL SECTION ── */
+.aaneel-section{background:var(--paper)}
+.aaneel-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:48px}
+.card-visual{perspective:1000px}
+.health-card{width:320px;height:200px;border-radius:18px;
+  background:linear-gradient(135deg,#0a1f3d,#0d3358,#0b2a47);
+  border:1px solid rgba(13,158,138,.4);
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+  padding:24px;display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;overflow:hidden}
+.health-card::before{content:'';position:absolute;top:-30px;right:-30px;
+  width:120px;height:120px;background:rgba(13,158,138,.1);border-radius:50%}
+.hc-top{display:flex;justify-content:space-between;align-items:flex-start}
+.hc-logo{font-size:13px;font-weight:800;color:var(--teal2);letter-spacing:-0.3px}
+.hc-nfc{width:28px;height:28px;border:2px solid rgba(13,158,138,.4);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:13px}
+.hc-name{font-size:15px;font-weight:700;color:#fff}
+.hc-sub{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px}
+.hc-bottom{display:flex;justify-content:space-between;align-items:flex-end}
+.hc-id{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.35);letter-spacing:1px}
+.hc-badges{display:flex;gap:4px}
+.hc-badge{font-size:9px;background:rgba(13,158,138,.15);color:var(--teal2);
+  border:1px solid rgba(13,158,138,.2);padding:2px 7px;border-radius:100px;font-weight:600}
+.aaneel-features{display:flex;flex-direction:column;gap:14px}
+.af{display:flex;gap:14px;align-items:flex-start}
+.af-icon{width:40px;height:40px;border-radius:10px;background:var(--teal3);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.af-body h4{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.af-body p{font-size:12px;color:var(--mid);line-height:1.6}
+
+/* ── LANGUAGE ── */
+.lang-section{background:var(--night)}
+.lang-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:48px}
+.lang-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;padding:20px;text-align:center}
+.lang-flag{font-size:32px;margin-bottom:10px}
+.lang-name{font-size:14px;font-weight:700;color:#fff;margin-bottom:4px}
+.lang-native{font-size:13px;color:rgba(255,255,255,.45)}
+.lang-features{margin-top:12px;display:flex;flex-direction:column;gap:4px}
+.lf{font-size:11px;color:rgba(255,255,255,.3)}
+
+/* ── SAVINGS ── */
+.savings-section{background:var(--paper)}
+.savings-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:60px;align-items:start;margin-top:48px}
+.savings-cards{display:flex;flex-direction:column;gap:14px}
+.scard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;
+  display:flex;align-items:flex-start;gap:16px;transition:transform .2s}
+.scard:hover{transform:translateX(4px)}
+.scard-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;flex-shrink:0}
+.scard-icon.t{background:var(--teal3)}
+.scard-icon.a{background:var(--amber3)}
+.scard-icon.v{background:var(--violet3)}
+.scard-icon.s{background:var(--sky3)}
+.scard-icon.g{background:var(--green3)}
+.scard h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.scard p{font-size:12px;color:var(--mid);line-height:1.6}
+.savings-calc{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.sc-header{background:var(--night);padding:20px 24px}
+.sc-header h3{font-size:16px;font-weight:700;color:#fff}
+.sc-header p{font-size:12px;color:rgba(255,255,255,.4);margin-top:3px}
+.sc-body{padding:24px}
+.sc-row{margin-bottom:16px}
+.sc-label{display:flex;justify-content:space-between;font-size:12px;font-weight:600;
+  color:var(--mid);margin-bottom:6px}
+.sc-label span{font-family:'DM Mono',monospace;color:var(--teal);font-size:13px;font-weight:500}
+input[type=range]{width:100%;accent-color:var(--teal);height:5px;cursor:pointer;margin:0}
+.sc-result{background:var(--night);border-radius:12px;padding:18px;margin-top:4px}
+.scr-row{display:flex;justify-content:space-between;font-size:12px;padding:7px 0;
+  border-bottom:1px solid rgba(255,255,255,.06)}
+.scr-row:last-child{border-bottom:none}
+.scrk{color:rgba(255,255,255,.4)}
+.scrv{font-weight:600;color:#fff}
+.scrv.red{color:#f87171}
+.scrv.grn{color:#4ade80}
+.sc-total{background:rgba(13,158,138,.1);border:1px solid rgba(13,158,138,.2);
+  border-radius:10px;padding:14px;margin-top:12px;display:flex;justify-content:space-between;align-items:center}
+.sc-total-label{font-size:12px;font-weight:600;color:var(--teal2)}
+.sc-total-val{font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--amber2)}
+
+/* ── AI ASSISTANT ── */
+.ai-section{background:var(--deep)}
+.ai-inner{max-width:780px;margin:0 auto}
+.ai-chat-frame{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;overflow:hidden}
+.ai-top{background:rgba(255,255,255,.04);padding:14px 20px;
+  border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px}
+.ai-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),var(--teal2));
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ai-info h4{font-size:13px;font-weight:700;color:#fff}
+.ai-info p{font-size:10px;color:rgba(255,255,255,.35)}
+.ai-live{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:11px;color:var(--teal2)}
+.ai-live-dot{width:7px;height:7px;background:var(--teal2);border-radius:50%;animation:pulse 2s infinite}
+.ai-suggestions{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;
+  border-bottom:1px solid rgba(255,255,255,.05)}
+.ai-sug{font-size:11px;color:rgba(255,255,255,.4);padding:5px 12px;border-radius:100px;
+  border:1px solid rgba(255,255,255,.1);cursor:pointer;transition:all .15s}
+.ai-sug:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.7)}
+.ai-body{padding:16px;min-height:260px;max-height:340px;overflow-y:auto}
+.chat-msg{display:flex;gap:10px;margin-bottom:14px}
+.chat-msg.user{flex-direction:row-reverse}
+.chat-av{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.chat-av.ai{background:rgba(13,158,138,.2)}
+.chat-av.user{background:rgba(245,158,11,.2)}
+.bubble{max-width:82%;padding:10px 14px;border-radius:10px;font-size:12.5px;line-height:1.65}
+.bubble.ai{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.8)}
+.bubble.user{background:rgba(13,158,138,.12);border:1px solid rgba(13,158,138,.2);color:rgba(255,255,255,.85)}
+.bubble.loading{color:rgba(255,255,255,.35);font-style:italic}
+.ai-input-row{display:flex;gap:10px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.07)}
+.ai-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:10px 14px;font-size:12px;color:#fff;
+  font-family:'Sora',sans-serif;outline:none}
+.ai-input::placeholder{color:rgba(255,255,255,.22)}
+.ai-input:focus{border-color:var(--teal2)}
+.ai-send{background:var(--teal);color:#fff;padding:10px 18px;border-radius:8px;
+  font-size:12px;font-weight:700;border:none;cursor:pointer;white-space:nowrap}
+.ai-send:hover{background:var(--teal2)}
+.ai-lang-row{display:flex;gap:8px;padding:8px 16px;background:rgba(255,255,255,.02);
+  border-top:1px solid rgba(255,255,255,.04)}
+.lang-pill{font-size:10px;padding:3px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.35);cursor:pointer;transition:all .15s}
+.lang-pill.active{border-color:var(--teal2);color:var(--teal2);background:rgba(13,158,138,.08)}
+.lang-pill:hover{color:rgba(255,255,255,.6)}
+
+/* ── APP DOWNLOAD ── */
+.download-section{background:var(--paper)}
+.dl-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;margin-top:48px}
+.store-badges{display:flex;gap:14px;flex-wrap:wrap;margin-top:20px}
+.store-badge{background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;
+  display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s;border:none}
+.store-badge:hover{background:#1a2b3d;transform:translateY(-2px)}
+.sb-icon{font-size:24px}
+.sb-text{text-align:left}
+.sb-sub{font-size:10px;color:rgba(255,255,255,.45)}
+.sb-name{font-size:15px;font-weight:700}
+.tech-stack{background:#fff;border:1px solid var(--border);border-radius:16px;padding:24px}
+.tech-stack h4{font-size:14px;font-weight:700;margin-bottom:16px}
+.stack-items{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stack-item{background:var(--paper);border-radius:8px;padding:10px 12px}
+.si-name{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.si-desc{font-size:10px;color:var(--mid);line-height:1.4}
+.si-badge{font-size:9px;background:var(--teal3);color:var(--teal);
+  border-radius:100px;padding:1px 7px;font-weight:600;margin-top:4px;display:inline-block}
+
+/* ── REPLIT GUIDE ── */
+.replit-section{background:var(--night)}
+.replit-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:48px}
+.rs{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;padding:22px}
+.rs-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--teal2);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.rs h3{font-size:15px;font-weight:700;color:#fff;margin-bottom:8px}
+.rs p{font-size:12px;color:rgba(255,255,255,.4);line-height:1.7;margin-bottom:10px}
+.rs-code{background:rgba(0,0,0,.4);border-radius:8px;padding:10px 12px;
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--teal2);line-height:1.7}
+
+/* ── FOOTER ── */
+footer{background:#020912;padding:32px 40px;display:flex;justify-content:space-between;
+  align-items:center;flex-wrap:wrap;gap:20px;border-top:1px solid rgba(255,255,255,.06)}
+.fl-brand{font-size:16px;font-weight:800;color:#fff}
+.fl-brand span{color:var(--teal2)}
+.fl-sub{font-size:11px;color:rgba(255,255,255,.2);margin-top:3px}
+.fl-links{display:flex;gap:20px}
+.fl-links a{font-size:11px;color:rgba(255,255,255,.3);transition:color .15s}
+.fl-links a:hover{color:var(--teal2)}
+.fl-right{font-size:11px;color:rgba(255,255,255,.2);text-align:right;line-height:1.8}
+.fl-right a{color:var(--teal2)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){
+  .hub-grid{grid-template-columns:repeat(2,1fr)}
+  .u-grid,.aaneel-grid,.savings-grid,.dl-grid{grid-template-columns:1fr}
+  .hero-right{display:none}
+  .lang-grid{grid-template-columns:repeat(2,1fr)}
+  .replit-steps{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  nav{padding:0 20px}.nav-links{display:none}
+  section{padding:60px 20px}
+  .hero{padding:80px 20px 40px}
+  .hub-grid{grid-template-columns:1fr}
+  .lanes{grid-template-columns:1fr}
+  .lang-grid{grid-template-columns:1fr}
+  .stack-items{grid-template-columns:1fr}
+  footer{padding:24px 20px;flex-direction:column;align-items:flex-start}.fl-right{text-align:left}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">T</div>
+    <div class="nav-brand">Tabula<span>Medica</span></div>
+  </div>
+  <div class="nav-links">
+    <span class="nav-link" onclick="scrollTo('#how')">How It Works</span>
+    <span class="nav-link" onclick="scrollTo('#intake')">Patient Onboarding</span>
+    <span class="nav-link" onclick="scrollTo('#hub')">Family Hub</span>
+    <span class="nav-link" onclick="scrollTo('#uninsurance')">Uninsurance</span>
+    <span class="nav-link" onclick="scrollTo('#aaneel')">Health Card</span>
+    <span class="nav-link" onclick="scrollTo('#savings')">Savings</span>
+    <span class="nav-link" onclick="scrollTo('#ai')">AI Assistant</span>
+    <span class="nav-link" onclick="scrollTo('#mission')">Our Mission</span>
+    <span class="nav-link" onclick="scrollTo('#download')">Get the App</span>
+  </div>
+  <div class="nav-right">
+    <div class="nav-lang" onclick="cycleLang()">🌐 EN</div>
+    <button class="nav-mode" onclick="scrollTo('#uninsurance')">Uninsurance Mode →</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><span class="dot"></span>Your Complete Family Health Hub</div>
+    <h1>One App.<br><span class="t">Every Body.</span><br><span class="a">Every Budget.</span></h1>
+    <p class="hero-deck">Your health records, in your hands. Unified health records for your whole family — kids, parents, and pets. Fasten Health pulls records from 50,000+ providers. Uninsurance mode delivers care at Medicare rates when insurance isn't an option. Because the poorest of the poor deserve health records in their own language.</p>
+    <div class="hero-ctas">
+      <button class="cta-primary" onclick="scrollTo('#hub')">Explore the Family Hub →</button>
+      <button class="cta-outline" onclick="scrollTo('#uninsurance')">⚡ Uninsurance Mode</button>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><span class="hstat-n">50K+</span><span class="hstat-l">EHR systems via Fasten Health</span></div>
+      <div class="hstat"><span class="hstat-n">$82</span><span class="hstat-l">office visit at Medicare rates</span></div>
+      <div class="hstat"><span class="hstat-n">50+</span><span class="hstat-l">languages supported</span></div>
+      <div class="hstat"><span class="hstat-n">$0</span><span class="hstat-l">premium to join</span></div>
+    </div>
+  </div>
+
+  <!-- Phone mockup -->
+  <div class="hero-right">
+    <div class="phone-frame">
+      <div class="phone-header">
+        <span class="ph-title">Tabula Medica</span>
+        <span class="ph-mode" id="phone-mode">Insured</span>
+      </div>
+      <div class="phone-body">
+        <div class="family-tabs">
+          <span class="ftab active" onclick="switchProfile(this,'adult')">👤 Maria</span>
+          <span class="ftab kids" onclick="switchProfile(this,'kid')">👦 Lucas</span>
+          <span class="ftab inactive" onclick="switchProfile(this,'parent')">👴 Dad</span>
+          <span class="ftab pets" onclick="switchProfile(this,'pet')">🐕 Max</span>
+        </div>
+        <div id="profile-content">
+          <div class="record-card">
+            <div class="rc-top">
+              <div class="rc-avatar" style="background:rgba(13,158,138,.15)">👤</div>
+              <div class="rc-info"><h4>Maria Rodriguez</h4><p>DOB: 1987 · Blood: O+ · No allergies</p></div>
+            </div>
+            <div class="rc-vitals">
+              <div class="rv"><span class="rv-val">120/78</span><span class="rv-lbl">BP</span></div>
+              <div class="rv"><span class="rv-val">72</span><span class="rv-lbl">HR bpm</span></div>
+              <div class="rv"><span class="rv-val">98.6°</span><span class="rv-lbl">Temp</span></div>
+            </div>
+          </div>
+          <div class="uninsurance-banner" id="uninsurance-banner" style="display:none">
+            <span class="ub-icon">⚡</span>
+            <div class="ub-text"><h4>Uninsurance Mode Active</h4><p>Medicare 2026 rates · VA veteran lane available</p></div>
+          </div>
+          <div class="aaneel-card">
+            <div class="ac-icon">💳</div>
+            <div class="ac-info">
+              <h4>Uninsurance Health Access Card</h4>
+              <p>Tap at any provider · NFC-enabled · AaNeel</p>
+              <span class="ac-nfc">📡 NFC Ready</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-nav">
+        <div class="pnav-item active"><span class="pnav-icon">🏠</span><span class="pnav-label">Home</span></div>
+        <div class="pnav-item"><span class="pnav-icon">📋</span><span class="pnav-label">Records</span></div>
+        <div class="pnav-item" onclick="toggleUninsurance()"><span class="pnav-icon">⚡</span><span class="pnav-label">Uninsure</span></div>
+        <div class="pnav-item"><span class="pnav-icon">💰</span><span class="pnav-label">Savings</span></div>
+        <div class="pnav-item"><span class="pnav-icon">👤</span><span class="pnav-label">Family</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HOW IT WORKS / TUTORIAL -->
+<section class="how-section" id="how">
+  <div class="s-label t">// How It Works</div>
+  <h2 class="S">Your Health Story,<br><span class="t">In Three Minutes.</span></h2>
+  <p class="how-deck">Watch a quick walkthrough, then follow five simple steps to bring your full medical record together.</p>
+
+  <div class="how-grid">
+    <div class="how-video-wrap">
+      <video class="how-video" id="tutorialVideo" preload="metadata" muted playsinline poster="/api/og-image" controls>
+        <source src="/media/tutorial-walkthrough.mp4" type="video/mp4">
+        Your browser does not support embedded video.
+      </video>
+      <button class="how-video-play" id="tutorialPlayBtn" onclick="playTutorial()" aria-label="Play tutorial video">
+        <span class="how-play-icon">▶</span>
+        <span class="how-play-label">Watch the 8-second demo</span>
+      </button>
+    </div>
+
+    <ol class="how-steps">
+      <li class="how-step">
+        <div class="how-step-num">1</div>
+        <div class="how-step-body">
+          <h4>Create your secure account</h4>
+          <p>HIPAA-grade encryption by default. Sign in with Apple, Google, or email — your data is yours.</p>
+        </div>
+      </li>
+      <li class="how-step">
+        <div class="how-step-num">2</div>
+        <div class="how-step-body">
+          <h4>Connect your records</h4>
+          <p>Link 50,000+ provider systems via Fasten Health — Epic, eClinicalWorks, Healow, and more in seconds.</p>
+        </div>
+      </li>
+      <li class="how-step">
+        <div class="how-step-num">3</div>
+        <div class="how-step-body">
+          <h4>Let AI organize everything</h4>
+          <p>Deduplicated, chronologically sorted, plain-English summaries of every visit, lab, and prescription.</p>
+        </div>
+      </li>
+      <li class="how-step">
+        <div class="how-step-num">4</div>
+        <div class="how-step-body">
+          <h4>Ask your 24/7 health assistant</h4>
+          <p>Clinical decision support, safety alerts, and answers grounded in your actual records — not the internet.</p>
+        </div>
+      </li>
+      <li class="how-step">
+        <div class="how-step-num">5</div>
+        <div class="how-step-body">
+          <h4>Share with your care team</h4>
+          <p>Provider-ready summaries with one tap. You stay in control of what's shared, with whom, and for how long.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <div class="how-cta-row">
+    <button class="cta-primary" onclick="scrollTo('#download')">Get the App →</button>
+    <button class="cta-outline" onclick="scrollTo('#ai')">Try the AI Assistant</button>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PATIENT ONBOARDING INTAKE PROGRAM -->
+<section class="intake-section" id="intake">
+  <div class="s-label t">// Patient Onboarding Program</div>
+  <h2 class="S">Your Complete Medical History,<br><span class="t">In Your Own Language.</span></h2>
+  <p class="intake-deck">A guided 8-section intake covering everything your doctor needs to know — from family history to current medications — with an AI assistant that helps you pick the right answers, available in 52 languages.</p>
+
+  <div class="intake-badges">
+    <span class="intake-badge">📋 8 guided sections</span>
+    <span class="intake-badge">🌐 52 languages</span>
+    <span class="intake-badge">🤖 AI-assisted answers</span>
+    <span class="intake-badge">🔒 HIPAA-encrypted</span>
+    <span class="intake-badge">💾 Auto-saves as you go</span>
+    <span class="intake-badge">🔗 Imports from 50K+ providers</span>
+  </div>
+
+  <div class="intake-lang-row">
+    <span class="intake-lang-label">Try a language:</span>
+    <span class="intake-lang-pill active" data-lang="en" onclick="setIntakeLang(this)">English</span>
+    <span class="intake-lang-pill" data-lang="es" onclick="setIntakeLang(this)">Español</span>
+    <span class="intake-lang-pill" data-lang="zh" onclick="setIntakeLang(this)">中文</span>
+    <span class="intake-lang-pill" data-lang="hi" onclick="setIntakeLang(this)">हिन्दी</span>
+    <span class="intake-lang-pill" data-lang="ar" onclick="setIntakeLang(this)">العربية</span>
+    <span class="intake-lang-pill" data-lang="pt" onclick="setIntakeLang(this)">Português</span>
+    <span class="intake-lang-pill" data-lang="fr" onclick="setIntakeLang(this)">Français</span>
+    <span class="intake-lang-pill" data-lang="vi" onclick="setIntakeLang(this)">Tiếng Việt</span>
+    <span class="intake-lang-pill" data-lang="ru" onclick="setIntakeLang(this)">Русский</span>
+    <span class="intake-lang-pill" data-lang="ko" onclick="setIntakeLang(this)">한국어</span>
+    <span class="intake-lang-more">+ 42 more</span>
+  </div>
+
+  <div class="intake-grid">
+    <div class="intake-sections" id="intakeSections">
+      <button class="intake-sec active" data-section="personal" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">👤</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="personal.t">Personal Information</span><span class="intake-sec-sub" data-i18n="personal.s">Name, DOB, gender, race, ethnicity, preferred language</span></div>
+        <div class="intake-sec-count">12 q</div>
+      </button>
+      <button class="intake-sec" data-section="contact" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">📍</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="contact.t">Contact & Address</span><span class="intake-sec-sub" data-i18n="contact.s">Phone, email, home address, emergency contacts</span></div>
+        <div class="intake-sec-count">8 q</div>
+      </button>
+      <button class="intake-sec" data-section="medical" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">❤️</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="medical.t">Medical History</span><span class="intake-sec-sub" data-i18n="medical.s">Conditions, surgeries, hospitalizations, family history</span></div>
+        <div class="intake-sec-count">24 q</div>
+      </button>
+      <button class="intake-sec" data-section="allergies" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">⚠️</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="allergies.t">Allergies & Medications</span><span class="intake-sec-sub" data-i18n="allergies.s">Drug allergies, current Rx, OTC, supplements, dosing</span></div>
+        <div class="intake-sec-count">18 q</div>
+      </button>
+      <button class="intake-sec" data-section="lifestyle" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">☀️</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="lifestyle.t">Lifestyle & Wellness</span><span class="intake-sec-sub" data-i18n="lifestyle.s">Smoking, alcohol, exercise, diet, sleep, stress</span></div>
+        <div class="intake-sec-count">15 q</div>
+      </button>
+      <button class="intake-sec" data-section="providers" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">💼</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="providers.t">Your Care Team</span><span class="intake-sec-sub" data-i18n="providers.s">PCP, specialists, dentist, preferred pharmacy</span></div>
+        <div class="intake-sec-count">10 q</div>
+      </button>
+      <button class="intake-sec" data-section="connect" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">⬇️</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="connect.t">Import Records</span><span class="intake-sec-sub" data-i18n="connect.s">Link 50,000+ providers via Epic, Healow, Fasten Health</span></div>
+        <div class="intake-sec-count">1-tap</div>
+      </button>
+      <button class="intake-sec" data-section="consent" onclick="setIntakeSection(this)">
+        <div class="intake-sec-icon">✓</div>
+        <div class="intake-sec-body"><span class="intake-sec-title" data-i18n="consent.t">Review & Consent</span><span class="intake-sec-sub" data-i18n="consent.s">HIPAA authorization, sharing preferences, e-signature</span></div>
+        <div class="intake-sec-count">6 q</div>
+      </button>
+    </div>
+
+    <div class="intake-demo" id="intakeDemo">
+      <div class="intake-demo-top">
+        <div class="intake-demo-avatar">🤖</div>
+        <div class="intake-demo-info">
+          <h5 id="intakeDemoTitle">Intake Assistant</h5>
+          <p>Vertex AI · HIPAA-safe · No PHI to 3rd parties</p>
+        </div>
+        <div class="intake-demo-live">Live</div>
+      </div>
+
+      <div class="intake-demo-current">SECTION <b id="intakeDemoSection">Personal Information</b> · STEP <b id="intakeDemoStep">1</b> OF <b>8</b></div>
+
+      <div class="intake-demo-q">
+        <div class="intake-demo-q-label" id="intakeDemoQLabel">QUESTION 1</div>
+        <div class="intake-demo-q-text" id="intakeDemoQText">What pronouns do you use?</div>
+      </div>
+
+      <div class="intake-demo-chips" id="intakeDemoChips"></div>
+
+      <div class="intake-demo-ai">
+        <div class="intake-demo-ai-icon">🤖</div>
+        <div class="intake-demo-ai-text" id="intakeDemoAiText">
+          <b>AI hint:</b> Tap any answer above, or type your own. Not sure? I'll suggest options based on your other answers — and you can always change it later.
+        </div>
+      </div>
+
+      <div class="intake-demo-progress">
+        <span>12%</span>
+        <div class="intake-demo-progress-bar"><div class="intake-demo-progress-fill" id="intakeDemoProgress" style="width:12%"></div></div>
+        <span>~10 min left</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="how-cta-row">
+    <button class="cta-primary" onclick="scrollTo('#download')">Start Your Intake →</button>
+    <button class="cta-outline" onclick="scrollTo('#ai')">Talk to the AI First</button>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FAMILY HUB -->
+<section class="hub-section" id="hub">
+  <div class="s-label t">// Family Health Hub</div>
+  <h2 class="S">One App for <span class="t">Everyone</span><br>in Your Family.</h2>
+  <p class="sub">Add every family member with separate health profiles, records, and care histories — parents, children, even pets. One account, complete visibility, total privacy controls per profile.</p>
+
+  <div class="hub-grid">
+    <div class="hub-card adult">
+      <div class="hub-icon">👤</div>
+      <h3>Adults</h3>
+      <p>Full FHIR health records aggregated from all your providers via Fasten Health. Deduplication. Plain-English summaries. Insurance card + Uninsurance card in one.</p>
+      <ul class="hub-features">
+        <li>50K+ EHR systems via Fasten Health</li>
+        <li>Medications, allergies, diagnoses</li>
+        <li>Lab results + imaging history</li>
+        <li>Insurance + direct-pay options</li>
+        <li>VA veteran lane (MISSION Act)</li>
+        <li>HSA payment integration</li>
+      </ul>
+      <span class="hub-count">→ Fasten Health + Google Healthcare API</span>
+    </div>
+
+    <div class="hub-card child">
+      <div class="hub-icon">👶</div>
+      <h3>Kids</h3>
+      <p>Separate pediatric profiles with growth charts, vaccination schedules, school health requirements, and pediatrician records — all under parent/guardian access controls.</p>
+      <ul class="hub-features">
+        <li>Vaccination tracker + reminders</li>
+        <li>Growth charts (height, weight, BMI)</li>
+        <li>Pediatrician records + FHIR pull</li>
+        <li>School health form auto-fill</li>
+        <li>Allergy + medication list always ready</li>
+        <li>Emergency contact + authorization</li>
+      </ul>
+      <span class="hub-count">→ Pediatric FHIR profile</span>
+    </div>
+
+    <div class="hub-card parent">
+      <div class="hub-icon">👴</div>
+      <h3>Aging Parents</h3>
+      <p>Help elderly parents manage their complex care. Medicare records, specialist visits, medication lists, and appointment reminders — accessible by authorized family caregivers.</p>
+      <ul class="hub-features">
+        <li>Medicare Part A/B/D records</li>
+        <li>Multi-provider coordination</li>
+        <li>Medication interaction checker (AI)</li>
+        <li>Caregiver access + notifications</li>
+        <li>Transportation + appointment tracking</li>
+        <li>AaNeel card tap at all providers</li>
+      </ul>
+      <span class="hub-count">→ Medicare Blue Button API</span>
+    </div>
+
+    <div class="hub-card pet">
+      <div class="hub-icon">🐾</div>
+      <h3>Pets</h3>
+      <p>Your furry family members deserve organized health records too. Vet visits, vaccinations, microchip info, prescriptions, and pet insurance — all in one place.</p>
+      <ul class="hub-features">
+        <li>Vaccination records + due dates</li>
+        <li>Vet visit history + notes</li>
+        <li>Prescription + flea/tick schedule</li>
+        <li>Microchip + insurance info</li>
+        <li>Multiple pets per household</li>
+        <li>Vet cost comparison tool</li>
+      </ul>
+      <span class="hub-count">→ AVMA-compatible pet records</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- UNINSURANCE MODE -->
+<section class="uninsurance-section" id="uninsurance">
+  <div class="u-grid">
+    <div class="u-left">
+      <div class="s-label a">// Uninsurance Mode</div>
+      <h2 class="S">No Insurance?<br><span class="a">No Problem.</span></h2>
+      <p class="sub">Tabula Medica's Uninsurance mode connects you to physicians, labs, radiology, and pharmacies at published Medicare 2026 rates. Tap your Uninsurance Health Access Card at any provider. Pay at point of care. $0 surprise bills. Ever.</p>
+
+      <div class="lanes">
+        <div class="lane a">
+          <div class="lane-label">Lane A — Civilian</div>
+          <h4>Self-Pay</h4>
+          <p>Pay at Medicare rates at point of care. Provider paid in 24 hours via JPMorgan InstaMed.</p>
+          <div class="lane-detail">$82.40 office visit · $11 lab panel · $260 MRI</div>
+        </div>
+        <div class="lane b">
+          <div class="lane-label">Lane B — VA Veteran</div>
+          <h4>VA Pays via Optum CCN</h4>
+          <p>Enrolled veterans use MISSION Act community care. VA pays via Optum CCN Region 1. Veteran pays $0.</p>
+          <div class="lane-detail">Optum CCN · Payer ID: VACCN · 30-day payment</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="u-right">
+      <div class="rate-table-wrap">
+        <div class="rt-header">
+          <h4>Medicare 2026 Published Rates</h4>
+          <span class="rt-badge">$33.40/RVU CF</span>
+        </div>
+        <div class="rt-body">
+          <div class="rt-row"><span class="rt-service">Office Visit (99213)</span><span class="rt-market">$350–800</span><span class="rt-our">$82.40</span><span class="rt-save">save 89%</span></div>
+          <div class="rt-row"><span class="rt-service">New Patient (99204)</span><span class="rt-market">$600–1,200</span><span class="rt-our">$170.00</span><span class="rt-save">save 86%</span></div>
+          <div class="rt-row"><span class="rt-service">Telehealth (99213-GT)</span><span class="rt-market">$200–500</span><span class="rt-our">$75.00</span><span class="rt-save">save 85%</span></div>
+          <div class="rt-row"><span class="rt-service">Metabolic Panel (80053)</span><span class="rt-market">$200–400</span><span class="rt-our">$12.50</span><span class="rt-save">save 96%</span></div>
+          <div class="rt-row"><span class="rt-service">CBC (85025)</span><span class="rt-market">$150–350</span><span class="rt-our">$11.00</span><span class="rt-save">save 96%</span></div>
+          <div class="rt-row"><span class="rt-service">MRI Brain (70553)</span><span class="rt-market">$3,000–6,000</span><span class="rt-our">$280.00</span><span class="rt-save">save 95%</span></div>
+          <div class="rt-row"><span class="rt-service">Chest X-Ray (71046)</span><span class="rt-market">$400–900</span><span class="rt-our">$42.00</span><span class="rt-save">save 95%</span></div>
+          <div class="rt-row"><span class="rt-service">Metformin 90-day (Cost Plus)</span><span class="rt-market">$80–150</span><span class="rt-our">$4.80</span><span class="rt-save">save 97%</span></div>
+          <div class="rt-row"><span class="rt-service">Mental Health 45 min (90834)</span><span class="rt-market">$200–400</span><span class="rt-our">$77.00</span><span class="rt-save">save 81%</span></div>
+        </div>
+      </div>
+
+      <div class="hrsa-finder">
+        <div class="hrsa-title">// HRSA Clinic Finder — FQHCs Near You</div>
+        <div class="hrsa-input-row">
+          <input class="hrsa-input" id="hrsa-zip" type="text" placeholder="Enter ZIP code (e.g. 22301)" maxlength="5" oninput="this.value=this.value.replace(/\D/,'')">
+          <button class="hrsa-btn" onclick="searchHRSA()">Find Clinics →</button>
+        </div>
+        <div id="hrsa-loader">Searching HRSA database...</div>
+        <div class="hrsa-results" id="hrsa-results"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- AANEEL CARD -->
+<section class="aaneel-section" id="aaneel">
+  <div class="s-label t">// Uninsurance Health Access Card</div>
+  <h2 class="S">Your Medical Identity.<br><span class="t">One NFC Tap.</span></h2>
+  <p class="sub">Powered by AaNeel Infotech's Health Access Card® technology — white-labeled as the Uninsurance Health Access Card. Tap at any provider to instantly transfer your Tabula Medica health records, confirm Medicare rates, and initiate payment.</p>
+
+  <div class="aaneel-grid">
+    <div class="card-visual">
+      <div class="health-card">
+        <div class="hc-top">
+          <div class="hc-logo">Tabula Medica</div>
+          <div class="hc-nfc">📡</div>
+        </div>
+        <div>
+          <div class="hc-name">Maria Rodriguez</div>
+          <div class="hc-sub">Uninsurance Health Access Card • Member since 2026</div>
+        </div>
+        <div class="hc-bottom">
+          <div class="hc-id">TM-2026-***-4521</div>
+          <div class="hc-badges">
+            <span class="hc-badge">FHIR R4</span>
+            <span class="hc-badge">Uninsurance</span>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--mid);margin-top:16px;line-height:1.7">Physical card shipped to your address ($9 one-time). Digital card available immediately in-app. NFC reader provided free to enrolled providers.</p>
+    </div>
+
+    <div class="aaneel-features">
+      <div class="af">
+        <div class="af-icon">📡</div>
+        <div class="af-body"><h4>NFC Tap-to-Transfer</h4><p>Patient taps card at provider front desk. Entire Tabula Medica record — medications, allergies, diagnoses, labs — transfers instantly. No paperwork. No forms. Powered by AaNeel Connect interoperability platform (CommonWell/Carequality).</p></div>
+      </div>
+      <div class="af">
+        <div class="af-icon">💳</div>
+        <div class="af-body"><h4>Payment Identity</h4><p>Card confirms patient is in the Uninsurance network. Provider sees their Medicare rate on screen. Payment routed via JPMorgan InstaMed (Lane A) or Optum CCN (Lane B for veterans). Provider paid within 24 hours.</p></div>
+      </div>
+      <div class="af">
+        <div class="af-icon">💊</div>
+        <div class="af-body"><h4>RxConnect® Pharmacy Network</h4><p>AaNeel RxConnect® connects to 70,000+ pharmacies nationwide. Patient taps card at pharmacy — prescription history, allergy list, and Cost Plus Drugs pricing auto-populate. No more medication errors from incomplete histories.</p></div>
+      </div>
+      <div class="af">
+        <div class="af-icon">🔒</div>
+        <div class="af-body"><h4>HIPAA-Compliant · FHIR R4</h4><p>All data transfers are HIPAA-encrypted. Card integrates with AaNeel Connect — already on CommonWell Health Alliance and Carequality networks, covering 75%+ of US EHRs. No separate EMR integration required for most practices.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- LANGUAGE SECTION -->
+<section class="lang-section" id="language">
+  <div class="s-label v">// Removing Language Barriers</div>
+  <h2 class="S" style="color:#fff">Healthcare in Your <span class="v">Language.</span></h2>
+  <p class="sub" style="color:rgba(255,255,255,.45)">Tabula Medica breaks down the language barrier that keeps millions from accessing care. Full UI, AI assistant responses, health record summaries, and provider communication — all in your language. 50+ languages supported and growing.</p>
+
+  <div class="lang-grid">
+    <div class="lang-card"><div class="lang-flag">🇺🇸</div><div class="lang-name">English</div><div class="lang-native">English</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">AI Assistant</div><div class="lf">Medical summaries</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇪🇸</div><div class="lang-name">Spanish</div><div class="lang-native">Español</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">Asistente IA</div><div class="lf">Resúmenes médicos</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇨🇳</div><div class="lang-name">Chinese</div><div class="lang-native">中文</div><div class="lang-features"><div class="lf">Complete interface</div><div class="lf">AI Assistant</div><div class="lf">Medical records in 中文</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇮🇳</div><div class="lang-name">Hindi</div><div class="lang-native">हिन्दी</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">AI सहायक</div><div class="lf">Medical summaries</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇧🇷</div><div class="lang-name">Portuguese</div><div class="lang-native">Português</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">Assistente IA</div><div class="lf">Resumos médicos</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇫🇷</div><div class="lang-name">French</div><div class="lang-native">Français</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">Assistant IA</div><div class="lf">Résumés médicaux</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇸🇦</div><div class="lang-name">Arabic</div><div class="lang-native">العربية</div><div class="lang-features"><div class="lf">Full UI (RTL)</div><div class="lf">AI مساعد</div><div class="lf">Medical summaries</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇯🇵</div><div class="lang-name">Japanese</div><div class="lang-native">日本語</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">AIアシスタント</div><div class="lf">Medical summaries</div></div></div>
+    <div class="lang-card"><div class="lang-flag">🇰🇷</div><div class="lang-name">Korean</div><div class="lang-native">한국어</div><div class="lang-features"><div class="lf">Full UI</div><div class="lf">AI 어시스턴트</div><div class="lf">Medical summaries</div></div></div>
+  </div>
+  <p style="font-size:13px;color:rgba(255,255,255,.3);margin-top:20px;text-align:center">Plus 40+ additional languages including Vietnamese, Thai, Tagalog, Swahili, Urdu, Bengali, Russian, Ukrainian, German, Italian, and more.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- SAVINGS MODULES -->
+<section class="savings-section" id="savings">
+  <div class="s-label a">// Savings Modules</div>
+  <h2 class="S">Your Health Wallet.<br><span class="a">Optimized.</span></h2>
+  <p class="sub">Tabula Medica's savings modules work together to minimize your total out-of-pocket spend — whether you're insured, underinsured, or using Uninsurance mode.</p>
+
+  <div class="savings-grid">
+    <div class="savings-cards">
+      <div class="scard">
+        <div class="scard-icon t">💊</div>
+        <div><h4>Cost Plus Pharmacy Module</h4><p>Every prescription auto-checked against Mark Cuban Cost Plus Drugs pricing. Metformin 90-day: $4.80. AI flags when your pharmacy charges more.</p></div>
+      </div>
+      <div class="scard">
+        <div class="scard-icon a">🔬</div>
+        <div><h4>Lab Route Optimizer</h4><p>Before ordering labs, AI checks your Fasten Health record for duplicate tests ordered in the last 6 months. Saves hundreds per year on redundant bloodwork.</p></div>
+      </div>
+      <div class="scard">
+        <div class="scard-icon v">💰</div>
+        <div><h4>HSA Smart Manager</h4><p>Tracks your HSA balance. Automatically routes eligible Uninsurance visits through your HSA card. Shows real after-tax cost of each visit (2026 DPC safe harbor).</p></div>
+      </div>
+      <div class="scard">
+        <div class="scard-icon s">⚖️</div>
+        <div><h4>Insurance vs. Direct Pay Optimizer</h4><p>Before each visit, AI calculates whether it's cheaper to use your insurance or Uninsurance mode. Most patients with HDHPs save $3,000–$8,000/year by choosing direct pay below their deductible.</p></div>
+      </div>
+      <div class="scard">
+        <div class="scard-icon g">🏥</div>
+        <div><h4>FQHC Sliding Scale Finder</h4><p>Federally Qualified Health Centers must see all patients regardless of ability to pay. HRSA API surfaces the nearest FQHC instantly — free or sliding scale based on income.</p></div>
+      </div>
+    </div>
+
+    <!-- Savings Calculator -->
+    <div class="savings-calc">
+      <div class="sc-header">
+        <h3>📊 Annual Savings Calculator</h3>
+        <p>Compare your current plan vs. Tabula Medica + Uninsurance</p>
+      </div>
+      <div class="sc-body">
+        <div class="sc-row">
+          <div class="sc-label">Monthly premium <span id="prem-v">$450</span></div>
+          <input type="range" min="100" max="1200" value="450" oninput="calc()">
+        </div>
+        <div class="sc-row">
+          <div class="sc-label">Annual deductible <span id="ded-v">$5,000</span></div>
+          <input type="range" min="0" max="15000" step="500" value="5000" oninput="calc()">
+        </div>
+        <div class="sc-row">
+          <div class="sc-label">Doctor visits/year <span id="vis-v">6</span></div>
+          <input type="range" min="1" max="30" value="6" oninput="calc()">
+        </div>
+        <div class="sc-row">
+          <div class="sc-label">Lab tests/year <span id="lab-v">4</span></div>
+          <input type="range" min="0" max="20" value="4" oninput="calc()">
+        </div>
+        <div class="sc-result">
+          <div class="scr-row"><span class="scrk">Insurance premiums (12 mo)</span><span class="scrv red" id="r-prem">$5,400</span></div>
+          <div class="scr-row"><span class="scrk">Deductible exposure</span><span class="scrv red" id="r-ded">$1,080</span></div>
+          <div class="scr-row"><span class="scrk">Tabula Medica visits + labs</span><span class="scrv grn" id="r-tm">$542</span></div>
+          <div class="scr-row"><span class="scrk">Cost Plus Rx (vs pharmacy avg)</span><span class="scrv grn">~$120/yr</span></div>
+        </div>
+        <div class="sc-total">
+          <span class="sc-total-label">💰 Your annual savings</span>
+          <span class="sc-total-val" id="r-savings">$5,938</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- AI ASSISTANT -->
+<section class="ai-section" id="ai">
+  <div style="text-align:center;margin-bottom:40px">
+    <div class="s-label t" style="justify-content:center">// AI Health Assistant</div>
+    <h2 class="S" style="color:#fff;text-align:center">Ask Anything.<br><span class="t">In Any Language.</span></h2>
+    <p class="sub" style="color:rgba(255,255,255,.45);text-align:center;margin:0 auto">Powered by Claude Sonnet. Understands your full Tabula Medica health record. Answers in your language. Never gives clinical diagnosis — always points to care options and costs.</p>
+  </div>
+
+  <div class="ai-inner">
+    <div class="ai-chat-frame">
+      <div class="ai-top">
+        <div class="ai-avatar">🧠</div>
+        <div class="ai-info"><h4>Tabula Medica Health Assistant</h4><p>Claude Sonnet · HIPAA-compliant · Multilingual</p></div>
+        <div class="ai-live"><span class="ai-live-dot"></span>Live</div>
+      </div>
+      <div class="ai-lang-row">
+        <span class="lang-pill active" onclick="setLang(this,'en')">EN</span>
+        <span class="lang-pill" onclick="setLang(this,'es')">ES</span>
+        <span class="lang-pill" onclick="setLang(this,'zh')">中文</span>
+        <span class="lang-pill" onclick="setLang(this,'hi')">हि</span>
+        <span class="lang-pill" onclick="setLang(this,'pt')">PT</span>
+        <span class="lang-pill" onclick="setLang(this,'fr')">FR</span>
+      </div>
+      <div class="ai-suggestions">
+        <span class="ai-sug" onclick="askAI(this.textContent)">How much does an MRI cost at Medicare rates?</span>
+        <span class="ai-sug" onclick="askAI(this.textContent)">Am I eligible for VA community care?</span>
+        <span class="ai-sug" onclick="askAI(this.textContent)">Find an FQHC near ZIP 22301</span>
+        <span class="ai-sug" onclick="askAI(this.textContent)">How do I add my child's records?</span>
+        <span class="ai-sug" onclick="askAI(this.textContent)">Should I use insurance or Uninsurance mode?</span>
+      </div>
+      <div class="ai-body" id="chat-body">
+        <div class="chat-msg">
+          <div class="chat-av ai">🧠</div>
+          <div class="bubble ai">Hi! I'm your Tabula Medica Health Assistant — powered by Claude. I can help you find care at Medicare rates, compare your insurance vs. Uninsurance mode, look up HRSA clinics near you, explain your family health records in plain language, or answer questions in any of our 6 supported languages. What can I help you with today?</div>
+        </div>
+      </div>
+      <div class="ai-input-row">
+        <input class="ai-input" id="chat-input" placeholder="Ask about your health, costs, providers, records…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="ai-send" onclick="sendChat()">Send →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- APP DOWNLOAD + TECH STACK -->
+<section class="download-section" id="download">
+  <div class="dl-grid">
+    <div>
+      <div class="s-label t">// Available Now</div>
+      <h2 class="S">Download the App.<br><span class="t">iOS & Android.</span></h2>
+      <p class="sub">React Native on iOS 26 (Xcode 26 SDK, Liquid Glass UI) and Google Play. Apple App Store deadline: April 28, 2026 — we're ready. Built on Expo EAS for Mac-free cloud builds.</p>
+      <div class="store-badges">
+        <button class="store-badge">
+          <span class="sb-icon">🍎</span>
+          <div class="sb-text"><div class="sb-sub">Download on the</div><div class="sb-name">App Store</div></div>
+        </button>
+        <button class="store-badge">
+          <span class="sb-icon">🤖</span>
+          <div class="sb-text"><div class="sb-sub">Get it on</div><div class="sb-name">Google Play</div></div>
+        </button>
+      </div>
+        <p style="font-size:12px;color:var(--mid);margin-top:16px;line-height:1.7">HIPAA-compliant. AES-256 encryption. SOC 2 readiness in flight. BAA with Google Cloud. Your health data never leaves your control. Privacy Nutrition Label completed.</p>
+    </div>
+
+    <div class="tech-stack">
+      <h4>🔧 Full Tech Stack — Replit-Ready</h4>
+      <div class="stack-items">
+        <div class="stack-item"><div class="si-name">React Native + Expo</div><div class="si-desc">iOS 26 + Android. EAS cloud builds. No Mac needed.</div><span class="si-badge">existing</span></div>
+        <div class="stack-item"><div class="si-name">Fasten Health</div><div class="si-desc">50K+ EHR systems via FHIR. Patient record aggregation.</div><span class="si-badge">existing</span></div>
+        <div class="stack-item"><div class="si-name">Google Healthcare API</div><div class="si-desc">FHIR R4. HIPAA BAA. Encounter write-back after each Uninsurance visit.</div><span class="si-badge">existing</span></div>
+        <div class="stack-item"><div class="si-name">Auth + Mailgun</div><div class="si-desc">Auth system + transactional email (visit confirmation, provider receipt).</div><span class="si-badge">existing</span></div>
+        <div class="stack-item"><div class="si-name">HRSA API</div><div class="si-desc">findahealthcenter.hrsa.gov/api/v1 — 1,400+ FQHCs by ZIP. Free.</div><span class="si-badge">add v5</span></div>
+        <div class="stack-item"><div class="si-name">AaNeel Connect</div><div class="si-desc">CommonWell/Carequality NFC card. 75%+ US EHRs.</div><span class="si-badge">add v5</span></div>
+        <div class="stack-item"><div class="si-name">InstaMed + Optum EDI</div><div class="si-desc">Lane A (patient pay) + Lane B (VA CCN). Payer ID: VACCN.</div><span class="si-badge">add v5</span></div>
+        <div class="stack-item"><div class="si-name">Claude Sonnet API</div><div class="si-desc">Multilingual AI assistant. SOAP note generation. Savings optimizer.</div><span class="si-badge">add v5</span></div>
+        <div class="stack-item"><div class="si-name">Cost Plus Drugs API</div><div class="si-desc">Generic drug pricing. 90-day mail order. AaNeel RxConnect® backup.</div><span class="si-badge">add v5</span></div>
+        <div class="stack-item"><div class="si-name">VA Lighthouse API</div><div class="si-desc">veteran health records + Blue Button for veteran profiles.</div><span class="si-badge">add v5</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MISSION SECTION -->
+<section class="replit-section" id="mission">
+  <div class="s-label t">// Our Mission</div>
+  <h2 class="S" style="color:#fff">Health Records for<br><span class="t">Everyone.</span></h2>
+  <p class="sub" style="color:rgba(255,255,255,.45)">The poorest of the poor deserve health records in their own language. Tabula Medica is building the universal health record platform — HIPAA-compliant, multilingual, and free to join.</p>
+
+  <div class="replit-steps">
+    <div class="rs">
+      <div class="rs-num">For the Uninsured</div>
+      <h3>Care at Medicare rates</h3>
+      <p>Uninsurance mode connects you to physicians, labs, radiology, and pharmacies at published Medicare 2026 rates. No surprise bills. Ever.</p>
+    </div>
+    <div class="rs">
+      <div class="rs-num">For Veterans</div>
+      <h3>VA Community Care</h3>
+      <p>Enrolled veterans use MISSION Act community care. VA pays via Optum CCN. The veteran pays $0. Full VA health record integration via Blue Button API.</p>
+    </div>
+    <div class="rs">
+      <div class="rs-num">For Families</div>
+      <h3>Everyone in one app</h3>
+      <p>Adults, children, aging parents, and pets — each with separate health profiles, records, and care histories. One account, complete visibility.</p>
+    </div>
+    <div class="rs">
+      <div class="rs-num">For Any Language</div>
+      <h3>50+ languages supported</h3>
+      <p>Full UI, AI assistant responses, health record summaries, and provider communication — all translated into your preferred language.</p>
+    </div>
+    <div class="rs">
+      <div class="rs-num">For Field Deployment</div>
+      <h3>DoD and disaster relief ready</h3>
+      <p>Designed for field medics, refugee camps, and disaster response. Works offline-first with sync when connectivity returns. FHIR R4 + USCDI v6 compliant.</p>
+    </div>
+    <div class="rs">
+      <div class="rs-num">100% Free</div>
+      <h3>$0 to join, $0 premiums</h3>
+      <p>No subscription fees. No data selling. Your health data never leaves your control. HIPAA-compliant with AES-256 encryption; SOC 2 readiness in flight.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="fl-brand">Tabula<span>Medica</span></div>
+    <div class="fl-sub">DBA Uninsurance · Tabula Medica Inc. · Delaware · Virginia</div>
+  </div>
+  <div class="fl-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">HIPAA Notice</a>
+    <a href="#">Providers</a>
+    <a href="#">API</a>
+    <a href="#">VA Community Care</a>
+    <a href="#">Contact</a>
+  </div>
+  <div class="fl-right">
+    Fasten Health · Google Healthcare API (FHIR R4) · AaNeel Connect<br>
+    JPMorgan InstaMed · Optum CCN · <a href="#">Claude Sonnet API</a><br>
+    © 2026 Tabula Medica Inc. All rights reserved.
+  </div>
+</footer>
+
+<script>
+let currentLang = 'en';
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  addMsg(msg, 'user');
+  input.value = '';
+  const loading = addMsg('Thinking…', 'ai', true);
+  try {
+    const resp = await fetch('/api/landing/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        message: msg,
+        language: currentLang
+      })
+    });
+    const data = await resp.json();
+    loading.remove();
+    addMsg(data.reply || 'I had trouble connecting. Please try again.', 'ai');
+  } catch(e) {
+    loading.remove();
+    addMsg('Connection issue. For immediate help, contact support@tabulamedica.health', 'ai');
+  }
+}
+
+function askAI(q) {
+  document.getElementById('chat-input').value = q;
+  sendChat();
+  document.getElementById('ai').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function addMsg(text, role, loading=false) {
+  const body = document.getElementById('chat-body');
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (role==='user' ? ' user' : '');
+  const av = document.createElement('div');
+  av.className = 'chat-av ' + role;
+  av.textContent = role==='user' ? '👤' : '🧠';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + role + (loading ? ' loading' : '');
+  bubble.textContent = text == null ? '' : String(text);
+  div.appendChild(av);
+  div.appendChild(bubble);
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+  return div;
+}
+
+function setLang(el, lang) {
+  document.querySelectorAll('.lang-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  currentLang = lang;
+  document.getElementById('chat-input').placeholder = {
+    en: 'Ask about your health, costs, providers, records…',
+    es: 'Pregunta sobre tu salud, costos, proveedores…',
+    zh: '询问您的健康、费用、医疗服务…',
+    hi: 'अपने स्वास्थ्य, लागत, प्रदाताओं के बारे में पूछें…',
+    pt: 'Pergunte sobre saúde, custos, provedores…',
+    fr: 'Posez des questions sur votre santé, coûts…'
+  }[lang] || '';
+}
+
+/* HRSA Clinic Finder */
+const MOCK_CLINICS = {
+  '22301': [{name:'Arlington FQHC Community Health',dist:'0.8 mi',type:'FQHC'},{name:'Alexandria Health Center',dist:'2.1 mi',type:'FQHC'},{name:'Virginian Care Clinic',dist:'3.4 mi',type:'RHC'}],
+  '22302': [{name:'Columbia Pike Family Health',dist:'0.5 mi',type:'FQHC'},{name:'Arlington Free Clinic',dist:'1.2 mi',type:'Free Clinic'}],
+  '75201': [{name:'Parkland Community Health',dist:'0.7 mi',type:'FQHC'},{name:'Dallas Community Clinic',dist:'1.5 mi',type:'FQHC'},{name:'UT Southwestern FQHC',dist:'2.3 mi',type:'FQHC'}],
+  '10001': [{name:'Community Healthcare Network',dist:'0.3 mi',type:'FQHC'},{name:'Ryan Chelsea-Clinton Center',dist:'0.8 mi',type:'FQHC'}],
+};
+
+async function searchHRSA() {
+  const zip = document.getElementById('hrsa-zip').value.trim();
+  if (zip.length < 5) {alert('Please enter a 5-digit ZIP code'); return;}
+  const loader = document.getElementById('hrsa-loader');
+  const results = document.getElementById('hrsa-results');
+  loader.style.display = 'block';
+  results.innerHTML = '';
+  await new Promise(r => setTimeout(r, 900));
+  loader.style.display = 'none';
+  const clinics = MOCK_CLINICS[zip] || [{name:`FQHC Health Center (${zip})`,dist:'nearby',type:'FQHC'},{name:`Community Care Clinic (${zip})`,dist:'nearby',type:'Free Clinic'}];
+  results.innerHTML = clinics.map(c => `<div class="hrsa-result"><span class="hrsa-dot"></span><span class="hrsa-name">${c.name}</span><span class="hrsa-type">${c.type}</span><span class="hrsa-dist">${c.dist}</span></div>`).join('');
+}
+
+/* Savings Calculator */
+let premV=450, dedV=5000, visV=6, labV=4;
+function calc() {
+  const inputs = document.querySelectorAll('input[type=range]');
+  premV = +inputs[0].value; dedV = +inputs[1].value;
+  visV = +inputs[2].value; labV = +inputs[3].value;
+  document.getElementById('prem-v').textContent = '$' + premV.toLocaleString();
+  document.getElementById('ded-v').textContent = '$' + dedV.toLocaleString();
+  document.getElementById('vis-v').textContent = visV;
+  document.getElementById('lab-v').textContent = labV;
+  const insTotal = premV * 12;
+  const dedExposed = Math.min(dedV, visV * 180 + labV * 100);
+  const tmCost = visV * 82.40 + labV * 12 + visV * 5; // visits + labs + booking fee
+  const savings = insTotal + dedExposed - tmCost;
+  document.getElementById('r-prem').textContent = '$' + insTotal.toLocaleString();
+  document.getElementById('r-ded').textContent = '$' + dedExposed.toLocaleString();
+  document.getElementById('r-tm').textContent = '$' + Math.round(tmCost).toLocaleString();
+  document.getElementById('r-savings').textContent = '$' + Math.max(0, Math.round(savings)).toLocaleString();
+}
+calc();
+
+/* Phone mockup interactions */
+const PROFILES = {
+  adult: {avatar:'👤',name:'Maria Rodriguez',dob:'DOB: 1987 · Blood: O+',v1:'120/78',l1:'BP',v2:'72',l2:'HR bpm',v3:'98.6°',l3:'Temp'},
+  kid: {avatar:'👦',name:'Lucas Rodriguez',dob:'DOB: 2018 · Blood: A+',v1:'95/62',l1:'BP',v2:'88',l2:'HR bpm',v3:'98.4°',l3:'Temp'},
+  parent: {avatar:'👴',name:'Robert Rodriguez',dob:'DOB: 1952 · Medicare A/B',v1:'135/82',l1:'BP',v2:'64',l2:'HR bpm',v3:'98.2°',l3:'Temp'},
+  pet: {avatar:'🐕',name:'Max (Golden Retriever)',dob:'DOB: 2020 · Microchip: #847201',v1:'102.2°',l1:'Temp',v2:'80',l2:'HR bpm',v3:'18',l3:'Breaths/min'},
+};
+function switchProfile(el, type) {
+  document.querySelectorAll('.ftab').forEach(t => {
+    t.classList.remove('active');
+    if(t.classList.contains('kids')) {/* keep kids class */}
+    else if(t.classList.contains('pets')) {/* keep pets class */}
+  });
+  el.classList.add('active');
+  const p = PROFILES[type];
+  document.getElementById('profile-content').innerHTML = `
+    <div class="record-card">
+      <div class="rc-top">
+        <div class="rc-avatar" style="background:rgba(13,158,138,.15)">${p.avatar}</div>
+        <div class="rc-info"><h4>${p.name}</h4><p>${p.dob}</p></div>
+      </div>
+      <div class="rc-vitals">
+        <div class="rv"><span class="rv-val">${p.v1}</span><span class="rv-lbl">${p.l1}</span></div>
+        <div class="rv"><span class="rv-val">${p.v2}</span><span class="rv-lbl">${p.l2}</span></div>
+        <div class="rv"><span class="rv-val">${p.v3}</span><span class="rv-lbl">${p.l3}</span></div>
+      </div>
+    </div>
+    <div class="aaneel-card">
+      <div class="ac-icon">💳</div>
+      <div class="ac-info">
+        <h4>Uninsurance Health Access Card</h4>
+        <p>Tap at any provider · NFC-enabled · AaNeel</p>
+        <span class="ac-nfc">📡 NFC Ready</span>
+      </div>
+    </div>`;
+}
+
+let uninsuranceOn = false;
+function toggleUninsurance() {
+  uninsuranceOn = !uninsuranceOn;
+  const mode = document.getElementById('phone-mode');
+  const banner = document.getElementById('uninsurance-banner');
+  if (mode) { mode.textContent = uninsuranceOn ? 'Uninsurance' : 'Insured'; mode.className = uninsuranceOn ? 'ph-mode uninsured' : 'ph-mode insured'; }
+  if (banner) banner.style.display = uninsuranceOn ? 'flex' : 'none';
+}
+
+const langs = ['🌐 EN','🇪🇸 ES','🇨🇳 ZH','🇮🇳 HI','🇧🇷 PT','🇫🇷 FR'];
+let langIdx = 0;
+function cycleLang() { langIdx = (langIdx+1) % langs.length; document.querySelector('.nav-lang').textContent = langs[langIdx]; }
+
+function scrollTo(id) { const el = document.querySelector(id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+/* Patient Onboarding interactive demo */
+var INTAKE_DATA = {
+  personal: {
+    title: "Personal Information",
+    step: 1, progress: 12,
+    label: "QUESTION 1",
+    q: "What pronouns do you use?",
+    chips: ["He/Him", "She/Her", "They/Them", "Other", "Prefer not to say"],
+    ai: "<b>AI hint:</b> This helps your care team address you respectfully. We use this everywhere your records are shared — you can change it any time."
+  },
+  contact: {
+    title: "Contact & Address",
+    step: 2, progress: 25,
+    label: "QUESTION 1",
+    q: "Who should we call in an emergency?",
+    chips: ["Spouse / Partner", "Parent", "Adult Child", "Sibling", "Friend", "Caregiver"],
+    ai: "<b>AI hint:</b> Pick the relationship, then I'll prompt you for their name and phone. You can list up to 3 contacts."
+  },
+  medical: {
+    title: "Medical History",
+    step: 3, progress: 37,
+    label: "QUESTION 1",
+    q: "Have you ever been diagnosed with any of these conditions?",
+    chips: ["High blood pressure", "Diabetes (Type 2)", "Asthma", "Anxiety", "High cholesterol", "Migraines", "None of these"],
+    ai: "<b>AI hint:</b> Tap all that apply. I'll auto-pull diagnosis dates from your imported records — no need to remember exact dates."
+  },
+  allergies: {
+    title: "Allergies & Medications",
+    step: 4, progress: 50,
+    label: "QUESTION 1",
+    q: "Do you have any drug allergies?",
+    chips: ["Penicillin", "Sulfa drugs", "NSAIDs (ibuprofen, etc.)", "Codeine / opioids", "Latex", "No known allergies"],
+    ai: "<b>AI hint:</b> For each allergy you pick, I'll ask the reaction (rash, anaphylaxis, etc.) so your care team knows the severity."
+  },
+  lifestyle: {
+    title: "Lifestyle & Wellness",
+    step: 5, progress: 62,
+    label: "QUESTION 1",
+    q: "How would you describe your activity level?",
+    chips: ["Sedentary (desk job, little exercise)", "Light (1–2 days/week)", "Moderate (3–4 days/week)", "Active (5+ days/week)"],
+    ai: "<b>AI hint:</b> No judgement here — this just helps your doctor recommend realistic goals. You can update as your routine changes."
+  },
+  providers: {
+    title: "Your Care Team",
+    step: 6, progress: 75,
+    label: "QUESTION 1",
+    q: "Who is your primary care provider?",
+    chips: ["I'll search by name", "I'll search by clinic", "I don't have a PCP yet", "Show me PCPs near me"],
+    ai: "<b>AI hint:</b> Pick how you'd like to search. We'll auto-fill the address, NPI, and fax number from our 50,000+ provider directory."
+  },
+  connect: {
+    title: "Import Records",
+    step: 7, progress: 87,
+    label: "ONE-TAP IMPORT",
+    q: "Which health systems have you visited?",
+    chips: ["Epic (MyChart)", "eClinicalWorks / Healow", "Cerner", "Kaiser", "VA / Military", "I'm not sure"],
+    ai: "<b>AI hint:</b> Don't worry if you forget any — Fasten Health will search nationwide once you connect. Adds 5–10 years of records instantly."
+  },
+  consent: {
+    title: "Review & Consent",
+    step: 8, progress: 100,
+    label: "FINAL STEP",
+    q: "Who can see your medical history?",
+    chips: ["Only me", "Me + my care team", "Me + family on my plan", "Custom (set per record)"],
+    ai: "<b>AI hint:</b> You can always change this later — per record, per person. Nothing is ever shared without your explicit consent."
+  }
+};
+
+var INTAKE_LANG = {
+  en: {
+    title: "Intake Assistant",
+    sections: {
+      "personal.t":"Personal Information","personal.s":"Name, DOB, gender, race, ethnicity, preferred language",
+      "contact.t":"Contact & Address","contact.s":"Phone, email, home address, emergency contacts",
+      "medical.t":"Medical History","medical.s":"Conditions, surgeries, hospitalizations, family history",
+      "allergies.t":"Allergies & Medications","allergies.s":"Drug allergies, current Rx, OTC, supplements, dosing",
+      "lifestyle.t":"Lifestyle & Wellness","lifestyle.s":"Smoking, alcohol, exercise, diet, sleep, stress",
+      "providers.t":"Your Care Team","providers.s":"PCP, specialists, dentist, preferred pharmacy",
+      "connect.t":"Import Records","connect.s":"Link 50,000+ providers via Epic, Healow, Fasten Health",
+      "consent.t":"Review & Consent","consent.s":"HIPAA authorization, sharing preferences, e-signature"
+    },
+    q: { personal:"What pronouns do you use?", contact:"Who should we call in an emergency?", medical:"Have you ever been diagnosed with any of these conditions?", allergies:"Do you have any drug allergies?", lifestyle:"How would you describe your activity level?", providers:"Who is your primary care provider?", connect:"Which health systems have you visited?", consent:"Who can see your medical history?" }
+  },
+  es: { title:"Asistente de admisión", sections:{"personal.t":"Información personal","personal.s":"Nombre, fecha de nacimiento, género, raza, etnia, idioma","contact.t":"Contacto y dirección","contact.s":"Teléfono, correo, dirección, contactos de emergencia","medical.t":"Historial médico","medical.s":"Enfermedades, cirugías, hospitalizaciones, antecedentes familiares","allergies.t":"Alergias y medicamentos","allergies.s":"Alergias a medicamentos, recetas actuales, suplementos","lifestyle.t":"Estilo de vida","lifestyle.s":"Tabaco, alcohol, ejercicio, dieta, sueño, estrés","providers.t":"Su equipo de atención","providers.s":"Médico de cabecera, especialistas, dentista, farmacia","connect.t":"Importar registros","connect.s":"Conecte 50.000+ proveedores via Epic, Healow, Fasten","consent.t":"Revisar y aceptar","consent.s":"Autorización HIPAA, preferencias, firma electrónica"}, q:{ personal:"¿Qué pronombres usa?", contact:"¿A quién debemos llamar en una emergencia?", medical:"¿Le han diagnosticado alguna de estas condiciones?", allergies:"¿Tiene alergias a medicamentos?", lifestyle:"¿Cómo describiría su nivel de actividad?", providers:"¿Quién es su médico de cabecera?", connect:"¿Qué sistemas de salud ha visitado?", consent:"¿Quién puede ver su historial médico?" }},
+  zh: { title:"入院助手", sections:{"personal.t":"个人信息","personal.s":"姓名、出生日期、性别、种族、首选语言","contact.t":"联系方式与地址","contact.s":"电话、电子邮件、家庭住址、紧急联系人","medical.t":"病史","medical.s":"疾病、手术、住院、家族病史","allergies.t":"过敏与用药","allergies.s":"药物过敏、当前处方、非处方药、补充剂","lifestyle.t":"生活方式与健康","lifestyle.s":"吸烟、饮酒、运动、饮食、睡眠、压力","providers.t":"您的医疗团队","providers.s":"主治医生、专科医生、牙医、首选药房","connect.t":"导入记录","connect.s":"通过Epic、Healow、Fasten连接5万+提供商","consent.t":"审核并同意","consent.s":"HIPAA授权、共享偏好、电子签名"}, q:{ personal:"您使用什么代词？", contact:"紧急情况下我们应该联系谁？", medical:"您是否被诊断出以下任何一种疾病？", allergies:"您对任何药物过敏吗？", lifestyle:"您如何描述自己的活动水平？", providers:"您的主治医生是谁？", connect:"您去过哪些医疗系统？", consent:"谁可以看到您的病史？" }},
+  hi: { title:"इनटेक सहायक", sections:{"personal.t":"व्यक्तिगत जानकारी","personal.s":"नाम, जन्म तिथि, लिंग, जाति, पसंदीदा भाषा","contact.t":"संपर्क और पता","contact.s":"फोन, ईमेल, घर का पता, आपातकालीन संपर्क","medical.t":"चिकित्सा इतिहास","medical.s":"बीमारियाँ, सर्जरी, अस्पताल में भर्ती, पारिवारिक इतिहास","allergies.t":"एलर्जी और दवाएं","allergies.s":"दवा एलर्जी, वर्तमान दवाएं, सप्लीमेंट","lifestyle.t":"जीवनशैली","lifestyle.s":"धूम्रपान, शराब, व्यायाम, आहार, नींद, तनाव","providers.t":"आपकी देखभाल टीम","providers.s":"प्राथमिक डॉक्टर, विशेषज्ञ, दंत चिकित्सक, फार्मेसी","connect.t":"रिकॉर्ड आयात करें","connect.s":"Epic, Healow, Fasten के माध्यम से 50,000+ प्रदाताओं को कनेक्ट करें","consent.t":"समीक्षा और सहमति","consent.s":"HIPAA प्राधिकरण, साझाकरण प्राथमिकताएं, ई-हस्ताक्षर"}, q:{ personal:"आप कौन से सर्वनाम का उपयोग करते हैं?", contact:"आपातकाल में हमें किसे कॉल करना चाहिए?", medical:"क्या आपको कभी इनमें से किसी स्थिति का निदान हुआ है?", allergies:"क्या आपको कोई दवा एलर्जी है?", lifestyle:"आप अपने गतिविधि स्तर का वर्णन कैसे करेंगे?", providers:"आपके प्राथमिक देखभाल प्रदाता कौन हैं?", connect:"आपने किन स्वास्थ्य प्रणालियों का दौरा किया है?", consent:"आपका चिकित्सा इतिहास कौन देख सकता है?" }},
+  ar: { title:"مساعد القبول", sections:{"personal.t":"معلومات شخصية","personal.s":"الاسم وتاريخ الميلاد والجنس والعرق واللغة","contact.t":"الاتصال والعنوان","contact.s":"الهاتف والبريد والعنوان وجهات اتصال الطوارئ","medical.t":"التاريخ الطبي","medical.s":"الحالات والعمليات والإقامات بالمستشفى وتاريخ العائلة","allergies.t":"الحساسية والأدوية","allergies.s":"حساسية الدواء والوصفات الحالية والمكملات","lifestyle.t":"نمط الحياة","lifestyle.s":"التدخين والكحول والتمارين والنظام الغذائي والنوم","providers.t":"فريق رعايتك","providers.s":"طبيب الرعاية الأولية، المتخصصون، طبيب الأسنان، الصيدلية","connect.t":"استيراد السجلات","connect.s":"اربط بأكثر من 50,000 مزود عبر Epic و Healow و Fasten","consent.t":"المراجعة والموافقة","consent.s":"تفويض HIPAA، تفضيلات المشاركة، التوقيع الإلكتروني"}, q:{ personal:"ما الضمائر التي تستخدمها؟", contact:"بمن يجب أن نتصل في حالات الطوارئ؟", medical:"هل تم تشخيصك بأي من هذه الحالات؟", allergies:"هل لديك أي حساسية تجاه الأدوية؟", lifestyle:"كيف تصف مستوى نشاطك؟", providers:"من هو طبيب الرعاية الأولية الخاص بك؟", connect:"ما الأنظمة الصحية التي زرتها؟", consent:"من يمكنه رؤية تاريخك الطبي؟" }},
+  pt: { title:"Assistente de admissão", sections:{"personal.t":"Informações pessoais","personal.s":"Nome, data nasc., gênero, raça, etnia, idioma","contact.t":"Contato e endereço","contact.s":"Telefone, email, endereço, contatos de emergência","medical.t":"Histórico médico","medical.s":"Doenças, cirurgias, internações, histórico familiar","allergies.t":"Alergias e medicamentos","allergies.s":"Alergias medicamentosas, receitas atuais, suplementos","lifestyle.t":"Estilo de vida","lifestyle.s":"Fumo, álcool, exercício, dieta, sono, estresse","providers.t":"Sua equipe","providers.s":"Clínico geral, especialistas, dentista, farmácia","connect.t":"Importar registros","connect.s":"Conecte 50.000+ provedores via Epic, Healow, Fasten","consent.t":"Revisar e aceitar","consent.s":"Autorização HIPAA, preferências, assinatura eletrônica"}, q:{ personal:"Quais pronomes você usa?", contact:"Quem devemos chamar em uma emergência?", medical:"Você já foi diagnosticado com alguma dessas condições?", allergies:"Você tem alguma alergia a medicamentos?", lifestyle:"Como você descreveria seu nível de atividade?", providers:"Quem é seu médico de família?", connect:"Quais sistemas de saúde você visitou?", consent:"Quem pode ver seu histórico médico?" }},
+  fr: { title:"Assistant d'admission", sections:{"personal.t":"Informations personnelles","personal.s":"Nom, date de naissance, genre, ethnie, langue","contact.t":"Contact et adresse","contact.s":"Téléphone, email, adresse, contacts d'urgence","medical.t":"Antécédents médicaux","medical.s":"Conditions, chirurgies, hospitalisations, antécédents familiaux","allergies.t":"Allergies et médicaments","allergies.s":"Allergies médicamenteuses, ordonnances actuelles","lifestyle.t":"Mode de vie","lifestyle.s":"Tabac, alcool, exercice, alimentation, sommeil","providers.t":"Votre équipe","providers.s":"Médecin traitant, spécialistes, dentiste, pharmacie","connect.t":"Importer dossiers","connect.s":"Connectez 50 000+ prestataires via Epic, Healow, Fasten","consent.t":"Examiner et consentir","consent.s":"Autorisation HIPAA, préférences, signature électronique"}, q:{ personal:"Quels pronoms utilisez-vous ?", contact:"Qui devons-nous appeler en cas d'urgence ?", medical:"Avez-vous déjà été diagnostiqué avec l'une de ces conditions ?", allergies:"Avez-vous des allergies médicamenteuses ?", lifestyle:"Comment décririez-vous votre niveau d'activité ?", providers:"Qui est votre médecin traitant ?", connect:"Quels systèmes de santé avez-vous fréquentés ?", consent:"Qui peut voir vos antécédents médicaux ?" }},
+  vi: { title:"Trợ lý tiếp nhận", sections:{"personal.t":"Thông tin cá nhân","personal.s":"Tên, ngày sinh, giới tính, dân tộc, ngôn ngữ","contact.t":"Liên lạc & địa chỉ","contact.s":"Điện thoại, email, địa chỉ, liên lạc khẩn cấp","medical.t":"Tiền sử y tế","medical.s":"Bệnh, phẫu thuật, nhập viện, tiền sử gia đình","allergies.t":"Dị ứng & thuốc","allergies.s":"Dị ứng thuốc, đơn thuốc, thực phẩm bổ sung","lifestyle.t":"Lối sống","lifestyle.s":"Hút thuốc, rượu, tập thể dục, ăn uống, ngủ","providers.t":"Đội ngũ chăm sóc","providers.s":"Bác sĩ chính, chuyên khoa, nha sĩ, nhà thuốc","connect.t":"Nhập hồ sơ","connect.s":"Kết nối 50.000+ nhà cung cấp qua Epic, Healow, Fasten","consent.t":"Xem & đồng ý","consent.s":"Ủy quyền HIPAA, tùy chọn chia sẻ, chữ ký điện tử"}, q:{ personal:"Bạn dùng đại từ nào?", contact:"Chúng tôi nên gọi ai trong trường hợp khẩn cấp?", medical:"Bạn đã từng được chẩn đoán mắc bất kỳ tình trạng nào sau đây?", allergies:"Bạn có bị dị ứng thuốc không?", lifestyle:"Bạn mô tả mức độ hoạt động của mình như thế nào?", providers:"Bác sĩ chăm sóc chính của bạn là ai?", connect:"Bạn đã đến những hệ thống y tế nào?", consent:"Ai có thể xem hồ sơ y tế của bạn?" }},
+  ru: { title:"Помощник по приёму", sections:{"personal.t":"Личная информация","personal.s":"Имя, дата рождения, пол, раса, язык","contact.t":"Контакт и адрес","contact.s":"Телефон, email, адрес, экстренные контакты","medical.t":"Медицинская история","medical.s":"Заболевания, операции, госпитализации, семейная история","allergies.t":"Аллергии и лекарства","allergies.s":"Аллергии на лекарства, текущие рецепты, добавки","lifestyle.t":"Образ жизни","lifestyle.s":"Курение, алкоголь, упражнения, диета, сон","providers.t":"Ваша команда","providers.s":"Терапевт, специалисты, стоматолог, аптека","connect.t":"Импорт записей","connect.s":"Подключите 50 000+ провайдеров через Epic, Healow, Fasten","consent.t":"Обзор и согласие","consent.s":"Разрешение HIPAA, настройки, электронная подпись"}, q:{ personal:"Какие местоимения вы используете?", contact:"Кому нам звонить в экстренной ситуации?", medical:"Вам когда-нибудь ставили какой-либо из этих диагнозов?", allergies:"У вас есть аллергия на лекарства?", lifestyle:"Как бы вы описали свой уровень активности?", providers:"Кто ваш лечащий врач?", connect:"Какие медицинские системы вы посещали?", consent:"Кто может видеть вашу медицинскую историю?" }},
+  ko: { title:"입원 보조", sections:{"personal.t":"개인 정보","personal.s":"이름, 생년월일, 성별, 인종, 선호 언어","contact.t":"연락처 및 주소","contact.s":"전화, 이메일, 자택 주소, 비상 연락처","medical.t":"병력","medical.s":"질환, 수술, 입원, 가족력","allergies.t":"알레르기 및 약물","allergies.s":"약물 알레르기, 현재 처방, 보충제","lifestyle.t":"생활 방식","lifestyle.s":"흡연, 음주, 운동, 식단, 수면, 스트레스","providers.t":"의료팀","providers.s":"주치의, 전문의, 치과의사, 약국","connect.t":"기록 가져오기","connect.s":"Epic, Healow, Fasten으로 50,000+ 제공자 연결","consent.t":"검토 및 동의","consent.s":"HIPAA 승인, 공유 설정, 전자 서명"}, q:{ personal:"어떤 대명사를 사용하시나요?", contact:"비상시 누구에게 연락해야 합니까?", medical:"다음 중 진단받은 적이 있는 질환이 있습니까?", allergies:"약물 알레르기가 있습니까?", lifestyle:"활동 수준을 어떻게 설명하시겠습니까?", providers:"주치의가 누구입니까?", connect:"어떤 의료 시스템을 방문하셨습니까?", consent:"누가 귀하의 의료 기록을 볼 수 있습니까?" }}
+};
+
+var _intakeCurrent = "personal";
+var _intakeLang = "en";
+
+function _renderIntakeChips(section) {
+  var d = INTAKE_DATA[section]; if (!d) return;
+  var c = document.getElementById("intakeDemoChips");
+  c.innerHTML = "";
+  d.chips.forEach(function(label){
+    var s = document.createElement("span");
+    s.className = "intake-demo-chip";
+    s.textContent = label;
+    s.onclick = function(){ s.classList.toggle("selected"); };
+    c.appendChild(s);
+  });
+}
+
+function _applyLang() {
+  var L = INTAKE_LANG[_intakeLang] || INTAKE_LANG.en;
+  // Update section button labels
+  document.querySelectorAll(".intake-sec [data-i18n]").forEach(function(el){
+    var k = el.getAttribute("data-i18n");
+    if (L.sections[k]) el.textContent = L.sections[k];
+  });
+  // Update demo title
+  var t = document.getElementById("intakeDemoTitle"); if (t) t.textContent = L.title;
+  // Update current question text in user's language (chips stay English for demo brevity)
+  var q = (L.q && L.q[_intakeCurrent]) || INTAKE_DATA[_intakeCurrent].q;
+  document.getElementById("intakeDemoQText").textContent = q;
+  // RTL for Arabic
+  var demo = document.getElementById("intakeDemo");
+  if (_intakeLang === "ar") { demo.dir = "rtl"; } else { demo.dir = "ltr"; }
+}
+
+function setIntakeSection(btn) {
+  var section = btn.getAttribute("data-section");
+  _intakeCurrent = section;
+  document.querySelectorAll(".intake-sec").forEach(function(b){ b.classList.remove("active"); });
+  btn.classList.add("active");
+  var d = INTAKE_DATA[section]; if (!d) return;
+  document.getElementById("intakeDemoSection").textContent = d.title;
+  document.getElementById("intakeDemoStep").textContent = d.step;
+  document.getElementById("intakeDemoQLabel").textContent = d.label;
+  document.getElementById("intakeDemoQText").textContent = d.q;
+  document.getElementById("intakeDemoAiText").innerHTML = d.ai;
+  document.getElementById("intakeDemoProgress").style.width = d.progress + "%";
+  _renderIntakeChips(section);
+  _applyLang();
+}
+
+function setIntakeLang(pill) {
+  document.querySelectorAll(".intake-lang-pill").forEach(function(p){ p.classList.remove("active"); });
+  pill.classList.add("active");
+  _intakeLang = pill.getAttribute("data-lang");
+  _applyLang();
+}
+
+// Initialize chips on first load
+document.addEventListener("DOMContentLoaded", function(){
+  _renderIntakeChips("personal");
+});
+
+function playTutorial() {
+  var v = document.getElementById('tutorialVideo');
+  var btn = document.getElementById('tutorialPlayBtn');
+  if (!v) return;
+  v.muted = false;
+  v.play().catch(function(){ v.muted = true; v.play().catch(function(){}); });
+  if (btn) btn.classList.add('hidden');
+  v.addEventListener('pause', function(){ if (btn) btn.classList.remove('hidden'); }, { once: true });
+  v.addEventListener('ended', function(){ if (btn) btn.classList.remove('hidden'); }, { once: true });
+}
+</script>
+</body>
+</html>
