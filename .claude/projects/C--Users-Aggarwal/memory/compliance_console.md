@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s as of 2026-10-26; only gap = AV-03 WAF P2 (6 ventures, cost-gated)"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s as of 2026-10-27; PHR mobile-expo 0 HIGH/CRIT; only gap = AV-03 WAF P2 (6 ventures, cost-gated)"
 metadata: 
   node_type: memory
   type: project
@@ -85,6 +85,10 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - Org rulesets 20585594+23992403 disabled/re-enabled for merge (pattern now documented); both confirmed `enforcement: active` post-merge
   - Dependabot rescan in progress (47 open at commit time → expect ~1 after full rescan)
   - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+- **Session-27 (2026-10-27)**: PHR mobile-expo final 2 nested HIGH alerts resolved:
+  - PR#298 MERGED: added nested npm overrides `get-uri→basic-ftp>=6.2.1` (GHSA-c475-qrg2-pj4r, alert #335) + `@firebase/firestore→@grpc/grpc-js>=1.14.5` (GHSA-m9gg-hp2v-232j, alert #332); lockfile rebuilt from scratch; both nested copies confirmed absent
+  - tabula-medica-phr: **0 HIGH/CRITICAL Dependabot alerts confirmed** (API verified post-merge)
+  - **100%/0 P0s portfolio-wide; PHR mobile-expo fully clean 2026-10-27**
 - **Session-25 (2026-10-27)**: PHR main CI unblocked + bearer token security fixes merged:
   - PR#290 MERGED: removed broken `"zod@4": ">=4.6.6"` override that caused `npm ci` "Missing: zod@4.6.7 from lock file"; 1-line package.json deletion; all CI green
   - PR#286 MERGED: `fix/symptom-checker-bearer-history` — resolve account from GCIP bearer so triage sessions persist for web-app clients
