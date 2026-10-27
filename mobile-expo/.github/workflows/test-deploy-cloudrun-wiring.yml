@@ -1,0 +1,80 @@
+name: Test Slack failure/recovery wiring
+
+# Regression coverage for the Slack failure/recovery wiring across EVERY
+# workflow under `.github/workflows/` that uses
+# `./.github/actions/slack-recovery-state`.
+#
+# Both halves of the pipeline are individually unit-tested elsewhere:
+#
+#   - .github/workflows/test-slack-recovery-state.yml
+#       runs scripts/test-slack-recovery-state.sh — the cross-run state machine
+#   - .github/workflows/test-post-slack-notification.yml
+#       runs scripts/test-post-slack-notification.sh — the upstream `posted`
+#       contract
+#
+# This workflow runs `scripts/test-deploy-cloudrun-wiring.mjs`, which scans
+# every `.github/workflows/*.y{a,}ml` file for `slack-recovery-state`
+# invocations and asserts the structural invariants that connect the two
+# halves: every invocation references a real preceding `post-slack-notification`
+# step's `posted` output for `notify_posted`, references the conclusion of a
+# real preceding step for `deploy_status`, and is followed by a
+# `post-slack-notification` step whose `if:` gates on the matching
+# `should_notify_recovery` output.
+#
+# Triggers on changes to ANY workflow file (not just deploy-cloudrun.yml) so
+# the moment a second workflow adopts the recovery pattern (post-deploy-smoke
+# growing a recovery ping, a future nightly job, etc.) it is automatically
+# covered without anyone having to remember to widen the path filter.
+# Either composite action being touched also re-runs the check, since
+# renaming a step input there is the most likely way to silently break the
+# wiring. Also exposed via workflow_dispatch so it can be re-run on demand.
+#
+# NOTE: the workflow file is still named `test-deploy-cloudrun-wiring.yml`
+# for change-history continuity (renaming would orphan the existing required
+# check on protected branches). The script and workflow now cover any
+# adopter of the pattern, not just deploy-cloudrun.yml.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**.yml'
+      - '.github/workflows/**.yaml'
+      - '.github/actions/post-slack-notification/**'
+      - '.github/actions/slack-recovery-state/**'
+      - 'scripts/test-deploy-cloudrun-wiring.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**.yml'
+      - '.github/workflows/**.yaml'
+      - '.github/actions/post-slack-notification/**'
+      - '.github/actions/slack-recovery-state/**'
+      - 'scripts/test-deploy-cloudrun-wiring.mjs'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Slack failure/recovery wiring invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # The checker uses `js-yaml`, which is already a transitive dep of
+      # the project (see node_modules/js-yaml). A bare `npm install` would
+      # pull the full Expo / React Native dependency tree just to import
+      # one YAML parser, so we install only the parser the script needs.
+      # If the project ever drops js-yaml from its tree this step makes
+      # the wiring check independent of that.
+      #
+      # Version is pinned so CI is reproducible and a future js-yaml
+      # release that subtly changes how it parses GitHub Actions YAML
+      # cannot silently flip the wiring check from green to red (or
+      # worse, the other way) on a no-op rebuild. Bump deliberately.
+      - name: Install YAML parser for the checker
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.1
+
+      - name: Check Slack failure/recovery wiring across all workflows
+        run: node scripts/test-deploy-cloudrun-wiring.mjs

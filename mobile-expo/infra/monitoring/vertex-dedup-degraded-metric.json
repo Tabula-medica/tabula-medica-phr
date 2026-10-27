@@ -1,0 +1,10 @@
+{
+  "name": "vertex_dedup_ai_matching_degraded",
+  "description": "Production Cloud Run AI matching DEGRADED log entries. Counts log entries, not comparisons; no patient labels.",
+  "filter": "resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"tabula-medica-web\"\nresource.labels.location=\"us-central1\"\n(severity>=ERROR OR jsonPayload.level=\"error\" OR jsonPayload.level=\"critical\")\n(jsonPayload.message:\"[VertexDedup] AI matching DEGRADED\" OR textPayload:\"[VertexDedup] AI matching DEGRADED\")",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1"
+  }
+}

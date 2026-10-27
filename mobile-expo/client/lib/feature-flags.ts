@@ -1,0 +1,2 @@
+export const SUBSCRIPTIONS_ENABLED =
+  process.env.EXPO_PUBLIC_SUBSCRIPTIONS_ENABLED === "true";

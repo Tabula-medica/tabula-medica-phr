@@ -1,0 +1,228 @@
+name: Post-Deploy Smoke (Production)
+
+# Manually-triggered production smoke test for the auth flows the App Store
+# reviewer hits. Run this AFTER every backend publish to catch sign-in
+# regressions before the reviewer (or a real user) does.
+#
+# Required repo secrets:
+#   REVIEWER_EMAIL    - App Store reviewer login email
+#   REVIEWER_PASSWORD - App Store reviewer login password
+#
+# Optional input:
+#   api_base - override the production host (defaults to https://api.tabulamedica.health)
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: "Production API base URL"
+        required: false
+        default: "https://api.tabulamedica.health"
+
+jobs:
+  smoke:
+    name: Auth smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # Unauthenticated version smoke — see ops/version-smoke.mjs. Runs
+      # before the auth smoke so a stale-revision / unknown-SHA deploy fails
+      # fast without needing reviewer credentials. Mirrors the same step in
+      # .github/workflows/deploy-cloudrun.yml so the manual trigger has the
+      # same safety net as the auto-trigger after every publish.
+      - name: Run version smoke
+        id: version-smoke
+        env:
+          API_BASE: ${{ github.event.inputs.api_base }}
+        # Tee the script's output to a log file so the Slack notification
+        # step below can quote the structured PASS/FAIL summary. `set -o
+        # pipefail` preserves the script's exit status through the pipe so
+        # this step still fails (and the workflow turns red) when the
+        # version smoke fails.
+        run: |
+          set -o pipefail
+          node ops/version-smoke.mjs 2>&1 | tee version-smoke-output.log
+
+      # Slack ping when the unauthenticated version smoke fails on a
+      # manually-triggered run — mirrors the auto-triggered version-smoke
+      # notify in `deploy-cloudrun.yml` so an engineer kicking off this
+      # workflow after a hot-fix or rollback gets the same #engineering
+      # ping for a stale/unknown-revision failure instead of having to
+      # babysit the GitHub run.
+      #
+      # Uses a distinct `manual-version-smoke-state` recovery cache key so
+      # this workflow's state machine does not collide with the auto
+      # smoke's `version-smoke-state` key in `deploy-cloudrun.yml` — the
+      # two checks are independent and must not stomp on each other.
+      - name: Extract version-smoke summary for Slack
+        id: version-smoke-summary
+        if: failure() && steps.version-smoke.conclusion == 'failure'
+        run: |
+          if [ -f version-smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *\[(PASS|FAIL|retry [0-9]+)\]|Passed: )' version-smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured version-smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(version-smoke-output.log missing — check the workflow run for details)"
+          fi
+          {
+            echo 'summary<<VERSION_SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'VERSION_SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on version-smoke failure
+        id: notify-version-smoke-failure
+        if: failure() && steps.version-smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Manual production /api/version smoke FAILED on commit {commit_link}'
+          markdown: |
+            :rotating_light: *Manual production `/api/version` smoke FAILED*
+            A manually-triggered run of `post-deploy-smoke.yml` against `${{ github.event.inputs.api_base }}` is failing the unauthenticated `/api/version` probe on commit {commit_link} — production may be serving a stale or unknown revision. The reviewer auth smoke was skipped.
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.version-smoke-summary.outputs.summary }}
+
+      - name: Update Slack recovery state (version smoke)
+        id: version-smoke-recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: manual-version-smoke-state
+          notify_posted: ${{ steps.notify-version-smoke-failure.outputs.posted }}
+          deploy_status: ${{ steps.version-smoke.conclusion }}
+
+      - name: Notify Slack on version-smoke recovery
+        if: steps.version-smoke.conclusion == 'success' && steps.version-smoke-recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Manual production /api/version smoke recovered on commit {commit_link}'
+          markdown: |
+            :white_check_mark: *Manual production `/api/version` smoke recovered*
+            A manually-triggered run of `post-deploy-smoke.yml` against `${{ github.event.inputs.api_base }}` is passing the unauthenticated `/api/version` probe again on commit {commit_link} after the previous run failed.
+            <{run_url}|View workflow run>
+
+      - name: Run post-deploy smoke
+        id: smoke
+        env:
+          API_BASE: ${{ github.event.inputs.api_base }}
+          REVIEWER_EMAIL: ${{ secrets.REVIEWER_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.REVIEWER_PASSWORD }}
+        # Tee the script's output to a log file so the Slack notification step
+        # below can quote the structured PASS/FAIL summary. `set -o pipefail`
+        # preserves the script's exit status through the pipe so this step
+        # still fails (and the workflow turns red) when the smoke fails.
+        run: |
+          set -o pipefail
+          node scripts/post-deploy-smoke.mjs 2>&1 | tee smoke-output.log
+
+      # Slack ping when the manually-triggered smoke fails. Mirrors the
+      # auto-triggered smoke in `deploy-cloudrun.yml` so an engineer kicking
+      # off this workflow after a hot-fix or rollback gets the same
+      # #engineering ping instead of having to babysit the GitHub run.
+      #
+      # Successful manual runs do NOT post anything by default — only the
+      # recovery branch below (gated on the previous run having posted a
+      # failure ping) fires an "all-clear" message, matching the auto
+      # smoke's behaviour in `deploy-cloudrun.yml`.
+      - name: Extract smoke summary for Slack
+        id: smoke-summary
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: |
+          # Pull ONLY the structured PASS/FAIL lines and the summary footer
+          # out of the smoke log. We deliberately skip the "==> Target" /
+          # "==> Reviewer email" lines so reviewer credentials never leak into
+          # the Slack channel — engineers can still click the workflow-run
+          # link in the message to see the full log if they need to.
+          if [ -f smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *\[(PASS|FAIL)\]|\[[0-9]+/[0-9]+\] |Passed: )' smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(smoke-output.log missing — check the workflow run for details)"
+          fi
+          # Multiline-safe heredoc into GITHUB_OUTPUT (the SUMMARY contains
+          # newlines from `grep`).
+          {
+            echo 'summary<<SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on smoke failure
+        id: notify-failure
+        if: failure() && steps.smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Manual production sign-in smoke FAILED on commit {commit_link}'
+          markdown: |
+            :rotating_light: *Manual production sign-in smoke FAILED*
+            A manually-triggered run of `post-deploy-smoke.yml` against `${{ github.event.inputs.api_base }}` is failing on commit {commit_link}.
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.smoke-summary.outputs.summary }}
+
+      # Cross-run state machine that decides whether the next green manual
+      # smoke should fire a "recovered" Slack ping. Owns the cache restore +
+      # previous-status read + persist + cache save quartet — see
+      # .github/actions/slack-recovery-state/action.yml for the full
+      # contract, three-state semantics, and "default to passing on missing
+      # cache" rationale. MUST be invoked with `if: always()` so the failure
+      # path also persists `failure-notified` for the next run.
+      #
+      # Uses a distinct `manual-smoke-state` key so this workflow's cache
+      # does not collide with the auto smoke's `smoke-state` key in
+      # `deploy-cloudrun.yml` — the two state machines are independent and
+      # must not stomp on each other.
+      - name: Update Slack recovery state
+        id: recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: manual-smoke-state
+          notify_posted: ${{ steps.notify-failure.outputs.posted }}
+          deploy_status: ${{ steps.smoke.conclusion }}
+
+      # Slack "all-clear" ping on manual smoke recovery. Only fires when
+      # this run *passed* AND the recovery-state action confirmed the
+      # previous manual-smoke run's persisted state was `failure-notified`
+      # — i.e. there was an actual Slack failure ping that needs closing
+      # out. Consecutive green manual runs after that do NOT post anything
+      # (the persist branch inside the recovery-state action flips to
+      # `passing`, so the `should_notify_recovery` output goes false on
+      # subsequent runs).
+      - name: Notify Slack on smoke recovery
+        if: success() && steps.smoke.conclusion == 'success' && steps.recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Manual production sign-in smoke recovered on commit {commit_link}'
+          markdown: |
+            :white_check_mark: *Manual production sign-in smoke recovered*
+            A manually-triggered run of `post-deploy-smoke.yml` against `${{ github.event.inputs.api_base }}` is passing again on commit {commit_link} after the previous run failed.
+            <{run_url}|View workflow run>

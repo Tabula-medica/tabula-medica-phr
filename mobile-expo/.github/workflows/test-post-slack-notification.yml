@@ -1,0 +1,40 @@
+name: Test post-slack-notification action
+
+# Regression coverage for `.github/actions/post-slack-notification/action.yml`,
+# the upstream half of the Slack failure / recovery pipeline. Its `posted`
+# output is the linchpin of the slack-recovery-state machine — if it ever
+# wrongly reports `posted=true` (or wrongly reports `false` when Slack
+# actually accepted the payload), the recovery-state machine will fire
+# spurious "recovered" pings or swallow legitimate ones.
+#
+# The harness exercises every branch of the action with a stubbed `curl`:
+# webhook missing, transport error, Slack 4xx/5xx, Slack 2xx, multiline
+# markdown / token substitution, code-block presence, and JSON-escape
+# safety. See scripts/test-post-slack-notification.sh for the full scenario
+# list and DRIFT PROTECTION notes.
+#
+# Runs whenever the action, the harness, or this workflow itself changes.
+# Also exposed via workflow_dispatch so it can be re-run on demand.
+on:
+  pull_request:
+    paths:
+      - '.github/actions/post-slack-notification/**'
+      - 'scripts/test-post-slack-notification.sh'
+      - '.github/workflows/test-post-slack-notification.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/actions/post-slack-notification/**'
+      - 'scripts/test-post-slack-notification.sh'
+      - '.github/workflows/test-post-slack-notification.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: post-slack-notification branches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run post-slack-notification regression tests
+        run: bash scripts/test-post-slack-notification.sh

@@ -1,0 +1,53 @@
+## Tabula Medica — Trivy vulnerability suppressions
+##
+## Policy file consumed by BOTH the scheduled Trivy scan
+## (.github/workflows/security-alerts.yml → container-scan job) and the
+## deploy-time container CVE gate (.github/workflows/deploy-cloudrun.yml).
+## Both workflows pass this file via the trivy-action `trivyignores:` input
+## so the same suppressions apply to alerting and gating — otherwise the
+## deploy gate could refuse a deploy that on-call has already triaged.
+##
+## >>> ON-CALL: Before adding, refreshing, or deleting an entry here, read
+## >>> the triage runbook: docs/SECURITY_CVE_TRIAGE.md
+## >>> It covers when to silence vs. fix, the required approver, and how to
+## >>> record the decision so the monthly suppression-expiry job stays sane.
+##
+## When to add an entry
+## --------------------
+## Only suppress findings that are genuinely irrelevant to our runtime —
+## e.g. a CVE in a CLI binary baked into the base image that we never
+## invoke, or a transient advisory with no upstream fix yet that has been
+## triaged and accepted by Security. Suppressing a real exploitable CVE
+## here will silently weaken the deploy gate; do not use this file as a
+## shortcut to ship a hotfix past a critical advisory — bump the base
+## image instead.
+##
+## Required fields per entry
+## -------------------------
+##   id          — CVE ID (or other Trivy advisory ID, e.g. GHSA-xxxx)
+##   statement   — short human justification: WHY this is not exploitable
+##                 in our runtime, with a link to the triage ticket /
+##                 Slack thread / pen-test note that backs the decision.
+##                 "not exploitable" with no rationale is NOT acceptable.
+##   expired_at  — YYYY-MM-DD. After this date Trivy stops honoring the
+##                 entry and the CVE will reappear in scans. The monthly
+##                 `suppression-expiry` job in security-alerts.yml will
+##                 also surface expired entries for re-review before they
+##                 silently come back. Maximum recommended horizon is
+##                 90 days — pick a date when you genuinely expect the
+##                 upstream fix (or our base-image bump) to be in.
+##
+## Example (commented out — uncomment + edit to use):
+##
+## vulnerabilities:
+##   - id: CVE-2024-99999
+##     statement: |
+##       Affects the `imagemagick` CLI shipped in node:20-slim. We do not
+##       invoke imagemagick from any production code path (verified by
+##       `rg "imagemagick\|convert\|magick" server/`). Tracked in
+##       SEC-1234; revisit when Debian bookworm publishes the fixed pkg.
+##     expired_at: 2026-08-15
+##
+## Schema reference:
+##   https://trivy.dev/latest/docs/configuration/filtering/#trivyignoreyaml
+vulnerabilities: []

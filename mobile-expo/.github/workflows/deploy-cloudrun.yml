@@ -1,0 +1,945 @@
+name: Deploy to Cloud Run
+#
+# Deployment flow:
+#   main branch push  → deploy to `tabula-medica-staging` (automated)
+#   v* tag push       → deploy to `tabula-medica-web` (production) after manual
+#                       approval via the "production" GitHub Environment.
+#
+# Setting up the promotion gate:
+#   1. In GitHub → Settings → Environments → create "production" environment.
+#   2. Add required reviewers (on-call engineers).
+#   3. Set "Deployment branches and tags" to tags matching v*.
+#   The `promote-production` job below uses `environment: production` so GitHub
+#   will pause it and wait for reviewer approval before the Cloud Run deploy runs.
+#
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'web/**'
+      - 'Dockerfile'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-cloudrun.yml'
+    tags:
+      - 'v*'
+  # Manual re-trigger so on-call can force a Cloud Run redeploy without
+  # having to land an empty server-path commit. Added for Task #146 after
+  # `GET /api/version` showed prod was still on commit `022b147` (a Replit
+  # autosave from 2026-05-18 that pre-dates the Task #13 hardening), with
+  # the most recent push-triggered run failing on a missing
+  # `GCP_WORKLOAD_IDENTITY_PROVIDER` secret. Once the secret is restored,
+  # use this dispatch to redeploy `main` against the current head without
+  # waiting for the next server-touching merge.
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you re-triggering the deploy? (audit trail only)'
+        required: false
+        default: 'manual redeploy'
+
+jobs:
+  server-tests:
+    name: Server Regression Tests (deploy gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run server tests (auth + AI-policy guardrails)
+        run: npm run test:server
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+  jest-tests:
+    name: Jest Tests (deploy gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Jest test suite
+        run: npm test -- --ci --runInBand
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+  script-tests:
+    name: Script Unit Tests (deploy gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run script unit tests (node:test)
+        run: npm run test:scripts
+
+  build-web:
+    name: Web Build (deploy gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build web bundle
+        run: npm run build:web
+      - name: Verify web entry point
+        run: test -s dist/web/index.html
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [server-tests, jest-tests, script-tests, build-web]
+    # ── IMPORTANT: This job runs ONLY on manual workflow_dispatch triggers. ──
+    # Automated promotion paths:
+    #   main branch push → deploy-staging (tabula-medica-staging)
+    #   v* tag push      → promote-production (tabula-medica-web, with approval)
+    # This job is kept for emergency manual redeploys by on-call only — it
+    # bypasses the staging gate by design, so it must NEVER be triggered
+    # from push.branches or push.tags. The `if` guard enforces this.
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # Block production deploys when a *critical* npm CVE is present in the
+      # production dependency tree. Paired with .github/workflows/security-
+      # alerts.yml (which scans daily and pages on-call via Slack) — this
+      # step is the last-line defence so a critical CVE that lands between
+      # scans cannot ship to Cloud Run. We deliberately gate on `critical`
+      # only (not `high`) so noisy-but-non-exploitable highs never block a
+      # hotfix; on-call can still merge a security override by reverting
+      # the offending dep first.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (for audit gate)
+        run: npm ci
+
+      - name: Block deploy on critical npm CVEs
+        run: npm audit --omit=dev --audit-level=critical
+
+      # Container-layer deploy gate. Pairs with the Trivy `container-scan`
+      # job in security-alerts.yml — that one pages on-call daily for
+      # high/critical CVEs in the base image / OS packages; this one is
+      # the last-line defence that refuses to ship a Cloud Run revision
+      # containing a *critical* base-image CVE between scheduled scans.
+      # We gate on `critical` only (not `high`) for the same reason as
+      # the npm-audit gate above: noisy-but-non-exploitable highs should
+      # never block a hotfix; rebuild on a patched `node:20-slim` tag to
+      # clear a critical and re-run the deploy.
+      - name: Set up Docker Buildx (for container CVE gate)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image (for container CVE gate)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: tabula-medica-web:deploy-gate
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # `trivyignores` shares the repo-root suppressions file with the
+      # scheduled scan in security-alerts.yml so a CVE that on-call has
+      # already triaged and silenced cannot still block a deploy here.
+      # Entries in that file MUST carry a justification and an
+      # `expired_at` date — expired entries are surfaced by the monthly
+      # `suppression-expiry` job in security-alerts.yml before they
+      # silently come back and start gating deploys again.
+      - name: Block deploy on critical container CVEs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: tabula-medica-web:deploy-gate
+          severity: CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: '1'
+          format: table
+          trivyignores: .trivyignore.yaml
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: tabula-medica-web
+          region: us-central1
+          source: ./
+          flags: |
+            --allow-unauthenticated
+            --memory=4Gi
+            --cpu=4
+            --service-account=cloud-run-runtime@united-planet-485003-n7.iam.gserviceaccount.com
+          env_vars: |
+            NODE_ENV=production
+          secrets: |
+            DATABASE_URL=DATABASE_URL:latest
+            PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest
+            SESSION_SECRET=SESSION_SECRET:latest
+            GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest
+            GCS_ENCRYPTION_KEY=GCS_ENCRYPTION_KEY:latest
+            GOOGLE_APPLICATION_CREDENTIALS_JSON=GOOGLE_APPLICATION_CREDENTIALS_JSON:latest
+            CROSS_APP_SECRET=CROSS_APP_SECRET:latest
+
+      # Slack ping when the deploy job itself fails (bad Dockerfile, Cloud Run
+      # quota error, secret rotation broke the deploy step, etc.). Without this,
+      # a deploy failure skips the smoke job entirely so no Slack message is
+      # sent and engineers only see a red GitHub workflow icon. Mirrors the
+      # smoke job's notify step below — same channel, same SLACK_WEBHOOK_URL
+      # secret, no new secret needed.
+      #
+      # Successful deploys do NOT post to Slack (this step only runs on
+      # failure). If SLACK_WEBHOOK_URL isn't configured the shared action is a
+      # no-op so forks/manual re-runs without the secret don't error out.
+      #
+      # The shared payload-building / curl logic lives in
+      # .github/actions/post-slack-notification — this step just supplies the
+      # message templates. The recovery state machine below keys off this
+      # step's `posted` output (NOT its `conclusion`) so a missing webhook
+      # secret or a Slack-side rejection routes to `failure-silent` and does
+      # NOT arm a spurious recovery ping on the next green deploy.
+      - name: Notify Slack on deploy failure
+        id: notify-failure
+        if: failure() && steps.deploy.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Cloud Run deploy FAILED for commit {commit_link}'
+          markdown: |
+            :rotating_light: *Cloud Run deploy FAILED*
+            The `deploy` job in `deploy-cloudrun.yml` failed for commit {commit_link}. The post-deploy sign-in smoke was skipped — production is still on the previous revision.
+            <{run_url}|View failing workflow run>
+
+      # Cross-run state machine that decides whether the next green deploy
+      # should fire a "recovered" Slack ping. Owns the cache restore +
+      # previous-status read + persist + cache save quartet — see
+      # .github/actions/slack-recovery-state/action.yml for the full
+      # contract, three-state semantics, and "default to passing on missing
+      # cache" rationale. MUST be invoked with `if: always()` so the failure
+      # path also persists `failure-notified` for the next run.
+      - name: Update Slack recovery state
+        id: recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: deploy-state
+          notify_posted: ${{ steps.notify-failure.outputs.posted }}
+          deploy_status: ${{ steps.deploy.conclusion }}
+
+      # Slack "all-clear" ping on deploy recovery. Only fires when this run's
+      # deploy step *passed* AND the recovery-state action confirmed the
+      # previous run's persisted state was `failure-notified` — i.e. there
+      # was an actual Slack failure ping that needs closing out. Consecutive
+      # green deploys after that do NOT post anything (the persist branch
+      # inside the recovery-state action flips to `passing`, so the
+      # `should_notify_recovery` output goes false on subsequent runs).
+      - name: Notify Slack on deploy recovery
+        if: success() && steps.deploy.conclusion == 'success' && steps.recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Cloud Run deploy recovered on commit {commit_link}'
+          markdown: |
+            :white_check_mark: *Cloud Run deploy recovered*
+            The `deploy` job in `deploy-cloudrun.yml` succeeded for commit {commit_link} after the previous run failed. Production is now serving the new revision; the post-deploy sign-in smoke will run next.
+            <{run_url}|View workflow run>
+
+  # ── Staging deploy ──────────────────────────────────────────────────────────
+  # Deploys to tabula-medica-staging on every push to main. Staging is the first
+  # environment after the test gates pass — QA/on-call can validate here before
+  # a production promotion is triggered via a v* tag + manual approval.
+  deploy-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: [server-tests, jest-tests, script-tests, build-web]
+    # Only run on main branch pushes, not on tags (tags go to production).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      url: ${{ steps.deploy-staging.outputs.url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Block staging deploy on critical npm CVEs
+        run: npm audit --omit=dev --audit-level=critical
+
+      - id: auth-staging
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Cloud Run (staging)
+        id: deploy-staging
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: tabula-medica-staging
+          region: us-central1
+          source: ./
+          flags: |
+            --allow-unauthenticated
+            --memory=4Gi
+            --cpu=4
+            --service-account=cloud-run-runtime@united-planet-485003-n7.iam.gserviceaccount.com
+          env_vars: |
+            NODE_ENV=staging
+          secrets: |
+            DATABASE_URL=DATABASE_URL_STAGING:latest
+            PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest
+            SESSION_SECRET=SESSION_SECRET:latest
+            GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest
+            GCS_ENCRYPTION_KEY=GCS_ENCRYPTION_KEY:latest
+            GOOGLE_APPLICATION_CREDENTIALS_JSON=GOOGLE_APPLICATION_CREDENTIALS_JSON:latest
+            CROSS_APP_SECRET=CROSS_APP_SECRET:latest
+
+      - name: Notify Slack on staging deploy failure
+        if: failure() && steps.deploy-staging.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Staging deploy FAILED for commit {commit_link}'
+          markdown: |
+            :rotating_light: *Staging deploy FAILED*
+            The `deploy-staging` job failed for commit {commit_link}. Production is unaffected; staging is on the previous revision.
+            <{run_url}|View failing workflow run>
+
+  # ── Post-deploy health + auth smoke for staging ─────────────────────────────
+  # Runs after every successful deploy-staging so regressions are caught before
+  # QA promotes to production via a v* tag.
+  #
+  # Step 1 (smoke): liveness — hits GET /api/health on the staging Cloud Run URL
+  # (emitted by deploy-cloudrun@v3 as the `url` output) and retries for ~60 s.
+  #
+  # Step 2 (auth-smoke): auth regression — runs the same
+  # scripts/smoke-test-reviewer-login.sh used by the production post-deploy and
+  # post-promotion smoke jobs, but targeting the staging URL. Catches broken
+  # reviewer auth BEFORE the commit is promoted to production via a v* tag,
+  # where a broken reviewer account would block App Review.
+  # Uses REVIEWER_EMAIL / REVIEWER_PASSWORD (same GitHub repo secrets as the
+  # production smoke jobs). If either secret is absent the step emits a loud
+  # warning and exits 0 so a staging environment that hasn't had the secrets
+  # propagated yet does not block merges to main.
+  smoke-staging:
+    name: Post-deploy health + auth smoke (staging)
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Cloud Run revision to become healthy
+        id: smoke
+        env:
+          STAGING_URL: ${{ needs.deploy-staging.outputs.url }}
+        run: |
+          set -euo pipefail
+          URL="${STAGING_URL:-}"
+          if [ -z "$URL" ]; then
+            echo "[SKIP] No staging URL in deploy output — service may not exist yet."
+            exit 0
+          fi
+          echo "==> Staging URL: $URL"
+          MAX_ATTEMPTS=10
+          DELAY=6
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${URL}/api/health" --max-time 10 || echo "000")
+            echo "  attempt $i/$MAX_ATTEMPTS — /api/health → HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "[PASS] Staging /api/health returned 200."
+              exit 0
+            fi
+            [ "$i" -lt "$MAX_ATTEMPTS" ] && sleep $DELAY
+          done
+          echo "[FAIL] Staging /api/health did not return 200 after $MAX_ATTEMPTS attempts."
+          exit 1
+
+      - name: Notify Slack on staging health smoke failure
+        if: failure() && steps.smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Staging health smoke FAILED for commit {commit_link}'
+          markdown: |
+            :rotating_light: *Staging health smoke FAILED*
+            Commit {commit_link} deployed to staging but `/api/health` is not returning 200. Do NOT promote this commit to production via a `v*` tag until staging is healthy. Production is unaffected.
+            <{run_url}|View failing workflow run>
+
+      # ── Staging auth smoke ────────────────────────────────────────────────────
+      # Runs the same reviewer-login smoke script used by the production post-
+      # deploy and post-promotion jobs. Only executes when the health smoke
+      # above passes so we don't exercise auth against an unhealthy service.
+      # Tee output to a log file so the Slack notification step below can quote
+      # the structured PASS/FAIL summary. `set -o pipefail` preserves the
+      # script's exit status through the pipe.
+
+      - name: Run reviewer login smoke (staging auth check)
+        id: auth-smoke
+        env:
+          STAGING_URL: ${{ needs.deploy-staging.outputs.url }}
+          REVIEWER_EMAIL: ${{ secrets.REVIEWER_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.REVIEWER_PASSWORD }}
+        run: |
+          set -o pipefail
+          URL="${STAGING_URL:-}"
+          if [ -z "$URL" ]; then
+            echo "[SKIP] No staging URL in deploy output — skipping auth smoke."
+            exit 0
+          fi
+          if [ -z "${REVIEWER_EMAIL:-}" ] || [ -z "${REVIEWER_PASSWORD:-}" ]; then
+            echo "##################################################################"
+            echo "WARNING: REVIEWER_EMAIL or REVIEWER_PASSWORD not set — staging auth smoke SKIPPED."
+            echo "Set REVIEWER_EMAIL + REVIEWER_PASSWORD in GitHub repo secrets"
+            echo "to enable the reviewer-login smoke against staging."
+            echo "##################################################################"
+            exit 0
+          fi
+          export API_BASE="$URL"
+          bash scripts/smoke-test-reviewer-login.sh 2>&1 | tee auth-smoke-output.log
+
+      - name: Extract staging auth smoke summary for Slack
+        id: auth-smoke-summary
+        if: failure() && steps.auth-smoke.conclusion == 'failure'
+        run: |
+          if [ -f auth-smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *(PASS|FAIL)|\[[0-9]+/[0-9]+\] |Passed: )' auth-smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured auth-smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(auth-smoke-output.log missing — check the workflow run for details)"
+          fi
+          {
+            echo 'summary<<AUTH_SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'AUTH_SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on staging auth smoke failure
+        id: notify-auth-smoke-failure
+        if: failure() && steps.auth-smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Staging reviewer-login smoke FAILED for commit {commit_link} — do NOT promote to production'
+          markdown: |
+            :rotating_light: *Staging reviewer-login smoke FAILED*
+            Commit {commit_link} deployed to staging but the App Store reviewer auth check is failing. *Do NOT promote this commit to production via a `v*` tag until staging auth is fixed.* Production is unaffected.
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.auth-smoke-summary.outputs.summary }}
+
+      # Cross-run state machine for the staging auth smoke — distinct state key
+      # (`staging-auth-smoke-state`) so its ping-on-failure / ping-once-on-recovery
+      # lifecycle is independent of the health smoke and the production smoke jobs.
+      - name: Update Slack recovery state (staging auth smoke)
+        id: auth-smoke-recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: staging-auth-smoke-state
+          notify_posted: ${{ steps.notify-auth-smoke-failure.outputs.posted }}
+          deploy_status: ${{ steps.auth-smoke.conclusion }}
+
+      - name: Notify Slack on staging auth smoke recovery
+        if: success() && steps.auth-smoke.conclusion == 'success' && steps.auth-smoke-recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Staging reviewer-login smoke recovered on commit {commit_link}'
+          markdown: |
+            :white_check_mark: *Staging reviewer-login smoke recovered*
+            Commit {commit_link} deployed to staging and the App Store reviewer auth check is passing again. Staging is safe to promote to production.
+            <{run_url}|View workflow run>
+
+  # ── Production promotion (manual approval required) ──────────────────────────
+  # Promotes a tagged release to the production Cloud Run service. The
+  # `environment: production` stanza pauses this job at the "Waiting for
+  # approval" state in GitHub Actions until a required reviewer approves.
+  # Configure reviewers in GitHub → Settings → Environments → production.
+  promote-production:
+    name: Promote to production (manual approval)
+    runs-on: ubuntu-latest
+    needs: [server-tests, jest-tests, script-tests, build-web]
+    # Only run on v* tag pushes.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Block production deploy on critical npm CVEs
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Set up Docker Buildx (for container CVE gate)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image (for container CVE gate)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: tabula-medica-web:promote-gate
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Block production deploy on critical container CVEs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: tabula-medica-web:promote-gate
+          severity: CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: '1'
+          format: table
+          trivyignores: .trivyignore.yaml
+
+      - id: auth-prod
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Cloud Run (production)
+        id: deploy-production
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: tabula-medica-web
+          region: us-central1
+          source: ./
+          flags: |
+            --allow-unauthenticated
+            --memory=4Gi
+            --cpu=4
+            --service-account=cloud-run-runtime@united-planet-485003-n7.iam.gserviceaccount.com
+          env_vars: |
+            NODE_ENV=production
+          secrets: |
+            DATABASE_URL=DATABASE_URL:latest
+            PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest
+            SESSION_SECRET=SESSION_SECRET:latest
+            GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest
+            GCS_ENCRYPTION_KEY=GCS_ENCRYPTION_KEY:latest
+            GOOGLE_APPLICATION_CREDENTIALS_JSON=GOOGLE_APPLICATION_CREDENTIALS_JSON:latest
+            CROSS_APP_SECRET=CROSS_APP_SECRET:latest
+
+      - name: Notify Slack on production promotion
+        if: success() && steps.deploy-production.conclusion == 'success'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production promoted to ${{ github.ref_name }}'
+          markdown: |
+            :rocket: *Production promoted to `${{ github.ref_name }}`*
+            Commit {commit_link} is now live on `https://api.tabulamedica.health`.
+            <{run_url}|View workflow run>
+
+      - name: Notify Slack on production promotion failure
+        if: failure() && steps.deploy-production.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production promotion FAILED for ${{ github.ref_name }}'
+          markdown: |
+            :rotating_light: *Production promotion FAILED* for tag `${{ github.ref_name }}`
+            The `promote-production` job failed for commit {commit_link}. Production is still on the previous revision.
+            <{run_url}|View failing workflow run>
+
+  # ── Post-deploy auth smoke for manual / emergency deploys ──────────────────
+  # Runs after the `deploy` job (workflow_dispatch / emergency redeploy only).
+  # Tag-based production promotions get their own `promote-smoke` job below.
+  smoke:
+    name: Post-deploy auth smoke (manual redeploy)
+    needs: deploy
+    # `deploy` only runs on workflow_dispatch; this job mirrors that guard so
+    # it is skipped on push events where `deploy` is skipped.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # Unauthenticated version smoke — hits GET /api/version and fails if the
+      # response is non-200 or `sha === "unknown"`. Catches the "deploy
+      # succeeded but Cloud Run is still serving a stale revision (or the
+      # build didn't bake a git SHA)" failure mode that the auth smoke below
+      # would not notice. Runs first so a broken deploy fails fast before we
+      # exercise the heavier reviewer-login flow.
+      - name: Run version smoke
+        id: version-smoke
+        env:
+          API_BASE: https://api.tabulamedica.health
+        # Tee the script's output to a log file so the Slack notification
+        # step below can quote the structured PASS/FAIL summary. `set -o
+        # pipefail` preserves the script's exit status through the pipe so
+        # this step still fails (and the workflow turns red) when the
+        # version smoke fails.
+        run: |
+          set -o pipefail
+          node ops/version-smoke.mjs 2>&1 | tee version-smoke-output.log
+
+      # Slack ping when the unauthenticated version smoke fails — catches
+      # the "deploy succeeded but Cloud Run is still serving a stale
+      # revision (or the build didn't bake a git SHA)" failure mode that
+      # the auth smoke below cannot detect. Without this dedicated ping a
+      # version-smoke failure short-circuits the auth smoke (so its
+      # failure notify is skipped) and the only signal in Slack is the
+      # generic red workflow icon. Mirrors the auth-smoke pattern below
+      # so on-call gets the same #engineering treatment for both.
+      - name: Extract version-smoke summary for Slack
+        id: version-smoke-summary
+        if: failure() && steps.version-smoke.conclusion == 'failure'
+        run: |
+          if [ -f version-smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *\[(PASS|FAIL|retry [0-9]+)\]|Passed: )' version-smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured version-smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(version-smoke-output.log missing — check the workflow run for details)"
+          fi
+          {
+            echo 'summary<<VERSION_SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'VERSION_SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on version-smoke failure
+        id: notify-version-smoke-failure
+        if: failure() && steps.version-smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production /api/version smoke FAILED after deploy {commit_link}'
+          markdown: |
+            :rotating_light: *Production `/api/version` smoke FAILED*
+            Commit {commit_link} just deployed to Cloud Run, but the unauthenticated version probe against `https://api.tabulamedica.health/api/version` is failing — production may be serving a stale or unknown revision. The post-deploy auth smoke was skipped.
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.version-smoke-summary.outputs.summary }}
+
+      # Independent recovery state machine for the version smoke. Uses a
+      # distinct `version-smoke-state` key so it does not collide with the
+      # auth smoke's `smoke-state` cache — the two checks fail
+      # independently and must each get their own ping-on-failure /
+      # ping-once-on-recovery lifecycle.
+      - name: Update Slack recovery state (version smoke)
+        id: version-smoke-recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: version-smoke-state
+          notify_posted: ${{ steps.notify-version-smoke-failure.outputs.posted }}
+          deploy_status: ${{ steps.version-smoke.conclusion }}
+
+      - name: Notify Slack on version-smoke recovery
+        if: steps.version-smoke.conclusion == 'success' && steps.version-smoke-recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production /api/version smoke recovered on commit {commit_link}'
+          markdown: |
+            :white_check_mark: *Production `/api/version` smoke recovered*
+            Commit {commit_link} deployed cleanly and `https://api.tabulamedica.health/api/version` is returning a fresh, known revision again after the previous run failed.
+            <{run_url}|View workflow run>
+
+      - name: Run post-deploy smoke
+        id: smoke
+        env:
+          API_BASE: https://api.tabulamedica.health
+          REVIEWER_EMAIL: ${{ secrets.REVIEWER_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.REVIEWER_PASSWORD }}
+        # Tee the script's output to a log file so the Slack notification step
+        # below can quote the structured PASS/FAIL summary. `set -o pipefail`
+        # preserves the script's exit status through the pipe so this step
+        # still fails (and the workflow turns red) when the smoke fails.
+        run: |
+          set -o pipefail
+          node scripts/post-deploy-smoke.mjs 2>&1 | tee smoke-output.log
+
+      # Slack ping on smoke failure. Tightens the feedback loop so a
+      # reviewer-blocking auth regression is visible in #engineering within
+      # seconds of the deploy completing, instead of only as a red workflow
+      # icon someone has to be watching GitHub to notice.
+      #
+      # Successful deploys do NOT post to Slack (this step only runs on
+      # failure). The webhook URL lives in the SLACK_WEBHOOK_URL repo secret;
+      # if it's not configured the action is a no-op so forks/manual re-runs
+      # without the secret don't error out.
+      #
+      # The shared payload-building / curl logic lives in
+      # .github/actions/post-slack-notification — this step just extracts a
+      # safe summary out of the smoke log and hands it to that action.
+      - name: Extract smoke summary for Slack
+        id: smoke-summary
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: |
+          # Pull ONLY the structured PASS/FAIL lines and the summary footer
+          # out of the smoke log. We deliberately skip the "==> Target" /
+          # "==> Reviewer email" lines so reviewer credentials never leak into
+          # the Slack channel — engineers can still click the workflow-run
+          # link in the message to see the full log if they need to.
+          if [ -f smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *\[(PASS|FAIL)\]|\[[0-9]+/[0-9]+\] |Passed: )' smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(smoke-output.log missing — check the workflow run for details)"
+          fi
+          # Multiline-safe heredoc into GITHUB_OUTPUT (the SUMMARY contains
+          # newlines from `grep`).
+          {
+            echo 'summary<<SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on smoke failure
+        id: notify-failure
+        if: failure() && steps.smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production sign-in smoke FAILED after deploy {commit_link}'
+          markdown: |
+            :rotating_light: *Production sign-in smoke FAILED*
+            Commit {commit_link} just deployed to Cloud Run, but the App Store reviewer auth check is failing against `https://api.tabulamedica.health`.
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.smoke-summary.outputs.summary }}
+
+      # Cross-run state machine that decides whether the next green smoke
+      # should fire a "recovered" Slack ping. Owns the cache restore +
+      # previous-status read + persist + cache save quartet — see
+      # .github/actions/slack-recovery-state/action.yml for the full
+      # contract, three-state semantics, and "default to passing on missing
+      # cache" rationale. MUST be invoked with `if: always()` so the failure
+      # path also persists `failure-notified` for the next run.
+      - name: Update Slack recovery state
+        id: recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: smoke-state
+          notify_posted: ${{ steps.notify-failure.outputs.posted }}
+          deploy_status: ${{ steps.smoke.conclusion }}
+
+      # Slack "all-clear" ping on smoke recovery. Only fires when this run
+      # *passed* AND the recovery-state action confirmed the previous run's
+      # persisted state was `failure-notified` — i.e. there was an actual
+      # Slack failure ping that needs closing out. Consecutive green smokes
+      # after that do NOT post anything (the persist branch inside the
+      # recovery-state action flips to `passing`, so the
+      # `should_notify_recovery` output goes false on subsequent runs).
+      - name: Notify Slack on smoke recovery
+        if: success() && steps.smoke.conclusion == 'success' && steps.recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production sign-in smoke recovered on commit {commit_link}'
+          markdown: |
+            :white_check_mark: *Production sign-in smoke recovered*
+            Commit {commit_link} deployed cleanly and the App Store reviewer auth check is passing again on `https://api.tabulamedica.health`.
+            <{run_url}|View workflow run>
+
+  # ── Post-promotion auth smoke (tag → production path) ───────────────────────
+  # Runs automatically after every successful `promote-production` so that the
+  # tag-based production promotion path retains the same automated post-deploy
+  # validation as the `smoke` job above (which guards the manual `deploy` path).
+  #
+  # Uses the same reviewer-login smoke script (`scripts/smoke-test-reviewer-login.sh`)
+  # and the same Slack recovery-state machine, but with a distinct state key
+  # (`promote-smoke-state`) so its ping lifecycle is independent of the manual
+  # redeploy smoke.
+  promote-smoke:
+    name: Post-promotion auth smoke (tag release)
+    needs: promote-production
+    # promote-production only runs on v* tag pushes; guard here mirrors that.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run reviewer login gate (post-promotion)
+        id: smoke
+        env:
+          API_BASE: https://api.tabulamedica.health
+          REVIEWER_EMAIL: ${{ secrets.REVIEWER_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.REVIEWER_PASSWORD }}
+        run: |
+          set -o pipefail
+          if [ -z "${REVIEWER_EMAIL:-}" ] || [ -z "${REVIEWER_PASSWORD:-}" ]; then
+            echo "##################################################################"
+            echo "WARNING: REVIEWER_EMAIL or REVIEWER_PASSWORD not set — post-promotion auth smoke SKIPPED."
+            echo "Set REVIEWER_EMAIL + REVIEWER_PASSWORD in GitHub repo secrets"
+            echo "to enable the reviewer-login smoke after tag promotion."
+            echo "##################################################################"
+            exit 0
+          fi
+          bash scripts/smoke-test-reviewer-login.sh 2>&1 | tee smoke-output.log
+
+      - name: Extract smoke summary for Slack
+        id: smoke-summary
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: |
+          if [ -f smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *\[(PASS|FAIL|retry [0-9]+)\]|Passed: )' smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(smoke-output.log missing — check the workflow run for details)"
+          fi
+          {
+            echo 'summary<<SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on promotion smoke failure
+        id: notify-failure
+        if: failure() && steps.smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Post-promotion smoke FAILED for tag ${{ github.ref_name }}'
+          markdown: |
+            :rotating_light: *Post-promotion smoke FAILED* for tag `${{ github.ref_name }}`
+            Commit {commit_link} was promoted to production but the App Store reviewer auth check against `https://api.tabulamedica.health` is failing. The release is live — on-call action required.
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.smoke-summary.outputs.summary }}
+
+      - name: Update Slack recovery state (promotion smoke)
+        id: recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: promote-smoke-state
+          notify_posted: ${{ steps.notify-failure.outputs.posted }}
+          deploy_status: ${{ steps.smoke.conclusion }}
+
+      - name: Notify Slack on promotion smoke recovery
+        if: success() && steps.smoke.conclusion == 'success' && steps.recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Post-promotion smoke recovered for tag ${{ github.ref_name }}'
+          markdown: |
+            :white_check_mark: *Post-promotion smoke recovered* for tag `${{ github.ref_name }}`
+            The App Store reviewer auth check is passing again on `https://api.tabulamedica.health` after the previous promotion smoke failure.
+            <{run_url}|View workflow run>

@@ -1,0 +1,157 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "info": {
+      "en-US": {
+        "title": "Tabula Medica",
+        "subtitle": "Health records, any language",
+        "description": "Tabula Medica puts your complete health records in your hands — in any of 52 languages. Designed for everyone, especially the underserved, because the poorest of the poor deserve health records in their own language.\n\nIMPORT YOUR RECORDS AUTOMATICALLY\nConnect to over 50,000 hospitals, clinics, and pharmacies through the national TEFCA network. No portal passwords needed — we find your records automatically.\n\nCOMPLETE HEALTH RECORD\n- Medications, allergies, lab results, immunizations\n- Clinical notes, procedures, vital signs\n- Insurance cards and claims\n- Medical documents and imaging\n\n52 LANGUAGES\nEvery record, every insight, every notification — translated into your preferred language. From Arabic to Vietnamese, Tabula Medica speaks your language.\n\nAI-POWERED INSIGHTS\n- Plain-language explanations of lab results\n- Medication interaction alerts\n- Personalized health timeline\n- Duplicate test prevention\n\nPRIVACY & SECURITY FIRST\n- HIPAA and HITECH 2026 compliant\n- Biometric authentication (Face ID / Touch ID)\n- End-to-end encryption for all health data\n- SOC 2 certified infrastructure\n- You own your data — always\n\nINTEROPERABILITY\n- FHIR R4 and USCDI v6 standards\n- TEFCA Trusted Exchange Framework\n- SMART on FHIR integration\n- Share records with any provider instantly\n\nFAMILY CARE\n- Manage records for family members\n- Emergency contact sharing\n- Caregiver access controls\n\nTabula Medica is built on the belief that access to your own health information is a fundamental right — regardless of language, income, or where you live.",
+        "keywords": [
+          "health records",
+          "PHR",
+          "FHIR",
+          "TEFCA",
+          "labs",
+          "medications",
+          "HIPAA",
+          "allergies",
+          "immunizations",
+          "insurance"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      },
+      "es-ES": {
+        "title": "Tabula Medica",
+        "subtitle": "Tu historial medico, tu idioma",
+        "description": "Tabula Medica pone tu historial medico completo en tus manos, en cualquiera de 52 idiomas. Disenado para todos, especialmente para los mas necesitados, porque los mas pobres merecen historiales medicos en su propio idioma.\n\nIMPORTA TUS REGISTROS AUTOMATICAMENTE\nConectate a mas de 50,000 hospitales, clinicas y farmacias a traves de la red nacional TEFCA. Sin contrasenas de portales — encontramos tus registros automaticamente.\n\nHISTORIAL MEDICO COMPLETO\n- Medicamentos, alergias, resultados de laboratorio, vacunas\n- Notas clinicas, procedimientos, signos vitales\n- Tarjetas de seguro y reclamaciones\n- Documentos medicos e imagenes\n\n52 IDIOMAS\nCada registro, cada analisis, cada notificacion — traducido a tu idioma preferido.\n\nPRIVACIDAD Y SEGURIDAD\n- Cumple con HIPAA y HITECH 2026\n- Autenticacion biometrica (Face ID / Touch ID)\n- Cifrado de extremo a extremo\n- Tus datos son tuyos — siempre",
+        "keywords": [
+          "historial medico",
+          "salud",
+          "FHIR",
+          "TEFCA",
+          "laboratorio",
+          "medicamentos",
+          "HIPAA",
+          "vacunas",
+          "alergias",
+          "seguro"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      },
+      "zh-Hans": {
+        "title": "Tabula Medica",
+        "subtitle": "您的健康记录，您的语言",
+        "description": "Tabula Medica 将您的完整健康记录交到您手中——支持52种语言。专为每个人设计，尤其是弱势群体，因为最贫困的人也应该拥有自己语言的健康记录。\n\n自动导入您的记录\n通过国家TEFCA网络连接超过50,000家医院、诊所和药房。无需门户密码——我们自动查找您的记录。\n\n完整的健康记录\n- 药物、过敏、化验结果、疫苗接种\n- 临床笔记、手术、生命体征\n- 保险卡和理赔\n- 医疗文件和影像\n\n隐私与安全\n- 符合HIPAA和HITECH 2026标准\n- 生物识别认证（Face ID / Touch ID）\n- 端到端加密\n- 您的数据始终属于您",
+        "keywords": [
+          "健康记录",
+          "医疗记录",
+          "FHIR",
+          "TEFCA",
+          "化验",
+          "药物",
+          "疫苗",
+          "过敏",
+          "医疗保险",
+          "患者门户"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      },
+      "hi": {
+        "title": "Tabula Medica",
+        "subtitle": "रिकॉर्ड, आपकी भाषा में",
+        "description": "Tabula Medica आपके पूरे स्वास्थ्य रिकॉर्ड को आपके हाथों में रखता है — 52 भाषाओं में से किसी भी भाषा में। सभी के लिए डिज़ाइन किया गया, विशेष रूप से वंचित लोगों के लिए, क्योंकि सबसे गरीब लोग भी अपनी भाषा में स्वास्थ्य रिकॉर्ड के हकदार हैं।\n\nअपने रिकॉर्ड स्वचालित रूप से आयात करें\nराष्ट्रीय TEFCA नेटवर्क के माध्यम से 50,000 से अधिक अस्पतालों, क्लीनिकों और फार्मेसियों से जुड़ें।\n\nपूर्ण स्वास्थ्य रिकॉर्ड\n- दवाइयां, एलर्जी, लैब परिणाम, टीकाकरण\n- नैदानिक नोट्स, प्रक्रियाएं, जीवन संकेत\n- बीमा कार्ड और दावे\n\nगोपनीयता और सुरक्षा\n- HIPAA और HITECH 2026 अनुपालन\n- बायोमेट्रिक प्रमाणीकरण\n- एंड-टू-एंड एन्क्रिप्शन\n- आपका डेटा हमेशा आपका है",
+        "keywords": [
+          "स्वास्थ्य रिकॉर्ड",
+          "चिकित्सा",
+          "FHIR",
+          "TEFCA",
+          "दवाइयां",
+          "टीकाकरण",
+          "बीमा",
+          "HIPAA"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      },
+      "fr-FR": {
+        "title": "Tabula Medica",
+        "subtitle": "Vos dossiers, votre langue",
+        "description": "Tabula Medica met votre dossier medical complet entre vos mains — dans l'une des 52 langues disponibles. Concu pour tous, en particulier les plus vulnerables, car les plus pauvres meritent des dossiers medicaux dans leur propre langue.\n\nIMPORTEZ VOS DOSSIERS AUTOMATIQUEMENT\nConnectez-vous a plus de 50 000 hopitaux, cliniques et pharmacies via le reseau national TEFCA. Pas de mots de passe de portail — nous trouvons vos dossiers automatiquement.\n\nDOSSIER MEDICAL COMPLET\n- Medicaments, allergies, resultats de laboratoire, vaccinations\n- Notes cliniques, procedures, signes vitaux\n- Cartes d'assurance et reclamations\n- Documents medicaux et imagerie\n\nCONFIDENTIALITE ET SECURITE\n- Conforme HIPAA et HITECH 2026\n- Authentification biometrique (Face ID / Touch ID)\n- Chiffrement de bout en bout\n- Vos donnees vous appartiennent — toujours",
+        "keywords": [
+          "dossier medical",
+          "sante",
+          "FHIR",
+          "TEFCA",
+          "laboratoire",
+          "medicaments",
+          "HIPAA",
+          "vaccins",
+          "allergies",
+          "assurance"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      },
+      "ar-SA": {
+        "title": "Tabula Medica",
+        "subtitle": "سجلاتك الصحية بلغتك",
+        "description": "Tabula Medica يضع سجلك الصحي الكامل بين يديك — بأي من 52 لغة. مصمم للجميع، وخاصة الفئات الأكثر احتياجاً، لأن أفقر الناس يستحقون سجلات صحية بلغتهم الخاصة.\n\nاستيراد سجلاتك تلقائياً\nاتصل بأكثر من 50,000 مستشفى وعيادة وصيدلية عبر شبكة TEFCA الوطنية.\n\nسجل صحي كامل\n- الأدوية، الحساسية، نتائج المختبر، التطعيمات\n- الملاحظات السريرية، الإجراءات، العلامات الحيوية\n- بطاقات التأمين والمطالبات\n\nالخصوصية والأمان\n- متوافق مع HIPAA و HITECH 2026\n- المصادقة البيومترية\n- تشفير شامل\n- بياناتك ملكك دائماً",
+        "keywords": [
+          "سجلات صحية",
+          "سجلات طبية",
+          "صحة",
+          "FHIR",
+          "TEFCA",
+          "أدوية",
+          "تطعيمات",
+          "حساسية",
+          "تأمين",
+          "HIPAA"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      },
+      "vi": {
+        "title": "Tabula Medica",
+        "subtitle": "Ho so suc khoe, moi ngon ngu",
+        "description": "Tabula Medica dat ho so suc khoe day du cua ban trong tay ban — bang bat ky ngon ngu nao trong 52 ngon ngu. Duoc thiet ke cho tat ca moi nguoi, dac biet la nhung nguoi thiet thoi nhat, vi nhung nguoi ngheo nhat cung xung dang co ho so suc khoe bang ngon ngu cua ho.\n\nTU DONG NHAP HO SO CUA BAN\nKet noi voi hon 50.000 benh vien, phong kham va nha thuoc thong qua mang luoi TEFCA quoc gia.\n\nHO SO SUC KHOE DAY DU\n- Thuoc, di ung, ket qua xet nghiem, tiem chung\n- Ghi chu lam sang, thu thuat, dau hieu sinh ton\n- The bao hiem va yeu cau boi thuong\n\nQUYEN RIENG TU VA BAO MAT\n- Tuan thu HIPAA va HITECH 2026\n- Xac thuc sinh trac hoc\n- Ma hoa dau cuoi\n- Du lieu cua ban luon thuoc ve ban",
+        "keywords": [
+          "ho so suc khoe",
+          "ho so y te",
+          "suc khoe",
+          "FHIR",
+          "TEFCA",
+          "thuoc",
+          "tiem chung",
+          "di ung",
+          "bao hiem",
+          "HIPAA"
+        ],
+        "privacyPolicyUrl": "https://tabulamedica.health/privacy",
+        "supportUrl": "https://tabulamedica.health/support",
+        "marketingUrl": "https://tabulamedica.health"
+      }
+    },
+    "categories": ["HEALTH_AND_FITNESS", "MEDICAL"],
+    "copyright": "2024-2026 Tabula Medica Inc.",
+    "review": {
+      "firstName": "Tabula",
+      "lastName": "Medica Support",
+      "email": "SET_VIA_ENVIRONMENT_SECRET",
+      "phone": "SET_VIA_ENVIRONMENT_SECRET",
+      "demoAccountRequired": true,
+      "demoAccountName": "SET_VIA_ENVIRONMENT_SECRET",
+      "demoAccountPassword": "SET_VIA_ENVIRONMENT_SECRET",
+      "notes": "LOGIN STEPS:\n1. Launch the app.\n2. On the welcome screen, tap \"Sign in with Email\".\n3. Enter the reviewer credentials provided via secure channel and tap \"Sign In\".\n4. The reviewer account is pre-loaded with sample health records (visits, labs, medications) so all features can be exercised immediately.\n\nThis account uses email/password authentication only. No phone verification, MFA challenge, or HealthKit/contacts permissions are required to log in. After logging in, optional permissions (Face ID, HealthKit, Notifications) can be granted from Settings to exercise those features.\n\nABOUT THE APP:\nTabula Medica is a personal health record (PHR) app that allows patients to import their medical records from hospitals and clinics through the TEFCA national network. The app accesses HealthKit data only with explicit user permission. All data is encrypted end-to-end and the app is HIPAA / HITECH 2026 compliant.\n\nIN-APP PURCHASES:\nAll paid features (Medical Pro tier) are sold exclusively through StoreKit / RevenueCat — there are no external payment links inside the app.\n\nCONTACT:\nIf the reviewer account does not work, contact us at the support email and phone number listed in this App Review Information submission. We respond within one business hour during US business hours."
+    }
+  }
+}

@@ -1,0 +1,105 @@
+name: Test Semgrep branch-protection wiring
+
+# Regression coverage for the Semgrep SAST gate. Verifies that:
+#
+#   1. security-scan.yml has the correctly-named job ("SAST (Semgrep)") with
+#      `error: true`, the SARIF upload step, and the re-raise step — the
+#      three structural requirements for the gate to block PRs.
+#   2. .semgrepignore exists and excludes the expected generated/vendor paths.
+#   3. (When GH_ADMIN_PAT is configured) the "SAST (Semgrep)" check is in the
+#      required-status-checks list for `main`, detected in both new-style
+#      .checks[] and legacy .contexts[] format.
+#
+# Branch-protection API assertion (check 3):
+#   - When GH_ADMIN_PAT is set as an Actions secret, REQUIRE_BP_CHECK=1 is
+#     passed so check 3 is mandatory — the job FAILS if the check cannot be
+#     confirmed. This mode is used on push to main (the hardening path).
+#   - On PRs from forks or when GH_ADMIN_PAT is absent, check 3 is skipped
+#     with a warning (REQUIRE_BP_CHECK defaults to 0). Checks 1 and 2 still
+#     run and catch structural regressions.
+#
+# Runs whenever the security-scan workflow, .semgrepignore, the verification
+# script, or this workflow file itself changes — catching a regression (a job
+# rename, a dropped re-raise step, a missing .semgrepignore entry) before it
+# can silently land on main. Also exposed via workflow_dispatch.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/security-scan.yml'
+      - '.github/workflows/test-semgrep-branch-protection.yml'
+      - '.semgrepignore'
+      - 'scripts/verify-semgrep-branch-protection.sh'
+      - 'scripts/set-semgrep-branch-protection.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/security-scan.yml'
+      - '.github/workflows/test-semgrep-branch-protection.yml'
+      - '.semgrepignore'
+      - 'scripts/verify-semgrep-branch-protection.sh'
+      - 'scripts/set-semgrep-branch-protection.sh'
+  workflow_dispatch:
+
+jobs:
+  verify-semgrep-wiring:
+    name: Semgrep gate configuration check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install jq for the branch-protection API check (step 3).
+      # jq is not pre-installed on ubuntu-latest runners.
+      - name: Install jq
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y jq
+          fi
+          jq --version
+
+      # Verify Semgrep gate wiring across all three checks.
+      #
+      # REQUIRE_BP_CHECK is set to "1" when GH_ADMIN_PAT is available so the
+      # branch-protection API assertion is mandatory on hardening runs (push to
+      # main, manual dispatch with the secret configured). When GH_ADMIN_PAT is
+      # absent (PRs from forks, repos without the secret), REQUIRE_BP_CHECK is
+      # "0" and check 3 is skipped with a warning — structural checks 1 and 2
+      # still run and catch regressions.
+      #
+      # Store GH_ADMIN_PAT as a GitHub Actions secret (a Personal Access Token
+      # with `repo` / admin:repo scope). The default GITHUB_TOKEN cannot read
+      # branch-protection rules.
+      - name: Verify Semgrep gate wiring (workflow + semgrepignore + branch protection)
+        run: bash scripts/verify-semgrep-branch-protection.sh
+        env:
+          GH_ADMIN_PAT: ${{ secrets.GH_ADMIN_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BRANCH: main
+          # Require the branch-protection API check when the admin PAT is
+          # present; allow skip otherwise (REQUIRE_BP_CHECK=0 is the default).
+          REQUIRE_BP_CHECK: ${{ secrets.GH_ADMIN_PAT != '' && '1' || '0' }}
+
+      - name: Verify bash shebang on set-semgrep-branch-protection.sh
+        run: |
+          first=$(head -n1 scripts/set-semgrep-branch-protection.sh)
+          case "$first" in
+            "#!/usr/bin/env bash"|"#!/bin/bash")
+              echo "PASS  bash shebang OK: $first"
+              ;;
+            *)
+              echo "FAIL  expected bash shebang, got: $first" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Verify bash shebang on verify-semgrep-branch-protection.sh
+        run: |
+          first=$(head -n1 scripts/verify-semgrep-branch-protection.sh)
+          case "$first" in
+            "#!/usr/bin/env bash"|"#!/bin/bash")
+              echo "PASS  bash shebang OK: $first"
+              ;;
+            *)
+              echo "FAIL  expected bash shebang, got: $first" >&2
+              exit 1
+              ;;
+          esac

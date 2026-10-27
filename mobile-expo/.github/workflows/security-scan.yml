@@ -1,0 +1,116 @@
+name: Security Scan (PR)
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Dependency vulnerability check
+        run: npx audit-ci --high
+
+  secret-scanning:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+
+  semgrep:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Semgrep runs as a standalone CLI. No network calls to semgrep.dev are
+      # needed for the open-source rule packs used here (p/nodejs, p/secrets).
+      # SARIF output is uploaded to GitHub Code Scanning so findings appear in
+      # the repository's Security → Code Scanning tab and block PRs via
+      # branch-protection rules if configured.
+      - name: Run Semgrep SAST (Node.js + secrets)
+        id: semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/nodejs
+            p/secrets
+          output: semgrep-results.sarif
+          output-format: sarif
+          # Fail the job on any finding with severity ERROR.
+          # WARN-level findings are reported but do not block merges.
+          error: true
+        continue-on-error: true
+
+      - name: Upload Semgrep SARIF to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep
+
+      # Fail the job if Semgrep itself found blocking errors (ERROR severity).
+      # We use continue-on-error above so the SARIF upload always runs even when
+      # Semgrep exits non-zero; this step re-raises the failure afterward.
+      - name: Fail if Semgrep found blocking findings
+        if: steps.semgrep.outcome == 'failure'
+        run: |
+          echo "Semgrep found blocking findings (ERROR severity). See the Code Scanning tab for details."
+          exit 1
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check licenses
+        run: npx license-checker --onlyAllow 'MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;Python-2.0;BlueOak-1.0.0'
+        continue-on-error: true

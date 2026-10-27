@@ -1,0 +1,41 @@
+name: Test CODEOWNERS gate workflow wiring
+
+# The module's unit tests don't cover its github-script adapter.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/codeowners-gate-check.yml'
+      - '.github/scripts/codeowners-gate.mjs'
+      - 'scripts/test-codeowners-gate-wiring.mjs'
+      - '.github/workflows/test-codeowners-gate-wiring.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/codeowners-gate-check.yml'
+      - '.github/scripts/codeowners-gate.mjs'
+      - 'scripts/test-codeowners-gate-wiring.mjs'
+      - '.github/workflows/test-codeowners-gate-wiring.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: CODEOWNERS gate adapter wiring invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      # Install only the two pinned parsers, not the Expo application tree.
+      - name: Install checker parsers
+        run: |
+          mkdir -p /tmp/codeowners-wiring-deps
+          npm install --prefix /tmp/codeowners-wiring-deps --no-save --no-audit --no-fund js-yaml@4.1.1 acorn@8.16.0
+          mkdir -p node_modules
+          ln -s /tmp/codeowners-wiring-deps/node_modules/js-yaml node_modules/js-yaml
+          ln -s /tmp/codeowners-wiring-deps/node_modules/acorn node_modules/acorn
+      - name: Check adapter wiring and broken-wiring fixtures
+        run: node scripts/test-codeowners-gate-wiring.mjs

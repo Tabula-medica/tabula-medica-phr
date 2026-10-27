@@ -1,0 +1,80 @@
+{
+  "cli": {
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.tabulamedica.health",
+        "EXPO_PUBLIC_DOMAIN": "api.tabulamedica.health"
+      },
+      "ios": {
+        "image": "latest"
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.tabulamedica.health",
+        "EXPO_PUBLIC_DOMAIN": "api.tabulamedica.health"
+      },
+      "ios": {
+        "image": "latest"
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "credentialsSource": "remote",
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.tabulamedica.health",
+        "EXPO_PUBLIC_DOMAIN": "api.tabulamedica.health",
+        "EXPO_PUBLIC_SUBSCRIPTIONS_ENABLED": "false",
+        "EXPO_PUBLIC_GCIP_PROJECT_ID": "united-planet-485003-n7",
+        "EXPO_PUBLIC_GCIP_AUTH_DOMAIN": "united-planet-485003-n7.firebaseapp.com",
+        "EXPO_PUBLIC_GCIP_API_KEY": "SET_IN_EAS_SECRET",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "1060107259776-kj22i9ssb5e88i7pfi16mmnqc2ktaa3v.apps.googleusercontent.com",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "ios": {
+        "image": "latest",
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "image": "latest",
+        "resourceClass": "medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6758421617",
+        "appleTeamId": "U56SKX5MXX",
+        "ascApiKeyPath": "./appstore-api-key.p8",
+        "ascApiKeyId": "SET_IN_EAS_SECRET",
+        "ascApiKeyIssuerId": "SET_IN_EAS_SECRET"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+name: Test Slack recovery state machine
+
+# Regression coverage for `.github/actions/slack-recovery-state/action.yml`
+# and the split two-state-machine pattern in the reviewer-login-gate job.
+#
+# Job 1 (test-action): exercises the full transition matrix of the shared
+# action (passing, failure-notified, failure-silent, missing cache,
+# skipped/cancelled runs, stale-failure TTL) and asserts on the
+# `should_notify_recovery` output and the persisted `last-status.txt`.
+#
+# Job 2 (test-reviewer-gate): exercises the per-machine isolation property
+# of the two independent state machines in reviewer-login-gate — confirming
+# that a credentials failure does not advance the smoke-test state and vice
+# versa, and that recovery pings fire only for the machine that actually
+# failed.
+#
+# Runs whenever the action, either harness script, or this workflow changes —
+# this is what stops a regression that re-merges the two signals (or breaks
+# the TTL logic) from landing silently. Also exposed via workflow_dispatch so
+# it can be re-run on demand.
+on:
+  pull_request:
+    paths:
+      - '.github/actions/slack-recovery-state/**'
+      - 'scripts/test-slack-recovery-state.sh'
+      - 'scripts/test-reviewer-gate-state-machines.sh'
+      - '.github/workflows/test-slack-recovery-state.yml'
+      - '.github/workflows/ci-cd.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/actions/slack-recovery-state/**'
+      - 'scripts/test-slack-recovery-state.sh'
+      - 'scripts/test-reviewer-gate-state-machines.sh'
+      - '.github/workflows/test-slack-recovery-state.yml'
+      - '.github/workflows/ci-cd.yml'
+  workflow_dispatch:
+
+jobs:
+  test-action:
+    name: slack-recovery-state transition matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run state-machine regression tests
+        run: bash scripts/test-slack-recovery-state.sh
+
+  test-reviewer-gate:
+    name: reviewer-gate split state-machine isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run reviewer-gate two-machine scenario tests
+        run: bash scripts/test-reviewer-gate-state-machines.sh

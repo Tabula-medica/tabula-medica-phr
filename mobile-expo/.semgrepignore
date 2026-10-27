@@ -1,0 +1,46 @@
+# .semgrepignore — paths excluded from Semgrep SAST scans.
+#
+# Semgrep reads this file (same syntax as .gitignore) and skips any path that
+# matches. Exclude generated artifacts, vendored code, and directories that
+# contain content we deliberately don't want flagged as application code
+# (e.g. attached chat-log assets, compiled bundles, test fixture output).
+#
+# Keep this list conservative: only exclude paths that are either:
+#   (a) not application code (generated, vendored, or uploaded content), or
+#   (b) producing confirmed false-positives that have been triaged and
+#       suppressed with inline `# nosemgrep` / `// nosemgrep` annotations
+#       where the finding appears instead.
+
+# ── Build output ────────────────────────────────────────────────────────────
+dist/
+server_dist/
+.expo/
+
+# ── Package manager caches / installed dependencies ─────────────────────────
+node_modules/
+web/node_modules/
+.npm/
+
+# ── Uploaded / pasted assets ─────────────────────────────────────────────────
+# attached_assets/ contains copy-pasted chat logs, screenshots, and other
+# non-code blobs. p/secrets rules flag credential-shaped strings inside these
+# files — all of which are already known (and tracked in memory/MEMORY.md) as
+# leaked test/reviewer credentials in historical chat pastes, not live secrets
+# embedded in application code. Suppressing the whole directory keeps signal:
+# noise high; the underlying credential rotation is tracked separately.
+attached_assets/
+
+# ── Database migrations (generated SQL / TypeScript) ─────────────────────────
+drizzle/
+
+# ── Minified / compiled third-party bundles ──────────────────────────────────
+*.min.js
+*.bundle.js
+
+# ── Test fixture output / temporary files ────────────────────────────────────
+tmp/
+.cache/
+
+# ── Expo / React Native generated files ──────────────────────────────────────
+ios/
+android/

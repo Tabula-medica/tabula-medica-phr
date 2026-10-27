@@ -1,0 +1,210 @@
+name: Uptime Smoke (Production)
+
+# Scheduled production uptime check. Runs `ops/version-smoke.mjs` against
+# https://api.tabulamedica.health on a cron so between-deploy regressions
+# (Cloud Run revision crash-loops, custom-domain mapping breaks, certificate
+# expiry, etc.) get caught even when nobody is pushing to `main`.
+#
+# Schedule: every 15 minutes. That implies a worst-case detection SLA of
+# ~15 minutes between an outage starting and the first Slack ping firing —
+# adjust the cron below if you tighten or relax that SLA. GitHub Actions
+# scheduled runs can be delayed during high load on the hosted runners, so
+# the effective SLA is "15 minutes plus runner scheduling latency", not a
+# hard guarantee.
+#
+# Mirrors the failure / recovery Slack pattern used by
+# .github/workflows/deploy-cloudrun.yml and .github/workflows/post-deploy-
+# smoke.yml: a failure pings #engineering once, and the next green run
+# posts an "all-clear". Uses its own `uptime-smoke-state` cache key so this
+# workflow's recovery state machine does not collide with the deploy-time
+# (`smoke-state`) or manual (`manual-smoke-state`) workflows.
+#
+# `workflow_dispatch` is kept so on-call can fire an ad-hoc uptime check
+# without waiting for the next scheduled tick.
+
+on:
+  schedule:
+    # Every 15 minutes. Cron is evaluated in UTC.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: "Production API base URL"
+        required: false
+        default: "https://api.tabulamedica.health"
+
+# Avoid pile-ups if a previous scheduled run is still in flight (e.g. the
+# version endpoint is timing out and the retry budget is being exhausted).
+# We cancel the older run so the freshest signal wins.
+concurrency:
+  group: uptime-smoke
+  cancel-in-progress: true
+
+jobs:
+  uptime:
+    name: Production version smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Needed by the slack-recovery-state composite action for its
+      # actions/cache restore + save quartet.
+      actions: read
+      # Required for Workload Identity Federation (GCP auth for Cloud Monitoring).
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Authenticate to Google Cloud (Cloud Monitoring read)
+        id: gcp-auth
+        # Only attempt GCP auth when credentials are configured. On forks or
+        # runs without WIF secrets the step is skipped and the SLO check falls
+        # back to synthetic probes — this is intentional for contributor PRs.
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          # Export credentials as a JSON file so both googleapis (Node) and
+          # the gcloud CLI can read them via GOOGLE_APPLICATION_CREDENTIALS.
+          export_environment_variables: true
+          create_credentials_file: true
+
+      - name: Install googleapis for Cloud Monitoring SLO evaluation
+        if: steps.gcp-auth.conclusion == 'success'
+        run: npm install --no-save googleapis
+
+      - name: Run version smoke
+        id: smoke
+        env:
+          # `github.event.inputs.api_base` is empty on scheduled runs, so
+          # fall back to the production host. Mirrors the default in
+          # ops/version-smoke.mjs itself.
+          API_BASE: ${{ github.event.inputs.api_base || 'https://api.tabulamedica.health' }}
+        run: |
+          set -o pipefail
+          node ops/version-smoke.mjs 2>&1 | tee version-smoke-output.log
+
+      # SLO latency + availability check.
+      #
+      # When GCP credentials are available (GCP_WORKLOAD_IDENTITY_PROVIDER and
+      # GCP_SERVICE_ACCOUNT secrets set), the script runs in MODE A:
+      #   - Queries Cloud Monitoring API for the last 24 h of Cloud Run
+      #     request_count and request_latencies metrics.
+      #   - Fails if availability < 99.9 % or p99 latency > 800 ms over 24 h.
+      #
+      # Without credentials, falls back to MODE B (synthetic probes):
+      #   - Probes /health and /api/security/attestation with 10 samples each.
+      #   - Fails if p99 > 800 ms or any probe returns non-2xx.
+      #
+      # Runs after the version smoke so we don't pay for Cloud Monitoring API
+      # calls against a host already known to be down.
+      - name: Run SLO check (24 h Cloud Monitoring / synthetic fallback)
+        id: slo-check
+        if: success()
+        env:
+          API_BASE: ${{ github.event.inputs.api_base || 'https://api.tabulamedica.health' }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'united-planet-485003-n7' }}
+          SLO_AVAILABILITY_THRESHOLD: '99.9'
+          SLO_LATENCY_P99_MS: '800'
+          SLO_LATENCY_WARN_MS: '500'
+          SLO_PROBE_COUNT: '10'
+          # GOOGLE_APPLICATION_CREDENTIALS is set automatically by the
+          # google-github-actions/auth step above when GCP auth succeeds.
+          # The SLO script checks this (indirectly via GOOGLE_APPLICATION_CREDENTIALS_JSON
+          # produced by reading the creds file) to choose Mode A vs Mode B.
+        run: |
+          chmod +x scripts/slo-check.sh
+          # Populate GOOGLE_APPLICATION_CREDENTIALS_JSON from the credentials
+          # file written by google-github-actions/auth (if present) so the
+          # Node.js googleapis client can authenticate without a separate env var.
+          if [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "${GOOGLE_APPLICATION_CREDENTIALS}" ]; then
+            export GOOGLE_APPLICATION_CREDENTIALS_JSON="$(cat "${GOOGLE_APPLICATION_CREDENTIALS}")"
+          fi
+          bash scripts/slo-check.sh 2>&1 | tee slo-check-output.log
+
+      - name: Notify Slack on SLO failure
+        id: notify-slo-failure
+        if: failure() && steps.slo-check.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production SLO check FAILED — latency or availability outside budget'
+          markdown: |
+            :rotating_light: *Production SLO check FAILED*
+            The scheduled uptime check detected that `api.tabulamedica.health` is outside the latency or availability SLO (p99 > 800 ms or non-2xx response on `/health` or `/api/security/attestation`).
+            <{run_url}|View failing workflow run>
+
+      - name: Extract smoke summary for Slack
+        id: smoke-summary
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: |
+          # Quote only the structured PASS/FAIL / retry / summary lines so
+          # the Slack ping stays readable. The full log is one click away
+          # via the workflow-run link.
+          if [ -f version-smoke-output.log ]; then
+            SUMMARY=$(grep -E '^( *\[(PASS|FAIL|retry [0-9]+)\]|Passed: |==> Target)' version-smoke-output.log || true)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY="(no structured smoke summary found — see the workflow run for full output)"
+            fi
+          else
+            SUMMARY="(version-smoke-output.log missing — check the workflow run for details)"
+          fi
+          {
+            echo 'summary<<SMOKE_SUMMARY_EOF'
+            echo "$SUMMARY"
+            echo 'SMOKE_SUMMARY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on uptime failure
+        id: notify-failure
+        if: failure() && steps.smoke.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production uptime smoke FAILED against api.tabulamedica.health'
+          markdown: |
+            :rotating_light: *Production uptime smoke FAILED*
+            The scheduled `uptime-smoke.yml` run against `${{ github.event.inputs.api_base || 'https://api.tabulamedica.health' }}` is failing — `GET /api/version` did not return a healthy response. No deploy is in flight; the live host has regressed between deploys (Cloud Run revision crash, custom-domain mapping, cert expiry, etc.).
+            <{run_url}|View failing workflow run>
+          code_block: ${{ steps.smoke-summary.outputs.summary }}
+
+      # Cross-run recovery-state machine — see
+      # .github/actions/slack-recovery-state/action.yml. Uses a distinct
+      # `uptime-smoke-state` cache key so this workflow's state does not
+      # collide with the deploy-time (`smoke-state`) or manual
+      # (`manual-smoke-state`) recovery state machines.
+      - name: Update Slack recovery state
+        id: recovery-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: uptime-smoke-state
+          notify_posted: ${{ steps.notify-failure.outputs.posted }}
+          deploy_status: ${{ steps.smoke.conclusion }}
+
+      - name: Notify Slack on uptime recovery
+        if: success() && steps.smoke.conclusion == 'success' && steps.recovery-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: 'Production uptime smoke recovered against api.tabulamedica.health'
+          markdown: |
+            :white_check_mark: *Production uptime smoke recovered*
+            The scheduled `uptime-smoke.yml` run against `${{ github.event.inputs.api_base || 'https://api.tabulamedica.health' }}` is passing again after a previous failure.
+            <{run_url}|View workflow run>

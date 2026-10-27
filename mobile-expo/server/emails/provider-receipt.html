@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Provider Receipt - Tabula Medica</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F2F2F7; color: #1C1C1E; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .card { background: #FFFFFF; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+    .header { text-align: center; padding: 32px 0 16px; }
+    .logo { width: 48px; height: 48px; background: linear-gradient(135deg, #3B82F6, #1D4ED8); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+    .logo-text { color: #FFF; font-size: 24px; font-weight: 700; }
+    h1 { font-size: 24px; font-weight: 700; margin: 8px 0 4px; color: #1C1C1E; }
+    .subtitle { font-size: 14px; color: #8E8E93; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    .badge-green { background: #D1FAE5; color: #059669; }
+    .badge-blue { background: #DBEAFE; color: #2563EB; }
+    .badge-yellow { background: #FEF3C7; color: #D97706; }
+    .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F2F2F7; }
+    .detail-label { color: #8E8E93; font-size: 13px; }
+    .detail-value { font-weight: 600; font-size: 14px; }
+    .line-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F2F2F7; }
+    .line-item:last-child { border-bottom: none; }
+    .total-section { background: #F0FDF4; border-radius: 12px; padding: 16px; margin-top: 16px; }
+    .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
+    .total-label { font-size: 14px; color: #374151; }
+    .total-value { font-weight: 700; font-size: 14px; }
+    .grand-total { font-size: 18px; font-weight: 800; color: #059669; }
+    .footer { text-align: center; padding: 24px 0; font-size: 11px; color: #8E8E93; line-height: 18px; }
+    .payment-info { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo"><span class="logo-text">T</span></div>
+      <h1>Provider Receipt</h1>
+      <p class="subtitle">Tabula Medica Direct Access Network</p>
+    </div>
+
+    <div class="card">
+      <p style="font-weight: 700; font-size: 16px; margin-bottom: 16px;">Encounter Summary</p>
+
+      <div class="detail-row">
+        <span class="detail-label">Transaction ID</span>
+        <span class="detail-value">{{transactionId}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Date of Service</span>
+        <span class="detail-value">{{serviceDate}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Patient</span>
+        <span class="detail-value">{{patientName}}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Provider</span>
+        <span class="detail-value">{{providerName}} (NPI: {{providerNPI}})</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Payment Lane</span>
+        <span class="detail-value"><span class="badge {{paymentBadgeClass}}">{{paymentLane}}</span></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">GFE Reference</span>
+        <span class="detail-value">{{gfeId}}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-weight: 700; font-size: 16px; margin-bottom: 12px;">Line Items</p>
+      {{#lineItems}}
+      <div class="line-item">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">{{description}}</div>
+          <div style="font-size: 12px; color: #8E8E93;">CPT {{cptCode}} | {{units}} unit(s)</div>
+        </div>
+        <div style="font-weight: 700; text-align: right;">
+          <div>{{charge}}</div>
+        </div>
+      </div>
+      {{/lineItems}}
+
+      <div class="total-section">
+        <div class="total-row">
+          <span class="total-label">Subtotal</span>
+          <span class="total-value">{{subtotal}}</span>
+        </div>
+        {{#slidingScaleDiscount}}
+        <div class="total-row">
+          <span class="total-label">Sliding Scale Discount ({{discountPercent}})</span>
+          <span class="total-value" style="color: #DC2626;">-{{discountAmount}}</span>
+        </div>
+        {{/slidingScaleDiscount}}
+        {{#processingFee}}
+        <div class="total-row">
+          <span class="total-label">Processing Fee (2.75%)</span>
+          <span class="total-value">{{processingFee}}</span>
+        </div>
+        {{/processingFee}}
+        <div class="total-row" style="border-top: 2px solid #A7F3D0; padding-top: 12px; margin-top: 8px;">
+          <span style="font-weight: 700; font-size: 16px;">Provider Receives</span>
+          <span class="grand-total">{{providerTotal}}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="payment-info">
+      <p style="font-weight: 700; margin: 0 0 8px; color: #1E40AF;">Payment Details</p>
+      <p style="font-size: 13px; color: #3B82F6; line-height: 20px; margin: 0;">
+        {{#isLaneA}}
+        Payment processed via InstaMed. Settlement: {{settlementDate}}. Method: {{paymentMethod}}.
+        {{/isLaneA}}
+        {{#isLaneB}}
+        VA Community Care claim submitted to Optum CCN. Claim ID: {{claimId}}. Expected payment: within 30 days. EDI: ANSI X12 837P v5010.
+        {{/isLaneB}}
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>Tabula Medica, Inc. DBA Uninsurance</p>
+      <p>This receipt is for provider records. Retain for tax and audit purposes.</p>
+      <p>Questions: provider-support@tabulamedica.health</p>
+    </div>
+  </div>
+</body>
+</html>

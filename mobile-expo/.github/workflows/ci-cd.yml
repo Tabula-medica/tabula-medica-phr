@@ -1,0 +1,1194 @@
+name: CI/CD Pipeline
+
+on:
+  # Run the cheap, always-safe checks (lint + server regression tests) on
+  # every push and every pull request — to any branch — so a regression
+  # (a dropped route, a forbidden OpenAI import, a broken auth path) is
+  # caught BEFORE it can be merged into main and trigger the deploy
+  # pipeline. The build/submit/deploy jobs are gated on
+  # `workflow_dispatch.inputs.action`, so they remain no-ops on automatic
+  # push/PR runs and never fire EAS builds or Cloud Run deploys from a
+  # branch push or PR.
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'What to run'
+        required: true
+        default: 'lint-only'
+        type: choice
+        options:
+          - lint-only
+          - build-ios
+          - build-android
+          - build-all
+          - submit-ios
+          - submit-android
+          - submit-all
+          - deploy-backend
+
+# Concurrency policy:
+# - Push / PR runs: cancel any in-progress run on the same branch so stale
+#   runs never block the queue or hold lint credits for a superseded commit.
+# - workflow_dispatch runs (build-ios, submit-ios, deploy-backend, …): each
+#   gets a unique group keyed on run_id, so manual dispatches are NEVER
+#   cancelled by a concurrent push or by each other.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.ref }}-${{
+      github.event_name == 'workflow_dispatch'
+        && github.run_id
+        || 'push'
+    }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # TypeScript incremental compilation (`incremental: true` in
+      # tsconfig.json) writes a .tsbuildinfo to .cache/tsbuildinfo/ that lets
+      # `tsc --noEmit` skip type-checking files whose inputs are unchanged.
+      # Persisting that file between runs cuts most of the type-check runtime
+      # on cache hits. The build-info is self-validating — tsc re-checks any
+      # file whose content or dependencies changed, so a stale restore is safe.
+      # github.sha makes each run save a fresh cache (caches are immutable);
+      # restore-keys fall back to the most recent matching prefix.
+      - name: Restore TypeScript build cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/tsbuildinfo/
+          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('tsconfig.json', 'package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            tsbuildinfo-${{ runner.os }}-${{ hashFiles('tsconfig.json', 'package-lock.json') }}-
+            tsbuildinfo-${{ runner.os }}-
+
+      - name: TypeScript type-check
+        run: npm run check:types
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+
+      # `expo lint` enables ESLint's on-disk cache by default, writing it to
+      # .expo/cache/eslint/. Persisting that directory between runs lets ESLint
+      # skip re-linting unchanged files, cutting most of the ~1.5 min runtime.
+      # The cache self-validates per file (content + config metadata), so a
+      # stale restore is always safe — changed files are re-linted regardless.
+      # github.sha in the key makes each run save a fresh cache (caches are
+      # immutable); restore-keys fall back to the most recent matching prefix.
+      - name: Restore ESLint cache
+        uses: actions/cache@v4
+        with:
+          path: .expo/cache/eslint/
+          key: eslint-cache-${{ runner.os }}-${{ hashFiles('eslint.config.js', 'package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            eslint-cache-${{ runner.os }}-${{ hashFiles('eslint.config.js', 'package-lock.json') }}-
+            eslint-cache-${{ runner.os }}-
+
+      - name: Lint (ESLint + Prettier code-style)
+        run: npm run lint
+
+  web-lint:
+    name: Web Code-Style (ESLint + Prettier)
+    runs-on: ubuntu-latest
+    # The React 18 + Vite web SPA (web/ workspace) has its own ESLint flat
+    # config and Prettier setup, separate from the root Expo app. Runs on every
+    # push/PR so web-side style regressions are caught before merge.
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # TypeScript incremental compilation (`incremental: true` in
+      # web/tsconfig.json) writes a .tsbuildinfo to
+      # web/node_modules/typescript/tsbuildinfo that lets `tsc --noEmit` skip
+      # type-checking files whose inputs are unchanged. Persisting that file
+      # between runs cuts most of the type-check runtime on cache hits. The
+      # build-info is self-validating — tsc re-checks any file whose content or
+      # dependencies changed, so a stale restore is safe. github.sha makes each
+      # run save a fresh cache (caches are immutable); restore-keys fall back to
+      # the most recent matching prefix.
+      - name: Restore TypeScript build cache (web workspace)
+        uses: actions/cache@v4
+        with:
+          path: web/node_modules/typescript/tsbuildinfo
+          key: web-tsbuildinfo-${{ runner.os }}-${{ hashFiles('web/tsconfig.json', 'package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            web-tsbuildinfo-${{ runner.os }}-${{ hashFiles('web/tsconfig.json', 'package-lock.json') }}-
+            web-tsbuildinfo-${{ runner.os }}-
+
+      # Type-check the web SPA the same way the root `lint` job type-checks the
+      # Expo app. The web workspace's `check` script is `tsc --noEmit`; this
+      # monorepo's tsc is memory-heavy, so raise the Node heap (mirrors the root
+      # check:types step). A type error in web/ fails CI before merge/deploy.
+      - name: TypeScript type-check (web workspace)
+        run: npm --workspace tabula-medica-web run check
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+
+      - name: Lint web workspace (ESLint + Prettier code-style)
+        run: npm --workspace tabula-medica-web run lint
+
+      # Fast Vitest unit tests for the web SPA. Currently guards the SEO/robots
+      # indexable-route policy (web/client/src/lib/robots-policy.ts) so a future
+      # edit can't silently re-expose authenticated PHI pages to search engines
+      # or drop a public page from the index — it asserts INDEXABLE_ROUTES stays
+      # in lockstep with sitemap.xml and that private routes resolve to noindex.
+      - name: Run web unit tests (Vitest)
+        run: npm --workspace tabula-medica-web run test
+
+      # Smoke-test that the Vite dev server starts without errors. A broken
+      # import or bad vite.config.ts change could crash the dev server silently
+      # while all other CI guards stay green — they only exercise the
+      # production build path (web-build job). This step starts `npm run
+      # dev:web` under a 30-second timeout and waits for Vite's "ready in"
+      # startup line. Exit 0 means Vite printed the ready banner before the
+      # timeout; any other exit (Vite crashed, or timed out without printing
+      # the banner) is treated as a failure so the broken dev config cannot
+      # merge. Guards the same surface as the web-build job's `build:web`
+      # gate, but for the dev-server code path.
+      - name: Smoke-test Vite dev server starts (dev:web)
+        run: |
+          timeout 30 bash -c 'npm run dev:web 2>&1 | grep -m1 "ready in\|Local:"'
+
+      # Asserts that the four Slack alert message fields (credentials-failure
+      # Fix:, credentials-recovery body, smoke-test-failure Fix:,
+      # smoke-test-recovery body) are identical between
+      # reviewer-login-scheduled.yml and the reviewer-login-gate job in this
+      # file. A divergence means ops cannot tell which workflow fired from a
+      # Slack alert. Runs here (no build or DB required) so wording drift fails
+      # CI on every push/PR before it can merge.
+      - name: Check reviewer alert message parity
+        run: node scripts/check-reviewer-alert-parity.mjs
+
+      # Checks channel parity/presence and exact webhook secret references for
+      # every notification step in all discovered Slack workflows. New workflow
+      # files and steps must add named channel assertions to the checker. The documented
+      # mapping preserves intentional SLACK_WEBHOOK_URL vs SLACK_OPS_WEBHOOK_URL
+      # routing differences; missing/swapped inputs fail every push/PR.
+      - name: Check deploy/smoke Slack channel parity and webhook secrets
+        run: node scripts/check-deploy-smoke-channel-parity.mjs
+
+      # Asserts that the bash routing, Python logic, and CRITICAL_JOBS list in
+      # the composite action
+      # (.github/actions/assert-required-checks/action.yml — canonical source)
+      # is identical to the copy embedded in
+      # scripts/smoke-test-branch-protection-check.sh.  If someone updates
+      # either logic block in the action but forgets the smoke test (or vice versa),
+      # this step fails CI before the drift can merge.  Implemented as a
+      # node:test file so it is also auto-picked up by `npm run test:scripts`
+      # as a second enforcement layer.
+      - name: Check branch-protection Bash and Python parity (action vs smoke-test)
+        run: node scripts/__tests__/branch-protection-check-parity.test.mjs
+
+      # Asserts that the bash-guard subprocess test file exists with non-empty
+      # content and that ci-cd.yml still contains the script-tests job and the
+      # `npm run test:scripts` invocation. Runs here (independent of the
+      # script-tests job) so deleting bash-guard-expansion.test.mjs OR removing
+      # the script-tests step from this workflow both fail CI on the very next
+      # push/PR — even if the script-tests job itself is gone. The check is
+      # implemented as a node:test file so it is also auto-picked up by
+      # `npm run test:scripts` as a second enforcement layer.
+      - name: Verify bash-guard test file exists and CI step is present
+        run: node scripts/__tests__/ci-guard-files.test.mjs
+
+  shellcheck-scripts:
+    name: ShellCheck + bash shebang (all CI scripts)
+    runs-on: ubuntu-latest
+    # Consolidated gate: every scripts/*.sh file that CI invokes must stay
+    # targeted at bash (not sh/dash). Three complementary checks run here:
+    #
+    #   1. shebang-is-bash — asserts the first line of every script is exactly
+    #      `#!/usr/bin/env bash` or `#!/bin/bash`. Catches an accidental shebang
+    #      replacement before any code runs.
+    #
+    #   2. shellcheck --shell=bash — static analysis of all scripts as bash.
+    #      ShellCheck uses the shebang to choose the target shell, so if a script
+    #      were changed to `#!/bin/sh` while still using bash-only constructs
+    #      (e.g. [[ ]], BASH_SOURCE, process substitution), ShellCheck flags
+    #      SC2039/SC3010, catching the regression at CI time rather than at
+    #      runtime in a CI pipeline step.
+    #
+    #   3. non200-hard-fail — for every script that contains a `!= "200"`
+    #      HTTP-status catch-all branch, asserts the branch body contains
+    #      `exit 1`. A catch-all that silently falls through provides no real
+    #      protection: TC fixtures that inject unexpected status codes would
+    #      pass vacuously. This catches the missing guard at PR time, before
+    #      the file is merged, complementing the runtime sentinel in
+    #      scripts/__tests__/smoke-test-non200-catchall-audit.test.mjs.
+    #
+    # Replaces the narrower job in test-slack-recovery-state.yml (which covers
+    # only the two harness scripts) with a single authoritative check across the
+    # full scripts/ directory.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify bash shebang on every CI shell script
+        run: |
+          check_shebang() {
+            local file="$1"
+            local first
+            first=$(head -n1 "$file")
+            case "$first" in
+              "#!/usr/bin/env bash"|"#!/bin/bash")
+                echo "PASS  shebang OK: $file -> $first"
+                ;;
+              *)
+                echo "FAIL  expected bash shebang in $file, got: $first" >&2
+                exit 1
+                ;;
+            esac
+          }
+          for script in scripts/*.sh; do
+            check_shebang "$script"
+          done
+
+      - name: Install shellcheck
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y shellcheck
+          fi
+          shellcheck --version
+
+      - name: ShellCheck all CI shell scripts (bash target)
+        run: shellcheck --shell=bash scripts/*.sh
+
+      - name: Verify != "200" catch-all branches hard-fail (exit 1)
+        run: |
+          # For every scripts/*.sh that contains a != "200" HTTP-status catch-all
+          # branch, verify the branch body contains `exit 1`.  A catch-all that
+          # silently falls through (no exit 1) provides no real protection — TC
+          # fixtures that inject unexpected status codes would pass vacuously.
+          #
+          # Uses Python (always available on ubuntu-latest) to parse if/fi nesting
+          # correctly, so exit 1 that appears only *after* the closing fi of the
+          # catch-all branch does not produce a false pass.  (awk \b is a backspace
+          # in mawk/POSIX, not a word boundary, making range-based awk extraction
+          # unreliable for this purpose.)
+          #
+          # Mirrors the runtime guard in:
+          #   scripts/__tests__/smoke-test-non200-catchall-audit.test.mjs
+          # but fires at PR time before the script is merged.
+          python3 - <<'PYEOF'
+          import sys, re, glob
+
+          found_bad = False
+          for fpath in sorted(glob.glob('scripts/*.sh')):
+              text = open(fpath).read()
+              if '!= "200"' not in text:
+                  continue
+              lines = text.splitlines()
+              file_ok = True
+              i = 0
+              while i < len(lines):
+                  if '!= "200"' in lines[i]:
+                      # Track if/fi nesting depth starting at 1 for this branch.
+                      # 'if' (not 'elif') opens a new block; 'fi' closes one.
+                      start, depth, i = i, 1, i + 1
+                      while i < len(lines) and depth > 0:
+                          s = lines[i].strip()
+                          if re.match(r'if(\s|$)', s):
+                              depth += 1
+                          elif re.match(r'fi(\s|;|#|$)', s):
+                              depth -= 1
+                          i += 1
+                      block = '\n'.join(lines[start:i])
+                      if not re.search(r'\bexit\s+1\b', block):
+                          sys.stderr.write(
+                              'FAIL  {}: contains a != "200" catch-all branch without exit 1\n'
+                              '      Every non-200 catch-all MUST hard-fail so unexpected\n'
+                              '      responses abort the smoke-test rather than fall through.\n'
+                              '      Fix: restore exit 1 inside the catch-all branch body:\n'
+                              '        if [ "${{HTTP_STATUS}}" != "200" ]; then\n'
+                              '          echo "..." >&2\n'
+                              '          exit 1\n'
+                              '        fi\n'.format(fpath)
+                          )
+                          file_ok = False
+                          found_bad = True
+                  else:
+                      i += 1
+              if file_ok:
+                  print('PASS  {}'.format(fpath))
+          sys.exit(1 if found_bad else 0)
+          PYEOF
+
+  web-build:
+    name: Web Production Build
+    runs-on: ubuntu-latest
+    # Gates push/PR: a broken `web/` production build (vite) must fail CI
+    # before it can land on main and ship via the Cloud Run deploy (which
+    # bundles the web SPA). The root `build:web` script delegates to the
+    # tabula-medica-web workspace's `vite build`. Depends on `web-lint` so
+    # the cheaper type-check + lint fail first and we don't burn a runner on
+    # a build when the web workspace is already known-broken — mirroring the
+    # `needs: lint` chain used by the server/jest/security jobs above.
+    needs: web-lint
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Production build of the web SPA. This monorepo's toolchain is
+      # memory-heavy, so raise the Node heap to match the type-check steps and
+      # avoid OOM flakiness on the runner. A build failure (broken import,
+      # bad asset, failed transform) fails CI before merge/deploy.
+      - name: Build web SPA (production)
+        run: npm run build:web
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+
+      - name: Verify web entry point
+        run: test -s dist/web/index.html
+
+      - name: Upload web bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist/web
+          retention-days: 1
+
+  lighthouse-ci:
+    name: Lighthouse CI (Accessibility + LCP)
+    runs-on: ubuntu-latest
+    needs: web-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Download web bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist/web
+
+      - name: Run Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@0.14.x
+          lhci autorun
+        env:
+          LHCI_TOKEN: ${{ secrets.LHCI_TOKEN }}
+
+  server-tests:
+    name: Server Regression Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    # Runs every *.test.ts under server/__tests__/ via the shared runner
+    # in scripts/run-server-tests.mjs. Covers auth + AI-policy regression
+    # guardrails AND the route-split drift guard (routes-split.test.ts),
+    # which boots the Express app in-process and asserts the 12-router
+    # split in server/routes/*.ts stays in sync with the source. A dropped
+    # `app.use` mount or a broken router export fails this job loudly
+    # BEFORE deploy. The route-split test requires DATABASE_URL, so a
+    # postgres service is provisioned and the schema is applied first.
+    #
+    # CANARY PROTECTION CHAIN
+    # -----------------------
+    # server/__tests__/ci-guard-file-canary.test.ts is a second-level canary
+    # that asserts the primary CI guard files in scripts/__tests__/ exist with
+    # non-empty content.  Because *this* job is a required merge gate, deleting
+    # that canary file (or either of the guard files it watches) blocks the PR
+    # automatically.  Do NOT remove ci-guard-file-canary.test.ts — it is the
+    # backstop that makes the entire scripts/__tests__/ guard chain deletion-
+    # proof even if the script-tests job is somehow skipped or bypassed.
+    #
+    # REQUIRED-CHECKS DEPENDENCY — MUST NOT BE REMOVED
+    # -------------------------------------------------
+    # The canary ONLY works while this job (`server-tests`) is listed in
+    # GitHub's branch-protection required-status-checks for the main branch.
+    # If `server-tests` is removed from that list, a PR that deletes the canary
+    # file will not be blocked, silently breaking the entire guard chain.
+    #
+    # The final step in this job uses the composite action
+    # .github/actions/assert-required-checks to verify all four critical gates
+    # remain wired in branch-protection.  The same action is used in jest-tests,
+    # script-tests, and reviewer-login-gate so the check fires from whichever
+    # job(s) are still required — removing one job from required-checks cannot
+    # silently disable all four verifications.  To add a new critical job,
+    # update CRITICAL_JOBS in .github/actions/assert-required-checks/action.yml.
+    #
+    # TOKEN: A GitHub App with "Administration: Read" repository permission is
+    # the preferred credential.  Register an app, store its numeric App ID as
+    # the org/repo secret GH_APP_ID and its private key (PEM, newlines intact)
+    # as GH_APP_PRIVATE_KEY.  The composite action mints a short-lived
+    # installation token via actions/create-github-app-token — no per-repo PAT
+    # management required.  When GH_APP_ID / GH_APP_PRIVATE_KEY are set the
+    # check always fails hard if server-tests is absent or if the API returns
+    # 401/403 (app misconfiguration).
+    #
+    # FALLBACK (forks, repos without the app): when either secret is absent,
+    # the action falls back to GITHUB_TOKEN, which lacks repo-administration
+    # scope and receives HTTP 403.  In that case a loud WARNING annotation is
+    # emitted but the job does NOT fail, so forks remain unaffected.
+    #
+    # To add/confirm the setting:
+    #   Settings → Branches → main → "Require status checks to pass before
+    #   merging" → add "server-tests" to the required-checks list.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tabula_medica_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The server ShellCheck test skips locally when the tool is absent.
+      # Install it in this job so CI always exercises that test.
+      - name: Install shellcheck
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y shellcheck
+          fi
+          shellcheck --version
+
+      - name: Apply database schema
+        run: npm run db:push
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tabula_medica_ci
+
+      - name: Run server tests (auth + AI-policy + route-split guardrails)
+        run: npm run test:server
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tabula_medica_ci
+          # Required by server/index.ts boot guard. Test-only value, never
+          # used against real PHI.
+          PHI_ENCRYPTION_SALT: ci-test-salt-not-for-production-use-only
+          NODE_ENV: test
+
+      # Keep the action's bash/Python logic in sync with
+      # scripts/smoke-test-branch-protection-check.sh (run by script-tests).
+      - name: Assert all critical CI jobs are in branch-protection required-checks
+        uses: ./.github/actions/assert-required-checks
+        with:
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repo: ${{ github.repository }}
+
+  jest-tests:
+    name: Jest Tests (client)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest test suite
+        run: npm test -- --ci --runInBand
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Assert all critical CI jobs are in branch-protection required-checks
+        uses: ./.github/actions/assert-required-checks
+        with:
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repo: ${{ github.repository }}
+
+      - name: Notify Slack on Jest tests failure
+        if: failure()
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "jest-tests FAILED — client release gate blocked"
+          markdown: |
+            :x: *jest-tests (Jest Tests — client) FAILED*
+            The client release gate, including the GCIP launch-crash guard, did not pass.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Inspect the failed step in `jest-tests` and re-run after fixing it.
+
+  script-tests:
+    name: Script Unit Tests (node:test)
+    runs-on: ubuntu-latest
+    # Standalone job so the node:test suite always runs on every PR/push,
+    # even when jest-tests is conditionally skipped (e.g. via path filters
+    # or manual workflow_dispatch). EAS build jobs depend on this job
+    # directly so a broken script cannot be bypassed by skipping jest-tests.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run script unit tests (node:test)
+        # Includes both Google client-ID release gates: empty/placeholders fail,
+        # real IDs pass, and intentional bypasses succeed with a visible warning.
+        run: npm run test:scripts
+
+      # Exercises the hard-fail and fork-fallback paths without credentials.
+      # Keep this smoke test in sync with .github/actions/assert-required-checks/action.yml.
+      - name: Smoke-test branch-protection enforcement
+        run: bash scripts/smoke-test-branch-protection-check.sh
+
+      - name: Assert all critical CI jobs are in branch-protection required-checks
+        uses: ./.github/actions/assert-required-checks
+        with:
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repo: ${{ github.repository }}
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+      - name: Secret scanning with TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
+      - name: Notify Slack on security scanning failure
+        if: failure()
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "security FAILED — security scanning gate blocked"
+          markdown: |
+            :x: *security (Security Scanning) FAILED*
+            The security scanning job did not pass.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Inspect the failed step in `security` and resolve the finding or scanner error before retrying.
+
+  dependency-audit:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # npm audit — fail on high or critical severity CVEs in any dependency
+      # (including dev deps, unlike the deploy gate which is prod-only).
+      # This catches CVEs in build tooling / test harnesses that could be
+      # exploited in CI via supply-chain attacks.
+      - name: npm audit (high + critical)
+        run: npm audit --audit-level=high
+
+      # Snyk — provides a second opinion with a broader CVE database, licence
+      # issue detection, and better contextual reachability analysis than npm
+      # audit alone. Fails on high or critical severity. Requires SNYK_TOKEN
+      # to be set as a GitHub repo/org secret; if the secret is absent the
+      # step is skipped with a clear warning rather than failing the build so
+      # forks without the secret still get the npm-audit gate.
+      - name: Snyk vulnerability scan
+        run: |
+          if [ -z "${SNYK_TOKEN}" ]; then
+            echo "::warning::SNYK_TOKEN is not set — Snyk scan skipped. Set the secret in repo/org settings to enable."
+          else
+            npx snyk test --severity-threshold=high --json-file-output=snyk-report.json || {
+              echo "::error::Snyk found high or critical severity vulnerabilities."
+              npx snyk test --severity-threshold=high 2>&1 || true
+              exit 1
+            }
+          fi
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: false
+
+  reviewer-login-gate:
+    name: Reviewer Login Gate (production)
+    runs-on: ubuntu-latest
+    # Block the iOS AND Android release pipelines up front if the reviewer demo
+    # account can't actually log in to production. This runs BEFORE the EAS
+    # production build (and therefore before submit + metadata push), so a
+    # broken reviewer account fails the release without burning an EAS build
+    # credit or waiting for an App/Play review rejection. Same gate that
+    # `scripts/push-asc-metadata.mjs` enforces at metadata-push time — here we
+    # reuse `scripts/smoke-test-reviewer-login.sh` so the curl-based CI check
+    # and the Node wrapper check stay in sync. Fires for every iOS or Android
+    # build/submit action; the same demo/reviewer account is used by both the
+    # Apple and Google reviewers, so a broken login must block both platforms.
+    if: >-
+      github.event.inputs.action == 'build-ios' ||
+      github.event.inputs.action == 'build-android' ||
+      github.event.inputs.action == 'build-all' ||
+      github.event.inputs.action == 'submit-ios' ||
+      github.event.inputs.action == 'submit-android' ||
+      github.event.inputs.action == 'submit-all'
+    steps:
+      - uses: actions/checkout@v6
+
+      # Pre-flight: verify APPLE_REVIEWER_DEMO_EMAIL and
+      # APPLE_REVIEWER_DEMO_PASSWORD are non-empty and non-placeholder BEFORE
+      # the live smoke test runs. A stale or missing secret (e.g. the reviewer
+      # account password was rotated in App Store Connect without updating the
+      # CI secret) is caught here with a clear error message — no network call,
+      # no EAS build credit burned. The check emits which secret to update and
+      # exits 1 so the job fails loudly rather than silently proceeding to the
+      # smoke test with known-bad credentials.
+      - name: Check reviewer credentials are set and non-placeholder
+        id: check_credentials
+        run: bash scripts/check-reviewer-credentials.sh
+        env:
+          REVIEWER_EMAIL: ${{ secrets.APPLE_REVIEWER_DEMO_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.APPLE_REVIEWER_DEMO_PASSWORD }}
+          # Expected domain for the reviewer demo account email. The script
+          # fails if REVIEWER_EMAIL's domain doesn't match, catching cases
+          # where the secret was set to a personal/test address or the account
+          # was migrated without updating CI secrets. Update this value here
+          # (not as a secret) if the reviewer account domain ever changes.
+          EXPECTED_REVIEWER_EMAIL_DOMAIN: tabulamedica.health
+
+      # The smoke-test script reads REVIEWER_EMAIL / REVIEWER_PASSWORD; the CI
+      # secrets are named APPLE_REVIEWER_DEMO_* (matching the metadata-push
+      # wrapper), so map them here. The script POSTs /api/auth/login against
+      # https://api.tabulamedica.health (default API_BASE) and exits non-zero
+      # on anything other than HTTP 200 with an accessToken, failing this job.
+      - name: Verify reviewer login against production
+        id: verify_login
+        run: |
+          if [ -z "${REVIEWER_EMAIL:-}" ] || [ -z "${REVIEWER_PASSWORD:-}" ]; then
+            echo "WARNING: REVIEWER_EMAIL or REVIEWER_PASSWORD not set — reviewer login smoke SKIPPED."
+            exit 0
+          fi
+          ./scripts/smoke-test-reviewer-login.sh
+        env:
+          REVIEWER_EMAIL: ${{ secrets.APPLE_REVIEWER_DEMO_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.APPLE_REVIEWER_DEMO_PASSWORD }}
+          API_BASE: https://api.tabulamedica.health
+
+      # ── Credentials pre-flight state machine ────────────────────────────────
+      # Tracks check_credentials independently so ops gets a targeted
+      # "credentials fixed" all-clear rather than a generic gate all-clear.
+
+      - name: Notify Slack on reviewer credentials failure
+        id: notify-credentials-failure
+        if: failure() && steps.check_credentials.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer credentials check FAILED"
+          markdown: |
+            :x: *Reviewer credentials check FAILED*
+            `APPLE_REVIEWER_DEMO_EMAIL` or `APPLE_REVIEWER_DEMO_PASSWORD` is missing, empty, or a placeholder.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Update `APPLE_REVIEWER_DEMO_EMAIL` / `APPLE_REVIEWER_DEMO_PASSWORD` in GitHub repo secrets
+
+      # Cross-run state machine for the credentials pre-flight step.
+      # `deploy_status` reflects check_credentials alone — skipped/cancelled
+      # (e.g. due to a checkout failure before this step ran) leave the
+      # previous run's state untouched. State key is shared with
+      # reviewer-login-scheduled.yml so a fix confirmed by either workflow
+      # clears the alert regardless of which one triggered it — keep both
+      # files in sync when changing state_key or message text.
+      - name: Update reviewer credentials Slack recovery state
+        id: reviewer-credentials-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: reviewer-credentials-state
+          notify_posted: ${{ steps.notify-credentials-failure.outputs.posted }}
+          deploy_status: ${{ steps.check_credentials.conclusion }}
+
+      # Recovery all-clear for credentials: fires exactly once when
+      # check_credentials is green and the previous run posted a credentials
+      # failure ping. Consecutive greens do NOT re-post.
+      - name: Notify Slack on reviewer credentials recovery
+        if: steps.check_credentials.conclusion == 'success' && steps.reviewer-credentials-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer credentials check recovered"
+          markdown: |
+            :white_check_mark: *Reviewer credentials check recovered*
+            `APPLE_REVIEWER_DEMO_EMAIL` and `APPLE_REVIEWER_DEMO_PASSWORD` are valid again — credential pre-flight is unblocked.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+
+      # ── Live smoke-test state machine ────────────────────────────────────────
+      # Tracks verify_login independently so ops gets a targeted "login fixed"
+      # all-clear separate from the credentials all-clear. If verify_login was
+      # skipped (because check_credentials failed), its conclusion is `skipped`
+      # and the state machine leaves the previous run's state untouched.
+
+      - name: Notify Slack on reviewer login smoke-test failure
+        id: notify-login-smoke-failure
+        if: failure() && steps.verify_login.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer login smoke-test FAILED"
+          markdown: |
+            :x: *Reviewer login smoke-test FAILED*
+            `POST /api/auth/login` did not return HTTP 200 with an `accessToken` for the reviewer demo account.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Check reviewer account credentials and production API health; update `APPLE_REVIEWER_DEMO_PASSWORD` if the account password changed
+
+      # Cross-run state machine for the live login smoke-test step.
+      # `deploy_status` is the raw conclusion of verify_login — `skipped` when
+      # check_credentials failed, which leaves the previous state untouched.
+      # State key is shared with reviewer-login-scheduled.yml so a fix
+      # confirmed by either workflow clears the alert regardless of which one
+      # triggered it — keep both files in sync when changing state_key or
+      # message text.
+      - name: Update reviewer login smoke-test Slack recovery state
+        id: reviewer-login-smoke-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: reviewer-login-smoke-state
+          notify_posted: ${{ steps.notify-login-smoke-failure.outputs.posted }}
+          deploy_status: ${{ steps.verify_login.conclusion }}
+
+      # Recovery all-clear for the live smoke-test: fires exactly once when
+      # verify_login is green and the previous run posted a smoke-test failure
+      # ping. Consecutive greens do NOT re-post.
+      - name: Notify Slack on reviewer login smoke-test recovery
+        if: steps.verify_login.conclusion == 'success' && steps.reviewer-login-smoke-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer login smoke-test recovered"
+          markdown: |
+            :white_check_mark: *Reviewer login smoke-test recovered*
+            The reviewer demo account can log in to production again — iOS/Android releases are unblocked.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+
+      - name: Assert all critical CI jobs are in branch-protection required-checks
+        uses: ./.github/actions/assert-required-checks
+        with:
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repo: ${{ github.repository }}
+
+  eas-build-ios:
+    name: EAS Build (iOS)
+    runs-on: ubuntu-latest
+    # jest-tests gates this job so the GCIP launch-crash guard test
+    # (client/lib/__tests__/gcip.test.tsx) must pass before a production iOS
+    # build starts. A regression that reintroduces the useIdTokenAuthRequest
+    # crash (App Review Guideline 2.1(a)) fails the pipeline here rather than
+    # reaching the App Store reviewer's device.
+    # reviewer-login-gate ensures the Apple reviewer demo account can log in to
+    # production before an EAS build credit is burned.
+    needs: [lint, security, reviewer-login-gate, jest-tests, script-tests]
+    if: >-
+      github.event.inputs.action == 'build-ios' ||
+      github.event.inputs.action == 'build-all' ||
+      github.event.inputs.action == 'submit-ios' ||
+      github.event.inputs.action == 'submit-all'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pre-build gate: verify EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is configured
+      # and is not an unsubstituted "$EXPO_PUBLIC_*" placeholder. A missing
+      # client ID previously caused a Guideline 2.1(a) launch crash because the
+      # useIdTokenAuthRequest hook throws a render-time invariant when
+      # iosClientId is undefined. This check fails fast before the EAS build
+      # starts so the problem is caught locally, not via App Review rejection.
+      # Set SKIP_IOS_GOOGLE_CLIENT_ID_CHECK=1 (EAS/CI secret) only when
+      # intentionally shipping a build with Google Sign-In disabled.
+      - name: Check iOS Google client ID (launch-crash guard)
+        id: check-ios-client-id
+        run: bash scripts/check-ios-google-client-id.sh
+        env:
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          SKIP_IOS_GOOGLE_CLIENT_ID_CHECK: ${{ secrets.SKIP_IOS_GOOGLE_CLIENT_ID_CHECK }}
+
+      # Slack alert on failure so ops is notified immediately in the
+      # ops/release channel. Uses post-slack-notification so the `posted`
+      # output can arm the recovery state machine below.
+      - name: Notify Slack on iOS client ID check failure
+        id: notify-failure
+        if: failure() && steps.check-ios-client-id.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "iOS Google client ID check FAILED — EAS build blocked"
+          markdown: |
+            :x: *iOS Google client ID check FAILED — EAS build blocked*
+            `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is missing or an unsubstituted placeholder.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Set `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in GitHub repo secrets and re-run the build
+
+      # Cross-run state machine: records whether this run posted a failure ping
+      # (failure-notified), failed silently (failure-silent), or passed
+      # (passing). The next green run reads this state to decide whether to
+      # fire the recovery all-clear below. Must run with `if: always()` so it
+      # persists state on both success and failure paths of the check step.
+      - name: Update iOS client ID Slack recovery state
+        id: ios-client-id-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: ios-client-id-state
+          notify_posted: ${{ steps.notify-failure.outputs.posted }}
+          deploy_status: ${{ steps.check-ios-client-id.conclusion }}
+
+      # Recovery all-clear: fires exactly once when this run's check is green
+      # and the previous run posted a failure ping. Consecutive green runs
+      # after recovery do NOT post anything (state machine flips to `passing`
+      # on the first green, so subsequent greens see `passing` and skip this).
+      - name: Notify Slack on iOS client ID check recovery
+        if: steps.check-ios-client-id.conclusion == 'success' && steps.ios-client-id-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "iOS Google client ID check recovered"
+          markdown: |
+            :white_check_mark: *iOS Google client ID check recovered*
+            `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is valid again — EAS iOS builds are unblocked.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build iOS (Xcode 16 / iOS 18 SDK)
+        run: |
+          eas build \
+            --platform ios \
+            --profile production \
+            --non-interactive \
+            --no-wait \
+            --message "CI build from ${{ github.sha }} (${{ github.ref_name }})"
+        env:
+          EAS_SKIP_AUTO_FINGERPRINT: "1"
+          EAS_NO_VCS: "1"
+
+  eas-build-android:
+    name: EAS Build (Android)
+    runs-on: ubuntu-latest
+    # reviewer-login-gate ensures the demo/reviewer account can log in to
+    # production before an EAS build credit is burned and a build ships to the
+    # Play Store internal track — mirroring the iOS gate so a broken reviewer
+    # login blocks the Android release end-to-end (Google review would
+    # otherwise reject it).
+    # jest-tests gates this job (mirrors eas-build-ios) so the GCIP guard tests
+    # in client/lib/__tests__/gcip.test.tsx must pass before a production Android
+    # build starts.
+    needs: [lint, security, reviewer-login-gate, jest-tests, script-tests]
+    if: >-
+      github.event.inputs.action == 'build-android' ||
+      github.event.inputs.action == 'build-all' ||
+      github.event.inputs.action == 'submit-android' ||
+      github.event.inputs.action == 'submit-all'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pre-build gate: verify EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID is configured
+      # and is not an unsubstituted "$EXPO_PUBLIC_*" placeholder. A missing client
+      # ID does not crash Android at launch (the gcip.ts guard hides the Google
+      # button), but it ships a Play Store build with Google Sign-In silently
+      # broken and no pipeline signal — the same class of defect the iOS gate
+      # guards against. This check fails fast before the EAS build starts.
+      # Set SKIP_ANDROID_GOOGLE_CLIENT_ID_CHECK=1 (EAS/CI secret) only when
+      # intentionally shipping a build with Google Sign-In disabled.
+      - name: Check Android Google client ID (Google Sign-In guard)
+        id: check-android-client-id
+        run: bash scripts/check-android-google-client-id.sh
+        env:
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
+          SKIP_ANDROID_GOOGLE_CLIENT_ID_CHECK: ${{ secrets.SKIP_ANDROID_GOOGLE_CLIENT_ID_CHECK }}
+
+      # Slack alert on failure so ops is notified immediately in the
+      # ops/release channel. Uses post-slack-notification so the `posted`
+      # output can arm the recovery state machine below.
+      - name: Notify Slack on Android client ID check failure
+        id: notify-android-failure
+        if: failure() && steps.check-android-client-id.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Android Google client ID check FAILED — EAS build blocked"
+          markdown: |
+            :x: *Android Google client ID check FAILED — EAS build blocked*
+            `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` is missing or an unsubstituted placeholder.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Set `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` in GitHub repo secrets and re-run the build
+
+      # Cross-run state machine: records whether this run posted a failure ping
+      # (failure-notified), failed silently (failure-silent), or passed
+      # (passing). The next green run reads this state to decide whether to
+      # fire the recovery all-clear below. Must run with `if: always()` so it
+      # persists state on both success and failure paths of the check step.
+      - name: Update Android client ID Slack recovery state
+        id: android-client-id-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: android-client-id-state
+          notify_posted: ${{ steps.notify-android-failure.outputs.posted }}
+          deploy_status: ${{ steps.check-android-client-id.conclusion }}
+
+      # Recovery all-clear: fires exactly once when this run's check is green
+      # and the previous run posted a failure ping. Consecutive green runs
+      # after recovery do NOT post anything (state machine flips to `passing`
+      # on the first green, so subsequent greens see `passing` and skip this).
+      - name: Notify Slack on Android client ID check recovery
+        if: steps.check-android-client-id.conclusion == 'success' && steps.android-client-id-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Android Google client ID check recovered"
+          markdown: |
+            :white_check_mark: *Android Google client ID check recovered*
+            `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` is valid again — EAS Android builds are unblocked.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Android (AAB for Play Store)
+        run: |
+          eas build \
+            --platform android \
+            --profile production \
+            --non-interactive \
+            --no-wait \
+            --message "CI build from ${{ github.sha }} (${{ github.ref_name }})"
+        env:
+          EAS_SKIP_AUTO_FINGERPRINT: "1"
+          EAS_NO_VCS: "1"
+
+  eas-submit-ios:
+    name: Submit to App Store
+    runs-on: ubuntu-latest
+    needs: [eas-build-ios]
+    if: >-
+      github.event.inputs.action == 'submit-ios' ||
+      github.event.inputs.action == 'submit-all'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Write App Store Connect API Key
+        run: echo "$ASC_API_KEY_P8" > appstore-api-key.p8
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+
+      - name: Submit to App Store Connect
+        run: |
+          eas submit --platform ios --latest --non-interactive \
+            --profile production
+        env:
+          EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+
+      - name: Push App Store metadata
+        run: eas metadata:push --platform ios --non-interactive
+        continue-on-error: true
+
+  eas-submit-android:
+    name: Submit to Google Play
+    runs-on: ubuntu-latest
+    needs: [eas-build-android]
+    if: >-
+      github.event.inputs.action == 'submit-android' ||
+      github.event.inputs.action == 'submit-all'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Submit to Google Play (internal track)
+        run: eas submit --platform android --latest --non-interactive
+
+  deploy-backend:
+    name: Deploy Backend to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [lint, server-tests, jest-tests, security, script-tests, web-build]
+    if: >-
+      github.event.inputs.action == 'deploy-backend'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Google Auth via Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: tabula-medica-web
+          region: us-central1
+          source: ./
+          flags: |
+            --allow-unauthenticated
+            --memory=4Gi
+            --cpu=4
+          env_vars: |
+            NODE_ENV=production
+          secrets: |
+            DATABASE_URL=DATABASE_URL:latest
+            PHI_ENCRYPTION_KEY=PHI_ENCRYPTION_KEY:latest
+            SESSION_SECRET=SESSION_SECRET:latest
+            OPENAI_API_KEY=OPENAI_API_KEY:latest
+            GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest
+            GCS_ENCRYPTION_KEY=GCS_ENCRYPTION_KEY:latest
+            GOOGLE_APPLICATION_CREDENTIALS_JSON=GOOGLE_APPLICATION_CREDENTIALS_JSON:latest
+            CROSS_APP_SECRET=CROSS_APP_SECRET:latest

@@ -118,6 +118,7 @@ export default tseslint.config(
   // Project-wide ignores.
   {
     ignores: [
+      "mobile-expo/**",
       "node_modules/**",
       ".cache/**",       // bun/pnpm install cache — never lint dependency-resolved trees
       "dist/**",

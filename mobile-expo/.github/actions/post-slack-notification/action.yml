@@ -1,0 +1,184 @@
+name: Post Slack Notification
+description: |
+  Post a message to a Slack incoming webhook with a consistent payload shape.
+
+  Centralises the duplicated "build a blocks payload with jq + POST it via curl"
+  logic that used to be inlined for every notification step in
+  .github/workflows/deploy-cloudrun.yml. New notification steps (deploy-itself
+  failed, on-call pings, etc.) should use this action instead of re-implementing
+  the webhook-missing handling, SHA shortening, and JSON payload structure.
+
+  Behaviour:
+    - If `webhook_url` is empty (forks / un-configured clones), this is a no-op
+      and the step succeeds. We never want a missing webhook to mask the
+      original failure that triggered the notification.
+    - The first 7 chars of `commit_sha` are exposed to the `fallback_text` and
+      `markdown` templates as `{short_sha}`, plus a pre-baked Slack-mrkdwn link
+      `<{commit_url}|{short_sha}>` is exposed as `{commit_link}`.
+    - If `code_block` is non-empty, a second section is appended that wraps it
+      in a Slack triple-backtick code block.
+
+  Templating tokens (substituted in `fallback_text` and `markdown`):
+    {short_sha}    -> first 7 chars of commit_sha
+    {commit_link}  -> "<commit_url|short_sha>" (Slack mrkdwn link)
+    {commit_url}   -> the raw commit URL
+    {run_url}      -> the raw run URL
+
+inputs:
+  webhook_url:
+    description: Slack incoming webhook URL. If empty, the action is a no-op.
+    required: true
+  commit_sha:
+    description: Full commit SHA. Shortened to 7 chars for use in templates as {short_sha}.
+    required: true
+  commit_url:
+    description: GitHub URL to the commit (used as {commit_url} / inside {commit_link}).
+    required: true
+  run_url:
+    description: GitHub URL to this workflow run (used as {run_url}).
+    required: true
+  fallback_text:
+    description: Slack `text` field used as the notification preview. Supports template tokens.
+    required: true
+  markdown:
+    description: Markdown body for the first section block. Supports template tokens.
+    required: true
+  channel:
+    description: |
+      Human-readable Slack channel name (e.g. '#ops-releases'). Informational
+      only — the destination channel is encoded in webhook_url, not this field.
+      Declaring it here prevents GitHub Actions from emitting "Unexpected input"
+      warnings when callers pass it for documentation and parity-checking.
+    required: false
+    default: ''
+  code_block:
+    description: Optional content for a second section, wrapped in a code block. Omitted if empty.
+    required: false
+    default: ''
+
+outputs:
+  posted:
+    description: |
+      "true" only if Slack actually acknowledged the message with an HTTP 2xx
+      response. "false" in all of: webhook_url empty (forks / un-configured
+      clones), Slack returned 4xx/5xx (invalid_payload, archived channel,
+      expired/no_service webhook), or curl hit a transport error (DNS,
+      network). Callers that gate follow-up behaviour on "did Slack actually
+      hear about this?" (e.g. the smoke-state machine in deploy-cloudrun.yml
+      that arms a recovery ping) MUST key off this output rather than the
+      step's `conclusion`, because all of the false-paths above still leave
+      `conclusion == 'success'` (we deliberately exit 0 so a Slack outage
+      cannot mask the caller's underlying failure).
+    value: ${{ steps.post.outputs.posted }}
+
+runs:
+  using: composite
+  steps:
+    - name: Post Slack notification
+      id: post
+      shell: bash
+      env:
+        SLACK_WEBHOOK_URL: ${{ inputs.webhook_url }}
+        COMMIT_SHA: ${{ inputs.commit_sha }}
+        COMMIT_URL: ${{ inputs.commit_url }}
+        RUN_URL: ${{ inputs.run_url }}
+        FALLBACK_TEXT: ${{ inputs.fallback_text }}
+        MARKDOWN: ${{ inputs.markdown }}
+        CODE_BLOCK: ${{ inputs.code_block }}
+      run: |
+        # No-op (don't fail the job) if the webhook secret isn't configured —
+        # e.g. forks or new clones of the repo without the secret set yet. The
+        # caller's underlying failure (if any) has already been surfaced; we
+        # don't want a missing Slack secret to obscure it.
+        if [ -z "$SLACK_WEBHOOK_URL" ]; then
+          echo "SLACK_WEBHOOK_URL not set — skipping Slack notification."
+          # Surface that nothing actually went out, so callers (e.g. the
+          # smoke-state machine in deploy-cloudrun.yml) can distinguish a
+          # real successful post from a webhook-missing no-op. The step
+          # still exits 0 so a missing secret never masks the underlying
+          # failure that triggered this notification.
+          echo "posted=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        SHORT_SHA="${COMMIT_SHA:0:7}"
+        COMMIT_LINK="<${COMMIT_URL}|${SHORT_SHA}>"
+
+        # Expand the {short_sha} / {commit_link} / {commit_url} / {run_url}
+        # placeholders in the caller-provided templates. We use jq's `gsub`
+        # rather than shell substitution so backticks, quotes, and other
+        # markdown punctuation in the templates are safe.
+        render() {
+          jq -n -r \
+            --arg t "$1" \
+            --arg short_sha "$SHORT_SHA" \
+            --arg commit_link "$COMMIT_LINK" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg run_url "$RUN_URL" \
+            '$t
+              | gsub("\\{short_sha\\}"; $short_sha)
+              | gsub("\\{commit_link\\}"; $commit_link)
+              | gsub("\\{commit_url\\}"; $commit_url)
+              | gsub("\\{run_url\\}"; $run_url)'
+        }
+
+        RENDERED_FALLBACK=$(render "$FALLBACK_TEXT")
+        RENDERED_MARKDOWN=$(render "$MARKDOWN")
+
+        # Build the payload. Section 2 (the code block) is only included when
+        # the caller passed a non-empty `code_block`.
+        if [ -n "$CODE_BLOCK" ]; then
+          PAYLOAD=$(jq -n \
+            --arg text "$RENDERED_FALLBACK" \
+            --arg markdown "$RENDERED_MARKDOWN" \
+            --arg code_block "$CODE_BLOCK" \
+            '{
+              text: $text,
+              blocks: [
+                { type: "section", text: { type: "mrkdwn", text: $markdown } },
+                { type: "section", text: { type: "mrkdwn", text: ("```" + $code_block + "```") } }
+              ]
+            }')
+        else
+          PAYLOAD=$(jq -n \
+            --arg text "$RENDERED_FALLBACK" \
+            --arg markdown "$RENDERED_MARKDOWN" \
+            '{
+              text: $text,
+              blocks: [
+                { type: "section", text: { type: "mrkdwn", text: $markdown } }
+              ]
+            }')
+        fi
+
+        # Capture the HTTP status so we can confirm Slack actually accepted
+        # the payload. Slack returns 2xx for accepted messages and 4xx (e.g.
+        # `invalid_payload`, `channel_is_archived`, `no_service`) when it
+        # rejects the webhook call. Without `--fail`, curl exits 0 in both
+        # cases, so we have to inspect the status code ourselves. `|| true`
+        # keeps the script alive on transient curl errors (DNS, network)
+        # so we still record `posted=false` rather than crashing the step
+        # — important because crashing here would mask the caller's
+        # underlying failure that triggered this notification.
+        HTTP_STATUS=$(curl -sS -o /tmp/slack-response.txt -w '%{http_code}' \
+          -X POST \
+          -H 'Content-Type: application/json' \
+          --data "$PAYLOAD" \
+          "$SLACK_WEBHOOK_URL" || true)
+        echo "Slack webhook responded with HTTP $HTTP_STATUS"
+
+        # `posted=true` ONLY when Slack acknowledged the payload (HTTP 2xx).
+        # Slack-side rejections (4xx/5xx) or transport errors (empty/non-
+        # numeric status) flip this to `false`, so the smoke-state machine
+        # in deploy-cloudrun.yml routes to `failure-silent` and does NOT
+        # arm a spurious "recovered" ping for a failure no engineer ever
+        # saw in Slack. We deliberately still exit 0 — the caller's
+        # underlying failure has already been surfaced and a Slack outage
+        # must never mask it.
+        if [ "$HTTP_STATUS" -ge 200 ] 2>/dev/null && [ "$HTTP_STATUS" -lt 300 ] 2>/dev/null; then
+          echo "posted=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Slack webhook delivery failed — response body:"
+          cat /tmp/slack-response.txt || true
+          echo "posted=false" >> "$GITHUB_OUTPUT"
+        fi

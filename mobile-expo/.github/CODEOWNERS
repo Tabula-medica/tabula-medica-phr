@@ -1,0 +1,22 @@
+# GitHub CODEOWNERS
+#
+# Owners listed here are automatically requested for review on PRs that touch
+# the matching paths. When combined with a branch-protection rule that
+# requires "Require review from Code Owners", this enforces approval gates
+# that cannot be self-approved by the PR author.
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+#
+# Syntax: <path-pattern>  <owner1> <owner2> ...
+# Last matching rule wins.
+
+# ---------------------------------------------------------------------------
+# Security-sensitive files
+# ---------------------------------------------------------------------------
+#
+# The container CVE suppression file silently weakens the deploy-time CVE
+# gate. Per docs/SECURITY_CVE_TRIAGE.md §7, any change MUST be approved by
+# Security on-call — a self-approved suppression is a HIPAA-relevant finding.
+# Enforced here (not just by convention) so a regular PR author cannot merge
+# their own suppression entry.
+/.trivyignore.yaml  @tabula-medica/security

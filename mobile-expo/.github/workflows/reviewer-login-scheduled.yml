@@ -1,0 +1,195 @@
+name: Reviewer Login Weekly Check
+
+# Runs the reviewer credential pre-flight check and live smoke test on a
+# schedule so a stale or rotated APPLE_REVIEWER_DEMO_PASSWORD is caught
+# proactively — days or weeks before the next EAS build attempt.
+#
+# Without this, the only signal that reviewer credentials are broken is the
+# reviewer-login-gate job inside the build/submit pipeline, which fires only
+# when an EAS build is manually triggered. If the password is rotated between
+# releases the stale secret sits silently until the next build — at which point
+# the EAS build credit may already be burned and the store review already
+# underway.
+#
+# Failure: a Slack message is posted to the ops/release channel via the
+# SLACK_OPS_WEBHOOK_URL repository secret so the team is alerted immediately
+# and can rotate credentials before the next scheduled Monday run or release
+# attempt. GitHub's default email notification for failed scheduled workflows
+# is also sent, but Slack provides faster, more visible ops-channel coverage.
+#
+# Recovery: when a check passes again after a notified failure, a single
+# all-clear message is posted via the relevant slack-recovery-state cross-run
+# state machine so ops knows the rotation worked without manually re-checking
+# the Actions tab. Consecutive green runs after recovery do NOT post anything.
+#
+# Two independent state machines (mirroring ci-cd.yml reviewer-login-gate):
+#   reviewer-credentials-state — tracks the credential pre-flight step
+#   reviewer-login-smoke-state — tracks the live /api/auth/login smoke test
+#
+# The state keys are shared with ci-cd.yml so a fix confirmed by a scheduled
+# run clears the alert regardless of whether it was triggered by ci-cd or this
+# workflow, and vice versa.
+#
+# Required repository secret:
+#   SLACK_OPS_WEBHOOK_URL - Incoming-webhook URL for the ops/release channel.
+#                           Create at api.slack.com/apps → Incoming Webhooks.
+
+on:
+  schedule:
+    # Every Monday at 09:00 UTC.
+    # Adjust here (not as a secret) if the cadence needs to change.
+    - cron: '0 9 * * 1'
+  # Allow manual runs from the Actions tab so ops can re-run the check
+  # immediately after rotating credentials without waiting for Monday.
+  workflow_dispatch:
+
+jobs:
+  reviewer-login-gate:
+    name: Reviewer Login Gate (scheduled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Pre-flight: verify APPLE_REVIEWER_DEMO_EMAIL and
+      # APPLE_REVIEWER_DEMO_PASSWORD are non-empty and non-placeholder.
+      # Exits 1 with a clear error message identifying which secret to update
+      # if the check fails — no network call, no EAS build credit burned.
+      - name: Check reviewer credentials are set and non-placeholder
+        id: check_credentials
+        run: bash scripts/check-reviewer-credentials.sh
+        env:
+          REVIEWER_EMAIL: ${{ secrets.APPLE_REVIEWER_DEMO_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.APPLE_REVIEWER_DEMO_PASSWORD }}
+          # Expected domain for the reviewer demo account email. Update this
+          # value here (not as a secret) if the reviewer account domain changes.
+          EXPECTED_REVIEWER_EMAIL_DOMAIN: tabulamedica.health
+
+      # Live smoke test: POST /api/auth/login against production and verify the
+      # response is HTTP 200 with an accessToken. Exits 1 on failure.
+      # Mirrors the check in scripts/push-asc-metadata.mjs and the
+      # reviewer-login-gate job in ci-cd.yml; all three must stay in sync with
+      # any changes to the POST /api/auth/login route behaviour.
+      - name: Verify reviewer login against production
+        id: verify_login
+        run: |
+          if [ -z "${REVIEWER_EMAIL:-}" ] || [ -z "${REVIEWER_PASSWORD:-}" ]; then
+            echo "WARNING: REVIEWER_EMAIL or REVIEWER_PASSWORD not set — reviewer login smoke SKIPPED."
+            exit 0
+          fi
+          ./scripts/smoke-test-reviewer-login.sh
+        env:
+          REVIEWER_EMAIL: ${{ secrets.APPLE_REVIEWER_DEMO_EMAIL }}
+          REVIEWER_PASSWORD: ${{ secrets.APPLE_REVIEWER_DEMO_PASSWORD }}
+          API_BASE: https://api.tabulamedica.health
+
+      # ── Credentials pre-flight state machine ────────────────────────────────
+      # Tracks check_credentials independently so ops gets a targeted
+      # "credentials fixed" all-clear rather than a generic gate all-clear.
+
+      - name: Notify Slack on reviewer credentials failure
+        id: notify-credentials-failure
+        if: failure() && steps.check_credentials.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer credentials check FAILED"
+          markdown: |
+            :x: *Reviewer credentials check FAILED*
+            `APPLE_REVIEWER_DEMO_EMAIL` or `APPLE_REVIEWER_DEMO_PASSWORD` is missing, empty, or a placeholder.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Update `APPLE_REVIEWER_DEMO_EMAIL` / `APPLE_REVIEWER_DEMO_PASSWORD` in GitHub repo secrets
+
+      # Cross-run state machine for the credentials pre-flight step.
+      # `deploy_status` reflects check_credentials alone — skipped/cancelled
+      # (e.g. due to a checkout failure before this step ran) leave the
+      # previous run's state untouched. State key is shared with ci-cd.yml so
+      # a recovery confirmed by either workflow clears the alert for both —
+      # keep both files in sync when changing state_key or message text.
+      - name: Update reviewer credentials Slack recovery state
+        id: reviewer-credentials-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: reviewer-credentials-state
+          notify_posted: ${{ steps.notify-credentials-failure.outputs.posted }}
+          deploy_status: ${{ steps.check_credentials.conclusion }}
+
+      # Recovery all-clear for credentials: fires exactly once when
+      # check_credentials is green and the previous run posted a credentials
+      # failure ping. Consecutive greens do NOT re-post.
+      - name: Notify Slack on reviewer credentials recovery
+        if: steps.check_credentials.conclusion == 'success' && steps.reviewer-credentials-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer credentials check recovered"
+          markdown: |
+            :white_check_mark: *Reviewer credentials check recovered*
+            `APPLE_REVIEWER_DEMO_EMAIL` and `APPLE_REVIEWER_DEMO_PASSWORD` are valid again — credential pre-flight is unblocked.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+
+      # ── Live smoke-test state machine ────────────────────────────────────────
+      # Tracks verify_login independently so ops gets a targeted "login fixed"
+      # all-clear separate from the credentials all-clear. If verify_login was
+      # skipped (because check_credentials failed), its conclusion is `skipped`
+      # and the state machine leaves the previous run's state untouched. State
+      # key is shared with ci-cd.yml so a recovery confirmed by either workflow
+      # clears the alert for both.
+
+      - name: Notify Slack on reviewer login smoke-test failure
+        id: notify-login-smoke-failure
+        if: failure() && steps.verify_login.conclusion == 'failure'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer login smoke-test FAILED"
+          markdown: |
+            :x: *Reviewer login smoke-test FAILED*
+            `POST /api/auth/login` did not return HTTP 200 with an `accessToken` for the reviewer demo account.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>
+            *Fix:* Check reviewer account credentials and production API health; update `APPLE_REVIEWER_DEMO_PASSWORD` if the account password changed
+
+      # Cross-run state machine for the live login smoke-test step.
+      # `deploy_status` is the raw conclusion of verify_login — `skipped` when
+      # check_credentials failed, which leaves the previous state untouched.
+      # State key is shared with ci-cd.yml so a recovery confirmed by either
+      # workflow clears the alert for both — keep both files in sync when
+      # changing state_key or message text.
+      - name: Update reviewer login smoke-test Slack recovery state
+        id: reviewer-login-smoke-state
+        if: always()
+        uses: ./.github/actions/slack-recovery-state
+        with:
+          state_key: reviewer-login-smoke-state
+          notify_posted: ${{ steps.notify-login-smoke-failure.outputs.posted }}
+          deploy_status: ${{ steps.verify_login.conclusion }}
+
+      # Recovery all-clear for the live smoke-test: fires exactly once when
+      # verify_login is green and the previous run posted a smoke-test failure
+      # ping. Consecutive greens do NOT re-post.
+      - name: Notify Slack on reviewer login smoke-test recovery
+        if: steps.verify_login.conclusion == 'success' && steps.reviewer-login-smoke-state.outputs.should_notify_recovery == 'true'
+        uses: ./.github/actions/post-slack-notification
+        with:
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK_URL }}
+          channel: '#ops-releases'
+          commit_sha: ${{ github.sha }}
+          commit_url: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fallback_text: "Reviewer login smoke-test recovered"
+          markdown: |
+            :white_check_mark: *Reviewer login smoke-test recovered*
+            The reviewer demo account can log in to production again — iOS/Android releases are unblocked.
+            *Run:* <{run_url}|${{ github.workflow }} #${{ github.run_number }}>

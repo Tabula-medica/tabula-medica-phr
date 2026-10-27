@@ -1,0 +1,16 @@
+{
+  "extends": "expo/tsconfig.base.json",
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.cache/tsbuildinfo/check.tsbuildinfo",
+    "paths": {
+      "@/*": ["./client/*"],
+      "@shared/*": ["./shared/*"]
+    },
+    "types": ["node", "jest"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "build", "dist", "server_dist", "src", "**/*.test.ts", "**/*.test.tsx", "attached_assets", "web"],
+}
