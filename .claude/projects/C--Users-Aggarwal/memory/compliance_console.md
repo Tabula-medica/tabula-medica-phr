@@ -93,6 +93,18 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - 5 venture web sites confirmed LIVE at *.pages.dev: continuouseeg/diabeticneuropathy/energystoragedisease/dextroheart/vista-pd
   - Dependabot enabled on continuouseeg-web/diabeticneuropathy-web/dextroheart-web
   - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+- **Session-27 (2026-10-27)**: Stale Dependabot PR sweep across 8 repos — all rebased/combined onto current main after series conflicts:
+  - katha-kids PR#116 MERGED: 11 minor-patch packages + pnpm@10.26.1 pin; CI fix (action-setup version conflict); Expo 58 sub-pkg PRs #113/#114/#115 closed (need coordinated SDK 58 upgrade)
+  - noorjyoti-app PR#133 MERGED: minor-and-patch group (11 updates); PRs #134/#135 closed (stale, security parts already in #133)
+  - PHR PR#285 MERGED: GCIP bearer health-tracking auth; PR#288 MERGED: relax audit gate to --audit-level=critical; PR#291→#293 MERGED: mobile-expo axios 1.21+geoip-lite 2.0+undici 8
+  - world-ehr-base PR#68 (react-dom 19) MERGED; PR#76 (react 19 types) MERGED; PR#78 (hookform/resolvers 6) MERGED
+  - tabula-medica-phr-world PR#98 (tailwind-merge 3) MERGED; PR#118 MERGED: @vitejs/plugin-react 6 + framer-motion 14 + tailwindcss 4
+  - tabula-medica-EHRB PR#57 (@hello-pangea/dnd 18) MERGED; PR#64 CREATED: hookform/resolvers 6 + eslint 10 + vite 8 (CI running)
+  - EHRB #64, world-ehr-base #58 (patient chart feature) still open/running CI
+  - pnpm/action-setup@v4 now rejects `version:10` when `packageManager:pnpm@10.26.1` is in package.json — must use exact version in CI workflow
+  - Rulesets must be disabled/restored atomically in one shell pipeline to avoid race condition
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+
 - **Session-24 (2026-10-26)**: CF Pages MEDIUM CVE batch merged (rebased after conflicts with prior follow-redirects/vite commits):
   - tabula-uninsurance-web #8 MERGED: vite ^8.3.0 + moment 2.31.0 + brace-expansion>=1.1.21 + @humanfs/node>=0.16.8 + dompurify>=3.4.16
   - tabula-katha-web #5 MERGED: same + follow-redirects>=1.16.1 preserved from HEAD

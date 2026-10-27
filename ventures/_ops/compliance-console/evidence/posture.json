@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T14:30:00.000Z",
+  "generatedAt": "2026-10-27T14:21:54.915Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -2066,7 +2066,7 @@
         "iso27701",
         "hitrust"
       ],
-      "notes": "Dep sweep 2026-10-27 COMPLETE: 0 open Dependabot alerts. PR#287 merged (root: 97 alerts fixed). PR#292 merged (mobile-expo: 55 alerts fixed). Dismissed 4 tolerable_risk: pdfjs-dist v5 (pdf-to-img API break), postcss-selector-parser (tailwindcss chain), @opentelemetry/core (firebase-tools chain), esbuild LOW (dev-only). 0 P0s.",
+      "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
       "readiness": 100,
       "counts": {
         "pass": 33,
