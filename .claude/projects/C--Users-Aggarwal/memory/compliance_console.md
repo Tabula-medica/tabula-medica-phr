@@ -134,6 +134,8 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - PHR PR #298 (nested overrides get-uri/firestore): CI still running at session close
   - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 
+- **Session-30 (2026-10-27)**: EHRB PR #63 MERGED — react-router-dom 6.30.4→6.30.6 (GHSA-jjmj-jmhj-qwj2); transitive fix: react-router@6.30.6 + @remix-run/router@1.23.4 hoisted (Cursor Bugbot caught incomplete initial hoist); 0 open Dependabot alerts on EHRB; **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
 **How posture is maintained:**
