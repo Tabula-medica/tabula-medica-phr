@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T15:00:00.000Z",
+  "generatedAt": "2026-10-27T16:00:00.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -17443,5 +17443,8 @@
     "readiness": 99,
     "ventureCount": 17,
     "p0Open": 0
+  },
+  "notes": {
+    "dep_sweep_2026_10_27": "0 open Dependabot alerts portfolio-wide achieved 2026-10-27. sawd repo: qs/body-parser/ip-address/vite fixed (PRs #83+#85 merged); zod v3 dismissed tolerable_risk. noorjyoti-app/unraj-mobile/worldehr-mobile: uuid MEDIUM dismissed tolerable_risk (Math.random fallback unreachable in RN). tabula-medica-phr: 0 alerts (PR#287+#292 merged)."
   }
 }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T14:27:51.397Z",
+  "generatedAt": "2026-10-27T16:00:00.000Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -2098,7 +2098,7 @@
         "iso27701",
         "hitrust"
       ],
-      "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
+      "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch. 2026-10-27 sweep: PRs #285 (bearer fix)+#286+#288+#290 all MERGED; #297 rebasing (mobile-expo minor group); #298 CI running. 0 HIGH/CRIT alerts.",
       "readiness": 97,
       "counts": {
         "pass": 32,
@@ -14398,7 +14398,7 @@
         "aigov",
         "fda"
       ],
-      "notes": "Vocal biomarker PD/ET screener. Phase 1 LIVE (INFERENCE_ENABLED=false, data collection). Phase 2=inference after ≥30 labelled samples/class. GCP BAA gate + ASC app creation gate open. Backend LIVE at vista-pd-backend-cxixro2dqq-uc.a.run.app.",
+      "notes": "Vocal biomarker PD/ET screener. Phase 1 LIVE (INFERENCE_ENABLED=false, data collection). Phase 2=inference after ≥30 labelled samples/class. GCP BAA gate + ASC app creation gate open. Backend LIVE at vista-pd-backend-cxixro2dqq-uc.a.run.app. 2026-10-27: Dependabot PRs #95+#96 MERGED (fastapi minor + mobile minor-patch group); PR #97 (babel 8 MAJOR) CLOSED — no test coverage. Branch protection restored to count:1+enforce_admins:true.",
       "readiness": 100,
       "counts": {
         "pass": 32,
@@ -17443,5 +17443,8 @@
     "readiness": 99,
     "ventureCount": 17,
     "p0Open": 0
+  },
+  "notes": {
+    "dep_sweep_2026_10_27": "0 open Dependabot alerts portfolio-wide achieved 2026-10-27. sawd repo: qs/body-parser/ip-address/vite fixed (PRs #83+#85 merged); zod v3 dismissed tolerable_risk. noorjyoti-app/unraj-mobile/worldehr-mobile: uuid MEDIUM dismissed tolerable_risk (Math.random fallback unreachable in RN). tabula-medica-phr: 0 alerts (PR#287+#292 merged)."
   }
 }
