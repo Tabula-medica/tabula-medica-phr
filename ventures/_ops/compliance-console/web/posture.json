@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T14:30:00.000Z",
+  "generatedAt": "2026-10-27T14:27:51.397Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -22,10 +22,10 @@
         "gdpr"
       ],
       "notes": "Closest to launch. WAF live. DPC cash-pay marketplace.",
-      "readiness": 100,
+      "readiness": 96,
       "counts": {
-        "pass": 32,
-        "fail": 0,
+        "pass": 31,
+        "fail": 1,
         "unknown": 0,
         "na": 1
       },
@@ -536,9 +536,9 @@
             "patch cadence SLA"
           ],
           "autofix": true,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 0, low 0)"
+          "detail": "0 critical + 2 high (2 actionable)"
         },
         {
           "id": "SEC-04",
@@ -1021,7 +1021,39 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC7.1",
+            "CC9.2"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.308(a)(1)(ii)(B)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.8"
+          ]
+        },
+        {
+          "fw": "hitrust",
+          "refs": [
+            "10.m"
+          ]
+        },
+        {
+          "fw": "nist171",
+          "refs": [
+            "3.14.1"
+          ]
+        }
+      ]
     },
     "underinsured": {
       "id": "underinsured",
@@ -2066,11 +2098,11 @@
         "iso27701",
         "hitrust"
       ],
-      "notes": "Dep sweep 2026-10-27 COMPLETE: 0 open Dependabot alerts. PR#287 merged (root: 97 alerts fixed). PR#292 merged (mobile-expo: 55 alerts fixed). Dismissed 4 tolerable_risk: pdfjs-dist v5 (pdf-to-img API break), postcss-selector-parser (tailwindcss chain), @opentelemetry/core (firebase-tools chain), esbuild LOW (dev-only). 0 P0s.",
-      "readiness": 100,
+      "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
+      "readiness": 97,
       "counts": {
-        "pass": 33,
-        "fail": 0,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -2581,9 +2613,9 @@
             "patch cadence SLA"
           ],
           "autofix": true,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 0, low 0)"
+          "detail": "0 critical + 3 high (3 actionable)"
         },
         {
           "id": "SEC-04",
@@ -3066,7 +3098,39 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC7.1",
+            "CC9.2"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.308(a)(1)(ii)(B)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.8"
+          ]
+        },
+        {
+          "fw": "hitrust",
+          "refs": [
+            "10.m"
+          ]
+        },
+        {
+          "fw": "nist171",
+          "refs": [
+            "3.14.1"
+          ]
+        }
+      ]
     },
     "sawd": {
       "id": "sawd",
@@ -11246,10 +11310,10 @@
         "aigov"
       ],
       "notes": "PHI HIGH. CMS MDS 3.0 software for skilled nursing facilities. PDPM calculator + iQIES submission gateway. Cloud SQL with --backup-start-time=03:00.",
-      "readiness": 100,
+      "readiness": 97,
       "counts": {
-        "pass": 33,
-        "fail": 0,
+        "pass": 32,
+        "fail": 1,
         "unknown": 0,
         "na": 0
       },
@@ -11760,9 +11824,9 @@
             "patch cadence SLA"
           ],
           "autofix": true,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "deps",
-          "detail": "0 prod high/critical (moderate 2, low 0)"
+          "detail": "0 critical + 1 high (1 actionable)"
         },
         {
           "id": "SEC-04",
@@ -12245,7 +12309,39 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC7.1",
+            "CC9.2"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.308(a)(1)(ii)(B)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.8"
+          ]
+        },
+        {
+          "fw": "hitrust",
+          "refs": [
+            "10.m"
+          ]
+        },
+        {
+          "fw": "nist171",
+          "refs": [
+            "3.14.1"
+          ]
+        }
+      ]
     },
     "esd": {
       "id": "esd",
@@ -17344,7 +17440,7 @@
     }
   },
   "portfolio": {
-    "readiness": 100,
+    "readiness": 99,
     "ventureCount": 17,
     "p0Open": 0
   }

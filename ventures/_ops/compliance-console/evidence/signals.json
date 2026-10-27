@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-19T17:55:52.179Z",
+  "collectedAt": "2026-10-27T14:27:39.172Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1409,8 +1409,8 @@
       "uninsurance": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 0, low 0)"
+            "verdict": "fail",
+            "detail": "0 critical + 2 high (2 actionable)"
           }
         }
       },
@@ -1418,15 +1418,15 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 1, low 0)"
+            "detail": "0 prod high/critical (moderate 3, low 0)"
           }
         }
       },
       "phr": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 0, low 0)"
+            "verdict": "fail",
+            "detail": "0 critical + 3 high (3 actionable)"
           }
         }
       },
@@ -1434,7 +1434,7 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "fail",
-            "detail": "0 critical + 5 high (5 actionable)"
+            "detail": "1 critical + 2 high (3 actionable)"
           }
         }
       },
@@ -1450,7 +1450,7 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "fail",
-            "detail": "0 critical + 2 high (2 actionable)"
+            "detail": "0 critical + 3 high (3 actionable)"
           }
         }
       },
@@ -1474,7 +1474,7 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "unknown",
-            "detail": "could not parse audit JSON"
+            "detail": "audit failed: Command failed: pnpm audit --json --prod\nThe system cannot find the path specifi"
           }
         }
       },
@@ -1486,11 +1486,59 @@
           }
         }
       },
-      "mds-platform": {
+      "accountable-law": {
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 2, low 0)"
+            "detail": "0 prod high/critical (moderate 0, low 0)"
+          }
+        }
+      },
+      "mds-platform": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "fail",
+            "detail": "0 critical + 1 high (1 actionable)"
+          }
+        }
+      },
+      "esd": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 0, low 0)"
+          }
+        }
+      },
+      "dextroheart": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "fail",
+            "detail": "0 critical + 4 high (4 actionable)"
+          }
+        }
+      },
+      "vista-pd": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "na",
+            "detail": "no dependency manifest (static/infra-only repo)"
+          }
+        }
+      },
+      "continuouseeg": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 0, low 0)"
+          }
+        }
+      },
+      "diabeticneuropathy": {
+        "signals": {
+          "noCriticalVulns": {
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 0, low 0)"
           }
         }
       }

@@ -7,7 +7,25 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-26 compliance-sweep-session2)
+# MASTER RUNNING TODO — all projects (updated 2026-10-27 Insurance-Lawsuit PR#15 + iOS build)
+
+---
+
+### 2026-10-27 session — Insurance-Lawsuit PR#15 merged; SAWD iOS build running
+
+- **Insurance-Lawsuit PR #15 MERGED** ✅ — fix(sec): vite 6.4.4 + dompurify >=3.4.17 (CRIT/HIGH CVEs); all protections patched/restored
+- **SAWD iOS TestFlight build run 40515721500** — in_progress (Vite + Xcode); run triggered from PR #273 (bundle exec fastlane fix)
+- **SAWD v2.1 App Store** — UNRESOLVED_ISSUES since 2026-10-18; rejection reason only in ASC UI (user must check)
+- **sawd-bank PR #70 MERGED** 2026-10-27 — fix: spending chart transfer_out + bill pay balance sync
+
+**Owner-gated items still open (unchanged):**
+- Stripe keys + webhook registration → Base44 Secrets → Publish (SAWD)
+- sawd-landers deploy (Trevor/legal gate)
+- §7216 consent text: Trevor review before CONSENT_7216_CLEARED flips true
+- worldehr-pg appuser password rotation (URGENT, leaked 2026-09-07)
+- iOS ASC: ESD App Privacy+Pricing → `eas submit --platform ios --latest`
+- iOS ASC gates for various apps (LTFM, NoorJyoti, WorldEHR, SAWD)
+- SAWD v2.1 App Store rejection: check ASC Resolution Center → fix → attach new build → resubmit
 
 ---
 
