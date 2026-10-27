@@ -7,7 +7,28 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-27 omnihealth #529 + insurance-lawsuit #13 access control)
+# MASTER RUNNING TODO — all projects (updated 2026-10-27 PHR PR#298 nested overrides; 0 HIGH/CRIT portfolio-wide)
+
+---
+
+### 2026-10-27 session-30 — PHR nested overrides + portfolio clean sweep
+
+- **PHR PR#298 MERGED** — nested npm overrides `get-uri→basic-ftp>=6.2.1` + `@firebase/firestore→@grpc/grpc-js>=1.14.5`; tabula-medica-phr now **0 total Dependabot alerts** (all severities)
+- **tabula-uninsurance-web PR#3 MERGED** — toast UX polish (port from PHR#250; CI passing)
+- **Portfolio sweep**: 0 HIGH/CRIT across ALL repos (30+ scanned) ✅
+- **SAWD iOS TestFlight build run 40515721500** — still in_progress as of session end (~2h elapsed); build at Xcode/fastlane stage; may be stuck or long-running; check `gh run watch 40515721500 --repo Tabula-medica/sawd-web`
+- **world-ehr-base PR#58** — draft, failing `application-checks` (lockfile issue from 2026-10-14); stale agent PR; leave as draft
+
+**Owner-gated items still open (unchanged):**
+- Stripe keys + webhook registration → Base44 Secrets → Publish (SAWD)
+- SAWD v2.1 App Store rejection: check ASC Resolution Center → fix → attach new build → resubmit
+- sawd-landers deploy (Trevor/legal gate)
+- §7216 consent text: Trevor review before CONSENT_7216_CLEARED flips true
+- worldehr-pg appuser password rotation (URGENT, leaked 2026-09-07)
+- iOS ASC: ESD App Privacy+Pricing → `eas submit --platform ios --latest`
+- iOS ASC gates for LTFM, NoorJyoti, WorldEHR, SAWD
+
+---
 
 ---
 
