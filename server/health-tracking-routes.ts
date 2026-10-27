@@ -14,6 +14,7 @@ import {
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { VITAL_THRESHOLDS, checkVitalThresholds } from "./services/vital-thresholds";
 import { phiDb, encryptPhiRow, decryptPhiRow, decryptPhiRows } from "./storage/phi-storage";
+import { requireUser } from "./middleware/require-user";
 
 const router = Router();
 
@@ -26,14 +27,30 @@ function logHipaaAudit(action: string, userId: string | null, resourceId: string
   console.log(`[HIPAA-AUDIT][Health-Tracking] ${timestamp} - ${action} - User:${userId ? hashIdentifier(userId) : "NONE"} - Resource:${resourceId} - ${details}`);
 }
 
+// requireAuth accepts both session-cookie and GCIP-bearer clients.
+//
+// Background: req.session.userId is never set by the current auth system —
+// passport stores the user as req.user.claims.sub (set to users.id, the
+// stable internal UUID) via both the session-cookie path (POST
+// /api/auth/gcip/session) and the bearer path (Authorization: Bearer
+// <GCIP ID token>). Both paths resolve to the same users.id that existing
+// rows are keyed by (profileId), so no extra lookup is needed.
+//
+// The shared requireUser middleware (server/middleware/require-user.ts) wraps
+// isAuthenticated and guarantees req.user.claims.sub is populated before
+// calling next(). We then stamp req.authenticatedUserId so the downstream
+// enforceSessionUserId IDOR guard can read it.
 function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const sessionUserId = (req.session as any)?.userId;
-  if (!sessionUserId) {
-    logHipaaAudit("UNAUTHORIZED_ACCESS", null, req.path, "No authenticated session");
-    return res.status(401).json({ success: false, error: "Authentication required" });
-  }
-  (req as any).authenticatedUserId = sessionUserId;
-  next();
+  return requireUser(req, res, (err?: any) => {
+    if (err) return next(err);
+    const sub = (req as any).user?.claims?.sub as string | undefined;
+    if (!sub) {
+      logHipaaAudit("UNAUTHORIZED_ACCESS", null, req.path, "No authenticated user");
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+    (req as any).authenticatedUserId = sub;
+    next();
+  });
 }
 
 function enforceSessionUserId(req: Request, res: Response, next: NextFunction) {
