@@ -54,10 +54,9 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **ONLY remaining open gate**: uninsurance Cloud Run WIF auth error `attribute condition rejected` — pre-existing GCP IAM gate (founder action needed)
   - **18 repos scanned, 0 undismissed HIGH/CRITICAL — portfolio clean 2026-10-26**
 - **Session-21 (2026-10-26)**: uninsurance-care lockfile mismatch + HIGH CVE sweep:
-  - Root cause: PR#130 merged vite@7.3.7 lockfile but package.json override pinned exact "vite":"7.3.5" → ERR_PNPM_LOCKFILE_CONFIG_MISMATCH on all CI
-  - PR#133 MERGED: vite override >=7.3.7<8 + ip-address>=10.7.4 + undici>=6.29.1 + body-parser>=2.4.0 + fast-uri>=3.1.9 + zod@4 >=4.6.7 (CVE-2023-54404 HIGH) + .trivyignore for zod@3 (no v3 fix, migration tracked separately); Dependabot alert #131 dismissed (zod@3, tolerable_risk)
-  - Trivy database update on 2026-10-26 added CVE-2023-54404 for both zod@3.25.76 and zod@4.3.6; zod@4 fixed by override; zod@3 suppressed with rationale
+  - PR#133 MERGED: vite override >=7.3.7<8 + ip-address/undici/body-parser/fast-uri + zod@4 >=4.6.7 (CVE-2023-54404) + .trivyignore for zod@3 (no v3 fix); Dependabot alert #131 dismissed
   - **0 HIGH/CRITICAL portfolio-wide confirmed; posture 100%/0 P0s**
+- **Session-22 (2026-10-27)**: PHR 13 stale HIGH alerts dismissed — all already fixed in package-lock.json (Dependabot hadn't re-scanned after overrides merged); dismissed #557-#585 (source-map-js/MCP-sdk/follow-redirects/vite/dompurify/body-parser/multer/undici all patched); zod@3 #576 dismissed (tolerable_risk, no v3 fix); **0 HIGH/CRITICAL portfolio-wide confirmed 2026-10-27**
 - **Session-20 (2026-10-26)**: katha-kids/noorjyoti-app/unraj full CVE sweep — 11 PRs merged:
   - katha #107 (badges), #108 (undici+body-parser), #109 (fast-uri 3.1.9/4.2.3), #110 (uuid 14.0.3+diff 9.0.0) — **0 open alerts**
   - noorjyoti #130 (prior session), #131 (fast-uri 3.1.9/4.2.3), #132 (esbuild 0.28.2) — **0 open alerts**
