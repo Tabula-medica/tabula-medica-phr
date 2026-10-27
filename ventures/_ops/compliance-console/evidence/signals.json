@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-27T14:27:39.172Z",
+  "collectedAt": "2026-10-27T14:48:52.114Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1409,8 +1409,8 @@
       "uninsurance": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "fail",
-            "detail": "0 critical + 2 high (2 actionable)"
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 4, low 0)"
           }
         }
       },
@@ -1425,8 +1425,8 @@
       "phr": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "fail",
-            "detail": "0 critical + 3 high (3 actionable)"
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 0, low 0)"
           }
         }
       },
@@ -1497,8 +1497,8 @@
       "mds-platform": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "fail",
-            "detail": "0 critical + 1 high (1 actionable)"
+            "verdict": "pass",
+            "detail": "0 prod high/critical (moderate 1, low 0)"
           }
         }
       },
