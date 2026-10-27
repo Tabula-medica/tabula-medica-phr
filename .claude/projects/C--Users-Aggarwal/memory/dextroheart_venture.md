@@ -17,7 +17,7 @@ DextroHeart v1 — palm-sized BLE ECG module targeting inferior/RV/posterior inf
 
 **Web landing page:** `C:/Users/Aggarwal/repos/dextroheart-web/` — Vite+React+TS+Tailwind, LIVE at `Tabula-medica/dextroheart-web` (GitHub, private). CI passes (npm build). CF Pages deploy gated on CF Pages token — ops token (stored in CLOUDFLARE_API_TOKEN secret) is read-only (code: 9106); user must update the `CLOUDFLARE_API_TOKEN` repo secret with a token that has `Pages:Edit` permission, then re-run the deploy workflow. CF Pages project name: `dextroheart`.
 
-**Mobile app:** `C:/Users/Aggarwal/repos/dextroheart-mobile/` — Expo SDK 57, bundle `com.dextroheart.app`, EAS project `c1c1bb63-b780-48eb-a920-118ce1a890b7` (@rajivka2/dextroheart).
+**Mobile app:** `C:/Users/Aggarwal/repos/dextroheart-mobile/` — Expo SDK 57, bundle `com.dextroheart.app`, EAS project `c1c1bb63-b780-48eb-a920-118ce1a890b7` (@rajivka2/dextroheart). **PR #2 MERGED 2026-10-27** — fix(sec): node-forge HIGH + zod HIGH + uuid moderate resolved (npm audit fix + `overrides.zod >=4.6.6`); CI passes 0 vulnerabilities.
 
 **Store submission state (as of 2026-10-24):**
 - iOS build 2 (buildId `e8fd908c-a1d1-4165-b9c4-7096ebe0fa3e`) **already in ASC** (ASC App ID `6824245200`). Gate: open ASC apps/6824245200 → submit for review.
