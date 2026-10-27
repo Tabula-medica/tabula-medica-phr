@@ -1,11 +1,44 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type RequestHandler } from "express";
 import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db";
+import { phiDb } from "../storage/phi-storage";
 import { symptomCheckerSessions, accounts } from "@shared/schema";
 import { generatePhiSafeText } from "../services/ai-gateway";
+import { verifyAndResolveGcip } from "../auth/gcip";
 
 const router = Router();
+
+// Best-effort identity resolution for bearer clients. Triage is intentionally
+// open to anonymous users, so this never returns 401 — it only populates
+// req.user when a valid GCIP bearer token is present. Session-cookie identity
+// is already set on req.user by the global passport.session() middleware before
+// we reach this router.
+const optionalAuth: RequestHandler = async (req, _res, next) => {
+  if ((req.user as any)?.claims?.sub) return next();
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const gcipUser = await verifyAndResolveGcip(authHeader.slice(7));
+      if (gcipUser) {
+        (req as any).user = {
+          claims: {
+            sub: gcipUser.id,
+            email: gcipUser.email,
+            first_name: gcipUser.firstName,
+            last_name: gcipUser.lastName,
+            provider: "gcip",
+          },
+        };
+      }
+    } catch {
+      // Ignore — anonymous triage remains available.
+    }
+  }
+  next();
+};
+
+router.use(optionalAuth);
 
 const aiEnabled = true;
 
@@ -290,20 +323,25 @@ Respond ONLY in this JSON shape:
 // Routes
 // ---------------------------------------------------------------------------
 
-async function resolveAccountIdFromSession(
-  req: Request
-): Promise<string | null> {
+async function resolveAccountId(req: Request): Promise<string | null> {
   // Best-effort account resolution. Never block triage on auth — anonymous
   // users should still be able to use the symptom checker (acquisition
   // surface). We only persist sessions when we can match an account.
+  //
+  // Priority:
+  //   1. req.user.claims.email — set by optionalAuth (bearer) or by the
+  //      global passport.session() middleware (cookie session).
+  //   2. Legacy session fields — belt-and-suspenders for edge cases.
+  const claimsEmail = (req.user as any)?.claims?.email as string | undefined;
   const sessionAny = (req as any).session;
-  const email: string | undefined =
+  const sessionEmail: string | undefined =
     sessionAny?.user?.email ??
     sessionAny?.passport?.user?.email ??
     sessionAny?.email;
+  const email = claimsEmail ?? sessionEmail;
   if (!email) return null;
   try {
-    const [acct] = await db
+    const [acct] = await phiDb
       .select({ id: accounts.id })
       .from(accounts)
       .where(eq(accounts.email, email))
@@ -351,7 +389,7 @@ router.post("/triage", async (req: Request, res: Response) => {
   }
 
   // 3) Persist session for the user's history (only if authenticated).
-  const accountId = await resolveAccountIdFromSession(req);
+  const accountId = await resolveAccountId(req);
   if (accountId) {
     try {
       await db.insert(symptomCheckerSessions).values({
@@ -369,7 +407,7 @@ router.post("/triage", async (req: Request, res: Response) => {
 });
 
 router.get("/sessions", async (req: Request, res: Response) => {
-  const accountId = await resolveAccountIdFromSession(req);
+  const accountId = await resolveAccountId(req);
   if (!accountId) return res.json({ success: true, sessions: [] });
   try {
     const rows = await db
