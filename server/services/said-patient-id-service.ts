@@ -131,11 +131,12 @@ export function labOrderName(patient: {
 
 const ENCRYPTION_KEY = process.env.PHI_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
 const ALGORITHM = "aes-256-gcm";
+const AUTH_TAG_LENGTH = 16;
 
 export function encryptField(plaintext: string): string {
   const key = Buffer.from(ENCRYPTION_KEY.slice(0, 64), "hex");
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
 
   let encrypted = cipher.update(plaintext, "utf8", "base64");
   encrypted += cipher.final("base64");
@@ -151,7 +152,7 @@ export function decryptField(encryptedStr: string): string {
   const iv = Buffer.from(ivB64, "base64");
   const authTag = Buffer.from(authTagB64, "base64");
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(authTag);
 
   let decrypted = decipher.update(encrypted, "base64", "utf8");
