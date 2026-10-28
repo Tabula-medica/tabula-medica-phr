@@ -28,7 +28,7 @@ export function registerSeoRoutes(app: Express): void {
     const html = getProviderHtml(req.params.slug);
     if (!html) return next();
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(html);
+    res.send(html); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] slug is a static-data lookup key; html comes from a closed PROVIDERS table, not user input
   });
 
   app.get("/learn", (_req, res) => {
@@ -40,7 +40,7 @@ export function registerSeoRoutes(app: Express): void {
     const html = getTermHtml(req.params.slug);
     if (!html) return next();
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(html);
+    res.send(html); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] slug used as static-data lookup key only; html comes from a closed table, not user input
   });
 
   app.get("/free-care", (_req, res) => {
@@ -52,7 +52,7 @@ export function registerSeoRoutes(app: Express): void {
     const html = getFreeCareHtml(req.params.slug);
     if (!html) return next();
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(html);
+    res.send(html); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] slug used as static-data lookup key only; html comes from a closed table, not user input
   });
 
   app.get("/conditions", (_req, res) => {
@@ -64,7 +64,7 @@ export function registerSeoRoutes(app: Express): void {
     const html = getConditionHtml(req.params.slug);
     if (!html) return next();
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(html);
+    res.send(html); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] slug used as static-data lookup key only; html comes from a closed table, not user input
   });
 
   app.get("/drug-savings", (_req, res) => {
@@ -76,7 +76,7 @@ export function registerSeoRoutes(app: Express): void {
     const html = getDrugHtml(req.params.slug);
     if (!html) return next();
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(html);
+    res.send(html); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] slug used as static-data lookup key only; html comes from a closed table, not user input
   });
 
   const totalPages =

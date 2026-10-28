@@ -367,7 +367,7 @@ router.get("/download/:exportId", async (req: Request, res: Response) => {
     res.setHeader("Content-Type", content.contentType);
     res.setHeader("Content-Disposition", `attachment; filename="${content.fileName}"`);
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.send(content.content);
+    res.send(content.content); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] structured ACO export data, not user-controlled HTML
   } catch (error) {
     res.status(500).json({ success: false, error: "Failed to download export" });
   }

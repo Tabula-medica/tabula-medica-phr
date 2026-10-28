@@ -114,7 +114,7 @@ export function LegalDocument({ slug, title, lastUpdated, children, html }: Lega
           <div
             className="prose prose-sm dark:prose-invert max-w-none"
             data-testid={`content-legal-${slug}`}
-            dangerouslySetInnerHTML={{ __html: sanitizeLegalHtml(html) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeLegalHtml(html) }} /* codeql[typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml] html passed through DOMPurify.sanitize with strict ALLOWED_TAGS/ALLOWED_ATTR allowlist */
           />
         ) : (
           <div

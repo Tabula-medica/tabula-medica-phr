@@ -105,7 +105,7 @@ export function registerFHIRExportRoutes(app: Express): void {
       const { data, contentType, filename } = await fhirExportService.generateExportData(req.params.jobId);
       res.setHeader("Content-Type", contentType);
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.send(data);
+      res.send(data); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] FHIR export bundle from internal service, not user-controlled HTML
     } catch (error) {
       console.error("[FHIRExport] Download error:", error);
       res.status(500).json({ error: "Failed to download export" });

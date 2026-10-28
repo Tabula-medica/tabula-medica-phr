@@ -200,6 +200,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
   const origin = req.headers.origin;
   
   if (origin && validateCorsOrigin(origin)) {
+    // codeql[javascript.express.security.cors-misconfiguration] origin validated by validateCorsOrigin allowlist before being reflected
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");

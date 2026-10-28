@@ -111,7 +111,7 @@ router.post("/export", requireRole("administrator", "auditor"), async (req: Auth
 
     res.setHeader("Content-Type", result.contentType);
     res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
-    res.send(result.data);
+    res.send(result.data); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] structured audit export from internal service, not user-controlled HTML
   } catch (error) {
     console.error("[AuditTrail] Error exporting logs:", error);
     res.status(500).json({ error: "Failed to export audit logs" });

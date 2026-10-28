@@ -19,6 +19,8 @@ on:
 jobs:
   security-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -52,6 +54,8 @@ jobs:
 
   authz-sweep:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # The server now boots here (two prior crashes fixed: an express-rate-limit
     # v8 IPv6-keyGenerator ValidationError that crashed on EVERY boot, not just
     # CI, and an eagerly-constructed OpenAI client that threw when no key was
