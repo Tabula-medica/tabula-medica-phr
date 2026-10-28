@@ -26,6 +26,7 @@ import {
 } from "@shared/schema";
 import { generatePhiSafeChat, generatePhiSafeChatStream, generatePhiSafeText } from "./services/ai-gateway";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { gcipBearerIdentity } from "./middleware/gcip-bearer-identity";
 import {
   isFastenConfigured,
   isValidOrgConnectionId,
@@ -859,6 +860,12 @@ export async function registerRoutes(
   
   // Session timeout and HIPAA audit middleware (AFTER auth)
   app.use(sessionTimeoutMiddleware);
+
+  // Fill req.user from a verified GCIP bearer token for every route (cookie
+  // sessions win; never rejects - per-route guards still enforce access).
+  // Mounted after the session-timeout tracker so bearer calls don't create
+  // cookie-session rows, and before PHI audit so bearer access is attributed.
+  app.use(gcipBearerIdentity);
   
   // Register compliance routes EARLY (before CDS routes) so CDS blocking takes effect
   registerComplianceRoutes(app);

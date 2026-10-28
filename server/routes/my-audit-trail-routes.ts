@@ -217,22 +217,4 @@ router.get("/signed-report", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Sanity probe — counts raw audit_log rows for the user without any
-// categorization. Useful for "why are my exports empty" debugging.
-router.get("/_debug/raw-count", async (req: AuthRequest, res: Response) => {
-  const accountId = await resolveAccountIdFromSession(req);
-  if (!accountId) return res.status(401).json({ error: "UNAUTHORIZED" });
-  try {
-    const rows = await db
-      .select({ id: auditLogTable.id })
-      .from(auditLogTable)
-      .where(eq(auditLogTable.accountId, accountId))
-      .limit(1000);
-    res.json({ rawCount: rows.length });
-  } catch (err) {
-    console.error("[MyAuditTrail] /_debug/raw-count error", err);
-    res.status(500).json({ error: "INTERNAL_ERROR" });
-  }
-});
-
 export default router;
