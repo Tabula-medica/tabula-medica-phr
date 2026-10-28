@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { getCmsClinicianProfile } from "./services/cms-clinician-service";
 
 const router = Router();
 
@@ -186,6 +187,23 @@ router.get("/lookup/:npi", async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("[NPI Lookup] Error:", err.message);
     res.status(500).json({ error: "Failed to lookup NPI", details: err.message });
+  }
+});
+
+// CMS Provider Data Catalog enrichment: Medicare enrollment, group practice,
+// hospital affiliations, school/graduation year, telehealth. Always 200 with
+// available:false if CMS is unreachable, so the UI can degrade quietly.
+router.get("/cms/:npi", async (req: Request, res: Response) => {
+  const { npi } = req.params;
+  if (!/^\d{10}$/.test(npi)) {
+    return res.status(400).json({ error: "Invalid NPI number. Must be 10 digits." });
+  }
+  try {
+    res.set("Cache-Control", "private, max-age=3600");
+    res.json(await getCmsClinicianProfile(npi));
+  } catch (err: any) {
+    console.error("[NPI Lookup] CMS enrichment error:", err?.message);
+    res.json({ npi, available: false });
   }
 });
 
