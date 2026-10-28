@@ -39,7 +39,7 @@ function getEncryptionKey(): Buffer {
 function encryptData(data: Buffer): { encrypted: Buffer; iv: Buffer; authTag: Buffer } {
   const iv = crypto.randomBytes(IV_LENGTH);
   const key = getEncryptionKey();
-  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   
   const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
   const authTag = cipher.getAuthTag();
