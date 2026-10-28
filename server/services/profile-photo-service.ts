@@ -49,7 +49,7 @@ function encryptData(data: Buffer): { encrypted: Buffer; iv: Buffer; authTag: Bu
 
 function decryptData(encrypted: Buffer, iv: Buffer, authTag: Buffer): Buffer {
   const key = getEncryptionKey();
-  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(authTag);
   
   return Buffer.concat([decipher.update(encrypted), decipher.final()]);
