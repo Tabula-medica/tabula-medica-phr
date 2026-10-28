@@ -7,9 +7,15 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-27 PHR PR#298 nested overrides; 0 HIGH/CRIT portfolio-wide)
+# MASTER RUNNING TODO — all projects (updated 2026-10-28 PHR #301 merged; SAWD iOS re-triggered)
 
 ---
+
+### 2026-10-28 session-29 — PHR #301 CMS Medicare enrichment + SAWD iOS re-triggered
+
+- **PHR PR #301 MERGED** ✅ — feat(npi): CMS Medicare enrichment endpoint `/api/npi-lookup/cms/:npi` (Pro-gated); public CMS Provider Data Catalog, no API key; all 20 CI checks green
+- **SAWD iOS TestFlight run 40696247764** — triggered on `master` (run 40515721500 was cancelled; prior 2 failed with `fastlane: command not found`; fix=PR#273 added `bundle exec` — now merged); build in progress
+- **org** — 0 open PRs across ALL Tabula-medica repos ✅
 
 ### 2026-10-27 session-30 — PHR nested overrides + portfolio clean sweep
 
