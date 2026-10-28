@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; omnihealth #551 qs MEDIUM merged; 0 active HIGH/CRIT org-wide; only gap = AV-03 WAF P2"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; EHR wave-45 #554 merged; dompurify CRIT underinsured-web #10 merged; SAWD iOS 40703843794 in-progress at Xcode step; 0 HC org-wide"
 metadata: 
   node_type: memory
   type: project
@@ -144,6 +144,12 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - world-ehr-base PR#79 MERGED: Dependabot minor-patch group (5 updates)
   - deepmerge GHSA-gcqx-w48m-w2h4 LOW dismissed (no fix available, tolerable_risk): uninsurance#192, sawd-backend#48, noorjyoti-app#148
   - SAWD iOS TestFlight build 40703843794 in_progress (Build & upload step); fix: sawd-web PR#274 merged (isIOSNative() Stripe checkout gate); after build: owner responds to ASC 3.1.1 rejection → run ios-submit.yml
+- **Session-36 (2026-10-28)**: Wave-45 + accountable-law-api merge + org-wide 0 HIGH/CRIT confirmed:
+  - accountable-law-api PR#134 MERGED: MD/VA ID-bound fix (VARCHAR(20) overflow) + MO ScraperAPI residential proxy (courts.mo.gov blocks all datacenter IPs); rebased after conflict in `_slug()` signature + `_parse_pdf_page()` incremental rewrite; ⚠️ SCRAPER_API_KEY secret pending in GH repo (scraper fails gracefully if missing)
+  - omnihealth-ehr PR#552 AUTO-CLOSED (base was feat/ehr-wave44, deleted post-merge); PR#553 MERGED: wave-45 — anesthesiology, pathology, clinical-laboratory, diagnostic-radiology, hospitalist, clinical-microbiology (6 routes + 6 React pages)
+  - uninsurance PR#376 (daily compliance report 2026-10-28) already merged by auto-process
+  - **0 HIGH/CRITICAL Dependabot alerts org-wide confirmed** (sweep across all 30 repos)
+  - SAWD iOS build 40703843794 still in_progress "Build & upload to TestFlight" ~55+ min; monitor bncbfi04o watching
   - posture.json committed bbb9271 on chore/compliance-privacy
   - **0 active HIGH/CRITICAL alerts portfolio-wide confirmed; 100%/0 P0s**
 - **Session-33 (2026-10-28)**: Three remaining open alerts resolved + minor-patch sweeps:
