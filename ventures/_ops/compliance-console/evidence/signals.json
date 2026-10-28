@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-28T16:44:17.905Z",
+  "collectedAt": "2026-10-28T17:17:08.854Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1407,8 +1407,8 @@
       "esd": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1432,8 +1432,8 @@
       "dextroheart": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "master: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "master: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "fail",
