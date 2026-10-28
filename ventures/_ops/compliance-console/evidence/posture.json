@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T15:07:03.307Z",
+  "generatedAt": "2026-10-28T16:44:18.042Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -3072,7 +3072,7 @@
       "id": "sawd",
       "name": "SAWD",
       "repo": "ventures/sawd-ai/Sawd-finance",
-      "github": "tabulamedica246-web/Sawd-finance",
+      "github": "Tabula-medica/sawd-web",
       "gcpProject": "sawd-app-2026",
       "domains": [
         "sawd.ai",
@@ -3080,7 +3080,7 @@
       ],
       "phi": "none",
       "dataClass": "financial PII, tax data (IRS e-file, EFIN 102371)",
-      "stack": "React + Base44 (live app sawd.ai); Sawd-finance repo = canonical GitHub mirror",
+      "stack": "React + Base44 (live app sawd.ai); sawd-web = canonical GitHub repo under Tabula-medica",
       "inScope": [
         "soc2",
         "iso27001",
@@ -3574,7 +3574,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "TruffleHog OSS in CI workflows (native secret scanning requires GHAS)"
+          "detail": "native secret scanning enabled + push-protection"
         },
         {
           "id": "SEC-03",
@@ -3633,7 +3633,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "Semgrep OSS SAST in CI workflows (native code-scanning requires GHAS)"
+          "detail": "code-scanning analyses present"
         },
         {
           "id": "CM-01",
@@ -3661,7 +3661,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "github",
-          "detail": "main: required PR reviews on (1 approval)"
+          "detail": "master: PR review enforced via ruleset (1 approval)"
         },
         {
           "id": "CM-02",
