@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-27T16:36:23.786Z",
+  "collectedAt": "2026-10-28T14:37:47.086Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1107,8 +1107,8 @@
       "uninsurance": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: required PR reviews on (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1132,8 +1132,8 @@
       "underinsured": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1145,7 +1145,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "11 workflow(s) configured"
+            "detail": "10 workflow(s) configured"
           }
         },
         "meta": {
@@ -1157,8 +1157,8 @@
       "phr": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1195,7 +1195,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "12 workflow(s) configured"
+            "detail": "13 workflow(s) configured"
           }
         },
         "meta": {
@@ -1232,8 +1232,8 @@
       "cognita": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1245,7 +1245,7 @@
           },
           "ciTests": {
             "verdict": "pass",
-            "detail": "9 workflow(s) configured"
+            "detail": "10 workflow(s) configured"
           }
         },
         "meta": {
@@ -1257,8 +1257,8 @@
       "attentiva": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1282,8 +1282,8 @@
       "omnihealth": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1307,8 +1307,8 @@
       "aco": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1382,8 +1382,8 @@
       "mds-platform": {
         "signals": {
           "branchProtection": {
-            "verdict": "pass",
-            "detail": "main: PR review enforced via ruleset (1 approval)"
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
           },
           "secretScanning": {
             "verdict": "pass",
@@ -1403,6 +1403,131 @@
           "branch": "main",
           "available": true
         }
+      },
+      "esd": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "fail",
+            "detail": "main: protection exists but required PR reviews NOT configured"
+          },
+          "secretScanning": {
+            "verdict": "pass",
+            "detail": "native secret scanning enabled + push-protection"
+          },
+          "codeScanning": {
+            "verdict": "pass",
+            "detail": "code-scanning analyses present"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "3 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/energystoragedisease-web",
+          "branch": "main",
+          "available": true
+        }
+      },
+      "dextroheart": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "fail",
+            "detail": "master: protection exists but required PR reviews NOT configured"
+          },
+          "secretScanning": {
+            "verdict": "fail",
+            "detail": "secret scanning NOT enabled (no native or TruffleHog/Gitleaks in CI)"
+          },
+          "codeScanning": {
+            "verdict": "fail",
+            "detail": "no code-scanning analyses or SAST CI tool found"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "2 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/dextroheart-mobile",
+          "branch": "master",
+          "available": true
+        }
+      },
+      "vista-pd": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "pass",
+            "detail": "main: required PR reviews on (1 approval)"
+          },
+          "secretScanning": {
+            "verdict": "pass",
+            "detail": "native secret scanning enabled + push-protection"
+          },
+          "codeScanning": {
+            "verdict": "pass",
+            "detail": "code-scanning analyses present"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "10 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/vista-pd",
+          "branch": "main",
+          "available": true
+        }
+      },
+      "continuouseeg": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "pass",
+            "detail": "master: PR review enforced via ruleset (1 approval)"
+          },
+          "secretScanning": {
+            "verdict": "fail",
+            "detail": "secret scanning NOT enabled (no native or TruffleHog/Gitleaks in CI)"
+          },
+          "codeScanning": {
+            "verdict": "fail",
+            "detail": "no code-scanning analyses or SAST CI tool found"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "3 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/continuouseeg-web",
+          "branch": "master",
+          "available": true
+        }
+      },
+      "diabeticneuropathy": {
+        "signals": {
+          "branchProtection": {
+            "verdict": "pass",
+            "detail": "master: PR review enforced via ruleset (1 approval)"
+          },
+          "secretScanning": {
+            "verdict": "fail",
+            "detail": "secret scanning NOT enabled (no native or TruffleHog/Gitleaks in CI)"
+          },
+          "codeScanning": {
+            "verdict": "fail",
+            "detail": "no code-scanning analyses or SAST CI tool found"
+          },
+          "ciTests": {
+            "verdict": "pass",
+            "detail": "3 workflow(s) configured"
+          }
+        },
+        "meta": {
+          "slug": "Tabula-medica/diabeticneuropathy-web",
+          "branch": "master",
+          "available": true
+        }
       }
     },
     "deps": {
@@ -1410,15 +1535,15 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 4, low 0)"
+            "detail": "0 prod high/critical (moderate 4, low 1)"
           }
         }
       },
       "underinsured": {
         "signals": {
           "noCriticalVulns": {
-            "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 3, low 0)"
+            "verdict": "fail",
+            "detail": "0 critical + 3 high (3 actionable)"
           }
         }
       },
@@ -1466,7 +1591,7 @@
         "signals": {
           "noCriticalVulns": {
             "verdict": "pass",
-            "detail": "0 prod high/critical (moderate 0, low 0)"
+            "detail": "0 prod high/critical (moderate 1, low 0)"
           }
         }
       },
