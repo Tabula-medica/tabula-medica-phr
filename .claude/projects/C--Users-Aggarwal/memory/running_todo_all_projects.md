@@ -7,7 +7,22 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-28 world-ehr-base #79 merged; EHR #550 + SAWD iOS 40703843794 in progress)
+# MASTER RUNNING TODO — all projects (updated 2026-10-28 session-35: EHR#550 + uninsurance#378 + tabula-phr-unified#23 merged; SAWD iOS 40703843794 in progress)
+
+---
+
+### 2026-10-28 session-35 — portfolio sweep: 5 PRs merged, deepmerge dismissed, iOS still building
+
+- **omnihealth-ehr PR#550 MERGED** ✅ — feat(ehr-wave44): autoinflammatory/VTE/pleural/neuromuscular/aortic/pulm-rehab; all CI green
+- **uninsurance PR#378 MERGED** ✅ — fix(sec): qs>=6.16.1 MODERATE ReDoS override + lockfile regen (pnpm10 mismatch fixed)
+- **tabula-phr-unified PR#23 MERGED** ✅ — feat(find-doctor): Medicare details panel from CMS (enrollment, affiliations, telehealth); + eslint lint fixes (hooks pattern + AlertCircle import)
+- **accountable-law-api PR#161 AUTO-MERGED** ✅ — perf(db): partial index attorneys.last_discipline_date (CREATE INDEX CONCURRENTLY, ~10x faster /recent)
+- **world-ehr-base PR#79 MERGED** ✅ — chore(deps): Dependabot minor-patch group (5 updates)
+- **deepmerge LOW GHSA-gcqx-w48m-w2h4 DISMISSED** ✅ — no fix available; dismissed tolerable_risk in uninsurance#192, sawd-backend#48, noorjyoti-app#148
+- **SAWD iOS build 40703843794** — in_progress at "Build & upload to TestFlight" (~40min elapsed); after success: run `gh workflow run ios-submit.yml --repo Tabula-medica/sawd-web --ref master` to submit to ASC
+- **Portfolio**: 0 HIGH/CRIT alerts confirmed ✅; posture.json committed bbb9271
+
+**Owner gate**: ASC Resolution Center appstoreconnect.apple.com/apps/6784523327 — must respond to 3.1.1 rejection before resubmit counts
 
 ---
 
