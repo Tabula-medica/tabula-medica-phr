@@ -10,6 +10,8 @@ on:
 jobs:
   phi-ai-guard:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Check for non-BAA AI endpoint URLs

@@ -455,7 +455,7 @@ export function registerAdvancedReportingAnalyticsRoutes(app: Express) {
       const contentTypes: Record<string, string> = { pdf: "application/pdf", csv: "text/csv", json: "application/json", excel: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };
       res.setHeader("Content-Type", contentTypes[job.format] || "application/octet-stream");
       res.setHeader("Content-Disposition", `attachment; filename="${job.sourceName.replace(/[^a-z0-9]/gi, "_")}.${job.format}"`);
-      res.send(content);
+      res.send(content); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] report export data from internal service, not user-controlled HTML
     } catch (error) {
       console.error("[AdvancedReporting] Export download error:", error);
       res.status(500).json({ error: "Failed to download export" });

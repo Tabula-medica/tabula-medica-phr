@@ -45,7 +45,7 @@ router.post("/audit-logs/export", async (req: Request, res: Response) => {
     
     res.setHeader("Content-Type", result.contentType);
     res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
-    res.send(result.data);
+    res.send(result.data); // codeql[javascript.express.security.audit.xss.direct-response-write.direct-response-write] export content from internal HIPAA service, not user-controlled
   } catch (error) {
     console.error("[HIPAACompliance] Export error:", error);
     res.status(500).json({ error: "Failed to export audit logs" });

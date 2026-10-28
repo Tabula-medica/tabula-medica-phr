@@ -14,6 +14,7 @@ const useIamAuth = process.env.DB_IAM_AUTH === "true";
 async function getIamAccessToken(): Promise<string> {
   const metadataUrl =
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"; // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
+  // codeql[typescript.react.security.react-insecure-request] server-side GCP metadata endpoint requires http:// by design
   const res = await fetch(metadataUrl, {
     headers: { "Metadata-Flavor": "Google" },
   });

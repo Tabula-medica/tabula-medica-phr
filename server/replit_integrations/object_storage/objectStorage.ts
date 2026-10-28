@@ -277,6 +277,7 @@ async function signObjectURL({
     method,
     expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
   };
+  // codeql[typescript.react.security.react-insecure-request] REPLIT_SIDECAR_ENDPOINT is an internal service URL configured by the platform, not user-controlled
   const response = await fetch(
     `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
     {
