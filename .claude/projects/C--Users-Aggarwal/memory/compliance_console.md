@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; EHR wave-45 #554 merged; dompurify CRIT underinsured-web #10 merged; SAWD iOS 40703843794 in-progress at Xcode step; 0 HC org-wide"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; phr #302 (AES-GCM authTagLength) + omnihealth #553 (wave-45) merged; 0 HIGH/CRIT org-wide"
 metadata: 
   node_type: memory
   type: project
@@ -9,7 +9,7 @@ metadata:
 
 Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/compliance-console/` — a self-hosted, AI-assisted GRC platform. Monitors 17 ventures against a unified 33-control library multi-framework-mapped to SOC2 TSC, HIPAA, ISO 27001/27701, GDPR/CCPA, etc.
 
-**Current posture: 100% / 0 P0s** (as of 2026-10-28, `chore/compliance-privacy` commit d577182)
+**Current posture: 100% / 0 P0s** (as of 2026-10-28, `chore/compliance-privacy` — posture refreshed post session-37)
 - **17 ventures** at 100%: uninsurance, underinsured, phr, sawd, ehr(archived), cognita, attentiva, omnihealth, aco, ltfm, accountable-law, mds-platform, **ESD, DextroHeart, VISTA-PD, ContinuEEG, DPN** (5 new added 2026-10-26)
 - New ventures added 2026-10-26 with full ventureOverride attestations in attestations.json
 - 11 ventures at 100% (posture verified 2026-10-22); MDS Platform added
@@ -144,6 +144,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - world-ehr-base PR#79 MERGED: Dependabot minor-patch group (5 updates)
   - deepmerge GHSA-gcqx-w48m-w2h4 LOW dismissed (no fix available, tolerable_risk): uninsurance#192, sawd-backend#48, noorjyoti-app#148
   - SAWD iOS TestFlight build 40703843794 in_progress (Build & upload step); fix: sawd-web PR#274 merged (isIOSNative() Stripe checkout gate); after build: owner responds to ASC 3.1.1 rejection → run ios-submit.yml
+- **Session-37 (2026-10-28)**: AES-GCM authTagLength Semgrep fixes + omnihealth wave-45 merge:
+  - tabula-medica-phr PR#302 MERGED: `fix/gcm-auth-tag-length` — `{ authTagLength: GCM_TAG_BYTES/AUTH_TAG_LENGTH }` added to createCipheriv/createDecipheriv in hi-crypto.ts + said-patient-id-service.ts; nosemgrep FPs suppressed in objectStorage.ts (loopback) + db.ts (GCP metadata server); CMS NPI enrichment route `/cms/:npi` added as pre-existing uncommitted change
+  - omnihealth-ehr PR#552 CLOSED (wrong base `feat/ehr-wave44`); PR#553 MERGED: wave-45 — anesthesiology, pathology, clinical-laboratory, diagnostic-radiology, hospitalist, clinical-microbiology; `Analyze (javascript-typescript)` failure was SARIF upload permissions error (not a real finding); build-test passed
+  - 0 HIGH/CRITICAL alerts org-wide confirmed (full sweep of all active repos)
+  - posture.json regenerated: **17 ventures, 100%, 0 P0s**
 - **Session-36 (2026-10-28)**: Wave-45 + accountable-law-api merge + org-wide 0 HIGH/CRIT confirmed:
   - accountable-law-api PR#134 MERGED: MD/VA ID-bound fix (VARCHAR(20) overflow) + MO ScraperAPI residential proxy (courts.mo.gov blocks all datacenter IPs); rebased after conflict in `_slug()` signature + `_parse_pdf_page()` incremental rewrite; ⚠️ SCRAPER_API_KEY secret pending in GH repo (scraper fails gracefully if missing)
   - omnihealth-ehr PR#552 AUTO-CLOSED (base was feat/ehr-wave44, deleted post-merge); PR#553 MERGED: wave-45 — anesthesiology, pathology, clinical-laboratory, diagnostic-radiology, hospitalist, clinical-microbiology (6 routes + 6 React pages)
