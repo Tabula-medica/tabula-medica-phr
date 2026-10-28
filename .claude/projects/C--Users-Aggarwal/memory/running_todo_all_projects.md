@@ -7,7 +7,15 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-28 PHR #301 merged; SAWD iOS re-triggered)
+# MASTER RUNNING TODO — all projects (updated 2026-10-28 underinsured-web dompurify CRIT fixed; SAWD iOS pending)
+
+---
+
+### 2026-10-28 session-31 — underinsured-web dompurify CRITICAL (alert #25)
+
+- **tabula-underinsured-web PR#10 MERGED** ✅ — `dompurify>=3.4.17` override (GHSA-cg2g-xh64-v4q7 CRITICAL); lockfile resolves 3.4.17; CodeQL pass; alert auto-closes after GitHub re-analysis
+- **SAWD iOS build run 40696247764** — `pending` in GitHub queue since 13:25Z (bundle exec fastlane fix in PR#273 merged); no action needed
+- **Portfolio sweep**: 0 HC alerts (underinsured #25 fix merged, pending auto-close); **100%/0 P0s**
 
 ---
 

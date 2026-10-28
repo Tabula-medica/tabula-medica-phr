@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-27; uninsurance #374 stale-GHSA done; chore/compliance-privacy = orphan branch on tabula-medica-phr remote (no PR); only gap = AV-03 WAF P2"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; underinsured-web dompurify CRIT PR#10 merged; chore/compliance-privacy = orphan branch on tabula-medica-phr remote (no PR); only gap = AV-03 WAF P2"
 metadata: 
   node_type: memory
   type: project
