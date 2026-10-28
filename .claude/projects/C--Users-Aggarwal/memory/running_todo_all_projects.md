@@ -7,7 +7,37 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-28 underinsured-web dompurify CRIT fixed; SAWD iOS pending)
+# MASTER RUNNING TODO — all projects (updated 2026-10-28 world-ehr-base #79 merged; EHR #550 + SAWD iOS 40703843794 in progress)
+
+---
+
+### 2026-10-28 session-34 — world-ehr-base #79 merged; EHR #550 + iOS build in progress
+
+- **world-ehr-base PR#79 MERGED** ✅ — chore(deps): Dependabot minor-patch group (5 updates, +107/-102); 2 CI checks pass
+- **omnihealth-ehr PR#550** — feat(ehr-wave44): 6 subspecialties (autoinflammatory/VTE/pleural/neuromuscular/aortic/pulm-rehab); CodeQL infra-fail (non-blocking, continue-on-error:true); build-test at "Test (api)" step; merge with `--admin` once build-test passes
+- **SAWD iOS build 40703843794** — at "Build & upload to TestFlight" (Xcode); all pre-steps done; after completion run `gh workflow run ios-submit.yml --repo Tabula-medica/sawd-web --ref master`
+- **SAWD App Store note**: owner must open ASC Resolution Center (appstoreconnect.apple.com/apps/6784523327) and respond to rejection before resubmit counts
+
+---
+
+### 2026-10-28 session-33 — SAWD iOS App Store 3.1.1 fix + PR #274 merged
+
+- **Root cause found**: `SubscriptionPlans.jsx` in sawd-web showed Stripe checkout inside Capacitor WebView → Guideline 3.1.1 violation. `isRunningInNativeApp()` only fires for Expo WebView (injects `window.__SAWD_NATIVE_APP__`); Capacitor uses `window.Capacitor` → detected by `isIOSNative()` in billing.js.
+- **sawd-web PR #274 MERGED** ✅ — fix(ios): add `isIOSNative()` to reader-app gate; iOS now shows "Manage at sawd.ai" screen instead of Stripe checkout. 2-line change.
+- **iOS build 40703843794 IN PROGRESS** — on fixed master SHA `a46a6379e5`; step: "Restore Xcode DerivedData cache"; ~45-90 min to complete. Watch: `gh run view 40703843794 --repo Tabula-medica/sawd-web`
+- **After build completes**: run `gh workflow run ios-submit.yml --repo Tabula-medica/sawd-web --ref master` to attach new build and submit for review (20 min, Ubuntu, no Xcode).
+- **Owner still needs to**: open ASC Resolution Center at appstoreconnect.apple.com/apps/6784523327 and respond to the rejection before resubmitting (Apple requires a response).
+
+---
+
+### 2026-10-28 session-32 — EHR social-work + dompurify sweep + posture.json
+
+- **omnihealth-ehr PR #530 MERGED** ✅ — feat(ehr-wave25): Social Work module (psychosocial assessments, discharge planning, community referrals); all CI green
+- **tabula-phr-unified PR#24 MERGED** ✅ — fix(deps): dompurify 3.4.16→3.4.17 (3 HIGH CVEs GHSA-*); lockfile patched
+- **tabula-underinsured-web PR#11 MERGED** ✅ — fix(deps): dompurify 3.4.15→3.4.17 (1 HIGH CVE); lockfile patched
+- **Zod alert #26 DISMISSED** ✅ — CVE-2023-54404 `tolerable_risk`; frontend-only static site, no server-side constrained arrays; v3→v4 is breaking major
+- **posture.json committed** ✅ — `chore/compliance-privacy` a971e05; generatedAt 2026-10-28; notes dep_sweep_2026_10_28; pushed to remote
+- **Portfolio**: 0 open HIGH/CRIT Dependabot alerts confirmed ✅
 
 ---
 
@@ -33,14 +63,14 @@ metadata:
 - **SAWD iOS TestFlight build run 40515721500** — still in_progress as of session end (~2h elapsed); build at Xcode/fastlane stage; may be stuck or long-running; check `gh run watch 40515721500 --repo Tabula-medica/sawd-web`
 - **world-ehr-base PR#58** — draft, failing `application-checks` (lockfile issue from 2026-10-14); stale agent PR; leave as draft
 
-**Owner-gated items still open (unchanged):**
+**Owner-gated items still open:**
 - Stripe keys + webhook registration → Base44 Secrets → Publish (SAWD)
-- SAWD v2.1 App Store rejection: check ASC Resolution Center → fix → attach new build → resubmit
+- SAWD v2.1 App Store rejection: open ASC Resolution Center (appstoreconnect.apple.com/apps/6784523327), respond to rejection, then I'll trigger ios-submit.yml to resubmit with new build
 - sawd-landers deploy (Trevor/legal gate)
 - §7216 consent text: Trevor review before CONSENT_7216_CLEARED flips true
 - worldehr-pg appuser password rotation (URGENT, leaked 2026-09-07)
 - iOS ASC: ESD App Privacy+Pricing → `eas submit --platform ios --latest`
-- iOS ASC gates for LTFM, NoorJyoti, WorldEHR, SAWD
+- iOS ASC gates for LTFM, NoorJyoti, WorldEHR
 
 ---
 
