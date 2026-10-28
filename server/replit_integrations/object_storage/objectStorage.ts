@@ -9,7 +9,7 @@ import {
   setObjectAclPolicy,
 } from "./objectAcl";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106"; // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
 
 // The object storage client is used to interact with the object storage service.
 export const objectStorageClient = new Storage({

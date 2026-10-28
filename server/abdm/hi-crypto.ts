@@ -191,7 +191,7 @@ export function decryptHealthInformation(content: string, secret: { key: Buffer;
   if (payload.length <= GCM_TAG_BYTES) throw new Error("encrypted content is too short to carry a GCM tag");
   const ciphertext = payload.subarray(0, payload.length - GCM_TAG_BYTES);
   const tag = payload.subarray(payload.length - GCM_TAG_BYTES);
-  const decipher = createDecipheriv("aes-256-gcm", secret.key, secret.iv);
+  const decipher = createDecipheriv("aes-256-gcm", secret.key, secret.iv, { authTagLength: GCM_TAG_BYTES });
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
@@ -202,7 +202,7 @@ export function decryptHealthInformation(content: string, secret: { key: Buffer;
  * instead of here.
  */
 export function encryptHealthInformation(plaintext: string, secret: { key: Buffer; iv: Buffer }): string {
-  const cipher = createCipheriv("aes-256-gcm", secret.key, secret.iv);
+  const cipher = createCipheriv("aes-256-gcm", secret.key, secret.iv, { authTagLength: GCM_TAG_BYTES });
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   return Buffer.concat([ciphertext, cipher.getAuthTag()]).toString("base64");
 }
