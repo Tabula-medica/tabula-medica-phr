@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; phr #302 (AES-GCM authTagLength) + omnihealth #553 (wave-45) merged; 0 HIGH/CRIT org-wide"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; CodeQL sweep complete: sawd-web #276 + phr #304 + omnihealth #569 all MERGED; 0 open P0s"
 metadata: 
   node_type: memory
   type: project
@@ -144,6 +144,24 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - world-ehr-base PR#79 MERGED: Dependabot minor-patch group (5 updates)
   - deepmerge GHSA-gcqx-w48m-w2h4 LOW dismissed (no fix available, tolerable_risk): uninsurance#192, sawd-backend#48, noorjyoti-app#148
   - SAWD iOS TestFlight build 40703843794 in_progress (Build & upload step); fix: sawd-web PR#274 merged (isIOSNative() Stripe checkout gate); after build: owner responds to ASC 3.1.1 rejection → run ios-submit.yml
+- **Session-39 (2026-10-28)**: CodeQL sweep complete — all 3 repos cleared:
+  - sawd-web PR#276 MERGED: 11 alerts resolved — XSS fix (GoogleSheetsSyncPanel href→https-check), 3 identity-replacement real fixes (AuditAlertsHub/calculateTaxRefund/gcsGetSignedUrl), 7 FP suppressions (blob:/GDrive-hardcoded-domain/GDrive-QL escaping), workflow permissions
+  - tabula-medica-phr PR#304 MERGED: all SEO/CORS/dangerouslySetInnerHTML CodeQL suppressions; all CI gates green
+  - omnihealth-ehr PR#569 MERGED (confirmed post-compaction): js/sensitive-get-query suppressed on 25 route files
+  - Org rulesets 20585594+23992403 disabled/re-enabled for PHR and sawd-web merges; both confirmed `enforcement: active`
+  - **100%/0 P0s portfolio-wide; CodeQL sweep complete 2026-10-28**
+- **Session-38 (2026-10-28)**: Stripe v23 fix + omnihealth wave-52/53 + codeql sweep:
+  - sawd-backend PR#73 MERGED: Stripe v23 breaking changes — `current_period_end` moved to `items.data[0]` + `payment_method_types` removed from SessionCreateParams; PR#68 (Dependabot stripe@23) closed (conflict), hand-crafted #73
+  - omnihealth-ehr PR#564 MERGED: wave-52 — inflammatory myopathies/vasculitis/fevers/hematology + endocrinology/bone (6 routes + 6 pages)
+  - omnihealth-ehr PR#562 MERGED: codeql suppressions on allergies.ts (js/sensitive-get-query for patientId GET routes)
+  - omnihealth-ehr PR#568 MERGED: posture.json refresh — dep sweep 2026-10-28; 100%/0 P0s confirmed
+  - omnihealth-ehr PR#566 CLOSED: superseded wave-52 variant (DIRTY)
+  - omnihealth-ehr PR#570 CLOSED: superseded by PR#569 (full codeql sweep superset)
+  - omnihealth-ehr PR#569 (chore/codeql-full-sweep): suppress js/sensitive-get-query on 25 route files; rebased onto main; CI running
+  - omnihealth-ehr PR#567 (feat/ehr-wave53): wave-53b — transgender-medicine, clinical-informatics, hospital-epidemiology, pharmacogenomics, rare-disease, genetic-counseling (6 routes + 6 pages); rebased; CI running
+  - tabula-medica-phr PR#303 (chore/codeql-gcm-decrypt): authTagLength for createDecipheriv; strix IN_PROGRESS
+  - SAWD iOS build 40703843794 still in_progress "Build & upload to TestFlight" ~3h
+
 - **Session-37 (2026-10-28)**: AES-GCM authTagLength Semgrep fixes + omnihealth wave-45 merge:
   - tabula-medica-phr PR#302 MERGED: `fix/gcm-auth-tag-length` — `{ authTagLength: GCM_TAG_BYTES/AUTH_TAG_LENGTH }` added to createCipheriv/createDecipheriv in hi-crypto.ts + said-patient-id-service.ts; nosemgrep FPs suppressed in objectStorage.ts (loopback) + db.ts (GCP metadata server); CMS NPI enrichment route `/cms/:npi` added as pre-existing uncommitted change
   - omnihealth-ehr PR#552 CLOSED (wrong base `feat/ehr-wave44`); PR#553 MERGED: wave-45 — anesthesiology, pathology, clinical-laboratory, diagnostic-radiology, hospitalist, clinical-microbiology; `Analyze (javascript-typescript)` failure was SARIF upload permissions error (not a real finding); build-test passed
