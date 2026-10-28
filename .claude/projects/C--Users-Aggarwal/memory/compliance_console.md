@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; underinsured-web dompurify CRIT PR#10 merged; chore/compliance-privacy = orphan branch on tabula-medica-phr remote (no PR); only gap = AV-03 WAF P2"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; omnihealth #551 qs MEDIUM merged; 0 active HIGH/CRIT org-wide; only gap = AV-03 WAF P2"
 metadata: 
   node_type: memory
   type: project
@@ -9,7 +9,7 @@ metadata:
 
 Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/compliance-console/` — a self-hosted, AI-assisted GRC platform. Monitors 17 ventures against a unified 33-control library multi-framework-mapped to SOC2 TSC, HIPAA, ISO 27001/27701, GDPR/CCPA, etc.
 
-**Current posture: 100% / 0 P0s** (as of 2026-10-26, `chore/compliance-privacy` commit 7ef8af2)
+**Current posture: 100% / 0 P0s** (as of 2026-10-28, `chore/compliance-privacy` commit d577182)
 - **17 ventures** at 100%: uninsurance, underinsured, phr, sawd, ehr(archived), cognita, attentiva, omnihealth, aco, ltfm, accountable-law, mds-platform, **ESD, DextroHeart, VISTA-PD, ContinuEEG, DPN** (5 new added 2026-10-26)
 - New ventures added 2026-10-26 with full ventureOverride attestations in attestations.json
 - 11 ventures at 100% (posture verified 2026-10-22); MDS Platform added
@@ -136,6 +136,31 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
 
 - **Session-30 (2026-10-27)**: EHRB PR #63 MERGED — react-router-dom 6.30.4→6.30.6 (GHSA-jjmj-jmhj-qwj2); transitive fix: react-router@6.30.6 + @remix-run/router@1.23.4 hoisted (Cursor Bugbot caught incomplete initial hoist); 0 open Dependabot alerts on EHRB; **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 
+- **Session-35 (2026-10-28)**: Multi-repo sweep — 5 PRs merged + deepmerge dismissed + SAWD iOS building:
+  - omnihealth-ehr PR#550 MERGED: feat(ehr-wave44) — autoinflammatory/VTE/pleural/neuromuscular/aortic/pulm-rehab; all CI green
+  - uninsurance PR#378 MERGED: qs >=6.16.1 MODERATE ReDoS override + pnpm lockfile regen (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH fixed)
+  - tabula-phr-unified PR#23 MERGED: Find Doctor CMS Medicare details panel (enrollment, affiliations, telehealth) + eslint lint fixes (hooks pattern + AlertCircle import)
+  - accountable-law-api PR#161 AUTO-MERGED: perf(db) partial index attorneys.last_discipline_date (CREATE INDEX CONCURRENTLY, ~10x faster /recent)
+  - world-ehr-base PR#79 MERGED: Dependabot minor-patch group (5 updates)
+  - deepmerge GHSA-gcqx-w48m-w2h4 LOW dismissed (no fix available, tolerable_risk): uninsurance#192, sawd-backend#48, noorjyoti-app#148
+  - SAWD iOS TestFlight build 40703843794 in_progress (Build & upload step); fix: sawd-web PR#274 merged (isIOSNative() Stripe checkout gate); after build: owner responds to ASC 3.1.1 rejection → run ios-submit.yml
+  - posture.json committed bbb9271 on chore/compliance-privacy
+  - **0 active HIGH/CRITICAL alerts portfolio-wide confirmed; 100%/0 P0s**
+- **Session-33 (2026-10-28)**: Three remaining open alerts resolved + minor-patch sweeps:
+  - omnihealth-ehr PR#551 MERGED: `qs >=6.16.1` (GHSA-6pq8-jhm2-2vcw MEDIUM) — override added + lockfile resolves to 6.16.2; express/googleapis runtime chain patched
+  - sawd-backend PR#65 MERGED: minor-patch group — @aws-sdk/client-s3 + @aws-sdk/s3-request-presigner + dotenv
+  - noorjyoti-app PR#136 MERGED: minor-patch group — http-proxy-middleware 4.2.0→4.2.1 + react-resizable-panels
+  - uninsurance xmldom GHSA-6h8r-xr42-gp59 (MEDIUM) #183: already dismissed (eas-cli build-tool only, in ignoreGhsas from PR#375)
+  - phr deepmerge GHSA-gcqx-w48m-w2h4 (LOW) #587: dismissed (no user-facing deepmerge calls on untrusted input)
+  - Org-wide: **0 active HIGH/CRITICAL alerts** confirmed
+  - Deferred MAJOR open PRs: sawd-mobile(expo57→58, rn-iap16→17), ltfm-mobile(expo57→58, rn0.86→0.88), unraj-mobile(expo57→58), sawd(react18→19/vite6→8/express4→5), sawd-backend(plaid/stripe/jose/anthropic-sdk MAJOR)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-28** (posture.json d577182)
+- **Session-32 (2026-10-28)**: dompurify CRITICAL/HIGH wave (GHSA-cg2g-xh64-v4q7 + GHSA-mrv2-3pqr-j5jr) resolved in 2 Base44 npm repos:
+  - tabula-phr-unified PR#25 MERGED: `overrides.dompurify` `>=3.4.16`→`>=3.4.17`; lockfile regenerated (commit a67eefb already resolved to 3.4.17); zod already at `^4.6.7` (no further action)
+  - tabula-underinsured-web PR#12 MERGED: added `"dompurify": ">=3.4.17"` to npm overrides; lockfile regenerated in fix/dompurify-critical-alert25 (commit 102d0f4); zod@3 `GHSA-mrhx-c7xc-m3w5` separate deferred PR
+  - org rulesets 20585594+23992403 disabled/re-enabled for both merges; confirmed `enforcement: active` post-merge
+  - posture.json regenerated: **17 ventures, 100%, 0 P0s** (commit c3603c3)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-28**
 - **Session-31 (2026-10-27)**: Verification sweep — 0 HIGH/CRIT Dependabot alerts org-wide (confirmed via API); all 10 open Dependabot PRs are MAJOR version bumps (expo 57→58, react 18→19, vite 6→8, react-native-iap 16→17) across sawd-mobile/unraj-mobile/ltfm-mobile/sawd — all deferred per policy; accountable-law-api PR#134 rebase aborted (chore/mobar-scraperapi conflict in scrape_mdbar.py; requires independent human review per PR body — left for owner); SAWD iOS TestFlight build run 40515721500 in progress 3h+ at "Build & upload to TestFlight" step; **100%/0 P0s portfolio-wide; only gap = AV-03 WAF P2**
 
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
