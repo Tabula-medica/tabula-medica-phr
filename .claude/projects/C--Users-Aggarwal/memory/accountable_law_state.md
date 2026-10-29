@@ -1,13 +1,13 @@
 ---
 name: accountable-law-state
-description: "accountablehub.com — 12 state bars live (MO/VA/MD pending gate); MO=USER GATE SCRAPER_API_KEY; PR #134 open"
+description: "accountablehub.com — 33 states live (CA/NY/FL/GA/NJ/PA/NC/OH/WA/TX/IL/VA/MD/AZ/CO/WI/MI/TN/DE/ME/SC/AR/WV/ID/IN/AL/IA/LA/HI/OR/MT/UT ~212 records); MO=USER GATE SCRAPER_API_KEY PR#134"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 387c3ff7-0ec8-4aa2-8dc3-d4db09d71141
 ---
 
-## accountablehub.com — Current State (2026-10-26)
+## accountablehub.com — Current State (2026-10-28)
 
 ### Domain & Deployment
 - **Canonical domain**: `accountablehub.com` (CF Pages, branch: `master`)
@@ -44,6 +44,10 @@ Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 - OH: 12:00 UTC (--nightly, BPCCM pages 1-10, scrape_ohbar.py)
 - CA: scrape-calbar.yml 3:00 UTC (seed-recent mode)
 - WA: scrape-wabar.yml 4:30 UTC
+- VA: 14:00 UTC; MD: 15:00 UTC; AZ: 16:00 UTC; CO: 17:00 UTC; WI: 18:00 UTC; MI: 19:00 UTC
+- TN: 20:00 UTC; DE: 21:00 UTC; ME: 22:00 UTC; SC: 23:00 UTC; AR: 1:00 UTC; LA: 1:30 UTC
+- HI: 2:30 UTC; OR: 3:30 UTC (OSBAR pending HTML PDFs — nightly mode); WV: 3:00 UTC
+- ID: 4:00 UTC; IN: 13:00 UTC; AL: 0:00 UTC; IA: 0:30 UTC
 
 ### NJ DRB Scraper (merged PR #120, seeded 2026-10-26):
 - 3,004 NJ attorneys seeded from drblookupportal.judiciary.state.nj.us
@@ -71,6 +75,21 @@ Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 - Sweeps status=Disbarred (1,025) + status=Suspended (657) = 1,682 total
 - Detail endpoint `/api/disciplineSearch?id=X` rate-limited from cloud IPs; falls back to status-only record
 - Bar format: PA-{numeric_id} (e.g., PA-28662)
+
+### OR OSBAR Scraper (PR #154+#155, seeded 2026-10-27):
+- Source: annual Disciplinary Board Reporter PDFs (dbr37=2023, dbr38=2024, dbr39=2025) + pending-cases HTML (2026 individual PDFs)
+- 91 records seeded across 2023–2026; nightly mode fetches only pending HTML page (12 PDFs)
+- Bar format: OR-{6-digit bar no} (e.g., OR-033277); case: OR-{year}-{barno}
+- pdfplumber page-by-page extraction; two-line Bar No fallback regex handles split-line cases
+- Nightly cron: 03:30 UTC (pending HTML only)
+
+### UT OPC Scraper (PRs #157+#158+#159, seeded 2026-10-27):
+- Source: OPC master discipline PDF (~66MB, ~600 pages); streamed to /tmp, parsed with PyMuPDF (fitz)
+- 212 records: 47 Disbarred / 58 Suspended / 107 Reprimanded; dates 1989–2026
+- OOM fix (PR #159): replaced pdfplumber+io.BytesIO with fitz+streaming download — peak RAM ~300MB vs >4Gi
+- Bar format: UT-{last_slug}-{first4}; nightly cron: 05:30 UTC Monday (bar journal pub lag)
+- Seed run (scrape-utbar-seed-seed-46cjp) completed successfully in 2m10s 2026-10-27
+- GOTCHA: pdfminer loads full page-tree into RAM; for large PDFs use pymupdf instead
 
 ### MO Scraper Gate (PR #134, 2026-10-26):
 - courts.mo.gov blocks ALL datacenter IPs (GCP + Azure) — server-side IP block confirmed
@@ -106,12 +125,27 @@ Other data: Hospitals 3,428 · Charities 1.97M · Physicians 134,070
 All entity types have CF Pages Function SSR injection. PRs #78–#96 all merged.
 Sitemaps: `/sitemap.xml` (index) → sitemap-main, sitemap-attorneys (paginated), sitemap-charities, sitemap-physicians.
 
+### API Hardening (2026-10-28, PRs #164–#170 merged):
+- **#164**: Fixed Cloudflare Turnstile `cf-turnstile-response` form field not being parsed (AliasChoices → alias)
+- **#165**: Migrated `on_event("startup")` → lifespan handler; fixed `datetime.utcnow()` in scrape_mdbar.py
+- **#166**: Pydantic V2 ConfigDict migration for Settings
+- **#167**: Added missing `@limiter.limit()` to charities /search /top /{ein}, filings /{ein}, procedures /search /top /autocomplete
+- **#168**: Replaced `datetime.utcnow()` across all 33 ingestion scrapers + sync_attorneys.py
+- **#169**: Parameterized INTERVAL SQL in /attorneys/recent; fixed NY status word prefixes; +39 tests (57→96)
+- **#170**: Fixed "suspend"/"admonish" prefix bug in FL/MD/NC/PA/TX action maps; +34 tests (96→130)
+- **#171**: Fixed GA parse_name suffix bug + CO probation-revoc mis-mapping; +91 tests (130→221) for GA/NJ/CO/AL
+- Suite: **833 passed / 10 skipped** (10 skips = UT tests requiring PyMuPDF/fitz not installed locally)
+- **Full coverage across all production code** (scrapers + services + security + sync utilities)
+- PRs merged: #173–#177 (scraper/service/security coverage) · #178 (ci.yml test workflow) · #179 (deploy.yml test gate before GCP auth) · #180 (_summary() 22 tests — last coverage gap closed)
+- Only remaining warning = slowapi third-party asyncio.iscoroutinefunction (suppressed in pytest.ini)
+
 ### Open Work (user gates only):
 1. **iOS final submit** (USER GATE): App Privacy → "Data Not Collected" → Published; Pricing → Free in ASC UI; then `node asc-attach-latest-build.cjs` → `node asc-final-submit.cjs` in `repos/accountablehub-mobile/`
 2. **Android production** (USER GATE): Store listing + content rating + promote from internal track in Play Console
 3. **Viral launch** (USER GATE): ProductHunt + HN + Twitter (drafts in LAUNCH-KIT.md — verify numbers before posting)
 4. **Submit sitemaps to GSC** (USER GATE): submit `https://accountablehub.com/sitemap.xml`
-5. **Resend key** (USER GATE): `gcloud secrets create accountable-law-resend-key --data-file=- <<< "re_..."` + verify `alerts@accountablehub.com` sender domain
+5. **Resend key** (USER GATE): `gcloud secrets create accountable-law-resend-key --data-file=- <<< "re_..."` + verify `alerts@accountablehub.com` sender domain (alerts workflow failing with "secret not found")
+6. **MO scraper** (USER GATE): `gh secret set SCRAPER_API_KEY --repo Tabula-medica/accountable-law-api` (MO seed run #40720386849 failed with "SCRAPER_API_KEY secret not set")
 
 ### Deploys — Known Gotchas:
 - Cloud SQL URL in Secret Manager uses `@localhost/dbname?host=/cloudsql/...` format (not `@/dbname`)
