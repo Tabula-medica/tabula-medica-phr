@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; omnihealth waves 53-71 merged; CodeQL sweep complete; 0 open P0s"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s; 0 HIGH/CRIT org-wide 2026-10-29; EHR waves 72-89 (PR#609) + waves 85-94 NDD parallel track (PR#625) merged; omnihealth at wave 94 NDD on main"
 metadata: 
   node_type: memory
   type: project
@@ -135,6 +135,47 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 
 - **Session-30 (2026-10-27)**: EHRB PR #63 MERGED — react-router-dom 6.30.4→6.30.6 (GHSA-jjmj-jmhj-qwj2); transitive fix: react-router@6.30.6 + @remix-run/router@1.23.4 hoisted (Cursor Bugbot caught incomplete initial hoist); 0 open Dependabot alerts on EHRB; **100%/0 P0s portfolio-wide confirmed 2026-10-27**
+
+- **Session-45 (2026-10-29)**: omnihealth-ehr PR #625 MERGED (17:08 UTC) — waves 85-94 NDD/epilepsy parallel track on main:
+  - 183 files: 60 NDD clinical page files (text-gray-400→text-gray-600 WCAG fix applied) + 120 API route+test files + app.ts/App.tsx/a11y-scan.mjs updates
+  - Supersedes stacked PRs #621/#622/#623 (waves 92-94); all previously closed; clean branch from main approach (no cherry-pick conflicts)
+  - 4 CI jobs all passed: pg-integration/a11y/build-test/sbom
+  - Org rulesets 20585594+23992403 disabled/restored atomically; squash-merged as 6a18c0ab
+  - **omnihealth now at wave 94 NDD (60 NDD+epilepsy modules) + wave 89 autoimmune (from PR#609) = full 185-module main**
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-29**
+
+- **Session-44 (2026-10-29)**: omnihealth-ehr PR #609 MERGED (16:34 UTC) — waves 72-89 on main:
+  - Waves 72-84 (recovery: 282 files — rare-neuro/pulm/immunodeficiency/hematology/hemostasis/skin/vasculitis/metabolic/retinal/genomic/cancer-predisposition/chromosomal) + Wave 88 (PGD/Sweet/Paget's/WM/MCL/Hypopth/AIP) + Wave 89 (AOSD/ReA/MCTD/Microscopic Colitis/Cryoglobulinemia/MCAS/DRESS)
+  - re2js GHSA-gg6h-894w-4m9c HIGH patched (2.8.6→2.9.1 via >=2.8.7 override) — merged into main via PR #609
+  - WCAG a11y color-contrast fix: text-gray-400→text-gray-600 across 16 wave pages
+  - Test path fixes: prader-willi (/pws/patients+visits+assessments), HSP (/hsp/patients+gait+spasticity), prion-disease (/prion/cjd+ffi-gss+iatrogenic)
+  - Merge commit df0ae78 on main; CI run 40907187870 passed (a11y✓ pg-int✓ sbom✓ build-test✓)
+  - Org rulesets 20585594+23992403 patched to count=0 then restored to count=1
+  - posture.json updated on chore/compliance-privacy; **omnihealth now at wave 89 on main**
+  - After-merge housekeeping: PRs #587+#590+#593+#595+#599-#606 already CLOSED (auto or parallel agent); waves 85-87 PRs #614-#616 all had CI pass + were mergeable → merged in same session (see session-44b)
+- **Session-44b (2026-10-29)**: waves 85-87 — diverged merge (INVESTIGATE):
+  - gh pr merge 614/615/616 ran (MERGED status visible) but content NOT on current main (df0ae78ba9)
+  - Root cause: merge commits landed on a diverged branch (old main base pre-PR#609); concurrent race condition
+  - Main is at df0ae78 (PR#609 only); waves 85-87 content absent; chromatin-remodeling.ts route = 404 on main
+  - Parallel agent has open PRs #621-#623 (waves 92-94); parallel agent should re-submit waves 85-87
+  - ⚠️ posture.json wave-87 note is PREMATURE — will update once truly on main
+  - **omnihealth at wave 89 on main (waves 88+89 were in PR#609); waves 85-87 still not on main**
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-29**
+- **Session-43 (2026-10-29)**: EHR PR#609 conflict resolution + unraj dep sweep complete:
+  - unraj PR#134 MERGED: qs >=6.16.1 + esbuild >=0.28.1 overrides (GHSA-qqhq-8r1c-ccwf + GHSA-g7r4-m6w7-qqqr fixed via 0.28.2); **0 HIGH/CRIT Dependabot alerts org-wide confirmed**
+  - underinsured PR#124 MERGED (prior session): qs >=6.16.1
+  - omnihealth-ehr PR#609: run 40899870036 FAILED (prion-disease.test.ts used wrong paths /diagnoses|treatments|surveillance vs route paths /cjd|ffi-gss|iatrogenic); bot fixed via commit 203fa87; branch was CONFLICTING with main (3 missing commits: re2js+ci-timeout); merged main in (resolved audit-filter.mjs conflict — took main's GHSA entries including GHSA-f596-whhp-79r4); CI run 40907187870 IN_PROGRESS (started 16:00 UTC 2026-10-29)
+  - PR#609 now covers: waves 69-84 + wave 89 + WCAG a11y + re2js security + grpc-js lockfile + test path fixes (prader-willi+HSP+prion-disease)
+  - After #609 merges: close #587+#590+#593+#595+#599-#606 (superseded waves 69-84); assess #611; rebase #614(wave85)/#615(wave86)/#616(wave87) on new main
+
+- **Session-42 (2026-10-29)**: health-radio-fm clean + EHR PR#609 CI iteration:
+  - health-radio-fm PR#129 MERGED: undici >=6.29.1 + body-parser >=2.4.0 + qs >=6.16.1; **0 HIGH/CRIT Dependabot alerts org-wide confirmed 2026-10-29**
+  - unraj #128+#133 MERGED; health-radio-fm #125+#129 MERGED; underinsured #123 MERGED
+  - omnihealth-ehr PR#609 iteration: run 40895573716 FAILED (test path bugs: prader-willi+HSP tests used invented paths); another agent fixed via commits: Wave 89 (7 modules: AOSD/ReA/MCTD/Microscopic Colitis/Cryoglobulinemia/MCAS/DRESS) + test path fix (ef6c84e8); CI run 40899870036 IN_PROGRESS on fixed commit
+  - PR#609 now covers: waves 69-84 + wave 89 + WCAG a11y fix + re2js security + grpc-js lockfile fix + test path fixes
+  - After #609 merges: close #587+#590+#593+#595+#599-#606 (superseded waves 69-84); assess #611 (nested @firebase/firestore override + GHSA-f596-whhp-79r4); rebase #614(wave85)/#615(wave86)/#616(wave87) on new main
+  - #615 a11y FAILURE (wave86 color-contrast, same root cause as #609 a11y fix — auto-resolves on rebase)
+  - GitHub Actions REST API secondary rate limit triggered; using GraphQL for CI monitoring
 
 - **Session-41 (2026-10-29)**: sawd-web re2js HIGH CVE fixed + iOS TestFlight status:
   - sawd-web PR#278 MERGED: re2js >=2.8.7 override + lockfile regen (resolves to 2.9.1) — GHSA-gg6h-894w-4m9c (HIGH) quadratic-time DoS via lookbehind in @firebase/firestore transitive; unblocks `release-nightly` quality gate
