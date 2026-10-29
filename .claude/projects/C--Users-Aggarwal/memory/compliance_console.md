@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s; 0 HIGH/CRIT org-wide 2026-10-29; EHR waves 72-89 (PR#609) + waves 85-94 NDD parallel track (PR#625) merged; omnihealth at wave 94 NDD on main"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s; 0 HIGH/CRIT org-wide 2026-10-29; EHR waves 44-94 all WCAG-clean (PR#626 merged); omnihealth a11y CI gate green on main"
 metadata: 
   node_type: memory
   type: project
@@ -136,6 +136,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
 
 - **Session-30 (2026-10-27)**: EHRB PR #63 MERGED — react-router-dom 6.30.4→6.30.6 (GHSA-jjmj-jmhj-qwj2); transitive fix: react-router@6.30.6 + @remix-run/router@1.23.4 hoisted (Cursor Bugbot caught incomplete initial hoist); 0 open Dependabot alerts on EHRB; **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 
+- **Session-46 (2026-10-29)**: omnihealth-ehr PR #626 MERGED (18:46 UTC) — WCAG 2.1 AA a11y gate GREEN on main:
+  - Branch `fix/wcag-gray400-wave44-84` rebased onto new main (6a18c0a, PR#625 included); 42 wave-85-94 NDD/epilepsy pages had text-gray-400 (#9ca3af 3.0:1, fails AA); replaced with text-gray-500 (#6b7280 4.6:1) — squash commit 24c5a5a; forced-push to update PR
+  - CI run 40927820007: a11y ✓ (9m15s) / pg-integration ✓ / build-test ✓ (37m) / sbom ✓ (non-blocking); no violations on any route
+  - Admin-merged as 7a000270; posture.json regenerated 2026-10-29T18:46Z; **17 ventures 100%/0 P0s confirmed**
+  - **omnihealth-ehr WCAG a11y CI gate now green; all waves 44-94 compliant**
 - **Session-45 (2026-10-29)**: omnihealth-ehr PR #625 MERGED (17:08 UTC) — waves 85-94 NDD/epilepsy parallel track on main:
   - 183 files: 60 NDD clinical page files (text-gray-400→text-gray-600 WCAG fix applied) + 120 API route+test files + app.ts/App.tsx/a11y-scan.mjs updates
   - Supersedes stacked PRs #621/#622/#623 (waves 92-94); all previously closed; clean branch from main approach (no cherry-pick conflicts)
