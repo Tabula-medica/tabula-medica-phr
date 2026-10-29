@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; CodeQL sweep complete: sawd-web #276 + phr #304 + omnihealth #569 all MERGED; 0 open P0s"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s 2026-10-28; omnihealth waves 53-71 merged; CodeQL sweep complete; 0 open P0s"
 metadata: 
   node_type: memory
   type: project
@@ -136,6 +136,10 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
 
 - **Session-30 (2026-10-27)**: EHRB PR #63 MERGED — react-router-dom 6.30.4→6.30.6 (GHSA-jjmj-jmhj-qwj2); transitive fix: react-router@6.30.6 + @remix-run/router@1.23.4 hoisted (Cursor Bugbot caught incomplete initial hoist); 0 open Dependabot alerts on EHRB; **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 
+- **Session-41 (2026-10-29)**: sawd-web re2js HIGH CVE fixed + iOS TestFlight status:
+  - sawd-web PR#278 MERGED: re2js >=2.8.7 override + lockfile regen (resolves to 2.9.1) — GHSA-gg6h-894w-4m9c (HIGH) quadratic-time DoS via lookbehind in @firebase/firestore transitive; unblocks `release-nightly` quality gate
+  - SAWD iOS TestFlight: 4 runs canceled by @tabulamedica246-web (Base44 bot) after 47m–3h; root cause = `release-nightly` dispatches new `ios-testflight.yml` daily (07:00 UTC, but delayed ~6h); each new dispatch cancels queued run; currently no active run
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-29**
 - **Session-35 (2026-10-28)**: Multi-repo sweep — 5 PRs merged + deepmerge dismissed + SAWD iOS building:
   - omnihealth-ehr PR#550 MERGED: feat(ehr-wave44) — autoinflammatory/VTE/pleural/neuromuscular/aortic/pulm-rehab; all CI green
   - uninsurance PR#378 MERGED: qs >=6.16.1 MODERATE ReDoS override + pnpm lockfile regen (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH fixed)
@@ -144,6 +148,15 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - world-ehr-base PR#79 MERGED: Dependabot minor-patch group (5 updates)
   - deepmerge GHSA-gcqx-w48m-w2h4 LOW dismissed (no fix available, tolerable_risk): uninsurance#192, sawd-backend#48, noorjyoti-app#148
   - SAWD iOS TestFlight build 40703843794 in_progress (Build & upload step); fix: sawd-web PR#274 merged (isIOSNative() Stripe checkout gate); after build: owner responds to ASC 3.1.1 rejection → run ios-submit.yml
+- **Session-40 (2026-10-28)**: omnihealth-ehr wave pipeline — waves 61-71 all merged to main:
+  - Recovery PR #585 MERGED: waves 61-65 (SMA/ATTR/HHT/hereditary-cancer/neuromuscular, 30 modules)
+  - PR #588 MERGED: wave-66 (lysosomal storage: Fabry/Gaucher/MPS1/Niemann-Pick/Pompe)
+  - PR #592 MERGED: wave-67 (connective tissue/autoinflammatory: Stickler/TRAPS/CAPS/PFAPA/sJIA/RP)
+  - PR #597 MERGED: wave-68 (rare renal/metabolic: cystinosis/PH/MMA/PA/UCD/mitochondrial)
+  - PR #602 MERGED: waves 69-71 (18 modules: HP/cardiac-sarc/ped-epilepsy/acute-leukemia/thermal-burn/occ-lung/SCI/CLL/ped-obesity/FND/HIE/PWS/NAS/HSP/fragile-x/structural/ped-transplant/CAH)
+  - Each wave cherry-picked sequentially onto main (stacked waves need in-order merge); conflicts only in app.ts/App.tsx/a11y-scan.mjs (route registration files)
+  - posture.json updated on chore/compliance-privacy: waves 53-71 complete; 100%/0 P0s 2026-10-28
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-28; omnihealth now at wave 71**
 - **Session-39 (2026-10-28)**: CodeQL sweep complete — all 3 repos cleared:
   - sawd-web PR#276 MERGED: 11 alerts resolved — XSS fix (GoogleSheetsSyncPanel href→https-check), 3 identity-replacement real fixes (AuditAlertsHub/calculateTaxRefund/gcsGetSignedUrl), 7 FP suppressions (blob:/GDrive-hardcoded-domain/GDrive-QL escaping), workflow permissions
   - tabula-medica-phr PR#304 MERGED: all SEO/CORS/dangerouslySetInnerHTML CodeQL suppressions; all CI gates green
