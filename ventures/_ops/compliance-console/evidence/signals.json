@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-10-29T14:12:10.381Z",
+  "collectedAt": "2026-10-29T14:34:42.413Z",
   "bundles": {
     "repo": {
       "uninsurance": {
@@ -1684,36 +1684,36 @@
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
-            "verdict": "unknown",
-            "detail": "Cloud Armor API unavailable"
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project uninsurance-care-2026. G"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -1736,36 +1736,36 @@
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
-            "verdict": "pass",
-            "detail": "1 Cloud Armor policy(ies)"
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project underinsured-app-2026. G"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -1776,20 +1776,20 @@
       "phr": {
         "signals": {
           "iamNoPublicBindings": {
-            "verdict": "pass",
-            "detail": "no allUsers/allAuthenticatedUsers bindings"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "2 human owner(s), all on org-managed domains"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "encryptionAtRest": {
             "verdict": "pass",
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
@@ -1800,24 +1800,24 @@
             "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
             "verdict": "fail",
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project united-planet-485003-n7-"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -1828,48 +1828,48 @@
       "sawd": {
         "signals": {
           "iamNoPublicBindings": {
-            "verdict": "pass",
-            "detail": "no allUsers/allAuthenticatedUsers bindings"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "2 human owner(s), all on org-managed domains"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "encryptionAtRest": {
             "verdict": "pass",
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
             "verdict": "fail",
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP config unavailable (no gcloud token)"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -1892,8 +1892,8 @@
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
@@ -1904,24 +1904,24 @@
             "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
             "verdict": "fail",
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project tabula-medica-app. Grant"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "fail",
-            "detail": "user-managed SA key(s): Tabula EMR runtime(1) — rotate to keyless/WIF & delete"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -1932,48 +1932,48 @@
       "cognita": {
         "signals": {
           "iamNoPublicBindings": {
-            "verdict": "pass",
-            "detail": "no allUsers/allAuthenticatedUsers bindings"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s), all on org-managed domains"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "encryptionAtRest": {
             "verdict": "pass",
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
             "verdict": "fail",
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project tabula-cognita-prod. Gra"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -1996,36 +1996,36 @@
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
-            "verdict": "pass",
-            "detail": "1 Cloud Armor policy(ies)"
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project tabula-attentiva-phi. Gr"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -2036,48 +2036,48 @@
       "omnihealth": {
         "signals": {
           "iamNoPublicBindings": {
-            "verdict": "pass",
-            "detail": "no allUsers/allAuthenticatedUsers bindings"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s), all on org-managed domains"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "encryptionAtRest": {
             "verdict": "pass",
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
-            "verdict": "pass",
-            "detail": "1 Cloud Armor policy(ies)"
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project worldehr-app. Grant the "
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -2100,36 +2100,36 @@
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) require SSL"
+            "detail": "no Cloud SQL instances"
           },
           "backupsEnabled": {
             "verdict": "pass",
-            "detail": "all 1 SQL instance(s) have automated backups"
+            "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
-            "verdict": "pass",
-            "detail": "Cloud Logging active (sinks/_Default present)"
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
           },
           "wafEnabled": {
             "verdict": "fail",
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "pass",
-            "detail": "GCIP MFA enabled"
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project tabula-medica-bfd3d. Gra"
           },
           "firewallNoOpenIngress": {
-            "verdict": "fail",
-            "detail": "admin port(s) open to 0.0.0.0/0: default-allow-icmp, default-allow-rdp, default-allow-ssh — restrict SSH/RDP/ICMP"
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
           },
           "noUserManagedSaKeys": {
-            "verdict": "pass",
-            "detail": "no user-managed SA keys"
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
           }
         },
         "meta": {
@@ -2140,20 +2140,20 @@
       "ltfm": {
         "signals": {
           "iamNoPublicBindings": {
-            "verdict": "pass",
-            "detail": "no allUsers/allAuthenticatedUsers bindings"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "iamNoSharedOwner": {
-            "verdict": "pass",
-            "detail": "1 human owner(s), all on org-managed domains"
+            "verdict": "unknown",
+            "detail": "IAM policy unavailable"
           },
           "encryptionAtRest": {
             "verdict": "pass",
             "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
           },
           "bucketsPrivate": {
-            "verdict": "pass",
-            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+            "verdict": "unknown",
+            "detail": "storage API unavailable"
           },
           "sqlSslRequired": {
             "verdict": "pass",
@@ -2164,6 +2164,58 @@
             "detail": "no Cloud SQL instances"
           },
           "loggingEnabled": {
+            "verdict": "unknown",
+            "detail": "logging API unavailable"
+          },
+          "wafEnabled": {
+            "verdict": "fail",
+            "detail": "no Cloud Armor / WAF policy"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "GCIP API: Caller does not have required permission to use project ltfm-health-2026. Grant "
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "unknown",
+            "detail": "SA API unavailable"
+          }
+        },
+        "meta": {
+          "proj": "ltfm-health-2026",
+          "available": true
+        }
+      },
+      "accountable-law": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "pass",
+            "detail": "no allUsers/allAuthenticatedUsers bindings"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          },
+          "encryptionAtRest": {
+            "verdict": "pass",
+            "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
+          },
+          "bucketsPrivate": {
+            "verdict": "pass",
+            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          },
+          "sqlSslRequired": {
+            "verdict": "fail",
+            "detail": "1 SQL instance(s) do not require SSL: accountable-law-db"
+          },
+          "backupsEnabled": {
+            "verdict": "fail",
+            "detail": "1 SQL instance(s) without backups: accountable-law-db"
+          },
+          "loggingEnabled": {
             "verdict": "pass",
             "detail": "Cloud Logging active (sinks/_Default present)"
           },
@@ -2172,8 +2224,8 @@
             "detail": "no Cloud Armor / WAF policy"
           },
           "mfaEnforced": {
-            "verdict": "na",
-            "detail": "Identity Platform not provisioned — no app-level user auth on this project"
+            "verdict": "unknown",
+            "detail": "GCIP config unavailable (no gcloud token)"
           },
           "firewallNoOpenIngress": {
             "verdict": "fail",
@@ -2185,7 +2237,7 @@
           }
         },
         "meta": {
-          "proj": "ltfm-health-2026",
+          "proj": "accountable-law-prod",
           "available": true
         }
       },
@@ -2239,6 +2291,266 @@
         "meta": {
           "proj": "mds-platform-prod",
           "available": true
+        }
+      },
+      "esd": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "encryptionAtRest": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "bucketsPrivate": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "sqlSslRequired": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "backupsEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "loggingEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "wafEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          }
+        },
+        "meta": {
+          "proj": null,
+          "available": false
+        }
+      },
+      "dextroheart": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "encryptionAtRest": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "bucketsPrivate": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "sqlSslRequired": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "backupsEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "loggingEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "wafEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          }
+        },
+        "meta": {
+          "proj": null,
+          "available": false
+        }
+      },
+      "vista-pd": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "pass",
+            "detail": "no allUsers/allAuthenticatedUsers bindings"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "fail",
+            "detail": "personal/external email in owner role (bypasses org SSO/2SV): user:abhiaggarwalmd@gmail.com"
+          },
+          "encryptionAtRest": {
+            "verdict": "pass",
+            "detail": "GCP storage/SQL encrypted at rest by default (Google-managed keys)"
+          },
+          "bucketsPrivate": {
+            "verdict": "pass",
+            "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          },
+          "sqlSslRequired": {
+            "verdict": "pass",
+            "detail": "no Cloud SQL instances"
+          },
+          "backupsEnabled": {
+            "verdict": "pass",
+            "detail": "no Cloud SQL instances"
+          },
+          "loggingEnabled": {
+            "verdict": "pass",
+            "detail": "Cloud Logging active (sinks/_Default present)"
+          },
+          "wafEnabled": {
+            "verdict": "unknown",
+            "detail": "Cloud Armor API unavailable"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "GCIP config unavailable (no gcloud token)"
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "Firewall API unavailable"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "pass",
+            "detail": "no user-managed SA keys"
+          }
+        },
+        "meta": {
+          "proj": "vista-pd-2026",
+          "available": true
+        }
+      },
+      "continuouseeg": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "encryptionAtRest": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "bucketsPrivate": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "sqlSslRequired": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "backupsEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "loggingEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "wafEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          }
+        },
+        "meta": {
+          "proj": null,
+          "available": false
+        }
+      },
+      "diabeticneuropathy": {
+        "signals": {
+          "iamNoPublicBindings": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "iamNoSharedOwner": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "encryptionAtRest": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "bucketsPrivate": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "sqlSslRequired": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "backupsEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "loggingEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "wafEnabled": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "mfaEnforced": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "firewallNoOpenIngress": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          },
+          "noUserManagedSaKeys": {
+            "verdict": "unknown",
+            "detail": "no GCP project configured"
+          }
+        },
+        "meta": {
+          "proj": null,
+          "available": false
         }
       }
     }
