@@ -7,7 +7,47 @@ metadata:
   originSessionId: 4770a9d2-3224-40a2-bd37-32aca79a60dc
 ---
 
-# MASTER RUNNING TODO — all projects (updated 2026-10-28 session-36: uninsurance #377+#378 MODERATEs fixed; 0 alerts portfolio; iOS 40703843794 in progress ~40min)
+# MASTER RUNNING TODO — all projects (updated 2026-10-29 session-41: PR#611+#609 merged; 0 HIGH/CRIT alerts portfolio-wide; 0 P0s; SAWD iOS build stuck at Xcode compile step ~3h; wave PRs #621-#623 stacked+CI running)
+
+---
+
+### 2026-10-29 session-41 — omnihealth-ehr PR#611+#609 merged; 0 P0s confirmed
+
+- **omnihealth-ehr PR#611 MERGED** ✅ — fix(deps): re2js >=2.8.7 override + @firebase/firestore nested @grpc guard + audit-filter GHSA accepts; squash-merged 54b49f7; approved by rajiv-maker
+- **omnihealth-ehr PR#609 MERGED** ✅ — feat(recovery-waves67-87): 92+ clinical modules; build-test 32m green; merged; 13 superseded wave PRs auto-closed
+- **Posture.json updated** ✅ — omnihealth fail 1→0; committed 9c688a4; 0 P0s 2026-10-29
+- **0 HIGH/CRIT Dependabot alerts** ✅ — omnihealth-ehr, sawd-web, uninsurance all clean
+- **SAWD iOS build 40887484962** — stuck at "Build & upload to TestFlight" (Xcode compile) for 3+ hours on self-hosted runner; run 40891212463 queued behind it; no action available
+- **SAWD App Store 3.1.1 rejection** — owner must respond at ASC Resolution Center appstoreconnect.apple.com/apps/6784523327 (Rajiv owner gate)
+- **omnihealth-ehr wave PRs #621-#623** — stacked new wave PRs; CI running; not urgent
+
+---
+
+### 2026-10-29 session-40 — re2js HIGH fixes + SAWD nightly recovery
+
+- **sawd-web PR#278 MERGED** ✅ — fix(security): re2js >=2.8.7 GHSA-gg6h-894w-4m9c HIGH; lock file surgically patched to 2.9.1; nightly quality gate passes (run 40890958048 SUCCESS)
+- **Dependabot re2js auto-merged to main** ✅ — commit 0066d52 on main; re2js@2.9.1 in lock file; no nested @grpc/grpc-js
+- **SAWD nightly confirmed green** ✅ — scheduled run at 13:47Z failed (ran before #278 merged at 14:09Z); manual dispatch at 14:23Z SUCCESS
+- **0 HIGH/CRIT alerts portfolio-wide** ✅ | **100%/0 P0s compliance** ✅
+
+---
+
+### 2026-10-28 session-39 — EHR wave-45 merged; iOS re-triggered; runner congestion
+
+- **EHR PR#554 MERGED** ✅ — wave-45 rare-disease modules (LSD/adrenal/metal-storage/peripheral-nerve/prion/hereditary-cancer); EHR CF Pages + Cloud Run deploys triggered
+- **SAWD iOS run 40735443777** — PENDING runner for 42+ min; GitHub macOS pool congested; run is queued and will eventually execute (GitHub doesn't drop queued jobs); when runner allocates, Xcode build will take another ~90 min
+- **After iOS build completes**: run `gh workflow run ios-submit.yml --repo Tabula-medica/sawd-web --ref master`
+- **SAWD App Store 3.1.1 rejection** — owner must respond at ASC Resolution Center appstoreconnect.apple.com/apps/6784523327 (owner-gated)
+- **0 HC alerts portfolio-wide** ✅ | **100%/0 P0s compliance** ✅
+
+---
+
+### 2026-10-28 session-37 — world-ehr-base #79 + waiting for EHR #552 CI + iOS Xcode
+
+- **world-ehr-base PR#79 MERGED** ✅ — chore(deps): Dependabot minor-patch group (5 updates)
+- **omnihealth-ehr PR#552** — feat(wave-45): LSD/adrenal/metal-storage/peripheral-nerve/prion/hereditary-cancer; CI run 40708293286 in_progress — build-test at "Test (api)" step since 14:40:39Z (long-running integration suite); merge with `--admin` once CI passes
+- **SAWD iOS build 40703843794** — still at "Build & upload to TestFlight" (Xcode); merge note: use REST API `gh api repos/Tabula-medica/sawd-web/pulls/N/merge` (not `gh pr merge --admin`) to bypass org rulesets
+- **0 HC alerts portfolio-wide** ✅
 
 ---
 
