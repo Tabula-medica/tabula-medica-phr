@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T14:24:59.617Z",
+  "generatedAt": "2026-10-29T14:35:05.832Z",
   "ventures": {
     "uninsurance": {
       "id": "uninsurance",
@@ -22,11 +22,11 @@
         "gdpr"
       ],
       "notes": "Closest to launch. WAF live. DPC cash-pay marketplace.",
-      "readiness": 100,
+      "readiness": 88,
       "counts": {
-        "pass": 32,
+        "pass": 30,
         "fail": 0,
-        "unknown": 0,
+        "unknown": 2,
         "na": 1
       },
       "rows": [
@@ -258,9 +258,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "GCIP MFA enabled"
+          "detail": "GCIP API: Caller does not have required permission to use project uninsurance-care-2026. G"
         },
         {
           "id": "AC-03",
@@ -417,9 +417,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -446,7 +446,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -647,7 +647,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -1043,11 +1043,11 @@
         "gdpr"
       ],
       "notes": "Sibling to uninsurance, firewalled. Sesame-style pricing.",
-      "readiness": 100,
+      "readiness": 83,
       "counts": {
-        "pass": 32,
-        "fail": 0,
-        "unknown": 0,
+        "pass": 28,
+        "fail": 1,
+        "unknown": 3,
         "na": 1
       },
       "rows": [
@@ -1210,9 +1210,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Cloud Logging active (sinks/_Default present)"
+          "detail": "logging API unavailable"
         },
         {
           "id": "AC-01",
@@ -1279,9 +1279,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "GCIP MFA enabled"
+          "detail": "GCIP API: Caller does not have required permission to use project underinsured-app-2026. G"
         },
         {
           "id": "AC-03",
@@ -1438,9 +1438,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -1467,7 +1467,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -1668,7 +1668,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -1718,9 +1718,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "gcp",
-          "detail": "1 Cloud Armor policy(ies)"
+          "detail": "no Cloud Armor / WAF policy"
         },
         {
           "id": "VEN-01",
@@ -2042,7 +2042,27 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC6.6",
+            "CC7.2"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.312(e)(2)(i)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.20"
+          ]
+        }
+      ]
     },
     "phr": {
       "id": "phr",
@@ -2067,11 +2087,11 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Text AI on Vertex; audio/image sites migrating off OpenAI. CDS/SaMD line to watch.",
-      "readiness": 100,
+      "readiness": 77,
       "counts": {
-        "pass": 33,
+        "pass": 29,
         "fail": 0,
-        "unknown": 0,
+        "unknown": 4,
         "na": 0
       },
       "rows": [
@@ -2270,9 +2290,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "2 human owner(s), all on org-managed domains"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-02",
@@ -2303,9 +2323,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "GCIP MFA enabled"
+          "detail": "GCIP API: Caller does not have required permission to use project united-planet-485003-n7-"
         },
         {
           "id": "AC-03",
@@ -2337,9 +2357,9 @@
             "IAM policy no allUsers/allAuthenticatedUsers at project level"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no allUsers/allAuthenticatedUsers bindings"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-04",
@@ -2462,9 +2482,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -3090,11 +3110,11 @@
         "nist171"
       ],
       "notes": "Fintech, no PHI but sensitive financial + IRS MeF. PCI mostly SAQ-A via Stripe. Counsel-gated.",
-      "readiness": 100,
+      "readiness": 88,
       "counts": {
-        "pass": 32,
+        "pass": 30,
         "fail": 0,
-        "unknown": 0,
+        "unknown": 2,
         "na": 1
       },
       "rows": [
@@ -3293,9 +3313,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "2 human owner(s), all on org-managed domains"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-02",
@@ -3360,9 +3380,9 @@
             "IAM policy no allUsers/allAuthenticatedUsers at project level"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no allUsers/allAuthenticatedUsers bindings"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-04",
@@ -3514,7 +3534,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -3715,7 +3735,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -5131,11 +5151,11 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. PHI-to-Anthropic blocked; must be Vertex-only.",
-      "readiness": 100,
+      "readiness": 85,
       "counts": {
-        "pass": 33,
+        "pass": 30,
         "fail": 0,
-        "unknown": 0,
+        "unknown": 3,
         "na": 0
       },
       "rows": [
@@ -5298,9 +5318,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Cloud Logging active (sinks/_Default present)"
+          "detail": "logging API unavailable"
         },
         {
           "id": "AC-01",
@@ -5367,9 +5387,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "GCIP MFA enabled"
+          "detail": "GCIP API: Caller does not have required permission to use project tabula-cognita-prod. Gra"
         },
         {
           "id": "AC-03",
@@ -5526,9 +5546,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -5555,7 +5575,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -5756,7 +5776,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -6150,11 +6170,11 @@
         "aigov"
       ],
       "notes": "PHI HIGH. Norms still placeholder — processing-integrity/validation concern for AI Gov + SOC2 PI.",
-      "readiness": 100,
+      "readiness": 90,
       "counts": {
-        "pass": 33,
-        "fail": 0,
-        "unknown": 0,
+        "pass": 30,
+        "fail": 1,
+        "unknown": 2,
         "na": 0
       },
       "rows": [
@@ -6317,9 +6337,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Cloud Logging active (sinks/_Default present)"
+          "detail": "logging API unavailable"
         },
         {
           "id": "AC-01",
@@ -6545,9 +6565,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -6574,7 +6594,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -6775,7 +6795,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -6825,9 +6845,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "gcp",
-          "detail": "1 Cloud Armor policy(ies)"
+          "detail": "no Cloud Armor / WAF policy"
         },
         {
           "id": "VEN-01",
@@ -7149,7 +7169,27 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC6.6",
+            "CC7.2"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.312(e)(2)(i)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.20"
+          ]
+        }
+      ]
     },
     "omnihealth": {
       "id": "omnihealth",
@@ -7170,11 +7210,11 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. Base44 clinical audit (2026-10-11) CLEARED — all 16 findings resolved (F01-F16); production clinical launch hold lifted. Real-PHI path = GCP+Vertex (not Base44). 8 build-time CVEs (braces/tailwindcss chain) deferred — no runtime exposure.",
-      "readiness": 100,
+      "readiness": 78,
       "counts": {
-        "pass": 33,
-        "fail": 0,
-        "unknown": 0,
+        "pass": 28,
+        "fail": 1,
+        "unknown": 4,
         "na": 0
       },
       "rows": [
@@ -7337,9 +7377,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Cloud Logging active (sinks/_Default present)"
+          "detail": "logging API unavailable"
         },
         {
           "id": "AC-01",
@@ -7373,9 +7413,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "1 human owner(s), all on org-managed domains"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-02",
@@ -7406,9 +7446,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "GCIP MFA enabled"
+          "detail": "GCIP API: Caller does not have required permission to use project worldehr-app. Grant the "
         },
         {
           "id": "AC-03",
@@ -7440,9 +7480,9 @@
             "IAM policy no allUsers/allAuthenticatedUsers at project level"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no allUsers/allAuthenticatedUsers bindings"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-04",
@@ -7594,7 +7634,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -7795,7 +7835,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -7845,9 +7885,9 @@
             "rate-limit rules configured"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "fail",
           "source": "gcp",
-          "detail": "1 Cloud Armor policy(ies)"
+          "detail": "no Cloud Armor / WAF policy"
         },
         {
           "id": "VEN-01",
@@ -8169,7 +8209,27 @@
           "detail": "~\\ventures\\_ops\\compliance-console\\evidence\\shared\\security-awareness-training-record.md"
         }
       ],
-      "gaps": []
+      "gaps": [
+        {
+          "fw": "soc2",
+          "refs": [
+            "CC6.6",
+            "CC7.2"
+          ]
+        },
+        {
+          "fw": "hipaa",
+          "refs": [
+            "164.312(e)(2)(i)"
+          ]
+        },
+        {
+          "fw": "iso27001",
+          "refs": [
+            "A.8.20"
+          ]
+        }
+      ]
     },
     "aco": {
       "id": "aco",
@@ -8190,11 +8250,11 @@
         "hitrust"
       ],
       "notes": "PHI HIGH. CMS MSSP A6092 (65% shared-savings). GCP tabula-medica-bfd3d. PHI gated until BAA/infra hardened.",
-      "readiness": 100,
+      "readiness": 85,
       "counts": {
-        "pass": 33,
+        "pass": 30,
         "fail": 0,
-        "unknown": 0,
+        "unknown": 3,
         "na": 0
       },
       "rows": [
@@ -8357,9 +8417,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Cloud Logging active (sinks/_Default present)"
+          "detail": "logging API unavailable"
         },
         {
           "id": "AC-01",
@@ -8426,9 +8486,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "GCIP MFA enabled"
+          "detail": "GCIP API: Caller does not have required permission to use project tabula-medica-bfd3d. Gra"
         },
         {
           "id": "AC-03",
@@ -8585,9 +8645,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -8614,7 +8674,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) require SSL"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "SEC-01",
@@ -8815,7 +8875,7 @@
           "autofix": false,
           "verdict": "pass",
           "source": "gcp",
-          "detail": "all 1 SQL instance(s) have automated backups"
+          "detail": "no Cloud SQL instances"
         },
         {
           "id": "AV-02",
@@ -9209,12 +9269,12 @@
         "gdpr"
       ],
       "notes": "Low PHI unless appt form collects it. Static — mostly infra/transport controls.",
-      "readiness": 100,
+      "readiness": 71,
       "counts": {
-        "pass": 30,
+        "pass": 26,
         "fail": 0,
-        "unknown": 0,
-        "na": 3
+        "unknown": 5,
+        "na": 2
       },
       "rows": [
         {
@@ -9376,9 +9436,9 @@
             "on-call rotation"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Cloud Logging active (sinks/_Default present)"
+          "detail": "logging API unavailable"
         },
         {
           "id": "AC-01",
@@ -9412,9 +9472,9 @@
             "centralized IdP (GCIP/SSO)"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "1 human owner(s), all on org-managed domains"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-02",
@@ -9445,9 +9505,9 @@
             "emergency-access process"
           ],
           "autofix": false,
-          "verdict": "na",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "Identity Platform not provisioned — no app-level user auth on this project"
+          "detail": "GCIP API: Caller does not have required permission to use project ltfm-health-2026. Grant "
         },
         {
           "id": "AC-03",
@@ -9479,9 +9539,9 @@
             "IAM policy no allUsers/allAuthenticatedUsers at project level"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no allUsers/allAuthenticatedUsers bindings"
+          "detail": "IAM policy unavailable"
         },
         {
           "id": "AC-04",
@@ -9604,9 +9664,9 @@
             "public-access-prevention=enforced"
           ],
           "autofix": false,
-          "verdict": "pass",
+          "verdict": "unknown",
           "source": "gcp",
-          "detail": "no public data buckets; 0 intentional public website bucket(s)"
+          "detail": "storage API unavailable"
         },
         {
           "id": "DP-04",
@@ -17344,7 +17404,7 @@
     }
   },
   "portfolio": {
-    "readiness": 100,
+    "readiness": 90,
     "ventureCount": 17,
     "p0Open": 0
   }
