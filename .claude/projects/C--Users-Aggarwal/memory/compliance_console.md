@@ -136,6 +136,15 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
 
 - **Session-30 (2026-10-27)**: EHRB PR #63 MERGED — react-router-dom 6.30.4→6.30.6 (GHSA-jjmj-jmhj-qwj2); transitive fix: react-router@6.30.6 + @remix-run/router@1.23.4 hoisted (Cursor Bugbot caught incomplete initial hoist); 0 open Dependabot alerts on EHRB; **100%/0 P0s portfolio-wide confirmed 2026-10-27**
 
+- **Session-47 (2026-10-30)**: SAWD iOS App Store crash fix — build 54 submitted to ASC:
+  - Root cause: iPadOS 27 hardened `___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` from a warning → `EXC_BREAKPOINT` SIGTRAP; triggered by hand-authored `UIApplicationSceneManifest` block in `app.json` `ios.infoPlist` missing `UISceneDelegateClassName`
+  - Fix: removed entire `UIApplicationSceneManifest` override — Expo SDK 57 prebuild generates the correct manifest with `ExpoReactDelegate` automatically; commit `8c13e44` on branch `fix/ipad-scene-lifecycle-ios27`
+  - Build blocker: EAS provisioning profile Q7ML456KR2 (2026-10-14) lacked `aps-environment` entitlement (Push Notifications); expo-notifications had been added AFTER the profile was created
+  - Resolution: deleted stale profile from EAS via GraphQL API (`803a2ccf`), re-created with `EXPO_ASC_KEY_ID=86N5FN7F5A`/`EXPO_ASC_ISSUER_ID=b16f7932-7bf3-4131-8f94-1abe24b28d51`/`EXPO_ASC_API_KEY_PATH` env vars + Apple Team `U56SKX5MXX` interactive prompt
+  - Build 54 (v2.1.0) SUCCEEDED (EAS build `18408cb5`) → submitted to ASC app 6784523327 (submission `7ba918ac`); Apple processing 5-10 min
+  - **Next**: once Apple processes build 54, submit for review with reply to rejection `4de06381`; branch `fix/ipad-scene-lifecycle-ios27` ready to PR → main
+  - **100%/0 P0s portfolio-wide maintained**
+
 - **Session-46 (2026-10-29)**: omnihealth-ehr PR #626 MERGED (18:46 UTC) — WCAG 2.1 AA a11y gate GREEN on main:
   - Branch `fix/wcag-gray400-wave44-84` rebased onto new main (6a18c0a, PR#625 included); 42 wave-85-94 NDD/epilepsy pages had text-gray-400 (#9ca3af 3.0:1, fails AA); replaced with text-gray-500 (#6b7280 4.6:1) — squash commit 24c5a5a; forced-push to update PR
   - CI run 40927820007: a11y ✓ (9m15s) / pg-integration ✓ / build-test ✓ (37m) / sbom ✓ (non-blocking); no violations on any route
