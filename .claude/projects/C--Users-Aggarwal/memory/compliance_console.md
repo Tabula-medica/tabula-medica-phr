@@ -260,6 +260,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - **100%/0 P0s portfolio-wide confirmed 2026-10-28**
 - **Session-31 (2026-10-27)**: Verification sweep — 0 HIGH/CRIT Dependabot alerts org-wide (confirmed via API); all 10 open Dependabot PRs are MAJOR version bumps (expo 57→58, react 18→19, vite 6→8, react-native-iap 16→17) across sawd-mobile/unraj-mobile/ltfm-mobile/sawd — all deferred per policy; accountable-law-api PR#134 rebase aborted (chore/mobar-scraperapi conflict in scrape_mdbar.py; requires independent human review per PR body — left for owner); SAWD iOS TestFlight build run 40515721500 in progress 3h+ at "Build & upload to TestFlight" step; **100%/0 P0s portfolio-wide; only gap = AV-03 WAF P2**
 
+- **Session-48 (2026-10-31)**: re2js GHSA-gg6h-894w-4m9c confirmed resolved + iOS re-trigger:
+  - omnihealth-ehr commit 508b9a8 (re2js 2.8.6→2.9.1 surgical lockfile edit, no nested grpc-js copy) — CI build-test ✓ 32m45s / a11y ✓ / pg-int ✓ / sbom ✓; PR#609 already merged; noorjyoti-app PR#138 merged (prior session)
+  - SAWD iOS TestFlight run 41065469835 (Oct 30): 6h timeout at "Build & upload to TestFlight" — DerivedData cache SAVED; run 41204597626 triggered 2026-10-31 13:13 UTC (off-peak, warm cache)
+  - **100%/0 P0s portfolio-wide confirmed 2026-10-31**
+
 **Only remaining gap:** AV-03 WAF P2 — 6 ventures use GCIP auth instead of Cloud Armor LB (PHR, Cognita, Attentiva, ACO, omnihealth, LTFM). Action item Q4 2026.
 
 **How posture is maintained:**
