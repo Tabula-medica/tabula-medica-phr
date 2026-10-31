@@ -1,7 +1,7 @@
 /**
  * CMS Blue Button 2.0 routes.
  *
- * GET  /api/bluebutton/connect      — initiate OAuth (requireUser)
+ * GET  /api/bluebutton/connect      — returns { url } for CMS OAuth w/ PKCE (requireUser)
  * GET  /api/bluebutton/callback     — OAuth callback (public — CMS redirects here)
  * GET  /api/bluebutton/status       — connection status (requireUser)
  * POST /api/bluebutton/sync         — pull latest claims (requireUser)
@@ -13,13 +13,19 @@ import { Router, type Request, type Response } from "express";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { db } from "./db";
-import { bluebuttonConnections, bluebuttonClaims } from "@shared/schema";
-import { eq, and, isNull, desc, count } from "drizzle-orm";
+import {
+  bluebuttonConnections,
+  bluebuttonClaims,
+  bluebuttonOauthStates,
+} from "@shared/schema";
+import { eq, and, isNull, desc, count, lt } from "drizzle-orm";
 import { requireUser, getUserId } from "./middleware/require-user";
-import { decryptPhi } from "./security/phi-encryption";
+import { decryptPhi, encryptPhi } from "./security/phi-encryption";
 import {
   isBB2Configured,
   buildAuthorizeUrl,
+  createPkcePair,
+  revokeToken,
   exchangeCodeForToken,
   upsertConnection,
   getConnection,
@@ -41,27 +47,49 @@ function callbackUrl(req: Request): string {
   );
 }
 
-// In-process state store for CSRF tokens (replace with Redis/DB for multi-instance)
-const pendingStates = new Map<string, { profileId: string; expiresAt: number }>();
+function appReturnUrl(result: string): string {
+  const base = process.env.BB2_APP_RETURN_URL || "https://tabulamedica.us/fhir";
+  const u = new URL(base);
+  u.searchParams.set("bb2", result);
+  return u.toString();
+}
 
-function createOAuthState(profileId: string): string {
+const STATE_TTL_MS = 10 * 60 * 1000;
+
+// DB-backed OAuth state + PKCE verifier (safe across Cloud Run instances).
+async function createOAuthState(profileId: string, codeVerifier: string): Promise<string> {
   const state = randomBytes(24).toString("hex");
-  pendingStates.set(state, { profileId, expiresAt: Date.now() + 10 * 60 * 1000 });
+  await db
+    .delete(bluebuttonOauthStates)
+    .where(lt(bluebuttonOauthStates.expiresAt, new Date()));
+  await db.insert(bluebuttonOauthStates).values({
+    state,
+    profileId,
+    codeVerifier: encryptPhi(codeVerifier),
+    expiresAt: new Date(Date.now() + STATE_TTL_MS),
+  });
   return state;
 }
 
-function consumeOAuthState(state: string): string | null {
-  const entry = pendingStates.get(state);
-  pendingStates.delete(state);
-  if (!entry || entry.expiresAt < Date.now()) return null;
-  return entry.profileId;
+async function consumeOAuthState(
+  state: string,
+): Promise<{ profileId: string; codeVerifier: string } | null> {
+  const rows = await db
+    .delete(bluebuttonOauthStates)
+    .where(eq(bluebuttonOauthStates.state, state))
+    .returning();
+  const entry = rows[0];
+  if (!entry || entry.expiresAt.getTime() < Date.now()) return null;
+  return { profileId: entry.profileId, codeVerifier: decryptPhi(entry.codeVerifier) };
 }
 
 // ---------------------------------------------------------------------------
 // GET /api/bluebutton/connect
-// Redirects the authenticated patient to CMS Blue Button OAuth.
+// Returns { url } for the CMS authorize page. The SPA calls this with its
+// auth header, then sets window.location = url (a plain navigation would
+// not carry the bearer token).
 // ---------------------------------------------------------------------------
-router.get("/api/bluebutton/connect", requireUser, (req: Request, res: Response) => {
+router.get("/api/bluebutton/connect", requireUser, async (req: Request, res: Response) => {
   if (!isBB2Configured()) {
     return res.status(503).json({
       error: "Blue Button is not configured on this server",
@@ -69,11 +97,12 @@ router.get("/api/bluebutton/connect", requireUser, (req: Request, res: Response)
   }
 
   const profileId = getUserId(req);
-  const state = createOAuthState(profileId);
+  const { verifier, challenge } = createPkcePair();
+  const state = await createOAuthState(profileId, verifier);
   const redirectUri = callbackUrl(req);
-  const authUrl = buildAuthorizeUrl(redirectUri, state);
+  const url = buildAuthorizeUrl(redirectUri, state, challenge);
 
-  res.redirect(302, authUrl);
+  res.json({ url });
 });
 
 // ---------------------------------------------------------------------------
@@ -85,20 +114,21 @@ router.get("/api/bluebutton/callback", async (req: Request, res: Response) => {
 
   if (error) {
     log.warn({ error }, "BB2 OAuth denied by beneficiary");
-    return res.redirect("/?bb2=denied");
+    return res.redirect(appReturnUrl("denied"));
   }
 
   if (!code || !state) {
-    return res.status(400).json({ error: "Missing code or state" });
+    return res.redirect(appReturnUrl("error"));
   }
 
-  const profileId = consumeOAuthState(state);
-  if (!profileId) {
-    return res.status(400).json({ error: "Invalid or expired state — please try again" });
+  const pending = await consumeOAuthState(state);
+  if (!pending) {
+    return res.redirect(appReturnUrl("expired"));
   }
+  const { profileId, codeVerifier } = pending;
 
   try {
-    const tokens = await exchangeCodeForToken(code, callbackUrl(req));
+    const tokens = await exchangeCodeForToken(code, callbackUrl(req), codeVerifier);
     await upsertConnection(profileId, tokens);
 
     // Kick off initial sync in background — don't block the redirect
@@ -106,10 +136,10 @@ router.get("/api/bluebutton/callback", async (req: Request, res: Response) => {
       log.error({ err, profileId }, "BB2 initial sync failed"),
     );
 
-    res.redirect("/?bb2=connected");
+    res.redirect(appReturnUrl("connected"));
   } catch (err: any) {
     log.error({ err: err?.message, profileId }, "BB2 token exchange failed");
-    res.redirect("/?bb2=error");
+    res.redirect(appReturnUrl("error"));
   }
 });
 
@@ -203,6 +233,14 @@ router.get("/api/bluebutton/claims", requireUser, async (req: Request, res: Resp
 // ---------------------------------------------------------------------------
 router.delete("/api/bluebutton/disconnect", requireUser, async (req: Request, res: Response) => {
   const profileId = getUserId(req);
+
+  const conn = await getConnection(profileId);
+  if (conn) {
+    // Best-effort revoke at CMS before local soft-delete.
+    const revoked = await revokeToken(decryptPhi(conn.refreshToken))
+      .then(async (ok) => ok || revokeToken(decryptPhi(conn.accessToken)));
+    if (!revoked) log.warn({ profileId }, "BB2 revoke at CMS failed; disconnecting locally");
+  }
 
   await db
     .update(bluebuttonConnections)

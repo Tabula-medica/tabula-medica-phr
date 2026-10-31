@@ -23671,3 +23671,12 @@ export const bluebuttonClaims = pgTable("bluebutton_claims", {
 });
 
 export type BluebuttonClaim = typeof bluebuttonClaims.$inferSelect;
+
+// Short-lived OAuth state + PKCE verifier (encrypted) for the BB2 connect flow.
+export const bluebuttonOauthStates = pgTable("bluebutton_oauth_states", {
+  state: text("state").primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  codeVerifier: text("code_verifier").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

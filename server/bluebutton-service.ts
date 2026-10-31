@@ -8,7 +8,8 @@
  *   BB2_CLIENT_ID      — Blue Button OAuth client id (from developer.bluebutton.cms.gov)
  *   BB2_CLIENT_SECRET  — Blue Button OAuth client secret
  *   BB2_CALLBACK_URL   — Full callback URL (default: derive from request)
- *   BB2_SANDBOX        — "true" uses sandbox; omit / "false" uses production
+ *   BB2_SANDBOX        — "false" uses production; anything else uses sandbox
+ *   BB2_API_VERSION    — "v2" (default) or "v3"
  *
  * PHI contract:
  *   - OAuth tokens stored encrypted via encryptPhi (they grant access to PHI).
@@ -26,6 +27,7 @@ import {
   type BluebuttonConnection,
 } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
+import { createHash, randomBytes } from "crypto";
 import { getLogger } from "./lib/logger";
 
 const log = getLogger("bluebutton");
@@ -34,15 +36,19 @@ const log = getLogger("bluebutton");
 // Config
 // ---------------------------------------------------------------------------
 
-const SANDBOX = process.env.BB2_SANDBOX !== "false" && process.env.NODE_ENV !== "production";
+// Sandbox vs production is controlled ONLY by BB2_SANDBOX (NODE_ENV is
+// "production" on Cloud Run even when we use sandbox credentials).
+const SANDBOX = process.env.BB2_SANDBOX !== "false";
+const BB2_VERSION = process.env.BB2_API_VERSION === "v3" ? "v3" : "v2";
 
 const BB2_BASE = SANDBOX
   ? "https://sandbox.bluebutton.cms.gov"
   : "https://api.bluebutton.cms.gov";
 
-const BB2_AUTH_URL = `${BB2_BASE}/v2/o/authorize/`;
-const BB2_TOKEN_URL = `${BB2_BASE}/v2/o/token/`;
-const BB2_FHIR_BASE = `${BB2_BASE}/v2/fhir`;
+const BB2_AUTH_URL = `${BB2_BASE}/${BB2_VERSION}/o/authorize/`;
+const BB2_TOKEN_URL = `${BB2_BASE}/${BB2_VERSION}/o/token/`;
+const BB2_REVOKE_URL = `${BB2_BASE}/${BB2_VERSION}/o/revoke_token/`;
+const BB2_FHIR_BASE = `${BB2_BASE}/${BB2_VERSION}/fhir`;
 
 const BB2_CLIENT_ID = process.env.BB2_CLIENT_ID ?? "";
 const BB2_CLIENT_SECRET = process.env.BB2_CLIENT_SECRET ?? "";
@@ -55,12 +61,25 @@ export function isBB2Configured(): boolean {
 // OAuth helpers
 // ---------------------------------------------------------------------------
 
-export function buildAuthorizeUrl(redirectUri: string, state: string): string {
+/** PKCE (RFC 7636) S256 helpers. */
+export function createPkcePair(): { verifier: string; challenge: string } {
+  const verifier = randomBytes(48).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  return { verifier, challenge };
+}
+
+export function buildAuthorizeUrl(
+  redirectUri: string,
+  state: string,
+  codeChallenge: string,
+): string {
   const params = new URLSearchParams({
     client_id: BB2_CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: "code",
     state,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
     scope: [
       "patient/Patient.read",
       "patient/Coverage.read",
@@ -83,11 +102,13 @@ export interface BB2TokenResponse {
 export async function exchangeCodeForToken(
   code: string,
   redirectUri: string,
+  codeVerifier: string,
 ): Promise<BB2TokenResponse> {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
     client_id: BB2_CLIENT_ID,
     client_secret: BB2_CLIENT_SECRET,
   });
@@ -128,6 +149,24 @@ export async function refreshAccessToken(
   }
 
   return res.json() as Promise<BB2TokenResponse>;
+}
+
+/** Best-effort revoke of a token at CMS. Never throws. */
+export async function revokeToken(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(BB2_REVOKE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization:
+          "Basic " + Buffer.from(`${BB2_CLIENT_ID}:${BB2_CLIENT_SECRET}`).toString("base64"),
+      },
+      body: new URLSearchParams({ token }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +269,7 @@ async function bb2Fetch(url: string, accessToken: string): Promise<unknown> {
   return res.json();
 }
 
-/** Fetch all pages of a FHIR Bundle, following next links. Max 10 pages. */
+/** Fetch all pages of a FHIR Bundle, following next links. Max 100 pages. */
 async function fetchAllPages(
   firstUrl: string,
   accessToken: string,
@@ -239,7 +278,7 @@ async function fetchAllPages(
   let url: string | null = firstUrl;
   let page = 0;
 
-  while (url && page < 10) {
+  while (url && page < 100) {
     const bundle = (await bb2Fetch(url, accessToken)) as {
       entry?: { resource: unknown }[];
       link?: { relation: string; url: string }[];
