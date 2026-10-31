@@ -25,7 +25,6 @@ import { registerRoutes } from "./routes";
 import { registerMobileApiRoutes } from "./mobile-api-routes";
 import { registerAbdmTransferRoute } from "./abdm-routes";
 import { registerPublicMcpRoute } from "./mcp/public-connector-route";
-import { registerBluebuttonRoutes } from "./bluebutton-routes";
 import { adminVhostMiddleware, vhostDiag } from "./middleware/admin-vhost";
 
 import { serveStatic, markApiRoutesReady } from "./static";
@@ -232,8 +231,8 @@ app.use(unifiedComplianceMiddleware());
 // skips an already-parsed body) and cannot carry a CSRF token. No-op unless ABDM_ENABLED.
 registerAbdmTransferRoute(app);
 
-// CMS Blue Button 2.0 — Medicare claims data (OAuth callback is public).
-registerBluebuttonRoutes(app);
+// CMS Blue Button 2.0 routes are registered in routes.ts AFTER setupAuth/gcipBearerIdentity
+// (mounting them here, before passport, crashed the process: req.isAuthenticated is not a function).
 
 // Public, PHI-free MCP connector (claude.ai custom connector). Same placement and
 // reasoning as ABDM: a machine caller with no CSRF header and its own small body
