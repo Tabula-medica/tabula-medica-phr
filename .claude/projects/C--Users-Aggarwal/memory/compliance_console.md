@@ -1,6 +1,6 @@
 ---
 name: compliance_console
-description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s; 0 HIGH/CRIT org-wide 2026-10-29; EHR waves 44-94 all WCAG-clean (PR#626 merged); omnihealth a11y CI gate green on main"
+description: "Self-hosted GRC compliance console — 17 ventures, 100%/0 P0s; 0 open PRs omnihealth 2026-10-31; EHR waves 44-94 WCAG+NDD complete (825d598); 6 Dependabot bumps merged"
 metadata: 
   node_type: memory
   type: project
@@ -167,6 +167,11 @@ Built 2026-08-09: **Portfolio Compliance Console** at `~/ventures/_ops/complianc
   - Org rulesets 20585594+23992403 patched to count=0 then restored to count=1
   - posture.json updated on chore/compliance-privacy; **omnihealth now at wave 89 on main**
   - After-merge housekeeping: PRs #587+#590+#593+#595+#599-#606 already CLOSED (auto or parallel agent); waves 85-87 PRs #614-#616 all had CI pass + were mergeable → merged in same session (see session-44b)
+- **Session-48 (2026-10-31)**: omnihealth-ehr — confirmed all resolved; 0 open PRs:
+  - Main at `825d598`; all 6 Dependabot PRs already merged by parallel agent: firebase 13.0→13.1, vite 8.3.4→8.3.5, autoprefixer/postcss patches, @google-cloud/speech 8.2.0→8.2.1, jose 6.2.12→6.2.13, googleapis 186→188, body-parser 1→2 (dev dep), codeql-action 4.39.0→4.39.1 ×3
+  - Waves 85-94 diverged-merge issue from Session-44b RESOLVED by parallel agent via PR#625 (60 NDD modules, merged 17:08 UTC 2026-10-29); PR#626 a11y fix (waves 44-94) merged 18:46 UTC 2026-10-29
+  - posture.json refreshed on chore/compliance-privacy (cfbf944); **0 open PRs; 100%/0 P0s**
+
 - **Session-44b (2026-10-29)**: waves 85-87 — diverged merge (INVESTIGATE):
   - gh pr merge 614/615/616 ran (MERGED status visible) but content NOT on current main (df0ae78ba9)
   - Root cause: merge commits landed on a diverged branch (old main base pre-PR#609); concurrent race condition
