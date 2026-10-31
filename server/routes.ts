@@ -26,6 +26,7 @@ import {
 } from "@shared/schema";
 import { generatePhiSafeChat, generatePhiSafeChatStream, generatePhiSafeText } from "./services/ai-gateway";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { registerBluebuttonRoutes } from "./bluebutton-routes";
 import { gcipBearerIdentity } from "./middleware/gcip-bearer-identity";
 import {
   isFastenConfigured,
@@ -870,6 +871,9 @@ export async function registerRoutes(
   // Register compliance routes EARLY (before CDS routes) so CDS blocking takes effect
   registerComplianceRoutes(app);
   app.use(phiAccessAuditMiddleware);
+
+  // CMS Blue Button 2.0 — must be after setupAuth (passport) + gcipBearerIdentity.
+  registerBluebuttonRoutes(app);
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
