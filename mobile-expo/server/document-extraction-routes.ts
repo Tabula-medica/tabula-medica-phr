@@ -101,6 +101,18 @@ export function registerDocumentExtractionRoutes(
       return res.status(400).json({ error: "documentId and documentType required" });
     }
 
+    // Reject paths that could reference another user's GCS object.
+    // System-generated scan IDs are "scan_<basename>" with no slashes.
+    if (
+      typeof documentId !== "string" ||
+      documentId.length > 128 ||
+      documentId.includes("/") ||
+      documentId.includes("..") ||
+      documentId.includes("\0")
+    ) {
+      return res.status(400).json({ error: "Invalid documentId" });
+    }
+
     const validTypes: DocumentType[] = [
       "lab_report", "discharge_summary", "progress_note",
       "radiology_report", "pathology_report", "prescription",
