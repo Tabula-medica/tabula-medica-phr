@@ -13,8 +13,8 @@ import { Router, type Request, type Response } from "express";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { db } from "./db";
-import { bluebuttonConnections, bluebuttonClaims } from "@shared/schema";
-import { eq, and, isNull, desc, count } from "drizzle-orm";
+import { bluebuttonConnections, bluebuttonClaims, oauthPendingStates } from "@shared/schema";
+import { eq, and, isNull, desc, count, lt } from "drizzle-orm";
 import { requireUser, getUserId } from "./middleware/require-user";
 import { decryptPhi } from "./security/phi-encryption";
 import {
@@ -41,19 +41,26 @@ function callbackUrl(req: Request): string {
   );
 }
 
-// In-process state store for CSRF tokens (replace with Redis/DB for multi-instance)
-const pendingStates = new Map<string, { profileId: string; expiresAt: number }>();
+// DB-backed CSRF state store — safe across multiple Cloud Run instances.
+// Each state token lives for 10 min and is consumed once (DELETE RETURNING).
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
-function createOAuthState(profileId: string): string {
+async function createOAuthState(profileId: string): Promise<string> {
   const state = randomBytes(24).toString("hex");
-  pendingStates.set(state, { profileId, expiresAt: Date.now() + 10 * 60 * 1000 });
+  const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS);
+  // Opportunistic cleanup of expired rows to keep the table small.
+  await db.delete(oauthPendingStates).where(lt(oauthPendingStates.expiresAt, new Date()));
+  await db.insert(oauthPendingStates).values({ state, profileId, expiresAt });
   return state;
 }
 
-function consumeOAuthState(state: string): string | null {
-  const entry = pendingStates.get(state);
-  pendingStates.delete(state);
-  if (!entry || entry.expiresAt < Date.now()) return null;
+async function consumeOAuthState(state: string): Promise<string | null> {
+  const rows = await db
+    .delete(oauthPendingStates)
+    .where(eq(oauthPendingStates.state, state))
+    .returning();
+  const entry = rows[0];
+  if (!entry || entry.expiresAt < new Date()) return null;
   return entry.profileId;
 }
 
@@ -61,7 +68,7 @@ function consumeOAuthState(state: string): string | null {
 // GET /api/bluebutton/connect
 // Redirects the authenticated patient to CMS Blue Button OAuth.
 // ---------------------------------------------------------------------------
-router.get("/api/bluebutton/connect", requireUser, (req: Request, res: Response) => {
+router.get("/api/bluebutton/connect", requireUser, async (req: Request, res: Response) => {
   if (!isBB2Configured()) {
     return res.status(503).json({
       error: "Blue Button is not configured on this server",
@@ -69,7 +76,7 @@ router.get("/api/bluebutton/connect", requireUser, (req: Request, res: Response)
   }
 
   const profileId = getUserId(req);
-  const state = createOAuthState(profileId);
+  const state = await createOAuthState(profileId);
   const redirectUri = callbackUrl(req);
   const authUrl = buildAuthorizeUrl(redirectUri, state);
 
@@ -92,7 +99,7 @@ router.get("/api/bluebutton/callback", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Missing code or state" });
   }
 
-  const profileId = consumeOAuthState(state);
+  const profileId = await consumeOAuthState(state);
   if (!profileId) {
     return res.status(400).json({ error: "Invalid or expired state — please try again" });
   }

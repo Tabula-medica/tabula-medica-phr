@@ -56,6 +56,23 @@ if gcloud run services describe "${SERVICE_NAME}" --project "${PROJECT_ID}" --re
   echo "   Removing non-BAA OPENAI_API_KEY secret binding"
 fi
 
+# CMS Blue Button 2.0 — bind secrets if registered (developer.bluebutton.cms.gov).
+# Secret names in tabula-secrets: BB2_PHR_CLIENT_ID, BB2_PHR_CLIENT_SECRET.
+# Create them once with: gcloud secrets create BB2_PHR_CLIENT_ID --project tabula-secrets
+BB2_SECRET_FLAGS=()
+BB2_ENV_FLAGS=()
+if gcloud secrets describe BB2_PHR_CLIENT_ID --project tabula-secrets >/dev/null 2>&1; then
+  BB2_SECRET_FLAGS=(
+    --update-secrets="BB2_CLIENT_ID=projects/tabula-secrets/secrets/BB2_PHR_CLIENT_ID:latest,BB2_CLIENT_SECRET=projects/tabula-secrets/secrets/BB2_PHR_CLIENT_SECRET:latest"
+  )
+  BB2_ENV_FLAGS=(
+    --update-env-vars="BB2_SANDBOX=true,BB2_CALLBACK_URL=https://tabula-medica-phr-1060107259776.us-central1.run.app/api/bluebutton/callback"
+  )
+  echo "   BB2 credentials found — binding CMS Blue Button 2.0 (sandbox)"
+else
+  echo "   BB2_PHR_CLIENT_ID not in tabula-secrets — skipping BB2 (register at developer.bluebutton.cms.gov)"
+fi
+
 MSYS2_ARG_CONV_EXCL="PRIVATE_OBJECT_DIR=" \
 gcloud run deploy "${SERVICE_NAME}" \
   --source . \
@@ -76,6 +93,8 @@ gcloud run deploy "${SERVICE_NAME}" \
   --port 8080 \
   "${TRAFFIC_FLAGS[@]}" \
   "${REMOVE_OPENAI[@]}" \
+  "${BB2_SECRET_FLAGS[@]}" \
+  "${BB2_ENV_FLAGS[@]}" \
   --quiet
 
 # ---- Health-check the candidate before promoting ----

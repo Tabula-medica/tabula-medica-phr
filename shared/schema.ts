@@ -23671,3 +23671,12 @@ export const bluebuttonClaims = pgTable("bluebutton_claims", {
 });
 
 export type BluebuttonClaim = typeof bluebuttonClaims.$inferSelect;
+
+// Short-lived OAuth CSRF state tokens — Postgres-backed so Cloud Run multi-instance
+// is safe. TTL = 10 min; consumed on first use (DELETE RETURNING).
+export const oauthPendingStates = pgTable("oauth_pending_states", {
+  state: text("state").primaryKey(),
+  profileId: uuid("profile_id").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
