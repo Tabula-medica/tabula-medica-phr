@@ -249,6 +249,30 @@ resource "google_secret_manager_secret" "aggregator_keys" {
   depends_on = [google_project_service.apis["secretmanager.googleapis.com"]]
 }
 
+resource "google_secret_manager_secret" "bb2_secrets" {
+  for_each = toset([
+    "BB2_CLIENT_ID",
+    "BB2_CLIENT_SECRET",
+  ])
+
+  secret_id = each.value
+
+  replication {
+    auto {}
+  }
+
+  labels = local.labels
+
+  depends_on = [google_project_service.apis["secretmanager.googleapis.com"]]
+}
+
+resource "google_secret_manager_secret_iam_member" "bb2_secrets_accessor" {
+  for_each  = google_secret_manager_secret.bb2_secrets
+  secret_id = each.value.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.phi_handler.email}"
+}
+
 resource "google_secret_manager_secret" "auth0_secrets" {
   for_each = toset([
     "auth0-client-id",
@@ -337,6 +361,39 @@ resource "google_cloud_run_v2_service" "app" {
             }
           }
         }
+      }
+
+      dynamic "env" {
+        for_each = google_secret_manager_secret.bb2_secrets
+        content {
+          name = env.value.secret_id
+          value_source {
+            secret_key_ref {
+              secret  = env.value.secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      env {
+        name  = "BB2_SANDBOX"
+        value = "true"
+      }
+
+      env {
+        name  = "BB2_API_VERSION"
+        value = "v2"
+      }
+
+      env {
+        name  = "BB2_CALLBACK_URL"
+        value = "https://tabula-medica-phr-1060107259776.us-central1.run.app/api/bluebutton/callback"
+      }
+
+      env {
+        name  = "BB2_APP_RETURN_URL"
+        value = "https://tabulamedica.us/fhir"
       }
 
       startup_probe {
